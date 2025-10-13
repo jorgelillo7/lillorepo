@@ -1,0 +1,77 @@
+# docker/Dockerfile.base
+# Imagen base con TODAS las dependencias del monorepo pre-instaladas
+# Se construye UNA VEZ y se reutiliza en todos los servicios
+
+FROM python:3.11-slim
+
+# Instalar todas las dependencias (combinadas de requirements_lock.txt)
+RUN pip install --no-cache-dir \
+    attrs==25.3.0 \
+    beautifulsoup4==4.13.5 \
+    black==25.1.0 \
+    blinker==1.9.0 \
+    cachetools==5.5.2 \
+    certifi==2025.8.3 \
+    charset-normalizer==3.4.3 \
+    click==8.2.1 \
+    flake8==7.3.0 \
+    flask==3.1.2 \
+    freezegun==1.5.5 \
+    google-api-core==2.25.1 \
+    google-api-python-client==2.181.0 \
+    google-auth==2.40.3 \
+    google-auth-httplib2==0.2.0 \
+    google-auth-oauthlib==1.2.2 \
+    googleapis-common-protos==1.70.0 \
+    gunicorn==23.0.0 \
+    h11==0.16.0 \
+    httplib2==0.31.0 \
+    idna==3.10 \
+    importlib-metadata==8.7.0 \
+    iniconfig==2.1.0 \
+    itsdangerous==2.2.0 \
+    jinja2==3.1.6 \
+    markupsafe==3.0.2 \
+    mccabe==0.7.0 \
+    mypy-extensions==1.1.0 \
+    oauthlib==3.3.1 \
+    outcome==1.3.0.post0 \
+    packaging==25.0 \
+    pathspec==0.12.1 \
+    platformdirs==4.4.0 \
+    pluggy==1.6.0 \
+    proto-plus==1.26.1 \
+    protobuf==6.32.1 \
+    pyasn1==0.6.1 \
+    pyasn1-modules==0.4.2 \
+    pycodestyle==2.14.0 \
+    pyflakes==3.4.0 \
+    pygments==2.19.2 \
+    pyparsing==3.2.4 \
+    pysocks==1.7.1 \
+    pytest==8.4.2 \
+    python-dateutil==2.9.0.post0 \
+    python-dotenv==1.1.1 \
+    pytz==2025.2 \
+    requests==2.32.5 \
+    requests-mock==1.12.1 \
+    requests-oauthlib==2.0.0 \
+    rsa==4.9.1 \
+    selenium==4.35.0 \
+    six==1.17.0 \
+    sniffio==1.3.1 \
+    sortedcontainers==2.4.0 \
+    soupsieve==2.8 \
+    trio==0.30.0 \
+    trio-websocket==0.12.2 \
+    typing-extensions==4.14.1 \
+    unidecode==1.4.0 \
+    uritemplate==4.2.0 \
+    urllib3[socks]==2.5.0 \
+    webdriver-manager==4.0.2 \
+    websocket-client==1.8.0 \
+    werkzeug==3.1.3 \
+    wsproto==1.2.0 \
+    zipp==3.23.0
+
+ENV PYTHONUNBUFFERED=1

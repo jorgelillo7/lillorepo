@@ -59,3 +59,12 @@ Este proyecto se divide en tres componentes principales que trabajan juntos para
 * **Backend (Web):** Python, Flask.
 * **Frontend:** HTML, Tailwind CSS, JavaScript.
 * **Cloud y Despliegue:** Google Cloud Run (Jobs y Services), Cloud Scheduler, Secret Manager, Google Drive API, Google Sheets API, Docker.
+
+
+| Acción                 | Comando                                                              | Descripción                      |
+| ---------------------- | -------------------------------------------------------------------- | -------------------------------- |
+| 🧪 Ejecutar tests      | `bazel test //packages/biwenger_tools/web:web_tests`                 | Corre pytest                     |
+| 🏠 Servidor local      | `bazel run //packages/biwenger_tools/web:web_local`                  | Ejecuta en tu máquina            |
+| 🐳 Imagen local        | `bazel run //packages/biwenger_tools/web:load_image_to_docker_local` | Build y carga en Docker          |
+| ☁️ Subir a GCP         | `bazel run //packages/biwenger_tools/web:push_image_to_gcp`          | Build + Push a Artifact Registry |
+| 📦 Imagen limpia local | `docker run --rm -p 8080:8080 bazel/web:local`                       | Ejecutar manualmente la imagen   |

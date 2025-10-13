@@ -25,7 +25,8 @@ from core.sdk.gcp import (
 )
 from core.utils import get_file_metadata
 
-app = Flask(__name__)
+template_dir = os.path.join(os.path.dirname(__file__), "templates")
+app = Flask(__name__, template_folder=template_dir)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 
 # --- INICIALIZACIÓN DE SERVICIOS ---

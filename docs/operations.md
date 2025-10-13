@@ -63,12 +63,12 @@ Aquí se describen los comandos para ejecutar cada componente
 
 ### 1\. Biwenger Web App
 
-  * **Ejecutar en local (servidor de desarrollo):**
+  * **🏠 Ejecutar en local (servidor de desarrollo):**
 
     ```bash
-      bazel run //packages/biwenger_tools/web:web_dev_server
+      bazel run //packages/biwenger_tools/web:web_local
     ```
-  * **Tests:**
+  * **🧪 Tests:**
     ```
       bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
       bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v --cache_test_results=no
@@ -76,9 +76,12 @@ Aquí se describen los comandos para ejecutar cada componente
       pytest packages/biwenger_tools/web/tests/
     ```
 
-  * **Ejecutar con Docker localmente:**
+  * **🐳 Ejecutar con Docker localmente:**
 
     ```bash
+      # Bajamos imagen base
+      docker pull europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:latest
+
       # Cargar la imagen en Docker
       bazel run //packages/biwenger_tools/web:load_image_to_docker_local
 
@@ -88,7 +91,7 @@ Aquí se describen los comandos para ejecutar cada componente
 
     > **Consejo:** Si `Ctrl+C` no detiene el contenedor, usa `docker ps` para encontrar su ID y luego `docker kill <container_id>`.
 
-  * **Desplegar en producción:**
+  * **☁️ Desplegar en producción:**
 
     ```bash
       # Empaquetar y subir la imagen a GCP

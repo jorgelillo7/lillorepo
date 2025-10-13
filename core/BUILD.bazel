@@ -1,13 +1,10 @@
-# core/BUILD.bazel
-
-load("@bazel-contrib_rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
 py_library(
     name = "core",
     srcs = glob(
         ["**/*.py"],
-        # ✅ CAMBIO: Excluimos los tests de la librería para que no se "filtren"
-        # a otros targets que dependan de :core.
         exclude = ["tests/**/*.py"],
     ),
     deps = [
@@ -18,6 +15,18 @@ py_library(
         "@pypi//pytz",
         "@pypi//python_dateutil",
     ],
+    visibility = ["//visibility:public"],
+)
+
+# Exportar como tar preservando estructura
+pkg_tar(
+    name = "core_srcs",
+    srcs = glob(
+        ["**/*.py"],
+        exclude = ["tests/**/*.py"],
+    ),
+    package_dir = "/",  # ⬅️ raíz absoluta
+    strip_prefix = "core",  # ⬅️ quita la carpeta 'core' del path para que se cree /core/... en el tar
     visibility = ["//visibility:public"],
 )
 

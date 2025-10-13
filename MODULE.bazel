@@ -1,45 +1,54 @@
-# MODULE.bazel
+# --- MÓDULO PRINCIPAL ---
 module(
     name = "biwenger-tools",
     version = "1.0",
 )
 
-bazel_dep(name = "rules_python", version = "0.36.0", repo_name = "bazel-contrib_rules_python")
+# Dependencias de reglas de Bazel
+bazel_dep(name = "rules_python", version = "0.37.0")
 bazel_dep(name = "rules_oci", version = "1.7.4")
+bazel_dep(name = "rules_pkg", version = "0.10.1")
+bazel_dep(name = "platforms", version = "0.0.9")
 
-pip = use_extension("@bazel-contrib_rules_python//python/extensions:pip.bzl", "pip")
+# --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    python_version = "3.12",
+)
+use_repo(python, python_toolchain = "python_3_12")
+
+# Se utiliza la extensión pip para gestionar las dependencias de Python
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "pypi",
-    python_version = "3.11",
+    python_version = "3.12",
     requirements_lock = "//:requirements_lock.txt",
 )
 use_repo(pip, "pypi")
 
-python = use_extension("@bazel-contrib_rules_python//python/extensions:python.bzl", "python")
-python.toolchain(
-    python_version = "3.11",
-)
-
-# SECCIÓN CORREGIDA: Usamos el digest y las plataformas que nos sugiere el warning de Bazel
+# --- IMÁGENES BASE DE DOCKER ---
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Imagen base pura de Python (para desarrollo local)
 oci.pull(
     name = "python_base_image",
-    image = "python:3.11-slim-bookworm",
-    # ¡DIGEST Y PLATAFORMAS OBTENIDOS DEL LOG DE ERROR!
-
+    image = "docker.io/library/python",
     platforms = [
         "linux/amd64",
         "linux/arm64/v8",
     ],
+    tag = "3.12-slim",
 )
-use_repo(oci, "python_base_image")
 
+# Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
-    name = "debian_base_image",
-    image = "debian:bookworm-slim",
+    name = "python_with_deps",
+    image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",
         "linux/arm64/v8",
     ],
+    tag = "latest",
 )
-use_repo(oci, "debian_base_image")
+
+use_repo(oci, "python_base_image", "python_with_deps")

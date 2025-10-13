@@ -1,200 +1,22 @@
-# web/BUILD.bazel - 2 IMÁGENES: LOCAL vs GCP
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@bazel-contrib_rules_python//python:defs.bzl", "py_binary", "py_library")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
+load("//tools/bazel:biwenger_service.bzl", "biwenger_service")
 
-py_library(
-    name = "web_lib",
-    srcs = [
-        "app.py",
-        "config.py",
-        "gunicorn_prod_runner.py",
-    ],
-    data = glob([
-        "templates/**/*.html",
-        "static/**/*",
-    ]),
-    imports = ["../../.."], 
-    deps = [
-        "//core",
-        "@pypi//flask",
-        "@pypi//python_dotenv",
-        "@pypi//unidecode",
-        "@pypi//beautifulsoup4",
-        "@pypi//gunicorn",
-        "@pypi//pytz",
-        "@pypi//python_dateutil",
-    ],
-)
-
-# =================================================================
-# 1️⃣ DESARROLLO LOCAL (FLASK)
-# =================================================================
-py_binary(
-    name = "web_dev_server",
+biwenger_service(
+    name = "web",
     main = "app.py",
-    srcs = ["app.py"],
-    data = [".env", "biwenger-tools-sa.json"],
-    deps = [":web_lib"],
-)
-
-# =================================================================
-# 2️⃣ CAPAS COMPARTIDAS
-# =================================================================
-pkg_tar(
-    name = "requirements_layer",
-    srcs = ["//:requirements_lock.txt"],
-    package_dir = "/app",
-)
-
-pkg_tar(
-    name = "core_layer",
-    srcs = ["//core"],
-    package_dir = "/app",
-)
-
-# Capa base sin secretos
-pkg_tar(
-    name = "web_base_layer",
-    srcs = [
-        "app.py",
-        "config.py",
-        "gunicorn_prod_runner.py",
-    ] + glob([
-        "templates/**/*.html",
-        "static/**/*",
-    ]),
-    package_dir = "/app/packages/biwenger_tools/web",
-)
-
-# Capa CON service account (solo para local)
-pkg_tar(
-    name = "web_local_layer",
-    srcs = [
-        "app.py",
-        "config.py", 
-        "gunicorn_prod_runner.py",
-        "biwenger-tools-sa.json",  # ← Solo para local
-    ] + glob([
-        "templates/**/*.html",
-        "static/**/*",
-    ]),
-    package_dir = "/app/packages/biwenger_tools/web",
-)
-
-# =================================================================
-# 3️⃣ IMAGEN LOCAL (CON SECRETOS Y SA)
-# =================================================================
-oci_image(
-    name = "web_image_local",
-    base = "@python_base_image",
-    tars = [":requirements_layer", ":core_layer", ":web_local_layer"],
-    env = {
-        "PORT": "8080",
-        "PYTHONPATH": "/app:/app/packages/biwenger_tools/web",
-        # SECRETOS HARDCODEADOS PARA LOCAL ⚠️
-        "SECRET_KEY": "b8e3a7f0d9c1b5a2e8f4c7d6e3a7f0d9c1b5a2e8f4c7d6e3a7f0d9c1b5a2e8f4",
-        "ADMIN_PASSWORD": "LigaVAR#Mochileros",
-        "GCP_PROJECT_ID": "biwenger-tools",
-        "CLOUD_RUN_JOB_NAME": "biwenger-scraper-data",
-        "CLOUD_RUN_REGION": "europe-southwest1",
-        "GOOGLE_APPLICATION_CREDENTIALS": "/app/packages/biwenger_tools/web/biwenger-tools-sa.json",
-        # URLs públicas
-        "COMUNICADOS_CSV_URL": "https://drive.google.com/uc?export=download&id=1t6LU3MMSQh7OxmkVwfmMTVS_MiRiaa7C",
-        "PARTICIPACION_CSV_URL": "https://drive.google.com/uc?export=download&id=1-jaQX1un9sdSVjFXGo_nhMI6Kf4ArPPm",
-        "PALMARES_CSV_URL": "https://drive.google.com/uc?export=download&id=1s1p2SmQIcq-D8pukoStTfAfh5tiYllLK",
-        "LIGAS_ESPECIALES_SHEET_ID_25_26": "1ZaFZtKLFc0K4Ku099x3iV20OBkLZz9BEvojZpyOP0es",
-        "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
-        "GDRIVE_FOLDER_ID": "1DEY5pzf0iyZi3uxAFsjnE0tgVf8YiYI7",
-    },
-    entrypoint = [
-        "/bin/sh", "-c",
-        "pip install --no-cache-dir -r /app/requirements_lock.txt && cd /app/packages/biwenger_tools/web && python gunicorn_prod_runner.py"
-    ],
-)
-
-# =================================================================
-# 4️⃣ IMAGEN GCP (SIN SECRETOS NI SA)
-# =================================================================
-oci_image(
-    name = "web_image_gcp",
-    base = "@python_base_image",
-    tars = [":requirements_layer", ":core_layer", ":web_base_layer"],
-    env = {
-        "PORT": "8080",
-        "PYTHONPATH": "/app:/app/packages/biwenger_tools/web",
-        # SOLO CONFIG PÚBLICA - Los secretos vienen de Secret Manager
-        "GCP_PROJECT_ID": "biwenger-tools",
-        "CLOUD_RUN_JOB_NAME": "biwenger-scraper-data",
-        "CLOUD_RUN_REGION": "europe-southwest1",
-        # URLs públicas
-        "COMUNICADOS_CSV_URL": "https://drive.google.com/uc?export=download&id=1t6LU3MMSQh7OxmkVwfmMTVS_MiRiaa7C",
-        "PARTICIPACION_CSV_URL": "https://drive.google.com/uc?export=download&id=1-jaQX1un9sdSVjFXGo_nhMI6Kf4ArPPm",
-        "PALMARES_CSV_URL": "https://drive.google.com/uc?export=download&id=1s1p2SmQIcq-D8pukoStTfAfh5tiYllLK",
-        "LIGAS_ESPECIALES_SHEET_ID_25_26": "1ZaFZtKLFc0K4Ku099x3iV20OBkLZz9BEvojZpyOP0es",
-        "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
-        "GDRIVE_FOLDER_ID": "1DEY5pzf0iyZi3uxAFsjnE0tgVf8YiYI7",
-        "GOOGLE_APPLICATION_CREDENTIALS": "/app/packages/biwenger_tools/web/biwenger-tools-sa.json",
-    },
-    entrypoint = [
-        "/bin/sh", "-c",
-        "pip install --no-cache-dir -r /app/requirements_lock.txt && cd /app/packages/biwenger_tools/web && python gunicorn_prod_runner.py"
-    ],
-)
-
-# =================================================================
-# 5️⃣ COMANDOS PARA LAS 3 OPCIONES
-# =================================================================
-
-# OPCIÓN 1: DESARROLLO LOCAL 🏠
-# bazel run //web:web_dev_server
-
-# OPCIÓN 2: DOCKER LOCAL (CON SECRETOS) 🐳
-oci_tarball(
-    name = "load_image_to_docker_local",
-    image = ":web_image_local",
-    repo_tags = ["bazel/web:local"],
-)
-# bazel run //web:load_image_to_docker_local
-# docker run --rm -p 8080:8080 bazel/web:local
-
-# OPCIÓN 3: SUBIR A GCP (SIN SECRETOS) ☁️
-oci_push(
-    name = "push_image_to_gcp",
-    image = ":web_image_gcp",  # ← Imagen limpia sin secretos
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/web",
-    remote_tags = ["latest"],
-)
-# bazel run //web:push_image_to_gcp
-
-# =================================================================
-# 6️⃣ COMANDOS ADICIONALES (OPCIONALES)
-# =================================================================
-
-# Docker local con imagen limpia (para probar GCP localmente)
-oci_tarball(
-    name = "load_image_to_docker_clean", 
-    image = ":web_image_gcp",
-    repo_tags = ["bazel/web:clean"],
-)
-# bazel run //web:load_image_to_docker_clean
-# docker run --rm -p 8080:8080 -e SECRET_KEY=test -e ADMIN_PASSWORD=test bazel/web:clean
-
-# =================================================================
-# 7️⃣ TESTS UNITARIOS (PYTEST)
-# =================================================================
-py_test(
-    name = "web_tests",
-    timeout = "short",
-    main = "tests/main.py",
-    srcs = glob(["tests/**/*.py"]), # Recoge todos los archivos de test en la carpeta tests/
-    data = [
-        "biwenger-tools-sa.json",
-        ".env",
-    ],
-    deps = [
-        ":web_lib",             # Dependencia a tu código principal de la web
-        "@pypi//pytest",        # Dependencia a la librería pytest
-        "@pypi//flask",         # Flask es necesario para el test_client
-    ],
+    secrets = ["biwenger-tools-sa.json", ".env"],
+    extra_env = {
+        "PORT": "8080",
+        "PYTHONPATH": "/app",
+        "GCP_PROJECT_ID": "biwenger-tools",
+        "CLOUD_RUN_JOB_NAME": "biwenger-scraper-data",
+        "CLOUD_RUN_REGION": "europe-southwest1",
+        "COMUNICADOS_CSV_URL": "https://drive.google.com/uc?export=download&id=1t6LU3MMSQh7OxmkVwfmMTVS_MiRiaa7C",
+        "PARTICIPACION_CSV_URL": "https://drive.google.com/uc?export=download&id=1-jaQX1un9sdSVjFXGo_nhMI6Kf4ArPPm",
+        "PALMARES_CSV_URL": "https://drive.google.com/uc?export=download&id=1s1p2SmQIcq-D8pukoStTfAfh5tiYllLK",
+        "LIGAS_ESPECIALES_SHEET_ID_25_26": "1ZaFZtKLFc0K4Ku099x3iV20OBkLZz9BEvojZpyOP0es",
+        "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
+        "GDRIVE_FOLDER_ID": "1DEY5pzf0iyZi3uxAFsjnE0tgVf8YiYI7",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/app/packages/biwenger_tools/web/biwenger-tools-sa.json",
+    },
 )
