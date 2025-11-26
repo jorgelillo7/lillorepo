@@ -49,32 +49,38 @@
     "https://bcr.bazel.build/modules/rules_cc/0.0.9/source.json": "1f1ba6fea244b616de4a554a0f4983c91a9301640c8fe0dd1d410254115c8430",
     "https://bcr.bazel.build/modules/rules_java/4.0.0/MODULE.bazel": "5a78a7ae82cd1a33cef56dc578c7d2a46ed0dca12643ee45edbb8417899e6f74",
     "https://bcr.bazel.build/modules/rules_java/5.3.5/MODULE.bazel": "a4ec4f2db570171e3e5eb753276ee4b389bae16b96207e9d3230895c99644b86",
+    "https://bcr.bazel.build/modules/rules_java/6.3.0/MODULE.bazel": "a97c7678c19f236a956ad260d59c86e10a463badb7eb2eda787490f4c969b963",
     "https://bcr.bazel.build/modules/rules_java/7.1.0/MODULE.bazel": "30d9135a2b6561c761bd67bd4990da591e6bdc128790ce3e7afd6a3558b2fb64",
     "https://bcr.bazel.build/modules/rules_java/7.6.5/MODULE.bazel": "481164be5e02e4cab6e77a36927683263be56b7e36fef918b458d7a8a1ebadb1",
     "https://bcr.bazel.build/modules/rules_java/7.6.5/source.json": "a805b889531d1690e3c72a7a7e47a870d00323186a9904b36af83aa3d053ee8d",
     "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
     "https://bcr.bazel.build/modules/rules_jvm_external/5.1/MODULE.bazel": "33f6f999e03183f7d088c9be518a63467dfd0be94a11d0055fe2d210f89aa909",
-    "https://bcr.bazel.build/modules/rules_jvm_external/5.1/source.json": "5abb45cc9beb27b77aec6a65a11855ef2b55d95dfdc358e9f312b78ae0ba32d5",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.2/MODULE.bazel": "d9351ba35217ad0de03816ef3ed63f89d411349353077348a45348b096615036",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.2/source.json": "10572111995bc349ce31c78f74b3c147f6b3233975c7fa5eff9211f6db0d34d9",
     "https://bcr.bazel.build/modules/rules_license/0.0.3/MODULE.bazel": "627e9ab0247f7d1e05736b59dbb1b6871373de5ad31c3011880b4133cafd4bd0",
+    "https://bcr.bazel.build/modules/rules_license/0.0.4/MODULE.bazel": "6a88dd22800cf1f9f79ba32cacad0d3a423ed28efa2c2ed5582eaa78dd3ac1e5",
     "https://bcr.bazel.build/modules/rules_license/0.0.7/MODULE.bazel": "088fbeb0b6a419005b89cf93fe62d9517c0a2b8bb56af3244af65ecfe37e7d5d",
     "https://bcr.bazel.build/modules/rules_license/0.0.7/source.json": "355cc5737a0f294e560d52b1b7a6492d4fff2caf0bef1a315df5a298fca2d34a",
     "https://bcr.bazel.build/modules/rules_oci/1.7.4/MODULE.bazel": "2660ebc70c95c84c48f63391e01f7ea3d18c0844ffa2b9700c82c81c4b8f3879",
     "https://bcr.bazel.build/modules/rules_oci/1.7.4/source.json": "21efb943a104bb5ec1be4fb1866a085cd1782fa785d9dad30ffa00be89b580f3",
+    "https://bcr.bazel.build/modules/rules_pkg/0.10.1/MODULE.bazel": "d6e593e048db5f1028f1f05ceb64b123aa6f1c2d43cba049c036443ab2cc2044",
+    "https://bcr.bazel.build/modules/rules_pkg/0.10.1/source.json": "a3550442d1530f00fd2a51036250db1891c8fedfd85991c65a0bd0f6daefe0a3",
     "https://bcr.bazel.build/modules/rules_pkg/0.7.0/MODULE.bazel": "df99f03fc7934a4737122518bb87e667e62d780b610910f0447665a7e2be62dc",
-    "https://bcr.bazel.build/modules/rules_pkg/0.7.0/source.json": "c2557066e0c0342223ba592510ad3d812d4963b9024831f7f66fd0584dd8c66c",
     "https://bcr.bazel.build/modules/rules_proto/4.0.0/MODULE.bazel": "a7a7b6ce9bee418c1a760b3d84f83a299ad6952f9903c67f19e4edd964894e06",
     "https://bcr.bazel.build/modules/rules_proto/5.3.0-21.7/MODULE.bazel": "e8dff86b0971688790ae75528fe1813f71809b5afd57facb44dad9e8eca631b7",
     "https://bcr.bazel.build/modules/rules_proto/6.0.0-rc1/MODULE.bazel": "1e5b502e2e1a9e825eef74476a5a1ee524a92297085015a052510b09a1a09483",
     "https://bcr.bazel.build/modules/rules_proto/6.0.0-rc1/source.json": "8d8448e71706df7450ced227ca6b3812407ff5e2ccad74a43a9fbe79c84e34e0",
     "https://bcr.bazel.build/modules/rules_python/0.10.2/MODULE.bazel": "cc82bc96f2997baa545ab3ce73f196d040ffb8756fd2d66125a530031cd90e5f",
     "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel": "26114f0c0b5e93018c0c066d6673f1a2c3737c7e90af95eff30cfee38d0bbac7",
-    "https://bcr.bazel.build/modules/rules_python/0.36.0/MODULE.bazel": "a4ce1ccea92b9106c7d16ab9ee51c6183107e78ba4a37aa65055227b80cd480c",
-    "https://bcr.bazel.build/modules/rules_python/0.36.0/source.json": "b79cbb7b2ae1751949e2f6ee6692822e4ffd13ca1e959ce99abec4ac7666162a",
+    "https://bcr.bazel.build/modules/rules_python/0.24.0/MODULE.bazel": "4bff7f583653d0762cda21303da0643cc4c545ddfd9593337f18dad8d1787801",
+    "https://bcr.bazel.build/modules/rules_python/0.37.0/MODULE.bazel": "bd90c62e4c789ea94ed61ab21a5a538dd4145548d1de994192049652d433816e",
+    "https://bcr.bazel.build/modules/rules_python/0.37.0/source.json": "c17b8ca7a2348fd8fa96ad5b414223dd1ce5d6e8265c3134a88d337b0554d53c",
     "https://bcr.bazel.build/modules/rules_python/0.4.0/MODULE.bazel": "9208ee05fd48bf09ac60ed269791cf17fb343db56c8226a720fbb1cdf467166c",
     "https://bcr.bazel.build/modules/stardoc/0.5.1/MODULE.bazel": "1a05d92974d0c122f5ccf09291442580317cdd859f07a8655f1db9a60374f9f8",
     "https://bcr.bazel.build/modules/stardoc/0.5.3/MODULE.bazel": "c7f6948dae6999bf0db32c1858ae345f112cacf98f174c7a8bb707e41b974f1c",
     "https://bcr.bazel.build/modules/stardoc/0.5.4/MODULE.bazel": "6569966df04610b8520957cb8e97cf2e9faac2c0309657c537ab51c16c18a2a4",
-    "https://bcr.bazel.build/modules/stardoc/0.5.4/source.json": "a961f58a71e735aa9dcb2d79b288e06b0a2d860ba730302c8f11be411b76631e",
+    "https://bcr.bazel.build/modules/stardoc/0.6.2/MODULE.bazel": "7060193196395f5dd668eda046ccbeacebfd98efc77fed418dbe2b82ffaa39fd",
+    "https://bcr.bazel.build/modules/stardoc/0.6.2/source.json": "d2ff8063b63b4a85e65fe595c4290f99717434fa9f95b4748a79a7d04dfed349",
     "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/MODULE.bazel": "7298990c00040a0e2f121f6c32544bab27d4452f80d9ce51349b1a28f3005c43",
     "https://bcr.bazel.build/modules/upb/0.0.0-20230516-61a97ef/MODULE.bazel": "c0df5e35ad55e264160417fd0875932ee3c9dda63d9fccace35ac62f45e1b6f9",
     "https://bcr.bazel.build/modules/upb/0.0.0-20230516-61a97ef/source.json": "b2150404947339e8b947c6b16baa39fa75657f4ddec5e37272c7b11c7ab533bc",
@@ -467,7 +473,7 @@
     "@@rules_oci~//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "bHU7ERMKXO6qKulFnPjLWBBpHmuXTfTccWrUYXQRjlg=",
-        "usagesDigest": "JZF4+cD1BrSA3I+DkDd5sRyy1q4i6j2SnNNTfRAEUsM=",
+        "usagesDigest": "4276FC5UTtnePcPXxcrIPIMmVR7kMoHvSA/zYtW5Ap4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -479,7 +485,7 @@
               "scheme": "https",
               "registry": "index.docker.io",
               "repository": "library/python",
-              "identifier": "3.11-slim-bookworm",
+              "identifier": "3.12-slim",
               "platform": "linux/amd64",
               "target_name": "python_base_image_linux_amd64"
             }
@@ -491,7 +497,7 @@
               "scheme": "https",
               "registry": "index.docker.io",
               "repository": "library/python",
-              "identifier": "3.11-slim-bookworm",
+              "identifier": "3.12-slim",
               "platform": "linux/arm64/v8",
               "target_name": "python_base_image_linux_arm64_v8"
             }
@@ -504,7 +510,7 @@
               "scheme": "https",
               "registry": "index.docker.io",
               "repository": "library/python",
-              "identifier": "3.11-slim-bookworm",
+              "identifier": "3.12-slim",
               "platforms": {
                 "@@platforms//cpu:x86_64": "@python_base_image_linux_amd64",
                 "@@platforms//cpu:arm64": "@python_base_image_linux_arm64_v8"
@@ -513,44 +519,44 @@
               "reproducible": true
             }
           },
-          "debian_base_image_linux_amd64": {
+          "python_with_deps_linux_amd64": {
             "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
             "ruleClassName": "oci_pull",
             "attributes": {
               "scheme": "https",
-              "registry": "index.docker.io",
-              "repository": "library/debian",
-              "identifier": "bookworm-slim",
+              "registry": "europe-southwest1-docker.pkg.dev",
+              "repository": "biwenger-tools/biwenger-docker/python-base",
+              "identifier": "latest",
               "platform": "linux/amd64",
-              "target_name": "debian_base_image_linux_amd64"
+              "target_name": "python_with_deps_linux_amd64"
             }
           },
-          "debian_base_image_linux_arm64_v8": {
+          "python_with_deps_linux_arm64_v8": {
             "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
             "ruleClassName": "oci_pull",
             "attributes": {
               "scheme": "https",
-              "registry": "index.docker.io",
-              "repository": "library/debian",
-              "identifier": "bookworm-slim",
+              "registry": "europe-southwest1-docker.pkg.dev",
+              "repository": "biwenger-tools/biwenger-docker/python-base",
+              "identifier": "latest",
               "platform": "linux/arm64/v8",
-              "target_name": "debian_base_image_linux_arm64_v8"
+              "target_name": "python_with_deps_linux_arm64_v8"
             }
           },
-          "debian_base_image": {
+          "python_with_deps": {
             "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
             "ruleClassName": "oci_alias",
             "attributes": {
-              "target_name": "debian_base_image",
+              "target_name": "python_with_deps",
               "scheme": "https",
-              "registry": "index.docker.io",
-              "repository": "library/debian",
-              "identifier": "bookworm-slim",
+              "registry": "europe-southwest1-docker.pkg.dev",
+              "repository": "biwenger-tools/biwenger-docker/python-base",
+              "identifier": "latest",
               "platforms": {
-                "@@platforms//cpu:x86_64": "@debian_base_image_linux_amd64",
-                "@@platforms//cpu:arm64": "@debian_base_image_linux_arm64_v8"
+                "@@platforms//cpu:x86_64": "@python_with_deps_linux_amd64",
+                "@@platforms//cpu:arm64": "@python_with_deps_linux_arm64_v8"
               },
-              "bzlmod_repository": "debian_base_image",
+              "bzlmod_repository": "python_with_deps",
               "reproducible": true
             }
           },

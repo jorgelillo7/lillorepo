@@ -1,6 +1,6 @@
 # teams_analyzer/BUILD.bazel
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-load("@bazel-contrib_rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_tarball")
 
 # =================================================================
