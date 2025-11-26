@@ -101,7 +101,8 @@ def main():
 
             if id_hash not in existing_ids:
                 new_messages_count += 1
-                author_id = item.get("author", {}).get("id")
+                author = item.get("author")
+                author_id = author.get("id") if author else None
                 author_name = user_map.get(author_id, "Autor Desconocido")
 
                 # ✅ Conversión robusta a zona horaria Madrid
