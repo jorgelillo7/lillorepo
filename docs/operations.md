@@ -44,16 +44,12 @@ Before you start, make sure you have the following installed:
     gcloud auth configure-docker europe-southwest1-docker.pkg.dev
   ```
 
-**Important note:** A single virtual environment at the project root is used to simplify dependency management and avoid conflicts between modules.
+**Important note:** Bazel manages all Python dependencies hermetically — no venv is needed to run, test, or build. A venv is only required for `pip-tools` (used to regenerate the lock file) and for IDE integration (linting, autocomplete).
 
   ```bash
+    # Only needed for dependency management and IDE support
     python3 -m venv venv
-    source venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-    pip install -e core/requirements.txt
-    pip install -r web/requirements.txt
-    pip install -r scraper_job/requirements.txt
-    pip install -r teams_analyzer/requirements.txt
+    source venv/bin/activate
     pip install pip-tools
   ```
 
@@ -78,11 +74,10 @@ Commands for running each component.
 
   * **🐳 Run with Docker locally:**
 
-    ```bash
-      # Pull base image
-      docker pull europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:latest
+    Useful for validating the production container (gunicorn + entrypoint.sh) before deploying.
 
-      # Load image into Docker
+    ```bash
+      # Build and load the image into the local Docker daemon
       bazel run //packages/biwenger_tools/web:load_image_to_docker_local
 
       # Start the container
@@ -127,8 +122,10 @@ Commands for running each component.
 
   * **Run with Docker locally:**
 
+    Useful for validating the exact Cloud Run Job container before deploying.
+
     ```bash
-        # Load image into Docker (with local secrets included)
+        # Build and load the image into the local Docker daemon (secrets included)
         bazel run //packages/biwenger_tools/scraper_job:load_image_to_docker_local
 
         # Start the container
