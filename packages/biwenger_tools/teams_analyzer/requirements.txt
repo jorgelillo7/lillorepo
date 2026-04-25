@@ -1,19 +1,7 @@
-# teams-analyzer/requirements.txt
-# Para el manejo de variables de entorno
+# teams_analyzer/requirements.txt
 python-dotenv
-
-# Para el scraping web
 beautifulsoup4
 requests
-
-# Para el scraping avanzado con navegadores headless
 selenium
 webdriver-manager
-
-# Para decodificar texto sin acentos
 unidecode
-
-# Herramientas de desarrollo
-black
-flake8
-pytest

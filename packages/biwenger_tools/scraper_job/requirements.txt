@@ -1,16 +1,4 @@
 # scraper_job/requirements.txt
-# Dependencias principales del scraper
-# Para decodificar texto sin acentos
 unidecode
-
-# Para el parsing de HTML
 beautifulsoup4
-
-# Para la gestión de variables de entorno
 python-dotenv
-
-# Herramientas de desarrollo
-black
-flake8
-pytest
-freezegun

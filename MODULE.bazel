@@ -8,7 +8,7 @@ module(
 bazel_dep(name = "rules_python", version = "0.40.0")
 bazel_dep(name = "rules_oci", version = "2.3.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
-bazel_dep(name = "platforms", version = "0.0.9")
+bazel_dep(name = "platforms", version = "0.0.10")
 
 # --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
@@ -29,25 +29,14 @@ use_repo(pip, "pypi")
 # --- IMÁGENES BASE DE DOCKER ---
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 
-# Imagen base pura de Python (para desarrollo local)
-oci.pull(
-    name = "python_base_image",
-    image = "docker.io/library/python",
-    platforms = [
-        "linux/amd64",
-        "linux/arm64/v8",
-    ],
-    tag = "3.12-slim",
-)
-
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
+    digest = "sha256:3d0d02fb1f19ccfcdf8c5ab50720aa66af1def161d2bca1d186f274c362ca490",
     platforms = [
         "linux/amd64",
         "linux/arm64/v8",
     ],
-    tag = "latest",
 )
-use_repo(oci, "python_base_image", "python_base_image_linux_amd64", "python_base_image_linux_arm64_v8", "python_with_deps", "python_with_deps_linux_amd64", "python_with_deps_linux_arm64_v8")
+use_repo(oci, "python_with_deps", "python_with_deps_linux_amd64", "python_with_deps_linux_arm64_v8")

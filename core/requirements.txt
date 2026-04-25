@@ -6,8 +6,9 @@ google-auth
 pytz
 python-dateutil
 
-# Herramientas de desarrollo
+# Herramientas de desarrollo (centralizadas aquí para todos los módulos)
 black
 flake8
 pytest
 requests-mock
+freezegun

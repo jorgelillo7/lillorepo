@@ -1,17 +1,10 @@
 # web/requirements.txt
-# Dependencias de Flask y otras librerías directas
 Flask
 python-dotenv
 unidecode
 beautifulsoup4
 gunicorn
-importlib-metadata
 
 # Para el manejo de fechas y zonas horarias
 pytz
 python-dateutil
-
-# Herramientas de desarrollo
-black
-flake8
-pytest

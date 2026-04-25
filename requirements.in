@@ -8,51 +8,30 @@ google-auth
 pytz
 python-dateutil
 
-# Herramientas de desarrollo
+# Herramientas de desarrollo (centralizadas aquí para todos los módulos)
 black
 flake8
 pytest
 requests-mock
-# From: scraper_job/requirements.txt
-# scraper_job/requirements.txt
-# Dependencias principales del scraper
-# Para decodificar texto sin acentos
-unidecode
-
-# Para el parsing de HTML
-beautifulsoup4
-
-# Para la gestión de variables de entorno
-python-dotenv
-
-# Herramientas de desarrollo
-black
-flake8
-pytest
 freezegun
-# From: teams_analyzer/requirements.txt
-# teams-analyzer/requirements.txt
-# Para el manejo de variables de entorno
+
+# From: packages/biwenger_tools/scraper_job/requirements.txt
+# scraper_job/requirements.txt
+unidecode
+beautifulsoup4
 python-dotenv
 
-# Para el scraping web
+# From: packages/biwenger_tools/teams_analyzer/requirements.txt
+# teams_analyzer/requirements.txt
+python-dotenv
 beautifulsoup4
 requests
-
-# Para el scraping avanzado con navegadores headless
 selenium
 webdriver-manager
-
-# Para decodificar texto sin acentos
 unidecode
 
-# Herramientas de desarrollo
-black
-flake8
-pytest
-# From: web/requirements.txt
+# From: packages/biwenger_tools/web/requirements.txt
 # web/requirements.txt
-# Dependencias de Flask y otras librerías directas
 Flask
 python-dotenv
 unidecode
@@ -62,11 +41,3 @@ gunicorn
 # Para el manejo de fechas y zonas horarias
 pytz
 python-dateutil
-
-# Herramientas de desarrollo
-black
-flake8
-pytest
-
-# Añadido para resolver el problema de dependencias transitivas de Flask
-importlib-metadata

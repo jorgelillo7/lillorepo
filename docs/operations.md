@@ -247,8 +247,11 @@ Run this command from the project root. It will pick up the changes you made in 
 
 ```bash
 {
-  for req_file in core/requirements.txt scraper_job/requirements.txt teams_analyzer/requirements.txt web/requirements.txt; do
-    echo; echo "# From: $req_file"; cat "$req_file";
+  for req_file in core/requirements.txt \
+    packages/biwenger_tools/scraper_job/requirements.txt \
+    packages/biwenger_tools/teams_analyzer/requirements.txt \
+    packages/biwenger_tools/web/requirements.txt; do
+    echo; echo "# From: $req_file"; cat "$req_file"
   done
 } > requirements.in
 ```
