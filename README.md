@@ -1,22 +1,21 @@
 # Lillorepo 👾
 
-Nuestro monorepo de proyectos y locuras.
+Our monorepo of projects and experiments.
 
-## ¿Qué es esto?
+## What is this?
 
-Este es un **monorepo**, un lugar centralizado donde guardamos y gestionamos todos nuestros proyectos de software. La idea es simple: en lugar de tener un montón de repositorios pequeños y dispersos, tenemos uno solo, grande y organizado.
+This is a **monorepo** — a centralised place where we store and manage all our software projects. The idea is simple: instead of having many small, scattered repositories, we have a single, large, well-organised one.
 
+This lets us share common code easily, keep dependencies under control, and have a global view of everything we are building.
 
-Esto nos permite compartir código común de forma muy sencilla, mantener las dependencias bajo control y tener una visión global de todo lo que estamos construyendo.
+## Repository Structure
 
-## Estructura del Repositorio
+Organisation is key. The main structure you will find is:
 
-La organización es la clave. La estructura principal que encontrarás es:
+-   `📁 /core`: Our shared toolbox. All the logic, API clients, and utilities that can be reused by any project in the repo live here. If something is going to be used more than once, it probably belongs here.
 
--   `📁 /core`: Nuestra caja de herramientas compartida. Aquí vive toda la lógica, los clientes de API y las utilidades que pueden ser reutilizadas por cualquier proyecto dentro del repo. Si algo se va a usar más de una vez, probablemente debería estar aquí.
+-   `📁 /packages`: The heart of lillorepo. Each of our main projects lives inside this folder, grouped in their own directories. Each subdirectory is its own universe, but all share the tools from `core`.
 
--   `📁 /packages`: El corazón del lillorepo. Dentro de esta carpeta vive cada uno de nuestros proyectos principales, agrupados en sus propios directorios. Cada subcarpeta es un universo en sí mismo, pero todos comparten las herramientas de `core`.
+## 🛠️ Built with Bazel
 
-## 🛠️ Construido con Bazel
-
-Todo este tinglado se gestiona con **Bazel**, un sistema de construcción que nos permite manejar las dependencias entre los diferentes paquetes de forma eficiente y garantiza que nuestras builds sean rápidas y reproducibles.
+Everything here is managed with **Bazel**, a build system that lets us handle dependencies between packages efficiently and guarantees fast, reproducible builds.

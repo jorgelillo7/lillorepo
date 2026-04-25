@@ -1,12 +1,9 @@
 
-- revisar evitar instalar cosas de python en GCP en cada ejecución :O
-- revisar sección VAR de web-> que lance a mano el de IA o el cron de scraper
-
-- limpiar comentarios de ia
-- deploy teams-analyzer GCP -> si llegamos a coste 0 centimos
-- github actions :O
-
+- investigate avoiding Python package installs on GCP at every execution :O
+- review VAR section in web → trigger AI scraper or cron job manually
+- clean up AI-generated comments
+- deploy teams-analyzer to GCP → if we hit $0 cost
+- GitHub Actions :O
 - Firestore?
-
-- nuevo proyecto google para fotos
-- agentes?
+- new Google project for photos
+- agents?

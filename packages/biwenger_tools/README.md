@@ -1,70 +1,70 @@
 #  Biwenger Tools
 
-## 🔥 ¿El salseo de tu liga Biwenger merece ser eterno? 🔥
+## 🔥 Does your Biwenger league drama deserve to live forever? 🔥
 
-¿Te molan los comunicados graciosos entre colegas para calentar vuestras ligas? ¿Os da rabia que se pierdan entre la publicidad o al reiniciar la temporada?
+Do you enjoy the banter and trash talk between friends that keeps your leagues alive? Does it annoy you when it all gets buried under ads or wiped when the season resets?
 
-¡Aquí tienes la solución! Este proyecto es un sistema de **backup + web + análisis** para que vuestros mensajes más épicos, piques legendarios y análisis tácticos queden guardados y accesibles. Y sí, está hecho con un poco (mucho) de ayuda de la IA ;)
-
----
-
-## 📜 Descripción del Proyecto
-
-Este proyecto se divide en tres componentes principales que trabajan juntos para archivar, visualizar y analizar los datos de una liga de Biwenger.
-
-1.  **Scraper de Mensajes (`scraper_job`):** Un script de Python automatizado que se conecta a Biwenger, extrae todos los comunicados, los categoriza (`comunicado`, `dato`, `cesion`), pre-procesa los datos de participación y guarda todo en archivos CSV en Google Drive.
-
-2.  **Aplicación Web (`web-app`):** Una aplicación web ligera con Flask que lee los datos desde los archivos CSV y un Google Sheet para presentarlos en una interfaz limpia, elegante y totalmente responsive.
-
-3.  **Analizador de Equipos (`teams-analyzer`):** Un potente script de análisis que utiliza Selenium para hacer scraping de datos avanzados de webs de análisis fantasy. Combina esta información con los datos de Biwenger para generar un informe detallado en CSV y enviarlo por Telegram.
+Here is the solution! This project is a **backup + web + analysis** system so your most epic messages, legendary feuds, and tactical breakdowns are preserved and accessible. And yes, it was built with more than a little help from AI ;)
 
 ---
 
-## ✨ Características Principales
+## 📜 Project Description
 
-### Scraper de Mensajes (El Recolector Inteligente)
+This project is split into three main components that work together to archive, visualise, and analyse data from a Biwenger league.
 
-* **Autenticación Segura:** Inicia sesión en Biwenger de forma segura.
-* **Categorización Inteligente:** Analiza los títulos de los mensajes y los clasifica automáticamente.
-* **Pre-procesamiento de Datos:** Genera un archivo `participacion.csv` optimizado para que la web cargue las estadísticas al instante.
-* **Almacenamiento en la Nube:** Guarda y actualiza los archivos CSV en Google Drive.
-* **Automatización Total:** Diseñado para ser ejecutado como un **Cloud Run Job** y programado con **Cloud Scheduler**.
-* **Gestión de Secretos:** Todas las credenciales se gestionan de forma segura a través de **Google Secret Manager**.
+1.  **Message Scraper (`scraper_job`):** An automated Python script that connects to Biwenger, extracts all announcements, categorises them (`comunicado`, `dato`, `cesion`), pre-processes participation data, and saves everything as CSV files in Google Drive.
 
-### Aplicación Web (El Portal de la Liga)
+2.  **Web App (`web-app`):** A lightweight Flask web application that reads data from CSV files and a Google Sheet, presenting it in a clean, elegant, fully responsive interface.
 
-* **Interfaz Limpia:** Un diseño elegante y minimalista, con un tema claro para una legibilidad perfecta.
-* **Múltiples Secciones:**
-    * **Comunicados:** Visualiza los mensajes oficiales con paginación y búsqueda global.
-    * **Salseo:** Una sección para los "Datos Curiosos" y las "Cesiones".
-    * **Participación:** Un ranking que muestra un desglose de la participación de cada jugador.
-    * **Palmarés:** Un resumen histórico de las temporadas pasadas.
-    * **Ligas Especiales:** Lee y muestra datos de torneos especiales directamente desde un **Google Sheet**.
-* **Configuración Centralizada:** Utiliza un archivo `config.py` y un `.env` para una gestión sencilla.
-* **Desplegado en la Nube:** Alojado en **Cloud Run** para un rendimiento escalable y eficiente.
-
-### Analizador de Equipos (El Espía Táctico)
-
-* **Scraping Avanzado:** Utiliza **Selenium** para extraer datos de webs como "Analítica Fantasy" y "Jornada Perfecta".
-* **Análisis 360º:** Evalúa no solo tu equipo, sino todas las plantillas de la liga y los jugadores libres en el mercado.
-* **Enriquecimiento de Datos:** Cruza la información de Biwenger con métricas externas como coeficientes de rendimiento y puntuaciones esperadas.
-* **Notificaciones por Telegram:** Envía el informe CSV final directamente a un chat de Telegram, para que tengas la ventaja táctica en tu móvil.
-* **Ejecución Local:** Diseñado para ser ejecutado manualmente cuando necesites un análisis profundo antes de una jornada.
+3.  **Teams Analyser (`teams-analyzer`):** A powerful analysis script that uses Selenium to scrape advanced data from fantasy analysis sites. It combines this information with Biwenger data to generate a detailed CSV report and send it via Telegram.
 
 ---
 
-## 💻 Tecnologías Utilizadas
+## ✨ Key Features
+
+### Message Scraper (The Smart Collector)
+
+* **Secure Authentication:** Logs into Biwenger securely.
+* **Smart Categorisation:** Analyses message titles and classifies them automatically.
+* **Data Pre-processing:** Generates an optimised `participacion.csv` file so the web app loads statistics instantly.
+* **Cloud Storage:** Saves and updates CSV files in Google Drive.
+* **Full Automation:** Designed to run as a **Cloud Run Job** scheduled with **Cloud Scheduler**.
+* **Secret Management:** All credentials are handled securely through **Google Secret Manager**.
+
+### Web App (The League Portal)
+
+* **Clean Interface:** An elegant, minimalist design with a light theme for perfect readability.
+* **Multiple Sections:**
+    * **Comunicados:** View official messages with pagination and global search.
+    * **Salseo:** A section for "Curiosities" and "Clausulazos".
+    * **Participación:** A ranking showing a breakdown of each player's participation.
+    * **Palmarés:** A historical summary of past seasons.
+    * **Ligas Especiales:** Reads and displays special tournament data directly from a **Google Sheet**.
+* **Centralised Config:** Uses a `config.py` file and `.env` for easy management.
+* **Cloud Deployed:** Hosted on **Cloud Run** for scalable, efficient performance.
+
+### Teams Analyser (The Tactical Spy)
+
+* **Advanced Scraping:** Uses **Selenium** to extract data from sites like "Analítica Fantasy" and "Jornada Perfecta".
+* **360º Analysis:** Evaluates not just your team but every squad in the league and free agents on the market.
+* **Data Enrichment:** Crosses Biwenger data with external metrics like performance coefficients and expected scores.
+* **Telegram Notifications:** Sends the final CSV report directly to a Telegram chat so you have the tactical edge on your phone.
+* **Local Execution:** Designed to be run manually when you need a deep analysis before a matchday.
+
+---
+
+## 💻 Technologies Used
 
 * **Backend (Scrapers):** Python, Requests, BeautifulSoup, **Selenium**, Unidecode, Google Cloud SDK.
 * **Backend (Web):** Python, Flask.
 * **Frontend:** HTML, Tailwind CSS, JavaScript.
-* **Cloud y Despliegue:** Google Cloud Run (Jobs y Services), Cloud Scheduler, Secret Manager, Google Drive API, Google Sheets API, Docker.
+* **Cloud & Deployment:** Google Cloud Run (Jobs and Services), Cloud Scheduler, Secret Manager, Google Drive API, Google Sheets API, Docker.
 
 
-| Acción                 | Comando                                                              | Descripción                      |
+| Action                 | Command                                                              | Description                      |
 | ---------------------- | -------------------------------------------------------------------- | -------------------------------- |
-| 🧪 Ejecutar tests      | `bazel test //packages/biwenger_tools/web:web_tests`                 | Corre pytest                     |
-| 🏠 Servidor local      | `bazel run //packages/biwenger_tools/web:web_local`                  | Ejecuta en tu máquina            |
-| 🐳 Imagen local        | `bazel run //packages/biwenger_tools/web:load_image_to_docker_local` | Build y carga en Docker          |
-| ☁️ Subir a GCP         | `bazel run //packages/biwenger_tools/web:push_image_to_gcp`          | Build + Push a Artifact Registry |
-| 📦 Imagen limpia local | `docker run --rm -p 8080:8080 bazel/web:local`                       | Ejecutar manualmente la imagen   |
+| 🧪 Run tests           | `bazel test //packages/biwenger_tools/web:web_tests`                 | Run pytest                       |
+| 🏠 Local server        | `bazel run //packages/biwenger_tools/web:web_local`                  | Run on your machine              |
+| 🐳 Local image         | `bazel run //packages/biwenger_tools/web:load_image_to_docker_local` | Build and load into Docker       |
+| ☁️ Push to GCP         | `bazel run //packages/biwenger_tools/web:push_image_to_gcp`          | Build + Push to Artifact Registry |
+| 📦 Clean local image   | `docker run --rm -p 8080:8080 bazel/web:local`                       | Run the image manually           |

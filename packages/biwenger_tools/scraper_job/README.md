@@ -1,51 +1,51 @@
-# 🤖 Scraper de Mensajes de Biwenger
+# 🤖 Biwenger Message Scraper
 
-Este proyecto es un job de scraping automatizado que extrae los comunicados (mensajes) de tu liga de Biwenger y los guarda en archivos CSV. El objetivo principal es la creación de un historial de datos que luego puede ser utilizado por otras herramientas.
+Automated scraping job that extracts announcements (messages) from your Biwenger league and saves them as CSV files. The primary goal is building a data history that can be consumed by other tools.
 
-Los datos se guardan en un archivo CSV y se sincronizan directamente con una carpeta de Google Drive para facilitar su acceso.
+Data is saved to CSV files and synced directly to a Google Drive folder for easy access.
 
-## 🚀 Funcionalidades Clave
+## 🚀 Key Features
 
-* **Extracción de datos**: Recopila automáticamente mensajes importantes del feed de tu liga de Biwenger.
-* **Almacenamiento en CSV**: Organiza los datos extraídos en un formato estructurado.
-* **Sincronización con Google Drive**: Sube los archivos CSV generados a una carpeta específica en tu Google Drive.
+* **Data extraction**: Automatically collects important messages from your Biwenger league feed.
+* **CSV storage**: Organises extracted data into a structured format.
+* **Google Drive sync**: Uploads generated CSV files to a specific folder in your Google Drive.
 
-## ⚙️ Configuración y Uso
+## ⚙️ Configuration and Usage
 
-Para ejecutar y configurar este proyecto, consulta las instrucciones detalladas en el documento principal de operaciones.
+For detailed setup instructions, see the main operations document.
 
-* **Instalación y dependencias**: Revisa la sección **`1.2 Scraper Job`** en `operations.md`.
-* **Configuración de Google API**: Sigue los pasos de configuración de credenciales de Google API.
-* **Ejecución y despliegue**: Los comandos para la ejecución local y el despliegue en Google Cloud se encuentran en `operations.md` **`2.2 Scraper Job`**.
-
----
-
-### **Configuración de Google API (Solo la primera vez, si usas OAuth)**
-
-Si quisieras que el script cree los CSV directamente en tu **Drive personal** de forma automática, el flujo sería este:
-
-* **Configura la Pantalla de Consentimiento:**
-
-  * Ve a la **Consola de Google Cloud** > **APIs y servicios** > **Pantalla de consentimiento de OAuth**.
-  * Selecciona **Externo**, rellena los datos de tu aplicación y añade tu email como usuario de prueba.
-
-* **Crea las Credenciales:**
-
-  * En **APIs y servicios** > **Credenciales**, haz clic en **+ CREAR CREDENCIALES** > **ID de cliente de OAuth**.
-  * Selecciona **Aplicación de escritorio**.
-  * Descarga el archivo JSON y renómbralo a `client_secrets.json` en la carpeta del scraper.
-
-* **Configura la Carpeta en Drive:**
-
-  * Crea una carpeta en tu Google Drive para los CSV.
-  * Copia el ID de la carpeta desde la URL y pégalo en el archivo `.env` del scraper.
-
-> ⚠️ Nota: Este flujo permite que el script escriba en tu Drive personal, pero **el token de OAuth caduca y refrescarlo es engorroso**. Por eso, hemos decidido usar una **Service Account**, que no caduca.
-> ⚠️ Limitación: Como tu cuenta no es Google Workspace, la Service Account **no puede crear archivos directamente en tu Drive personal**. Para que funcione, **debes crear manualmente los CSV vacíos en la carpeta de Drive antes de ejecutar el scraper**.
+* **Installation and dependencies**: See section **`1.2 Scraper Job`** in `operations.md`.
+* **Google API setup**: Follow the Google API credential setup steps.
+* **Running and deploying**: Local execution and GCP deployment commands are in `operations.md` **`2.2 Scraper Job`**.
 
 ---
 
-## ⚠️ Notas Importantes
+### **Google API Setup (First time only, if using OAuth)**
 
-* **Primera ejecución local**: Requiere autorización manual en el navegador para acceder a Google Drive (solo si usas OAuth).
-* **Seguridad**: Nunca subas el archivo `biwenger-tools-sa.json` al repositorio.
+If you want the script to create CSVs directly in your **personal Drive** automatically:
+
+* **Configure the Consent Screen:**
+
+  * Go to **Google Cloud Console** > **APIs & Services** > **OAuth consent screen**.
+  * Select **External**, fill in your app details, and add your email as a test user.
+
+* **Create Credentials:**
+
+  * In **APIs & Services** > **Credentials**, click **+ CREATE CREDENTIALS** > **OAuth client ID**.
+  * Select **Desktop application**.
+  * Download the JSON file and rename it to `client_secrets.json` in the scraper folder.
+
+* **Configure the Drive Folder:**
+
+  * Create a folder in your Google Drive for the CSV files.
+  * Copy the folder ID from the URL and paste it into the scraper's `.env` file.
+
+> ⚠️ Note: This flow lets the script write to your personal Drive, but **the OAuth token expires and refreshing it is cumbersome**. That is why we use a **Service Account** instead, which never expires.
+> ⚠️ Limitation: Since your account is not Google Workspace, the Service Account **cannot create files directly in your personal Drive**. To make it work, **you must manually create empty CSV files in the Drive folder before running the scraper**.
+
+---
+
+## ⚠️ Important Notes
+
+* **First local run**: Requires manual browser authorisation to access Google Drive (only if using OAuth).
+* **Security**: Never commit the `biwenger-tools-sa.json` file to the repository.

@@ -1,54 +1,54 @@
 # 🛠️ OPERATIONS - Biwenger Tools
 
-Esta guía centraliza los comandos y flujos de trabajo para el **desarrollo, testing, despliegue y mantenimiento** de las herramientas de Biwenger.
+This guide centralises commands and workflows for **development, testing, deployment, and maintenance** of the Biwenger tools.
 
-📜 Índice
+📜 Index
 
 - [🛠️ OPERATIONS - Biwenger Tools](#️-operations---biwenger-tools)
-  - [📋 Requisitos Previos](#-requisitos-previos)
-  - [🚀 Módulos del Proyecto](#-módulos-del-proyecto)
+  - [📋 Prerequisites](#-prerequisites)
+  - [🚀 Project Modules](#-project-modules)
     - [1. Biwenger Web App](#1-biwenger-web-app)
     - [2. Scraper Job](#2-scraper-job)
     - [3. Teams Analyzer](#3-teams-analyzer)
     - [Extra. Core](#extra-core)
-  - [📦 Cómo Añadir o Actualizar Dependencias de Python](#-cómo-añadir-o-actualizar-dependencias-de-python)
-    - [### Paso 1: Añade la librería al `requirements.txt` del Módulo](#-paso-1-añade-la-librería-al-requirementstxt-del-módulo)
-    - [### Paso 2: Regenera el `requirements.in` Central](#-paso-2-regenera-el-requirementsin-central)
-    - [### Paso 3: Regenera el Fichero de Lock](#-paso-3-regenera-el-fichero-de-lock)
-    - [### Paso 4: Usa la Nueva Librería en el `BUILD.bazel`](#-paso-4-usa-la-nueva-librería-en-el-buildbazel)
-    - [### Paso 5: Verifica con Bazel](#-paso-5-verifica-con-bazel)
-  - [🔐 Gestión de Secretos](#-gestión-de-secretos)
-    - [Ejemplos de creación de secretos en GCP](#ejemplos-de-creación-de-secretos-en-gcp)
-    - [Para actualizar un secreto (ej. token.json):](#para-actualizar-un-secreto-ej-tokenjson)
-  - [💅 Linter y Formateador Automático (VS Code)](#-linter-y-formateador-automático-vs-code)
-  - [🧹 Limpieza y Control de Costes en GCP](#-limpieza-y-control-de-costes-en-gcp)
+  - [📦 How to Add or Update Python Dependencies](#-how-to-add-or-update-python-dependencies)
+    - [Step 1: Add the library to the module's `requirements.txt`](#step-1-add-the-library-to-the-modules-requirementstxt)
+    - [Step 2: Regenerate the central `requirements.in`](#step-2-regenerate-the-central-requirementsin)
+    - [Step 3: Regenerate the Lock File](#step-3-regenerate-the-lock-file)
+    - [Step 4: Use the new library in `BUILD.bazel`](#step-4-use-the-new-library-in-buildbazel)
+    - [Step 5: Verify with Bazel](#step-5-verify-with-bazel)
+  - [🔐 Secrets Management](#-secrets-management)
+    - [Examples: creating secrets in GCP](#examples-creating-secrets-in-gcp)
+    - [Updating a secret (e.g. token.json)](#updating-a-secret-eg-tokenjson)
+  - [💅 Linter and Auto-formatter (VS Code)](#-linter-and-auto-formatter-vs-code)
+  - [🧹 GCP Cleanup and Cost Control](#-gcp-cleanup-and-cost-control)
     - [Artifact Registry](#artifact-registry)
-  - [⚠️ Notas Importantes](#️-notas-importantes)
+  - [⚠️ Important Notes](#️-important-notes)
 
 
-## 📋 Requisitos Previos
+## 📋 Prerequisites
 
-Antes de empezar, asegúrate de tener instalado lo siguiente:
+Before you start, make sure you have the following installed:
 
   * **Python 3.x**
-  * **Visual Studio Code** con la extensión [Bazel (The Bazel Team)](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel).
-  * **Herramientas de línea de comandos:**
+  * **Visual Studio Code** with the [Bazel (The Bazel Team)](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel) extension.
+  * **Command-line tools:**
     ```bash
       brew install bazelisk
       brew install buildifier
     ```
-  * **Despliegue en Google Cloud:**
+  * **Google Cloud deployment:**
   ```bash
     gcloud auth login
     gcloud config set project biwenger-tools
     gcloud auth configure-docker europe-southwest1-docker.pkg.dev
   ```
 
-**Nota importante:** Se utiliza un único entorno virtual en la raíz del proyecto para simplificar la gestión de dependencias y evitar conflictos entre módulos.
+**Important note:** A single virtual environment at the project root is used to simplify dependency management and avoid conflicts between modules.
 
   ```bash
     python3 -m venv venv
-    source venv/bin/activate  # En Windows: .venv\Scripts\activate
+    source venv/bin/activate  # On Windows: .venv\Scripts\activate
 
     pip install -e core/requirements.txt
     pip install -r web/requirements.txt
@@ -57,13 +57,13 @@ Antes de empezar, asegúrate de tener instalado lo siguiente:
     pip install pip-tools
   ```
 
-## 🚀 Módulos del Proyecto
+## 🚀 Project Modules
 
-Aquí se describen los comandos para ejecutar cada componente
+Commands for running each component.
 
 ### 1\. Biwenger Web App
 
-  * **🏠 Ejecutar en local (servidor de desarrollo):**
+  * **🏠 Run locally (development server):**
 
     ```bash
       bazel run //packages/biwenger_tools/web:web_local
@@ -76,28 +76,28 @@ Aquí se describen los comandos para ejecutar cada componente
       pytest packages/biwenger_tools/web/tests/
     ```
 
-  * **🐳 Ejecutar con Docker localmente:**
+  * **🐳 Run with Docker locally:**
 
     ```bash
-      # Bajamos imagen base
+      # Pull base image
       docker pull europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:latest
 
-      # Cargar la imagen en Docker
+      # Load image into Docker
       bazel run //packages/biwenger_tools/web:load_image_to_docker_local
 
-      # Iniciar el contenedor
+      # Start the container
       docker run --rm -p 8080:8080 bazel/web:local
     ```
 
-    > **Consejo:** Si `Ctrl+C` no detiene el contenedor, usa `docker ps` para encontrar su ID y luego `docker kill <container_id>`.
+    > **Tip:** If `Ctrl+C` does not stop the container, use `docker ps` to find the container ID and then `docker kill <container_id>`.
 
-  * **☁️ Desplegar en producción:**
+  * **☁️ Deploy to production:**
 
     ```bash
-      # Empaquetar y subir la imagen a GCP
+      # Package and push the image to GCP
       bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
 
-      # Ejecutar el script de despliegue
+      # Run the deploy script
       cd packages/biwenger_tools/web/
       ./deploy.sh
     ```
@@ -106,7 +106,7 @@ Aquí se describen los comandos para ejecutar cada componente
 
 ### 2\. Scraper Job
 
-  * **Ejecutar en local:**
+  * **Run locally:**
 
     ```bash
         bazel run //packages/biwenger_tools/scraper_job:scraper_job_local
@@ -115,33 +115,33 @@ Aquí se describen los comandos para ejecutar cada componente
   * **Tests:**
 
     ```bash
-      # Ejecutar tests con Bazel (salida detallada)
+      # Run tests with Bazel (verbose output)
       bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
 
-      # Forzar la ejecución de tests ignorando la caché
+      # Force test run ignoring cache
       bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v --cache_test_results=no
 
-      # Ejecutar tests directamente con pytest (requiere venv activado)
+      # Run tests directly with pytest (requires venv activated)
       pytest packages/biwenger_tools/scraper_job/tests/
     ```
 
-  * **Ejecutar con Docker localmente:**
+  * **Run with Docker locally:**
 
     ```bash
-        # Cargar la imagen en Docker (con secretos locales incluidos)
+        # Load image into Docker (with local secrets included)
         bazel run //packages/biwenger_tools/scraper_job:load_image_to_docker_local
 
-        # Iniciar el contenedor
+        # Start the container
         docker run --rm bazel/scraper_job:local
     ```
 
-  * **Desplegar en producción (Cloud Run Job):**
+  * **Deploy to production (Cloud Run Job):**
 
-      * **Construir y subir la imagen a GCP:**
+      * **Build and push the image to GCP:**
         ```bash
             bazel run //packages/biwenger_tools/scraper_job:push_image_to_gcp --platforms=//platforms:linux_amd64
         ```
-      * **Crear el Job (solo la primera vez):**
+      * **Create the Job (first time only):**
         ```bash
           gcloud run jobs create biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
@@ -151,27 +151,27 @@ Aquí se describen los comandos para ejecutar cada componente
               --set-secrets="/biwenger_password/biwenger-password=biwenger-password-regional:latest" \
               --set-secrets="/gdrive_folder_id/gdrive-folder-id=gdrive-folder-id-regional:latest"
         ```
-      * **Actualizar el Job (al cambiar la imagen o los secretos):**
+      * **Update the Job (when changing the image or secrets):**
         ```bash
           gcloud run jobs update biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1
         ```
-      * **Ejecutar el Job manualmente:**
+      * **Execute the Job manually:**
         ```bash
           gcloud run jobs execute biwenger-scraper-data --region europe-southwest1
         ```
 
 ### 3\. Teams Analyzer
 
-  * **Configuración:** Asegúrate de tener un archivo `.env` con las credenciales de Biwenger y Telegram.
+  * **Setup:** Make sure you have a `.env` file with Biwenger and Telegram credentials.
 
-  * **Ejecutar en local:**
+  * **Run locally:**
 
     ```bash
         bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
 
-        #obtener los archivos para debug
+        # Get output files for debugging
         bazel run --spawn_strategy=local //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
         open bazel-bin/packages/biwenger_tools/teams_analyzer/teams_analyzer_local.runfiles/_main/packages/biwenger_tools/teams_analyzer
 
@@ -181,24 +181,24 @@ Aquí se describen los comandos para ejecutar cada componente
   * **Tests:**
 
     ```bash
-      # Ejecutar tests con Bazel (salida detallada)
+      # Run tests with Bazel (verbose output)
       bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v
 
-      # Forzar la ejecución de tests ignorando la caché
+      # Force test run ignoring cache
       bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v --cache_test_results=no
 
-      # Ejecutar tests directamente con pytest (requiere venv activado)
+      # Run tests directly with pytest (requires venv activated)
       pytest packages/biwenger_tools/teams_analyzer/tests/
     ```
 
-  * **Ejecutar con Docker localmente:**
+  * **Run with Docker locally:**
 
     ```bash
       bazel run //packages/biwenger_tools/teams_analyzer:load_image_to_docker_local
       docker run --rm --shm-size=2g bazel/teams_analyzer:local
     ```
-  * **Desplegar en producción:**
-    Pendiente
+  * **Deploy to production:**
+    Pending
 
 ### Extra\. Core
 
@@ -212,21 +212,21 @@ Aquí se describen los comandos para ejecutar cada componente
 
 -----
 
-## 📦 Cómo Añadir o Actualizar Dependencias de Python
+## 📦 How to Add or Update Python Dependencies
 
-Nuestro proyecto usa un sistema de tres niveles para gestionar las dependencias, manteniendo los módulos aislados y garantizando builds 100% reproducibles.
+The project uses a three-level system to manage dependencies, keeping modules isolated and guaranteeing 100% reproducible builds.
 
-1.  **`[módulo]/requirements.txt`** (ej: `core/requirements.txt`): Es el **punto de partida y la fuente de verdad**. Aquí es donde tú, como desarrollador, añades o quitas las librerías que necesita un módulo específico.
-2.  **`requirements.in`**: Es un fichero **intermedio y autogenerado**. Consolida las listas de todos los módulos en un solo lugar para la siguiente herramienta. **Nunca debes editar este fichero a mano.**
-3.  **`requirements_lock.txt`**: Es el **fichero final y bloqueado** que genera el ordenador. Contiene la lista exacta de todas las librerías (directas e indirectas) con sus versiones y hashes, que es lo que Bazel usa. **Nunca debes editar este fichero a mano.**
+1.  **`[module]/requirements.txt`** (e.g. `core/requirements.txt`): The **starting point and source of truth**. This is where you, as a developer, add or remove the libraries a specific module needs.
+2.  **`requirements.in`**: An **intermediate, auto-generated file**. It consolidates the lists from all modules into a single place for the next tool. **Never edit this file by hand.**
+3.  **`requirements_lock.txt`**: The **final, locked file** generated by the computer. It contains the exact list of all libraries (direct and indirect) with their versions and hashes — what Bazel uses. **Never edit this file by hand.**
 
-El flujo de trabajo para añadir una nueva librería (usaremos `numpy` en el módulo `core` como ejemplo) es el siguiente:
+The workflow for adding a new library (using `numpy` in the `core` module as an example):
 
-### \#\#\# Paso 1: Añade la librería al `requirements.txt` del Módulo
+### Step 1: Add the library to the module's `requirements.txt`
 
-Decides que el módulo `core` necesita `numpy`. Abres `core/requirements.txt` y lo añades.
+Decide that the `core` module needs `numpy`. Open `core/requirements.txt` and add it.
 
-**Fichero: `core/requirements.txt`**
+**File: `core/requirements.txt`**
 
 ```diff
 requests
@@ -244,9 +244,9 @@ requests-mock
 
 -----
 
-### \#\#\# Paso 2: Regenera el `requirements.in` Central
+### Step 2: Regenerate the central `requirements.in`
 
-Ahora, ejecuta este comando desde la raíz del proyecto. Recogerá los cambios que hiciste en `core/requirements.txt` y actualizará el fichero central.
+Run this command from the project root. It will pick up the changes you made in `core/requirements.txt` and update the central file.
 
 ```bash
 {
@@ -258,11 +258,11 @@ Ahora, ejecuta este comando desde la raíz del proyecto. Recogerá los cambios q
 
 -----
 
-### \#\#\# Paso 3: Regenera el Fichero de Lock
+### Step 3: Regenerate the Lock File
 
-Este comando lee el `requirements.in` que acabas de generar y resuelve todas las dependencias, creando el `requirements_lock.txt` final.
+This command reads the `requirements.in` you just generated and resolves all dependencies, creating the final `requirements_lock.txt`.
 
-*(Recuerda tener `pip-tools` instalado: `pip install pip-tools`)*
+*(Remember to have `pip-tools` installed: `pip install pip-tools`)*
 
 ```bash
 pip-compile requirements.in -o requirements_lock.txt
@@ -270,13 +270,13 @@ pip-compile requirements.in -o requirements_lock.txt
 
 -----
 
-### \#\#\# Paso 4: Usa la Nueva Librería en el `BUILD.bazel`
+### Step 4: Use the new library in `BUILD.bazel`
 
-Ahora que la librería ya está disponible para Bazel, ve a `core/BUILD.bazel` y añádela a la lista de dependencias (`deps`) del `py_library`.
+Now that the library is available to Bazel, go to `core/BUILD.bazel` and add it to the dependencies (`deps`) list of the `py_library`.
 
-Recuerda que Bazel convierte los guiones (-) a guiones bajos (_). Para numpy, el nombre es el mismo.
+Remember that Bazel converts hyphens (-) to underscores (_). For numpy, the name is the same.
 
-**Fichero: `core/BUILD.bazel`**
+**File: `core/BUILD.bazel`**
 
 ```python
 py_library(
@@ -284,8 +284,8 @@ py_library(
     srcs = glob(["*.py"]),
     deps = [
         "@pypi//requests",
-        # ... (resto de dependencias)
-        # Añadimos la nueva dependencia
+        # ... (other dependencies)
+        # Add the new dependency
         "@pypi//numpy",
     ],
     visibility = ["//visibility:public"],
@@ -294,74 +294,74 @@ py_library(
 
 -----
 
-### \#\#\# Paso 5: Verifica con Bazel
+### Step 5: Verify with Bazel
 
-Finalmente, ejecuta un comando de Bazel para confirmar que todo funciona.
+Finally, run a Bazel command to confirm everything works.
 
   ```bash
   bazel build //...
 
   ```
 
-Si el comando termina con éxito, has añadido la dependencia de forma limpia, aislada y reproducible.
+If the command completes successfully, you have added the dependency in a clean, isolated, and reproducible way.
 
 
 
-## 🔐 Gestión de Secretos
+## 🔐 Secrets Management
 
-  * **Desarrollo local:** Utiliza archivos `.env` en la raíz de cada módulo.
-  * **Producción:** Usa **Google Secret Manager**.
+  * **Local development:** Use `.env` files at the root of each module.
+  * **Production:** Use **Google Secret Manager**.
 
-### Ejemplos de creación de secretos en GCP
+### Examples: creating secrets in GCP
 ```bash
-# Crear secreto desde un archivo (ej: service account)
+# Create a secret from a file (e.g. service account)
 gcloud secrets create biwenger-tools-sa-regional \
   --data-file="biwenger-tools-sa.json" \
   --replication-policy="user-managed" \
   --locations="$REGION"
 
-# Crear secretos desde la línea de comandos
-echo -n "TU_EMAIL@gmail.com" | gcloud secrets create biwenger-email-regional \
+# Create secrets from the command line
+echo -n "YOUR_EMAIL@gmail.com" | gcloud secrets create biwenger-email-regional \
   --data-file=- \
   --replication-policy="user-managed" \
   --locations="$REGION"
 
-echo -n "TU_CONTRASEÑA" | gcloud secrets create biwenger-password-regional \
+echo -n "YOUR_PASSWORD" | gcloud secrets create biwenger-password-regional \
   --data-file=- \
   --replication-policy="user-managed" \
   --locations="$REGION"
 
-echo -n "ID_DE_LA_CARPETA_DE_DRIVE" | gcloud secrets create gdrive-folder-id-regional \
+echo -n "DRIVE_FOLDER_ID" | gcloud secrets create gdrive-folder-id-regional \
   --data-file=- \
   --replication-policy="user-managed" \
   --locations="$REGION"
 ```
 
-### Para actualizar un secreto (ej. token.json):
+### Updating a secret (e.g. token.json):
 ```bash
 gcloud secrets versions add token_json --data-file="token.json"
 ```
 
 ---
-## 💅 Linter y Formateador Automático (VS Code)
+## 💅 Linter and Auto-formatter (VS Code)
 
-Configura **Flake8** (linter) y **Black** (formateador) para mantener un código limpio y consistente.
+Configure **Flake8** (linter) and **Black** (formatter) for clean, consistent code.
 
-1.  **Instala las extensiones:**
+1.  **Install the extensions:**
 
       * `ms-python.python`
       * `ms-python.black-formatter`
 
-2.  **Selecciona el Intérprete de Python:**
+2.  **Select the Python Interpreter:**
 
-      * Abre la paleta de comandos (`Ctrl+Shift+P` o `Cmd+Shift+P`).
-      * Busca y selecciona `Python: Select Interpreter`.
-      * Elige el intérprete de tu entorno virtual (`./venv/bin/python`).
+      * Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+      * Search for and select `Python: Select Interpreter`.
+      * Choose the interpreter from your virtual environment (`./venv/bin/python`).
 
-3.  **Configura el `settings.json`:**
+3.  **Configure `settings.json`:**
 
-      * Abre la paleta de comandos y busca `Preferences: Open Workspace Settings (JSON)`.
-      * Añade la siguiente configuración:
+      * Open the command palette and search for `Preferences: Open Workspace Settings (JSON)`.
+      * Add the following configuration:
 
     <!-- end list -->
 
@@ -377,9 +377,9 @@ Configura **Flake8** (linter) y **Black** (formateador) para mantener un código
     }
     ```
 
-4.  **(Opcional) Configura Flake8:**
+4.  **(Optional) Configure Flake8:**
 
-      * Crea un archivo `.flake8` en la raíz del proyecto para alinear sus reglas con Black.
+      * Create a `.flake8` file at the project root to align its rules with Black.
 
     <!-- end list -->
 
@@ -390,14 +390,14 @@ Configura **Flake8** (linter) y **Black** (formateador) para mantener un código
     exclude = .git,__pycache__,.venv,venv,*.md
     ```
 
-Una vez configurado, VS Code te marcará errores y formateará tu código automáticamente al guardar.
+Once configured, VS Code will flag errors and auto-format your code on save.
 
 
-## 🧹 Limpieza y Control de Costes en GCP
+## 🧹 GCP Cleanup and Cost Control
 
 ### Artifact Registry
 
-  * **Crear el repositorio Docker (solo la primera vez):**
+  * **Create the Docker repository (first time only):**
 
     ```bash
     gcloud artifacts repositories create biwenger-docker \
@@ -406,39 +406,39 @@ Una vez configurado, VS Code te marcará errores y formateará tu código autom�
         --description="Docker images for Biwenger Tools"
     ```
 
-  * **Listar imágenes en el repositorio:**
+  * **List images in the repository:**
 
     ```bash
     gcloud artifacts docker images list europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
     ```
 
-  * **Limpiar imágenes antiguas (script):**
+  * **Clean up old images (script):**
 
     ```bash
     cd scripts/
     ./clean-images-artifact.sh
     ```
 
-    > Este script elimina todas las imágenes antiguas, conservando solo la etiquetada como `latest`.
+    > This script deletes all old images, keeping only the one tagged `latest`.
 
-  * **Revisar costes (script):**
+  * **Review costs (script):**
 
     ```bash
     cd scripts/
     ./check-gcp-costs.sh
     ```
 
-    > Este script compara el uso de **Artifact Registry** y **Cloud Run** con el *Free Tier* de GCP.
+    > This script compares **Artifact Registry** and **Cloud Run** usage against the GCP *Free Tier*.
 
-    * **Limpiar contenedores docker:**
+    * **Clean local Docker containers:**
     ```
      docker image prune -f
      ```
 
 -----
 
-## ⚠️ Notas Importantes
+## ⚠️ Important Notes
 
-  * **No subas a git** el archivo de credenciales `biwenger-tools-sa.json`.
-  * Si un despliegue falla, revisa los **logs en la consola de GCP** (Cloud Run, Cloud Build, etc.).
-  * Asegúrate de tener un archivo `.env` configurado en cada módulo para el desarrollo local.
+  * **Do not commit** the credentials file `biwenger-tools-sa.json`.
+  * If a deployment fails, check the **logs in the GCP console** (Cloud Run, Cloud Build, etc.).
+  * Make sure you have a `.env` file configured in each module for local development.

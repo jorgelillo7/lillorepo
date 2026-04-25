@@ -1,45 +1,45 @@
 # CLAUDE.md — lillorepo
 
-Monorepo Bazel con proyectos Python orientados a Google Cloud. Actualmente contiene `biwenger_tools`; la arquitectura está pensada para crecer con más packages.
+Bazel monorepo with Python projects targeting Google Cloud. Currently contains `biwenger_tools`; the architecture is designed to grow with more packages.
 
-## Estructura
+## Structure
 
 ```
-/core           Librerías compartidas (SDK Biwenger, GCP, Telegram; utils)
-/packages       Proyectos autocontenidos
+/core           Shared libraries (Biwenger SDK, GCP, Telegram; utils)
+/packages       Self-contained projects
   biwenger_tools/
-    scraper_job/    Scraper de mensajes de la liga → CSV → Google Drive
-    teams_analyzer/ Análisis de equipos Biwenger → CSV → Telegram
-    web/            Flask app en Cloud Run para visualizar datos
-/docker         Configuraciones Docker
-/docs           Documentación (operations.md = referencia de comandos)
-/scripts        Scripts de utilidad (limpieza GCP, costes)
-/tools          Extensiones y herramientas Bazel
-/platforms      Definiciones de plataformas (linux_amd64, etc.)
+    scraper_job/    League message scraper → CSV → Google Drive
+    teams_analyzer/ Biwenger team analysis → CSV → Telegram
+    web/            Flask app on Cloud Run for data visualisation
+/docker         Docker configurations
+/docs           Documentation (operations.md = command reference)
+/scripts        Utility scripts (GCP cleanup, costs)
+/tools          Bazel extensions and tools
+/platforms      Platform definitions (linux_amd64, etc.)
 ```
 
 ## Stack
 
 - **Build:** Bazel (bazelisk)
-- **Lenguaje:** Python 3
+- **Language:** Python 3
 - **Cloud:** GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry
-- **Otros:** Flask, Selenium, Docker
+- **Other:** Flask, Selenium, Docker
 
-## Comandos clave
+## Key Commands
 
-Ver `docs/operations.md` para referencia completa. Resumen rápido:
+See `docs/operations.md` for the full reference. Quick summary:
 
 ```bash
-# Build completo
+# Full build
 bazel build //...
 
-# Tests (cualquier módulo)
+# Tests (any module)
 bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v
 bazel test //core:core_tests --test_output=streamed --test_arg=-v
 
-# Run local
+# Run locally
 bazel run //packages/biwenger_tools/web:web_local
 bazel run //packages/biwenger_tools/scraper_job:scraper_job_local
 bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
@@ -49,31 +49,31 @@ bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platform
 cd packages/biwenger_tools/web/ && ./deploy.sh
 ```
 
-## Gestión de dependencias Python
+## Python Dependency Management
 
-Sistema de tres niveles: `[módulo]/requirements.txt` → `requirements.in` (autogenerado) → `requirements_lock.txt` (lock para Bazel).
+Three-level system: `[module]/requirements.txt` → `requirements.in` (auto-generated) → `requirements_lock.txt` (Bazel lock file).
 
-Nunca editar `requirements.in` ni `requirements_lock.txt` a mano. Flujo:
-1. Editar `[módulo]/requirements.txt`
-2. Regenerar `requirements.in` con el script de concatenación
+Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
+1. Edit `[module]/requirements.txt`
+2. Regenerate `requirements.in` with the concatenation script
 3. `pip-compile requirements.in -o requirements_lock.txt`
-4. Añadir dep en el `BUILD.bazel` del módulo (`@pypi//nombre_lib`)
+4. Add the dep in the module's `BUILD.bazel` (`@pypi//library_name`)
 
-## Secretos
+## Secrets
 
-- **Local:** archivos `.env` en cada módulo (no commitear)
-- **Producción:** Google Secret Manager
+- **Local:** `.env` files in each module (do not commit)
+- **Production:** Google Secret Manager
 
-## Convenciones
+## Conventions
 
-- Linter: Flake8 (`max-line-length = 88`, compatible con Black)
-- Formateador: Black (format on save en VS Code)
-- Targets Bazel siguen el patrón `//packages/{package}/{módulo}:{target}`
-- Los guiones en nombres de librerías PyPI se convierten a guiones bajos en Bazel (`@pypi//nombre_lib`)
+- Linter: Flake8 (`max-line-length = 88`, compatible with Black)
+- Formatter: Black (format on save in VS Code)
+- Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
+- Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
 
-## Notas para Claude
+## Notes for Claude
 
-- Este repo crece con nuevos packages en `/packages/`. Al añadir uno, replicar la estructura de `biwenger_tools` como referencia.
-- Los `BUILD.bazel` son la fuente de verdad de dependencias para Bazel.
-- Ver `AGENTS.md` para contexto sobre los agentes del proyecto.
+- This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
+- `BUILD.bazel` files are the source of truth for Bazel dependencies.
+- See `AGENTS.md` for context on project agents.
 - **Commits:** always write commit messages in English. Do not add a `Co-Authored-By` line.

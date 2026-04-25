@@ -1,133 +1,132 @@
-# Release Notes del Proyecto
+# Project Release Notes
 
-Aquí se documenta la increíble y a veces caótica evolución de nuestro pequeño gran proyecto
+The incredible, and sometimes chaotic, evolution of our little big project.
 
-### **v4.0 - Bienvenido, Mr. Bazel (30 de Septiembre, 2025)**
+### **v4.0 - Welcome, Mr. Bazel (30 September 2025)**
 
-Una re-arquitectura total que transforma el proyecto en un **monorepo** gestionado por **Bazel**, el sistema de construcción de Google. ¿Necesidad? Ninguna. ¿Ganas de probar tecnología de vanguardia y ver hasta dónde podíamos llegar? Todas. Este cambio sienta las bases para un proyecto más rápido, escalable y profesional que nunca.
+A total re-architecture that transforms the project into a **monorepo** managed by **Bazel**, Google's build system. Was it necessary? Not really. Did we want to push cutting-edge technology and see how far we could take it? Absolutely. This change lays the foundation for a faster, more scalable, and more professional project than ever.
 
-* **🧱 Monorepo Unificado**: ¡Adiós a los módulos separados! Todo el código (`core`, `web`, `scraper_job`, `teams_analyzer`) ahora vive en un único repositorio. Esto simplifica la gestión de dependencias y asegura una coherencia total en todo el proyecto.
-* **🚀 Builds y Tests ultrarrápidos**: Se implementa **Bazel** para gestionar la construcción, las pruebas y los despliegues. Gracias a su sistema de caché avanzado, solo se reconstruye y se testea lo que realmente ha cambiado, reduciendo drásticamente los tiempos de espera. ¡Una maravilla!
-* **📦 Dependencias**: Lo Mejor de Dos Mundos: Se adopta un sistema de dependencias híbrido. Para el desarrollo y las pruebas locales, Bazel utiliza su grafo interno (@pypi//...) para asegurar la máxima velocidad y builds herméticos. Para la imagen Docker final, se opta por un enfoque más tradicional y robusto: se empaqueta el requirements_lock.txt y se ejecuta pip install en el arranque del contenedor. Esto nos da la reproducibilidad de un fichero lock y la compatibilidad universal de pip, evitando problemas complejos de empaquetado..
-* **🐳 Imágenes Docker con Bazel**: Los `Dockerfile` tradicionales se reemplazan por reglas `oci_image` dentro de Bazel. Ahora, la definición de las imágenes vive junto al código fuente, creando un flujo de trabajo totalmente integrado y consistente.
-* **🧹 Limpieza y Consolidación**: Se eliminan ficheros de configuración redundantes (`pyproject.toml`, `Dockerfile` en módulos migrados) para consolidar `BUILD.bazel` como la única fuente de verdad.
-Claro, aquí tienes un punto nuevo para añadir a las *release notes* de la v4.0 que captura esa idea de expansión.
-* **🌱 De Proyecto a Plataforma: El Monorepo se Expande**: Con la potencia y escalabilidad de Bazel, el repositorio deja de ser exclusivo de Biwenger. La arquitectura actual se convierte en una **plantilla robusta y reutilizable** para lanzar nuevos proyectos de cualquier tipo, aprovechando toda la infraestructura, gestión de dependencias y despliegue en GCP ya establecida. Es el siguiente paso lógico: transformar este proyecto en un hub para futuras ideas y experimentos.
-
----
-
-### **v3.2 - El Verificador Inagotable (5 de Septiembre, 2025)**
-
-Una actualización vital para la robustez del proyecto, que introduce un sistema de pruebas completo para garantizar la fiabilidad del código y la estabilidad de las funcionalidades existentes.
-
-  * **🧪 Un paso más allá en la calidad del código:** Se implementa un **sólido sistema de pruebas unitarias** utilizando **`pytest`** en todos los módulos (`core`, `scraper_job`, `teams_analyzer`, `web`). Esto asegura que cada componente del proyecto funcione como se espera.
-  * **🛡️ Cobertura exhaustiva:** Las pruebas incluyen la validación del cliente de Biwenger, los servicios de Google Cloud, el procesamiento de datos, la lógica de los *scrapers*, y los *endpoints* de la aplicación web.
-  * **✅ Flujo de trabajo mejorado:** Con las pruebas en su lugar, podemos introducir nuevas funcionalidades y refactorizar el código con total confianza, sabiendo que cualquier regresión será detectada automáticamente.
-  * **🎉 ¡Por fin tenemos tests\!** Un hito importante para el proyecto, que nos acerca a prácticas de desarrollo más profesionales y sostenibles a largo plazo.
-  Un proyecto sin test... me sentía sucio :O, más vale tarde que nunca (aunque sean test con ayuda de la IA)
-
+* **🧱 Unified Monorepo**: Goodbye to separate modules! All the code (`core`, `web`, `scraper_job`, `teams_analyzer`) now lives in a single repository. This simplifies dependency management and ensures total consistency across the project.
+* **🚀 Ultra-fast Builds and Tests**: **Bazel** is implemented to manage builds, testing, and deployments. Thanks to its advanced cache system, only what has actually changed is rebuilt and retested, drastically reducing wait times.
+* **📦 Dependencies: The Best of Both Worlds**: A hybrid dependency system is adopted. For local development and testing, Bazel uses its internal graph (`@pypi//...`) for maximum speed and hermetic builds. For the final Docker image, a more traditional and robust approach is used: packaging `requirements_lock.txt` and running `pip install` on container startup. This gives us the reproducibility of a lock file and the universal compatibility of pip, avoiding complex packaging issues.
+* **🐳 Docker Images with Bazel**: Traditional `Dockerfile`s are replaced by `oci_image` rules inside Bazel. Image definitions now live alongside the source code, creating a fully integrated and consistent workflow.
+* **🧹 Cleanup and Consolidation**: Redundant config files (`pyproject.toml`, `Dockerfile` in migrated modules) are removed to consolidate `BUILD.bazel` as the single source of truth.
+* **🌱 From Project to Platform: The Monorepo Expands**: With the power and scalability of Bazel, the repository is no longer exclusive to Biwenger. The current architecture becomes a **robust, reusable template** for launching new projects of any kind, leveraging all the established infrastructure, dependency management, and GCP deployment. The logical next step: turning this project into a hub for future ideas and experiments.
 
 ---
 
-### **v3.1 - La Sincronización Definitiva (3 de Septiembre, 2025)**
+### **v3.2 - The Tireless Verifier (5 September 2025)**
 
-Una actualización que consolida la arquitectura del proyecto y simplifica el flujo de trabajo de desarrollo, eliminando los errores de configuración más comunes y preparando la base para futuras expansiones.
+A vital update for project robustness, introducing a complete testing system to guarantee code reliability and the stability of existing features.
 
-* **⚙️ Entorno de Desarrollo Unificado**: Se centraliza el entorno virtual de Python en un único `venv` en la raíz del proyecto. Este cambio crucial resuelve conflictos de dependencias entre módulos y asegura que el linter, el formateador y el intérprete funcionen de manera consistente.
-* **📦 Gestión Simplificada de Dependencias**: Al consolidar el `venv`, los comandos de instalación se simplifican, eliminando la necesidad de activar y desactivar múltiples entornos. Todas las dependencias ahora se instalan en un solo lugar, mejorando la coherencia.
-* **✅ Integración Continua Local y en la Nube**: Se han verificado y optimizado los procesos de ejecución, construcción de imágenes y despliegue para todos los módulos (`web`, `scraper_job`, `teams_analyzer`), garantizando que funcionen sin problemas tanto en entornos locales (con Docker) como en Google Cloud Platform. (menos teams_analyzer)
-* **🔗 Importaciones y Estilo de Código Uniforme**: Se ha validado la importación de módulos del `core` y la aplicación de reglas de estilo de código con **Flake8** y **Black**, asegurando que el proyecto mantenga su calidad y cohesión a lo largo de las nuevas funcionalidades.
+  * **🧪 A step further in code quality:** A **solid unit testing system** is implemented using **`pytest`** across all modules (`core`, `scraper_job`, `teams_analyzer`, `web`). This ensures every project component works as expected.
+  * **🛡️ Comprehensive coverage:** Tests include validation of the Biwenger client, Google Cloud services, data processing, scraper logic, and web application endpoints.
+  * **✅ Improved workflow:** With tests in place, we can introduce new features and refactor code with full confidence, knowing any regression will be caught automatically.
+  * **🎉 We finally have tests!** A major milestone for the project, bringing us closer to more professional and sustainable development practices.
+    A project without tests... it felt wrong :O, better late than never (even if the tests were AI-assisted)
+
 
 ---
 
-### **v3.0 - El Espía Táctico y el Arquitecto (22 de Agosto, 2025)**
+### **v3.1 - The Definitive Sync (3 September 2025)**
 
-Una actualización mayor que no solo introduce una nueva herramienta de análisis, sino que también reconstruye los cimientos del proyecto para hacerlo más robusto y escalable.
+An update that consolidates the project architecture and simplifies the development workflow, eliminating the most common configuration errors and laying the groundwork for future expansions.
 
-* **🚀 Nuevo Módulo `teams-analyzer`**: Se introduce una nueva herramienta independiente para el análisis táctico profundo de la liga, diseñada para ser ejecutada localmente.
-* **🕵️ Scraping Avanzado con Selenium**: El analizador extrae datos de rendimiento y coeficientes de webs especializadas como "Analítica Fantasy" y "Jornada Perfecta".
-* **📊 Análisis 360º**: El script evalúa todas las plantillas de la liga y los jugadores libres en el mercado, ofreciendo una visión completa de la competencia.
-* **📬 Notificaciones por Telegram**: Al finalizar, el script envía automáticamente el informe `analisis_biwenger.csv` a un chat de Telegram configurado.
-* **🏗️ Gran Refactor Arquitectónico**: ¡Un hito clave! Se realiza una reestructuración profunda del código para crear módulos reutilizables en los directorios `core` (para clientes de APIs como Biwenger y Google) y `logic` (para el procesamiento de datos). Este cambio reduce drásticamente la duplicación de código, mejora la mantenibilidad y sienta las bases para futuras expansiones del proyecto.
+* **⚙️ Unified Development Environment**: The Python virtual environment is centralised to a single `venv` at the project root. This crucial change resolves dependency conflicts between modules and ensures the linter, formatter, and interpreter all work consistently.
+* **📦 Simplified Dependency Management**: By consolidating the `venv`, installation commands are simplified, removing the need to activate and deactivate multiple environments. All dependencies are now installed in one place, improving consistency.
+* **✅ Local and Cloud Continuous Integration**: Execution, image building, and deployment processes have been verified and optimised for all modules (`web`, `scraper_job`, `teams_analyzer`), ensuring they work seamlessly in both local (Docker) and Google Cloud Platform environments. (minus teams_analyzer)
+* **🔗 Consistent Imports and Code Style**: `core` module imports and code style rules with **Flake8** and **Black** have been validated, ensuring the project maintains its quality and cohesion across new features.
 
 ---
 
-### **v2.5 - El Viajero del Tiempo (18 de Agosto, 2025)**
+### **v3.0 - The Tactical Spy and the Architect (22 August 2025)**
 
-Una actualización fundamental que convierte la web en un archivo histórico, permitiendo navegar entre diferentes temporadas de forma fluida e intuitiva.
+A major update that not only introduces a new analysis tool but also rebuilds the project's foundations to make it more robust and scalable.
 
-* **✈️ Navegación Multi-Temporada:** ¡La funcionalidad estrella! Se añade un menú desplegable en la cabecera que permite seleccionar y visualizar los datos (`Comunicados`, `Salseo`, `Participación`, `Ligas Especiales`) de cualquier temporada pasada.
-* **💾 Scraper Multi-Temporada:** El script `get_messages.py` ahora es consciente de la temporada activa. Genera y actualiza los archivos CSV con un sufijo de temporada (ej. `comunicados_25-26.csv`), manteniendo los datos de cada año perfectamente aislados y preservados.
-* **⚖️ Nueva Sección "Fair Play":** Se crea una página de reglamento completa, con un índice navegable, contenido dinámico (como la lista de Ligas Especiales) y un diseño mejorado para la lectura de las normas.
-* **🖥️ Panel de Admin Mejorado:** La sección "VAR (Admin)" ahora muestra el estado de los archivos correspondientes a la temporada que se está visualizando y avisa si alguno de los ficheros dinámicos lleva más de 7 días sin actualizarse.
-* **📱 Mejoras de UI/UX:** Se corrige la visualización del menú de navegación en dispositivos móviles para evitar que los textos se corten o solapen, y se solucionan problemas de posicionamiento en los menús desplegables.
+* **🚀 New `teams-analyzer` Module**: A new standalone tool for deep tactical analysis of the league, designed to be run locally.
+* **🕵️ Advanced Scraping with Selenium**: The analyser extracts performance data and coefficients from specialist sites like "Analítica Fantasy" and "Jornada Perfecta".
+* **📊 360º Analysis**: The script evaluates all league squads and free agents on the market, providing a complete view of the competition.
+* **📬 Telegram Notifications**: On completion, the script automatically sends the `analisis_biwenger.csv` report to a configured Telegram chat.
+* **🏗️ Major Architectural Refactor**: A key milestone! A deep code restructuring creates reusable modules in the `core` directories (for API clients like Biwenger and Google) and `logic` (for data processing). This change drastically reduces code duplication, improves maintainability, and lays the foundation for future project expansions.
+
+---
+
+### **v2.5 - The Time Traveller (18 August 2025)**
+
+A fundamental update that turns the web into a historical archive, allowing smooth and intuitive navigation between different seasons.
+
+* **✈️ Multi-Season Navigation:** The star feature! A dropdown menu in the header lets you select and view data (`Comunicados`, `Salseo`, `Participación`, `Ligas Especiales`) from any past season.
+* **💾 Multi-Season Scraper:** The `get_messages.py` script is now season-aware. It generates and updates CSV files with a season suffix (e.g. `comunicados_25-26.csv`), keeping each year's data perfectly isolated and preserved.
+* **⚖️ New "Fair Play" Section:** A complete rules page is created with a navigable index, dynamic content (like the Special Leagues list), and an improved layout for reading the rules.
+* **🖥️ Improved Admin Panel:** The "VAR (Admin)" section now shows the status of files for the season currently being viewed and warns if any dynamic files have not been updated for more than 7 days.
+* **📱 UI/UX Improvements:** Navigation menu display on mobile devices is fixed to prevent text being cut off or overlapping, and dropdown menu positioning issues are resolved.
 
 
-### **v2.0 - El Portal Definitivo (12 de Agosto, 2025)**
+### **v2.0 - The Definitive Portal (12 August 2025)**
 
-Una re-arquitectura clave para hacer el proyecto más robusto, seguro y fácil de mantener, sentando las bases para el futuro.
+A key re-architecture to make the project more robust, secure, and easy to maintain — laying the foundations for the future.
 
-* **🚀 (Beta) Nueva Sección "Ligas Especiales":** Se añade la funcionalidad más esperada. La web ahora puede leer y mostrar datos de competiciones especiales directamente desde un **Google Sheet**, permitiendo una gestión y actualización manual extremadamente sencilla.
-* **⚙️ Externalización de la Configuración:** Tanto el scraper como la aplicación web ahora utilizan un archivo `config.py` para gestionar sus parámetros. Las credenciales y datos sensibles se cargan de forma segura desde un archivo `.env` en local o desde Secret Manager / variables de entorno en la nube.
-* **🐛 Correcciones de Estabilidad:** Se solucionan bugs relacionados con la categorización de mensajes y la ordenación de fechas, asegurando que los datos se procesan y muestran siempre de forma correcta.
+* **🚀 (Beta) New "Special Leagues" Section:** The most anticipated feature. The web can now read and display data from special competitions directly from a **Google Sheet**, allowing extremely simple manual management and updates.
+* **⚙️ Configuration Externalisation:** Both the scraper and the web app now use a `config.py` file to manage their parameters. Sensitive credentials and data are loaded securely from a `.env` file locally or from Secret Manager / environment variables in the cloud.
+* **🐛 Stability Fixes:** Bugs related to message categorisation and date sorting are resolved, ensuring data is always processed and displayed correctly.
 
-### **v1.5 - El Portal Inteligente (12 de Agosto, 2025)**
+### **v1.5 - The Intelligent Portal (12 August 2025)**
 
-Una actualización masiva centrada en la inteligencia de datos y la expansión de funcionalidades, haciendo la web más rápida y completa.
+A massive update focused on data intelligence and feature expansion, making the web faster and more complete.
 
-* **✨ Nueva Categorización de Mensajes:** El script ahora analiza los títulos de los comunicados y los clasifica automáticamente como `comunicado`, `dato` o `cesion`, añadiendo una nueva columna al CSV.
-* **⚡️ Optimización de la Participación:** Se crea un nuevo archivo, `participacion.csv`, que es generado automáticamente por el scraper. La web ahora lee este archivo pre-procesado, haciendo que la pestaña de "Participación" cargue de forma instantánea.
-* **🌶️ Nueva Sección "Salseo":** Se crea una nueva página dedicada a los "Datos Curiosos" (Mr. Lucen) y a las "Cesiones", con filtros para alternar entre ambas categorías.
-* **📊 Tabla de Participación Mejorada:** La sección de participación se rediseña por completo para mostrar un desglose detallado del número de comunicados, datos y cesiones de cada jugador.
-* **📄 Paginación en la Página Principal:** Se implementa un sistema de paginación en la sección de "Comunicados" para manejar un gran volumen de mensajes de forma ordenada.
-* **🔍 Búsqueda Global:** El buscador de la página principal y de "Salseo" ahora busca en la totalidad de los mensajes, no solo en los visibles en la página actual.
+* **✨ New Message Categorisation:** The script now analyses announcement titles and classifies them automatically as `comunicado`, `dato`, or `cesion`, adding a new column to the CSV.
+* **⚡️ Participation Optimisation:** A new file, `participacion.csv`, is generated automatically by the scraper. The web now reads this pre-processed file, making the "Participación" tab load instantly.
+* **🌶️ New "Salseo" Section:** A new page is created dedicated to "Curious Facts" (Mr. Lucen) and "Clausulazos", with filters to switch between both categories.
+* **📊 Improved Participation Table:** The participation section is completely redesigned to show a detailed breakdown of the number of announcements, facts, and clausulazos per player.
+* **📄 Pagination on the Home Page:** A pagination system is implemented on the "Comunicados" section to handle a large volume of messages in an orderly way.
+* **🔍 Global Search:** The search bar on the home page and "Salseo" now searches across all messages, not just those visible on the current page.
 
-### **v1.0 - El Autómata (07 de Agosto, 2025)**
+### **v1.0 - The Automaton (07 August 2025)**
 
-¡La versión definitiva (por ahora)! El proyecto alcanza la madurez con una automatización completa y una arquitectura profesional.
+The definitive version (for now)! The project reaches maturity with full automation and a professional architecture.
 
-* **✨ ¡Automatización Total!** El script que recoge los datos ahora es un **Cloud Run Job**, programado para ejecutarse automáticamente cada semana con **Cloud Scheduler**. ¡Se acabaron las ejecuciones manuales!
-* **🔒 Seguridad Máxima:** Todas las credenciales sensibles (Biwenger, Google Drive) se han movido a **Google Secret Manager**. El código está limpio de secretos.
-* **🏗️ Arquitectura Desacoplada:** El proyecto se divide oficialmente en dos partes: el **scraper automatizado** (el job) y la **aplicación web**, cada uno con su propio ciclo de vida.
-* **🐛 Corrección de Errores:** Se solucionan errores de permisos y configuración de `gcloud` para un despliegue robusto.
+* **✨ Full Automation!** The data collection script is now a **Cloud Run Job**, scheduled to run automatically every week with **Cloud Scheduler**. No more manual runs!
+* **🔒 Maximum Security:** All sensitive credentials (Biwenger, Google Drive) have been moved to **Google Secret Manager**. The code is clean of secrets.
+* **🏗️ Decoupled Architecture:** The project is officially split into two parts: the **automated scraper** (the job) and the **web application**, each with its own lifecycle.
+* **🐛 Bug Fixes:** Permissions and `gcloud` configuration errors are resolved for a robust deployment.
 
-### **v0.5 - El Portal (06 de Agosto, 2025)**
+### **v0.5 - The Portal (06 August 2025)**
 
-La aplicación web evoluciona de una simple página a un portal completo para la liga.
+The web application evolves from a simple page to a complete portal for the league.
 
-* **🎨 Nuevo Diseño:** Se implementa un tema visual más limpio y elegante, mejorando la legibilidad en todos los dispositivos.
-* **📊 Nueva Sección "Participación":** Se añade una página que muestra un ranking de los comunicados publicados por cada participante, con una tabla ordenable.
-* **🏆 Nueva Sección "Palmarés":** Se crea una sección para mostrar el historial de ganadores, podios y otros datos curiosos de temporadas pasadas, leídos desde un segundo archivo CSV.
-* **🐛 Correcciones de Datos:** Se mejora la lógica para identificar correctamente a los autores de los comunicados y se solucionan problemas de formato en la sección de Palmarés.
+* **🎨 New Design:** A cleaner, more elegant visual theme is implemented, improving readability on all devices.
+* **📊 New "Participación" Section:** A page is added showing a ranking of announcements published by each participant, with a sortable table.
+* **🏆 New "Palmarés" Section:** A section is created to show the history of winners, podiums, and other curiosities from past seasons, read from a second CSV file.
+* **🐛 Data Fixes:** Logic to correctly identify announcement authors is improved and formatting issues in the Palmarés section are resolved.
 
-### **v0.4 - Conexión a la Nube (05 de Agosto, 2025)**
+### **v0.4 - Cloud Connection (05 August 2025)**
 
-Un paso crucial: separamos los datos de la aplicación para hacer el sistema más flexible y escalable.
+A crucial step: we separate the data from the application to make the system more flexible and scalable.
 
-* **☁️ Integración con Google Drive:** El script de Python se modifica para subir el archivo `biwenger_comunicados.csv` a una carpeta de Google Drive.
-* **🌐 Lectura desde la Nube:** La aplicación Flask ahora lee los datos directamente desde una URL pública del CSV en Google Drive, en lugar de un archivo local.
-* **🚀 Preparación para el Despliegue:** Se containeriza la aplicación web con **Docker** y se prepara para su despliegue en **Cloud Run**.
+* **☁️ Google Drive Integration:** The Python script is modified to upload the `biwenger_comunicados.csv` file to a Google Drive folder.
+* **🌐 Cloud Reading:** The Flask application now reads data directly from a public CSV URL in Google Drive, instead of a local file.
+* **🚀 Deployment Preparation:** The web application is containerised with **Docker** and prepared for deployment on **Cloud Run**.
 
-### **v0.3 - El Museo (04 de Agosto, 2025)**
+### **v0.3 - The Museum (04 August 2025)**
 
-Nace la primera interfaz visual para leer los comunicados de una forma más amigable que un simple CSV.
+The first visual interface is born for reading announcements in a friendlier way than a plain CSV.
 
-* **🐍 Nace la Web:** Se crea una aplicación web básica con **Flask**.
-* **🎨 Primera Interfaz:** Se diseña una plantilla HTML con **Tailwind CSS** para mostrar los comunicados en tarjetas.
-* **🔍 Funcionalidad de Búsqueda:** Se añade una barra de búsqueda con JavaScript para filtrar los comunicados en tiempo real.
+* **🐍 The Web is Born:** A basic web application is created with **Flask**.
+* **🎨 First Interface:** An HTML template is designed with **Tailwind CSS** to display announcements in cards.
+* **🔍 Search Functionality:** A JavaScript search bar is added to filter announcements in real time.
 
-### **v0.2 - El Recolector (03 de Agosto, 2025)**
+### **v0.2 - The Collector (03 August 2025)**
 
-El script evoluciona para convertirse en una herramienta de backup funcional.
+The script evolves into a functional backup tool.
 
-* **💾 Guardado en CSV:** El script ahora guarda todos los datos extraídos (fecha, título, autor, contenido) en un archivo `biwenger_comunicados.csv`.
-* **🔄 Lógica de Actualización:** El script se vuelve inteligente: lee el CSV existente y añade solo los comunicados nuevos, manteniendo el archivo siempre al día y ordenado.
-* **🆔 ID Único:** Se implementa un sistema de hash para asignar un ID único a cada comunicado, evitando duplicados.
+* **💾 CSV Saving:** The script now saves all extracted data (date, title, author, content) to a `biwenger_comunicados.csv` file.
+* **🔄 Update Logic:** The script becomes smart: it reads the existing CSV and adds only new announcements, keeping the file always up to date and sorted.
+* **🆔 Unique ID:** A hash system is implemented to assign a unique ID to each announcement, preventing duplicates.
 
-### **v0.1 - La Chispa (02 de Agosto, 2025)**
+### **v0.1 - The Spark (02 August 2025)**
 
-El origen de todo. Un único script de Python con un objetivo claro.
+The origin of everything. A single Python script with a clear goal.
 
-* **🔑 Inicio de Sesión:** El script es capaz de autenticarse en Biwenger usando credenciales locales.
-* **📊 Extracción Básica:** Se conecta a la API interna de Biwenger para obtener datos básicos de la liga, como el nombre y el número de participantes.
-* **💻 Salida por Consola:** Toda la información se muestra directamente en la terminal.
+* **🔑 Login:** The script can authenticate with Biwenger using local credentials.
+* **📊 Basic Extraction:** It connects to the Biwenger internal API to obtain basic league data, such as the name and number of participants.
+* **💻 Console Output:** All information is displayed directly in the terminal.
