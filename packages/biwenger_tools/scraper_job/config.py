@@ -22,7 +22,14 @@ BASE_URL = "https://biwenger.as.com/api/v2"
 LOGIN_URL = f"{BASE_URL}/auth/login"
 ACCOUNT_URL = f"{BASE_URL}/account"
 LEAGUE_USERS_URL = f"{BASE_URL}/league/{LEAGUE_ID}?fields=standings"
-BOARD_MESSAGES_URL = f"{BASE_URL}/league/{LEAGUE_ID}/board?type=text&limit=200"
+CLAUSULAZOS_URL = f"{BASE_URL}/league/{LEAGUE_ID}/board?type=transfer&fields=*,content(*,player(*))"
+
+BIWENGER_CF_BASE_URL = "https://cf.biwenger.com/api/v2"
+ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE_URL}/competitions/la-liga/data?lang=es&score=100"
+
+# --- NOMBRES BASE DE ARCHIVOS CSV ---
+CLAUSULAZOS_FILENAME_BASE = "clausulazos"
+TABLA_JUSTICIA_FILENAME_BASE = "tabla_justicia"
 
 # Rutas donde Cloud Run montará los secretos como archivos
 BIWENGER_EMAIL_PATH = "/biwenger_email/biwenger-email"

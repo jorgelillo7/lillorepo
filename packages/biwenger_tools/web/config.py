@@ -45,18 +45,6 @@ CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
 SECRET_KEY = os.getenv("SECRET_KEY", "default-dev-key")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# --- BIWENGER API ---
-BIWENGER_EMAIL = os.getenv("BIWENGER_EMAIL")
-BIWENGER_PASSWORD = os.getenv("BIWENGER_PASSWORD")
-BIWENGER_LEAGUE_ID = "340703"
-BIWENGER_BASE_URL = "https://biwenger.as.com/api/v2"
-BIWENGER_LOGIN_URL = f"{BIWENGER_BASE_URL}/auth/login"
-BIWENGER_ACCOUNT_URL = f"{BIWENGER_BASE_URL}/account"
-CLAUSULAZOS_URL = f"{BIWENGER_BASE_URL}/league/{BIWENGER_LEAGUE_ID}/board?type=transfer&limit=200&fields=*,content(*,player(*))"
-BIWENGER_CF_BASE_URL = "https://cf.biwenger.com/api/v2"
-ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE_URL}/competitions/la-liga/data?lang=es&score=100"
-CLAUSULAZOS_CSV_PATH = "/tmp/clausulazos.csv"
-
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7
 
@@ -64,3 +52,5 @@ MESSAGES_PER_PAGE = 7
 COMUNICADOS_FILENAME_BASE = "comunicados"
 PARTICIPACION_FILENAME_BASE = "participacion"
 PALMARES_FILENAME = "palmares.csv"
+CLAUSULAZOS_FILENAME_BASE = "clausulazos"
+TABLA_JUSTICIA_FILENAME_BASE = "tabla_justicia"

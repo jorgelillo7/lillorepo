@@ -1,4 +1,4 @@
-import csv
+import json
 import os
 import pytz
 import ssl
@@ -18,7 +18,6 @@ from flask import (
 )
 
 from packages.biwenger_tools.web import config
-from core.sdk.biwenger import BiwengerClient
 from core.sdk.gcp import (
     get_google_service,
     find_file_on_drive,
@@ -35,7 +34,6 @@ app.config["SECRET_KEY"] = config.SECRET_KEY
 # Se inicializan una vez al arrancar la app para reutilizarlos en todas las rutas.
 drive_service = None
 sheets_service = None
-biwenger_client = None
 
 try:
     # Construct paths relative to the current file
@@ -54,172 +52,6 @@ try:
 except Exception as e:
     # Log critical error if services fail to initialize
     print(f"CRITICAL ERROR: No se pudieron inicializar los servicios de Google: {e}")
-
-players_map = {}
-
-if config.BIWENGER_EMAIL and config.BIWENGER_PASSWORD:
-    try:
-        biwenger_client = BiwengerClient(
-            config.BIWENGER_EMAIL,
-            config.BIWENGER_PASSWORD,
-            config.BIWENGER_LOGIN_URL,
-            config.BIWENGER_ACCOUNT_URL,
-            config.BIWENGER_LEAGUE_ID,
-        )
-        players_map = biwenger_client.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-    except Exception as e:
-        print(f"WARNING: No se pudo inicializar BiwengerClient o cargar jugadores: {e}")
-
-
-# --- HELPERS ---
-
-CLAUSULAZOS_CSV_FIELDS = ["fecha", "jugador", "equipo_vendedor", "equipo_comprador", "precio"]
-
-
-def _parse_clausulazos(raw_data):
-    """Transforma la respuesta cruda de la API en una lista de dicts normalizados.
-
-    Estructura real (type=transfer, content items con type=clause):
-    {
-      "content": [
-        {
-          "type": "clause",
-          "amount": 10158750,
-          "from": {"name": "Ferraz fc"},          # equipo vendedor
-          "to":   {"name": "Los caídos..."},       # equipo comprador
-          "player": <id_int> | {"id":..,"name":..} # jugador
-        }
-      ],
-      "date": 1776970759,
-      "type": "transfer"
-    }
-    Un mismo entry puede contener varios clausulazos.
-    """
-    entries = raw_data.get("data", [])
-    if isinstance(entries, dict):
-        entries = list(entries.values())
-
-    clausulazos = []
-    madrid_tz = pytz.timezone("Europe/Madrid")
-
-    for entry in entries:
-        try:
-            content = entry.get("content") or []
-            clause_items = [c for c in content if c.get("type") == "clause"]
-            if not clause_items:
-                continue
-
-            timestamp = entry.get("date", 0)
-            fecha = datetime.fromtimestamp(timestamp, tz=madrid_tz).strftime("%d-%m-%Y %H:%M")
-
-            for item in clause_items:
-                player_data = item.get("player")
-                if isinstance(player_data, dict):
-                    jugador = player_data.get("name") or f"#{player_data.get('id', '?')}"
-                elif player_data is not None:
-                    player_id = int(player_data)
-                    player_info = players_map.get(player_id, {})
-                    jugador = player_info.get("name") or f"#{player_id}"
-                else:
-                    jugador = "Desconocido"
-
-                from_team = item.get("from") or {}
-                equipo_vendedor = from_team.get("name", "—")
-
-                to_team = item.get("to") or {}
-                equipo_comprador = to_team.get("name", "—")
-
-                precio = int(item.get("amount", 0))
-
-                clausulazos.append({
-                    "fecha": fecha,
-                    "jugador": jugador,
-                    "equipo_vendedor": equipo_vendedor,
-                    "equipo_comprador": equipo_comprador,
-                    "precio": precio,
-                })
-        except Exception as parse_err:
-            print(f"WARNING: Error parseando clausulazo: {parse_err} — entry: {entry}")
-
-    return clausulazos
-
-
-def _save_clausulazos_csv(clausulazos):
-    """Guarda la lista de clausulazos en el CSV local."""
-    try:
-        with open(config.CLAUSULAZOS_CSV_PATH, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=CLAUSULAZOS_CSV_FIELDS)
-            writer.writeheader()
-            writer.writerows(clausulazos)
-        print(f"✅ CSV de clausulazos guardado en {config.CLAUSULAZOS_CSV_PATH} ({len(clausulazos)} entradas).")
-    except Exception as e:
-        print(f"WARNING: No se pudo guardar el CSV de clausulazos: {e}")
-
-
-def _build_tabla_justicia(clausulazos):
-    """Construye el resumen de ataques realizados y recibidos por cada equipo.
-
-    Devuelve una lista con todos los equipos, ordenada por ataques realizados:
-    [
-      {
-        'equipo': 'Rayo Entrebirras',
-        'total_hechos': 4,
-        'total_recibidos': 3,
-        'punto_de_mira': 'Ferraz fc',       # a quien más han atacado
-        'mayor_agresor': 'Kairat FC',       # quien más les ha atacado a ellos
-        'hechos': [('Ferraz fc', 3), ...],
-        'recibidos': [('Kairat FC', 2), ...],
-      },
-      ...
-    ]
-    """
-    from collections import defaultdict
-    ataques_hechos = defaultdict(lambda: defaultdict(int))
-    ataques_recibidos = defaultdict(lambda: defaultdict(int))
-    equipos = set()
-
-    for c in clausulazos:
-        comprador = c["equipo_comprador"]
-        vendedor = c["equipo_vendedor"]
-        if comprador and comprador != "—" and vendedor and vendedor != "—":
-            ataques_hechos[comprador][vendedor] += 1
-            ataques_recibidos[vendedor][comprador] += 1
-            equipos.add(comprador)
-            equipos.add(vendedor)
-
-    tabla = []
-    for equipo in equipos:
-        hechos = dict(ataques_hechos.get(equipo, {}))
-        recibidos = dict(ataques_recibidos.get(equipo, {}))
-        hechos_sorted = sorted(hechos.items(), key=lambda x: x[1], reverse=True)
-        recibidos_sorted = sorted(recibidos.items(), key=lambda x: x[1], reverse=True)
-        tabla.append({
-            "equipo": equipo,
-            "total_hechos": sum(hechos.values()),
-            "total_recibidos": sum(recibidos.values()),
-            "punto_de_mira": hechos_sorted[0][0] if hechos_sorted else "—",
-            "mayor_agresor": recibidos_sorted[0][0] if recibidos_sorted else "—",
-            "hechos": hechos_sorted,
-            "recibidos": recibidos_sorted,
-        })
-
-    tabla.sort(key=lambda x: x["total_hechos"], reverse=True)
-    return tabla
-
-
-def fetch_clausulazos():
-    """Llama a la API de Biwenger, guarda en CSV y devuelve la lista."""
-    if not biwenger_client:
-        return [], [], "El cliente de Biwenger no está disponible (faltan credenciales)."
-    try:
-        raw = biwenger_client.get_clausulazos(config.CLAUSULAZOS_URL)
-        clausulazos = _parse_clausulazos(raw)
-        _save_clausulazos_csv(clausulazos)
-        tabla_justicia = _build_tabla_justicia(clausulazos)
-        return clausulazos, tabla_justicia, None
-    except Exception as e:
-        print(f"ERROR obteniendo clausulazos: {e}")
-        return [], [], f"Error al obtener clausulazos de Biwenger: {e}"
 
 
 # --- REQUEST HANDLERS ---
@@ -333,6 +165,7 @@ def salseo(season):
     datos_curiosos = []
     cronicas = []
     clausulazos = []
+    tabla_justicia = []
     clausulazos_error = None
 
     try:
@@ -363,7 +196,37 @@ def salseo(season):
         error = f"Ocurrió un error al cargar los datos de la temporada {g.season}: {e}"
         print(error)
 
-    clausulazos, tabla_justicia, clausulazos_error = fetch_clausulazos()
+    try:
+        if drive_service:
+            clausulazos_filename = (
+                f"{config.CLAUSULAZOS_FILENAME_BASE}_{g.season}.csv"
+            )
+            clausulazos_meta = find_file_on_drive(
+                drive_service, clausulazos_filename, config.GDRIVE_FOLDER_ID
+            )
+            if clausulazos_meta:
+                raw = download_csv_as_dict(drive_service, clausulazos_meta["id"])
+                for row in raw:
+                    row["precio"] = int(row.get("precio", 0) or 0)
+                clausulazos = raw
+
+            tabla_filename = (
+                f"{config.TABLA_JUSTICIA_FILENAME_BASE}_{g.season}.csv"
+            )
+            tabla_meta = find_file_on_drive(
+                drive_service, tabla_filename, config.GDRIVE_FOLDER_ID
+            )
+            if tabla_meta:
+                raw_tabla = download_csv_as_dict(drive_service, tabla_meta["id"])
+                for row in raw_tabla:
+                    row["total_hechos"] = int(row.get("total_hechos", 0) or 0)
+                    row["total_recibidos"] = int(row.get("total_recibidos", 0) or 0)
+                    row["hechos"] = json.loads(row.get("hechos", "[]") or "[]")
+                    row["recibidos"] = json.loads(row.get("recibidos", "[]") or "[]")
+                tabla_justicia = raw_tabla
+    except Exception as e:
+        clausulazos_error = f"Error al cargar clausulazos: {e}"
+        print(clausulazos_error)
 
     return render_template(
         "salseo.html",
@@ -473,22 +336,6 @@ def lloros_awards(season):
         temporadas_disponibles=config.TEMPORADAS_DISPONIBLES,
     )
 
-
-@app.route("/api/debug/clausulazos")
-@app.route("/api/debug/clausulazos/<event_type>")
-def api_debug_clausulazos(event_type="clauseIncrement"):
-    """Endpoint temporal para inspeccionar el JSON crudo de la API con distintos tipos.
-    Prueba: /api/debug/clausulazos/clause  o  /api/debug/clausulazos/transfer
-    """
-    if not biwenger_client:
-        return jsonify({"error": "BiwengerClient no disponible"}), 503
-    try:
-        base = f"{config.BIWENGER_BASE_URL}/league/{config.BIWENGER_LEAGUE_ID}/board"
-        url = f"{base}?type={event_type}&limit=20&fields=*,content(*,player(*),user(*))"
-        raw = biwenger_client.get_clausulazos(url)
-        return jsonify(raw)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/lloros-awards/ligas")

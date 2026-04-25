@@ -13,6 +13,9 @@ from packages.biwenger_tools.scraper_job.logic.processing import (
     process_participation,
     sort_messages,
     get_all_board_messages,
+    get_all_clausulazos,
+    parse_clausulazos,
+    build_tabla_justicia,
 )
 from core.sdk.gcp import (
     get_google_service,
@@ -177,6 +180,67 @@ def main():
             )
         else:
             print("\n✅ No hay mensajes nuevos.")
+
+        # --- 6. Clausulazos: siempre regenerar ---
+        print("\n--- Procesando clausulazos ---")
+        players_map = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
+        raw_clausulazos = get_all_clausulazos(
+            biwenger, config.CLAUSULAZOS_URL
+        )
+        clausulazos = parse_clausulazos(raw_clausulazos, players_map)
+        tabla_justicia = build_tabla_justicia(clausulazos)
+        print(f"📊 {len(clausulazos)} clausulazos procesados.")
+
+        clausulazos_filename = (
+            f"{config.CLAUSULAZOS_FILENAME_BASE}_{config.TEMPORADA_ACTUAL}.csv"
+        )
+        clausulazos_file_meta = find_file_on_drive(
+            drive_service, clausulazos_filename, gdrive_folder_id
+        )
+        output_clausulazos = io.StringIO()
+        writer = csv.DictWriter(
+            output_clausulazos,
+            fieldnames=["fecha", "jugador", "equipo_vendedor", "equipo_comprador", "precio"],
+        )
+        writer.writeheader()
+        writer.writerows(clausulazos)
+        upload_csv_to_drive(
+            drive_service,
+            gdrive_folder_id,
+            clausulazos_filename,
+            output_clausulazos.getvalue(),
+            clausulazos_file_meta["id"] if clausulazos_file_meta else None,
+        )
+
+        tabla_justicia_filename = (
+            f"{config.TABLA_JUSTICIA_FILENAME_BASE}_{config.TEMPORADA_ACTUAL}.csv"
+        )
+        tabla_justicia_file_meta = find_file_on_drive(
+            drive_service, tabla_justicia_filename, gdrive_folder_id
+        )
+        output_tabla = io.StringIO()
+        writer = csv.DictWriter(
+            output_tabla,
+            fieldnames=[
+                "equipo",
+                "total_hechos",
+                "total_recibidos",
+                "punto_de_mira",
+                "mayor_agresor",
+                "hechos",
+                "recibidos",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(tabla_justicia)
+        upload_csv_to_drive(
+            drive_service,
+            gdrive_folder_id,
+            tabla_justicia_filename,
+            output_tabla.getvalue(),
+            tabla_justicia_file_meta["id"] if tabla_justicia_file_meta else None,
+        )
+        print("✅ CSVs de clausulazos y tabla de justicia subidos a Drive.")
 
     except Exception as e:
         print(f"❌ Ocurrió un error inesperado: {e}")

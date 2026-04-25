@@ -36,6 +36,8 @@ def mock_external_deps():
 
         mock_biwenger_instance = MagicMock()
         mock_biwenger_client.return_value = mock_biwenger_instance
+        mock_biwenger_instance.get_all_players_data_map.return_value = {}
+        mock_biwenger_instance.get_clausulazos.return_value = {"data": []}
 
         yield {
             "gservice": mock_gservice,
@@ -113,7 +115,8 @@ def test_main_with_new_messages(mock_external_deps):
     # Se llama a la función main() directamente
     main()
 
-    assert mock_external_deps["upload_csv"].call_count == 2
+    # comunicados + participacion + clausulazos + tabla_justicia
+    assert mock_external_deps["upload_csv"].call_count == 4
 
     call_args = mock_external_deps["upload_csv"].call_args_list[0]
     uploaded_content = call_args[0][3]
@@ -151,4 +154,10 @@ def test_main_no_new_messages(mock_external_deps):
     # Se llama a la función main() directamente
     main()
 
-    mock_external_deps["upload_csv"].assert_not_called()
+    # Clausulazos siempre se suben (independiente de si hay mensajes nuevos)
+    assert mock_external_deps["upload_csv"].call_count == 2
+    uploaded_names = [
+        call[0][2] for call in mock_external_deps["upload_csv"].call_args_list
+    ]
+    assert any("clausulazos" in name for name in uploaded_names)
+    assert any("tabla_justicia" in name for name in uploaded_names)

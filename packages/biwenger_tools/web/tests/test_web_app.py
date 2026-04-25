@@ -164,19 +164,20 @@ def test_comunicados_general_exception(mock_find_file, mock_download_csv, client
 
 
 @patch("packages.biwenger_tools.web.app.download_csv_as_dict")
-@patch(
-    "packages.biwenger_tools.web.app.find_file_on_drive", return_value={"id": "fake_id"}
-)
+@patch("packages.biwenger_tools.web.app.find_file_on_drive")
 def test_salseo_success(
     mock_find_file, mock_download_csv, client, mock_comunicados_data
 ):
     """Verifica que la página de salseo se carga correctamente con datos."""
+    # Primera llamada: comunicados. Siguientes (clausulazos, tabla_justicia): no encontrado.
+    mock_find_file.side_effect = [{"id": "fake_id"}, None, None]
     mock_download_csv.return_value = mock_comunicados_data
     response = client.get("/24-25/salseo")
     assert response.status_code == 200
     assert b"D1" in response.data
-    assert b"CES1" in response.data
+    assert b"CR1" in response.data
     assert b"C1" not in response.data
+    assert b"CES1" not in response.data
 
 
 @patch("packages.biwenger_tools.web.app.download_csv_as_dict")
