@@ -2,6 +2,18 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v4.1 - The Clausulazo Hunter (25 April 2026)**
+
+The Salseo gets smarter. Clausulazos — those jaw-dropping transfer fees that shake the league — are now a first-class citizen: detected by the scraper, processed with proper logic, and showcased in their own section of the web. A round of refactors and a translation sprint round out the release.
+
+* **🌶️ New "Clausulazos" Section in Salseo**: Cesiones is out, Clausulazos is in. The Salseo page now features a dedicated section to highlight the biggest transfer fees in the league, with a fresh UI to match.
+* **🔄 Clausulazos Logic Moves to the Scraper**: Detection and processing of clausulazo messages is extracted from the web and moved into `scraper_job/logic/processing.py`, where it belongs. The web now just displays what the scraper has already classified — cleaner, faster, and properly tested.
+* **🧪 New Processing Tests**: The new `logic/processing.py` module comes with a full test suite (`test_processing.py`), ensuring clausulazo detection is reliable across edge cases.
+* **🏗️ Web Bazel Refactor**: The web's `BUILD.bazel` is slimmed down significantly. A new `Makefile` and `entrypoint.sh` are introduced to simplify local development and container startup, reducing the cognitive overhead of working with the web module.
+* **🌍 Docs Now in English**: All READMEs and documentation across the project have been translated to English, making the codebase more accessible and consistent.
+
+---
+
 ### **v4.0 - Welcome, Mr. Bazel (30 September 2025)**
 
 A total re-architecture that transforms the project into a **monorepo** managed by **Bazel**, Google's build system. Was it necessary? Not really. Did we want to push cutting-edge technology and see how far we could take it? Absolutely. This change lays the foundation for a faster, more scalable, and more professional project than ever.
