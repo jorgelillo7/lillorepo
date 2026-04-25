@@ -1,5 +1,6 @@
 # scraper_job/BUILD.bazel
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "strip_prefix")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
 
@@ -46,24 +47,45 @@ pkg_tar(
     package_dir = "/app",
 )
 
+# Ficheros raíz del paquete (sin subdirectorios)
+pkg_tar(
+    name = "_code_root",
+    srcs = glob(["*.py"]) + ["entrypoint.sh"],
+    package_dir = "/app/packages/biwenger_tools/scraper_job",
+    strip_prefix = strip_prefix.from_pkg(),
+    mode = "0755",
+)
+
+# Subdirectorio logic/
+pkg_tar(
+    name = "_code_logic",
+    srcs = glob(["logic/*.py"]),
+    package_dir = "/app/packages/biwenger_tools/scraper_job/logic",
+    strip_prefix = strip_prefix.from_pkg("logic"),
+    mode = "0755",
+)
+
+# Secretos (solo local)
+pkg_tar(
+    name = "_secrets",
+    srcs = [
+        "biwenger-tools-sa.json",
+        ".env",
+    ],
+    package_dir = "/app/packages/biwenger_tools/scraper_job",
+    strip_prefix = strip_prefix.from_pkg(),
+)
+
 # Capa base sin secretos (para GCP)
 pkg_tar(
     name = "scraper_job_base_layer",
-    srcs = glob(["**/*.py"]) + ["entrypoint.sh"],
-    package_dir = "/app/packages/biwenger_tools/scraper_job",
-    mode = "0755",
+    deps = [":_code_root", ":_code_logic"],
 )
 
 # Capa con secretos (para local)
 pkg_tar(
     name = "scraper_job_local_layer",
-    srcs = glob(["**/*.py"]) + [
-        "entrypoint.sh",
-        "biwenger-tools-sa.json",
-        ".env",
-    ],
-    package_dir = "/app/packages/biwenger_tools/scraper_job",
-    mode = "0755",
+    deps = [":_code_root", ":_code_logic", ":_secrets"],
 )
 
 # =================================================================
