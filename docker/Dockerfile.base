@@ -2,7 +2,7 @@
 # Imagen base con TODAS las dependencias del monorepo pre-instaladas
 # Se construye UNA VEZ y se reutiliza en todos los servicios
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Instalar todas las dependencias (combinadas de requirements_lock.txt)
 RUN pip install --no-cache-dir \
