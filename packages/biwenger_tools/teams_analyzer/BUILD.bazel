@@ -1,7 +1,7 @@
 # teams_analyzer/BUILD.bazel
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_tarball")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 
 # =================================================================
 # 1️⃣ LIBRERÍA PRINCIPAL
@@ -98,7 +98,7 @@ oci_image(
 # =================================================================
 # 5️⃣ COMANDO PARA CARGAR LA IMAGEN A DOCKER
 # =================================================================
-oci_tarball(
+oci_load(
     name = "load_image_to_docker_local",
     image = ":teams_analyzer_image_local",
     repo_tags = ["bazel/teams_analyzer:local"],

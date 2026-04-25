@@ -1,6 +1,6 @@
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_push", "oci_tarball")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
 
 def biwenger_service(
@@ -112,7 +112,7 @@ def biwenger_service(
         workdir = "/app",
     )
 
-    oci_tarball(
+    oci_load(
         name = "load_image_to_docker_local",
         image = ":" + name + "_image_local",
         repo_tags = ["bazel/" + name + ":local"],
