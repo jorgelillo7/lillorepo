@@ -39,91 +39,80 @@ py_binary(
 # 3️⃣ CAPAS PARA LA IMAGEN DOCKER
 # =================================================================
 pkg_tar(
-    name = "requirements_layer",
-    srcs = ["//:requirements_lock.txt"],
-    package_dir = "/app",
-)
-
-pkg_tar(
     name = "core_layer",
-    srcs = ["//core"],
+    files = {
+        "//core:core_srcs": "core_srcs.tar",
+    },
     package_dir = "/app",
 )
 
-# --- NUEVO: Capa base sin secretos (para GCP) ---
+# Capa base sin secretos (para GCP)
 pkg_tar(
     name = "scraper_job_base_layer",
-    srcs = glob(["**/*.py"]),
+    srcs = glob(["**/*.py"]) + ["entrypoint.sh"],
     package_dir = "/app/packages/biwenger_tools/scraper_job",
+    mode = "0755",
 )
 
-# --- NUEVO: Capa con secretos (para local) ---
+# Capa con secretos (para local)
 pkg_tar(
     name = "scraper_job_local_layer",
     srcs = glob(["**/*.py"]) + [
+        "entrypoint.sh",
         "biwenger-tools-sa.json",
         ".env",
     ],
     package_dir = "/app/packages/biwenger_tools/scraper_job",
+    mode = "0755",
 )
 
 # =================================================================
 # 4️⃣ IMÁGENES DOCKER (LOCAL Y GCP)
 # =================================================================
 
-# --- MODIFICADO: Imagen LOCAL con secretos ---
+# Imagen LOCAL con secretos
 oci_image(
     name = "scraper_job_image_local",
-    base = "@python_base_image",
+    base = "@python_with_deps",
     tars = [
-        ":requirements_layer",
         ":core_layer",
-        ":scraper_job_local_layer", # <-- Usa la capa con secretos
+        ":scraper_job_local_layer",
     ],
     env = {
         "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
     },
-    entrypoint = [
-        "/bin/sh",
-        "-c",
-        "pip install --no-cache-dir -r /app/requirements_lock.txt && python -m packages.biwenger_tools.scraper_job.get_messages",
-    ],
+    entrypoint = ["/app/packages/biwenger_tools/scraper_job/entrypoint.sh"],
 )
 
-# --- MODIFICADO: Imagen GCP sin secretos ---
+# Imagen GCP sin secretos
 oci_image(
-    name = "scraper_job_image_gcp", # <-- Renombrada para mayor claridad
-    base = "@python_base_image",
+    name = "scraper_job_image_gcp",
+    base = "@python_with_deps",
     tars = [
-        ":requirements_layer",
         ":core_layer",
-        ":scraper_job_base_layer", # <-- Usa la capa base limpia
+        ":scraper_job_base_layer",
     ],
     env = {
         "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
     },
-    entrypoint = [
-        "/bin/sh",
-        "-c",
-        "pip install --no-cache-dir -r /app/requirements_lock.txt && python -m packages.biwenger_tools.scraper_job.get_messages",
-    ],
+    entrypoint = ["/app/packages/biwenger_tools/scraper_job/entrypoint.sh"],
 )
 
 # =================================================================
 # 5️⃣ COMANDOS PARA DOCKER Y GCP
 # =================================================================
 
-# --- MODIFICADO: Ahora construye la imagen local ---
 oci_tarball(
     name = "load_image_to_docker_local",
-    image = ":scraper_job_image_local", # <-- Apunta a la imagen local
+    image = ":scraper_job_image_local",
     repo_tags = ["bazel/scraper_job:local"],
 )
 
-# --- MODIFICADO: Ahora construye la imagen de GCP ---
 oci_push(
     name = "push_image_to_gcp",
-    image = ":scraper_job_image_gcp", # <-- Apunta a la imagen de GCP
+    image = ":scraper_job_image_gcp",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job",
     remote_tags = ["latest"],
 )
