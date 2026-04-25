@@ -130,3 +130,12 @@ class BiwengerClient:
         market_players = response.json().get("data", {}).get("sales", [])
         print(f"✅ Se han encontrado {len(market_players)} jugadores en el mercado.")
         return market_players
+
+    def get_clausulazos(self, clausulazos_url):
+        """Obtiene los clausulazos (compras por cláusula) del tablón de la liga."""
+        print("▶️  Obteniendo clausulazos...")
+        response = self.session.get(clausulazos_url)
+        response.raise_for_status()
+        data = response.json()
+        print(f"✅ Clausulazos obtenidos.")
+        return data
