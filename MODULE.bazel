@@ -7,7 +7,7 @@ module(
 # Dependencias de reglas de Bazel
 bazel_dep(name = "rules_python", version = "0.37.0")
 bazel_dep(name = "rules_oci", version = "1.7.4")
-bazel_dep(name = "rules_pkg", version = "0.10.1")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "platforms", version = "0.0.9")
 
 # --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
