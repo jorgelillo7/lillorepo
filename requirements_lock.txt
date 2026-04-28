@@ -127,6 +127,8 @@ python-dotenv==1.1.1
     # via
     #   -r requirements.in
     #   webdriver-manager
+python-json-logger==4.1.0
+    # via -r requirements.in
 pytz==2025.2
     # via -r requirements.in
 requests==2.32.5

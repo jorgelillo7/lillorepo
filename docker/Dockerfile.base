@@ -2,7 +2,7 @@
 # Imagen base con TODAS las dependencias del monorepo pre-instaladas
 # Se construye UNA VEZ y se reutiliza en todos los servicios
 
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:4386a385d81dba9f72ed72a6fe4237755d7f5440c84b417650f38336bbc43117
 
 # Instalar todas las dependencias (combinadas de requirements_lock.txt)
 RUN pip install --no-cache-dir \
@@ -52,6 +52,7 @@ RUN pip install --no-cache-dir \
     pytest==8.4.2 \
     python-dateutil==2.9.0.post0 \
     python-dotenv==1.1.1 \
+    python-json-logger==4.1.0 \
     pytz==2025.2 \
     requests==2.32.5 \
     requests-mock==1.12.1 \
