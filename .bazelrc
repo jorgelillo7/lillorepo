@@ -5,3 +5,9 @@ common --enable_bzlmod
 
 # Usa el Bazel Central Registry (BCR) para buscar paquetes
 common --registry=https://bcr.bazel.build
+
+# Mostrar solo errores en tests por defecto (pasar --test_output=streamed para debug)
+test --test_output=errors
+
+# Config para builds de imagen GCP (usar con --config=gcp)
+build:gcp --platforms=//platforms:linux_amd64

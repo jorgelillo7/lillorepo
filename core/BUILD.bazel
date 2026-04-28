@@ -1,14 +1,33 @@
 load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
+# ------------------------------------------------------------------
+# Base: shared init files + utilities (no heavy external deps)
+# ------------------------------------------------------------------
 py_library(
-    name = "core",
-    srcs = glob(
-        ["**/*.py"],
-        exclude = ["tests/**/*.py"],
-    ),
+    name = "_init",
+    srcs = [
+        "__init__.py",
+        "utils.py",
+        "domain/__init__.py",
+        "domain/models.py",
+        "sdk/__init__.py",
+    ],
     deps = [
-        "@pypi//requests",
+        "@pypi//python_json_logger",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+# ------------------------------------------------------------------
+# Granular public targets — use these in new packages to scope deps
+# ------------------------------------------------------------------
+
+py_library(
+    name = "gcp",
+    srcs = ["sdk/gcp.py"],
+    deps = [
+        ":_init",
         "@pypi//google_api_python_client",
         "@pypi//google_auth_oauthlib",
         "@pypi//google_auth",
@@ -18,15 +37,50 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
-# Exportar como tar preservando estructura
+py_library(
+    name = "telegram",
+    srcs = ["sdk/telegram.py"],
+    deps = [
+        ":_init",
+        "@pypi//requests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "biwenger",
+    srcs = ["sdk/biwenger.py"],
+    deps = [
+        ":_init",
+        "@pypi//requests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ------------------------------------------------------------------
+# Umbrella target — backward compat for existing //core references
+# ------------------------------------------------------------------
+py_library(
+    name = "core",
+    deps = [
+        ":biwenger",
+        ":gcp",
+        ":telegram",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# ------------------------------------------------------------------
+# Tar of sources for Docker layers (used by python_service macro)
+# ------------------------------------------------------------------
 pkg_tar(
     name = "core_srcs",
     srcs = glob(
         ["**/*.py"],
         exclude = ["tests/**/*.py"],
     ),
-    package_dir = "/",  # ⬅️ raíz absoluta
-    strip_prefix = "core",  # ⬅️ quita la carpeta 'core' del path para que se cree /core/... en el tar
+    package_dir = "/",
+    strip_prefix = "core",
     visibility = ["//visibility:public"],
 )
 

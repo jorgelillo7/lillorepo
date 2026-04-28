@@ -1,25 +1,39 @@
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
 
-def biwenger_service(
+def python_service(
         name,
         main,
         repository,
+        package,
         deps = [],
         secrets = [],
         srcs = None,
         extra_env = {},
         enable_tests = True):
     """
-    Macro simplificada para servicios Python con OCI images.
+    Macro genérica para servicios Python con OCI images.
+
+    Args:
+        name:         Nombre del servicio (e.g. "web").
+        main:         Fichero de entrada (e.g. "app.py").
+        repository:   Repositorio OCI de destino para GCP.
+        package:      Nombre del paquete dentro de /packages/
+                      (e.g. "biwenger_tools", "otro_proyecto").
+        deps:         Dependencias adicionales al conjunto base.
+        secrets:      Ficheros de secretos (incluidos solo en la imagen local).
+        srcs:         Fuentes Python; por defecto todos los .py del módulo.
+        extra_env:    Variables de entorno adicionales para la imagen OCI.
+        enable_tests: Si True, genera el target *_tests cuando hay tests.
     """
 
     if srcs == None:
         srcs = native.glob(["**/*.py"], exclude = ["tests/**/*.py"])
 
-    pkg_dir = "/app/packages/biwenger_tools/" + name
+    pkg_dir = "/app/packages/" + package + "/" + name
     templates = native.glob(["templates/**/*.html"])
     static_files = native.glob(["static/**/*"])
 
@@ -59,7 +73,7 @@ def biwenger_service(
     # ============================================================
     # 3️⃣ CAPAS DE CÓDIGO
     # ============================================================
-    
+
     # Core: copiar tar que ya tiene estructura preservada
     pkg_tar(
         name = name + "_core_layer",
@@ -69,23 +83,26 @@ def biwenger_service(
         package_dir = "/app",
     )
 
+    # Ficheros de código con estructura de directorios preservada
+    pkg_files(
+        name = name + "_code_files",
+        srcs = srcs,
+        strip_prefix = strip_prefix.from_pkg(),
+    )
 
-    # Código de la aplicación
+    # Código de la aplicación (sin secretos, para GCP)
     pkg_tar(
         name = name + "_code_layer",
-        # 👇 1. Añade el entrypoint.sh a los sources
-        srcs = srcs + ["entrypoint.sh"],
+        srcs = [":" + name + "_code_files", "entrypoint.sh"],
         files = dict(template_map, **static_map),
         package_dir = pkg_dir,
-        # 👇 2. Dale permisos de ejecución
         mode = "0755",
     )
 
-    # Código + secretos (solo local)
+    # Código + secretos (para imagen local)
     pkg_tar(
         name = name + "_code_with_secrets_layer",
-        srcs = srcs + secrets + ["entrypoint.sh"],
-        # 👇 Y CAMBIO AQUÍ TAMBIÉN
+        srcs = [":" + name + "_code_files"] + secrets + ["entrypoint.sh"],
         files = dict(template_map, **static_map),
         package_dir = pkg_dir,
         mode = "0755",
@@ -108,7 +125,7 @@ def biwenger_service(
             },
             **extra_env,
         ),
-        entrypoint = ["/app/packages/biwenger_tools/" + name + "/entrypoint.sh"],  # ✅ usa tu script
+        entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
     )
 
@@ -136,7 +153,7 @@ def biwenger_service(
             },
             **extra_env,
         ),
-        entrypoint = ["/app/packages/biwenger_tools/" + name + "/entrypoint.sh"],
+        entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
     )
 
@@ -164,3 +181,13 @@ def biwenger_service(
                     requirement("pytest"),
                 ],
             )
+
+
+def biwenger_service(**kwargs):
+    """
+    Alias de compatibilidad hacia atrás para python_service.
+    Establece package='biwenger_tools' si no se indica otro valor.
+    Usa python_service directamente en proyectos nuevos.
+    """
+    kwargs.setdefault("package", "biwenger_tools")
+    python_service(**kwargs)

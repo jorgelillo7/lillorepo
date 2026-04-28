@@ -1,7 +1,8 @@
-load("//tools/bazel:biwenger_service.bzl", "biwenger_service")
+load("//tools/bazel:python_service.bzl", "python_service")
 
-biwenger_service(
+python_service(
     name = "web",
+    package = "biwenger_tools",
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/web",
     secrets = ["biwenger-tools-sa.json", ".env"],
