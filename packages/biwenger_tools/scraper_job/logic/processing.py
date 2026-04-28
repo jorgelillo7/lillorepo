@@ -4,17 +4,18 @@ from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from core.utils import get_logger
+
+logger = get_logger(__name__)
+
 
 def categorize_title(title):
     """Clasifica un mensaje según su título."""
     if not title:
         return "comunicado"
-    # Normalizamos a mayúsculas y sin acentos para hacer la comparación más robusta
     normalized_title = unidecode.unidecode(title.strip().upper())
 
-    if normalized_title.startswith("CRONICA -") or normalized_title.startswith(
-        "CRONICAS"
-    ):
+    if normalized_title.startswith("CRONICA -") or normalized_title.startswith("CRONICAS"):
         return "cronica"
     if normalized_title.startswith("DATO -") or normalized_title.startswith("DATOS -"):
         return "dato"
@@ -25,7 +26,6 @@ def categorize_title(title):
 
 def process_participation(all_messages, user_map):
     """Calcula y formatea los datos de participación de los usuarios."""
-    # Inicializa un diccionario para cada usuario con todas las categorías
     participation = {
         name: {"comunicado": [], "dato": [], "cesion": [], "cronica": []}
         for name in user_map.values()
@@ -36,13 +36,10 @@ def process_participation(all_messages, user_map):
         category = msg.get("categoria")
         msg_id = msg.get("id_hash")
 
-        # Si el autor existe en nuestro mapa y el mensaje tiene categoría y ID...
         if author in participation and category and msg_id:
-            # Añadimos el ID a la lista de su categoría, evitando duplicados
             if msg_id not in participation[author][category]:
                 participation[author][category].append(msg_id)
 
-    # Formateamos la salida para el CSV
     output_data = []
     for author, categories in participation.items():
         output_data.append(
@@ -61,12 +58,9 @@ def sort_messages(messages):
     """Ordena una lista de mensajes por fecha, de más reciente a más antiguo."""
 
     def get_date(msg):
-        # Función auxiliar para convertir el string de fecha en un objeto datetime
-        # Maneja posibles errores si la fecha está mal formateada o no existe
         try:
             return datetime.strptime(msg["fecha"], "%d-%m-%Y %H:%M:%S")
         except (ValueError, TypeError):
-            # Si hay un error, lo tratamos como la fecha más antigua posible para que quede al final
             return datetime.min
 
     messages.sort(key=get_date, reverse=True)
@@ -126,19 +120,14 @@ def parse_clausulazos(raw_data, players_map):
                         "precio": precio,
                     }
                 )
-        except Exception as parse_err:
-            print(f"WARNING: Error parseando clausulazo: {parse_err} — entry: {entry}")
+        except Exception:
+            logger.warning("Error parsing clausulazo entry.", extra={"entry": str(entry)}, exc_info=True)
 
     return clausulazos
 
 
 def build_tabla_justicia(clausulazos):
-    """Construye el resumen de ataques realizados y recibidos por cada equipo.
-
-    Devuelve lista de dicts con: equipo, total_hechos, total_recibidos,
-    punto_de_mira, mayor_agresor, hechos (JSON str), recibidos (JSON str).
-    Los campos hechos/recibidos se serializan como JSON para almacenarlos en CSV.
-    """
+    """Construye el resumen de ataques realizados y recibidos por cada equipo."""
     ataques_hechos = defaultdict(lambda: defaultdict(int))
     ataques_recibidos = defaultdict(lambda: defaultdict(int))
     equipos = set()
@@ -175,10 +164,7 @@ def build_tabla_justicia(clausulazos):
 
 
 def get_all_clausulazos(biwenger, base_url, limit=200):
-    """
-    Descarga todos los clausulazos del board de Biwenger usando paginación automática.
-    Devuelve la respuesta en formato {"data": [...]}.
-    """
+    """Descarga todos los clausulazos con paginación automática."""
     all_entries = []
     offset = 0
 
@@ -189,7 +175,7 @@ def get_all_clausulazos(biwenger, base_url, limit=200):
         if isinstance(entries, dict):
             entries = list(entries.values())
 
-        print(f"📥 Clausulazos offset={offset} → {len(entries)} entradas")
+        logger.info("Clausulazos page fetched.", extra={"offset": offset, "count": len(entries)})
 
         if not entries:
             break
@@ -200,14 +186,12 @@ def get_all_clausulazos(biwenger, base_url, limit=200):
         if len(entries) < limit:
             break
 
-    print(f"✅ Total entradas de clausulazos: {len(all_entries)}")
+    logger.info("All clausulazos fetched.", extra={"total": len(all_entries)})
     return {"data": all_entries}
 
 
 def get_all_board_messages(biwenger, base_url, limit=200):
-    """
-    Descarga todos los mensajes del board de Biwenger usando paginación automática.
-    """
+    """Descarga todos los mensajes del board con paginación automática."""
     all_messages = []
     offset = 0
 
@@ -216,7 +200,7 @@ def get_all_board_messages(biwenger, base_url, limit=200):
         data = biwenger.get_board_messages(url)
         messages = data.get("data", [])
 
-        print(f"📥 Página offset={offset} → {len(messages)} mensajes")
+        logger.info("Board page fetched.", extra={"offset": offset, "count": len(messages)})
 
         if not messages:
             break
@@ -224,9 +208,8 @@ def get_all_board_messages(biwenger, base_url, limit=200):
         all_messages.extend(messages)
         offset += limit
 
-        # Si devuelve menos mensajes que el límite, ya hemos llegado al final
         if len(messages) < limit:
             break
 
-    print(f"✅ Total mensajes descargados: {len(all_messages)}")
+    logger.info("All board messages fetched.", extra={"total": len(all_messages)})
     return all_messages

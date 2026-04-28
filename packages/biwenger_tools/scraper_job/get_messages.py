@@ -1,10 +1,12 @@
+"""Scraper job: fetch Biwenger messages and upload CSVs to Google Drive."""
 import csv
 import hashlib
 import io
 import os
-import json
 from datetime import datetime, timezone
+from typing import Optional
 from zoneinfo import ZoneInfo
+
 from bs4 import BeautifulSoup
 
 from packages.biwenger_tools.scraper_job import config
@@ -24,226 +26,167 @@ from core.sdk.gcp import (
     upload_csv_to_drive,
 )
 from core.sdk.biwenger import BiwengerClient
-from core.utils import read_secret_from_file
+from core.utils import read_secret_from_file, get_logger
+
+logger = get_logger(__name__)
 
 
-def main():
+def _read_credentials(cfg) -> tuple[str, str, str]:
+    """Read Biwenger and Drive credentials from secrets or environment variables."""
+    email = read_secret_from_file(cfg.BIWENGER_EMAIL_PATH) or cfg.BIWENGER_EMAIL
+    password = read_secret_from_file(cfg.BIWENGER_PASSWORD_PATH) or cfg.BIWENGER_PASSWORD
+    folder_id = read_secret_from_file(cfg.GDRIVE_FOLDER_ID_PATH) or cfg.GDRIVE_FOLDER_ID
+    if not all([email, password, folder_id]):
+        raise ValueError("No se pudieron leer todas las credenciales necesarias.")
+    return email, password, folder_id
+
+
+def _init_drive_service(cfg):
+    """Initialize and return the Google Drive service."""
+    sa_path = cfg.SERVICE_ACCOUNT_PATH
+    if not os.path.exists(sa_path):
+        sa_path = os.path.join(os.path.dirname(__file__), "biwenger-tools-sa.json")
+    return get_google_service("drive", "v3", sa_path, cfg.SCOPES)
+
+
+def _get_existing_comunicados(
+    drive_service, filename: str, folder_id: str
+) -> tuple[list, set, Optional[str]]:
+    """Download existing comunicados CSV from Drive.
+
+    Returns (messages, existing_id_hashes, file_id).
     """
-    Función principal que orquesta el scraping de mensajes, el procesamiento
-    y la subida de datos a Google Drive.
-    """
+    file_meta = find_file_on_drive(drive_service, filename, folder_id)
+    if file_meta:
+        messages = download_csv_as_dict(drive_service, file_meta["id"])
+        return messages, {m["id_hash"] for m in messages}, file_meta["id"]
+    logger.info("CSV not found in Drive — will be created.", extra={"filename": filename})
+    return [], set(), None
+
+
+def _process_new_messages(
+    board_messages: list, existing_ids: set, user_map: dict
+) -> list:
+    """Parse board messages and return only those not already stored."""
+    madrid_tz = ZoneInfo("Europe/Madrid")
+    new_messages = []
+    for item in board_messages:
+        content_html = item.get("content", "")
+        content_text = BeautifulSoup(content_html, "html.parser").get_text(
+            separator=" ", strip=True
+        )
+        id_hash = hashlib.sha256(
+            f"{item.get('date', '')}{content_text}".encode("utf-8")
+        ).hexdigest()
+        if id_hash in existing_ids:
+            continue
+        author = item.get("author")
+        author_id = author.get("id") if author else None
+        fecha = datetime.fromtimestamp(item["date"], tz=timezone.utc).astimezone(madrid_tz)
+        new_messages.append({
+            "id_hash": id_hash,
+            "fecha": fecha.strftime("%d-%m-%Y %H:%M:%S"),
+            "autor": user_map.get(author_id, "Autor Desconocido"),
+            "titulo": item.get("title", "Sin título"),
+            "contenido": content_html,
+            "categoria": categorize_title(item.get("title", "")),
+        })
+    return new_messages
+
+
+def _write_and_upload_csv(
+    drive_service,
+    folder_id: str,
+    filename: str,
+    fieldnames: list,
+    rows: list,
+    existing_file_id: Optional[str],
+) -> None:
+    """Serialize rows to CSV string and upload (create or update) to Drive."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    upload_csv_to_drive(drive_service, folder_id, filename, buf.getvalue(), existing_file_id)
+
+
+def _upload_clausulazos(
+    drive_service, biwenger: BiwengerClient, cfg, folder_id: str
+) -> None:
+    """Download, parse, and upload clausulazos and tabla_justicia CSVs."""
+    logger.info("Processing clausulazos...")
+    players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
+    raw = get_all_clausulazos(biwenger, cfg.CLAUSULAZOS_URL)
+    clausulazos = parse_clausulazos(raw, players_map)
+    tabla_justicia = build_tabla_justicia(clausulazos)
+    logger.info("Clausulazos processed.", extra={"count": len(clausulazos)})
+
+    clausulazos_filename = f"{cfg.CLAUSULAZOS_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
+    clausulazos_meta = find_file_on_drive(drive_service, clausulazos_filename, folder_id)
+    _write_and_upload_csv(
+        drive_service, folder_id, clausulazos_filename,
+        ["fecha", "jugador", "equipo_vendedor", "equipo_comprador", "precio"],
+        clausulazos,
+        clausulazos_meta["id"] if clausulazos_meta else None,
+    )
+
+    tabla_filename = f"{cfg.TABLA_JUSTICIA_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
+    tabla_meta = find_file_on_drive(drive_service, tabla_filename, folder_id)
+    _write_and_upload_csv(
+        drive_service, folder_id, tabla_filename,
+        ["equipo", "total_hechos", "total_recibidos", "punto_de_mira", "mayor_agresor", "hechos", "recibidos"],
+        tabla_justicia,
+        tabla_meta["id"] if tabla_meta else None,
+    )
+    logger.info("Clausulazos and tabla_justicia CSVs uploaded.")
+
+
+def main() -> None:
+    """Orchestrate message scraping, processing, and Drive upload."""
     try:
-        print(f"--- Iniciando scraper para la temporada: {config.TEMPORADA_ACTUAL} ---")
+        logger.info("Scraper started.", extra={"temporada": config.TEMPORADA_ACTUAL})
 
-        # --- 1. Leer secretos y configurar clientes/servicios ---
-        biwenger_email = (
-            read_secret_from_file(config.BIWENGER_EMAIL_PATH) or config.BIWENGER_EMAIL
-        )
-        biwenger_password = (
-            read_secret_from_file(config.BIWENGER_PASSWORD_PATH)
-            or config.BIWENGER_PASSWORD
-        )
-        gdrive_folder_id = (
-            read_secret_from_file(config.GDRIVE_FOLDER_ID_PATH)
-            or config.GDRIVE_FOLDER_ID
-        )
-
-        if not all([biwenger_email, biwenger_password, gdrive_folder_id]):
-            raise ValueError(
-                "¡Error! No se pudieron leer todas las credenciales necesarias."
-            )
-
-        # Construct paths relative to the current file
-        base_dir = os.path.dirname(__file__)
-        service_account_path = os.path.join(base_dir, "biwenger-tools-sa.json")
-        if os.path.exists(config.SERVICE_ACCOUNT_PATH):
-            service_account_path = config.SERVICE_ACCOUNT_PATH
-
-        drive_service = get_google_service(
-            "drive", "v3", service_account_path, config.SCOPES
-        )
+        email, password, folder_id = _read_credentials(config)
+        drive_service = _init_drive_service(config)
         biwenger = BiwengerClient(
-            biwenger_email,
-            biwenger_password,
-            config.LOGIN_URL,
-            config.ACCOUNT_URL,
-            config.LEAGUE_ID,
+            email, password, config.LOGIN_URL, config.ACCOUNT_URL, config.LEAGUE_ID
         )
 
-        # --- 2. Descargar datos existentes de Google Drive ---
         comunicados_filename = f"comunicados_{config.TEMPORADA_ACTUAL}.csv"
-        comunicados_file_meta = find_file_on_drive(
-            drive_service, comunicados_filename, gdrive_folder_id
+        all_messages, existing_ids, existing_file_id = _get_existing_comunicados(
+            drive_service, comunicados_filename, folder_id
         )
-
-        all_messages = []
-        existing_ids = set()
-        if comunicados_file_meta:
-            all_messages = download_csv_as_dict(
-                drive_service, comunicados_file_meta["id"]
-            )
-            existing_ids = {msg["id_hash"] for msg in all_messages}
-        else:
-            print(f"ℹ️  No se encontró '{comunicados_filename}'. Se creará uno nuevo.")
 
         board_messages = get_all_board_messages(
             biwenger, f"{config.BASE_URL}/league/{config.LEAGUE_ID}/board?type=text"
         )
-
-        print(f"📊 Total de mensajes descargados: {len(board_messages)}")
+        logger.info("Board messages downloaded.", extra={"count": len(board_messages)})
         user_map = biwenger.get_league_users(config.LEAGUE_USERS_URL)
 
-        # --- 4. Procesar y fusionar datos ---
-        new_messages_count = 0
-        for item in board_messages:
-            content_html = item.get("content", "")
-            soup = BeautifulSoup(content_html, "html.parser")
-            content_text = soup.get_text(separator=" ", strip=True)
-            unique_string = f"{item.get('date', '')}{content_text}"
-            id_hash = hashlib.sha256(unique_string.encode("utf-8")).hexdigest()
-
-            if id_hash not in existing_ids:
-                new_messages_count += 1
-                author = item.get("author")
-                author_id = author.get("id") if author else None
-                author_name = user_map.get(author_id, "Autor Desconocido")
-
-                # ✅ Conversión robusta a zona horaria Madrid
-                fecha_utc = datetime.fromtimestamp(item["date"], tz=timezone.utc)
-                fecha_madrid = fecha_utc.astimezone(ZoneInfo("Europe/Madrid"))
-                fecha_str = fecha_madrid.strftime("%d-%m-%Y %H:%M:%S")
-
-                all_messages.append(
-                    {
-                        "id_hash": id_hash,
-                        "fecha": fecha_str,
-                        "autor": author_name,
-                        "titulo": item.get("title", "Sin título"),
-                        "contenido": content_html,
-                        "categoria": categorize_title(item.get("title", "")),
-                    }
-                )
-
-        # --- 5. Si hay cambios, subir los archivos actualizados a Drive ---
-        if new_messages_count > 0:
-            print(f"\n✅ Se han encontrado {new_messages_count} mensajes nuevos.")
-            all_messages = sort_messages(all_messages)
-
-            # Subir archivo de comunicados
-            output_comunicados = io.StringIO()
-            writer = csv.DictWriter(
-                output_comunicados,
-                fieldnames=[
-                    "id_hash",
-                    "fecha",
-                    "autor",
-                    "titulo",
-                    "contenido",
-                    "categoria",
-                ],
+        new_messages = _process_new_messages(board_messages, existing_ids, user_map)
+        if new_messages:
+            logger.info("New messages found.", extra={"count": len(new_messages)})
+            all_messages = sort_messages(all_messages + new_messages)
+            _write_and_upload_csv(
+                drive_service, folder_id, comunicados_filename,
+                ["id_hash", "fecha", "autor", "titulo", "contenido", "categoria"],
+                all_messages, existing_file_id,
             )
-            writer.writeheader()
-            writer.writerows(all_messages)
-            existing_comunicados_id = (
-                comunicados_file_meta["id"] if comunicados_file_meta else None
-            )
-            upload_csv_to_drive(
-                drive_service,
-                gdrive_folder_id,
-                comunicados_filename,
-                output_comunicados.getvalue(),
-                existing_comunicados_id,
-            )
-
-            # Subir archivo de participación
             participacion_filename = f"participacion_{config.TEMPORADA_ACTUAL}.csv"
-            participation_data = process_participation(all_messages, user_map)
-            participation_file_meta = find_file_on_drive(
-                drive_service, participacion_filename, gdrive_folder_id
-            )
-            output_part = io.StringIO()
-            writer = csv.DictWriter(
-                output_part,
-                fieldnames=["autor", "comunicados", "datos", "cesiones", "cronicas"],
-            )
-            writer.writeheader()
-            writer.writerows(participation_data)
-            existing_participation_id = (
-                participation_file_meta["id"] if participation_file_meta else None
-            )
-            upload_csv_to_drive(
-                drive_service,
-                gdrive_folder_id,
-                participacion_filename,
-                output_part.getvalue(),
-                existing_participation_id,
+            part_meta = find_file_on_drive(drive_service, participacion_filename, folder_id)
+            _write_and_upload_csv(
+                drive_service, folder_id, participacion_filename,
+                ["autor", "comunicados", "datos", "cesiones", "cronicas"],
+                process_participation(all_messages, user_map),
+                part_meta["id"] if part_meta else None,
             )
         else:
-            print("\n✅ No hay mensajes nuevos.")
+            logger.info("No new messages found.")
 
-        # --- 6. Clausulazos: siempre regenerar ---
-        print("\n--- Procesando clausulazos ---")
-        players_map = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-        raw_clausulazos = get_all_clausulazos(
-            biwenger, config.CLAUSULAZOS_URL
-        )
-        clausulazos = parse_clausulazos(raw_clausulazos, players_map)
-        tabla_justicia = build_tabla_justicia(clausulazos)
-        print(f"📊 {len(clausulazos)} clausulazos procesados.")
+        _upload_clausulazos(drive_service, biwenger, config, folder_id)
 
-        clausulazos_filename = (
-            f"{config.CLAUSULAZOS_FILENAME_BASE}_{config.TEMPORADA_ACTUAL}.csv"
-        )
-        clausulazos_file_meta = find_file_on_drive(
-            drive_service, clausulazos_filename, gdrive_folder_id
-        )
-        output_clausulazos = io.StringIO()
-        writer = csv.DictWriter(
-            output_clausulazos,
-            fieldnames=["fecha", "jugador", "equipo_vendedor", "equipo_comprador", "precio"],
-        )
-        writer.writeheader()
-        writer.writerows(clausulazos)
-        upload_csv_to_drive(
-            drive_service,
-            gdrive_folder_id,
-            clausulazos_filename,
-            output_clausulazos.getvalue(),
-            clausulazos_file_meta["id"] if clausulazos_file_meta else None,
-        )
-
-        tabla_justicia_filename = (
-            f"{config.TABLA_JUSTICIA_FILENAME_BASE}_{config.TEMPORADA_ACTUAL}.csv"
-        )
-        tabla_justicia_file_meta = find_file_on_drive(
-            drive_service, tabla_justicia_filename, gdrive_folder_id
-        )
-        output_tabla = io.StringIO()
-        writer = csv.DictWriter(
-            output_tabla,
-            fieldnames=[
-                "equipo",
-                "total_hechos",
-                "total_recibidos",
-                "punto_de_mira",
-                "mayor_agresor",
-                "hechos",
-                "recibidos",
-            ],
-        )
-        writer.writeheader()
-        writer.writerows(tabla_justicia)
-        upload_csv_to_drive(
-            drive_service,
-            gdrive_folder_id,
-            tabla_justicia_filename,
-            output_tabla.getvalue(),
-            tabla_justicia_file_meta["id"] if tabla_justicia_file_meta else None,
-        )
-        print("✅ CSVs de clausulazos y tabla de justicia subidos a Drive.")
-
-    except Exception as e:
-        print(f"❌ Ocurrió un error inesperado: {e}")
+    except Exception:
+        logger.exception("Unexpected error in scraper.")
 
 
 if __name__ == "__main__":

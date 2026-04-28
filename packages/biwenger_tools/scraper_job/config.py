@@ -5,8 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- CONFIGURACIÓN DE TEMPORADA ---
-# Para empezar un nuevo año, solo tienes que cambiar este valor (ej. "26-27").
-TEMPORADA_ACTUAL = "25-26"
+# Para cambiar de temporada: actualizar TEMPORADA_ACTUAL en deploy.yml (env global)
+# o via: gcloud run jobs update ... --update-env-vars TEMPORADA_ACTUAL=26-27
+TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
 
 # --- CONFIGURACIÓN CRÍTICA (leída desde el entorno) ---
 BIWENGER_EMAIL = os.getenv("BIWENGER_EMAIL")
