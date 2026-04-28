@@ -1,0 +1,157 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "core/**"
+      - "packages/biwenger_tools/web/**"
+      - "packages/biwenger_tools/scraper_job/**"
+      - ".github/workflows/deploy.yml"
+
+env:
+  REGION: europe-southwest1
+  PROJECT_ID: biwenger-tools
+  REGISTRY: europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
+  TEMPORADA_ACTUAL: "25-26"
+
+jobs:
+  # -------------------------------------------------------
+  # 1. Run all tests before any deployment
+  # -------------------------------------------------------
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.8.5
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Run all tests
+        run: |
+          bazel test \
+            //packages/biwenger_tools/web:web_tests \
+            //packages/biwenger_tools/scraper_job:scraper_job_tests \
+            //core:core_tests \
+            --test_output=streamed --test_arg=-v
+
+  # -------------------------------------------------------
+  # 2a. Build and deploy web app (runs in parallel with 2b)
+  # -------------------------------------------------------
+  deploy-web:
+    name: Deploy web app
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.8.5
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Build and push web image
+        run: |
+          bazel run //packages/biwenger_tools/web:push_image_to_gcp \
+            --platforms=//platforms:linux_amd64
+
+      - name: Deploy web to Cloud Run
+        run: |
+          gcloud run deploy biwenger-summary \
+            --image ${{ env.REGISTRY }}/web \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --allow-unauthenticated \
+            --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest \
+            --set-env-vars="\
+          TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
+          GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }},\
+          GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
+          CLOUD_RUN_JOB_NAME=biwenger-scraper-data,\
+          CLOUD_RUN_REGION=${{ env.REGION }},\
+          SECRET_KEY=${{ secrets.SECRET_KEY }},\
+          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }},\
+          LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
+          LIGAS_ESPECIALES_SHEET_ID_24_25=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_24_25 }},\
+          TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
+          COMUNICADOS_CSV_URL=${{ secrets.COMUNICADOS_CSV_URL }},\
+          PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
+          PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }}"
+
+  # -------------------------------------------------------
+  # 2b. Build and update scraper Cloud Run Job (parallel)
+  # -------------------------------------------------------
+  deploy-scraper:
+    name: Deploy scraper job
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.8.5
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Build and push scraper image
+        run: |
+          bazel run //packages/biwenger_tools/scraper_job:push_image_to_gcp \
+            --platforms=//platforms:linux_amd64
+
+      - name: Update Cloud Run Job image
+        run: |
+          gcloud run jobs update biwenger-scraper-data \
+            --image ${{ env.REGISTRY }}/scraper_job \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }}
+
+  # -------------------------------------------------------
+  # 3. Clean up old images once both deploys succeed
+  # -------------------------------------------------------
+  cleanup:
+    name: Clean up old images
+    needs: [deploy-web, deploy-scraper]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Delete old images from Artifact Registry
+        run: ./scripts/clean-images-artifact.sh
