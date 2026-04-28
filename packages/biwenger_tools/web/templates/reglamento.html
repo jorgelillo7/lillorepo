@@ -68,7 +68,7 @@
 
             <!-- Nuevos Torneos -->
             <h3 id="nuevos-torneos" class="font-header">2. Nuevos Torneos y Trofeos</h3>
-            <p>Puedes consultar los resultados y clasificaciones en la sección de <a href="{{ url_for('lloros_awards', season=season) }}" class="text-green-700 hover:underline">Torneos y Trofeos</a>.</p>
+            <p>Puedes consultar los resultados y clasificaciones en la sección de <a href="{{ url_for('season.lloros_awards', season=season) }}" class="text-green-700 hover:underline">Torneos y Trofeos</a>.</p>
             <div class="space-y-4 not-prose">
                 <div id="copa-navidad" class="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-md">
                     <h4 class="font-bold text-gray-800">Copa Navidad</h4>
@@ -91,10 +91,10 @@
             <!-- Normas para escribir comunicados -->
             <h3 id="normas-comunicados" class="font-header">3. Normas para Comunicados</h3>
             <ul>
-                <li>Si quieres publicar una crónica, el título debe empezar por <strong>"CRÓNICA - "</strong>. Aparecerá en <a href="{{ url_for('salseo', season=season, tab='cronicas') }}" class="text-green-700 hover:underline">Salseo (Crónicas)</a>.</li>
-                <li>Si quieres publicar un "dato curioso", el título debe empezar por <strong>"DATO - "</strong> o <strong>"DATOS - "</strong>. Aparecerá en <a href="{{ url_for('salseo', season=season, tab='datos') }}" class="text-green-700 hover:underline">Salseo (Mr. Lucen)</a>.</li>
-                <li>Para registrar una cesión, el título del mensaje debe empezar por <strong>"CESIÓN - "</strong>. Aparecerá en <a href="{{ url_for('salseo', season=season, tab='cesiones') }}" class="text-green-700 hover:underline">Salseo (Cesiones)</a>.</li>
-                <li>El resto de mensajes se considerarán comunicados oficiales y aparecerán en la <a href="{{ url_for('comunicados', season=season) }}" class="text-green-700 hover:underline">página principal</a>.</li>
+                <li>Si quieres publicar una crónica, el título debe empezar por <strong>"CRÓNICA - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='cronicas') }}" class="text-green-700 hover:underline">Salseo (Crónicas)</a>.</li>
+                <li>Si quieres publicar un "dato curioso", el título debe empezar por <strong>"DATO - "</strong> o <strong>"DATOS - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='datos') }}" class="text-green-700 hover:underline">Salseo (Mr. Lucen)</a>.</li>
+                <li>Para registrar una cesión, el título del mensaje debe empezar por <strong>"CESIÓN - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='cesiones') }}" class="text-green-700 hover:underline">Salseo (Cesiones)</a>.</li>
+                <li>El resto de mensajes se considerarán comunicados oficiales y aparecerán en la <a href="{{ url_for('season.comunicados', season=season) }}" class="text-green-700 hover:underline">página principal</a>.</li>
             </ul>
 
             <!-- Sección Draft -->
@@ -114,7 +114,7 @@
                 <li>Los <strong>3 primeros</strong> reciben la gloria, el honor y una invitación a comer por parte del resto.</li>
                 <li>El <strong>4º clasificado</strong> es territorio neutral: no paga ni cobra, salvo su propia comida.</li>
                 <li>Los <strong>3 últimos</strong>, además de pagar su comida, invitan a los 4 de arriba.</li>
-                <li>Puedes consultar el histórico en la sección de <a href="{{ url_for('palmares') }}" class="text-green-700 hover:underline">Palmarés</a>.</li>
+                <li>Puedes consultar el histórico en la sección de <a href="{{ url_for('main.palmares') }}" class="text-green-700 hover:underline">Palmarés</a>.</li>
                 <li><strong>Opción Extra:</strong> Se puede proponer la compra de camisetas sorpresa en <a href="https://camisetasfutbolsorpresa.com/" target="_blank" rel="noopener noreferrer" class="text-green-700 hover:underline">camisetasfutbolsorpresa.com</a>.</li>
             </ul>
         </div>

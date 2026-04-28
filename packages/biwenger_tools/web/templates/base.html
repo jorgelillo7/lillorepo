@@ -57,7 +57,7 @@
                     <div id="season-menu" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10">
                         <div class="py-1">
                             {% for s in temporadas_disponibles %}
-                            <a href="{{ url_for('comunicados', season=s) }}" 
+                            <a href="{{ url_for('season.comunicados', season=s) }}"
                                class="text-gray-700 block px-4 py-2 text-sm 
                                       {% if s == season %}bg-gray-100 font-medium{% endif %}
                                       {% if s == temporada_actual %}text-green-600 font-bold{% endif %}">
@@ -73,10 +73,10 @@
         <div class="w-full mb-10 border-b border-gray-300">
             <nav class="flex justify-center flex-wrap -mb-px">
                 <!-- Enlaces que dependen de la temporada -->
-                <a href="{{ url_for('comunicados', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'comunicados' %}active{% endif %}">Comunicados</a>
-                <a href="{{ url_for('salseo', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'salseo' %}active{% endif %}">Salseo</a>
-                <a href="{{ url_for('lloros_awards', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'lloros_awards' %}active{% endif %}">Lloros Awards</a>
-                <a href="{{ url_for('participacion', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'participacion' %}active{% endif %}">Participación</a>
+                <a href="{{ url_for('season.comunicados', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'comunicados' %}active{% endif %}">Comunicados</a>
+                <a href="{{ url_for('season.salseo', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'salseo' %}active{% endif %}">Salseo</a>
+                <a href="{{ url_for('season.lloros_awards', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'lloros_awards' %}active{% endif %}">Lloros Awards</a>
+                <a href="{{ url_for('season.participacion', season=season) }}" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 {% if active_page == 'participacion' %}active{% endif %}">Participación</a>
                 <!-- Menú desplegable para secciones fijas -->
                 <div class="relative inline-block text-left">
                     <button type="button" class="nav-link whitespace-nowrap text-lg transition-colors hover:text-gray-900 px-4 mb-3 flex items-center" id="more-menu-button">
@@ -87,9 +87,9 @@
                     </button>
                     <div id="more-menu" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10">
                         <div class="py-1">
-                            <a href="{{ url_for('reglamento') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'reglamento' %}bg-gray-100 font-bold{% endif %}">Fair Play</a>
-                            <a href="{{ url_for('palmares') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'palmares' %}bg-gray-100 font-bold{% endif %}">Palmarés</a>
-                            <a href="{{ url_for('admin') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'admin' %}bg-gray-100 font-bold{% endif %}">VAR (Admin)</a>
+                            <a href="{{ url_for('main.reglamento') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'reglamento' %}bg-gray-100 font-bold{% endif %}">Fair Play</a>
+                            <a href="{{ url_for('main.palmares') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'palmares' %}bg-gray-100 font-bold{% endif %}">Palmarés</a>
+                            <a href="{{ url_for('admin.admin') }}" class="text-gray-700 block px-4 py-2 text-sm {% if active_page == 'admin' %}bg-gray-100 font-bold{% endif %}">VAR (Admin)</a>
                         </div>
                     </div>
                 </div>

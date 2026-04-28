@@ -39,23 +39,22 @@
     <div id="pagination-container" class="mt-10 flex justify-center items-center space-x-2">
         {% if total_pages > 1 %}
             <!-- Botón Anterior -->
-            <!-- CORRECCIÓN: Se añade season=season a los enlaces de paginación -->
-            <a href="{{ url_for('comunicados', season=season, page=current_page - 1) }}"
+            <a href="{{ url_for('season.comunicados', season=season, page=current_page - 1) }}"
                class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == 1 %}pointer-events-none opacity-50{% endif %}">
                 Anterior
             </a>
 
             <!-- Números de Página -->
             {% for page_num in range(1, total_pages + 1) %}
-                <a href="{{ url_for('comunicados', season=season, page=page_num) }}"
-                   class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 
+                <a href="{{ url_for('season.comunicados', season=season, page=page_num) }}"
+                   class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100
                           {% if page_num == current_page %}bg-green-600 text-white border-green-600 hover:bg-green-700{% else %}text-gray-600{% endif %}">
                     {{ page_num }}
                 </a>
             {% endfor %}
 
             <!-- Botón Siguiente -->
-            <a href="{{ url_for('comunicados', season=season, page=current_page + 1) }}"
+            <a href="{{ url_for('season.comunicados', season=season, page=current_page + 1) }}"
                class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == total_pages %}pointer-events-none opacity-50{% endif %}">
                 Siguiente
             </a>

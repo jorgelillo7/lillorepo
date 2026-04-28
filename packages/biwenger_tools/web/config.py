@@ -14,9 +14,10 @@ SCOPES = [
 
 
 # --- CONFIGURACIÓN DE TEMPORADA ---
-TEMPORADA_ACTUAL = "25-26"
-# Lista de todas las temporadas disponibles para mostrar en el menú.
-# Añade nuevas temporadas aquí cuando empiecen (ej. "26-27").
+# Para cambiar de temporada: actualizar TEMPORADA_ACTUAL en deploy.yml (env global)
+# o via: gcloud run services update ... --update-env-vars TEMPORADA_ACTUAL=26-27
+TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
+# Añadir la nueva temporada aquí al inicio de cada año (ver docs/operations.md).
 TEMPORADAS_DISPONIBLES = ["24-25", "25-26"]
 
 # NUEVO: Diccionario para mapear temporadas a IDs de Google Sheets

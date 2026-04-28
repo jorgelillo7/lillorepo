@@ -1,0 +1,95 @@
+"""Main routes: home, favicon, palmares, reglamento."""
+import ssl
+from collections import defaultdict
+
+from flask import Blueprint, Response, g, redirect, render_template, url_for
+
+from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
+from core.utils import get_logger
+from packages.biwenger_tools.web import config, services
+
+logger = get_logger(__name__)
+bp = Blueprint("main", __name__)
+
+
+@bp.route("/favicon.ico")
+@bp.route("/favicon.ico/")
+def favicon() -> tuple:
+    """Return empty response for favicon requests."""
+    return "", 204
+
+
+@bp.route("/")
+def home() -> Response:
+    """Redirect to the current season's comunicados page."""
+    return redirect(url_for("season.comunicados", season=g.season))
+
+
+@bp.route("/palmares")
+def palmares() -> str:
+    """Display historical records and awards."""
+    seasons: dict = defaultdict(lambda: defaultdict(list))
+    error = None
+    sorted_seasons: list = []
+    try:
+        if not services.drive_service:
+            raise Exception("El servicio de Google Drive no está disponible.")
+
+        file_metadata = find_file_on_drive(
+            services.drive_service, config.PALMARES_FILENAME, config.GDRIVE_FOLDER_ID
+        )
+        if not file_metadata:
+            raise FileNotFoundError(
+                f"El archivo '{config.PALMARES_FILENAME}' no se encontró en Google Drive."
+            )
+
+        palmares_data = download_csv_as_dict(services.drive_service, file_metadata["id"])
+        for row in palmares_data:
+            season_data = row.get("temporada", "").strip()
+            category = row.get("categoria", "").strip()
+            value = row.get("valor", "").strip()
+            if not season_data or not category:
+                continue
+            if category in ["multa", "sancion", "farolillo"]:
+                seasons[season_data]["otros"].append({"tipo": category, "valor": value})
+            else:
+                seasons[season_data][category] = value
+        sorted_seasons = sorted(seasons.items(), key=lambda item: item[0], reverse=True)
+    except ssl.SSLError:
+        error = f"Error de SSL al conectar con Google Drive."
+        logger.exception("SSL error loading palmares.")
+    except Exception:
+        error = f"Ocurrió un error al cargar el palmarés."
+        logger.exception("Error loading palmares.")
+
+    return render_template(
+        "palmares.html",
+        seasons=sorted_seasons,
+        error=error,
+        active_page="palmares",
+    )
+
+
+@bp.route("/reglamento")
+def reglamento() -> str:
+    """Display the rules page."""
+    error = None
+    leagues: list = []
+    try:
+        if services.sheets_service:
+            sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(g.season)
+            if sheet_id:
+                leagues = get_sheets_data(services.sheets_service, sheet_id)
+    except ssl.SSLError:
+        error = "Error de SSL al conectar con Google Sheets."
+        logger.exception("SSL error loading reglamento.")
+    except Exception:
+        error = "Ocurrió un error al cargar los datos para el reglamento."
+        logger.exception("Error loading reglamento.")
+
+    return render_template(
+        "reglamento.html",
+        leagues=leagues,
+        error=error,
+        active_page="reglamento",
+    )
