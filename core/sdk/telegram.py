@@ -1,19 +1,31 @@
 import os
+
 import requests
 
-def send_telegram_notification(api_url_template, bot_token, chat_id, caption, filepath):
+from core.utils import get_logger
+
+logger = get_logger(__name__)
+
+
+def send_telegram_notification(
+    api_url_template: str,
+    bot_token: str,
+    chat_id: str,
+    caption: str,
+    filepath: str,
+) -> None:
     """
-    Envía un archivo a un chat de Telegram.
-    La URL de la API se pasa como parámetro para desacoplar de la configuración.
+    Sends a file to a Telegram chat via the Bot API.
+    The API URL template is injected to decouple from config.
     """
-    print("\n▶️  Enviando notificación a Telegram...")
+    logger.info("Sending Telegram notification...", extra={"filepath": filepath})
     url = api_url_template.format(token=bot_token)
     try:
-        with open(filepath, 'rb') as f:
-            files = {'document': (os.path.basename(filepath), f)}
-            data = {'chat_id': chat_id, 'caption': caption}
+        with open(filepath, "rb") as f:
+            files = {"document": (os.path.basename(filepath), f)}
+            data = {"chat_id": chat_id, "caption": caption}
             response = requests.post(url, data=data, files=files)
             response.raise_for_status()
-        print("✅ Notificación enviada a Telegram con éxito.")
+        logger.info("Telegram notification sent successfully.")
     except Exception as e:
-        print(f"❌ Error al enviar la notificación a Telegram: {e}")
+        logger.error("Failed to send Telegram notification.", extra={"error": str(e)})
