@@ -152,7 +152,8 @@ Commands for running each component.
         ```bash
           gcloud run jobs update biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
-              --region europe-southwest1
+              --region europe-southwest1 \
+              --update-env-vars TEMPORADA_ACTUAL=25-26
         ```
       * **Execute the Job manually:**
         ```bash
@@ -272,18 +273,28 @@ pip-compile requirements.in -o requirements_lock.txt
 
 ### Step 4: Use the new library in `BUILD.bazel`
 
-Now that the library is available to Bazel, go to `core/BUILD.bazel` and add it to the dependencies (`deps`) list of the `py_library`.
+Now that the library is available to Bazel, go to `core/BUILD.bazel` and add it to the `deps` list of the **most specific sub-target** that needs it.
+
+`core/BUILD.bazel` exposes granular targets — use the right one to avoid bloating other packages:
+
+| Target | When to add here |
+|---|---|
+| `//core:gcp` | Library used by `sdk/gcp.py` or `utils.py` |
+| `//core:telegram` | Library used by `sdk/telegram.py` |
+| `//core:biwenger` | Library used by `sdk/biwenger.py` |
+| `//core` (umbrella) | Shared by all of the above |
 
 Remember that Bazel converts hyphens (-) to underscores (_). For numpy, the name is the same.
 
-**File: `core/BUILD.bazel`**
+**File: `core/BUILD.bazel`** (example: adding `numpy` to the `gcp` target)
 
 ```python
 py_library(
-    name = "core",
-    srcs = glob(["*.py"]),
+    name = "gcp",
+    srcs = ["sdk/gcp.py", "utils.py"],
     deps = [
-        "@pypi//requests",
+        ":_init",
+        "@pypi//google_api_python_client",
         # ... (other dependencies)
         # Add the new dependency
         "@pypi//numpy",
@@ -436,6 +447,34 @@ Once configured, VS Code will flag errors and auto-format your code on save.
      ```
 
 -----
+
+## 🗓️ Cambio de temporada
+
+El cambio de temporada es **manual e intencional** — ocurre cuando se resetea la liga en Biwenger (una vez al año).
+
+### Pasos
+
+1. **`deploy.yml`** — actualizar `TEMPORADA_ACTUAL` en el bloque `env:` global:
+   ```yaml
+   TEMPORADA_ACTUAL: "26-27"
+   ```
+
+2. **`packages/biwenger_tools/web/config.py`** — añadir la nueva temporada a `TEMPORADAS_DISPONIBLES`:
+   ```python
+   TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
+   ```
+
+3. **`.env` locales** — actualizar `TEMPORADA_ACTUAL` en `web/.env` y `scraper_job/.env`.
+
+4. **Commit + push a `master`** → el CI despliega ambos servicios automáticamente con la nueva temporada.
+
+> Si necesitas cambiar la temporada en producción **sin redeploy**:
+> ```bash
+> gcloud run services update biwenger-summary --update-env-vars TEMPORADA_ACTUAL=26-27 --region europe-southwest1
+> gcloud run jobs update biwenger-scraper-data --update-env-vars TEMPORADA_ACTUAL=26-27 --region europe-southwest1
+> ```
+
+---
 
 ## ⚠️ Important Notes
 

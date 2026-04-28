@@ -77,3 +77,4 @@ Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
 - `BUILD.bazel` files are the source of truth for Bazel dependencies.
 - See `AGENTS.md` for context on project agents.
 - **Commits:** always write commit messages in English. Do not add a `Co-Authored-By` line.
+- **Web UI design system:** see `packages/biwenger_tools/web/DESIGN.md` before touching templates — it defines the canonical color tokens, typography, and component rules.

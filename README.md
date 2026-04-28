@@ -1,21 +1,91 @@
-# Lillorepo 👾
+# lillorepo
 
-Our monorepo of projects and experiments.
+Python monorepo targeting Google Cloud Platform. Currently hosts **Biwenger Tools** — a suite of services for a fantasy football league analytics platform.
 
-## What is this?
+## Architecture
 
-This is a **monorepo** — a centralised place where we store and manage all our software projects. The idea is simple: instead of having many small, scattered repositories, we have a single, large, well-organised one.
+```mermaid
+graph TD
+    API[Biwenger API] -->|board messages| SJ[Scraper Job\nCloud Run Job]
+    EXT[Jornada Perfecta\nAnalítica Fantasy] -->|web scrape| TA[Teams Analyzer]
+    SJ -->|CSV files| GD[(Google Drive)]
+    GD -->|CSV read| WEB[Web App\nCloud Run]
+    TA -->|enriched CSV| TG[Telegram]
+    GS[Google Sheets\nreglamento / ligas] --> WEB
+    WEB --> USR((Users))
+```
 
-This lets us share common code easily, keep dependencies under control, and have a global view of everything we are building.
+## Packages
+
+| Package | Description | Deployment |
+|---------|-------------|------------|
+| `biwenger_tools/web` | Flask analytics dashboard | Cloud Run (continuous) |
+| `biwenger_tools/scraper_job` | League board scraper → CSV → Drive | Cloud Run Job (cron) |
+| `biwenger_tools/teams_analyzer` | Team enrichment via web scraping | Local / Docker |
 
 ## Repository Structure
 
-Organisation is key. The main structure you will find is:
+```
+/core           Shared library: Biwenger SDK, GCP, Telegram, domain models
+/packages       Self-contained services (one subdirectory per package)
+/docker         Pre-built Python base image (all deps pre-installed)
+/tools          Custom Bazel macros (python_service)
+/platforms      Platform definitions (linux/amd64, linux/arm64)
+/scripts        GCP cost monitoring and Artifact Registry cleanup
+/docs           Operations runbook and technical audit notes
+```
 
--   `📁 /core`: Our shared toolbox. All the logic, API clients, and utilities that can be reused by any project in the repo live here. If something is going to be used more than once, it probably belongs here.
+## Build System
 
--   `📁 /packages`: The heart of lillorepo. Each of our main projects lives inside this folder, grouped in their own directories. Each subdirectory is its own universe, but all share the tools from `core`.
+Built with [Bazel](https://bazel.build/) (bzlmod). All Python dependencies are pinned with hashes in `requirements_lock.txt`.
 
-## 🛠️ Built with Bazel
+```bash
+# Build everything
+bazel build //...
 
-Everything here is managed with **Bazel**, a build system that lets us handle dependencies between packages efficiently and guarantees fast, reproducible builds.
+# Run all tests
+bazel test //... --test_output=streamed
+
+# Run web app locally (Flask dev server)
+bazel run //packages/biwenger_tools/web:web_local
+
+# Deploy web to Cloud Run
+bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
+cd packages/biwenger_tools/web/ && ./deploy.sh
+```
+
+See [`docs/operations.md`](docs/operations.md) for the full command reference.
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Build | Bazel 9.1 (bzlmod), rules_python, rules_oci, rules_pkg |
+| Language | Python 3.12 |
+| Web | Flask + Gunicorn |
+| Cloud | GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry |
+| Storage | Google Drive (CSV data lake), Google Sheets (config data) |
+| CI/CD | GitHub Actions |
+
+## Core Library
+
+`//core` exposes granular Bazel targets — use the specific target to avoid pulling in unneeded deps:
+
+| Target | Contains |
+|--------|----------|
+| `//core:gcp` | Drive, Sheets, file status helpers |
+| `//core:telegram` | Telegram Bot API client |
+| `//core:biwenger` | Biwenger API client |
+| `//core` | Umbrella — all of the above |
+| `//core:core_srcs` | Tar of sources for Docker layers |
+
+Domain models (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`) define the CSV contracts between services and live in `core/domain/`.
+
+## Deployment
+
+CI/CD runs on every push to `master`:
+
+1. **Test** — runs all test suites in parallel
+2. **Deploy web** — builds OCI image → pushes to Artifact Registry → deploys to Cloud Run
+3. **Deploy scraper** — builds OCI image → pushes → updates Cloud Run Job
+4. **Cleanup** — removes old images from Artifact Registry (keeps `latest`)
