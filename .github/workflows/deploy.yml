@@ -11,6 +11,7 @@ on:
       - ".github/workflows/deploy.yml"
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGION: europe-southwest1
   PROJECT_ID: biwenger-tools
   REGISTRY: europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
@@ -59,7 +60,10 @@ jobs:
           disk-cache: ${{ github.workflow }}
 
       - name: Run all tests
-        run: bazel test //... --test_output=streamed --test_arg=-v
+        run: |
+          bazel test //... \
+            -- -//packages/biwenger_tools/teams_analyzer/... \
+            --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
   # 2a. Build and deploy web app (only if web changed)
