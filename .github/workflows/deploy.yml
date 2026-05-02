@@ -5,8 +5,7 @@ on:
     branches: [master]
     paths:
       - "core/**"
-      - "packages/biwenger_tools/web/**"
-      - "packages/biwenger_tools/scraper_job/**"
+      - "packages/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
 
@@ -33,12 +32,7 @@ jobs:
           disk-cache: ${{ github.workflow }}
 
       - name: Run all tests
-        run: |
-          bazel test \
-            //packages/biwenger_tools/web:web_tests \
-            //packages/biwenger_tools/scraper_job:scraper_job_tests \
-            //core:core_tests \
-            --test_output=streamed --test_arg=-v
+        run: bazel test //... --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
   # 2a. Build and deploy web app (runs in parallel with 2b)
