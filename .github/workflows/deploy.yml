@@ -124,7 +124,7 @@ jobs:
           PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
           PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
-          DEPLOY_TIME=$(date -u '+%d/%m/%Y %H:%M UTC')"
+          DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
   # 2b. Build and update scraper Cloud Run Job (only if scraper changed)
