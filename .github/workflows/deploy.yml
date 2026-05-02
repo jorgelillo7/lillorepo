@@ -123,7 +123,7 @@ jobs:
           COMUNICADOS_CSV_URL=${{ secrets.COMUNICADOS_CSV_URL }},\
           PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
           PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }},\
-          GIT_COMMIT=${{ github.sha }}"
+          GIT_COMMIT=${GITHUB_SHA::7}"
 
   # -------------------------------------------------------
   # 2b. Build and update scraper Cloud Run Job (only if scraper changed)
