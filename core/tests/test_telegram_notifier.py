@@ -1,11 +1,8 @@
-import pytest
 import requests_mock
 from unittest.mock import patch, mock_open
-import os
-import requests
+
 from core.sdk.telegram import send_telegram_notification
 
-# Datos de prueba
 TEST_API_URL = "https://api.telegram.org/bot{token}/sendDocument"
 TEST_BOT_TOKEN = "test_bot_token"
 TEST_CHAT_ID = "123456789"
@@ -13,8 +10,8 @@ TEST_CAPTION = "Test notification"
 TEST_FILEPATH = "/path/to/test_file.txt"
 
 
-def test_send_telegram_notification_success(capsys):
-    """Verifica que la notificación se envía correctamente y se imprime el mensaje de éxito."""
+def test_send_telegram_notification_success(caplog):
+    """Notification is sent successfully and success is logged."""
     with requests_mock.Mocker() as m:
         m.post(
             TEST_API_URL.format(token=TEST_BOT_TOKEN),
@@ -32,17 +29,14 @@ def test_send_telegram_notification_success(capsys):
                     TEST_FILEPATH,
                 )
 
-        # Capturamos la salida estándar y verificamos los mensajes
-        captured = capsys.readouterr()
-        assert "✅ Notificación enviada a Telegram con éxito." in captured.out
-
+        assert any("sent successfully" in r.message for r in caplog.records)
         assert m.called_once
         assert m.last_request.url == TEST_API_URL.format(token=TEST_BOT_TOKEN)
         assert "chat_id" in m.last_request.text
 
 
-def test_send_telegram_notification_failure_api(capsys):
-    """Verifica que se maneja un error de la API y se imprime el mensaje de error."""
+def test_send_telegram_notification_failure_api(caplog):
+    """API error is handled and logged as an error."""
     with requests_mock.Mocker() as m:
         m.post(TEST_API_URL.format(token=TEST_BOT_TOKEN), status_code=404)
 
@@ -56,12 +50,11 @@ def test_send_telegram_notification_failure_api(capsys):
                     TEST_FILEPATH,
                 )
 
-    captured = capsys.readouterr()
-    assert "❌ Error al enviar la notificación a Telegram:" in captured.out
+    assert any("Failed to send" in r.message for r in caplog.records)
 
 
-def test_send_telegram_notification_failure_file(capsys):
-    """Verifica que se maneja un error si el archivo no existe y se imprime el mensaje de error."""
+def test_send_telegram_notification_failure_file(caplog):
+    """Missing file error is handled and logged as an error."""
     with requests_mock.Mocker() as m:
         send_telegram_notification(
             TEST_API_URL,
@@ -71,6 +64,6 @@ def test_send_telegram_notification_failure_file(capsys):
             "/non/existent/file.txt",
         )
 
-    captured = capsys.readouterr()
-    assert "❌ Error al enviar la notificación a Telegram:" in captured.out
-    assert "No such file or directory: '/non/existent/file.txt'" in captured.out
+    error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert error_records
+    assert any("No such file or directory" in r.getMessage() for r in error_records)
