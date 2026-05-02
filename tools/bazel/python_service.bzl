@@ -43,7 +43,7 @@ def python_service(
     py_library(
         name = name + "_lib",
         srcs = srcs,
-        data = templates + static_files + secrets,
+        data = templates + static_files,
         deps = deps + [
             requirement("flask"),
             requirement("gunicorn"),
