@@ -7,6 +7,7 @@ on:
       - "core/**"
       - "packages/biwenger_tools/web/**"
       - "packages/biwenger_tools/scraper_job/**"
+      - "tools/**"
       - ".github/workflows/deploy.yml"
 
 env:
