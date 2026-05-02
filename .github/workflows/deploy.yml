@@ -5,7 +5,8 @@ on:
     branches: [master]
     paths:
       - "core/**"
-      - "packages/**"
+      - "packages/biwenger_tools/web/**"
+      - "packages/biwenger_tools/scraper_job/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
 
