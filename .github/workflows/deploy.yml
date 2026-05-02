@@ -18,10 +18,36 @@ env:
 
 jobs:
   # -------------------------------------------------------
+  # 0. Detect which modules have changed
+  # -------------------------------------------------------
+  detect-changes:
+    name: Detect changed modules
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      scraper: ${{ steps.filter.outputs.scraper }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'core/**'
+              - 'tools/**'
+              - 'packages/biwenger_tools/web/**'
+            scraper:
+              - 'core/**'
+              - 'tools/**'
+              - 'packages/biwenger_tools/scraper_job/**'
+
+  # -------------------------------------------------------
   # 1. Run all tests before any deployment
   # -------------------------------------------------------
   test:
     name: Run tests
+    needs: detect-changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,11 +62,12 @@ jobs:
         run: bazel test //... --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
-  # 2a. Build and deploy web app (runs in parallel with 2b)
+  # 2a. Build and deploy web app (only if web changed)
   # -------------------------------------------------------
   deploy-web:
     name: Deploy web app
-    needs: test
+    needs: [detect-changes, test]
+    if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -92,11 +119,12 @@ jobs:
           PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }}"
 
   # -------------------------------------------------------
-  # 2b. Build and update scraper Cloud Run Job (parallel)
+  # 2b. Build and update scraper Cloud Run Job (only if scraper changed)
   # -------------------------------------------------------
   deploy-scraper:
     name: Deploy scraper job
-    needs: test
+    needs: [detect-changes, test]
+    if: needs.detect-changes.outputs.scraper == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -132,11 +160,12 @@ jobs:
             --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }}
 
   # -------------------------------------------------------
-  # 3. Clean up old images once both deploys succeed
+  # 3. Clean up old images once any deploy succeeds
   # -------------------------------------------------------
   cleanup:
     name: Clean up old images
     needs: [deploy-web, deploy-scraper]
+    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
