@@ -29,6 +29,7 @@ def inject_globals() -> dict:
         "season": g.get("season", config.TEMPORADA_ACTUAL),
         "temporada_actual": config.TEMPORADA_ACTUAL,
         "temporadas_disponibles": config.TEMPORADAS_DISPONIBLES,
+        "git_commit": config.GIT_COMMIT,
     }
 
 

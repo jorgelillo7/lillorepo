@@ -2,7 +2,7 @@
 import ssl
 from collections import defaultdict
 
-from flask import Blueprint, Response, g, redirect, render_template, url_for
+from flask import Blueprint, Response, g, jsonify, redirect, render_template, url_for
 
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
@@ -10,6 +10,12 @@ from packages.biwenger_tools.web import config, services
 
 logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
+
+
+@bp.route("/version")
+def version() -> Response:
+    """Return the deployed git commit SHA."""
+    return jsonify({"commit": config.GIT_COMMIT})
 
 
 @bp.route("/favicon.ico")

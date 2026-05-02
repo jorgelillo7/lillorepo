@@ -46,6 +46,9 @@ CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
 SECRET_KEY = os.getenv("SECRET_KEY", "default-dev-key")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
+# --- VERSIÓN DESPLEGADA ---
+GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
+
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7
 

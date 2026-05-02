@@ -116,7 +116,8 @@ jobs:
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
           COMUNICADOS_CSV_URL=${{ secrets.COMUNICADOS_CSV_URL }},\
           PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
-          PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }}"
+          PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }},\
+          GIT_COMMIT=${{ github.sha }}"
 
   # -------------------------------------------------------
   # 2b. Build and update scraper Cloud Run Job (only if scraper changed)
