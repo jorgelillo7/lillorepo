@@ -48,6 +48,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 # --- VERSIÓN DESPLEGADA (short SHA, 7 chars) ---
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
+DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7

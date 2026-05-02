@@ -30,6 +30,7 @@ def inject_globals() -> dict:
         "temporada_actual": config.TEMPORADA_ACTUAL,
         "temporadas_disponibles": config.TEMPORADAS_DISPONIBLES,
         "git_commit": config.GIT_COMMIT,
+        "deploy_time": config.DEPLOY_TIME,
     }
 
 
