@@ -60,7 +60,7 @@ def _get_existing_comunicados(
     if file_meta:
         messages = download_csv_as_dict(drive_service, file_meta["id"])
         return messages, {m["id_hash"] for m in messages}, file_meta["id"]
-    logger.info("CSV not found in Drive — will be created.", extra={"filename": filename})
+    logger.info("CSV not found in Drive — will be created.", extra={"file_name": filename})
     return [], set(), None
 
 
