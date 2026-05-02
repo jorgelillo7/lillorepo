@@ -68,7 +68,7 @@ def upload_csv_to_drive(
     )
     if existing_file_id:
         service.files().update(fileId=existing_file_id, media_body=media).execute()
-        logger.info("Archivo actualizado en Drive.", extra={"file_name": filename})
+        logger.info("File updated on Drive.", extra={"file_name": filename})
     else:
         file_metadata = {"name": filename, "parents": [folder_id]}
         file = (
@@ -79,7 +79,7 @@ def upload_csv_to_drive(
         permission = {"type": "anyone", "role": "reader"}
         service.permissions().create(fileId=file.get("id"), body=permission).execute()
         logger.info(
-            "Archivo creado y compartido públicamente en Drive.",
+            "File created and shared publicly on Drive.",
             extra={"file_name": filename},
         )
 
