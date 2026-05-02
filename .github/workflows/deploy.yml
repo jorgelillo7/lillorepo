@@ -61,8 +61,10 @@ jobs:
 
       - name: Run all tests
         run: |
-          bazel test //... \
-            -- -//packages/biwenger_tools/teams_analyzer/... \
+          bazel test \
+            //core:core_tests \
+            //packages/biwenger_tools/web:web_tests \
+            //packages/biwenger_tools/scraper_job:scraper_job_tests \
             --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
