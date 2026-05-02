@@ -66,4 +66,4 @@ def test_send_telegram_notification_failure_file(caplog):
 
     error_records = [r for r in caplog.records if r.levelname == "ERROR"]
     assert error_records
-    assert any("No such file or directory" in r.getMessage() for r in error_records)
+    assert any("No such file or directory" in r.__dict__.get("error", "") for r in error_records)
