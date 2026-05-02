@@ -175,7 +175,6 @@ def python_service(
                 timeout = "short",
                 srcs = test_files,
                 main = "tests/main.py",
-                data = secrets,
                 deps = [
                     ":" + name + "_lib",
                     requirement("pytest"),
