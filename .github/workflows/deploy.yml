@@ -120,9 +120,6 @@ jobs:
           LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
           LIGAS_ESPECIALES_SHEET_ID_24_25=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_24_25 }},\
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
-          COMUNICADOS_CSV_URL=${{ secrets.COMUNICADOS_CSV_URL }},\
-          PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
-          PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 

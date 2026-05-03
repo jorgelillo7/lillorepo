@@ -1,17 +1,18 @@
-import sys
-import os
-from gunicorn.app.wsgiapp import run
+"""Gunicorn launcher for the web app on Cloud Run.
 
-# Agregar el directorio padre (/app) al PYTHONPATH
-# para que Python pueda encontrar el módulo 'web'
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
+Relies on PYTHONPATH=/app set by entrypoint.sh, so the canonical module path
+`packages.biwenger_tools.web.app:app` resolves without sys.path tricks.
+"""
+
+import sys
+
+from gunicorn.app.wsgiapp import run
 
 if __name__ == "__main__":
     sys.argv = [
         "gunicorn",
         "--bind",
         "0.0.0.0:8080",
-        "web.app:app",  # Cambiar a web.app:app
+        "packages.biwenger_tools.web.app:app",
     ]
     run()
