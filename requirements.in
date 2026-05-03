@@ -5,7 +5,6 @@ requests
 google-api-python-client
 google-auth-oauthlib
 google-auth
-pytz
 python-dateutil
 python-json-logger
 
@@ -25,10 +24,7 @@ python-dotenv
 # From: packages/biwenger_tools/teams_analyzer/requirements.txt
 # teams_analyzer/requirements.txt
 python-dotenv
-beautifulsoup4
 requests
-selenium
-webdriver-manager
 unidecode
 
 # From: packages/biwenger_tools/web/requirements.txt
@@ -40,5 +36,4 @@ beautifulsoup4
 gunicorn
 
 # Para el manejo de fechas y zonas horarias
-pytz
 python-dateutil
