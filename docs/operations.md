@@ -197,10 +197,18 @@ Commands for running each component.
     > Note: the `--shm-size=2g` flag previously needed for the Chromium-based
     > scraper is no longer required.
 
-  * **Deploy to production:**
-    Pending — the `teams_analyzer_image_local` target still references
-    `@debian_base_image` (broken since the bzlmod migration). Migrate it to
-    the `python_service` macro / `@python_with_deps` base before pushing.
+  * **Deploy to production (Cloud Run Job):**
+
+      * **Build and push the image to GCP:**
+        ```bash
+          bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
+              --platforms=//platforms:linux_amd64
+        ```
+      * **Create the Job (first time only):** secrets and the schedule are
+        defined when first creating the Cloud Run Job. The minimum env/secrets:
+        `BIWENGER_EMAIL`, `BIWENGER_PASSWORD`, `TELEGRAM_BOT_TOKEN`,
+        `TELEGRAM_CHAT_ID`. Adapt the `gcloud run jobs create` snippet from the
+        Scraper Job section above.
 
 ### Extra\. Core
 

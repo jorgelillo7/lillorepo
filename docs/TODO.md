@@ -16,12 +16,12 @@
 - [x] **`TEMPORADA_ACTUAL` duplicado** — centralizado en `env.TEMPORADA_ACTUAL` del `deploy.yml`; ambos config leen `os.getenv`
 - [x] **Selenium fuera del teams_analyzer** — v4.2 reemplaza Selenium + Analítica Fantasy por la API privada de Jornada Perfecta (1 request HTTP en vez de 600 acciones de browser).
 - [ ] **Reconstruir `Dockerfile.base`** — todavía instala `selenium`, `webdriver-manager`, `trio*`, `pytz`. La imagen actual en GCP funciona porque está pineada por digest, pero la siguiente regeneración debe partir del `requirements_lock.txt` actual (sin esas deps) y empujar un nuevo digest a `MODULE.bazel`.
-- [ ] **Arreglar target Docker de teams_analyzer** — `packages/biwenger_tools/teams_analyzer:teams_analyzer_image_local` referencia `@debian_base_image` (no definido en `MODULE.bazel`). Migrar al patrón `python_service` o `@python_with_deps` antes de poder hacer rebuild + push a GCP.
+- [x] **Arreglar target Docker de teams_analyzer** — migrado al patrón de `scraper_job` (`@python_with_deps` + `entrypoint.sh` propio + capas de código separadas). Añadido `push_image_to_gcp` y `load_image_to_docker_local`. `bazel build //...` ahora pasa entero por primera vez tras la migración a bzlmod.
 
 ## Producto
 
 - [ ] **Sección VAR en web** — revisar y conectar trigger manual del AI scraper o cron job
-- [ ] **Deploy teams_analyzer a GCP** — bloqueado por el target Docker roto (ver "Técnico")
+- [ ] **Deploy teams_analyzer a GCP** — target Docker ya arreglado; falta crear el Cloud Run Job (`gcloud run jobs create`) con los secrets equivalentes a los del scraper.
 - [ ] **Nuevo proyecto Google para fotos**
 
 ## Arquitectura (medio plazo)
