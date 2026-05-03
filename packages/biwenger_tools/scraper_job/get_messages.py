@@ -1,4 +1,5 @@
 """Scraper job: fetch Biwenger messages and upload CSVs to Google Drive."""
+
 import csv
 import hashlib
 import io
@@ -9,32 +10,35 @@ from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 
-from packages.biwenger_tools.scraper_job import config
-from packages.biwenger_tools.scraper_job.logic.processing import (
-    categorize_title,
-    process_participation,
-    sort_messages,
-    get_all_board_messages,
-    get_all_clausulazos,
-    parse_clausulazos,
-    build_tabla_justicia,
-)
+from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
+from core.sdk.biwenger import BiwengerClient
 from core.sdk.gcp import (
-    get_google_service,
-    find_file_on_drive,
     download_csv_as_dict,
+    find_file_on_drive,
+    get_google_service,
     upload_csv_to_drive,
 )
-from core.sdk.biwenger import BiwengerClient
-from core.utils import read_secret_from_file, get_logger
+from core.utils import get_logger, read_secret_from_file
+from packages.biwenger_tools.scraper_job import config
+from packages.biwenger_tools.scraper_job.logic.processing import (
+    build_tabla_justicia,
+    categorize_title,
+    parse_clausulazos,
+    process_participation,
+    sort_messages,
+)
 
 logger = get_logger(__name__)
+
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def _read_credentials(cfg) -> tuple[str, str, str]:
     """Read Biwenger and Drive credentials from secrets or environment variables."""
     email = read_secret_from_file(cfg.BIWENGER_EMAIL_PATH) or cfg.BIWENGER_EMAIL
-    password = read_secret_from_file(cfg.BIWENGER_PASSWORD_PATH) or cfg.BIWENGER_PASSWORD
+    password = (
+        read_secret_from_file(cfg.BIWENGER_PASSWORD_PATH) or cfg.BIWENGER_PASSWORD
+    )
     folder_id = read_secret_from_file(cfg.GDRIVE_FOLDER_ID_PATH) or cfg.GDRIVE_FOLDER_ID
     if not all([email, password, folder_id]):
         raise ValueError("No se pudieron leer todas las credenciales necesarias.")
@@ -58,9 +62,12 @@ def _get_existing_comunicados(
     """
     file_meta = find_file_on_drive(drive_service, filename, folder_id)
     if file_meta:
-        messages = download_csv_as_dict(drive_service, file_meta["id"])
-        return messages, {m["id_hash"] for m in messages}, file_meta["id"]
-    logger.info("CSV not found in Drive — will be created.", extra={"file_name": filename})
+        rows = download_csv_as_dict(drive_service, file_meta["id"])
+        messages = [LeagueMessage.from_csv_row(r) for r in rows]
+        return messages, {m.id_hash for m in messages}, file_meta["id"]
+    logger.info(
+        "CSV not found in Drive — will be created.", extra={"file_name": filename}
+    )
     return [], set(), None
 
 
@@ -68,8 +75,7 @@ def _process_new_messages(
     board_messages: list, existing_ids: set, user_map: dict
 ) -> list:
     """Parse board messages and return only those not already stored."""
-    madrid_tz = ZoneInfo("Europe/Madrid")
-    new_messages = []
+    new_messages: list[LeagueMessage] = []
     for item in board_messages:
         content_html = item.get("content", "")
         content_text = BeautifulSoup(content_html, "html.parser").get_text(
@@ -82,15 +88,20 @@ def _process_new_messages(
             continue
         author = item.get("author")
         author_id = author.get("id") if author else None
-        fecha = datetime.fromtimestamp(item["date"], tz=timezone.utc).astimezone(madrid_tz)
-        new_messages.append({
-            "id_hash": id_hash,
-            "fecha": fecha.strftime("%d-%m-%Y %H:%M:%S"),
-            "autor": user_map.get(author_id, "Autor Desconocido"),
-            "titulo": item.get("title", "Sin título"),
-            "contenido": content_html,
-            "categoria": categorize_title(item.get("title", "")),
-        })
+        fecha = datetime.fromtimestamp(item["date"], tz=timezone.utc).astimezone(
+            MADRID_TZ
+        )
+        title = item.get("title", "Sin título")
+        new_messages.append(
+            LeagueMessage(
+                id_hash=id_hash,
+                fecha=fecha.strftime("%d-%m-%Y %H:%M:%S"),
+                autor=user_map.get(author_id, "Autor Desconocido"),
+                titulo=title,
+                contenido=content_html,
+                categoria=categorize_title(title),
+            )
+        )
     return new_messages
 
 
@@ -98,16 +109,18 @@ def _write_and_upload_csv(
     drive_service,
     folder_id: str,
     filename: str,
-    fieldnames: list,
-    rows: list,
+    model_cls,
+    models: list,
     existing_file_id: Optional[str],
 ) -> None:
-    """Serialize rows to CSV string and upload (create or update) to Drive."""
+    """Serialize a list of domain models to CSV and upload to Drive."""
     buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer = csv.DictWriter(buf, fieldnames=list(model_cls.CSV_FIELDS))
     writer.writeheader()
-    writer.writerows(rows)
-    upload_csv_to_drive(drive_service, folder_id, filename, buf.getvalue(), existing_file_id)
+    writer.writerows(m.to_csv_row() for m in models)
+    upload_csv_to_drive(
+        drive_service, folder_id, filename, buf.getvalue(), existing_file_id
+    )
 
 
 def _upload_clausulazos(
@@ -116,16 +129,20 @@ def _upload_clausulazos(
     """Download, parse, and upload clausulazos and tabla_justicia CSVs."""
     logger.info("Processing clausulazos...")
     players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
-    raw = get_all_clausulazos(biwenger, cfg.CLAUSULAZOS_URL)
+    raw = biwenger.get_all_clausulazos(cfg.CLAUSULAZOS_URL)
     clausulazos = parse_clausulazos(raw, players_map)
     tabla_justicia = build_tabla_justicia(clausulazos)
     logger.info("Clausulazos processed.", extra={"count": len(clausulazos)})
 
     clausulazos_filename = f"{cfg.CLAUSULAZOS_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
-    clausulazos_meta = find_file_on_drive(drive_service, clausulazos_filename, folder_id)
+    clausulazos_meta = find_file_on_drive(
+        drive_service, clausulazos_filename, folder_id
+    )
     _write_and_upload_csv(
-        drive_service, folder_id, clausulazos_filename,
-        ["fecha", "jugador", "equipo_vendedor", "equipo_comprador", "precio"],
+        drive_service,
+        folder_id,
+        clausulazos_filename,
+        Clausulazo,
         clausulazos,
         clausulazos_meta["id"] if clausulazos_meta else None,
     )
@@ -133,8 +150,10 @@ def _upload_clausulazos(
     tabla_filename = f"{cfg.TABLA_JUSTICIA_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
     tabla_meta = find_file_on_drive(drive_service, tabla_filename, folder_id)
     _write_and_upload_csv(
-        drive_service, folder_id, tabla_filename,
-        ["equipo", "total_hechos", "total_recibidos", "punto_de_mira", "mayor_agresor", "hechos", "recibidos"],
+        drive_service,
+        folder_id,
+        tabla_filename,
+        JusticeEntry,
         tabla_justicia,
         tabla_meta["id"] if tabla_meta else None,
     )
@@ -157,9 +176,7 @@ def main() -> None:
             drive_service, comunicados_filename, folder_id
         )
 
-        board_messages = get_all_board_messages(
-            biwenger, f"{config.BASE_URL}/league/{config.LEAGUE_ID}/board?type=text"
-        )
+        board_messages = biwenger.get_all_board_messages(config.BOARD_MESSAGES_URL)
         logger.info("Board messages downloaded.", extra={"count": len(board_messages)})
         user_map = biwenger.get_league_users(config.LEAGUE_USERS_URL)
 
@@ -168,15 +185,22 @@ def main() -> None:
             logger.info("New messages found.", extra={"count": len(new_messages)})
             all_messages = sort_messages(all_messages + new_messages)
             _write_and_upload_csv(
-                drive_service, folder_id, comunicados_filename,
-                ["id_hash", "fecha", "autor", "titulo", "contenido", "categoria"],
-                all_messages, existing_file_id,
+                drive_service,
+                folder_id,
+                comunicados_filename,
+                LeagueMessage,
+                all_messages,
+                existing_file_id,
             )
             participacion_filename = f"participacion_{config.TEMPORADA_ACTUAL}.csv"
-            part_meta = find_file_on_drive(drive_service, participacion_filename, folder_id)
+            part_meta = find_file_on_drive(
+                drive_service, participacion_filename, folder_id
+            )
             _write_and_upload_csv(
-                drive_service, folder_id, participacion_filename,
-                ["autor", "comunicados", "datos", "cesiones", "cronicas"],
+                drive_service,
+                folder_id,
+                participacion_filename,
+                Participation,
                 process_participation(all_messages, user_map),
                 part_meta["id"] if part_meta else None,
             )
