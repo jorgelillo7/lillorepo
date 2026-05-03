@@ -6,5 +6,4 @@ beautifulsoup4
 gunicorn
 
 # Para el manejo de fechas y zonas horarias
-pytz
 python-dateutil

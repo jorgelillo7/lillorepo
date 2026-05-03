@@ -1,14 +1,27 @@
 """Admin routes: login panel and logout."""
-import pytz
+
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from dateutil import parser
-from flask import Blueprint, Response, flash, g, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    Response,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from core.sdk.gcp import get_file_metadata
 from packages.biwenger_tools.web import config, services
 
 bp = Blueprint("admin", __name__)
+
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def _get_sheet_file_status(sheet_id: str) -> dict:
@@ -19,8 +32,8 @@ def _get_sheet_file_status(sheet_id: str) -> dict:
         .execute()
     )
     dt_utc = parser.isoparse(sheet_metadata["modifiedTime"])
-    dt_madrid = dt_utc.astimezone(pytz.timezone("Europe/Madrid"))
-    is_stale = (datetime.now(pytz.timezone("Europe/Madrid")) - dt_madrid) > timedelta(days=7)
+    dt_madrid = dt_utc.astimezone(MADRID_TZ)
+    is_stale = (datetime.now(MADRID_TZ) - dt_madrid) > timedelta(days=7)
     return {
         "name": f"{sheet_metadata['name']} (Sheet)",
         "status": "Encontrado",
