@@ -71,6 +71,47 @@ Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
 - Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
 
+## Branch and PR Workflow
+
+This repo deploys to production on every push to `master` (see `.github/workflows/deploy.yml`).
+**Always work on a feature branch and open a PR** — never commit directly to master.
+
+```bash
+git checkout -b feat/my-feature
+# ... do work ...
+git push -u origin feat/my-feature
+gh pr create --title "..." --body "..."
+```
+
+Rationale:
+- The CI pipeline on `master` triggers real deploys to Cloud Run — a broken commit ships broken code.
+- GitHub Actions is free for public repos, so cost is not the concern; correctness is.
+- PRs give a natural review checkpoint and keep master always deployable.
+
+For quick fixes or documentation-only changes, a short-lived branch + immediate PR merge is still preferred over committing directly.
+
+## Plans (`.claude/plans/`)
+
+Implementation plans live in `.claude/plans/`. They are session-scoped: created before
+starting a non-trivial task, deleted once the work is merged.
+
+Lifecycle:
+1. **Create** — write the plan before starting implementation
+2. **Use** — reference it during the session; update it if the approach changes
+3. **Delete** — once the feature is merged to master, delete the plan file
+
+Do not accumulate stale plans. If a plan describes work that was never started and is
+still relevant, keep it. If the code exists and works, the plan is redundant — delete it.
+
+Current active plans: `.claude/plans/teams_analyzer_rewrite.md`
+
+## Memory
+
+Claude Code persistent memory for this project lives at:
+`~/.claude/projects/-Users-jorge-Projects-lillorepo/memory/`
+
+Index file: `MEMORY.md`. Each memory is a separate `.md` file in the same directory.
+
 ## Notes for Claude
 
 - This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
