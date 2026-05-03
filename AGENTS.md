@@ -1,6 +1,6 @@
 # Agent Information for Lillorepo
 
-This document provides a summary of the agents and projects within the `lillorepo` monorepo. For AI-specific context, see the [Gemini Configuration](./.gemini/GEMINI.md).
+This document provides a summary of the agents and projects within the `lillorepo` monorepo.
 
 ## Repository Overview
 
@@ -25,13 +25,13 @@ The main projects are located under `packages/biwenger_tools`:
 
 ### 2. Teams Analyzer (`/packages/biwenger_tools/teams_analyzer`)
 
-- **Purpose:** This agent analyzes the teams in a Biwenger league, providing a detailed report.
+- **Purpose:** This agent analyzes squads, the free-agent market, and rivals in a Biwenger league, sending an enriched digest to Telegram.
 - **Functionality:**
-    - Fetches team and player data from the Biwenger API.
-    - Enriches the data by scraping external fantasy football websites like "Analítica Fantasy" and "Jornada Perfecta".
-    - Generates a comprehensive CSV report with player values, clauses, and performance analytics.
-    - Optionally sends the generated report to a Telegram chat.
-- **Technology:** Python, Biwenger API, Selenium for scraping, Telegram API.
+    - Fetches squad and market data from the Biwenger API.
+    - Pulls predicted player ratings from the **Jornada Perfecta private API** (the SofaScore-based "Automanager" rating system) — one HTTP call instead of browser automation.
+    - Cross-references both sources by normalised player name + slug.
+    - Sends a series of formatted Telegram messages: own squad, market top-N, one message per rival manager.
+- **Technology:** Python, Biwenger API, Jornada Perfecta private API, Telegram Bot API.
 
 ### 3. Web App (`/packages/biwenger_tools/web`)
 
@@ -46,7 +46,9 @@ The main projects are located under `packages/biwenger_tools`:
 
 The `/core` directory contains the foundational components that are shared across the projects:
 
-- **Biwenger SDK (`/core/sdk/biwenger.py`):** A client library to interact with the Biwenger API.
-- **GCP Services (`/core/sdk/gcp.py`):** Utilities for interacting with Google Cloud services like Google Drive.
-- **Telegram Notifier (`/core/sdk/telegram.py`):** A simple client to send messages via the Telegram API.
-- **Utilities (`/core/utils.py`):** Common utility functions.
+- **Biwenger SDK (`/core/sdk/biwenger.py`):** Client for the Biwenger API. Exposes URL constants, helpers for league/manager URLs, and built-in paginators (`get_all_board_messages`, `get_all_clausulazos`).
+- **JP SDK (`/core/sdk/jp.py`):** Client for the private Jornada Perfecta API used by `teams_analyzer`. Includes a health-check that flags token rotation.
+- **GCP Services (`/core/sdk/gcp.py`):** Utilities for interacting with Google Drive and Sheets.
+- **Telegram Client (`/core/sdk/telegram.py`):** Sends text messages via the Bot API (HTML, truncates at 4096 chars).
+- **Domain Models (`/core/domain/models.py`):** Dataclasses (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`) with `from_csv_row`/`to_csv_row` helpers — the data contract between scraper and web.
+- **Utilities (`/core/utils.py`):** JSON-formatted logger and secret-file reader.

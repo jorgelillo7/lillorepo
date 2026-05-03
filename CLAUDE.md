@@ -5,14 +5,14 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
 ## Structure
 
 ```
-/core           Shared libraries (Biwenger SDK, GCP, Telegram; utils)
+/core           Shared libraries (Biwenger SDK, JP SDK, GCP, Telegram; domain models; utils)
 /packages       Self-contained projects
   biwenger_tools/
     scraper_job/    League message scraper → CSV → Google Drive
-    teams_analyzer/ Biwenger team analysis → CSV → Telegram
+    teams_analyzer/ Biwenger squad + market analysis enriched with JP predictions → Telegram messages
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
-/docs           Documentation (operations.md = command reference)
+/docs           Documentation (operations.md = command reference, setup/linter.md = lint/format)
 /scripts        Utility scripts (GCP cleanup, costs)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
@@ -21,9 +21,10 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
 ## Stack
 
 - **Build:** Bazel (bazelisk)
-- **Language:** Python 3
+- **Language:** Python 3.12
 - **Cloud:** GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry
-- **Other:** Flask, Selenium, Docker
+- **Other:** Flask, Docker
+- **CI:** GitHub Actions runs flake8 + `black --check` before tests; tests gate the deploy.
 
 ## Key Commands
 

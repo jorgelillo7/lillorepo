@@ -163,19 +163,17 @@ Commands for running each component.
 ### 3\. Teams Analyzer
 
   * **Setup:** Make sure you have a `.env` file with Biwenger and Telegram credentials.
+    The Jornada Perfecta token is hardcoded in `core/sdk/jp.py` — no per-user value.
 
   * **Run locally:**
 
     ```bash
         bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
-
-        # Get output files for debugging
-        bazel run --spawn_strategy=local //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
-        open bazel-bin/packages/biwenger_tools/teams_analyzer/teams_analyzer_local.runfiles/_main/packages/biwenger_tools/teams_analyzer
-
-        analitica_fantasy_data_backup.csv
-        squads_export.csv
     ```
+
+    Output is sent to your Telegram chat (no CSV files generated since v4.2 — the
+    Selenium + Analítica Fantasy path was removed in favour of the JP private API).
+
   * **Tests:**
 
     ```bash
@@ -193,10 +191,16 @@ Commands for running each component.
 
     ```bash
       bazel run //packages/biwenger_tools/teams_analyzer:load_image_to_docker_local
-      docker run --rm --shm-size=2g bazel/teams_analyzer:local
+      docker run --rm bazel/teams_analyzer:local
     ```
+
+    > Note: the `--shm-size=2g` flag previously needed for the Chromium-based
+    > scraper is no longer required.
+
   * **Deploy to production:**
-    Pending
+    Pending — the `teams_analyzer_image_local` target still references
+    `@debian_base_image` (broken since the bzlmod migration). Migrate it to
+    the `python_service` macro / `@python_with_deps` base before pushing.
 
 ### Extra\. Core
 
@@ -231,8 +235,8 @@ requests
 google-api-python-client
 google-auth-oauthlib
 google-auth
-pytz
 python-dateutil
+python-json-logger
 black
 flake8
 pytest

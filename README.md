@@ -7,10 +7,11 @@ Python monorepo targeting Google Cloud Platform. Currently hosts **Biwenger Tool
 ```mermaid
 graph TD
     API[Biwenger API] -->|board messages| SJ[Scraper Job\nCloud Run Job]
-    EXT[Jornada Perfecta\nAnalítica Fantasy] -->|web scrape| TA[Teams Analyzer]
+    JP[Jornada Perfecta\nprivate API] -->|player predictions| TA[Teams Analyzer]
+    API -->|squads + market| TA
     SJ -->|CSV files| GD[(Google Drive)]
     GD -->|CSV read| WEB[Web App\nCloud Run]
-    TA -->|enriched CSV| TG[Telegram]
+    TA -->|formatted messages| TG[Telegram]
     GS[Google Sheets\nreglamento / ligas] --> WEB
     WEB --> USR((Users))
 ```
@@ -21,18 +22,18 @@ graph TD
 |---------|-------------|------------|
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run (continuous) |
 | `biwenger_tools/scraper_job` | League board scraper → CSV → Drive | Cloud Run Job (cron) |
-| `biwenger_tools/teams_analyzer` | Team enrichment via web scraping | Local / Docker |
+| `biwenger_tools/teams_analyzer` | Squad + market analysis enriched with JP predictions, sent to Telegram | Local / Docker |
 
 ## Repository Structure
 
 ```
-/core           Shared library: Biwenger SDK, GCP, Telegram, domain models
+/core           Shared library: Biwenger SDK, JP SDK, GCP, Telegram, domain models
 /packages       Self-contained services (one subdirectory per package)
 /docker         Pre-built Python base image (all deps pre-installed)
 /tools          Custom Bazel macros (python_service)
 /platforms      Platform definitions (linux/amd64, linux/arm64)
 /scripts        GCP cost monitoring and Artifact Registry cleanup
-/docs           Operations runbook and technical audit notes
+/docs           Operations runbook, setup guides, technical audit notes
 ```
 
 ## Build System
@@ -75,7 +76,8 @@ See [`docs/operations.md`](docs/operations.md) for the full command reference.
 |--------|----------|
 | `//core:gcp` | Drive, Sheets, file status helpers |
 | `//core:telegram` | Telegram Bot API client |
-| `//core:biwenger` | Biwenger API client |
+| `//core:biwenger` | Biwenger API client (URL constants, paginators) |
+| `//core:jp` | Jornada Perfecta private API client |
 | `//core` | Umbrella — all of the above |
 | `//core:core_srcs` | Tar of sources for Docker layers |
 
@@ -85,7 +87,8 @@ Domain models (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`) d
 
 CI/CD runs on every push to `master`:
 
-1. **Test** — runs all test suites in parallel
-2. **Deploy web** — builds OCI image → pushes to Artifact Registry → deploys to Cloud Run
-3. **Deploy scraper** — builds OCI image → pushes → updates Cloud Run Job
-4. **Cleanup** — removes old images from Artifact Registry (keeps `latest`)
+1. **Lint** — flake8 + `black --check` on `core/` and `packages/` (see [`docs/setup/linter.md`](docs/setup/linter.md))
+2. **Test** — runs all test suites in parallel (gated on lint passing)
+3. **Deploy web** — builds OCI image → pushes to Artifact Registry → deploys to Cloud Run
+4. **Deploy scraper** — builds OCI image → pushes → updates Cloud Run Job
+5. **Cleanup** — removes old images from Artifact Registry (keeps `latest`)
