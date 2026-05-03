@@ -1,4 +1,5 @@
 """Biwenger web application."""
+
 import os
 import re
 

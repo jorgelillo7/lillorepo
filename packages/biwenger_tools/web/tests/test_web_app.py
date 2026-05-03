@@ -1,10 +1,10 @@
 """Tests for the Biwenger web application."""
+
 import pytest
 from unittest.mock import MagicMock, patch
 
 from packages.biwenger_tools.web.app import app
 from packages.biwenger_tools.web import services
-
 
 # --- Fixtures ---
 
@@ -45,8 +45,20 @@ def mock_comunicados_data():
 def mock_participacion_data():
     """Sample participation data."""
     return [
-        {"autor": "Autor1", "comunicados": "c1;c2", "datos": "d1", "cesiones": "", "cronicas": ""},
-        {"autor": "Autor2", "comunicados": "", "datos": "d1;d2", "cesiones": "", "cronicas": ""},
+        {
+            "autor": "Autor1",
+            "comunicados": "c1;c2",
+            "datos": "d1",
+            "cesiones": "",
+            "cronicas": "",
+        },
+        {
+            "autor": "Autor2",
+            "comunicados": "",
+            "datos": "d1;d2",
+            "cesiones": "",
+            "cronicas": "",
+        },
     ]
 
 
@@ -99,7 +111,9 @@ def test_before_request_ignores_invalid_url(client):
     "packages.biwenger_tools.web.routes.season.find_file_on_drive",
     return_value={"id": "fake_id"},
 )
-def test_comunicados_success(mock_find_file, mock_download_csv, client, mock_comunicados_data):
+def test_comunicados_success(
+    mock_find_file, mock_download_csv, client, mock_comunicados_data
+):
     """Verify that the comunicados page loads correctly with data."""
     mock_download_csv.return_value = mock_comunicados_data
     response = client.get("/24-25/")
@@ -109,7 +123,9 @@ def test_comunicados_success(mock_find_file, mock_download_csv, client, mock_com
     assert b"D1" not in response.data
 
 
-@patch("packages.biwenger_tools.web.routes.season.find_file_on_drive", return_value=None)
+@patch(
+    "packages.biwenger_tools.web.routes.season.find_file_on_drive", return_value=None
+)
 def test_comunicados_file_not_found(mock_find_file, client):
     """Verify that an error is shown when the file is not found."""
     response = client.get("/24-25/")
@@ -134,7 +150,9 @@ def test_comunicados_general_exception(mock_find_file, mock_download_csv, client
 
 @patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
 @patch("packages.biwenger_tools.web.routes.season.find_file_on_drive")
-def test_salseo_success(mock_find_file, mock_download_csv, client, mock_comunicados_data):
+def test_salseo_success(
+    mock_find_file, mock_download_csv, client, mock_comunicados_data
+):
     """Verify that the salseo page loads correctly with data."""
     mock_find_file.side_effect = [{"id": "fake_id"}, None, None]
     mock_download_csv.return_value = mock_comunicados_data
@@ -150,7 +168,9 @@ def test_salseo_success(mock_find_file, mock_download_csv, client, mock_comunica
     "packages.biwenger_tools.web.routes.season.find_file_on_drive",
     return_value={"id": "fake_id"},
 )
-def test_participacion_success(mock_find_file, mock_download_csv, client, mock_participacion_data):
+def test_participacion_success(
+    mock_find_file, mock_download_csv, client, mock_participacion_data
+):
     """Verify that the participacion page calculates stats correctly."""
     mock_download_csv.return_value = mock_participacion_data
     response = client.get("/24-25/participacion")
@@ -164,7 +184,9 @@ def test_participacion_success(mock_find_file, mock_download_csv, client, mock_p
     "packages.biwenger_tools.web.routes.main.find_file_on_drive",
     return_value={"id": "fake_id"},
 )
-def test_palmares_success(mock_find_file, mock_download_csv, client, mock_palmares_data):
+def test_palmares_success(
+    mock_find_file, mock_download_csv, client, mock_palmares_data
+):
     """Verify that the palmares page processes data correctly."""
     mock_download_csv.return_value = mock_palmares_data
     response = client.get("/palmares")
@@ -237,7 +259,12 @@ def test_admin_panel_page_loads(mock_build_statuses, client):
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
     mock_build_statuses.return_value = [
-        {"name": "comunicados_24-25.csv", "status": "Encontrado", "is_stale": False, "last_updated": "01-01-2025 a las 00:00:00"},
+        {
+            "name": "comunicados_24-25.csv",
+            "status": "Encontrado",
+            "is_stale": False,
+            "last_updated": "01-01-2025 a las 00:00:00",
+        },
     ]
     response = client.get("/admin")
     assert response.status_code == 200

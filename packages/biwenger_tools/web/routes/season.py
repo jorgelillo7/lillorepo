@@ -1,10 +1,12 @@
 """Season-scoped routes: comunicados, salseo, participacion, lloros_awards, and API."""
-import json
+
 import ssl
+from dataclasses import asdict
 from typing import Optional
 
 from flask import Blueprint, Response, g, jsonify, render_template, request
 
+from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, services
@@ -13,8 +15,8 @@ logger = get_logger(__name__)
 bp = Blueprint("season", __name__)
 
 
-def _load_all_messages(filename: str) -> tuple[list, Optional[str]]:
-    """Load all messages from a Drive CSV. Returns (messages, error_str)."""
+def _load_messages(filename: str) -> tuple[list, Optional[str]]:
+    """Load all LeagueMessage entries from a Drive CSV. Returns (messages, error)."""
     if not services.drive_service:
         return [], "El servicio de Google Drive no está disponible."
     file_meta = find_file_on_drive(
@@ -22,7 +24,8 @@ def _load_all_messages(filename: str) -> tuple[list, Optional[str]]:
     )
     if not file_meta:
         return [], f"El archivo '{filename}' no se encontró en Google Drive."
-    return download_csv_as_dict(services.drive_service, file_meta["id"]), None
+    rows = download_csv_as_dict(services.drive_service, file_meta["id"])
+    return [LeagueMessage.from_csv_row(r) for r in rows], None
 
 
 @bp.route("/<season>/")
@@ -35,24 +38,27 @@ def comunicados(season: str) -> str:
     total_pages = 1
     try:
         filename = f"{config.COMUNICADOS_FILENAME_BASE}_{g.season}.csv"
-        all_messages, err = _load_all_messages(filename)
+        all_messages, err = _load_messages(filename)
         if err:
             raise Exception(err)
         comunicados_only = [
-            m for m in all_messages if m.get("categoria", "").strip() == "comunicado"
+            m for m in all_messages if m.categoria.strip() == "comunicado"
         ]
         page = request.args.get("page", 1, type=int)
         start = (page - 1) * config.MESSAGES_PER_PAGE
-        paginated_messages = comunicados_only[start: start + config.MESSAGES_PER_PAGE]
+        paginated_messages = comunicados_only[start : start + config.MESSAGES_PER_PAGE]
         total_pages = max(
             1,
-            (len(comunicados_only) + config.MESSAGES_PER_PAGE - 1) // config.MESSAGES_PER_PAGE,
+            (len(comunicados_only) + config.MESSAGES_PER_PAGE - 1)
+            // config.MESSAGES_PER_PAGE,
         )
     except ssl.SSLError:
-        error = f"Error de SSL al conectar con Google Drive."
+        error = "Error de SSL al conectar con Google Drive."
         logger.exception("SSL error loading comunicados.", extra={"season": g.season})
     except Exception:
-        error = f"Ocurrió un error al cargar los comunicados de la temporada {g.season}."
+        error = (
+            f"Ocurrió un error al cargar los comunicados de la temporada {g.season}."
+        )
         logger.exception("Error loading comunicados.", extra={"season": g.season})
 
     return render_template(
@@ -78,11 +84,11 @@ def salseo(season: str) -> str:
 
     try:
         filename = f"{config.COMUNICADOS_FILENAME_BASE}_{g.season}.csv"
-        all_messages, err = _load_all_messages(filename)
+        all_messages, err = _load_messages(filename)
         if err:
             raise Exception(err)
-        datos_curiosos = [m for m in all_messages if m.get("categoria", "").strip() == "dato"]
-        cronicas = [m for m in all_messages if m.get("categoria", "").strip() == "cronica"]
+        datos_curiosos = [m for m in all_messages if m.categoria.strip() == "dato"]
+        cronicas = [m for m in all_messages if m.categoria.strip() == "cronica"]
     except ssl.SSLError:
         error = "Error de SSL al conectar con Google Drive."
         logger.exception("SSL error loading salseo.", extra={"season": g.season})
@@ -98,10 +104,10 @@ def salseo(season: str) -> str:
                 config.GDRIVE_FOLDER_ID,
             )
             if clausulazos_meta:
-                raw = download_csv_as_dict(services.drive_service, clausulazos_meta["id"])
-                for row in raw:
-                    row["precio"] = int(row.get("precio", 0) or 0)
-                clausulazos = raw
+                rows = download_csv_as_dict(
+                    services.drive_service, clausulazos_meta["id"]
+                )
+                clausulazos = [Clausulazo.from_csv_row(r) for r in rows]
 
             tabla_meta = find_file_on_drive(
                 services.drive_service,
@@ -109,13 +115,9 @@ def salseo(season: str) -> str:
                 config.GDRIVE_FOLDER_ID,
             )
             if tabla_meta:
-                raw_tabla = download_csv_as_dict(services.drive_service, tabla_meta["id"])
-                for row in raw_tabla:
-                    row["total_hechos"] = int(row.get("total_hechos", 0) or 0)
-                    row["total_recibidos"] = int(row.get("total_recibidos", 0) or 0)
-                    row["hechos"] = json.loads(row.get("hechos", "[]") or "[]")
-                    row["recibidos"] = json.loads(row.get("recibidos", "[]") or "[]")
-                tabla_justicia = raw_tabla
+                rows = download_csv_as_dict(services.drive_service, tabla_meta["id"])
+                # JS in salseo.html consumes this via {{ tojson }}, so flatten to dicts.
+                tabla_justicia = [asdict(JusticeEntry.from_csv_row(r)) for r in rows]
     except Exception:
         clausulazos_error = "Error al cargar clausulazos."
         logger.exception("Error loading clausulazos.", extra={"season": g.season})
@@ -138,29 +140,35 @@ def participacion(season: str) -> str:
     error = None
     stats: list = []
     try:
+        if not services.drive_service:
+            raise Exception("El servicio de Google Drive no está disponible.")
         filename = f"{config.PARTICIPACION_FILENAME_BASE}_{g.season}.csv"
-        participation_data, err = _load_all_messages(filename)
-        if err:
-            raise Exception(err)
-        for row in participation_data:
-            comunicados_count = len(row.get("comunicados", "").split(";")) if row.get("comunicados") else 0
-            datos_count = len(row.get("datos", "").split(";")) if row.get("datos") else 0
-            cesiones_count = len(row.get("cesiones", "").split(";")) if row.get("cesiones") else 0
-            cronicas_count = len(row.get("cronicas", "").split(";")) if row.get("cronicas") else 0
-            stats.append({
-                "autor": row["autor"],
-                "comunicados": comunicados_count,
-                "datos": datos_count,
-                "cesiones": cesiones_count,
-                "cronicas": cronicas_count,
-                "total": comunicados_count + datos_count + cesiones_count + cronicas_count,
-            })
+        file_meta = find_file_on_drive(
+            services.drive_service, filename, config.GDRIVE_FOLDER_ID
+        )
+        if not file_meta:
+            raise Exception(f"El archivo '{filename}' no se encontró en Google Drive.")
+        rows = download_csv_as_dict(services.drive_service, file_meta["id"])
+        participations = [Participation.from_csv_row(r) for r in rows]
+        stats = [
+            {
+                "autor": p.autor,
+                "comunicados": len(p.comunicados),
+                "datos": len(p.datos),
+                "cesiones": len(p.cesiones),
+                "cronicas": len(p.cronicas),
+                "total": p.total,
+            }
+            for p in participations
+        ]
         stats.sort(key=lambda item: item["total"], reverse=True)
     except ssl.SSLError:
         error = "Error de SSL al conectar con Google Drive."
         logger.exception("SSL error loading participacion.", extra={"season": g.season})
     except Exception:
-        error = f"Ocurrió un error al calcular las estadísticas de la temporada {g.season}."
+        error = (
+            f"Ocurrió un error al calcular las estadísticas de la temporada {g.season}."
+        )
         logger.exception("Error loading participacion.", extra={"season": g.season})
 
     return render_template(

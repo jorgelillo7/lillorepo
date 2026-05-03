@@ -1,4 +1,5 @@
 """Main routes: home, favicon, palmares, reglamento."""
+
 import ssl
 from collections import defaultdict
 
@@ -46,10 +47,13 @@ def palmares() -> str:
         )
         if not file_metadata:
             raise FileNotFoundError(
-                f"El archivo '{config.PALMARES_FILENAME}' no se encontró en Google Drive."
+                f"El archivo '{config.PALMARES_FILENAME}' "
+                "no se encontró en Google Drive."
             )
 
-        palmares_data = download_csv_as_dict(services.drive_service, file_metadata["id"])
+        palmares_data = download_csv_as_dict(
+            services.drive_service, file_metadata["id"]
+        )
         for row in palmares_data:
             season_data = row.get("temporada", "").strip()
             category = row.get("categoria", "").strip()
@@ -62,10 +66,10 @@ def palmares() -> str:
                 seasons[season_data][category] = value
         sorted_seasons = sorted(seasons.items(), key=lambda item: item[0], reverse=True)
     except ssl.SSLError:
-        error = f"Error de SSL al conectar con Google Drive."
+        error = "Error de SSL al conectar con Google Drive."
         logger.exception("SSL error loading palmares.")
     except Exception:
-        error = f"Ocurrió un error al cargar el palmarés."
+        error = "Ocurrió un error al cargar el palmarés."
         logger.exception("Error loading palmares.")
 
     return render_template(
