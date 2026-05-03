@@ -354,54 +354,22 @@ gcloud secrets versions add token_json --data-file="token.json"
 ```
 
 ---
-## 💅 Linter and Auto-formatter (VS Code)
+## 💅 Linter and Auto-formatter
 
-Configure **Flake8** (linter) and **Black** (formatter) for clean, consistent code.
+Flake8 (linter) and Black (formatter) run **on every push to `master`** as
+the `lint` job in `.github/workflows/deploy.yml`. A lint failure blocks
+`test` and the deploy.
 
-1.  **Install the extensions:**
+Editor and CLI usage, pinned versions, and how to upgrade live in
+[`setup/linter.md`](setup/linter.md).
 
-      * `ms-python.python`
-      * `ms-python.black-formatter`
+Quick local invocation (same versions as CI):
 
-2.  **Select the Python Interpreter:**
-
-      * Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
-      * Search for and select `Python: Select Interpreter`.
-      * Choose the interpreter from your virtual environment (`./venv/bin/python`).
-
-3.  **Configure `settings.json`:**
-
-      * Open the command palette and search for `Preferences: Open Workspace Settings (JSON)`.
-      * Add the following configuration:
-
-    <!-- end list -->
-
-    ```json
-    {
-        "python.linting.enabled": true,
-        "python.linting.flake8Enabled": true,
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true,
-        "editor.codeActionsOnSave": {
-            "source.fixAll": "explicit"
-        }
-    }
-    ```
-
-4.  **(Optional) Configure Flake8:**
-
-      * Create a `.flake8` file at the project root to align its rules with Black.
-
-    <!-- end list -->
-
-    ```ini
-    [flake8]
-    max-line-length = 88
-    ignore = E203, W503
-    exclude = .git,__pycache__,.venv,venv,*.md
-    ```
-
-Once configured, VS Code will flag errors and auto-format your code on save.
+```bash
+pip3 install flake8==7.3.0 black==25.1.0
+flake8 core/ packages/
+black --check core/ packages/    # CI runs this
+```
 
 
 ## 🧹 GCP Cleanup and Cost Control
