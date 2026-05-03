@@ -31,7 +31,6 @@ py_library(
         "@pypi//google_api_python_client",
         "@pypi//google_auth_oauthlib",
         "@pypi//google_auth",
-        "@pypi//pytz",
         "@pypi//python_dateutil",
     ],
     visibility = ["//visibility:public"],
@@ -57,6 +56,16 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "jp",
+    srcs = ["sdk/jp.py"],
+    deps = [
+        ":_init",
+        "@pypi//requests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # ------------------------------------------------------------------
 # Umbrella target — backward compat for existing //core references
 # ------------------------------------------------------------------
@@ -65,6 +74,7 @@ py_library(
     deps = [
         ":biwenger",
         ":gcp",
+        ":jp",
         ":telegram",
     ],
     visibility = ["//visibility:public"],
