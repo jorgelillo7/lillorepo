@@ -1,13 +1,11 @@
-import pytest
 import requests_mock
-from core.sdk.biwenger import BiwengerClient
 
 from .constants import (
-    TEST_LEAGUE_USERS_URL,
-    TEST_PLAYERS_DATA_URL,
-    TEST_MARKET_URL,
     TEST_BOARD_URL,
+    TEST_LEAGUE_USERS_URL,
     TEST_MANAGER_SQUAD_URL_TEMPLATE,
+    TEST_MARKET_URL,
+    TEST_PLAYERS_DATA_URL,
 )
 
 
@@ -24,7 +22,7 @@ def test_authentication_success(biwenger_client_authenticated):
 
 
 def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
-    """Verifica que el método get_league_users parsea correctamente la respuesta de la API."""
+    """Verifica que get_league_users parsea correctamente la respuesta de la API."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m:
         # Carga la respuesta de usuarios desde el archivo JSON
@@ -72,7 +70,10 @@ def test_get_all_players_data_map_jsonp(biwenger_client_authenticated):
     """Verifica que el método procesa una respuesta JSONP."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m:
-        jsonp_string = 'jsonp_12345({"data": {"players": {"3": {"id": 3, "name": "Mbappé", "teamId": 3}}}}) '
+        jsonp_string = (
+            'jsonp_12345({"data": {"players": '
+            '{"3": {"id": 3, "name": "Mbappé", "teamId": 3}}}}) '
+        )
         m.get(TEST_PLAYERS_DATA_URL, text=jsonp_string, status_code=200)
 
         players_map = client.get_all_players_data_map(TEST_PLAYERS_DATA_URL)
@@ -110,3 +111,74 @@ def test_get_market_players(biwenger_client_authenticated, load_json_fixture):
         ]
         assert market_players == expected_list
         assert len(market_players) == 2
+
+
+# --- Paginators ---
+
+
+def test_get_all_board_messages_single_page(biwenger_client_authenticated):
+    """Single response shorter than `limit` ends pagination."""
+    client = biwenger_client_authenticated
+    client.get_board_messages = lambda url: {"data": [{"id": 1}, {"id": 2}, {"id": 3}]}
+    seen_urls = []
+    original = client.get_board_messages
+
+    def spy(url):
+        seen_urls.append(url)
+        return original(url)
+
+    client.get_board_messages = spy
+    messages = client.get_all_board_messages("http://test.com")
+    assert len(messages) == 3
+    assert seen_urls == ["http://test.com&limit=200&offset=0"]
+
+
+def test_get_all_board_messages_paginates(biwenger_client_authenticated):
+    """Stops once a page is shorter than `limit`."""
+    client = biwenger_client_authenticated
+    pages = [
+        {"data": [{"id": i} for i in range(200)]},
+        {"data": [{"id": i} for i in range(200, 250)]},
+        {"data": []},
+    ]
+    seen_urls = []
+
+    def stub(url):
+        seen_urls.append(url)
+        return pages.pop(0)
+
+    client.get_board_messages = stub
+    messages = client.get_all_board_messages("http://test.com")
+    assert len(messages) == 250
+    assert seen_urls == [
+        "http://test.com&limit=200&offset=0",
+        "http://test.com&limit=200&offset=200",
+    ]
+
+
+def test_get_all_clausulazos_paginates(biwenger_client_authenticated):
+    """Aggregates pages and returns a `{'data': [...]}` envelope."""
+    client = biwenger_client_authenticated
+    pages = [
+        {"data": [{"date": i} for i in range(200)]},
+        {"data": [{"date": i} for i in range(50)]},
+    ]
+    client.get_clausulazos = lambda url: pages.pop(0)
+    result = client.get_all_clausulazos("http://api/board?type=transfer")
+    assert len(result["data"]) == 250
+    assert pages == []
+
+
+def test_get_all_clausulazos_stops_on_empty(biwenger_client_authenticated):
+    """Empty first response yields `{'data': []}`."""
+    client = biwenger_client_authenticated
+    calls = []
+
+    def stub(url):
+        calls.append(url)
+        return {"data": []}
+
+    client.get_clausulazos = stub
+    result = client.get_all_clausulazos("http://api/board?type=transfer")
+    assert result == {"data": []}
+    assert len(calls) == 1
