@@ -10,16 +10,12 @@ py_library(
     name = "teams_analyzer_lib",
     srcs = glob(
         ["**/*.py"],
-        # ✅ CORREGIDO: Excluimos los tests de la librería.
         exclude = ["tests/**/*.py"],
     ),
     deps = [
         "//core",
         "@pypi//python_dotenv",
-        "@pypi//beautifulsoup4",
         "@pypi//requests",
-        "@pypi//selenium",
-        "@pypi//webdriver_manager",
         "@pypi//unidecode",
     ],
 )
@@ -85,7 +81,7 @@ oci_image(
         "set -ex && " +
         "echo 'Instalando dependencias del sistema...' && " +
         "apt-get update && " +
-        "apt-get install -y --no-install-recommends python3 python3-pip chromium chromium-driver fonts-liberation libnss3 libasound2 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxtst6 libatk1.0-0 libgtk-3-0 libx11-xcb1 && " +
+        "apt-get install -y --no-install-recommends python3 python3-pip ca-certificates && " +
         "rm -rf /var/lib/apt/lists/* && " +
         "echo 'Instalando dependencias Python...' && " +
         "pip3 install --no-cache-dir --break-system-packages -r /app/requirements_lock.txt && " +
