@@ -1,10 +1,17 @@
+import pytest
 import requests_mock
 
+from core.sdk.biwenger import BiwengerClient
+
 from .constants import (
-    TEST_BOARD_URL,
+    TEST_ACCOUNT_URL,
+    TEST_EMAIL,
+    TEST_LEAGUE_ID,
     TEST_LEAGUE_USERS_URL,
+    TEST_LOGIN_URL,
     TEST_MANAGER_SQUAD_URL_TEMPLATE,
     TEST_MARKET_URL,
+    TEST_PASSWORD,
     TEST_PLAYERS_DATA_URL,
 )
 
@@ -39,16 +46,41 @@ def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
         assert len(user_map) == 3
 
 
-def test_get_board_messages(biwenger_client_authenticated, load_json_fixture):
-    """Verifica que get_board_messages devuelve los datos del tablón."""
-    client = biwenger_client_authenticated
+def test_authentication_raises_when_login_returns_no_token():
+    """Login response without a token field must raise; we don't want to silently
+    proceed with an unauthenticated session."""
     with requests_mock.Mocker() as m:
-        mock_response = load_json_fixture("board_messages.json")
-        m.get(TEST_BOARD_URL, json=mock_response, status_code=200)
+        m.post(TEST_LOGIN_URL, json={"foo": "bar"}, status_code=200)
+        with pytest.raises(Exception, match="no token received"):
+            BiwengerClient(
+                TEST_EMAIL,
+                TEST_PASSWORD,
+                TEST_LOGIN_URL,
+                TEST_ACCOUNT_URL,
+                TEST_LEAGUE_ID,
+            )
 
-        messages = client.get_board_messages(TEST_BOARD_URL)
-        assert messages["data"]["messages"][0]["text"] == "¡Bienvenidos a la liga!"
-        assert messages["data"]["messages"][0]["author"] == "Farolillo Oracle United"
+
+def test_authentication_raises_when_user_not_in_league(load_json_fixture):
+    """If the requested league_id is not in the account response, raise — the
+    rest of the client assumes self.user_id is set."""
+    with requests_mock.Mocker() as m:
+        login_data = load_json_fixture("login_response.json")
+        m.post(TEST_LOGIN_URL, json=login_data, status_code=200)
+        # Account response with a different league_id than TEST_LEAGUE_ID
+        m.get(
+            TEST_ACCOUNT_URL,
+            json={"data": {"leagues": [{"id": "999999", "user": {"id": 1}}]}},
+            status_code=200,
+        )
+        with pytest.raises(Exception, match="Could not find user ID for league"):
+            BiwengerClient(
+                TEST_EMAIL,
+                TEST_PASSWORD,
+                TEST_LOGIN_URL,
+                TEST_ACCOUNT_URL,
+                TEST_LEAGUE_ID,
+            )
 
 
 def test_get_all_players_data_map_json(

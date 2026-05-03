@@ -1,4 +1,5 @@
 import pytest
+import requests
 import requests_mock
 
 from core.sdk.jp import (
@@ -59,3 +60,13 @@ def test_check_api_health_passes_on_success():
     with requests_mock.Mocker() as m:
         m.get(JP_URL, json={"players": [{"id": 1}]})
         check_api_health(TOKEN)  # no raise
+
+
+def test_check_api_health_wraps_connection_error():
+    """Network/DNS failures must surface as RuntimeError so the orchestrator's
+    top-level except catches a single, well-known type instead of letting
+    requests' exception hierarchy leak."""
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, exc=requests.exceptions.ConnectionError("DNS down"))
+        with pytest.raises(RuntimeError, match="JP API unreachable"):
+            check_api_health(TOKEN)

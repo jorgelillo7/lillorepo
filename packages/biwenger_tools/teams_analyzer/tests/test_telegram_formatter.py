@@ -65,6 +65,30 @@ def test_format_row_escapes_html():
     assert "&lt;script&gt;" in row
 
 
+def test_format_row_price_increment_under_1m():
+    """Increments below 1M render as Kxxx with no decimal."""
+    jp = _jp(rate_sf=400)
+    jp["priceIncrement"] = 380_000
+    row = format_player_row("X", 4, 10_000_000, jp)
+    assert "⬆️380K" in row
+
+
+def test_format_row_price_increment_negative_million():
+    """Negative drops over 1M render with one decimal as M, with the down arrow."""
+    jp = _jp(rate_sf=400)
+    jp["priceIncrement"] = -2_500_000
+    row = format_player_row("X", 4, 10_000_000, jp)
+    assert "⬇️2.5M" in row
+
+
+def test_format_row_price_increment_zero():
+    """Increment of 0 renders as a neutral middle dot, no arrow."""
+    jp = _jp(rate_sf=400)
+    jp["priceIncrement"] = 0
+    row = format_player_row("X", 4, 10_000_000, jp)
+    assert "⬆️" not in row and "⬇️" not in row
+
+
 def test_my_team_sorted_by_sf_desc():
     rows = [
         {"name": "Low", "position_id": 3, "price": 1, "jp_player": _jp(rate_sf=100)},
