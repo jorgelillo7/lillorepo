@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 
+from core.sdk import biwenger as biwenger_sdk
+
 # Carga las variables del archivo .env para el desarrollo local
 load_dotenv()
 
@@ -18,15 +20,13 @@ GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID")
 LEAGUE_ID = "340703"
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-# --- URLs DE LA API DE BIWENGER ---
-BASE_URL = "https://biwenger.as.com/api/v2"
-LOGIN_URL = f"{BASE_URL}/auth/login"
-ACCOUNT_URL = f"{BASE_URL}/account"
-LEAGUE_USERS_URL = f"{BASE_URL}/league/{LEAGUE_ID}?fields=standings"
-CLAUSULAZOS_URL = f"{BASE_URL}/league/{LEAGUE_ID}/board?type=transfer&fields=*,content(*,player(*))"
-
-BIWENGER_CF_BASE_URL = "https://cf.biwenger.com/api/v2"
-ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE_URL}/competitions/la-liga/data?lang=es&score=100"
+# --- URLs DE LA API DE BIWENGER (constantes en core; deriva las de la liga) ---
+LOGIN_URL = biwenger_sdk.LOGIN_URL
+ACCOUNT_URL = biwenger_sdk.ACCOUNT_URL
+ALL_PLAYERS_DATA_URL = biwenger_sdk.ALL_PLAYERS_DATA_URL
+LEAGUE_USERS_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
+CLAUSULAZOS_URL = biwenger_sdk.clausulazos_url(LEAGUE_ID)
+BOARD_MESSAGES_URL = biwenger_sdk.league_board_url(LEAGUE_ID)
 
 # --- NOMBRES BASE DE ARCHIVOS CSV ---
 CLAUSULAZOS_FILENAME_BASE = "clausulazos"

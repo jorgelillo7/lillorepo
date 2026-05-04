@@ -19,7 +19,32 @@ env:
 
 jobs:
   # -------------------------------------------------------
-  # 0. Detect which modules have changed
+  # 0. Lint Python code (flake8 + black --check)
+  # -------------------------------------------------------
+  lint:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lint tools
+        # Pinned to match versions resolved in requirements_lock.txt;
+        # bump both files in sync if you upgrade.
+        run: pip install flake8==7.3.0 black==25.1.0
+
+      - name: Run flake8
+        run: flake8 core/ packages/
+
+      - name: Check formatting with black
+        run: black --check core/ packages/
+
+  # -------------------------------------------------------
+  # 0b. Detect which modules have changed
   # -------------------------------------------------------
   detect-changes:
     name: Detect changed modules
@@ -48,7 +73,7 @@ jobs:
   # -------------------------------------------------------
   test:
     name: Run tests
-    needs: detect-changes
+    needs: [detect-changes, lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -120,9 +145,6 @@ jobs:
           LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
           LIGAS_ESPECIALES_SHEET_ID_24_25=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_24_25 }},\
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
-          COMUNICADOS_CSV_URL=${{ secrets.COMUNICADOS_CSV_URL }},\
-          PALMARES_CSV_URL=${{ secrets.PALMARES_CSV_URL }},\
-          PARTICIPACION_CSV_URL=${{ secrets.PARTICIPACION_CSV_URL }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 

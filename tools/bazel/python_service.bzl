@@ -47,7 +47,6 @@ def python_service(
         deps = deps + [
             requirement("flask"),
             requirement("gunicorn"),
-            requirement("pytz"),
             requirement("python-dateutil"),
             requirement("python-dotenv"),
             requirement("beautifulsoup4"),

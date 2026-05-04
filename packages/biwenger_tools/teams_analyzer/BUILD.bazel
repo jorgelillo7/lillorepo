@@ -1,111 +1,141 @@
 # teams_analyzer/BUILD.bazel
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_pkg//pkg:mappings.bzl", "strip_prefix")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 
 # =================================================================
-# 1️⃣ LIBRERÍA PRINCIPAL
+# 1️⃣ MAIN LIBRARY
 # =================================================================
 py_library(
     name = "teams_analyzer_lib",
     srcs = glob(
         ["**/*.py"],
-        # ✅ CORREGIDO: Excluimos los tests de la librería.
         exclude = ["tests/**/*.py"],
     ),
     deps = [
         "//core",
         "@pypi//python_dotenv",
-        "@pypi//beautifulsoup4",
         "@pypi//requests",
-        "@pypi//selenium",
-        "@pypi//webdriver_manager",
         "@pypi//unidecode",
     ],
 )
 
 # =================================================================
-# 2️⃣ EJECUCIÓN LOCAL (SIN DOCKER)
+# 2️⃣ LOCAL EXECUTION (NO DOCKER)
 # =================================================================
 py_binary(
     name = "teams_analyzer_local",
     main = "teams_analyzer.py",
     srcs = ["teams_analyzer.py"],
-    data = [
-        ".env",
-        "biwenger-tools-sa.json",
-    ],
+    data = [".env"],
     deps = [":teams_analyzer_lib"],
 )
 
 # =================================================================
-# 3️⃣ CAPAS PARA LA IMAGEN DOCKER
+# 3️⃣ DOCKER IMAGE LAYERS
 # =================================================================
-pkg_tar(
-    name = "requirements_layer",
-    srcs = ["//:requirements_lock.txt"],
-    package_dir = "/app",
-)
 
+# Core: pre-tarred sources to preserve directory structure
 pkg_tar(
     name = "core_layer",
-    srcs = ["//core"],
+    files = {
+        "//core:core_srcs": "core_srcs.tar",
+    },
     package_dir = "/app",
 )
 
+# Root .py files for the package
+pkg_tar(
+    name = "_code_root",
+    srcs = glob(["*.py"]) + ["entrypoint.sh"],
+    package_dir = "/app/packages/biwenger_tools/teams_analyzer",
+    strip_prefix = strip_prefix.from_pkg(),
+    mode = "0755",
+)
+
+# Subdirectory logic/
+pkg_tar(
+    name = "_code_logic",
+    srcs = glob(["logic/*.py"]),
+    package_dir = "/app/packages/biwenger_tools/teams_analyzer/logic",
+    strip_prefix = strip_prefix.from_pkg("logic"),
+    mode = "0755",
+)
+
+# Local-only: include the .env so the binary can read credentials
+pkg_tar(
+    name = "_secrets",
+    srcs = [".env"],
+    package_dir = "/app/packages/biwenger_tools/teams_analyzer",
+    strip_prefix = strip_prefix.from_pkg(),
+)
+
+# GCP-bound layer (no secrets — Cloud Run injects them at runtime)
+pkg_tar(
+    name = "teams_analyzer_base_layer",
+    deps = [":_code_root", ":_code_logic"],
+)
+
+# Local layer (with secrets baked in — only for local docker run)
 pkg_tar(
     name = "teams_analyzer_local_layer",
-    srcs = glob(["**/*.py"]) + [
-        ".env",
-        "biwenger-tools-sa.json",
-    ],
-    package_dir = "/app/packages/biwenger_tools/teams_analyzer",
+    deps = [":_code_root", ":_code_logic", ":_secrets"],
 )
 
 # =================================================================
-# 4️⃣ IMAGEN DOCKER LOCAL (INSTALACIÓN + EJECUCIÓN SEPARADAS)
+# 4️⃣ DOCKER IMAGES (LOCAL AND GCP)
 # =================================================================
+
+# Local image with secrets, for `docker run` validation
 oci_image(
     name = "teams_analyzer_image_local",
-    base = "@debian_base_image",
+    base = "@python_with_deps",
     tars = [
-        ":requirements_layer",
         ":core_layer",
         ":teams_analyzer_local_layer",
     ],
     env = {
         "PYTHONPATH": "/app",
         "PYTHONUNBUFFERED": "1",
-        "PYTHONDONTWRITEBYTECODE": "1",
-        "PIP_BREAK_SYSTEM_PACKAGES": "1",
     },
-    workdir = "/app",
-    entrypoint = ["/bin/bash", "-c"],
-    cmd = [
-        "set -ex && " +
-        "echo 'Instalando dependencias del sistema...' && " +
-        "apt-get update && " +
-        "apt-get install -y --no-install-recommends python3 python3-pip chromium chromium-driver fonts-liberation libnss3 libasound2 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxtst6 libatk1.0-0 libgtk-3-0 libx11-xcb1 && " +
-        "rm -rf /var/lib/apt/lists/* && " +
-        "echo 'Instalando dependencias Python...' && " +
-        "pip3 install --no-cache-dir --break-system-packages -r /app/requirements_lock.txt && " +
-        "echo 'Dependencias instaladas correctamente' && " +
-        "echo 'Iniciando teams_analyzer...' && " +
-        "exec python3 -m packages.biwenger_tools.teams_analyzer.teams_analyzer"
+    entrypoint = ["/app/packages/biwenger_tools/teams_analyzer/entrypoint.sh"],
+)
+
+# GCP image without secrets — Cloud Run / Cloud Run Job injects them
+oci_image(
+    name = "teams_analyzer_image_gcp",
+    base = "@python_with_deps",
+    tars = [
+        ":core_layer",
+        ":teams_analyzer_base_layer",
     ],
+    env = {
+        "PYTHONPATH": "/app",
+        "PYTHONUNBUFFERED": "1",
+    },
+    entrypoint = ["/app/packages/biwenger_tools/teams_analyzer/entrypoint.sh"],
 )
 
 # =================================================================
-# 5️⃣ COMANDO PARA CARGAR LA IMAGEN A DOCKER
+# 5️⃣ DOCKER + GCP COMMANDS
 # =================================================================
+
 oci_load(
     name = "load_image_to_docker_local",
     image = ":teams_analyzer_image_local",
     repo_tags = ["bazel/teams_analyzer:local"],
 )
 
+oci_push(
+    name = "push_image_to_gcp",
+    image = ":teams_analyzer_image_gcp",
+    repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/teams_analyzer",
+    remote_tags = ["latest"],
+)
+
 # =================================================================
-# 6️⃣ TESTS UNITARIOS (PYTEST)
+# 6️⃣ UNIT TESTS (PYTEST)
 # =================================================================
 py_test(
     name = "teams_analyzer_tests",

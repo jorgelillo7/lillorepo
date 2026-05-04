@@ -1,7 +1,8 @@
 """Biwenger API client."""
+
 import json
 import re
-from typing import Union
+from typing import Optional, Union
 
 import requests
 
@@ -9,12 +10,44 @@ from core.utils import get_logger
 
 logger = get_logger(__name__)
 
+# --- URLs públicas del API de Biwenger ---
+# Cualquier paquete puede importar estas constantes en lugar de redefinirlas.
+BIWENGER_API_BASE = "https://biwenger.as.com/api/v2"
+BIWENGER_CF_BASE = "https://cf.biwenger.com/api/v2"
+
+LOGIN_URL = f"{BIWENGER_API_BASE}/auth/login"
+ACCOUNT_URL = f"{BIWENGER_API_BASE}/account"
+MARKET_URL = f"{BIWENGER_API_BASE}/market"
+ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
+
+
+def league_url(league_id: Union[str, int]) -> str:
+    return f"{BIWENGER_API_BASE}/league/{league_id}"
+
+
+def league_standings_url(league_id: Union[str, int]) -> str:
+    return f"{league_url(league_id)}?fields=standings"
+
+
+def league_board_url(league_id: Union[str, int], type_filter: str = "text") -> str:
+    return f"{league_url(league_id)}/board?type={type_filter}"
+
+
+def clausulazos_url(league_id: Union[str, int]) -> str:
+    return f"{league_url(league_id)}/board?type=transfer&fields=*,content(*,player(*))"
+
+
+def manager_squad_url(manager_id: Union[str, int]) -> str:
+    return f"{BIWENGER_API_BASE}/user/{manager_id}?fields=players(id,owner)"
+
 
 class BiwengerClient:
     """
     Client for the Biwenger API.
     All configuration (URLs, credentials) is injected at construction time.
     """
+
+    DEFAULT_PAGE_LIMIT = 200
 
     def __init__(
         self,
@@ -30,7 +63,7 @@ class BiwengerClient:
         self.login_url = login_url
         self.account_url = account_url
         self.league_id = str(league_id)
-        self.user_id = None
+        self.user_id: Optional[int] = None
         self._authenticate()
 
     def _authenticate(self) -> None:
@@ -72,9 +105,7 @@ class BiwengerClient:
                 break
 
         if not self.user_id:
-            raise Exception(
-                f"Could not find user ID for league {self.league_id}."
-            )
+            raise Exception(f"Could not find user ID for league {self.league_id}.")
         logger.info(
             "User ID obtained.",
             extra={"user_id": self.user_id, "league_id": self.league_id},
@@ -100,11 +131,37 @@ class BiwengerClient:
         return user_map
 
     def get_board_messages(self, board_messages_url: str) -> dict:
-        """Returns all messages from the league board."""
-        logger.info("Fetching board messages...")
+        """Returns a single page of board messages."""
         response = self.session.get(board_messages_url)
         response.raise_for_status()
         return response.json()
+
+    def get_all_board_messages(
+        self, base_url: str, limit: int = DEFAULT_PAGE_LIMIT
+    ) -> list:
+        """Paginates board messages from `base_url` until exhausted.
+
+        `base_url` already contains the query string up to (but not including)
+        `limit`/`offset`, e.g. ".../board?type=text".
+        Returns a flat list of message entries.
+        """
+        all_messages: list = []
+        offset = 0
+        while True:
+            url = f"{base_url}&limit={limit}&offset={offset}"
+            data = self.get_board_messages(url)
+            messages = data.get("data", [])
+            logger.info(
+                "Board page fetched.", extra={"offset": offset, "count": len(messages)}
+            )
+            if not messages:
+                break
+            all_messages.extend(messages)
+            offset += limit
+            if len(messages) < limit:
+                break
+        logger.info("All board messages fetched.", extra={"total": len(all_messages)})
+        return all_messages
 
     def get_all_players_data_map(self, all_players_data_url: str) -> dict:
         """Downloads the full Biwenger player database."""
@@ -128,8 +185,7 @@ class BiwengerClient:
             data = json.loads(json_str)
         players_dict = data.get("data", {}).get("players", {})
         players_map = {
-            player_info["id"]: player_info
-            for _, player_info in players_dict.items()
+            player_info["id"]: player_info for _, player_info in players_dict.items()
         }
         logger.info("Player database built.", extra={"count": len(players_map)})
         return players_map
@@ -153,10 +209,37 @@ class BiwengerClient:
         return market_players
 
     def get_clausulazos(self, clausulazos_url: str) -> dict:
-        """Returns release clause transfers from the league board."""
-        logger.info("Fetching clausulazos...")
+        """Returns a single page of release-clause transfer entries."""
         response = self.session.get(clausulazos_url)
         response.raise_for_status()
-        data = response.json()
-        logger.info("Clausulazos fetched.")
-        return data
+        return response.json()
+
+    def get_all_clausulazos(
+        self, base_url: str, limit: int = DEFAULT_PAGE_LIMIT
+    ) -> dict:
+        """Paginates clausulazos from `base_url` until exhausted.
+
+        `base_url` already contains the query string up to (but not including)
+        `limit`/`offset`. Returns `{"data": [...]}` to keep parity with the
+        single-page response shape.
+        """
+        all_entries: list = []
+        offset = 0
+        while True:
+            url = f"{base_url}&limit={limit}&offset={offset}"
+            data = self.get_clausulazos(url)
+            entries = data.get("data", [])
+            if isinstance(entries, dict):
+                entries = list(entries.values())
+            logger.info(
+                "Clausulazos page fetched.",
+                extra={"offset": offset, "count": len(entries)},
+            )
+            if not entries:
+                break
+            all_entries.extend(entries)
+            offset += limit
+            if len(entries) < limit:
+                break
+        logger.info("All clausulazos fetched.", extra={"total": len(all_entries)})
+        return {"data": all_entries}

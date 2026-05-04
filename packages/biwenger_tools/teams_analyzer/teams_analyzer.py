@@ -1,31 +1,59 @@
-import csv
-import os
+"""Orquestador del analizador de equipos.
+
+Flujo:
+1. Health-check de la API JP (token / disponibilidad)
+2. Descarga jugadores JP (una llamada HTTP)
+3. Login Biwenger + descarga: catálogo de jugadores, mánagers, mercado, squads
+4. Cruza por nombre normalizado (Biwenger ↔ JP)
+5. Envía resumen a Telegram en varios mensajes
+"""
+
 import time
 from datetime import datetime
 
 from packages.biwenger_tools.teams_analyzer import config
-from packages.biwenger_tools.teams_analyzer.logic.scrapers import (
-    fetch_jp_player_tips,
-    fetch_analitica_fantasy_coeffs,
-)
 from packages.biwenger_tools.teams_analyzer.logic.player_matching import (
+    build_jp_index,
     find_player_match,
-    normalize_name,
-    map_position,
 )
+from packages.biwenger_tools.teams_analyzer.telegram_formatter import build_all_messages
 from core.sdk.biwenger import BiwengerClient
-from core.sdk.telegram import send_telegram_notification
+from core.sdk.jp import check_api_health, fetch_all_players
+from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 
 logger = get_logger(__name__)
 
 
+def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
+    """Construye una fila lista para el formateador a partir del player Biwenger."""
+    name = biwenger_player.get("name", "N/A")
+    return {
+        "name": name,
+        "position_id": biwenger_player.get("position"),
+        "price": biwenger_player.get("price", 0),
+        "jp_player": find_player_match(name, jp_index),
+    }
+
+
 def main():
-    """Orquesta el proceso de análisis de equipos y mercado."""
     start_time = time.time()
     logger.info("Script started.", extra={"timestamp": datetime.now().isoformat()})
 
     try:
+        check_api_health(
+            config.JP_AUTH_TOKEN,
+            competition=config.JP_COMPETITION,
+            score_type=config.JP_SCORE_TYPE,
+        )
+
+        jp_players = fetch_all_players(
+            config.JP_AUTH_TOKEN,
+            competition=config.JP_COMPETITION,
+            score_type=config.JP_SCORE_TYPE,
+        )
+        jp_index = build_jp_index(jp_players)
+
         biwenger = BiwengerClient(
             config.BIWENGER_EMAIL,
             config.BIWENGER_PASSWORD,
@@ -34,122 +62,70 @@ def main():
             config.LEAGUE_ID,
         )
 
-        players_map_biwenger = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-        jp_tips_map = fetch_jp_player_tips()
-        analitica_coeffs_map = fetch_analitica_fantasy_coeffs()
-
-        if not analitica_coeffs_map:
-            logger.error("No Analítica Fantasy data obtained — aborting.")
-            return
-
-        managers_map = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+        biwenger_players = biwenger.get_all_players_data_map(
+            config.ALL_PLAYERS_DATA_URL
+        )
+        managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
         market_players = biwenger.get_market_players(config.MARKET_URL)
 
-        all_players_export_list = []
-        logger.info("Analyzing league squads...")
+        my_team: list[dict] = []
+        rivals: dict[str, list[dict]] = {}
 
-        for manager_id, manager_name in managers_map.items():
-            squad_data = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        my_user_id = biwenger.user_id
+
+        for manager_id, manager_name in managers.items():
+            squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
             logger.info(
-                "Analyzing manager.",
-                extra={"manager": manager_name, "players": len(squad_data)},
+                "Squad fetched.", extra={"manager": manager_name, "size": len(squad)}
             )
             time.sleep(0.5)
-            for player_data in squad_data:
-                player_info = players_map_biwenger.get(player_data.get("id"))
-                if not player_info:
+
+            rows = []
+            for player_data in squad:
+                bw_player = biwenger_players.get(player_data.get("id"))
+                if not bw_player:
                     continue
+                rows.append(_build_row(bw_player, jp_index))
 
-                player_name = player_info.get("name", "N/A")
-                matched_data = find_player_match(player_name, analitica_coeffs_map)
+            if manager_id == my_user_id:
+                my_team = rows
+            else:
+                rivals[manager_name] = rows
 
-                all_players_export_list.append(
-                    {
-                        "Mánager": manager_name,
-                        "Jugador": player_name,
-                        "Posición": map_position(player_info.get("position")),
-                        "Valor Actual": player_info.get("price", 0),
-                        "Cláusula": player_data.get("owner", {}).get("clause", 0),
-                        "Nota IA": jp_tips_map.get(normalize_name(player_name), "Sin datos"),
-                        "Coeficiente AF": matched_data["coeficiente"],
-                        "Puntuación Esperada AF": matched_data["puntuacion_esperada"],
-                    }
-                )
-
-        free_agents = [sale for sale in market_players if sale.get("user") is None]
-        market_team_name = f"Mercado_{datetime.now().strftime('%d%m%Y')}"
-        logger.info(
-            "Analyzing free agents.", extra={"team": market_team_name, "count": len(free_agents)}
-        )
-        for sale in free_agents:
-            player_info = players_map_biwenger.get(sale.get("player", {}).get("id"))
-            if not player_info:
+        market_rows: list[dict] = []
+        for sale in market_players:
+            if sale.get("user") is not None:
                 continue
+            bw_player = biwenger_players.get(sale.get("player", {}).get("id"))
+            if not bw_player:
+                continue
+            market_rows.append(_build_row(bw_player, jp_index))
 
-            player_name = player_info.get("name", "N/A")
-            matched_data = find_player_match(player_name, analitica_coeffs_map)
+        logger.info(
+            "Rows built.",
+            extra={
+                "my_team": len(my_team),
+                "rivals": sum(len(v) for v in rivals.values()),
+                "market": len(market_rows),
+            },
+        )
 
-            all_players_export_list.append(
-                {
-                    "Mánager": market_team_name,
-                    "Jugador": player_name,
-                    "Posición": map_position(player_info.get("position")),
-                    "Valor Actual": player_info.get("price", 0),
-                    "Cláusula": sale.get("price", 0),
-                    "Nota IA": jp_tips_map.get(normalize_name(player_name), "Sin datos"),
-                    "Coeficiente AF": matched_data["coeficiente"],
-                    "Puntuación Esperada AF": matched_data["puntuacion_esperada"],
-                }
+        messages = build_all_messages(my_team, market_rows, rivals)
+
+        if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
+            logger.warning("Telegram credentials missing — skipping send.")
+            return
+
+        for msg in messages:
+            send_telegram_message(
+                config.TELEGRAM_BOT_TOKEN,
+                config.TELEGRAM_CHAT_ID,
+                msg,
             )
+            time.sleep(0.4)  # avoid hitting Telegram rate limits
 
-        if all_players_export_list:
-            order = {
-                "muyRecomendable": 0,
-                "recomendable": 1,
-                "apuesta": 2,
-                "fondoDeArmario": 3,
-                "parche": 4,
-                "noRecomendable": 5,
-            }
-            all_players_export_list.sort(
-                key=lambda x: (
-                    x["Mánager"].startswith("Mercado_"),
-                    x["Mánager"],
-                    order.get(x["Nota IA"], 99),
-                )
-            )
+        logger.info("Telegram messages sent.", extra={"count": len(messages)})
 
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            output_filepath = os.path.join(base_dir, config.FINAL_REPORT_NAME)
-
-            fieldnames = [
-                "Mánager",
-                "Jugador",
-                "Posición",
-                "Valor Actual",
-                "Cláusula",
-                "Nota IA",
-                "Coeficiente AF",
-                "Puntuación Esperada AF",
-            ]
-            with open(output_filepath, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(all_players_export_list)
-            logger.info(
-                "Export complete.",
-                extra={"players": len(all_players_export_list), "file": config.FINAL_REPORT_NAME},
-            )
-
-            if config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID:
-                caption = f"Análisis de equipos completado ({len(all_players_export_list)} jugadores)"
-                send_telegram_notification(
-                    config.TELEGRAM_API_URL,
-                    config.TELEGRAM_BOT_TOKEN,
-                    config.TELEGRAM_CHAT_ID,
-                    caption,
-                    output_filepath,
-                )
     except Exception:
         logger.exception("Unexpected error in teams analyzer.")
     finally:

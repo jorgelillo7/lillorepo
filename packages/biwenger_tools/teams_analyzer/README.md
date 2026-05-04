@@ -1,57 +1,79 @@
 # ⚽ Biwenger Teams Analyser
 
-A set of Python tools that extract, analyse, and report data from your Biwenger league. It uses the Biwenger API and scrapes sites like "Analítica Fantasy" and "Jornada Perfecta" to enrich the data.
+Pre-matchday analysis tool. Pulls squads, market and rival data from the Biwenger API,
+enriches them with predicted ratings from the **Jornada Perfecta private API** (the
+SofaScore-based "Automanager" rating, `predict[type=2].rate`), and posts the digest
+to Telegram as formatted text messages.
 
-Dual objective:
-1. Generate a **CSV** file with a comprehensive analysis of your league.
-2. Automatically send that analysis to your **Telegram chat**.
+No browser automation, no scraping — one HTTP call per source.
 
-## 🚀 Key Features
+## 🚀 What it does
 
-* **Full Analysis**:
-- **`squads_export.csv`**: Main report with all players, their value, clause, and extracted analysis data.
+1. **Health-check the JP API** — fails fast if the hardcoded app token has rotated.
+2. **Fetch all LaLiga players from JP** — 1 request, ~600 players, includes predicted
+   rating, status, fitness, streak, next-match info.
+3. **Log into Biwenger** — fetch the league standings, your own squad, every rival
+   squad, and the current free-agent market.
+4. **Match Biwenger ↔ JP** — by normalised name (with slug fallback and a manual
+   override map for known mismatches like `vinicius jr` → `vini jr`).
+5. **Send Telegram messages** in three sections:
+   - 🛡️ **MI EQUIPO** — your starters sorted by predict-SF descending
+   - 🛒 **MERCADO** — free agents, top 10 by predict-SF
+   - 👤 **One message per rival manager** — same sort order, split if the message
+     would exceed 4096 chars
 
-- **`analitica_fantasy_data_backup.csv`**: Raw backup file with data scraped from "Analítica Fantasy". Useful for verifying the scraping worked correctly.
+Each player line includes a traffic-light emoji (🟢/🟡/🔴/⚪), position, price, today's
+price increment, four prediction columns (SF / AS / Avg / Streak) and whether they
+will play in their next match.
 
-* **Telegram notifications**: Automatically sends the generated file to a Telegram chat (if environment variables are configured).
+## ⚙️ Configuration
 
-## ⚙️ Configuration and Usage
+`.env` at this directory must define:
 
-For detailed setup instructions, see the main operations document.
+```
+BIWENGER_EMAIL=...
+BIWENGER_PASSWORD=...
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+```
 
-* **Installation and dependencies**: See section **`1.3 Teams Analyzer`** in `operations.md`.
-* **Credentials setup**: Biwenger and Telegram variables are set in the `.env` file.
-* **Running**: The local execution command is in `operations.md`.
+The JP token is hardcoded in `core/sdk/jp.py` (it lives in the JP Android app bundle,
+not a per-user session). If JP rotates it, `check_api_health()` raises with the
+extraction command — see `docs/technical/reverse-engineering/frida-android-intercept.md`.
 
----
+For run/test commands see [`docs/operations.md`](../../../docs/operations.md) section
+**1.3 Teams Analyzer**.
 
-### **How to get Telegram credentials**
+## 🔧 Player name mappings
 
-If you want notifications, you need a **bot token** and a **chat ID**.
+Biwenger and Jornada Perfecta sometimes spell the same player differently. The
+`PLAYER_NAME_MAPPINGS` dict in `logic/player_matching.py` handles known exceptions
+(applied after direct-match and slug-match fail):
 
-1. **Create a Bot**: Talk to `@BotFather` on Telegram. Use the `/newbot` command, give it a name, and it will provide your `TELEGRAM_BOT_TOKEN`.
-2. **Get your Chat ID**: Use the bot token in the following URL (replacing the brackets) to get your chat ID.
-
-    `https://api.telegram.org/bot[TELEGRAM_BOT_TOKEN]/getUpdates`
-
-    The response JSON will show your chat ID.
-
----
-
-### **🔧 Customisation and Maintenance**
-
-#### **Player Name Mappings**
-
-Sometimes a player's name in Biwenger does not exactly match the name on analysis sites. To fix this, add exceptions to the `PLAYER_NAME_MAPPINGS` dictionary at the top of the script.
-
-**Example:**
 ```python
 PLAYER_NAME_MAPPINGS = {
-    'odysseas': 'vlachodimos',
-    'carlos vicente': 'c. vicente',
+    "vinicius jr": "vini jr",
+    "vinicius junior": "vini jr",
+    "sancet": "oihan sancet",
+    # ...
 }
 ```
 
-## ⚠️ Important Notes
+Add new entries when you spot a player tagged ⚪ ("no JP data") that you know does
+exist in JP — they're just spelled differently.
 
-- **Headless mode**: To run the script faster without opening a browser window, enable headless mode in the `fetch_analitica_fantasy_coeffs` function by uncommenting the `# chrome_options.add_argument("--headless")` line.
+## 📬 Telegram setup
+
+If you don't have a bot yet:
+
+1. Talk to `@BotFather` on Telegram, run `/newbot`, get a `TELEGRAM_BOT_TOKEN`.
+2. Send a message to your bot, then visit
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` to get your `chat_id`.
+
+## 🗺️ Roadmap
+
+This package is mid-rewrite. Phase 1 (this version) replaces the old Selenium +
+Analítica Fantasy scrapers with the JP API and Telegram message output. Phase 2
+adds an interactive bot (`/analizar`, `/alinear` commands) and Phase 3 adds the
+auto-lineup using Biwenger's `PUT /api/v2/user` endpoint. See
+`.claude/plans/teams_analyzer_rewrite.md` for the full plan.

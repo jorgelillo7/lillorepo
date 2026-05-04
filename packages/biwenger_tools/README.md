@@ -16,7 +16,7 @@ This project is split into three main components that work together to archive, 
 
 2.  **Web App (`web-app`):** A lightweight Flask web application that reads data from CSV files and a Google Sheet, presenting it in a clean, elegant, fully responsive interface.
 
-3.  **Teams Analyser (`teams-analyzer`):** A powerful analysis script that uses Selenium to scrape advanced data from fantasy analysis sites. It combines this information with Biwenger data to generate a detailed CSV report and send it via Telegram.
+3.  **Teams Analyser (`teams-analyzer`):** A pre-matchday analysis script that pulls squad, market and rival data from the Biwenger API and enriches it with predicted ratings from the Jornada Perfecta private API. The output is a series of formatted Telegram messages — own squad, market top-N, one per rival.
 
 ---
 
@@ -45,17 +45,18 @@ This project is split into three main components that work together to archive, 
 
 ### Teams Analyser (The Tactical Spy)
 
-* **Advanced Scraping:** Uses **Selenium** to extract data from sites like "Analítica Fantasy" and "Jornada Perfecta".
-* **360º Analysis:** Evaluates not just your team but every squad in the league and free agents on the market.
-* **Data Enrichment:** Crosses Biwenger data with external metrics like performance coefficients and expected scores.
-* **Telegram Notifications:** Sends the final CSV report directly to a Telegram chat so you have the tactical edge on your phone.
+* **Single HTTP call to Jornada Perfecta:** Reads predicted ratings (the SofaScore-based "Automanager" type=2 rate) for every player in LaLiga in one request. No browser automation, no Selenium.
+* **360º Analysis:** Evaluates your own squad, every rival squad, and the free-agent market.
+* **Data Enrichment:** Crosses Biwenger data with JP predictions by normalised name + slug; flags injuries, suspensions and players who won't be in the lineup.
+* **Telegram Messages:** Posts a series of formatted text messages (HTML, traffic-light status emojis) — own squad, market top-N, one per rival, splitting if any chunk exceeds the 4096-char limit.
 * **Local Execution:** Designed to be run manually when you need a deep analysis before a matchday.
 
 ---
 
 ## 💻 Technologies Used
 
-* **Backend (Scrapers):** Python, Requests, BeautifulSoup, **Selenium**, Unidecode, Google Cloud SDK.
+* **Backend (Scraper Job):** Python, Requests, BeautifulSoup, Unidecode, Google Cloud SDK.
+* **Backend (Teams Analyzer):** Python, Requests (Biwenger API + Jornada Perfecta private API), Telegram Bot API.
 * **Backend (Web):** Python, Flask.
 * **Frontend:** HTML, Tailwind CSS, JavaScript.
 * **Cloud & Deployment:** Google Cloud Run (Jobs and Services), Cloud Scheduler, Secret Manager, Google Drive API, Google Sheets API, Docker.

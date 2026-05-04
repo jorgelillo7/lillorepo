@@ -1,13 +1,9 @@
-import pytest
-import os
-import io
 import hashlib
 from unittest.mock import patch, MagicMock
 
-# Se actualizan las importaciones para que apunten al nuevo nombre de la carpeta
+import pytest
+
 from packages.biwenger_tools.scraper_job.get_messages import main
-from packages.biwenger_tools.scraper_job.logic.processing import get_all_board_messages
-from core.sdk.biwenger import BiwengerClient
 
 # --- Fixture para mockear servicios externos en todos los tests del archivo ---
 
@@ -37,7 +33,7 @@ def mock_external_deps():
         mock_biwenger_instance = MagicMock()
         mock_biwenger_client.return_value = mock_biwenger_instance
         mock_biwenger_instance.get_all_players_data_map.return_value = {}
-        mock_biwenger_instance.get_clausulazos.return_value = {"data": []}
+        mock_biwenger_instance.get_all_clausulazos.return_value = {"data": []}
 
         yield {
             "gservice": mock_gservice,
@@ -46,46 +42,6 @@ def mock_external_deps():
             "download_csv": mock_download_csv,
             "upload_csv": mock_upload_csv,
         }
-
-
-# --- Tests para get_all_board_messages (función con paginación) ---
-
-
-def test_get_all_board_messages_single_page(mock_external_deps):
-    """Prueba la descarga de mensajes en una sola página."""
-    mock_biwenger = mock_external_deps["biwenger"]
-    mock_biwenger.get_board_messages.return_value = {
-        "data": [{"id": 1}, {"id": 2}, {"id": 3}]
-    }
-
-    messages = get_all_board_messages(mock_biwenger, "http://test.com")
-
-    assert len(messages) == 3
-    mock_biwenger.get_board_messages.assert_called_once_with(
-        "http://test.com&limit=200&offset=0"
-    )
-
-
-def test_get_all_board_messages_multiple_pages(mock_external_deps):
-    """Prueba la descarga con paginación."""
-    mock_biwenger = mock_external_deps["biwenger"]
-    mock_biwenger.get_board_messages.side_effect = [
-        {"data": [{"id": i} for i in range(200)]},
-        {"data": [{"id": i} for i in range(200, 250)]},
-        {"data": []},
-    ]
-
-    messages = get_all_board_messages(mock_biwenger, "http://test.com")
-
-    assert len(messages) == 250
-    # Se corrige la aserción: la lógica del scraper solo hace 2 llamadas
-    assert mock_biwenger.get_board_messages.call_count == 2
-    mock_biwenger.get_board_messages.assert_any_call(
-        "http://test.com&limit=200&offset=0"
-    )
-    mock_biwenger.get_board_messages.assert_any_call(
-        "http://test.com&limit=200&offset=200"
-    )
 
 
 # --- Tests para la función principal (main) ---
@@ -98,17 +54,15 @@ def test_get_all_board_messages_multiple_pages(mock_external_deps):
 def test_main_with_new_messages(mock_external_deps):
     """Prueba el flujo principal cuando se encuentran nuevos mensajes."""
     mock_external_deps["biwenger"].get_league_users.return_value = {123: "Jorge"}
-    mock_external_deps["biwenger"].get_board_messages.return_value = {
-        "data": [
-            {
-                "id": 1,
-                "date": 1672531200,
-                "author": {"id": 123},
-                "title": "Un nuevo comunicado",
-                "content": "Contenido del comunicado.",
-            }
-        ]
-    }
+    mock_external_deps["biwenger"].get_all_board_messages.return_value = [
+        {
+            "id": 1,
+            "date": 1672531200,
+            "author": {"id": 123},
+            "title": "Un nuevo comunicado",
+            "content": "Contenido del comunicado.",
+        }
+    ]
 
     mock_external_deps["find_file"].return_value = None
 
@@ -136,17 +90,15 @@ def test_main_no_new_messages(mock_external_deps):
         "categoria": "comunicado",
     }
 
-    mock_external_deps["biwenger"].get_board_messages.return_value = {
-        "data": [
-            {
-                "id": 1,
-                "date": 1672531200,
-                "author": {"id": 123},
-                "title": "Un nuevo comunicado",
-                "content": "Contenido del comunicado.",
-            }
-        ]
-    }
+    mock_external_deps["biwenger"].get_all_board_messages.return_value = [
+        {
+            "id": 1,
+            "date": 1672531200,
+            "author": {"id": 123},
+            "title": "Un nuevo comunicado",
+            "content": "Contenido del comunicado.",
+        }
+    ]
 
     mock_external_deps["find_file"].return_value = {"id": "fake_id"}
     mock_external_deps["download_csv"].return_value = [existing_message]

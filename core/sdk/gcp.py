@@ -1,12 +1,10 @@
 import csv
 import io
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
-import pytz
 from dateutil import parser
-from google.auth.transport.requests import Request
 from google.oauth2 import service_account
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
@@ -14,8 +12,11 @@ from core.utils import get_logger
 
 logger = get_logger(__name__)
 
+MADRID_TZ = ZoneInfo("Europe/Madrid")
+
 
 # --- AUTHENTICATION ---
+
 
 def get_google_service(api_name, api_version, service_account_file, scopes):
     """Returns an authenticated client using a Service Account."""
@@ -26,6 +27,7 @@ def get_google_service(api_name, api_version, service_account_file, scopes):
 
 
 # --- GOOGLE DRIVE ---
+
 
 def find_file_on_drive(service, name, folder_id):
     """Searches for a file by name in a Drive folder; returns its metadata or None."""
@@ -86,11 +88,10 @@ def upload_csv_to_drive(
 
 # --- GOOGLE SHEETS ---
 
+
 def get_sheets_data(service, spreadsheet_id) -> list[dict]:
     """Reads and processes all sheets from a Google Spreadsheet."""
-    sheet_metadata = (
-        service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    )
+    sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
     sheets = sheet_metadata.get("sheets", "")
 
     all_leagues_data = []
@@ -120,13 +121,16 @@ def get_sheets_data(service, spreadsheet_id) -> list[dict]:
 
 # --- FILE STATUS HELPERS ---
 
-def get_file_metadata(service, folder_id: str, filenames: list, dynamic_files: list) -> list[dict]:
+
+def get_file_metadata(
+    service, folder_id: str, filenames: list, dynamic_files: list
+) -> list[dict]:
     """
     Returns metadata for a list of Drive files, including last-modified time
     and a staleness flag (True when a dynamic file has not been updated in 7+ days).
     """
     statuses = []
-    now_madrid = datetime.now(pytz.timezone("Europe/Madrid"))
+    now_madrid = datetime.now(MADRID_TZ)
 
     for name in filenames:
         query = f"name = '{name}' and '{folder_id}' in parents and trashed=false"
@@ -139,9 +143,11 @@ def get_file_metadata(service, folder_id: str, filenames: list, dynamic_files: l
 
         if file:
             dt_utc = parser.isoparse(file["modifiedTime"])
-            dt_madrid = dt_utc.astimezone(pytz.timezone("Europe/Madrid"))
+            dt_madrid = dt_utc.astimezone(MADRID_TZ)
             formatted_date = dt_madrid.strftime("%d-%m-%Y a las %H:%M:%S")
-            is_stale = name in dynamic_files and (now_madrid - dt_madrid) > timedelta(days=7)
+            is_stale = name in dynamic_files and (now_madrid - dt_madrid) > timedelta(
+                days=7
+            )
             statuses.append(
                 {
                     "name": name,
@@ -152,6 +158,11 @@ def get_file_metadata(service, folder_id: str, filenames: list, dynamic_files: l
             )
         else:
             statuses.append(
-                {"name": name, "status": "No Encontrado", "last_updated": "N/A", "is_stale": False}
+                {
+                    "name": name,
+                    "status": "No Encontrado",
+                    "last_updated": "N/A",
+                    "is_stale": False,
+                }
             )
     return statuses

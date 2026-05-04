@@ -10,14 +10,9 @@ if [ -f /app/core_srcs.tar ]; then
     rm -f core_srcs.tar
 fi
 
-# Asegurar que Python pueda encontrar todos los módulos necesarios.
-# Se añade la raíz del proyecto, el paquete core y el directorio de la aplicación web.
-export PYTHONPATH="/app:/app/core:/app/packages/biwenger_tools/web:${PYTHONPATH}"
+# /app es la raíz del proyecto: módulos como `packages.biwenger_tools.web.app`
+# y `core.sdk.gcp` resuelven sin trucos.
+export PYTHONPATH="/app:${PYTHONPATH}"
 
-# Cambiar al directorio de la aplicación web antes de iniciar el servidor.
-cd /app/packages/biwenger_tools/web
-
-# Iniciar el servidor Gunicorn.
-# 'exec' reemplaza el proceso del shell con el de Gunicorn, lo cual es una buena práctica.
 echo ">>> Iniciando la aplicación..."
-exec python3 gunicorn_prod_runner.py
+exec python3 /app/packages/biwenger_tools/web/gunicorn_prod_runner.py

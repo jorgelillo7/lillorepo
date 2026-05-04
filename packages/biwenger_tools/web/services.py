@@ -1,4 +1,5 @@
 """Google API service initialization for the web app."""
+
 import os
 
 from core.sdk.gcp import get_google_service

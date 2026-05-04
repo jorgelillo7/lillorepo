@@ -34,7 +34,7 @@ Esa frase posiciona el proyecto correctamente: no como un side project de primav
 
 **`TEMPORADA_ACTUAL` duplicado** en `web/config.py` y `scraper_job/config.py` — dos deployments independientes que pueden desincronizarse.
 
-**La imagen base incluye Selenium** (~150MB) que solo usa `teams_analyzer`. Los contenedores de `web` y `scraper_job` lo arrastran sin usarlo.
+**La imagen base aún incluye Selenium** (~150MB) por inercia: ya nadie la usa (v4.2 reemplazó la única dependencia, `teams_analyzer`, por una llamada HTTP directa a la API privada de Jornada Perfecta). El siguiente rebuild de `Dockerfile.base` la quita.
 
 ---
 

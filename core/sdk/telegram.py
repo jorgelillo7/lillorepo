@@ -1,31 +1,42 @@
-import os
-
 import requests
 
 from core.utils import get_logger
 
 logger = get_logger(__name__)
 
+TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
-def send_telegram_notification(
-    api_url_template: str,
+
+def send_telegram_message(
     bot_token: str,
     chat_id: str,
-    caption: str,
-    filepath: str,
+    text: str,
+    parse_mode: str = "HTML",
+    disable_web_page_preview: bool = True,
 ) -> None:
+    """Sends a text message to a Telegram chat via the Bot API.
+
+    Truncates messages over 4096 chars (the Telegram limit). For long content
+    that needs splitting, do the splitting at the call site so each chunk
+    forms a coherent unit.
     """
-    Sends a file to a Telegram chat via the Bot API.
-    The API URL template is injected to decouple from config.
-    """
-    logger.info("Sending Telegram notification...", extra={"filepath": filepath})
-    url = api_url_template.format(token=bot_token)
+    if len(text) > 4096:
+        logger.warning(
+            "Telegram message exceeds 4096 chars — truncating.",
+            extra={"length": len(text)},
+        )
+        text = text[:4093] + "..."
+
+    url = TELEGRAM_SEND_MESSAGE_URL.format(token=bot_token)
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": parse_mode,
+        "disable_web_page_preview": disable_web_page_preview,
+    }
     try:
-        with open(filepath, "rb") as f:
-            files = {"document": (os.path.basename(filepath), f)}
-            data = {"chat_id": chat_id, "caption": caption}
-            response = requests.post(url, data=data, files=files)
-            response.raise_for_status()
-        logger.info("Telegram notification sent successfully.")
+        response = requests.post(url, json=payload, timeout=15)
+        response.raise_for_status()
+        logger.info("Telegram message sent.", extra={"chars": len(text)})
     except Exception as e:
-        logger.error("Failed to send Telegram notification.", extra={"error": str(e)})
+        logger.error("Failed to send Telegram message.", extra={"error": str(e)})

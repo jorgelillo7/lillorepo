@@ -163,19 +163,17 @@ Commands for running each component.
 ### 3\. Teams Analyzer
 
   * **Setup:** Make sure you have a `.env` file with Biwenger and Telegram credentials.
+    The Jornada Perfecta token is hardcoded in `core/sdk/jp.py` — no per-user value.
 
   * **Run locally:**
 
     ```bash
         bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
-
-        # Get output files for debugging
-        bazel run --spawn_strategy=local //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
-        open bazel-bin/packages/biwenger_tools/teams_analyzer/teams_analyzer_local.runfiles/_main/packages/biwenger_tools/teams_analyzer
-
-        analitica_fantasy_data_backup.csv
-        squads_export.csv
     ```
+
+    Output is sent to your Telegram chat (no CSV files generated since v4.2 — the
+    Selenium + Analítica Fantasy path was removed in favour of the JP private API).
+
   * **Tests:**
 
     ```bash
@@ -193,10 +191,24 @@ Commands for running each component.
 
     ```bash
       bazel run //packages/biwenger_tools/teams_analyzer:load_image_to_docker_local
-      docker run --rm --shm-size=2g bazel/teams_analyzer:local
+      docker run --rm bazel/teams_analyzer:local
     ```
-  * **Deploy to production:**
-    Pending
+
+    > Note: the `--shm-size=2g` flag previously needed for the Chromium-based
+    > scraper is no longer required.
+
+  * **Deploy to production (Cloud Run Job):**
+
+      * **Build and push the image to GCP:**
+        ```bash
+          bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
+              --platforms=//platforms:linux_amd64
+        ```
+      * **Create the Job (first time only):** secrets and the schedule are
+        defined when first creating the Cloud Run Job. The minimum env/secrets:
+        `BIWENGER_EMAIL`, `BIWENGER_PASSWORD`, `TELEGRAM_BOT_TOKEN`,
+        `TELEGRAM_CHAT_ID`. Adapt the `gcloud run jobs create` snippet from the
+        Scraper Job section above.
 
 ### Extra\. Core
 
@@ -231,8 +243,8 @@ requests
 google-api-python-client
 google-auth-oauthlib
 google-auth
-pytz
 python-dateutil
+python-json-logger
 black
 flake8
 pytest
@@ -354,54 +366,22 @@ gcloud secrets versions add token_json --data-file="token.json"
 ```
 
 ---
-## 💅 Linter and Auto-formatter (VS Code)
+## 💅 Linter and Auto-formatter
 
-Configure **Flake8** (linter) and **Black** (formatter) for clean, consistent code.
+Flake8 (linter) and Black (formatter) run **on every push to `master`** as
+the `lint` job in `.github/workflows/deploy.yml`. A lint failure blocks
+`test` and the deploy.
 
-1.  **Install the extensions:**
+Editor and CLI usage, pinned versions, and how to upgrade live in
+[`setup/linter.md`](setup/linter.md).
 
-      * `ms-python.python`
-      * `ms-python.black-formatter`
+Quick local invocation (same versions as CI):
 
-2.  **Select the Python Interpreter:**
-
-      * Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
-      * Search for and select `Python: Select Interpreter`.
-      * Choose the interpreter from your virtual environment (`./venv/bin/python`).
-
-3.  **Configure `settings.json`:**
-
-      * Open the command palette and search for `Preferences: Open Workspace Settings (JSON)`.
-      * Add the following configuration:
-
-    <!-- end list -->
-
-    ```json
-    {
-        "python.linting.enabled": true,
-        "python.linting.flake8Enabled": true,
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true,
-        "editor.codeActionsOnSave": {
-            "source.fixAll": "explicit"
-        }
-    }
-    ```
-
-4.  **(Optional) Configure Flake8:**
-
-      * Create a `.flake8` file at the project root to align its rules with Black.
-
-    <!-- end list -->
-
-    ```ini
-    [flake8]
-    max-line-length = 88
-    ignore = E203, W503
-    exclude = .git,__pycache__,.venv,venv,*.md
-    ```
-
-Once configured, VS Code will flag errors and auto-format your code on save.
+```bash
+pip3 install flake8==7.3.0 black==25.1.0
+flake8 core/ packages/
+black --check core/ packages/    # CI runs this
+```
 
 
 ## 🧹 GCP Cleanup and Cost Control

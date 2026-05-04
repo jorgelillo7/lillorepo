@@ -2,6 +2,24 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v4.2 - Selenium Goes Home (3 May 2026)**
+
+The teams_analyzer trades its browser for a single HTTP call. Selenium and
+Analítica Fantasy are out; the Jornada Perfecta private API is in. Around
+that swap come a domain-model rollout, a richer Biwenger SDK, lint in CI,
+and a long overdue dead-code purge.
+
+* **🛑 Selenium goes home**: The Selenium + Analítica Fantasy path is gone from `teams_analyzer`. Previously ~600 browser actions to load tables, paginate and read cells; now one request to `https://www.jornadaperfecta.com/api/fitness-daily`. Net: a faster, simpler, fragility-free analyzer.
+* **🕵️ Token captured with Frida**: New doc in `docs/technical/reverse-engineering/frida-android-intercept.md` walks through how the JP private API was discovered and how the token was extracted from the Android app's JS bundle. If it ever rotates, recovery is < 1 minute and Frida-free.
+* **💬 From CSV file to Telegram messages**: The analyzer no longer ships a CSV via `sendDocument`. It now posts a series of formatted text messages (HTML, traffic-light emoji per player) — own squad, market top-N, one per rival manager, splitting if a chunk exceeds the 4096-char limit.
+* **🧱 Domain models applied**: `LeagueMessage`, `Participation`, `Clausulazo` and `JusticeEntry` leave the drawer. Consistent `from_csv_row`/`to_csv_row` on every model; the scraper writes models, the web reads them typed. Makes the eventual Firestore migration a one-layer change instead of touching every call site.
+* **🏗️ Biwenger SDK levels up**: Public URL constants, helpers for `league_*` / `manager_squad_url`, and `BiwengerClient.get_all_board_messages()` / `get_all_clausulazos()` (the paginators that used to live as standalone helpers in `scraper_job`). Zero URL duplication between packages.
+* **🧹 Tech cleanup**: pytz → stdlib `zoneinfo`; `send_telegram_notification` retired (no callers); three obsolete `*_CSV_URL` env vars purged from the workflow, `BUILD.bazel` and `deploy.sh`; broken `web/Makefile` deleted; gunicorn launcher uses the canonical module path instead of a `sys.path` hack.
+* **✅ Lint in CI**: new `flake8` + `black --check` job runs before tests, with versions pinned to the lockfile. Pipeline is now `lint → test → deploy`. Documented in `docs/setup/linter.md`.
+* **🧪 Tests with less posturing**: audit of the 12 test files → 4 removed (assertions on "the method was called" rather than outcomes), 8 hardened to verify content instead of just the method calls, 9 new ones covering error paths the old suite never touched (auth raises, JP unreachable, JP fetch fails mid-flow, empty squad, price-increment branches).
+
+---
+
 ### **v4.1 - The Clausulazo Hunter (25 April 2026)**
 
 The Salseo gets smarter. Clausulazos — those jaw-dropping transfer fees that shake the league — are now a first-class citizen: detected by the scraper, processed with proper logic, and showcased in their own section of the web. A round of refactors and a translation sprint round out the release.

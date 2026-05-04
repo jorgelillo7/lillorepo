@@ -1,77 +1,95 @@
 from unidecode import unidecode
 
-# Este mapa es específico para la lógica de este analizador.
-# biwenger -> Analítica Fantasy
-# quitar acentos, pasar a minúsculas
+# Mapeo manual Biwenger -> JP para casos en los que ninguna estrategia
+# automática funciona (nombres completamente distintos, apodos, alias).
+# Las claves están normalizadas (lowercase + sin acentos).
 PLAYER_NAME_MAPPINGS = {
-    # Nombres completamente diferentes
-    "odysseas": "vlachodimos",
-    "alhassane": "rahim",
-    # Inversiones o adiciones
+    # Vinicius en Biwenger ↔ "Vini Jr" en JP
+    "vinicius jr": "vini jr",
+    "vinicius junior": "vini jr",
+    # Inversiones / variaciones conocidas históricas
     "sancet": "oihan sancet",
     "javi hernandez": "javier hernandez",
-    # Apodos o variaciones que no son simples acrónimos
     "javier rueda": "javi rueda",
     "brugue": "brugui",
-    # Casos ambiguos que es mejor forzar
-    "ricardo rodriguez": "r. rodriguez",  # Podría confundirse con otro Rodríguez
+    "ricardo rodriguez": "r. rodriguez",
     "matias moreno": "m. moreno",
-    "vinicius jr": "vinicius jr.",
 }
 
 
-def normalize_name(name):
-    """Función centralizada para limpiar y normalizar nombres."""
+def normalize_name(name: str) -> str:
+    """Normaliza nombres: minúsculas, sin acentos, recortado."""
     return unidecode(name.lower().strip())
 
 
-def find_player_match(biwenger_name, analitica_map):
+def build_jp_index(jp_players: list[dict]) -> dict:
+    """Construye índices del listado JP para acelerar el matching.
+
+    Devuelve dict con dos claves:
+      - 'by_name': nombre normalizado -> jugador JP
+      - 'by_slug': slug normalizado -> jugador JP (fallback)
     """
-    Versión mejorada que automatiza patrones comunes de nombres y usa
-    un mapa de mapeo reducido solo para las excepciones.
+    by_name: dict[str, dict] = {}
+    by_slug: dict[str, dict] = {}
+    for p in jp_players:
+        name = p.get("name") or ""
+        slug = p.get("slug") or ""
+        if name:
+            by_name[normalize_name(name)] = p
+        if slug:
+            by_slug[normalize_name(slug)] = p
+    return {"by_name": by_name, "by_slug": by_slug}
+
+
+def find_player_match(biwenger_name: str, jp_index: dict) -> dict | None:
+    """Busca el jugador JP que corresponde al nombre Biwenger dado.
+
+    Prueba en orden:
+      1. Coincidencia directa por nombre normalizado
+      2. Mapeo manual de excepciones (PLAYER_NAME_MAPPINGS)
+      3. Coincidencia por slug
+      4. Transformaciones automáticas (apellido, nombre, "i. apellido")
+      5. Subconjunto de tokens
+
+    Devuelve el dict del jugador JP o None si no hay coincidencia.
     """
-    norm_b_name = normalize_name(biwenger_name)
+    by_name = jp_index["by_name"]
+    by_slug = jp_index["by_slug"]
+    norm = normalize_name(biwenger_name)
 
-    # Estrategia 1: Búsqueda por nombre original normalizado (la más fiable)
-    if norm_b_name in analitica_map:
-        return analitica_map[norm_b_name]
+    if norm in by_name:
+        return by_name[norm]
 
-    # Estrategia 2: Mapeo de excepciones (casos especiales definidos a mano)
-    if norm_b_name in PLAYER_NAME_MAPPINGS:
-        mapped_name = PLAYER_NAME_MAPPINGS[norm_b_name]
-        if mapped_name in analitica_map:
-            return analitica_map[mapped_name]
+    if norm in PLAYER_NAME_MAPPINGS:
+        mapped = PLAYER_NAME_MAPPINGS[norm]
+        if mapped in by_name:
+            return by_name[mapped]
 
-    # Estrategia 3: Transformaciones automáticas para nombres compuestos
-    name_parts = norm_b_name.split()
-    if len(name_parts) > 1:
-        # Intenta coincidir solo con el apellido (ej: 'pacha espino' -> 'espino')
-        last_name = name_parts[-1]
-        if last_name in analitica_map:
-            return analitica_map[last_name]
+    if norm in by_slug:
+        return by_slug[norm]
 
-        # Intenta coincidir solo con el nombre (ej: 'giuliano simeone' -> 'giuliano')
-        first_name = name_parts[0]
-        if first_name in analitica_map:
-            return analitica_map[first_name]
+    # Slug suele ser sin espacios; probar también la variante sin espacios
+    no_spaces = norm.replace(" ", "")
+    if no_spaces in by_slug:
+        return by_slug[no_spaces]
 
-        # Intenta coincidir con inicial. apellido (ej: 'carlos vicente' -> 'c. vicente')
-        initial_last_name = f"{name_parts[0][0]}. {name_parts[-1]}"
-        if initial_last_name in analitica_map:
-            return analitica_map[initial_last_name]
+    parts = norm.split()
+    if len(parts) > 1:
+        last = parts[-1]
+        if last in by_name:
+            return by_name[last]
 
-    # Estrategia 4: Búsqueda por subconjunto (último recurso)
-    b_name_parts_set = set(name_parts)
-    for a_name, data in analitica_map.items():
-        if b_name_parts_set.issubset(set(a_name.split())):
-            return data
+        first = parts[0]
+        if first in by_name:
+            return by_name[first]
 
-    # Si nada funciona, se devuelve el valor por defecto
-    return {"coeficiente": "N/A", "puntuacion_esperada": "N/A"}
+        initial_last = f"{parts[0][0]}. {parts[-1]}"
+        if initial_last in by_name:
+            return by_name[initial_last]
 
+    parts_set = set(parts)
+    for jp_norm, jp_player in by_name.items():
+        if parts_set and parts_set.issubset(set(jp_norm.split())):
+            return jp_player
 
-def map_position(pos_id):
-    """Mapea el ID de posición de Biwenger a un string legible."""
-    return {1: "Portero", 2: "Defensa", 3: "Centrocampista", 4: "Delantero"}.get(
-        pos_id, "N/A"
-    )
+    return None

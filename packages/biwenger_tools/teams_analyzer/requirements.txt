@@ -1,7 +1,4 @@
 # teams_analyzer/requirements.txt
 python-dotenv
-beautifulsoup4
 requests
-selenium
-webdriver-manager
 unidecode

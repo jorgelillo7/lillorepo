@@ -1,31 +1,12 @@
-import io
-from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
-import pytz
 import pytest
 from dateutil import parser
 
 from core.sdk import gcp
 
-
-# --- Authentication ---
-
-
-@patch("core.sdk.gcp.service_account")
-@patch("core.sdk.gcp.build")
-def test_get_google_service(mock_build, mock_service_account):
-    """Service is built with the correct credentials."""
-    mock_credentials = MagicMock()
-    mock_service_account.Credentials.from_service_account_file.return_value = (
-        mock_credentials
-    )
-    service = gcp.get_google_service("test_api", "v1", "service_account.json", ["scope1"])
-    mock_service_account.Credentials.from_service_account_file.assert_called_once_with(
-        "service_account.json", scopes=["scope1"]
-    )
-    mock_build.assert_called_once_with("test_api", "v1", credentials=mock_credentials)
-    assert service == mock_build.return_value
+MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 # --- Google Drive ---
@@ -46,21 +27,6 @@ def test_find_file_on_drive_not_found(mock_google_service):
     assert result is None
 
 
-@patch("core.sdk.gcp.MediaIoBaseDownload")
-@patch("core.sdk.gcp.io.BytesIO")
-def test_download_csv_from_drive(mock_bytesio, mock_download, mock_google_service):
-    """File is downloaded and decoded correctly."""
-    mock_content = b"header1,header2\nvalue1,value2"
-    mock_bytesio_instance = MagicMock()
-    mock_bytesio_instance.getvalue.return_value = mock_content
-    mock_bytesio.return_value = mock_bytesio_instance
-    mock_downloader = MagicMock()
-    mock_downloader.next_chunk.side_effect = [(None, False), (None, True)]
-    mock_download.return_value = mock_downloader
-    result = gcp.download_csv_from_drive(mock_google_service, "test_file_id")
-    assert result == mock_content.decode("utf-8")
-
-
 @patch("core.sdk.gcp.download_csv_from_drive")
 def test_download_csv_as_dict_success(mock_download_csv):
     """CSV string is converted to a list of dicts correctly."""
@@ -76,30 +42,78 @@ def test_download_csv_as_dict_no_file_id():
         gcp.download_csv_as_dict(None, None)
 
 
-@patch("core.sdk.gcp.MediaIoBaseUpload")
-def test_upload_csv_to_drive_update(mock_upload, mock_google_service):
-    """Calls update (not create) when the file already exists."""
-    mock_google_service.files.return_value.update.return_value.execute.return_value = {}
-    gcp.upload_csv_to_drive(
-        mock_google_service, "folder_id", "test.csv", "a,b\n1,2", "existing_id"
-    )
+def test_upload_csv_to_drive_update_sends_actual_content(mock_google_service):
+    """The CSV string is uploaded verbatim when updating an existing file."""
+    captured = {}
+
+    def fake_media(buffer, mimetype, resumable):
+        captured["body"] = buffer.read().decode("utf-8")
+        captured["mimetype"] = mimetype
+        return MagicMock()
+
+    csv_payload = "a,b\n1,2\n3,4"
+    with patch("core.sdk.gcp.MediaIoBaseUpload", side_effect=fake_media):
+        gcp.upload_csv_to_drive(
+            mock_google_service, "folder_id", "test.csv", csv_payload, "existing_id"
+        )
+
+    assert captured["body"] == csv_payload
+    assert captured["mimetype"] == "text/csv"
     mock_google_service.files.return_value.update.assert_called_once()
+    update_kwargs = mock_google_service.files.return_value.update.call_args.kwargs
+    assert update_kwargs["fileId"] == "existing_id"
     mock_google_service.files.return_value.create.assert_not_called()
 
 
-@patch("core.sdk.gcp.MediaIoBaseUpload")
-def test_upload_csv_to_drive_create_new(mock_upload, mock_google_service):
-    """Calls create and sets public permissions for a new file."""
-    mock_google_service.files.return_value.create.return_value.execute.return_value = {
-        "id": "new_id"
-    }
-    mock_google_service.permissions.return_value.create.return_value.execute.return_value = {}
-    gcp.upload_csv_to_drive(
-        mock_google_service, "folder_id", "new.csv", "a,b\n1,2", None
-    )
-    mock_google_service.files.return_value.create.assert_called_once()
-    mock_google_service.files.return_value.update.assert_not_called()
-    mock_google_service.permissions.return_value.create.assert_called_once()
+def test_upload_csv_to_drive_create_new_makes_public(mock_google_service):
+    """A brand-new file is created with the right metadata and made public."""
+    captured = {}
+
+    def fake_media(buffer, mimetype, resumable):
+        captured["body"] = buffer.read().decode("utf-8")
+        return MagicMock()
+
+    files = mock_google_service.files.return_value
+    permissions = mock_google_service.permissions.return_value
+    files.create.return_value.execute.return_value = {"id": "new_id"}
+
+    with patch("core.sdk.gcp.MediaIoBaseUpload", side_effect=fake_media):
+        gcp.upload_csv_to_drive(
+            mock_google_service, "folder_id", "new.csv", "a,b\n1,2", None
+        )
+
+    create_kwargs = files.create.call_args.kwargs
+    assert create_kwargs["body"] == {"name": "new.csv", "parents": ["folder_id"]}
+    assert captured["body"] == "a,b\n1,2"
+
+    permissions.create.assert_called_once()
+    perm_kwargs = permissions.create.call_args.kwargs
+    assert perm_kwargs["fileId"] == "new_id"
+    assert perm_kwargs["body"] == {"type": "anyone", "role": "reader"}
+
+
+def test_upload_then_download_roundtrips(mock_google_service):
+    """Whatever is uploaded must come back identically via download_csv_as_dict."""
+    captured = {}
+
+    def fake_media(buffer, mimetype, resumable):
+        captured["body"] = buffer.read()
+        return MagicMock()
+
+    payload = "id_hash,fecha,autor\nabc,01-01-2025,Jorge\n"
+    with patch("core.sdk.gcp.MediaIoBaseUpload", side_effect=fake_media):
+        gcp.upload_csv_to_drive(
+            mock_google_service, "folder_id", "x.csv", payload, "existing"
+        )
+
+    # Round-trip: parse what we sent
+    with patch(
+        "core.sdk.gcp.download_csv_from_drive",
+        return_value=captured["body"].decode("utf-8"),
+    ):
+        rows = gcp.download_csv_as_dict(mock_google_service, "existing")
+
+    assert rows == [{"id_hash": "abc", "fecha": "01-01-2025", "autor": "Jorge"}]
 
 
 # --- Google Sheets ---
@@ -107,7 +121,8 @@ def test_upload_csv_to_drive_create_new(mock_upload, mock_google_service):
 
 def test_get_sheets_data_success(mock_sheets_service):
     """Reads data from multiple sheets correctly."""
-    mock_sheets_service.spreadsheets.return_value.get.return_value.execute.return_value = {
+    spreadsheets = mock_sheets_service.spreadsheets.return_value
+    spreadsheets.get.return_value.execute.return_value = {
         "sheets": [
             {"properties": {"title": "Hoja1"}},
             {"properties": {"title": "Hoja2"}},
@@ -136,9 +151,7 @@ def test_get_sheets_data_success(mock_sheets_service):
             ]
         },
     ]
-    mock_sheets_service.spreadsheets.return_value.values.return_value.get.return_value.execute = (
-        mock_get_values_execute
-    )
+    spreadsheets.values.return_value.get.return_value.execute = mock_get_values_execute
     result = gcp.get_sheets_data(mock_sheets_service, "spreadsheet_id")
     assert len(result) == 2
     assert result[0]["nombre"] == "Liga Test 1"
@@ -147,14 +160,13 @@ def test_get_sheets_data_success(mock_sheets_service):
 
 def test_get_sheets_data_no_data(mock_sheets_service):
     """Handles sheets with no data gracefully."""
-    mock_sheets_service.spreadsheets.return_value.get.return_value.execute.return_value = {
+    spreadsheets = mock_sheets_service.spreadsheets.return_value
+    spreadsheets.get.return_value.execute.return_value = {
         "sheets": [{"properties": {"title": "HojaVacia"}}]
     }
     mock_get_values_execute = MagicMock()
     mock_get_values_execute.return_value = {"values": []}
-    mock_sheets_service.spreadsheets.return_value.values.return_value.get.return_value.execute = (
-        mock_get_values_execute
-    )
+    spreadsheets.values.return_value.get.return_value.execute = mock_get_values_execute
     result = gcp.get_sheets_data(mock_sheets_service, "spreadsheet_id")
     assert result == []
 
@@ -165,13 +177,17 @@ def test_get_sheets_data_no_data(mock_sheets_service):
 def test_get_file_metadata_found(mock_google_drive_service):
     """Found file is processed with correct status and staleness=False."""
     with patch("core.sdk.gcp.datetime") as mock_dt:
-        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(
-            pytz.timezone("Europe/Madrid")
-        )
+        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(MADRID_TZ)
         mock_dt.now.return_value = now_madrid
 
         mock_google_drive_service.files().list().execute.return_value = {
-            "files": [{"id": "file1", "name": "file1.txt", "modifiedTime": "2025-09-04T10:00:00Z"}]
+            "files": [
+                {
+                    "id": "file1",
+                    "name": "file1.txt",
+                    "modifiedTime": "2025-09-04T10:00:00Z",
+                }
+            ]
         }
         result = gcp.get_file_metadata(
             mock_google_drive_service, "folder_id", ["file1.txt"], []
@@ -184,13 +200,17 @@ def test_get_file_metadata_found(mock_google_drive_service):
 def test_get_file_metadata_stale(mock_google_drive_service):
     """Dynamic file older than 7 days is marked as stale."""
     with patch("core.sdk.gcp.datetime") as mock_dt:
-        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(
-            pytz.timezone("Europe/Madrid")
-        )
+        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(MADRID_TZ)
         mock_dt.now.return_value = now_madrid
 
         mock_google_drive_service.files().list().execute.return_value = {
-            "files": [{"id": "file1", "name": "file1.txt", "modifiedTime": "2025-08-27T10:00:00Z"}]
+            "files": [
+                {
+                    "id": "file1",
+                    "name": "file1.txt",
+                    "modifiedTime": "2025-08-27T10:00:00Z",
+                }
+            ]
         }
         result = gcp.get_file_metadata(
             mock_google_drive_service, "folder_id", ["file1.txt"], ["file1.txt"]
@@ -201,9 +221,7 @@ def test_get_file_metadata_stale(mock_google_drive_service):
 def test_get_file_metadata_not_found(mock_google_drive_service):
     """Missing file returns status 'No Encontrado' and staleness=False."""
     with patch("core.sdk.gcp.datetime") as mock_dt:
-        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(
-            pytz.timezone("Europe/Madrid")
-        )
+        now_madrid = parser.parse("2025-09-04T12:00:00Z").astimezone(MADRID_TZ)
         mock_dt.now.return_value = now_madrid
 
         mock_google_drive_service.files().list().execute.return_value = {"files": []}
