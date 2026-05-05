@@ -1,324 +1,225 @@
 # Next phases — pickup notes for a fresh session
 
-This file is the entry point for any session continuing the work after the JP
-rewrite (v4.2). Reads in 3 minutes; tells you what's done, what's next, and
-which decisions are already taken so you don't ask again.
+Entry point for any session continuing after the JP rewrite (v4.2) and the
+Phase A + deps deploy (PR #6, merged 2026-05-05). Reads in ~3 minutes.
 
-## State on 2026-05-04
+## State on 2026-05-05
 
-- **`master`**: clean. v4.2 already shipped (PR #3 merged on 2026-05-03).
-- **PR #4 open** (`chore/rebuild-python-base`): rebuilds `python-base` without
-  Selenium/pytz/trio* + fixes the AR cleanup script that wasn't deleting
-  anything (`get(digest)` → `value(version)` bug). **Wait for it to merge
-  before starting Phase A** — the slim base image and a working cleanup are
-  pre-requisites for adding the teams_analyzer Cloud Run Job without crossing
-  the AR free tier.
+- **`master`**: clean. PR #6 merged (Phase A + all dep bumps).
+- **PR #7 open** (`feat/telegram-webhook`): implements the Telegram webhook
+  **but with a coupling that was decided to revert** — see Phase B below.
+  **Do NOT merge PR #7 as-is.** Close it and implement Phase B fresh.
 - **JP API**: alive, token unchanged, 546 players, Nico Williams SF=571 ✓.
-- **Active plan**: `.claude/plans/teams_analyzer_rewrite.md` (still relevant for
-  Phase B and Phase C below — do not delete until those ship).
+
+## What shipped in PR #6
+
+- `biwenger-teams-analyzer` Cloud Run Job created and running.
+- Cloud Scheduler fires it daily at 16:00 Madrid.
+- CI auto-deploys the analyzer on code changes (`deploy-teams-analyzer` job).
+- Smoke test passed: 7 Telegram messages sent, exit(0).
+- Bazel modules: `rules_python` 0.40→2.0, `platforms` 0.0.10→1.1 (no more
+  per-build MVS warnings).
+- GH Actions: all bumped (checkout v6, setup-python v6, setup-bazel 0.19,
+  paths-filter v4, auth/setup-gcloud v3). `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
+  removed.
+- Python libs: gunicorn 26, black 26, pytest 9, flask 3.1.3, google-auth 2.50,
+  requests 2.33, etc. `python-base` image rebuilt and digest updated.
+- `rules_oci` stayed at 2.3.0 — 2.3.1 not in BCR yet; revisit any future PR.
 
 ## Decisions already taken (don't reopen)
 
-- Telegram bot architecture → **webhook on the existing Flask web** (Option A
-  of `teams_analyzer_rewrite.md`). The web is always alive on Cloud Run, so
-  we get the bot for free. Do not introduce a separate Cloud Run service or
-  long-polling job.
-- Auto-lineup endpoint (`PUT /api/v2/user`) confirmed working from the dev
-  tools session. Body shape documented in `teams_analyzer_rewrite.md` §
-  "API de Biwenger — Alineación".
-- Domain models (`LeagueMessage`, `Participation`, `Clausulazo`,
-  `JusticeEntry`) **are applied** to the data path. Don't refactor them out
-  unless you have a strong reason — they're the contract that makes the future
-  Firestore migration localised.
+- **Telegram webhook lives in a dedicated service**, not in the web app.
+  See Phase B below for the architecture.
+- Telegram bot auto-lineup endpoint: Phase C. Blocked on multi-position research.
+- Firestore migration: not started, domain models are ready.
+- Chuck Norris bot: separate GCP project, separate repo, nothing to do with
+  this monorepo.
 
 ---
 
-## Phase A — Deploy teams_analyzer to Cloud Run Job (~30 min)
+## Phase B — Dedicated `biwenger-telegram-bot` service (~2-3h)
 
-**Goal:** the analyzer runs daily at 16:00 Madrid time, pushing Telegram
-messages, with zero coste accumulating.
+**Goal:** `/analizar` from Telegram triggers a fresh analysis without waiting
+for the daily cron. Clean architecture: the web app stays pure UI, the
+telegram bot is its own service.
 
-**Pre-req:** PR #4 merged. Without it, the new image will fatten Artifact
-Registry past the 500MB free tier.
+**Why not in the web app?** The web and analyzer are independent services —
+coupling them (as PR #7 did) makes both images heavier, risks the web worker
+blocking on a 15s analyzer run, and ties deployment cycles together.
+
+**Pre-req:** PR #7 must be closed (not merged). All Cloud Run Job + secrets
+infrastructure is already in place from Phase A.
+
+### Architecture
+
+```
+biwenger-tools (GCP project)
+├── biwenger-summary          ← web Flask, visualisation only (unchanged)
+├── biwenger-scraper-data     ← Cloud Run Job, scraping
+├── biwenger-teams-analyzer   ← Cloud Run Job, daily analysis
+└── biwenger-telegram-bot     ← NEW Cloud Run Service
+                                 POST /telegram/webhook
+                                 /analizar → triggers the Job via Cloud Run API
+                                 /alinear  → (Phase C, future)
+                                 /help     → static text
+```
+
+The webhook handler calls the Cloud Run Jobs API to execute
+`biwenger-teams-analyzer` and returns 200 immediately (async). No in-process
+import of analyzer code.
 
 ### Steps
 
-1. **Create the two Telegram secrets in Secret Manager** (Biwenger ones already
-   exist):
+1. **Close PR #7** — don't merge.
 
-   ```bash
-   echo -n "<TELEGRAM_BOT_TOKEN>" | gcloud secrets create telegram-bot-token-regional \
-       --replication-policy="user-managed" --locations=europe-southwest1 --data-file=-
+2. **New Bazel package** `packages/biwenger_tools/telegram_bot/`:
+   - `telegram_bot.py` — Flask app, single blueprint `POST /telegram/webhook`
+   - `config.py` — reads `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+     `TELEGRAM_WEBHOOK_SECRET`, `GCP_PROJECT_ID`, `CLOUD_RUN_REGION`,
+     `CLOUD_RUN_JOB_NAME` from env.
+   - `BUILD.bazel` — `python_service` macro (new Cloud Run Service), no dep on
+     `teams_analyzer_lib`.
+   - `entrypoint.sh` — same pattern as web and scraper.
+   - `requirements.txt` — `flask`, `gunicorn`, `python-dotenv`, `google-auth`,
+     `google-api-python-client` (for Cloud Run Jobs API call).
+   - Tests covering: wrong secret → 401, wrong chat_id → 200 silent,
+     `/analizar` → triggers job once, `/help` → message sent, unknown → ignored.
 
-   echo -n "<TELEGRAM_CHAT_ID>" | gcloud secrets create telegram-chat-id-regional \
-       --replication-policy="user-managed" --locations=europe-southwest1 --data-file=-
+3. **Triggering the Job via API** — use the Cloud Run Jobs REST API:
+
+   ```python
+   import google.auth
+   import google.auth.transport.requests
+   import requests as http_requests
+
+   def trigger_analyzer_job(project: str, region: str, job_name: str):
+       creds, _ = google.auth.default(
+           scopes=["https://www.googleapis.com/auth/cloud-platform"]
+       )
+       creds.refresh(google.auth.transport.requests.Request())
+       url = (
+           f"https://{region}-run.googleapis.com/apis/run.googleapis.com/v1"
+           f"/namespaces/{project}/jobs/{job_name}:run"
+       )
+       resp = http_requests.post(
+           url, headers={"Authorization": f"Bearer {creds.token}"}
+       )
+       resp.raise_for_status()
    ```
 
-2. **Push the image to Artifact Registry**:
+   The webhook calls this and immediately returns `"", 200`. The Job runs
+   independently.
+
+4. **Deploy new Cloud Run Service**:
 
    ```bash
-   bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
+   # Build and push image
+   bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
        --platforms=//platforms:linux_amd64
-   ```
 
-3. **Create the Cloud Run Job**. Mirror the scraper exactly (memory 512Mi,
-   cpu 1, retries 0, max 1 task). The teams_analyzer needs Biwenger creds
-   from existing secrets, plus the two new Telegram ones, mounted as env vars
-   (the analyzer reads `os.getenv` directly):
-
-   ```bash
-   gcloud run jobs create biwenger-teams-analyzer \
-       --image=europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/teams_analyzer:latest \
+   # Create the service (first time)
+   gcloud run deploy biwenger-telegram-bot \
+       --image=europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/telegram_bot:latest \
        --region=europe-southwest1 \
-       --memory=512Mi --cpu=1 \
-       --max-retries=0 --task-timeout=300s \
-       --set-secrets="BIWENGER_EMAIL=biwenger-email-regional:latest,BIWENGER_PASSWORD=biwenger-password-regional:latest,TELEGRAM_BOT_TOKEN=telegram-bot-token-regional:latest,TELEGRAM_CHAT_ID=telegram-chat-id-regional:latest"
+       --project=biwenger-tools \
+       --allow-unauthenticated \
+       --memory=256Mi --cpu=1 \
+       --set-secrets="TELEGRAM_BOT_TOKEN=telegram-bot-token-regional:latest,\
+   TELEGRAM_CHAT_ID=telegram-chat-id-regional:latest,\
+   TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-regional:latest" \
+       --set-env-vars="GCP_PROJECT_ID=biwenger-tools,CLOUD_RUN_REGION=europe-southwest1,CLOUD_RUN_JOB_NAME=biwenger-teams-analyzer"
    ```
 
-   Note: the analyzer reads env vars (`config.py` does `os.getenv("BIWENGER_EMAIL")`)
-   so we use `--set-secrets=ENV_NAME=secret:latest`, **not** the file-mount
-   form the scraper uses. The scraper reads from `/biwenger_email/biwenger-email`
-   files because its `read_secret_from_file` helper is wired that way.
+5. **Wire CI** — add `deploy-telegram-bot` job to `deploy.yml` mirroring
+   `deploy-scraper`.
 
-4. **Schedule it**. Same pattern as
-   `biwenger-scraper-data-scheduler-trigger` (location europe-west1, OAuth
-   token to the Run API):
+6. **Register the webhook** (one-time, after deploy):
 
    ```bash
-   PROJECT_NUMBER=$(gcloud projects describe biwenger-tools --format='value(projectNumber)')
+   TOKEN=$(gcloud secrets versions access latest \
+       --secret=telegram-bot-token-regional --project=biwenger-tools)
+   SECRET=$(gcloud secrets versions access latest \
+       --secret=telegram-webhook-secret-regional --project=biwenger-tools)
 
-   gcloud scheduler jobs create http biwenger-teams-analyzer-trigger \
-       --location=europe-west1 \
-       --schedule="0 16 * * *" \
-       --time-zone="Europe/Madrid" \
-       --uri="https://europe-southwest1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/biwenger-tools/jobs/biwenger-teams-analyzer:run" \
-       --http-method=POST \
-       --oauth-service-account-email="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-       --oauth-token-scope="https://www.googleapis.com/auth/cloud-platform"
-   ```
-
-5. **Wire CI** to redeploy the analyzer image automatically when its code
-   changes. Add a `deploy-teams-analyzer` job in `.github/workflows/deploy.yml`
-   mirroring `deploy-scraper`. Also add `teams_analyzer` to the
-   `detect-changes` paths-filter (already covered if you copy the pattern).
-   Reference: see how `deploy-scraper` handles `gcloud run jobs update` after
-   the `push_image_to_gcp`.
-
-6. **Smoke test the deploy**:
-
-   ```bash
-   gcloud run jobs execute biwenger-teams-analyzer --region=europe-southwest1 --wait
-   ```
-
-   Confirm Telegram messages arrive (own squad, market, rivals).
-
-### Done criteria
-
-- Cron fires every day at 16:00 Madrid.
-- Manual `gcloud run jobs execute` works.
-- A code change in `packages/biwenger_tools/teams_analyzer/**` deploys via CI.
-- Artifact Registry stays under 500MB after a few cycles (cleanup script does
-  its job — verified in PR #4).
-
-### Open question
-
-The free tier on Cloud Scheduler is 3 jobs/month forever. With this you'll
-have 2 jobs (scraper + analyzer). Still 1 spare slot before charges kick in.
-
----
-
-## Phase B — Telegram bot interactivo (Phase 2 of the analyzer plan)
-
-**Goal:** type `/analizar` in the Telegram chat → the analyzer runs on demand
-and posts results, without waiting for the daily cron.
-
-**Pre-req:** Phase A done — the analyzer image must already exist in AR and
-the secrets must be in Secret Manager.
-
-### Architecture (already decided)
-
-Webhook handler inside the existing Flask app. New blueprint
-`packages/biwenger_tools/web/routes/telegram.py`. Single endpoint
-`POST /telegram/webhook` that:
-
-1. Parses the Telegram update.
-2. Validates `chat.id == TELEGRAM_CHAT_ID` (single-tenant — only your chat).
-3. Routes by `message.text`:
-   - `/analizar` → kick off the analyzer flow (see step 3 below).
-   - `/help` → static help text listing available commands.
-   - anything else → ignore silently.
-
-### Implementation outline
-
-1. **Refactor the analyzer entry point** so it can be called as a function,
-   not just `python -m`. Today `teams_analyzer.main()` already exists and is
-   self-contained — perfect. Just move the `if __name__ == "__main__"` guard
-   so `main()` is importable from the web.
-
-2. **Webhook validation**. Telegram sends a header `X-Telegram-Bot-Api-Secret-Token`
-   if you registered the webhook with `secret_token`. Generate a random secret,
-   store it as `TELEGRAM_WEBHOOK_SECRET` in Secret Manager, set it both at
-   `setWebhook` time and validated in the handler. Without this anyone could
-   POST garbage to `/telegram/webhook` and crash the web.
-
-3. **Async or sync?** Cloud Run Service request timeout default is 300s. The
-   analyzer takes ~10-15s wall (1 JP request + 1 Biwenger login + N squads).
-   So **synchronous handling is fine** — no Pub/Sub or background queue
-   needed. If it ever creeps over 60s, switch to "ack the webhook with 200,
-   spawn a thread, post results when done" but don't pre-optimise.
-
-4. **Register the webhook once** (manual, one-time):
-
-   ```bash
-   curl -X POST "https://api.telegram.org/bot$TOKEN/setWebhook" \
-        -d "url=https://biwenger-summary-pjpqofuevq-no.a.run.app/telegram/webhook" \
-        -d "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+   curl -X POST "https://api.telegram.org/bot${TOKEN}/setWebhook" \
+        -d "url=https://<new-service-url>/telegram/webhook" \
+        -d "secret_token=${SECRET}" \
         -d "allowed_updates=[\"message\"]"
    ```
 
-5. **Tests**: Flask test client + mocked `teams_analyzer.main`. Validate:
-   - Wrong chat_id returns 200 silently (Telegram retries on non-200 — never
-     return 4xx unless you really want to drop the update).
-   - Missing/wrong secret token returns 401.
-   - `/analizar` from the right chat_id triggers `main()` once.
-   - Unknown commands are ignored.
+7. **Undo web coupling from PR #7** — the following changes from PR #7 should
+   NOT be in master (PR #7 is not merged, so nothing to revert). Just don't
+   carry them forward:
+   - `extra_layers` param in `python_service.bzl`
+   - `deps`/`extra_layers` in `web/BUILD.bazel`
+   - `teams_analyzer_lib` visibility in `teams_analyzer/BUILD.bazel`
+   - `telegram.py` blueprint in `web/routes/`
+   - Telegram config vars in `web/config.py`
+   - Telegram secrets in web's `deploy.yml` deploy step
 
-### Things NOT to do in Phase B
-
-- Don't add `/alinear` here — that's Phase C and has unresolved research.
-- Don't add caching of the last analysis — premature; one extra HTTP call is
-  cheap.
-- Don't add rate limiting — single-tenant chat, the only attacker is yourself.
-  If it becomes a problem, add it later.
+   The docs commit in PR #7 (`operations.md`) can be salvaged and updated
+   with the new service URL once it's deployed.
 
 ### Done criteria
 
-- Sending `/analizar` from your chat triggers a fresh analysis.
-- Sending `/analizar` from any other chat does nothing visible.
-- Webhook handler has unit tests.
-- Web README mentions the new endpoint.
+- `/analizar` from the correct Telegram chat triggers a new Cloud Run Job
+  execution (visible in GCP logs).
+- The web app has zero knowledge of Telegram or the analyzer.
+- A code change in `packages/biwenger_tools/telegram_bot/**` auto-deploys via CI.
 
 ---
 
-## Phase C — Auto-lineup (Phase 3 of the analyzer plan)
+## Phase C — Auto-lineup `/alinear` (in telegram_bot service)
 
-**Goal:** `/alinear` reads your squad, picks the best XI according to JP
-predict-SF, sets a captain (price < 3M tie-breaker by SF), and PUTs the
-lineup to Biwenger.
+**Pre-req:** Phase B done. AND the multi-position research spike must be
+completed first.
 
-**Pre-req:** Phase B done. **AND a research spike on multi-position must be
-finished first** — see below.
+### ⚠️ Research spike required before any code
 
-### ⚠️ The blocker before any code: multi-position research
+The Biwenger squad API returns each player's `position` as a single int
+(1=GK, 2=DEF, 3=MID, 4=FWD). The UI shows some players with two positions.
+Before writing any lineup code:
 
-The Biwenger API endpoint we use for squads (`/api/v2/user/{id}?fields=players(id,owner)`)
-returns each player's `position` as a single int (1=GK, 2=DEF, 3=MID, 4=FWD).
-But on the Biwenger UI some players list two positions — defenders that can
-play as midfielders, etc. If we build the lineup using only the API's
-single position field, we'll mis-place dual-role players (and the server
-will reject the formation).
+1. Inspect dev-tools network tab on the squad page in Biwenger's web. Look
+   for any endpoint returning `positions: [2, 3]` or similar.
+2. If found: document in `docs/technical/reverse-engineering/biwenger-api.md`
+   and add a method to `BiwengerClient`.
+3. If not found: maintain a manual override map `{player_id: [2, 3]}`.
+4. Write the answer in `teams_analyzer_rewrite.md` § "FASE 3 → Pendiente de
+   investigar" before closing the spike.
 
-**Before writing any `/alinear` code**, do this research spike:
-
-1. Inspect the dev-tools network tab while loading the squad page in
-   Biwenger's web. Look for any endpoint that returns players with a
-   `positions: [2, 3]` array or similar.
-2. If found, document the URL + shape in
-   `docs/technical/reverse-engineering/biwenger-api.md` and add a method
-   to `BiwengerClient` that fetches it.
-3. If not found, fall back to maintaining a manual override map
-   (`{player_id: [2, 3]}`) for the handful of dual-role players. Live with
-   the maintenance cost.
-4. **Write down the answer in `teams_analyzer_rewrite.md` § "FASE 3 →
-   Pendiente de investigar"** before closing the spike. Don't proceed
-   without that resolution recorded.
-
-### Implementation outline (post-research)
-
-1. **`/alinear` handler** in the same telegram blueprint. Same chat_id +
-   secret_token validation as Phase B.
-
-2. **Lineup builder**:
-
-   - Fetch JP players + Biwenger squad (reuse the orchestrator helpers).
-   - Filter available: `status not in {injured, suspended}` AND
-     `nextMatch.status == "pending"` AND `nextMatch.playerInLineup == True`.
-   - For each formation in the supported list (3-4-3, 3-5-2, 4-3-3, ...),
-     compute the best XI by greedy assignment to slots and sum the SF
-     ratings. Keep the formation with max total.
-   - For multi-position players, allow them in any of their slots.
-
-3. **Captain pick**: among the chosen XI, prefer players with `price < 3000000`
-   (Biwenger's "low cost = double points" rule). Among them, pick the
-   highest predict-SF. If none qualify, pick the highest predict-SF overall.
-
-4. **Apply via Biwenger SDK**: add `BiwengerClient.set_lineup(formation,
-   players, reserves, captain)` that wraps `PUT /api/v2/user?fields=*,lineup(date)`.
-   Body shape documented in `teams_analyzer_rewrite.md` § "Request body".
-
-5. **Confirmation message**: post the chosen XI back to Telegram with the
-   formation, captain, and a one-line summary (sum of predicted points).
-
-### Things to be careful with
-
-- **`playersID` order matters** (per the spike note in the original plan).
-  Most likely GK → DEF → MID → FWD by formation. Confirm with one careful
-  test against your real account before shipping.
-- **`reservesID` is `(int|null)[]`** with positional nulls. Don't filter
-  out nulls.
-- **Validate the formation server-side**. Send one obviously-wrong lineup
-  first to learn what the API rejects.
-- **Don't ship without a `--dry-run`** mode. Have `/alinear preview` that
-  prints the chosen XI without PUTting, plus `/alinear` that actually
-  applies. Test `preview` first.
-
-### Done criteria
-
-- `/alinear preview` shows the proposed XI + captain.
-- `/alinear` applies it and the change is visible in the Biwenger app.
-- Multi-position players land in valid slots.
-- All `set_lineup` paths covered by tests with mocked HTTP.
+The rest of Phase C is documented in the original `teams_analyzer_rewrite.md`.
+The `/alinear` handler goes in the same `telegram_bot` service as `/analizar`.
 
 ---
 
 ## Phase D — Dependency maintenance (independent, anytime)
 
-These are the upgrades flagged by `/check-deps`. Each is a standalone PR;
-none block any of the phases above.
-
-| Order | Bump | Files to touch | Risk |
-|-------|------|----------------|------|
-| 1st (urgent) | `rules_python` 0.40.0 → 2.0.0 | `MODULE.bazel`, possibly `*/BUILD.bazel` if any used deprecated APIs | Medium — re-run `bazel build //...` and fix any rule changes |
-| 1st (urgent) | `platforms` 0.0.10 → 1.1.0 | `MODULE.bazel` | Low |
-| 2nd | GitHub Actions: `checkout` v4→v6, `setup-python` v5→v6, `setup-bazel` 0.8.5→0.19.0, `paths-filter` v3→v4, `google-github-actions/auth` v2→v3, `google-github-actions/setup-gcloud` v2→v3 | `.github/workflows/deploy.yml` | Low; remove the `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` flag in the same PR |
-| 3rd | Python libs: `gunicorn` 23→25, `pytest` 8→9, `black` 25→26, `google-api-python-client` and `google-auth` to latest | per-module `requirements.txt`, regenerate `requirements_lock.txt`, **rebuild and repush `Dockerfile.base`**, update digest in `MODULE.bazel`, also bump `black` pin in CI lint job | Medium (test plugins, formatter changes) |
-| Last | Python 3.12 → 3.14 | `MODULE.bazel`, `Dockerfile.base`, workflow lint job, `requirements_lock.txt` regen with new interpreter | High (compat surprises) — only if there's a reason; 3.12 supported until Oct 2028 |
-
-Run `/check-deps` first to confirm latest versions before opening any of these.
+| Status | Bump | Notes |
+|--------|------|-------|
+| ✅ Done | `rules_python` 0.40→2.0 | No more MVS warning |
+| ✅ Done | `platforms` 0.0.10→1.1 | |
+| ⏳ Pending | `rules_oci` 2.3.0→2.3.1 | Not in BCR yet; retry next PR |
+| ✅ Done | All GitHub Actions | checkout v6, setup-python v6, etc. |
+| ✅ Done | Python libs | gunicorn 26, black 26, pytest 9, etc. |
+| ⏳ Pending | Python 3.12→3.14 | No urgency; supported until Oct 2028 |
 
 ---
 
 ## Logistics for a fresh session
 
-When you start the new session, do this in order:
+```bash
+cd /Users/jorge/Projects/lillorepo
+git checkout master && git pull --ff-only
+```
 
-1. `cd /Users/jorge/Projects/lillorepo`
-2. `git checkout master && git pull --ff-only`
-3. Read `CLAUDE.md` (root) + `.claude/CLAUDE.md` for repo conventions.
-4. Read this file (`.claude/plans/next_phases.md`).
-5. Pick the next phase. If unsure, default to: A → B → D (parallel) → C.
+Then read `CLAUDE.md` (root) + `.claude/CLAUDE.md` + this file.
 
-Useful shorthand:
+Next action: **close PR #7 and start Phase B fresh** (dedicated
+`biwenger-telegram-bot` service).
 
-- `bash .claude/skills/check-deps/check_deps.sh` — pinned-versions snapshot.
-- `/check-deps` — same + comparison vs latest releases.
-- `/release-notes` — when shipping a notable change.
-- `bazel test //core:core_tests //packages/biwenger_tools/{web,scraper_job,teams_analyzer}:*_tests` — full test sweep.
-- `flake8 core/ packages/ && black --check core/ packages/` — same lint as CI.
-
-Do **not**:
-
-- Commit directly to `master` (CI deploys on push).
-- Touch `requirements_lock.txt` by hand.
-- Add `Co-Authored-By` to commit messages (per user memory).
-- Bump dependencies in the same PR as a feature — keep them separate.
+Useful shorthands:
+- `/check-deps` — pinned versions vs latest
+- `/release-notes` — when shipping a notable change
+- `bazel test //core:core_tests //packages/biwenger_tools/{web,scraper_job,teams_analyzer}:*_tests`
+- `flake8 core/ packages/ && black --check core/ packages/`

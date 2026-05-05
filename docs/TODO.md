@@ -15,25 +15,28 @@
 
 ## Técnico
 
-- [x] **Import incorrecto** — `web/routes/admin.py:8` importa `get_file_metadata` desde `core.utils`; debería ser `from core.sdk.gcp` (la función ya está ahí)
-- [x] **Default `--platforms` en `.bazelrc`** — `--test_output=errors` como default de test; `--config=gcp` para builds de imagen
-- [x] **Pin `Dockerfile.base` por digest SHA** — `python:3.12-slim@sha256:4386a385...`
-- [x] **`TEMPORADA_ACTUAL` duplicado** — centralizado en `env.TEMPORADA_ACTUAL` del `deploy.yml`; ambos config leen `os.getenv`
-- [x] **Selenium fuera del teams_analyzer** — v4.2 reemplaza Selenium + Analítica Fantasy por la API privada de Jornada Perfecta (1 request HTTP en vez de 600 acciones de browser).
-- [x] **Arreglar target Docker de teams_analyzer** — migrado al patrón de `scraper_job` (`@python_with_deps` + `entrypoint.sh` propio + capas de código separadas). Añadido `push_image_to_gcp` y `load_image_to_docker_local`. `bazel build //...` ahora pasa entero por primera vez tras la migración a bzlmod.
-- [ ] **Reconstruir `Dockerfile.base`** — en curso en PR #4. Sincroniza la lista con `requirements_lock.txt` (drop selenium/pytz/trio*) y reempuja el digest a `MODULE.bazel`. Bloqueante implícito para Fase A (deploy del analyzer) porque la imagen actual está al límite del free tier de Artifact Registry.
-- [ ] **Arreglar `scripts/clean-images-artifact.sh`** — en curso en PR #4. El script no borraba nada por dos bugs (`get(digest)` vacío y `NOT TAGS:*` cogiendo hijos del manifest list actual). Sin el fix, subir más imágenes cruza el free tier de AR.
+- [x] **Import incorrecto** — `web/routes/admin.py:8` importa `get_file_metadata` desde `core.utils`; debería ser `from core.sdk.gcp`
+- [x] **Default `--platforms` en `.bazelrc`**
+- [x] **Pin `Dockerfile.base` por digest SHA**
+- [x] **`TEMPORADA_ACTUAL` duplicado** — centralizado en `env.TEMPORADA_ACTUAL` del `deploy.yml`
+- [x] **Selenium fuera del teams_analyzer** — v4.2 usa API privada de Jornada Perfecta
+- [x] **Arreglar target Docker de teams_analyzer** — migrado al patrón de `scraper_job`
+- [x] **Reconstruir `Dockerfile.base`** — PR #6. Libs actualizadas (gunicorn 26, black 26, pytest 9, etc.) digest actualizado en `MODULE.bazel`.
+- [x] **Arreglar `scripts/clean-images-artifact.sh`** — PR #4. Bugs `get(digest)` y `NOT TAGS:*` corregidos.
+- [x] **Bump Bazel modules** — `rules_python` 0.40→2.0, `platforms` 0.0.10→1.1 (PR #6)
+- [x] **Bump GitHub Actions** — checkout v6, setup-python v6, setup-bazel 0.19, etc. (PR #6)
 
 ## Producto
 
-- [ ] **Deploy teams_analyzer a GCP** — Cloud Run Job + Scheduler diario 16:00 Madrid. Ver Fase A en `.claude/plans/next_phases.md`. Requiere PR #4 mergeado.
-- [ ] **teams_analyzer Fase 2** — webhook Telegram en el Flask web para `/analizar`. Ver Fase B en `.claude/plans/next_phases.md`.
-- [ ] **teams_analyzer Fase 3** — auto-alineación. **Bloqueado por research previo** sobre multi-posición en la API de Biwenger. Ver Fase C en `.claude/plans/next_phases.md`.
+- [x] **Deploy teams_analyzer a GCP** — Cloud Run Job + Scheduler 16:00 Madrid (PR #6, 2026-05-05)
+- [ ] **Telegram bot `/analizar`** — **PR #7 abierto pero NO mergear**. Arquitectura revisada: webhook en servicio dedicado `biwenger-telegram-bot` (no en el web app). Ver Fase B en `.claude/plans/next_phases.md`.
+- [ ] **teams_analyzer `/alinear`** — auto-alineación. **Bloqueado por research** sobre multi-posición en la API de Biwenger. Ver Fase C en `.claude/plans/next_phases.md`.
 - [ ] **Sección VAR en web** — revisar y conectar trigger manual del AI scraper o cron job
 - [ ] **Nuevo proyecto Google para fotos**
 
 ## Arquitectura (medio plazo)
 
-- [x] **Domain models aplicados** — `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry` con `from_csv_row`/`to_csv_row` ya se usan en scraper (escritura) y web (lectura). El call site del CSV-as-DB queda contenido en una capa: facilita la futura migración a Firestore.
-- [ ] **Migración CSV → Firestore** — los modelos de dominio están listos para que el cambio sea localizado en lecturas/escrituras GCP en lugar de tocar todos los call sites. Sin urgencia, ver project_pitch.md para narrativa.
-- [ ] **Bumps de dependencias** — ver Fase D en `.claude/plans/next_phases.md`. `rules_python` 0.40→2.0 y `platforms` 0.0.10→1.1 son los únicos urgentes (warnings activos en cada `bazel build`).
+- [x] **Domain models aplicados** — `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`
+- [ ] **Migración CSV → Firestore** — domain models listos, sin urgencia
+- [ ] **`rules_oci` 2.3.0→2.3.1** — no está en BCR todavía; reintentar en próximo PR
+- [ ] **Python 3.12→3.14** — sin urgencia hasta Oct 2028
