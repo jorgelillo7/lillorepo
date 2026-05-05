@@ -6,6 +6,7 @@ Modos (ANALYSIS_MODE env var):
   my_team — solo mi equipo como CSV (/myTeam)
 """
 
+import math
 import time
 from datetime import datetime
 
@@ -25,6 +26,32 @@ from core.sdk.telegram import send_telegram_document
 from core.utils import get_logger
 
 logger = get_logger(__name__)
+
+_TRANSFER_LOCK_SECS = 14 * 86400
+
+
+def _build_transfer_map(entries: list) -> dict:
+    """Returns {player_id: unix_ts} — most recent transfer timestamp per player."""
+    transfer_map: dict = {}
+    for entry in entries:
+        content = entry.get("content") or {}
+        player = content.get("player") or {}
+        player_id = player.get("id")
+        ts = entry.get("date")
+        if player_id and ts:
+            if player_id not in transfer_map or ts > transfer_map[player_id]:
+                transfer_map[player_id] = ts
+    return transfer_map
+
+
+def _clausulable_str(transfer_ts) -> str:
+    if transfer_ts is None:
+        return "Sí"
+    elapsed = time.time() - transfer_ts
+    remaining = math.ceil((_TRANSFER_LOCK_SECS - elapsed) / 86400)
+    if remaining <= 0:
+        return "Sí"
+    return f"No ({remaining}d)"
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
@@ -51,13 +78,22 @@ def _build_market_rows(
     return rows
 
 
-def _build_squad_rows(squad: list, biwenger_players: dict, jp_index: dict) -> list:
+def _build_squad_rows(
+    squad: list,
+    biwenger_players: dict,
+    jp_index: dict,
+    transfer_map: dict | None = None,
+) -> list:
     rows = []
     for player_data in squad:
         bw_player = biwenger_players.get(player_data.get("id"))
         if not bw_player:
             continue
-        rows.append(_build_row(bw_player, jp_index))
+        row = _build_row(bw_player, jp_index)
+        if transfer_map is not None:
+            ts = transfer_map.get(bw_player.get("id"))
+            row["Clausulable"] = _clausulable_str(ts)
+        rows.append(row)
     return rows
 
 
@@ -111,6 +147,13 @@ def main():
 
         if mode == "all":
             managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+
+            clausulazos_raw = biwenger.get_clausulazos(
+                config.CLAUSULAZOS_URL + "&limit=100&offset=0"
+            )
+            transfer_map = _build_transfer_map(clausulazos_raw.get("data", []))
+            logger.info("Transfer map built.", extra={"entries": len(transfer_map)})
+
             my_team: list[dict] = []
             rivals: dict[str, list[dict]] = {}
 
@@ -120,11 +163,12 @@ def main():
                     "Squad fetched.",
                     extra={"manager": manager_name, "size": len(squad)},
                 )
-                rows = _build_squad_rows(squad, biwenger_players, jp_index)
                 if manager_id == biwenger.user_id:
-                    my_team = rows
+                    my_team = _build_squad_rows(squad, biwenger_players, jp_index)
                 else:
-                    rivals[manager_name] = rows
+                    rivals[manager_name] = _build_squad_rows(
+                        squad, biwenger_players, jp_index, transfer_map
+                    )
                 time.sleep(0.5)
 
             for data, caption, filename in build_all_teams_csv(my_team, rivals):

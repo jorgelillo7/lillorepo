@@ -41,6 +41,10 @@ def mock_all_dependencies():
             "send_telegram_document"
         ) as mock_send,
         patch("packages.biwenger_tools.teams_analyzer.teams_analyzer.time.sleep"),
+        patch(
+            "packages.biwenger_tools.teams_analyzer.teams_analyzer.time.time",
+            return_value=1_700_000_000,
+        ),
     ):
         mock_biwenger = MagicMock()
         mock_biwenger.user_id = 123  # mánager actual = manager A
@@ -62,6 +66,15 @@ def mock_all_dependencies():
         mock_biwenger.get_market_players.return_value = [
             {"player": {"id": 1}, "user": None, "price": 0},
         ]
+        # clausulazos: Player B transferred 5 days ago (still locked)
+        mock_biwenger.get_clausulazos.return_value = {
+            "data": [
+                {
+                    "date": 1_700_000_000 - 5 * 86400,
+                    "content": {"player": {"id": 2}},
+                }
+            ]
+        }
 
         mock_fetch_jp.return_value = [
             {

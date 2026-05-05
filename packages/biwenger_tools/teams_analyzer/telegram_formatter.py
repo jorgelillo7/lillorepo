@@ -303,11 +303,14 @@ def _safe_filename(name: str) -> str:
 
 
 def build_team_csv(
-    rows: list[dict], team_name: str = "Mi equipo"
+    rows: list[dict],
+    team_name: str = "Mi equipo",
+    include_clausulable: bool = False,
 ) -> tuple[bytes, str, str]:
     """Build a CSV for one team.
 
     Returns (csv_bytes, caption_html, filename).
+    include_clausulable adds a leading "Clausulable" column (for rival teams).
     """
     sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
     g, y, r, _ = _count_status(sorted_rows)
@@ -318,7 +321,8 @@ def build_team_csv(
     filename = (
         "mi_equipo.csv" if team_name == "Mi equipo" else _safe_filename(team_name)
     )
-    return _rows_to_csv_bytes(sorted_rows), caption, filename
+    extra_col = "Clausulable" if include_clausulable else None
+    return _rows_to_csv_bytes(sorted_rows, extra_col=extra_col), caption, filename
 
 
 def build_market_csv(rows: list[dict], top_n: int = 10) -> tuple[bytes, str, str]:
@@ -342,7 +346,7 @@ def build_all_teams_csv(
     results = []
     results.append(build_team_csv(my_team, "Mi equipo"))
     for manager_name, rows in rivals.items():
-        results.append(build_team_csv(rows, manager_name))
+        results.append(build_team_csv(rows, manager_name, include_clausulable=True))
     return results
 
 

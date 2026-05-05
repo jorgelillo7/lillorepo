@@ -209,6 +209,35 @@ def test_build_all_teams_csv_order_and_count():
     assert "Mi equipo" in first_caption
 
 
+def test_rival_csv_has_clausulable_column():
+    rival_rows = [
+        {**_row("Locked"), "Clausulable": "No (3d)"},
+        {**_row("Free"), "Clausulable": "Sí"},
+    ]
+    data, _, _ = build_team_csv(rival_rows, "Rival", include_clausulable=True)
+    parsed = _parse_csv(data)
+    assert "Clausulable" in parsed[0]
+    assert any(r["Clausulable"] == "No (3d)" for r in parsed)
+    assert any(r["Clausulable"] == "Sí" for r in parsed)
+
+
+def test_my_team_csv_has_no_clausulable_column():
+    rows = [_row("Me")]
+    data, _, _ = build_team_csv(rows, "Mi equipo")
+    parsed = _parse_csv(data)
+    assert "Clausulable" not in parsed[0]
+
+
+def test_build_all_teams_csv_rivals_include_clausulable():
+    my_team = [_row("Me")]
+    rival_rows = [{**_row("R"), "Clausulable": "Sí"}]
+    results = build_all_teams_csv(my_team, {"Rival": rival_rows})
+    my_data, _, _ = results[0]
+    rival_data, _, _ = results[1]
+    assert "Clausulable" not in _parse_csv(my_data)[0]
+    assert "Clausulable" in _parse_csv(rival_data)[0]
+
+
 def test_build_all_messages_returns_my_team_market_then_rivals():
     msgs = build_all_messages(
         my_team=[
