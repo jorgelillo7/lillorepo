@@ -8,6 +8,7 @@ on:
       - "packages/biwenger_tools/web/**"
       - "packages/biwenger_tools/scraper_job/**"
       - "packages/biwenger_tools/teams_analyzer/**"
+      - "packages/biwenger_tools/telegram_bot/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
 
@@ -53,6 +54,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       scraper: ${{ steps.filter.outputs.scraper }}
       teams_analyzer: ${{ steps.filter.outputs.teams_analyzer }}
+      telegram_bot: ${{ steps.filter.outputs.telegram_bot }}
     steps:
       - uses: actions/checkout@v6
 
@@ -72,6 +74,10 @@ jobs:
               - 'core/**'
               - 'tools/**'
               - 'packages/biwenger_tools/teams_analyzer/**'
+            telegram_bot:
+              - 'core/**'
+              - 'tools/**'
+              - 'packages/biwenger_tools/telegram_bot/**'
 
   # -------------------------------------------------------
   # 1. Run all tests before any deployment
@@ -96,6 +102,7 @@ jobs:
             //packages/biwenger_tools/web:web_tests \
             //packages/biwenger_tools/scraper_job:scraper_job_tests \
             //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests \
+            //packages/biwenger_tools/telegram_bot:telegram_bot_tests \
             --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
@@ -236,12 +243,64 @@ jobs:
             --project ${{ env.PROJECT_ID }}
 
   # -------------------------------------------------------
+  # 2d. Build and deploy telegram bot Cloud Run Service
+  # -------------------------------------------------------
+  deploy-telegram-bot:
+    name: Deploy telegram bot service
+    needs: [detect-changes, test]
+    if: needs.detect-changes.outputs.telegram_bot == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Build and push telegram bot image
+        run: |
+          bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
+            --platforms=//platforms:linux_amd64
+
+      - name: Deploy telegram bot to Cloud Run
+        run: |
+          gcloud run deploy biwenger-telegram-bot \
+            --image ${{ env.REGISTRY }}/telegram_bot \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --cpu=1 \
+            --update-secrets="\
+          TELEGRAM_BOT_TOKEN=telegram-bot-token-regional:latest,\
+          TELEGRAM_CHAT_ID=telegram-chat-id-regional:latest,\
+          TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-regional:latest" \
+            --set-env-vars="\
+          GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
+          CLOUD_RUN_REGION=${{ env.REGION }},\
+          CLOUD_RUN_JOB_NAME=biwenger-teams-analyzer"
+
+  # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds
   # -------------------------------------------------------
   cleanup:
     name: Clean up old images
-    needs: [deploy-web, deploy-scraper, deploy-teams-analyzer]
-    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-teams-analyzer.result == 'success')
+    needs: [deploy-web, deploy-scraper, deploy-teams-analyzer, deploy-telegram-bot]
+    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-teams-analyzer.result == 'success' || needs.deploy-telegram-bot.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
