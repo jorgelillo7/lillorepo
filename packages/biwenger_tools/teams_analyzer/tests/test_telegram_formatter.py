@@ -1,8 +1,14 @@
+import csv
+import io
+
 from packages.biwenger_tools.teams_analyzer.telegram_formatter import (
     build_all_messages,
-    build_my_team_message,
+    build_all_teams_csv,
+    build_market_csv,
     build_market_message,
+    build_my_team_message,
     build_rival_messages,
+    build_team_csv,
     format_player_row,
 )
 
@@ -126,6 +132,79 @@ def test_rivals_split_when_too_long():
     assert len(msgs) >= 2
     for m in msgs:
         assert len(m) <= 4096
+
+
+# --- CSV builders ---
+
+
+def _row(name="Test", pos=3, price=5_000_000, rate_sf=300):
+    return {
+        "name": name, "position_id": pos, "price": price,
+        "jp_player": _jp(rate_sf=rate_sf),
+    }
+
+
+def _parse_csv(data: bytes) -> list[dict]:
+    text = data.decode("utf-8-sig")
+    return list(csv.DictReader(io.StringIO(text)))
+
+
+def test_build_team_csv_returns_bytes_and_caption_and_filename():
+    rows = [_row("Vini Jr")]
+    data, caption, filename = build_team_csv(rows, "Mi equipo")
+    assert isinstance(data, bytes)
+    assert "Mi equipo" in caption
+    assert filename == "mi_equipo.csv"
+
+
+def test_build_team_csv_caption_contains_status_counts():
+    rows = [_row(rate_sf=400), _row(rate_sf=150), _row(rate_sf=50)]
+    _, caption, _ = build_team_csv(rows, "Mi equipo")
+    assert "🟢" in caption and "🟡" in caption and "🔴" in caption
+
+
+def test_build_team_csv_rival_filename_slugified():
+    rows = [_row()]
+    _, _, filename = build_team_csv(rows, "Manager Pérez")
+    assert filename.endswith(".csv")
+    assert " " not in filename
+
+
+def test_build_team_csv_contains_player_data():
+    rows = [_row("Bellingham", pos=3, price=20_000_000, rate_sf=400)]
+    data, _, _ = build_team_csv(rows)
+    parsed = _parse_csv(data)
+    assert len(parsed) == 1
+    assert parsed[0]["Nombre"] == "Bellingham"
+    assert parsed[0]["Pos"] == "MED"
+    assert parsed[0]["Precio"] == "20M"
+    assert parsed[0]["SF"] == "400"
+
+
+def test_build_market_csv_caps_rows():
+    rows = [_row(f"P{i}", rate_sf=i * 10) for i in range(20)]
+    data, caption, filename = build_market_csv(rows, top_n=5)
+    parsed = _parse_csv(data)
+    assert len(parsed) == 5
+    assert "top 5" in caption
+    assert filename == "mercado.csv"
+
+
+def test_build_market_csv_sorted_by_sf_desc():
+    rows = [_row("Low", rate_sf=100), _row("High", rate_sf=500)]
+    data, _, _ = build_market_csv(rows, top_n=10)
+    parsed = _parse_csv(data)
+    assert parsed[0]["Nombre"] == "High"
+    assert parsed[1]["Nombre"] == "Low"
+
+
+def test_build_all_teams_csv_order_and_count():
+    my_team = [_row("Me")]
+    rivals = {"Rival A": [_row("A1")], "Rival B": [_row("B1")]}
+    results = build_all_teams_csv(my_team, rivals)
+    assert len(results) == 3
+    _, first_caption, _ = results[0]
+    assert "Mi equipo" in first_caption
 
 
 def test_build_all_messages_returns_my_team_market_then_rivals():

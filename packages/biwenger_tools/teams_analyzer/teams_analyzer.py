@@ -1,11 +1,9 @@
 """Orquestador del analizador de equipos.
 
-Flujo:
-1. Health-check de la API JP (token / disponibilidad)
-2. Descarga jugadores JP (una llamada HTTP)
-3. Login Biwenger + descarga: catálogo de jugadores, mánagers, mercado, squads
-4. Cruza por nombre normalizado (Biwenger ↔ JP)
-5. Envía resumen a Telegram en varios mensajes
+Modos (ANALYSIS_MODE env var):
+  daily   — mi equipo + mercado como CSV (cron diario)
+  all     — todos los equipos + mercado como CSV (/analizar)
+  my_team — solo mi equipo como CSV (/myTeam)
 """
 
 import time
@@ -16,17 +14,20 @@ from packages.biwenger_tools.teams_analyzer.logic.player_matching import (
     build_jp_index,
     find_player_match,
 )
-from packages.biwenger_tools.teams_analyzer.telegram_formatter import build_all_messages
+from packages.biwenger_tools.teams_analyzer.telegram_formatter import (
+    build_all_teams_csv,
+    build_market_csv,
+    build_team_csv,
+)
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
-from core.sdk.telegram import send_telegram_message
+from core.sdk.telegram import send_telegram_document
 from core.utils import get_logger
 
 logger = get_logger(__name__)
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
-    """Construye una fila lista para el formateador a partir del player Biwenger."""
     name = biwenger_player.get("name", "N/A")
     return {
         "name": name,
@@ -36,9 +37,39 @@ def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
     }
 
 
+def _build_market_rows(market_players: list, biwenger_players: dict, jp_index: dict) -> list:
+    rows = []
+    for sale in market_players:
+        if sale.get("user") is not None:
+            continue
+        bw_player = biwenger_players.get(sale.get("player", {}).get("id"))
+        if not bw_player:
+            continue
+        rows.append(_build_row(bw_player, jp_index))
+    return rows
+
+
+def _build_squad_rows(squad: list, biwenger_players: dict, jp_index: dict) -> list:
+    rows = []
+    for player_data in squad:
+        bw_player = biwenger_players.get(player_data.get("id"))
+        if not bw_player:
+            continue
+        rows.append(_build_row(bw_player, jp_index))
+    return rows
+
+
+def _send_csv(token: str, chat_id: str, data: bytes, caption: str, filename: str) -> None:
+    send_telegram_document(token, chat_id, filename, data, caption)
+    time.sleep(0.4)
+
+
 def main():
     start_time = time.time()
-    logger.info("Script started.", extra={"timestamp": datetime.now().isoformat()})
+    logger.info(
+        "Script started.",
+        extra={"timestamp": datetime.now().isoformat(), "mode": config.ANALYSIS_MODE},
+    )
 
     try:
         check_api_health(
@@ -62,69 +93,73 @@ def main():
             config.LEAGUE_ID,
         )
 
-        biwenger_players = biwenger.get_all_players_data_map(
-            config.ALL_PLAYERS_DATA_URL
-        )
-        managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
-        market_players = biwenger.get_market_players(config.MARKET_URL)
-
-        my_team: list[dict] = []
-        rivals: dict[str, list[dict]] = {}
-
-        my_user_id = biwenger.user_id
-
-        for manager_id, manager_name in managers.items():
-            squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
-            logger.info(
-                "Squad fetched.", extra={"manager": manager_name, "size": len(squad)}
-            )
-            time.sleep(0.5)
-
-            rows = []
-            for player_data in squad:
-                bw_player = biwenger_players.get(player_data.get("id"))
-                if not bw_player:
-                    continue
-                rows.append(_build_row(bw_player, jp_index))
-
-            if manager_id == my_user_id:
-                my_team = rows
-            else:
-                rivals[manager_name] = rows
-
-        market_rows: list[dict] = []
-        for sale in market_players:
-            if sale.get("user") is not None:
-                continue
-            bw_player = biwenger_players.get(sale.get("player", {}).get("id"))
-            if not bw_player:
-                continue
-            market_rows.append(_build_row(bw_player, jp_index))
-
-        logger.info(
-            "Rows built.",
-            extra={
-                "my_team": len(my_team),
-                "rivals": sum(len(v) for v in rivals.values()),
-                "market": len(market_rows),
-            },
-        )
-
-        messages = build_all_messages(my_team, market_rows, rivals)
+        biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
 
         if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
             logger.warning("Telegram credentials missing — skipping send.")
             return
 
-        for msg in messages:
-            send_telegram_message(
-                config.TELEGRAM_BOT_TOKEN,
-                config.TELEGRAM_CHAT_ID,
-                msg,
-            )
-            time.sleep(0.4)  # avoid hitting Telegram rate limits
+        token = config.TELEGRAM_BOT_TOKEN
+        chat_id = config.TELEGRAM_CHAT_ID
+        mode = config.ANALYSIS_MODE
 
-        logger.info("Telegram messages sent.", extra={"count": len(messages)})
+        if mode == "all":
+            managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+            my_team: list[dict] = []
+            rivals: dict[str, list[dict]] = {}
+
+            for manager_id, manager_name in managers.items():
+                squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+                logger.info(
+                    "Squad fetched.",
+                    extra={"manager": manager_name, "size": len(squad)},
+                )
+                rows = _build_squad_rows(squad, biwenger_players, jp_index)
+                if manager_id == biwenger.user_id:
+                    my_team = rows
+                else:
+                    rivals[manager_name] = rows
+                time.sleep(0.5)
+
+            for data, caption, filename in build_all_teams_csv(my_team, rivals):
+                _send_csv(token, chat_id, data, caption, filename)
+
+            market_players = biwenger.get_market_players(config.MARKET_URL)
+            market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
+            data, caption, filename = build_market_csv(market_rows)
+            _send_csv(token, chat_id, data, caption, filename)
+
+            logger.info(
+                "All-teams analysis sent.",
+                extra={"teams": 1 + len(rivals), "market": len(market_rows)},
+            )
+
+        elif mode == "my_team":
+            my_squad = biwenger.get_manager_squad(
+                config.USER_SQUAD_URL, biwenger.user_id
+            )
+            my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
+            data, caption, filename = build_team_csv(my_team)
+            _send_csv(token, chat_id, data, caption, filename)
+            logger.info("My-team analysis sent.", extra={"size": len(my_team)})
+
+        else:  # "daily" (default)
+            my_squad = biwenger.get_manager_squad(
+                config.USER_SQUAD_URL, biwenger.user_id
+            )
+            my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
+            data, caption, filename = build_team_csv(my_team)
+            _send_csv(token, chat_id, data, caption, filename)
+
+            market_players = biwenger.get_market_players(config.MARKET_URL)
+            market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
+            data, caption, filename = build_market_csv(market_rows)
+            _send_csv(token, chat_id, data, caption, filename)
+
+            logger.info(
+                "Daily analysis sent.",
+                extra={"my_team": len(my_team), "market": len(market_rows)},
+            )
 
     except Exception:
         logger.exception("Unexpected error in teams analyzer.")

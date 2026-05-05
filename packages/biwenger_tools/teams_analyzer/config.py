@@ -27,3 +27,9 @@ USER_SQUAD_URL = biwenger_sdk.manager_squad_url("{manager_id}")
 JP_AUTH_TOKEN = "lks9k2k$iJK"
 JP_COMPETITION = 1  # LaLiga
 JP_SCORE_TYPE = 2  # SofaScore (sistema usado por el Automanager)
+
+# --- MODO DE ANÁLISIS ---
+# "daily"   → mi equipo + mercado (cron diario)
+# "all"     → todos los equipos + mercado (/analizar)
+# "my_team" → solo mi equipo (/myTeam)
+ANALYSIS_MODE = os.getenv("ANALYSIS_MODE", "daily")

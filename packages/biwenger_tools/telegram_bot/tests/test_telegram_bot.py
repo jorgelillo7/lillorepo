@@ -79,7 +79,20 @@ def test_analizar_triggers_job_once(client):
     ) as mock_trigger:
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
-    mock_trigger.assert_called_once_with("test-project", "us-central1", "test-job")
+    mock_trigger.assert_called_once_with(
+        "test-project", "us-central1", "test-job", mode="all"
+    )
+
+
+def test_myteam_triggers_job_with_mode(client):
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job"
+    ) as mock_trigger:
+        resp = _post(client, _update(_VALID_CHAT, "/myTeam"))
+    assert resp.status_code == 200
+    mock_trigger.assert_called_once_with(
+        "test-project", "us-central1", "test-job", mode="my_team"
+    )
 
 
 def test_help_sends_message(client):
