@@ -19,6 +19,7 @@ py_library(
         "@pypi//requests",
         "@pypi//unidecode",
     ],
+    visibility = ["//packages/biwenger_tools/web:__pkg__"],
 )
 
 # =================================================================
@@ -75,6 +76,7 @@ pkg_tar(
 pkg_tar(
     name = "teams_analyzer_base_layer",
     deps = [":_code_root", ":_code_logic"],
+    visibility = ["//packages/biwenger_tools/web:__pkg__"],
 )
 
 # Local layer (with secrets baked in — only for local docker run)

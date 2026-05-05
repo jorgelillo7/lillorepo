@@ -6,6 +6,8 @@ python_service(
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/web",
     secrets = ["biwenger-tools-sa.json", ".env"],
+    deps = ["//packages/biwenger_tools/teams_analyzer:teams_analyzer_lib"],
+    extra_layers = ["//packages/biwenger_tools/teams_analyzer:teams_analyzer_base_layer"],
     extra_env = {
         "PORT": "8080",
         "PYTHONPATH": "/app",

@@ -46,6 +46,11 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
+# --- TELEGRAM (webhook + teams_analyzer calls) ---
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET")
+
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7
 

@@ -139,7 +139,7 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
-            --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest \
+            --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest,BIWENGER_EMAIL=biwenger-email-regional:latest,BIWENGER_PASSWORD=biwenger-password-regional:latest,TELEGRAM_BOT_TOKEN=telegram-bot-token-regional:latest,TELEGRAM_CHAT_ID=telegram-chat-id-regional:latest,TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-regional:latest \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }},\

@@ -9,6 +9,7 @@ from packages.biwenger_tools.web import config, services
 from packages.biwenger_tools.web.routes.admin import bp as admin_bp
 from packages.biwenger_tools.web.routes.main import bp as main_bp
 from packages.biwenger_tools.web.routes.season import bp as season_bp
+from packages.biwenger_tools.web.routes.telegram import bp as telegram_bp
 
 _SEASON_RE = re.compile(r"^\d{2}-\d{2}$")
 
@@ -21,6 +22,7 @@ services.init_services()
 app.register_blueprint(main_bp)
 app.register_blueprint(season_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(telegram_bp)
 
 
 @app.context_processor

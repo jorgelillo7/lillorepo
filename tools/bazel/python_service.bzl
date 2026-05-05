@@ -13,6 +13,7 @@ def python_service(
         secrets = [],
         srcs = None,
         extra_env = {},
+        extra_layers = [],
         enable_tests = True):
     """
     Macro genérica para servicios Python con OCI images.
@@ -116,7 +117,7 @@ def python_service(
         tars = [
             ":" + name + "_core_layer",
             ":" + name + "_code_with_secrets_layer",
-        ],
+        ] + extra_layers,
         env = dict(
             {
                 "PORT": "8080",
@@ -143,7 +144,7 @@ def python_service(
         tars = [
             ":" + name + "_core_layer",
             ":" + name + "_code_layer",
-        ],
+        ] + extra_layers,
         env = dict(
             {
                 "PORT": "8080",
