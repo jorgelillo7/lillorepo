@@ -5,10 +5,10 @@ module(
 )
 
 # Dependencias de reglas de Bazel
-bazel_dep(name = "rules_python", version = "0.40.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
 bazel_dep(name = "rules_oci", version = "2.3.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
-bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "platforms", version = "1.1.0")
 
 # --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
@@ -32,7 +32,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
-    digest = "sha256:3b57738d8edceae335f68b411ad696d8067fd773ead4e0fb9f8d95a32a8bd2f0",
+    digest = "sha256:8c3fc6f82e13f9bef2636b85c7aecd1dc01ee985288fb801c6ed62b45f347934",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",

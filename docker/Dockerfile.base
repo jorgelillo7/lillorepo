@@ -9,58 +9,60 @@
 FROM python:3.12-slim@sha256:4386a385d81dba9f72ed72a6fe4237755d7f5440c84b417650f38336bbc43117
 
 RUN pip install --no-cache-dir \
-    beautifulsoup4==4.13.5 \
-    black==25.1.0 \
+    beautifulsoup4==4.14.3 \
+    black==26.3.1 \
     blinker==1.9.0 \
-    cachetools==5.5.2 \
-    certifi==2025.8.3 \
-    charset-normalizer==3.4.3 \
-    click==8.2.1 \
+    certifi==2026.4.22 \
+    cffi==2.0.0 \
+    charset-normalizer==3.4.7 \
+    click==8.3.3 \
+    cryptography==48.0.0 \
     flake8==7.3.0 \
-    flask==3.1.2 \
+    flask==3.1.3 \
     freezegun==1.5.5 \
-    google-api-core==2.25.1 \
-    google-api-python-client==2.181.0 \
-    google-auth==2.40.3 \
-    google-auth-httplib2==0.2.0 \
-    google-auth-oauthlib==1.2.2 \
-    googleapis-common-protos==1.70.0 \
-    gunicorn==23.0.0 \
-    httplib2==0.31.0 \
-    idna==3.10 \
-    iniconfig==2.1.0 \
+    google-api-core==2.30.3 \
+    google-api-python-client==2.195.0 \
+    google-auth==2.50.0 \
+    google-auth-httplib2==0.3.1 \
+    google-auth-oauthlib==1.3.1 \
+    googleapis-common-protos==1.74.0 \
+    gunicorn==26.0.0 \
+    httplib2==0.31.2 \
+    idna==3.13 \
+    iniconfig==2.3.0 \
     itsdangerous==2.2.0 \
     jinja2==3.1.6 \
-    markupsafe==3.0.2 \
+    markupsafe==3.0.3 \
     mccabe==0.7.0 \
     mypy-extensions==1.1.0 \
     oauthlib==3.3.1 \
-    packaging==25.0 \
-    pathspec==0.12.1 \
-    platformdirs==4.4.0 \
+    packaging==26.2 \
+    pathspec==1.1.1 \
+    platformdirs==4.9.6 \
     pluggy==1.6.0 \
-    proto-plus==1.26.1 \
-    protobuf==6.32.1 \
-    pyasn1==0.6.1 \
+    proto-plus==1.27.2 \
+    protobuf==7.34.1 \
+    pyasn1==0.6.3 \
     pyasn1-modules==0.4.2 \
     pycodestyle==2.14.0 \
+    pycparser==3.0 \
     pyflakes==3.4.0 \
-    pygments==2.19.2 \
-    pyparsing==3.2.4 \
-    pytest==8.4.2 \
+    pygments==2.20.0 \
+    pyparsing==3.3.2 \
+    pytest==9.0.3 \
     python-dateutil==2.9.0.post0 \
-    python-dotenv==1.1.1 \
+    python-dotenv==1.2.2 \
     python-json-logger==4.1.0 \
-    requests==2.32.5 \
+    pytokens==0.4.1 \
+    requests==2.33.1 \
     requests-mock==1.12.1 \
     requests-oauthlib==2.0.0 \
-    rsa==4.9.1 \
     six==1.17.0 \
-    soupsieve==2.8 \
-    typing-extensions==4.14.1 \
+    soupsieve==2.8.3 \
+    typing-extensions==4.15.0 \
     unidecode==1.4.0 \
     uritemplate==4.2.0 \
-    urllib3==2.5.0 \
-    werkzeug==3.1.3
+    urllib3==2.6.3 \
+    werkzeug==3.1.8
 
 ENV PYTHONUNBUFFERED=1
