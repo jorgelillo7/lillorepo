@@ -64,6 +64,4 @@ def send_telegram_document(
         response.raise_for_status()
         logger.info("Telegram document sent.", extra={"filename": filename})
     except Exception as e:
-        logger.error(
-            "Failed to send Telegram document.", extra={"error": str(e)}
-        )
+        logger.error("Failed to send Telegram document.", extra={"error": str(e)})

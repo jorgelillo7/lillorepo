@@ -20,9 +20,7 @@ def trigger_analyzer_job(
     )
     body = {
         "overrides": {
-            "containerOverrides": [
-                {"env": [{"name": "ANALYSIS_MODE", "value": mode}]}
-            ]
+            "containerOverrides": [{"env": [{"name": "ANALYSIS_MODE", "value": mode}]}]
         }
     }
     resp = http_requests.post(

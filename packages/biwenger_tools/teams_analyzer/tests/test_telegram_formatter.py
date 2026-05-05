@@ -139,7 +139,9 @@ def test_rivals_split_when_too_long():
 
 def _row(name="Test", pos=3, price=5_000_000, rate_sf=300):
     return {
-        "name": name, "position_id": pos, "price": price,
+        "name": name,
+        "position_id": pos,
+        "price": price,
         "jp_player": _jp(rate_sf=rate_sf),
     }
 
