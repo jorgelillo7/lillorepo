@@ -34,8 +34,8 @@ def python_service(
         srcs = native.glob(["**/*.py"], exclude = ["tests/**/*.py"])
 
     pkg_dir = "/app/packages/" + package + "/" + name
-    templates = native.glob(["templates/**/*.html"])
-    static_files = native.glob(["static/**/*"])
+    templates = native.glob(["templates/**/*.html"], allow_empty = True)
+    static_files = native.glob(["static/**/*"], allow_empty = True)
 
     # ============================================================
     # 1️⃣ LIBRERÍA PRINCIPAL
@@ -66,8 +66,8 @@ def python_service(
         deps = [":" + name + "_lib"],
     )
 
-    template_map = {f: f for f in native.glob(["templates/**/*"])}
-    static_map = {f: f for f in native.glob(["static/**/*"])}
+    template_map = {f: f for f in native.glob(["templates/**/*"], allow_empty = True)}
+    static_map = {f: f for f in native.glob(["static/**/*"], allow_empty = True)}
 
     # ============================================================
     # 3️⃣ CAPAS DE CÓDIGO

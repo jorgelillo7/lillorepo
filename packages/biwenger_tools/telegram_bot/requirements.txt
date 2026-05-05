@@ -1,0 +1,6 @@
+# telegram_bot/requirements.txt
+# All deps (flask, gunicorn, python-dotenv, google-auth, requests) are already
+# present in requirements_lock.txt via core/ and web/. No new additions needed.
+Flask
+gunicorn
+python-dotenv
