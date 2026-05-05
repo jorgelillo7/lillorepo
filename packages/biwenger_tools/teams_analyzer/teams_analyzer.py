@@ -37,7 +37,9 @@ def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
     }
 
 
-def _build_market_rows(market_players: list, biwenger_players: dict, jp_index: dict) -> list:
+def _build_market_rows(
+    market_players: list, biwenger_players: dict, jp_index: dict
+) -> list:
     rows = []
     for sale in market_players:
         if sale.get("user") is not None:
@@ -59,7 +61,9 @@ def _build_squad_rows(squad: list, biwenger_players: dict, jp_index: dict) -> li
     return rows
 
 
-def _send_csv(token: str, chat_id: str, data: bytes, caption: str, filename: str) -> None:
+def _send_csv(
+    token: str, chat_id: str, data: bytes, caption: str, filename: str
+) -> None:
     send_telegram_document(token, chat_id, filename, data, caption)
     time.sleep(0.4)
 
@@ -93,7 +97,9 @@ def main():
             config.LEAGUE_ID,
         )
 
-        biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
+        biwenger_players = biwenger.get_all_players_data_map(
+            config.ALL_PLAYERS_DATA_URL
+        )
 
         if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
             logger.warning("Telegram credentials missing — skipping send.")

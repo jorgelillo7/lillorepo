@@ -317,7 +317,9 @@ def build_team_csv(
         f"🛡️ <b>{escape(team_name)}</b> — {len(sorted_rows)} jug.\n"
         f"🟢 {g} · 🟡 {y} · 🔴 {r}"
     )
-    filename = _safe_filename(team_name) if team_name != "Mi equipo" else "mi_equipo.csv"
+    filename = (
+        "mi_equipo.csv" if team_name == "Mi equipo" else _safe_filename(team_name)
+    )
     return _rows_to_csv_bytes(sorted_rows), caption, filename
 
 
