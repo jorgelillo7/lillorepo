@@ -38,7 +38,7 @@ def clausulazos_url(league_id: Union[str, int]) -> str:
 
 
 def manager_squad_url(manager_id: Union[str, int]) -> str:
-    return f"{BIWENGER_API_BASE}/user/{manager_id}?fields=players(id,owner)"
+    return f"{BIWENGER_API_BASE}/user/{manager_id}?fields=players(id,owner(*))"
 
 
 class BiwengerClient:

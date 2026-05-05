@@ -27,31 +27,20 @@ from core.utils import get_logger
 
 logger = get_logger(__name__)
 
-_TRANSFER_LOCK_SECS = 14 * 86400
 
-
-def _build_transfer_map(entries: list) -> dict:
-    """Returns {player_id: unix_ts} — most recent transfer timestamp per player."""
-    transfer_map: dict = {}
-    for entry in entries:
-        content = entry.get("content") or {}
-        player = content.get("player") or {}
-        player_id = player.get("id")
-        ts = entry.get("date")
-        if player_id and ts:
-            if player_id not in transfer_map or ts > transfer_map[player_id]:
-                transfer_map[player_id] = ts
-    return transfer_map
-
-
-def _clausulable_str(transfer_ts) -> str:
-    if transfer_ts is None:
+def _clausulable_str(locked_until) -> str:
+    if locked_until is None:
         return "Sí"
-    elapsed = time.time() - transfer_ts
-    remaining = math.ceil((_TRANSFER_LOCK_SECS - elapsed) / 86400)
+    remaining = math.ceil((locked_until - time.time()) / 86400)
     if remaining <= 0:
         return "Sí"
     return f"No ({remaining}d)"
+
+
+def _clause_str(clause) -> str:
+    if not clause:
+        return "-"
+    return f"{round(int(clause) / 1_000_000)}M"
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
@@ -82,7 +71,7 @@ def _build_squad_rows(
     squad: list,
     biwenger_players: dict,
     jp_index: dict,
-    transfer_map: dict | None = None,
+    include_clause: bool = False,
 ) -> list:
     rows = []
     for player_data in squad:
@@ -90,9 +79,10 @@ def _build_squad_rows(
         if not bw_player:
             continue
         row = _build_row(bw_player, jp_index)
-        if transfer_map is not None:
-            ts = transfer_map.get(bw_player.get("id"))
-            row["Clausulable"] = _clausulable_str(ts)
+        if include_clause:
+            owner = player_data.get("owner") or {}
+            row["Clausulable"] = _clausulable_str(owner.get("clauseLockedUntil"))
+            row["Cláusula"] = _clause_str(owner.get("clause"))
         rows.append(row)
     return rows
 
@@ -147,13 +137,6 @@ def main():
 
         if mode == "all":
             managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
-
-            clausulazos_raw = biwenger.get_clausulazos(
-                config.CLAUSULAZOS_URL + "&limit=100&offset=0"
-            )
-            transfer_map = _build_transfer_map(clausulazos_raw.get("data", []))
-            logger.info("Transfer map built.", extra={"entries": len(transfer_map)})
-
             my_team: list[dict] = []
             rivals: dict[str, list[dict]] = {}
 
@@ -167,7 +150,7 @@ def main():
                     my_team = _build_squad_rows(squad, biwenger_players, jp_index)
                 else:
                     rivals[manager_name] = _build_squad_rows(
-                        squad, biwenger_players, jp_index, transfer_map
+                        squad, biwenger_players, jp_index, include_clause=True
                     )
                 time.sleep(0.5)
 

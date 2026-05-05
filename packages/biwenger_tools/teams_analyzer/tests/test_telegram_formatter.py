@@ -209,16 +209,20 @@ def test_build_all_teams_csv_order_and_count():
     assert "Mi equipo" in first_caption
 
 
-def test_rival_csv_has_clausulable_column():
+def test_rival_csv_has_clausulable_and_clausula_columns():
     rival_rows = [
-        {**_row("Locked"), "Clausulable": "No (3d)"},
-        {**_row("Free"), "Clausulable": "Sí"},
+        {**_row("Locked"), "Clausulable": "No (9d)", "Cláusula": "32M"},
+        {**_row("Free"), "Clausulable": "Sí", "Cláusula": "8M"},
     ]
     data, _, _ = build_team_csv(rival_rows, "Rival", include_clausulable=True)
     parsed = _parse_csv(data)
     assert "Clausulable" in parsed[0]
-    assert any(r["Clausulable"] == "No (3d)" for r in parsed)
-    assert any(r["Clausulable"] == "Sí" for r in parsed)
+    assert "Cláusula" in parsed[0]
+    locked = next(r for r in parsed if r["Nombre"] == "Locked")
+    assert locked["Clausulable"] == "No (9d)"
+    assert locked["Cláusula"] == "32M"
+    free = next(r for r in parsed if r["Nombre"] == "Free")
+    assert free["Clausulable"] == "Sí"
 
 
 def test_my_team_csv_has_no_clausulable_column():
@@ -226,16 +230,18 @@ def test_my_team_csv_has_no_clausulable_column():
     data, _, _ = build_team_csv(rows, "Mi equipo")
     parsed = _parse_csv(data)
     assert "Clausulable" not in parsed[0]
+    assert "Cláusula" not in parsed[0]
 
 
 def test_build_all_teams_csv_rivals_include_clausulable():
     my_team = [_row("Me")]
-    rival_rows = [{**_row("R"), "Clausulable": "Sí"}]
+    rival_rows = [{**_row("R"), "Clausulable": "Sí", "Cláusula": "10M"}]
     results = build_all_teams_csv(my_team, {"Rival": rival_rows})
     my_data, _, _ = results[0]
     rival_data, _, _ = results[1]
     assert "Clausulable" not in _parse_csv(my_data)[0]
     assert "Clausulable" in _parse_csv(rival_data)[0]
+    assert "Cláusula" in _parse_csv(rival_data)[0]
 
 
 def test_build_all_messages_returns_my_team_market_then_rivals():

@@ -267,15 +267,15 @@ def _csv_player_row(row: dict) -> dict:
     }
 
 
-def _rows_to_csv_bytes(rows: list[dict], extra_col: str | None = None) -> bytes:
+def _rows_to_csv_bytes(rows: list[dict], extra_cols: list[str] | None = None) -> bytes:
     buf = io.StringIO()
-    cols = ([extra_col] if extra_col else []) + _CSV_COLUMNS
+    cols = (extra_cols or []) + _CSV_COLUMNS
     writer = csv.DictWriter(buf, fieldnames=cols)
     writer.writeheader()
     for r in rows:
         csv_row = _csv_player_row(r)
-        if extra_col:
-            csv_row[extra_col] = r.get(extra_col, "")
+        for col in extra_cols or []:
+            csv_row[col] = r.get(col, "")
         writer.writerow(csv_row)
     return buf.getvalue().encode("utf-8-sig")
 
@@ -310,7 +310,7 @@ def build_team_csv(
     """Build a CSV for one team.
 
     Returns (csv_bytes, caption_html, filename).
-    include_clausulable adds a leading "Clausulable" column (for rival teams).
+    include_clausulable adds leading Clausulable + Cláusula columns (rivals).
     """
     sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
     g, y, r, _ = _count_status(sorted_rows)
@@ -321,8 +321,8 @@ def build_team_csv(
     filename = (
         "mi_equipo.csv" if team_name == "Mi equipo" else _safe_filename(team_name)
     )
-    extra_col = "Clausulable" if include_clausulable else None
-    return _rows_to_csv_bytes(sorted_rows, extra_col=extra_col), caption, filename
+    extra_cols = ["Clausulable", "Cláusula"] if include_clausulable else None
+    return _rows_to_csv_bytes(sorted_rows, extra_cols=extra_cols), caption, filename
 
 
 def build_market_csv(rows: list[dict], top_n: int = 10) -> tuple[bytes, str, str]:
