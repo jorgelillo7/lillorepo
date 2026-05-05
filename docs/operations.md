@@ -97,7 +97,32 @@ Commands for running each component.
       ./deploy.sh
     ```
 
-    URL: https://biwenger-summary-pjpqofuevq-no.a.run.app/25-26/
+    URL: https://biwenger-summary-319945089838.europe-southwest1.run.app/25-26/
+
+  * **🤖 Telegram webhook — one-time registration:**
+
+    Must be run once after deploying the webhook for the first time, or whenever
+    the Cloud Run URL changes. The secret token prevents spoofed requests.
+
+    ```bash
+    TOKEN=$(gcloud secrets versions access latest \
+        --secret=telegram-bot-token-regional --project=biwenger-tools)
+    SECRET=$(gcloud secrets versions access latest \
+        --secret=telegram-webhook-secret-regional --project=biwenger-tools)
+
+    curl -X POST "https://api.telegram.org/bot${TOKEN}/setWebhook" \
+         -d "url=https://biwenger-summary-319945089838.europe-southwest1.run.app/telegram/webhook" \
+         -d "secret_token=${SECRET}" \
+         -d "allowed_updates=[\"message\"]"
+    ```
+
+    Verify the registration:
+
+    ```bash
+    curl "https://api.telegram.org/bot${TOKEN}/getWebhookInfo"
+    ```
+
+    Available commands once registered: `/analizar`, `/help`.
 
 ### 2\. Scraper Job
 
