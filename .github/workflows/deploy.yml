@@ -7,11 +7,11 @@ on:
       - "core/**"
       - "packages/biwenger_tools/web/**"
       - "packages/biwenger_tools/scraper_job/**"
+      - "packages/biwenger_tools/teams_analyzer/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGION: europe-southwest1
   PROJECT_ID: biwenger-tools
   REGISTRY: europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
@@ -25,17 +25,17 @@ jobs:
     name: Lint Python
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install lint tools
         # Pinned to match versions resolved in requirements_lock.txt;
         # bump both files in sync if you upgrade.
-        run: pip install flake8==7.3.0 black==25.1.0
+        run: pip install flake8==7.3.0 black==26.3.1
 
       - name: Run flake8
         run: flake8 core/ packages/
@@ -52,10 +52,11 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       scraper: ${{ steps.filter.outputs.scraper }}
+      teams_analyzer: ${{ steps.filter.outputs.teams_analyzer }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -67,6 +68,10 @@ jobs:
               - 'core/**'
               - 'tools/**'
               - 'packages/biwenger_tools/scraper_job/**'
+            teams_analyzer:
+              - 'core/**'
+              - 'tools/**'
+              - 'packages/biwenger_tools/teams_analyzer/**'
 
   # -------------------------------------------------------
   # 1. Run all tests before any deployment
@@ -76,10 +81,10 @@ jobs:
     needs: [detect-changes, lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@0.8.5
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
@@ -90,6 +95,7 @@ jobs:
             //core:core_tests \
             //packages/biwenger_tools/web:web_tests \
             //packages/biwenger_tools/scraper_job:scraper_job_tests \
+            //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests \
             --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------
@@ -101,21 +107,21 @@ jobs:
     if: needs.detect-changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker auth for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
       - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@0.8.5
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
@@ -157,21 +163,21 @@ jobs:
     if: needs.detect-changes.outputs.scraper == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker auth for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
       - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@0.8.5
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
@@ -190,23 +196,63 @@ jobs:
             --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }}
 
   # -------------------------------------------------------
-  # 3. Clean up old images once any deploy succeeds
+  # 2c. Build and update teams_analyzer Cloud Run Job (only if teams_analyzer changed)
   # -------------------------------------------------------
-  cleanup:
-    name: Clean up old images
-    needs: [deploy-web, deploy-scraper]
-    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success')
+  deploy-teams-analyzer:
+    name: Deploy teams_analyzer job
+    needs: [detect-changes, test]
+    if: needs.detect-changes.outputs.teams_analyzer == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Build and push teams_analyzer image
+        run: |
+          bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
+            --platforms=//platforms:linux_amd64
+
+      - name: Update Cloud Run Job image
+        run: |
+          gcloud run jobs update biwenger-teams-analyzer \
+            --image ${{ env.REGISTRY }}/teams_analyzer \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }}
+
+  # -------------------------------------------------------
+  # 3. Clean up old images once any deploy succeeds
+  # -------------------------------------------------------
+  cleanup:
+    name: Clean up old images
+    needs: [deploy-web, deploy-scraper, deploy-teams-analyzer]
+    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-teams-analyzer.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Delete old images from Artifact Registry
         run: ./scripts/clean-images-artifact.sh
