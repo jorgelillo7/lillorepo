@@ -41,6 +41,10 @@ def mock_all_dependencies():
             "send_telegram_document"
         ) as mock_send,
         patch("packages.biwenger_tools.teams_analyzer.teams_analyzer.time.sleep"),
+        patch(
+            "packages.biwenger_tools.teams_analyzer.teams_analyzer.time.time",
+            return_value=1_800_000_000,
+        ),
     ):
         mock_biwenger = MagicMock()
         mock_biwenger.user_id = 123  # mánager actual = manager A
@@ -55,9 +59,18 @@ def mock_all_dependencies():
             123: "Manager A",
             456: "Manager B",
         }
+        # Player A: no clause lock; Player B: locked for 9 more days
         mock_biwenger.get_manager_squad.side_effect = [
-            [{"id": 1}],
-            [{"id": 2}],
+            [{"id": 1, "owner": {"clause": 1_530_000}}],
+            [
+                {
+                    "id": 2,
+                    "owner": {
+                        "clause": 1_836_000,
+                        "clauseLockedUntil": 1_800_000_000 + 9 * 86400,
+                    },
+                }
+            ],
         ]
         mock_biwenger.get_market_players.return_value = [
             {"player": {"id": 1}, "user": None, "price": 0},

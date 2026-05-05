@@ -6,6 +6,7 @@ Modos (ANALYSIS_MODE env var):
   my_team — solo mi equipo como CSV (/myTeam)
 """
 
+import math
 import time
 from datetime import datetime
 
@@ -25,6 +26,21 @@ from core.sdk.telegram import send_telegram_document
 from core.utils import get_logger
 
 logger = get_logger(__name__)
+
+
+def _clausulable_str(locked_until) -> str:
+    if locked_until is None:
+        return "Sí"
+    remaining = math.ceil((locked_until - time.time()) / 86400)
+    if remaining <= 0:
+        return "Sí"
+    return f"No ({remaining}d)"
+
+
+def _clause_str(clause) -> str:
+    if not clause:
+        return "-"
+    return f"{round(int(clause) / 1_000_000)}M"
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
@@ -51,13 +67,23 @@ def _build_market_rows(
     return rows
 
 
-def _build_squad_rows(squad: list, biwenger_players: dict, jp_index: dict) -> list:
+def _build_squad_rows(
+    squad: list,
+    biwenger_players: dict,
+    jp_index: dict,
+    include_clause: bool = False,
+) -> list:
     rows = []
     for player_data in squad:
         bw_player = biwenger_players.get(player_data.get("id"))
         if not bw_player:
             continue
-        rows.append(_build_row(bw_player, jp_index))
+        row = _build_row(bw_player, jp_index)
+        if include_clause:
+            owner = player_data.get("owner") or {}
+            row["Clausulable"] = _clausulable_str(owner.get("clauseLockedUntil"))
+            row["Cláusula"] = _clause_str(owner.get("clause"))
+        rows.append(row)
     return rows
 
 
@@ -120,11 +146,12 @@ def main():
                     "Squad fetched.",
                     extra={"manager": manager_name, "size": len(squad)},
                 )
-                rows = _build_squad_rows(squad, biwenger_players, jp_index)
                 if manager_id == biwenger.user_id:
-                    my_team = rows
+                    my_team = _build_squad_rows(squad, biwenger_players, jp_index)
                 else:
-                    rivals[manager_name] = rows
+                    rivals[manager_name] = _build_squad_rows(
+                        squad, biwenger_players, jp_index, include_clause=True
+                    )
                 time.sleep(0.5)
 
             for data, caption, filename in build_all_teams_csv(my_team, rivals):
