@@ -1,5 +1,8 @@
-"""Formatea los mensajes que se envían a Telegram."""
+"""Formatea los mensajes que se envían a Telegram (texto y CSV)."""
 
+import csv
+import io
+import re
 from html import escape
 
 from core.sdk.jp import get_predict_rate
@@ -186,10 +189,172 @@ def build_all_messages(
     return messages
 
 
+_CSV_COLUMNS = [
+    "Nombre",
+    "Pos",
+    "Precio",
+    "SF",
+    "AS",
+    "Avg",
+    "Racha",
+    "Juega",
+    "Estado",
+    "Variacion",
+]
+
+
+def _variacion_str(inc) -> str:
+    if inc is None or inc == 0:
+        return "0"
+    sign = "+" if inc > 0 else "-"
+    abs_val = abs(inc)
+    if abs_val >= 1_000_000:
+        return f"{sign}{abs_val / 1_000_000:.1f}M"
+    return f"{sign}{abs_val // 1_000}K"
+
+
+def _juega_str(jp_player: dict | None) -> str:
+    if jp_player is None:
+        return "sin datos"
+    status = jp_player.get("status", "ok")
+    if status == "injured":
+        return "lesionado"
+    if status == "suspended":
+        return "sancionado"
+    if status == "doubt":
+        return "duda"
+    next_match = jp_player.get("nextMatch") or {}
+    if next_match.get("status") == "break":
+        return "sin partido"
+    if next_match.get("playerInLineup") is False:
+        return "no convocado"
+    venue = "casa" if next_match.get("isLocal") else "fuera"
+    return venue
+
+
+def _csv_player_row(row: dict) -> dict:
+    jp = row.get("jp_player")
+    name = row.get("name", "")
+    pos = _short_pos(row.get("position_id"))
+    price = _price_millions(row.get("price", 0))
+
+    if jp is None:
+        return dict(
+            zip(
+                _CSV_COLUMNS,
+                [name, pos, price, "-", "-", "-", "-", "sin datos", "desconocido", "0"],
+            )
+        )
+
+    def fmt(v):
+        return str(v) if v is not None else "-"
+
+    sf = get_predict_rate(jp, SCORE_SF)
+    as_ = get_predict_rate(jp, SCORE_AS)
+    avg = get_predict_rate(jp, SCORE_AVG)
+
+    return {
+        "Nombre": name,
+        "Pos": pos,
+        "Precio": price,
+        "SF": fmt(sf),
+        "AS": fmt(as_),
+        "Avg": fmt(avg),
+        "Racha": str(jp.get("streak", 0)),
+        "Juega": _juega_str(jp),
+        "Estado": jp.get("status", "ok"),
+        "Variacion": _variacion_str(jp.get("priceIncrement")),
+    }
+
+
+def _rows_to_csv_bytes(
+    rows: list[dict], extra_col: str | None = None
+) -> bytes:
+    buf = io.StringIO()
+    cols = ([extra_col] if extra_col else []) + _CSV_COLUMNS
+    writer = csv.DictWriter(buf, fieldnames=cols)
+    writer.writeheader()
+    for r in rows:
+        csv_row = _csv_player_row(r)
+        if extra_col:
+            csv_row[extra_col] = r.get(extra_col, "")
+        writer.writerow(csv_row)
+    return buf.getvalue().encode("utf-8-sig")
+
+
+def _count_status(rows: list[dict]) -> tuple[int, int, int, int]:
+    """Returns (green, yellow, red, white) counts."""
+    g = y = r = w = 0
+    for row in rows:
+        e = _status_emoji(row.get("jp_player"))
+        if e == "🟢":
+            g += 1
+        elif e == "🟡":
+            y += 1
+        elif e == "🔴":
+            r += 1
+        else:
+            w += 1
+    return g, y, r, w
+
+
+def _safe_filename(name: str) -> str:
+    slug = re.sub(r"[^\w]", "_", name.lower())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return f"{slug}.csv"
+
+
+def build_team_csv(
+    rows: list[dict], team_name: str = "Mi equipo"
+) -> tuple[bytes, str, str]:
+    """Build a CSV for one team.
+
+    Returns (csv_bytes, caption_html, filename).
+    """
+    sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
+    g, y, r, _ = _count_status(sorted_rows)
+    caption = (
+        f"🛡️ <b>{escape(team_name)}</b> — {len(sorted_rows)} jug.\n"
+        f"🟢 {g} · 🟡 {y} · 🔴 {r}"
+    )
+    filename = _safe_filename(team_name) if team_name != "Mi equipo" else "mi_equipo.csv"
+    return _rows_to_csv_bytes(sorted_rows), caption, filename
+
+
+def build_market_csv(
+    rows: list[dict], top_n: int = 10
+) -> tuple[bytes, str, str]:
+    """Build a CSV for the market top-N.
+
+    Returns (csv_bytes, caption_html, filename).
+    """
+    sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)[:top_n]
+    caption = f"🛒 <b>Mercado</b> — top {len(sorted_rows)} por SF"
+    return _rows_to_csv_bytes(sorted_rows), caption, "mercado.csv"
+
+
+def build_all_teams_csv(
+    my_team: list[dict],
+    rivals: dict[str, list[dict]],
+) -> list[tuple[bytes, str, str]]:
+    """One CSV per team (mi equipo first, then rivals).
+
+    Returns list of (csv_bytes, caption_html, filename).
+    """
+    results = []
+    results.append(build_team_csv(my_team, "Mi equipo"))
+    for manager_name, rows in rivals.items():
+        results.append(build_team_csv(rows, manager_name))
+    return results
+
+
 __all__ = [
     "format_player_row",
     "build_my_team_message",
     "build_market_message",
     "build_rival_messages",
     "build_all_messages",
+    "build_team_csv",
+    "build_market_csv",
+    "build_all_teams_csv",
 ]
