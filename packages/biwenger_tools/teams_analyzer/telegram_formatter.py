@@ -267,9 +267,7 @@ def _csv_player_row(row: dict) -> dict:
     }
 
 
-def _rows_to_csv_bytes(
-    rows: list[dict], extra_col: str | None = None
-) -> bytes:
+def _rows_to_csv_bytes(rows: list[dict], extra_col: str | None = None) -> bytes:
     buf = io.StringIO()
     cols = ([extra_col] if extra_col else []) + _CSV_COLUMNS
     writer = csv.DictWriter(buf, fieldnames=cols)
@@ -323,9 +321,7 @@ def build_team_csv(
     return _rows_to_csv_bytes(sorted_rows), caption, filename
 
 
-def build_market_csv(
-    rows: list[dict], top_n: int = 10
-) -> tuple[bytes, str, str]:
+def build_market_csv(rows: list[dict], top_n: int = 10) -> tuple[bytes, str, str]:
     """Build a CSV for the market top-N.
 
     Returns (csv_bytes, caption_html, filename).
