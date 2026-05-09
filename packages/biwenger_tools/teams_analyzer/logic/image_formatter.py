@@ -11,7 +11,6 @@ from core.sdk.jp import get_predict_rate  # noqa: E402
 from packages.biwenger_tools.teams_analyzer.telegram_formatter import (  # noqa: E402
     _count_status,
     _juega_str,
-    _price_millions,
     _short_pos,
     _sort_key_sf_desc,
     _status_emoji,
@@ -44,13 +43,30 @@ def _strip_emoji(text: str) -> str:
     return "".join(c for c in text if ord(c) <= 0xFFFF).strip()
 
 
+def _price_exact(price) -> str:
+    """Show price with one decimal place (e.g. 24.5M) instead of rounding."""
+    if not price:
+        return "0"
+    m = int(price) / 1_000_000
+    return f"{m:.1f}M" if price % 1_000_000 else f"{int(m)}M"
+
+
+def _pos_str(row: dict) -> str:
+    """Primary position + alt positions, e.g. 'DEF/MED'."""
+    primary = _short_pos(row.get("position_id"))
+    alts = row.get("alt_positions") or []
+    if alts:
+        return "/".join([primary] + [_short_pos(a) for a in alts[:2]])
+    return primary
+
+
 def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
     jp = row.get("jp_player")
     sf = get_predict_rate(jp, SCORE_SF) if jp else None
     cells = [
         _strip_emoji(row.get("name", ""))[:22],
-        _short_pos(row.get("position_id")),
-        _price_millions(row.get("price", 0)),
+        _pos_str(row),
+        _price_exact(row.get("price", 0)),
         str(sf) if sf is not None else "-",
         str(jp.get("streak", 0)) if jp else "-",
         _juega_str(jp),

@@ -24,10 +24,6 @@ from packages.biwenger_tools.teams_analyzer.logic.player_matching import (
     build_jp_index,
     find_player_match,
 )
-from packages.biwenger_tools.teams_analyzer.telegram_formatter import (
-    build_compact_market_message,
-    build_compact_team_message,
-)
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
 from core.sdk.telegram import (
@@ -51,7 +47,8 @@ def _clausulable_str(locked_until) -> str:
 def _clause_str(clause) -> str:
     if not clause:
         return "-"
-    return f"{round(int(clause) / 1_000_000)}M"
+    m = int(clause) / 1_000_000
+    return f"{m:.1f}M" if int(clause) % 1_000_000 else f"{int(m)}M"
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
@@ -190,21 +187,15 @@ def main():
                 config.USER_SQUAD_URL, biwenger.user_id
             )
             my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
-            send_telegram_message(
-                bot_token=token,
-                chat_id=chat_id,
-                text=build_compact_team_message(my_team),
-            )
+            img = build_table_image(my_team, "Mi equipo")
+            _send_image(token, chat_id, img, "Mi equipo")
             logger.info("My-team analysis sent.", extra={"size": len(my_team)})
 
         elif mode == "market":
             market_players = biwenger.get_market_players(config.MARKET_URL)
             market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
-            send_telegram_message(
-                bot_token=token,
-                chat_id=chat_id,
-                text=build_compact_market_message(market_rows),
-            )
+            img = build_table_image(market_rows, "Mercado")
+            _send_image(token, chat_id, img, "Mercado")
             logger.info("Market analysis sent.", extra={"size": len(market_rows)})
 
         elif mode == "alinear":
@@ -248,19 +239,13 @@ def main():
                 config.USER_SQUAD_URL, biwenger.user_id
             )
             my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
-            send_telegram_message(
-                bot_token=token,
-                chat_id=chat_id,
-                text=build_compact_team_message(my_team),
-            )
+            img = build_table_image(my_team, "Mi equipo")
+            _send_image(token, chat_id, img, "Mi equipo")
 
             market_players = biwenger.get_market_players(config.MARKET_URL)
             market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
-            send_telegram_message(
-                bot_token=token,
-                chat_id=chat_id,
-                text=build_compact_market_message(market_rows),
-            )
+            img = build_table_image(market_rows, "Mercado")
+            _send_image(token, chat_id, img, "Mercado")
 
             logger.info(
                 "Daily analysis sent.",
