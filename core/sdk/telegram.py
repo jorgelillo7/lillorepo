@@ -69,6 +69,27 @@ def send_telegram_document(
         logger.error("Failed to send Telegram document.", extra={"error": str(e)})
 
 
+def send_telegram_photo(
+    bot_token: str,
+    chat_id: str,
+    image_bytes: bytes,
+    caption: str = "",
+) -> None:
+    """Sends a PNG image to a Telegram chat via sendPhoto."""
+    url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+    try:
+        response = requests.post(
+            url,
+            data={"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"},
+            files={"photo": ("image.png", image_bytes, "image/png")},
+            timeout=30,
+        )
+        response.raise_for_status()
+        logger.info("Telegram photo sent.", extra={"caption": caption[:40]})
+    except Exception as e:
+        logger.error("Failed to send Telegram photo.", extra={"error": str(e)})
+
+
 def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
     """Registers bot commands so they appear in the Telegram '/' menu.
 

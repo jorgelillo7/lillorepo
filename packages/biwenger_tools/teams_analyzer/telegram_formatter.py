@@ -350,6 +350,51 @@ def build_all_teams_csv(
     return results
 
 
+def _compact_line(row: dict) -> str:
+    """One-line summary: emoji · name (pos) · price · SF · juega."""
+    jp = row.get("jp_player")
+    emoji = _status_emoji(jp)
+    name = escape(row.get("name", ""))
+    pos = _short_pos(row.get("position_id"))
+    price = _price_millions(row.get("price", 0))
+    sf = get_predict_rate(jp, SCORE_SF) if jp else None
+    sf_str = str(sf) if sf is not None else "—"
+
+    juega = _juega_str(jp)
+    juega_icon = {
+        "casa": "✅ casa",
+        "fuera": "✅ fuera",
+        "lesionado": "❌ lesionado",
+        "sancionado": "❌ sancionado",
+        "sin partido": "⏸️ sin partido",
+        "duda": "❓ duda",
+        "no convocado": "❓ no convocado",
+        "sin datos": "⚪ sin datos",
+    }.get(juega, juega)
+
+    return f"{emoji} {name} ({pos}) · {price} · SF:{sf_str} · {juega_icon}"
+
+
+def build_compact_team_message(rows: list[dict], team_name: str = "MI EQUIPO") -> str:
+    """Returns a compact single-message text for a team."""
+    sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
+    g, y, r, _ = _count_status(sorted_rows)
+    header = (
+        f"<b>🛡️ {escape(team_name)}</b> · {len(sorted_rows)} jug."
+        f" · 🟢{g} 🟡{y} 🔴{r}"
+    )
+    lines = [header, ""] + [_compact_line(r) for r in sorted_rows]
+    return "\n".join(lines)
+
+
+def build_compact_market_message(rows: list[dict], top_n: int = 15) -> str:
+    """Returns a compact single-message text for the market top-N."""
+    sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)[:top_n]
+    header = f"<b>🛒 MERCADO</b> · top {len(sorted_rows)} por SF"
+    lines = [header, ""] + [_compact_line(r) for r in sorted_rows]
+    return "\n".join(lines)
+
+
 __all__ = [
     "format_player_row",
     "build_my_team_message",
@@ -359,4 +404,6 @@ __all__ = [
     "build_team_csv",
     "build_market_csv",
     "build_all_teams_csv",
+    "build_compact_team_message",
+    "build_compact_market_message",
 ]

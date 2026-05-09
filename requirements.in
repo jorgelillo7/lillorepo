@@ -26,14 +26,7 @@ python-dotenv
 python-dotenv
 requests
 unidecode
-
-# From: packages/biwenger_tools/telegram_bot/requirements.txt
-# telegram_bot/requirements.txt
-# All deps (flask, gunicorn, python-dotenv, google-auth, requests) are already
-# present in requirements_lock.txt via core/ and web/. No new additions needed.
-Flask
-gunicorn
-python-dotenv
+matplotlib
 
 # From: packages/biwenger_tools/web/requirements.txt
 # web/requirements.txt

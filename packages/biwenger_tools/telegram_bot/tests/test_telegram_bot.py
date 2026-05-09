@@ -106,6 +106,17 @@ def test_myteam_lowercase_from_menu_triggers_job(client):
     )
 
 
+def test_mercado_triggers_job_with_mode(client):
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job"
+    ) as mock_trigger:
+        resp = _post(client, _update(_VALID_CHAT, "/mercado"))
+    assert resp.status_code == 200
+    mock_trigger.assert_called_once_with(
+        "test-project", "us-central1", "test-job", mode="market"
+    )
+
+
 def test_alinear_triggers_job_with_mode(client):
     with patch(
         "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job"

@@ -14,6 +14,7 @@ from core.sdk.telegram import register_bot_commands, set_commands_menu_button
 COMMANDS = [
     {"command": "analizar", "description": "Análisis completo de todos los equipos"},
     {"command": "myteam", "description": "Análisis solo de mi equipo"},
+    {"command": "mercado", "description": "Solo el mercado"},
     {"command": "alinear", "description": "Aplica la mejor alineación posible"},
     {"command": "help", "description": "Muestra todos los comandos disponibles"},
 ]

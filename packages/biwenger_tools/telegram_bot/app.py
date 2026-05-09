@@ -15,7 +15,8 @@ app = Flask(__name__)
 _HELP_TEXT = (
     "<b>Biwenger Bot</b>\n\n"
     "/analizar — Análisis completo (todos los equipos)\n"
-    "/myTeam — Análisis solo de mi equipo\n"
+    "/myteam — Análisis solo de mi equipo\n"
+    "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
     "/help — Muestra este mensaje"
 )
@@ -56,6 +57,14 @@ def webhook():
             config.CLOUD_RUN_REGION,
             config.CLOUD_RUN_JOB_NAME,
             mode="my_team",
+        )
+    elif text_lower.startswith("/mercado"):
+        logger.info("Webhook: /mercado received — triggering job (market)")
+        job_trigger.trigger_analyzer_job(
+            config.GCP_PROJECT_ID,
+            config.CLOUD_RUN_REGION,
+            config.CLOUD_RUN_JOB_NAME,
+            mode="market",
         )
     elif text_lower.startswith("/alinear"):
         logger.info("Webhook: /alinear received — triggering job (alinear)")

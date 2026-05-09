@@ -15,6 +15,7 @@ py_library(
     ),
     deps = [
         "//core",
+        "@pypi//matplotlib",
         "@pypi//python_dotenv",
         "@pypi//requests",
         "@pypi//unidecode",
