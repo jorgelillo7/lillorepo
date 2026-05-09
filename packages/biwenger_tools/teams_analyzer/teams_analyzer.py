@@ -11,6 +11,10 @@ import time
 from datetime import datetime
 
 from packages.biwenger_tools.teams_analyzer import config
+from packages.biwenger_tools.teams_analyzer.logic.lineup import (
+    format_lineup_message,
+    pick_lineup,
+)
 from packages.biwenger_tools.teams_analyzer.logic.player_matching import (
     build_jp_index,
     find_player_match,
@@ -22,7 +26,7 @@ from packages.biwenger_tools.teams_analyzer.telegram_formatter import (
 )
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
-from core.sdk.telegram import send_telegram_document
+from core.sdk.telegram import send_telegram_document, send_telegram_message
 from core.utils import get_logger
 
 logger = get_logger(__name__)
@@ -46,8 +50,10 @@ def _clause_str(clause) -> str:
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
     name = biwenger_player.get("name", "N/A")
     return {
+        "bw_id": biwenger_player.get("id"),
         "name": name,
         "position_id": biwenger_player.get("position"),
+        "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
         "jp_player": find_player_match(name, jp_index),
     }
@@ -175,6 +181,42 @@ def main():
             data, caption, filename = build_team_csv(my_team)
             _send_csv(token, chat_id, data, caption, filename)
             logger.info("My-team analysis sent.", extra={"size": len(my_team)})
+
+        elif mode == "alinear":
+            my_squad = biwenger.get_manager_squad(
+                config.USER_SQUAD_URL, biwenger.user_id
+            )
+            my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
+            result = pick_lineup(my_team)
+            if result is None:
+                send_telegram_message(
+                    bot_token=token,
+                    chat_id=chat_id,
+                    text="No se pudo calcular la alineacion (jugadores insuficientes).",
+                )
+                return
+            starters_ids = [r["bw_id"] for r, _ in result["starters"]]
+            reserves_ids = [r["bw_id"] for r in result["reserves"]]
+            reserves_ids += [None] * (4 - len(reserves_ids))
+            biwenger.set_lineup(
+                config.LINEUP_URL,
+                result["formation"],
+                starters_ids,
+                reserves_ids,
+                result["captain"]["bw_id"],
+            )
+            send_telegram_message(
+                bot_token=token,
+                chat_id=chat_id,
+                text=format_lineup_message(result),
+            )
+            logger.info(
+                "Lineup applied.",
+                extra={
+                    "formation": result["formation"],
+                    "total_sf": result["total_sf"],
+                },
+            )
 
         else:  # "daily" (default)
             my_squad = biwenger.get_manager_squad(

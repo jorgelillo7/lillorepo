@@ -16,6 +16,7 @@ _HELP_TEXT = (
     "<b>Biwenger Bot</b>\n\n"
     "/analizar — Análisis completo (todos los equipos)\n"
     "/myTeam — Análisis solo de mi equipo\n"
+    "/alinear — Aplica la mejor alineación posible\n"
     "/help — Muestra este mensaje"
 )
 
@@ -54,6 +55,14 @@ def webhook():
             config.CLOUD_RUN_REGION,
             config.CLOUD_RUN_JOB_NAME,
             mode="my_team",
+        )
+    elif text.startswith("/alinear"):
+        logger.info("Webhook: /alinear received — triggering job (alinear)")
+        job_trigger.trigger_analyzer_job(
+            config.GCP_PROJECT_ID,
+            config.CLOUD_RUN_REGION,
+            config.CLOUD_RUN_JOB_NAME,
+            mode="alinear",
         )
     elif text.startswith("/help"):
         logger.info("Webhook: /help received")
