@@ -31,24 +31,59 @@ _HEADER_FG = "white"
 _TITLE_FG = "#1a237e"
 _EDGE = "#e0e0e0"
 
+_GREEN = "#388e3c"
+_AMBER = "#f57f17"
+_RED = "#c62828"
+
 _BASE_COLS = ["Jugador", "Pos", "Precio", "SF", "Racha", "Juega"]
 _COL_WIDTHS = [0.30, 0.07, 0.09, 0.07, 0.08, 0.14]
+
+
+def _strip_emoji(text: str) -> str:
+    """Remove characters outside the Basic Multilingual Plane (emoji, etc.)."""
+    return "".join(c for c in text if ord(c) <= 0xFFFF).strip()
 
 
 def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
     jp = row.get("jp_player")
     sf = get_predict_rate(jp, SCORE_SF) if jp else None
     cells = [
-        row.get("name", "")[:22],
+        _strip_emoji(row.get("name", ""))[:22],
         _short_pos(row.get("position_id")),
         _price_millions(row.get("price", 0)),
-        str(sf) if sf is not None else "—",
-        str(jp.get("streak", 0)) if jp else "—",
+        str(sf) if sf is not None else "-",
+        str(jp.get("streak", 0)) if jp else "-",
         _juega_str(jp),
     ]
     for col in extra_cols:
         cells.append(str(row.get(col, "")))
     return cells
+
+
+def _draw_status_summary(ax, g: int, y: int, r: int, n: int) -> None:
+    """Draws a colored-dot status summary line below the title."""
+    parts = [
+        (f"  {n} jugadores  ", "#555555"),
+        ("  ●  ", _GREEN),
+        (f"{g} ok  ", "#333333"),
+        ("  ●  ", _AMBER),
+        (f"{y} alerta  ", "#333333"),
+        ("  ●  ", _RED),
+        (f"{r} baja  ", "#333333"),
+    ]
+    x = 0.02
+    for text, color in parts:
+        ax.text(
+            x,
+            0.935,
+            text,
+            transform=ax.transAxes,
+            fontsize=9,
+            ha="left",
+            va="top",
+            color=color,
+        )
+        x += len(text) * 0.012
 
 
 def build_table_image(
@@ -61,7 +96,7 @@ def build_table_image(
     headers = _BASE_COLS + extra_cols
 
     sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
-    g, y, r, _ = _count_status(sorted_rows)
+    g, ylw, r, _ = _count_status(sorted_rows)
 
     cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
     cell_colors = [
@@ -73,18 +108,17 @@ def build_table_image(
     n_cols = len(headers)
     extra_width = 0.18 * len(extra_cols)
     fig_w = 11 + extra_width
-    fig_h = max(2.5, 0.38 * n_rows + 1.6)
+    fig_h = max(2.5, 0.38 * n_rows + 1.8)
 
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     fig.patch.set_facecolor("white")
     ax.set_facecolor("white")
     ax.axis("off")
 
-    summary = f"{len(sorted_rows)} jug.  ·  🟢 {g}  🟡 {y}  🔴 {r}"
     ax.text(
         0.5,
-        0.99,
-        title,
+        0.995,
+        _strip_emoji(title),
         transform=ax.transAxes,
         fontsize=14,
         fontweight="bold",
@@ -92,16 +126,7 @@ def build_table_image(
         va="top",
         color=_TITLE_FG,
     )
-    ax.text(
-        0.5,
-        0.93,
-        summary,
-        transform=ax.transAxes,
-        fontsize=10,
-        ha="center",
-        va="top",
-        color="#555555",
-    )
+    _draw_status_summary(ax, g, ylw, r, len(sorted_rows))
 
     col_widths = _COL_WIDTHS + [0.18] * len(extra_cols)
     total = sum(col_widths)
