@@ -122,9 +122,11 @@ def build_table_image(
 
     n_rows = len(cell_data)
     n_cols = len(headers)
-    extra_width = 0.18 * len(extra_cols)
-    fig_w = 11 + extra_width
-    fig_h = max(2.5, 0.38 * n_rows + 1.8)
+    extra_width = 0.20 * len(extra_cols)
+    # Narrower figure (9 in) so Telegram displays it at larger scale on mobile.
+    # Smaller height-per-row (0.26) keeps tall squads from scaling down.
+    fig_w = 9 + extra_width
+    fig_h = max(2.5, 0.26 * n_rows + 1.4)
 
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     fig.patch.set_facecolor("white")
@@ -162,13 +164,13 @@ def build_table_image(
         cell.set_facecolor(_HEADER_BG)
         cell.get_text().set_color(_HEADER_FG)
         cell.get_text().set_fontweight("bold")
-        cell.get_text().set_fontsize(9)
+        cell.get_text().set_fontsize(10)
         cell.set_edgecolor(_EDGE)
 
     for i in range(1, n_rows + 1):
         for j in range(n_cols):
             cell = table[i, j]
-            cell.get_text().set_fontsize(8.5)
+            cell.get_text().set_fontsize(9.5)
             cell.set_edgecolor(_EDGE)
 
     for j, width in enumerate(col_widths):
