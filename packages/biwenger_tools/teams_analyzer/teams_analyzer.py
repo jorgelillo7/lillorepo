@@ -38,9 +38,12 @@ logger = get_logger(__name__)
 def _clausulable_str(locked_until) -> str:
     if locked_until is None:
         return "Sí"
-    remaining = math.ceil((locked_until - time.time()) / 86400)
-    if remaining <= 0:
+    remaining_secs = locked_until - time.time()
+    if remaining_secs <= 0:
         return "Sí"
+    # floor: 11.28 days → 11 (matches "día 21" when today is the 10th)
+    # max(1, ...) so sub-day locks still show "No (1d)" instead of "Sí"
+    remaining = max(1, math.floor(remaining_secs / 86400))
     return f"No ({remaining}d)"
 
 

@@ -123,10 +123,10 @@ def build_table_image(
     n_rows = len(cell_data)
     n_cols = len(headers)
     extra_width = 0.20 * len(extra_cols)
-    # Narrower figure (9 in) so Telegram displays it at larger scale on mobile.
-    # Smaller height-per-row (0.26) keeps tall squads from scaling down.
     fig_w = 9 + extra_width
-    fig_h = max(2.5, 0.26 * n_rows + 1.4)
+    # Slow height growth so all images stay in the ~750–975 px range at 150 dpi.
+    # This keeps Telegram's display-scale consistent across small and large squads.
+    fig_h = min(6.5, max(3.5, 4.5 + 0.06 * n_rows))
 
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     fig.patch.set_facecolor("white")
