@@ -8,6 +8,8 @@ logger = get_logger(__name__)
 
 TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 TELEGRAM_SEND_DOCUMENT_URL = "https://api.telegram.org/bot{token}/sendDocument"
+TELEGRAM_SET_COMMANDS_URL = "https://api.telegram.org/bot{token}/setMyCommands"
+TELEGRAM_SET_MENU_BUTTON_URL = "https://api.telegram.org/bot{token}/setChatMenuButton"
 
 
 def send_telegram_message(
@@ -65,3 +67,31 @@ def send_telegram_document(
         logger.info("Telegram document sent.", extra={"filename": filename})
     except Exception as e:
         logger.error("Failed to send Telegram document.", extra={"error": str(e)})
+
+
+def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
+    """Registers bot commands so they appear in the Telegram '/' menu.
+
+    Each entry in `commands` must have 'command' (lowercase, no slash)
+    and 'description' keys.
+    """
+    url = TELEGRAM_SET_COMMANDS_URL.format(token=bot_token)
+    try:
+        response = requests.post(url, json={"commands": commands}, timeout=15)
+        response.raise_for_status()
+        logger.info("Bot commands registered.", extra={"count": len(commands)})
+    except Exception as e:
+        logger.error("Failed to register bot commands.", extra={"error": str(e)})
+
+
+def set_commands_menu_button(bot_token: str) -> None:
+    """Sets the bot's menu button to show the registered command list."""
+    url = TELEGRAM_SET_MENU_BUTTON_URL.format(token=bot_token)
+    try:
+        response = requests.post(
+            url, json={"menu_button": {"type": "commands"}}, timeout=15
+        )
+        response.raise_for_status()
+        logger.info("Menu button set to 'commands'.")
+    except Exception as e:
+        logger.error("Failed to set menu button.", extra={"error": str(e)})
