@@ -15,7 +15,9 @@ app = Flask(__name__)
 _HELP_TEXT = (
     "<b>Biwenger Bot</b>\n\n"
     "/analizar — Análisis completo (todos los equipos)\n"
-    "/myTeam — Análisis solo de mi equipo\n"
+    "/myteam — Análisis solo de mi equipo\n"
+    "/mercado — Solo el mercado\n"
+    "/alinear — Aplica la mejor alineación posible\n"
     "/help — Muestra este mensaje"
 )
 
@@ -31,6 +33,7 @@ def webhook():
     message = body.get("message", {})
     chat_id = str(message.get("chat", {}).get("id", ""))
     text = (message.get("text") or "").strip()
+    text_lower = text.lower()
 
     if chat_id != config.TELEGRAM_CHAT_ID:
         logger.info(
@@ -39,7 +42,7 @@ def webhook():
         )
         return "", 200
 
-    if text.startswith("/analizar"):
+    if text_lower.startswith("/analizar"):
         logger.info("Webhook: /analizar received — triggering job (all)")
         job_trigger.trigger_analyzer_job(
             config.GCP_PROJECT_ID,
@@ -47,15 +50,31 @@ def webhook():
             config.CLOUD_RUN_JOB_NAME,
             mode="all",
         )
-    elif text.startswith("/myTeam"):
-        logger.info("Webhook: /myTeam received — triggering job (my_team)")
+    elif text_lower.startswith("/myteam"):
+        logger.info("Webhook: /myteam received — triggering job (my_team)")
         job_trigger.trigger_analyzer_job(
             config.GCP_PROJECT_ID,
             config.CLOUD_RUN_REGION,
             config.CLOUD_RUN_JOB_NAME,
             mode="my_team",
         )
-    elif text.startswith("/help"):
+    elif text_lower.startswith("/mercado"):
+        logger.info("Webhook: /mercado received — triggering job (market)")
+        job_trigger.trigger_analyzer_job(
+            config.GCP_PROJECT_ID,
+            config.CLOUD_RUN_REGION,
+            config.CLOUD_RUN_JOB_NAME,
+            mode="market",
+        )
+    elif text_lower.startswith("/alinear"):
+        logger.info("Webhook: /alinear received — triggering job (alinear)")
+        job_trigger.trigger_analyzer_job(
+            config.GCP_PROJECT_ID,
+            config.CLOUD_RUN_REGION,
+            config.CLOUD_RUN_JOB_NAME,
+            mode="alinear",
+        )
+    elif text_lower.startswith("/help"):
         logger.info("Webhook: /help received")
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,

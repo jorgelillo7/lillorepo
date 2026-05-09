@@ -4,6 +4,8 @@ import pytest
 
 from packages.biwenger_tools.teams_analyzer.teams_analyzer import main
 
+_DUMMY_IMG = b"PNG"
+
 
 @pytest.fixture(autouse=True)
 def mock_config_module():
@@ -37,9 +39,12 @@ def mock_all_dependencies():
             "packages.biwenger_tools.teams_analyzer.teams_analyzer.check_api_health"
         ) as mock_health,
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer."
-            "send_telegram_document"
+            "packages.biwenger_tools.teams_analyzer.teams_analyzer.send_telegram_photo"
         ) as mock_send,
+        patch(
+            "packages.biwenger_tools.teams_analyzer.teams_analyzer.build_table_image",
+            return_value=_DUMMY_IMG,
+        ),
         patch("packages.biwenger_tools.teams_analyzer.teams_analyzer.time.sleep"),
         patch(
             "packages.biwenger_tools.teams_analyzer.teams_analyzer.time.time",
@@ -115,7 +120,8 @@ def mock_all_dependencies():
 
 
 def _sent_captions(mock_send):
-    return [call.args[4] for call in mock_send.call_args_list]
+    # send_telegram_photo(token, chat_id, image_bytes, caption)
+    return [call.args[3] for call in mock_send.call_args_list]
 
 
 def test_main_success(mock_all_dependencies):
@@ -127,7 +133,7 @@ def test_main_success(mock_all_dependencies):
     mock_all_dependencies["biwenger"].get_league_users.assert_called_once()
     mock_all_dependencies["biwenger"].get_market_players.assert_called_once()
 
-    # Mode "all": mi equipo CSV + Manager B CSV + mercado CSV = 3 documents
+    # Mode "all": mi equipo image + Manager B image + mercado image = 3 photos
     assert mock_all_dependencies["send"].call_count == 3
 
     captions = _sent_captions(mock_all_dependencies["send"])

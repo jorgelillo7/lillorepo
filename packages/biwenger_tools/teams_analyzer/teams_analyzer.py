@@ -1,9 +1,11 @@
 """Orquestador del analizador de equipos.
 
 Modos (ANALYSIS_MODE env var):
-  daily   — mi equipo + mercado como CSV (cron diario)
-  all     — todos los equipos + mercado como CSV (/analizar)
-  my_team — solo mi equipo como CSV (/myTeam)
+  daily   — mi equipo + mercado (texto compacto, cron diario)
+  all     — todos los equipos como imagen PNG + mercado (/analizar)
+  my_team — solo mi equipo (texto compacto) (/myTeam)
+  market  — solo mercado (texto compacto) (/mercado)
+  alinear — auto-alineacion Biwenger (/alinear)
 """
 
 import math
@@ -11,18 +13,23 @@ import time
 from datetime import datetime
 
 from packages.biwenger_tools.teams_analyzer import config
+from packages.biwenger_tools.teams_analyzer.logic.image_formatter import (
+    build_table_image,
+)
+from packages.biwenger_tools.teams_analyzer.logic.lineup import (
+    format_lineup_message,
+    pick_lineup,
+)
 from packages.biwenger_tools.teams_analyzer.logic.player_matching import (
     build_jp_index,
     find_player_match,
 )
-from packages.biwenger_tools.teams_analyzer.telegram_formatter import (
-    build_all_teams_csv,
-    build_market_csv,
-    build_team_csv,
-)
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
-from core.sdk.telegram import send_telegram_document
+from core.sdk.telegram import (
+    send_telegram_message,
+    send_telegram_photo,
+)
 from core.utils import get_logger
 
 logger = get_logger(__name__)
@@ -31,23 +38,29 @@ logger = get_logger(__name__)
 def _clausulable_str(locked_until) -> str:
     if locked_until is None:
         return "Sí"
-    remaining = math.ceil((locked_until - time.time()) / 86400)
-    if remaining <= 0:
+    remaining_secs = locked_until - time.time()
+    if remaining_secs <= 0:
         return "Sí"
+    # floor: 11.28 days → 11 (matches "día 21" when today is the 10th)
+    # max(1, ...) so sub-day locks still show "No (1d)" instead of "Sí"
+    remaining = max(1, math.floor(remaining_secs / 86400))
     return f"No ({remaining}d)"
 
 
 def _clause_str(clause) -> str:
     if not clause:
         return "-"
-    return f"{round(int(clause) / 1_000_000)}M"
+    m = int(clause) / 1_000_000
+    return f"{m:.1f}M" if int(clause) % 1_000_000 else f"{int(m)}M"
 
 
 def _build_row(biwenger_player: dict, jp_index: dict) -> dict:
     name = biwenger_player.get("name", "N/A")
     return {
+        "bw_id": biwenger_player.get("id"),
         "name": name,
         "position_id": biwenger_player.get("position"),
+        "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
         "jp_player": find_player_match(name, jp_index),
     }
@@ -87,11 +100,9 @@ def _build_squad_rows(
     return rows
 
 
-def _send_csv(
-    token: str, chat_id: str, data: bytes, caption: str, filename: str
-) -> None:
-    send_telegram_document(token, chat_id, filename, data, caption)
-    time.sleep(0.4)
+def _send_image(token: str, chat_id: str, image: bytes, caption: str) -> None:
+    send_telegram_photo(token, chat_id, image, caption)
+    time.sleep(0.5)
 
 
 def main():
@@ -154,13 +165,20 @@ def main():
                     )
                 time.sleep(0.5)
 
-            for data, caption, filename in build_all_teams_csv(my_team, rivals):
-                _send_csv(token, chat_id, data, caption, filename)
+            img = build_table_image(my_team, "🛡️ Mi equipo")
+            _send_image(token, chat_id, img, "🛡️ Mi equipo")
+            for manager_name, rows in rivals.items():
+                img = build_table_image(
+                    rows,
+                    f"👤 {manager_name}",
+                    extra_cols=["Clausulable", "Cláusula"],
+                )
+                _send_image(token, chat_id, img, f"👤 {manager_name}")
 
             market_players = biwenger.get_market_players(config.MARKET_URL)
             market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
-            data, caption, filename = build_market_csv(market_rows)
-            _send_csv(token, chat_id, data, caption, filename)
+            img = build_table_image(market_rows, "🛒 Mercado")
+            _send_image(token, chat_id, img, "🛒 Mercado")
 
             logger.info(
                 "All-teams analysis sent.",
@@ -172,22 +190,65 @@ def main():
                 config.USER_SQUAD_URL, biwenger.user_id
             )
             my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
-            data, caption, filename = build_team_csv(my_team)
-            _send_csv(token, chat_id, data, caption, filename)
+            img = build_table_image(my_team, "Mi equipo")
+            _send_image(token, chat_id, img, "Mi equipo")
             logger.info("My-team analysis sent.", extra={"size": len(my_team)})
+
+        elif mode == "market":
+            market_players = biwenger.get_market_players(config.MARKET_URL)
+            market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
+            img = build_table_image(market_rows, "Mercado")
+            _send_image(token, chat_id, img, "Mercado")
+            logger.info("Market analysis sent.", extra={"size": len(market_rows)})
+
+        elif mode == "alinear":
+            my_squad = biwenger.get_manager_squad(
+                config.USER_SQUAD_URL, biwenger.user_id
+            )
+            my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
+            result = pick_lineup(my_team)
+            if result is None:
+                send_telegram_message(
+                    bot_token=token,
+                    chat_id=chat_id,
+                    text="No se pudo calcular la alineacion (jugadores insuficientes).",
+                )
+                return
+            starters_ids = [r["bw_id"] for r, _ in result["starters"]]
+            reserves_ids = [r["bw_id"] for r in result["reserves"]]
+            reserves_ids += [None] * (4 - len(reserves_ids))
+            biwenger.set_lineup(
+                config.LINEUP_URL,
+                result["formation"],
+                starters_ids,
+                reserves_ids,
+                result["captain"]["bw_id"],
+            )
+            send_telegram_message(
+                bot_token=token,
+                chat_id=chat_id,
+                text=format_lineup_message(result),
+            )
+            logger.info(
+                "Lineup applied.",
+                extra={
+                    "formation": result["formation"],
+                    "total_sf": result["total_sf"],
+                },
+            )
 
         else:  # "daily" (default)
             my_squad = biwenger.get_manager_squad(
                 config.USER_SQUAD_URL, biwenger.user_id
             )
             my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
-            data, caption, filename = build_team_csv(my_team)
-            _send_csv(token, chat_id, data, caption, filename)
+            img = build_table_image(my_team, "Mi equipo")
+            _send_image(token, chat_id, img, "Mi equipo")
 
             market_players = biwenger.get_market_players(config.MARKET_URL)
             market_rows = _build_market_rows(market_players, biwenger_players, jp_index)
-            data, caption, filename = build_market_csv(market_rows)
-            _send_csv(token, chat_id, data, caption, filename)
+            img = build_table_image(market_rows, "Mercado")
+            _send_image(token, chat_id, img, "Mercado")
 
             logger.info(
                 "Daily analysis sent.",

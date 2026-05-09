@@ -18,6 +18,7 @@ BIWENGER_CF_BASE = "https://cf.biwenger.com/api/v2"
 LOGIN_URL = f"{BIWENGER_API_BASE}/auth/login"
 ACCOUNT_URL = f"{BIWENGER_API_BASE}/account"
 MARKET_URL = f"{BIWENGER_API_BASE}/market"
+LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
 
@@ -243,3 +244,28 @@ class BiwengerClient:
                 break
         logger.info("All clausulazos fetched.", extra={"total": len(all_entries)})
         return {"data": all_entries}
+
+    def set_lineup(
+        self,
+        lineup_url: str,
+        formation: str,
+        players_id: list,
+        reserves_id: list,
+        captain: int,
+    ) -> dict:
+        """Sets the lineup via PUT. Returns the API response dict."""
+        payload = {
+            "lineup": {
+                "type": formation,
+                "playersID": players_id,
+                "reservesID": reserves_id,
+                "captain": captain,
+            }
+        }
+        response = self.session.put(lineup_url, json=payload)
+        response.raise_for_status()
+        logger.info(
+            "Lineup set.",
+            extra={"formation": formation, "captain": captain},
+        )
+        return response.json()
