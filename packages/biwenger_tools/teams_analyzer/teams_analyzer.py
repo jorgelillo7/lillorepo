@@ -214,7 +214,10 @@ def main():
                     text="No se pudo calcular la alineacion (jugadores insuficientes).",
                 )
                 return
-            starters_ids = [r["bw_id"] for r, _ in result["starters"]]
+            starters_ids = [
+                r["bw_id"]
+                for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
+            ]
             reserves_ids = [r["bw_id"] for r in result["reserves"]]
             reserves_ids += [None] * (4 - len(reserves_ids))
             biwenger.set_lineup(
