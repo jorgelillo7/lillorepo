@@ -262,7 +262,21 @@ class BiwengerClient:
                 "captain": captain,
             }
         }
+        logger.info(
+            "Sending lineup payload.",
+            extra={
+                "formation": formation,
+                "playersID": players_id,
+                "reservesID": reserves_id,
+                "captain": captain,
+            },
+        )
         response = self.session.put(lineup_url, json=payload)
+        if not response.ok:
+            logger.error(
+                "Lineup PUT failed.",
+                extra={"status": response.status_code, "body": response.text[:500]},
+            )
         response.raise_for_status()
         logger.info(
             "Lineup set.",

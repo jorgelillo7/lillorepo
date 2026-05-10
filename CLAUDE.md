@@ -118,5 +118,5 @@ Index file: `MEMORY.md`. Each memory is a separate `.md` file in the same direct
 - This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
 - `BUILD.bazel` files are the source of truth for Bazel dependencies.
 - See `AGENTS.md` for context on project agents.
-- **Commits:** always write commit messages in English. Do not add a `Co-Authored-By` line.
+- **Commits and PRs:** always write commit messages and PR titles/descriptions in English. Do not add a `Co-Authored-By` line.
 - **Web UI design system:** see `packages/biwenger_tools/web/DESIGN.md` before touching templates — it defines the canonical color tokens, typography, and component rules.

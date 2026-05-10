@@ -27,6 +27,8 @@ FORMATIONS = [
 # Position IDs: 1=GK, 2=DEF, 3=MID, 4=FWD
 GK, DEF, MID, FWD = 1, 2, 3, 4
 
+_CAPTAIN_MAX_PRICE = 3_000_000
+
 
 def _sf(row: dict) -> int:
     jp = row.get("jp_player")
@@ -55,27 +57,25 @@ def _try_fill(players: list, slots: dict) -> list | None:
     Returns a list of (player, assigned_pos) for the starters, or None if the
     formation cannot be filled with the given players.
     Assigns the most-constrained positions first (fewest eligible players).
+
+    For multi-position players, prefer assigning to their primary (most
+    defensive) position: candidates whose position_id matches the slot being
+    filled come before candidates using an alt_position for that slot.
     """
-    # Find the next slot to fill — pick the position with fewest eligible players
     open_slots = [(pos, cnt) for pos, cnt in slots.items() if cnt > 0]
     if not open_slots:
         return []
 
-    avail_ids = {r["bw_id"] for r in players}
-
     def eligible_count(pos):
-        return sum(
-            1 for r in players if r["bw_id"] in avail_ids and pos in _positions(r)
-        )
+        return sum(1 for r in players if pos in _positions(r))
 
     pos_to_fill = min(open_slots, key=lambda pc: eligible_count(pc[0]))[0]
     new_slots = {**slots, pos_to_fill: slots[pos_to_fill] - 1}
 
-    # Try each player eligible for this position, best SF first
+    # Prefer players whose PRIMARY position matches the slot (most defensive use)
     candidates = sorted(
         (r for r in players if pos_to_fill in _positions(r)),
-        key=_sf,
-        reverse=True,
+        key=lambda r: (r.get("position_id") != pos_to_fill, -_sf(r)),
     )
     for player in candidates:
         remaining = [r for r in players if r["bw_id"] != player["bw_id"]]
@@ -93,13 +93,12 @@ def pick_lineup(squad_rows: list) -> dict | None:
     {
         "formation": "4-5-1",
         "starters": [(row, pos_id), ...],   # 11 entries
-        "reserves": [row, ...],              # up to 4, sorted SF desc
+        "reserves": [row | None, ...],       # 4 entries (None = empty slot)
         "captain": row,
         "total_sf": int,
     }
     """
     available = [r for r in squad_rows if _is_available(r)]
-    # Sort by SF desc — backtracking picks best candidates first
     available.sort(key=_sf, reverse=True)
 
     best: dict | None = None
@@ -116,11 +115,24 @@ def pick_lineup(squad_rows: list) -> dict | None:
             continue
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
-        reserves = sorted(
-            (r for r in available if r["bw_id"] not in starter_ids),
-            key=_sf,
-            reverse=True,
-        )[:4]
+        bench_pool = [r for r in available if r["bw_id"] not in starter_ids]
+        # Biwenger reserve slots are positional: slot1=GK, slot2=DEF, slot3=MID, slot4=FWD
+        used_ids: set = set()
+        reserves = []
+        for slot_pos in (GK, DEF, MID, FWD):
+            candidates = sorted(
+                (
+                    r for r in bench_pool
+                    if r["bw_id"] not in used_ids and slot_pos in _positions(r)
+                ),
+                key=_sf,
+                reverse=True,
+            )
+            if candidates:
+                reserves.append(candidates[0])
+                used_ids.add(candidates[0]["bw_id"])
+            else:
+                reserves.append(None)
 
         captain = _pick_captain([r for r, _ in assignment])
 
@@ -137,12 +149,30 @@ def pick_lineup(squad_rows: list) -> dict | None:
 
 
 def _pick_captain(starters: list) -> dict:
-    """Cheap players (< 3M) score double — pick highest SF among them.
-    Fall back to global highest SF if none are cheap.
+    """Captain must have price strictly < 3M (Biwenger API hard limit).
+
+    Among eligible players, pick the highest SF (all cheap players double
+    their score as captain, so relative SF ranking is the ordering criterion).
+
+    If price is 0 (unknown / not set in API), treat as unknown and exclude —
+    a 0-price player could be any value according to the API.
+
+    If no player has a known price < 3M, fall back to the cheapest player
+    with a known price (price > 0) to minimise the risk of an API rejection.
     """
-    cheap = [r for r in starters if r.get("price", 0) < 3_000_000]
-    pool = cheap if cheap else starters
-    return max(pool, key=_sf)
+    known_cheap = [
+        r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE
+    ]
+    if known_cheap:
+        return max(known_cheap, key=_sf)
+
+    # No player with a known cheap price — pick the cheapest non-zero-price player
+    with_price = [r for r in starters if r.get("price", 0) > 0]
+    if with_price:
+        return min(with_price, key=lambda r: r.get("price", 0))
+
+    # All prices unknown — fall back to best SF
+    return max(starters, key=_sf)
 
 
 def format_lineup_message(result: dict) -> str:
@@ -166,9 +196,11 @@ def format_lineup_message(result: dict) -> str:
             cap = " ©" if row["bw_id"] == captain["bw_id"] else ""
             lines.append(f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}")
 
-    if reserves:
+    slot_label = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
+    filled = [(slot_label[pos], r) for pos, r in zip((GK, DEF, MID, FWD), reserves) if r]
+    if filled:
         lines.append("\n<b>Suplentes:</b>")
-        for r in reserves:
-            lines.append(f"  {escape(r['name'])} (SF:{_sf(r)})")
+        for label, r in filled:
+            lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)})")
 
     return "\n".join(lines)
