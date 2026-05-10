@@ -3,38 +3,82 @@
 {% block title %}Estadísticas de Participación{% endblock %}
 
 {% block content %}
-<div class="card p-6 rounded-xl shadow-lg">
-    <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 text-center">Ranking de Participación</h2>
-    
-    {% if error %}
-        <div class="text-center text-red-500">{{ error }}</div>
-    {% elif stats %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full text-center">
-            <thead class="border-b border-gray-300">
-                <tr>
-                    <th class="p-4 text-left text-sm font-bold text-green-700 uppercase tracking-wider">Equipo</th>
-                    <th class="p-4 text-sm font-bold text-green-700 uppercase tracking-wider">Comunicados</th>
-                    <th class="p-4 text-sm font-bold text-green-700 uppercase tracking-wider">Crónicas</th>
-                    <th class="p-4 text-sm font-bold text-green-700 uppercase tracking-wider">Datos</th>
-                    <th class="p-4 text-sm font-bold text-green-700 uppercase tracking-wider">Cesiones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in stats %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                    <td class="p-4 whitespace-nowrap text-lg text-left">{{ row.autor }}</td>
-                    <td class="p-4 whitespace-nowrap text-lg font-bold">{{ row.comunicados }}</td>
-                    <td class="p-4 whitespace-nowrap text-lg font-bold">{{ row.cronicas }}</td>
-                    <td class="p-4 whitespace-nowrap text-lg font-bold">{{ row.datos }}</td>
-                    <td class="p-4 whitespace-nowrap text-lg font-bold">{{ row.cesiones }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-        <p class="text-center">No hay datos de participación disponibles.</p>
-    {% endif %}
+<h2 class="font-header text-2xl font-bold text-gray-800 mb-6">🏆 Ranking de Participación</h2>
+
+{% if error %}
+    <div class="card p-6 text-center text-red-500 rounded-xl">{{ error }}</div>
+{% elif stats %}
+
+{% set safe_max = stats[0].total if stats[0].total > 0 else 1 %}
+
+<!-- Desktop table -->
+<div class="card rounded-xl shadow-md overflow-x-auto hidden md:block">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="text-center px-4 py-3 font-semibold text-gray-500 w-12">#</th>
+                <th class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
+                <th class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-500">Comunicados</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-500">Crónicas</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-500">Datos</th>
+                <th class="text-center px-4 py-3 font-semibold text-gray-500">Cesiones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in stats %}
+            {% set i = loop.index %}
+            <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                <td class="px-4 py-3 text-center text-lg">
+                    {% if i == 1 %}🥇{% elif i == 2 %}🥈{% elif i == 3 %}🥉
+                    {% else %}<span class="text-gray-400 text-sm font-medium">{{ i }}</span>{% endif %}
+                </td>
+                <td class="px-5 py-3">
+                    <div class="font-semibold text-gray-800">{{ row.autor }}</div>
+                    <div class="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden w-28">
+                        <div class="h-full bg-green-500 rounded-full"
+                             style="width: {{ (row.total / safe_max * 100) | round | int }}%"></div>
+                    </div>
+                </td>
+                <td class="px-5 py-3 text-center font-bold text-green-700 text-base">{{ row.total }}</td>
+                <td class="px-4 py-3 text-center text-gray-600">{{ row.comunicados }}</td>
+                <td class="px-4 py-3 text-center text-gray-600">{{ row.cronicas }}</td>
+                <td class="px-4 py-3 text-center text-gray-600">{{ row.datos }}</td>
+                <td class="px-4 py-3 text-center text-gray-600">{{ row.cesiones }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
+
+<!-- Mobile cards -->
+<div class="md:hidden space-y-3">
+    {% for row in stats %}
+    {% set i = loop.index %}
+    <div class="card rounded-xl p-4 shadow-sm flex items-center gap-4">
+        <span class="text-2xl w-8 text-center flex-shrink-0">
+            {% if i == 1 %}🥇{% elif i == 2 %}🥈{% elif i == 3 %}🥉
+            {% else %}<span class="text-gray-300 font-bold text-sm">{{ i }}</span>{% endif %}
+        </span>
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-800 truncate">{{ row.autor }}</p>
+            <div class="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-green-500 rounded-full"
+                     style="width: {{ (row.total / safe_max * 100) | round | int }}%"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+                📢 {{ row.comunicados }} · 📖 {{ row.cronicas }} · 📊 {{ row.datos }} · 🤝 {{ row.cesiones }}
+            </p>
+        </div>
+        <div class="text-right flex-shrink-0">
+            <p class="font-bold text-lg text-green-700">{{ row.total }}</p>
+            <p class="text-xs text-gray-400">total</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+    <div class="card p-6 text-center text-gray-500 rounded-xl">No hay datos de participación disponibles.</div>
+{% endif %}
 {% endblock %}

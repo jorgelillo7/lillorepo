@@ -3,29 +3,32 @@
 {% block title %}Comunicados Oficiales{% endblock %}
 
 {% block content %}
-    <!-- Barra de búsqueda para filtrar -->
-    <div class="mb-8">
-        <input type="text" id="search-input" placeholder="Buscar en todos los comunicados..." 
-               class="w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
+    <!-- Barra de búsqueda -->
+    <div class="mb-6">
+        <div class="relative">
+            <input type="text" id="search-input" placeholder="Buscar en todos los comunicados..."
+                   class="w-full p-3 pr-10 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
+            <button id="clear-btn" onclick="clearSearch()"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl leading-none">×</button>
+        </div>
+        <p id="search-counter" class="hidden text-sm text-gray-500 mt-2 px-1"></p>
     </div>
 
-    <!-- Contenedor de los mensajes -->
+    <!-- Mensajes -->
     <div id="messages-container" class="space-y-6">
         {% if error %}
             <div class="card p-6 text-center text-red-500">{{ error }}</div>
         {% elif messages %}
             {% for message in messages %}
-            <article class="message-card card p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
+            <article class="message-card card p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900 message-title">{{ message.titulo }}</h2>
-                        <p class="text-sm font-medium text-green-700 mt-1 message-author">por {{ message.autor }}</p>
+                        <h2 class="text-2xl font-bold text-gray-900">{{ message.titulo }}</h2>
+                        <p class="text-sm font-medium text-green-700 mt-1">por {{ message.autor }}</p>
                     </div>
                     <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
                 </div>
-                <div class="prose max-w-none leading-relaxed message-content">
-                    {{ message.contenido | safe }}
-                </div>
+                <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe }}</div>
             </article>
             {% endfor %}
         {% else %}
@@ -35,105 +38,114 @@
         {% endif %}
     </div>
 
-    <!-- Componente de Paginación -->
-    <div id="pagination-container" class="mt-10 flex justify-center items-center space-x-2">
+    <!-- Paginación (server-side o client-side en búsqueda) -->
+    <div id="pagination-container" class="mt-10 flex justify-center items-center gap-2 flex-wrap">
         {% if total_pages > 1 %}
-            <!-- Botón Anterior -->
             <a href="{{ url_for('season.comunicados', season=season, page=current_page - 1) }}"
-               class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == 1 %}pointer-events-none opacity-50{% endif %}">
+               class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == 1 %}pointer-events-none opacity-40{% endif %}">
                 Anterior
             </a>
-
-            <!-- Números de Página -->
             {% for page_num in range(1, total_pages + 1) %}
                 <a href="{{ url_for('season.comunicados', season=season, page=page_num) }}"
-                   class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100
-                          {% if page_num == current_page %}bg-green-600 text-white border-green-600 hover:bg-green-700{% else %}text-gray-600{% endif %}">
+                   class="px-4 py-2 border rounded-md hover:bg-gray-100
+                          {% if page_num == current_page %}bg-green-600 text-white border-green-600 hover:bg-green-700{% else %}border-gray-300 text-gray-600{% endif %}">
                     {{ page_num }}
                 </a>
             {% endfor %}
-
-            <!-- Botón Siguiente -->
             <a href="{{ url_for('season.comunicados', season=season, page=current_page + 1) }}"
-               class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == total_pages %}pointer-events-none opacity-50{% endif %}">
+               class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 {% if current_page == total_pages %}pointer-events-none opacity-40{% endif %}">
                 Siguiente
             </a>
         {% endif %}
     </div>
 
-    <!-- Mensaje para cuando no hay resultados de búsqueda -->
-    <div id="no-results" class="hidden card p-6 text-center">
-        <h3 class="text-xl font-medium">No se encontraron resultados.</h3>
-        <p class="text-gray-500 mt-2">Prueba con otros términos de búsqueda.</p>
+    <!-- No results -->
+    <div id="no-results" class="hidden card p-6 text-center mt-6">
+        <h3 class="text-xl font-medium text-gray-700">No se encontraron resultados.</h3>
+        <p class="text-gray-400 mt-1 text-sm">Prueba con otros términos.</p>
     </div>
 
     <script>
-        // Almacenamos todos los comunicados en una variable JS
         const allMessages = {{ all_comunicados | tojson }};
-        
+        const PAGE_SIZE = 7;
+
         const searchInput = document.getElementById('search-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const counter = document.getElementById('search-counter');
         const messagesContainer = document.getElementById('messages-container');
         const paginationContainer = document.getElementById('pagination-container');
         const noResultsDiv = document.getElementById('no-results');
-        
-        // Guardamos el contenido original para restaurarlo si se borra la búsqueda
+
         const originalMessagesHTML = messagesContainer.innerHTML;
+        const originalPaginationHTML = paginationContainer.innerHTML;
 
-        // Función para crear el HTML de una tarjeta de mensaje
-        function createMessageCard(message) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = message.contenido;
-            const contentText = tempDiv.textContent || tempDiv.innerText || "";
+        let filteredMessages = [];
+        let searchPage = 1;
 
-            return {
-                html: `
-                <article class="message-card card p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 message-title">${message.titulo}</h2>
-                            <p class="text-sm font-medium text-green-700 mt-1 message-author">por ${message.autor}</p>
-                        </div>
-                        <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${message.fecha}</span>
+        function createCardHtml(msg) {
+            return `
+            <article class="message-card card p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">${msg.titulo}</h2>
+                        <p class="text-sm font-medium text-green-700 mt-1">por ${msg.autor}</p>
                     </div>
-                    <div class="prose max-w-none leading-relaxed message-content">
-                        ${message.contenido}
-                    </div>
-                </article>
-                `,
-                searchableText: (message.titulo + message.autor + contentText).toLowerCase()
-            };
+                    <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${msg.fecha}</span>
+                </div>
+                <div class="prose max-w-none leading-relaxed">${msg.contenido}</div>
+            </article>`;
+        }
+
+        function renderSearchPage(page) {
+            searchPage = page;
+            const totalPages = Math.ceil(filteredMessages.length / PAGE_SIZE);
+            const start = (page - 1) * PAGE_SIZE;
+            const pageItems = filteredMessages.slice(start, start + PAGE_SIZE);
+            messagesContainer.innerHTML = pageItems.map(createCardHtml).join('');
+
+            if (totalPages <= 1) {
+                paginationContainer.innerHTML = '';
+                return;
+            }
+            let btns = '';
+            if (page > 1) btns += `<button onclick="renderSearchPage(${page - 1})" class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Anterior</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                btns += `<button onclick="renderSearchPage(${i})" class="px-4 py-2 border rounded-md hover:bg-gray-100 ${i === page ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' : 'border-gray-300 text-gray-600'}">${i}</button>`;
+            }
+            if (page < totalPages) btns += `<button onclick="renderSearchPage(${page + 1})" class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Siguiente</button>`;
+            paginationContainer.innerHTML = `<div class="flex justify-center gap-2 flex-wrap">${btns}</div>`;
+        }
+
+        function clearSearch() {
+            searchInput.value = '';
+            clearBtn.classList.add('hidden');
+            counter.classList.add('hidden');
+            noResultsDiv.classList.add('hidden');
+            messagesContainer.innerHTML = originalMessagesHTML;
+            paginationContainer.innerHTML = originalPaginationHTML;
         }
 
         searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase().trim();
+            const q = this.value.toLowerCase().trim();
+            clearBtn.classList.toggle('hidden', !q);
 
-            if (searchTerm) {
-                // Si hay búsqueda, ocultamos la paginación
-                paginationContainer.style.display = 'none';
-                noResultsDiv.classList.add('hidden');
-
-                const filteredMessages = allMessages.filter(msg => {
-                    const cardData = createMessageCard(msg);
-                    return cardData.searchableText.includes(searchTerm);
-                });
-                
-                messagesContainer.innerHTML = ''; // Limpiamos el contenedor
-
-                if (filteredMessages.length > 0) {
-                    filteredMessages.forEach(msg => {
-                        messagesContainer.innerHTML += createMessageCard(msg).html;
-                    });
-                } else {
-                    // Mostramos el mensaje de "no hay resultados"
-                    noResultsDiv.classList.remove('hidden');
-                }
-
-            } else {
-                // Si la búsqueda está vacía, restauramos la vista original
-                paginationContainer.style.display = 'flex';
-                noResultsDiv.classList.add('hidden');
-                messagesContainer.innerHTML = originalMessagesHTML;
+            if (!q) {
+                clearSearch();
+                return;
             }
+
+            filteredMessages = allMessages.filter(msg => {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = msg.contenido;
+                return (msg.titulo + msg.autor + (tmp.textContent || '')).toLowerCase().includes(q);
+            });
+
+            noResultsDiv.classList.toggle('hidden', filteredMessages.length > 0);
+            counter.textContent = `${filteredMessages.length} resultado${filteredMessages.length !== 1 ? 's' : ''} para «${this.value.trim()}»`;
+            counter.classList.toggle('hidden', filteredMessages.length === 0);
+
+            if (filteredMessages.length > 0) renderSearchPage(1);
+            else { messagesContainer.innerHTML = ''; paginationContainer.innerHTML = ''; }
         });
     </script>
 {% endblock %}

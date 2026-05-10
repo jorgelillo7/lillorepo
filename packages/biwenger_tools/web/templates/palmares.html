@@ -5,19 +5,19 @@
 {% block content %}
 <div class="space-y-8">
     {% if error %}
-        <div class="card p-6 text-center text-red-500">{{ error }}</div>
+        <div class="card p-6 text-center text-red-500 rounded-xl">{{ error }}</div>
     {% elif seasons %}
         {% for season, data in seasons %}
         <div class="card p-6 rounded-xl shadow-lg">
-            <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 border-b border-gray-300 pb-3">{{ season }}</h2>
+            <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 border-b border-gray-200 pb-3">{{ season }}</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Columna de podio -->
+                <!-- Podio -->
                 <div class="space-y-4">
                     <div class="flex items-center">
                         <span class="text-4xl mr-4">🥇</span>
                         <div>
-                            <p class="font-bold text-xl text-gray-800">{{ data.campeon }}</p>
-                            <p class="text-sm text-gray-500">Campeón</p>
+                            <span class="font-bold text-xl bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">{{ data.campeon }}</span>
+                            <p class="text-sm text-gray-500 mt-1">Campeón</p>
                         </div>
                     </div>
                     <div class="flex items-center">
@@ -35,22 +35,25 @@
                         </div>
                     </div>
                 </div>
-                <!-- Columna de otros datos -->
+                <!-- Datos de temporada -->
                 <div class="space-y-4">
                     <h3 class="font-header text-xl font-bold text-green-700">Datos de la Temporada</h3>
                     <p><strong class="font-medium text-gray-600">Puntuación:</strong> {{ data.puntuacion }}</p>
                     <p><strong class="font-medium text-gray-600">Récord de Puntos:</strong> {{ data.record_puntos }}</p>
                     <p><strong class="font-medium text-gray-600">Más Jornadas Ganadas:</strong> {{ data.jornadas_ganadas }}</p>
-                    
+
                     <h3 class="font-header text-xl font-bold text-red-600 mt-6">Les toca pagar a:</h3>
                     <ul class="list-none space-y-2">
                         {% for otro in data.otros %}
-                            <li>
-                                <span class="inline-block w-6 text-center">
-                                {% if otro.tipo == 'farolillo' %}🔴{% endif %}
-                                </span>
-                                {{ otro.valor }}
-                            </li>
+                        <li class="flex items-center gap-2">
+                            <span>
+                                {% if otro.tipo == 'farolillo' %}🔴
+                                {% elif otro.tipo == 'multa' %}💸
+                                {% elif otro.tipo == 'sancion' %}📋
+                                {% else %}•{% endif %}
+                            </span>
+                            <span>{{ otro.valor }}</span>
+                        </li>
                         {% endfor %}
                     </ul>
                 </div>
@@ -58,7 +61,7 @@
         </div>
         {% endfor %}
     {% else %}
-        <p class="text-center card p-6">No hay datos del palmarés disponibles.</p>
+        <p class="text-center card p-6 rounded-xl text-gray-500">No hay datos del palmarés disponibles.</p>
     {% endif %}
 </div>
 {% endblock %}

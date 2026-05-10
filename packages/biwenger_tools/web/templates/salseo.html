@@ -1,329 +1,140 @@
 {% extends "base.html" %}
 
-{% block title %}Salseo: Datos, Clausulazos y Crónicas{% endblock %}
+{% block title %}Salseo — Crónicas y Datos{% endblock %}
 
 {% block content %}
-    <!-- Controles para filtrar -->
-    <div class="flex justify-center space-x-4 mb-8">
-        <button id="btn-cronicas" class="filter-btn active px-6 py-2 rounded-full font-semibold transition">Crónicas</button>
-        <button id="btn-datos" class="filter-btn px-6 py-2 rounded-full font-semibold transition">Mr. Lucen (Datos)</button>
-        <button id="btn-clausulazos" class="filter-btn px-6 py-2 rounded-full font-semibold transition">Clausulazos</button>
-    </div>
+{% if error %}
+    <div class="card p-6 text-center text-red-500 rounded-xl mb-6">{{ error }}</div>
+{% endif %}
 
-    <!-- Barra de búsqueda (solo visible en Crónicas y Datos) -->
-    <div class="mb-8" id="search-wrapper">
+<!-- Tabs -->
+<div class="flex gap-2 mb-6">
+    <button id="btn-cronicas" onclick="setTab('cronicas')"
+            class="tab-btn active-tab px-5 py-2 rounded-lg font-semibold text-sm transition">📰 Crónicas</button>
+    <button id="btn-datos" onclick="setTab('datos')"
+            class="tab-btn px-5 py-2 rounded-lg font-semibold text-sm transition">📊 Mr. Lucen (Datos)</button>
+</div>
+
+<!-- Barra de búsqueda -->
+<div class="mb-6">
+    <div class="relative">
         <input type="text" id="search-input" placeholder="Buscar en la sección actual..."
-               class="w-full p-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
+               class="w-full p-3 pr-10 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
+        <button id="clear-btn" onclick="clearSearch()"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl leading-none">×</button>
     </div>
+</div>
 
-    {% if error %}
-        <div class="card p-6 text-center text-red-500">{{ error }}</div>
-    {% endif %}
+<!-- Crónicas container -->
+<div id="cronicas-container" class="space-y-6">
+    {% for message in cronicas %}
+    <article class="card p-6 rounded-xl shadow-md">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">{{ message.titulo }}</h2>
+                <p class="text-sm font-medium text-green-700 mt-1">por {{ message.autor }}</p>
+            </div>
+            <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
+        </div>
+        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe }}</div>
+    </article>
+    {% else %}
+    <div class="card p-8 text-center text-gray-400 rounded-xl">No hay crónicas esta temporada.</div>
+    {% endfor %}
+</div>
 
-    <!-- Contenedor para Crónicas (visible por defecto) -->
-    <div id="cronicas-container" class="content-section space-y-6">
-        {% for message in cronicas %}
-        <article class="message-card card p-6 rounded-xl shadow-md">
+<!-- Datos container -->
+<div id="datos-container" class="space-y-6 hidden">
+    {% for message in datos %}
+    <article class="card p-6 rounded-xl shadow-md">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">{{ message.titulo }}</h2>
+                <p class="text-sm font-medium text-green-700 mt-1">por {{ message.autor }}</p>
+            </div>
+            <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
+        </div>
+        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe }}</div>
+    </article>
+    {% else %}
+    <div class="card p-8 text-center text-gray-400 rounded-xl">No hay datos curiosos esta temporada.</div>
+    {% endfor %}
+</div>
+
+<!-- No results -->
+<div id="no-results" class="hidden card p-6 text-center text-gray-500 rounded-xl">
+    No se encontraron resultados.
+</div>
+
+<style>
+    .tab-btn { background-color: #f1f5f9; color: #64748b; }
+    .tab-btn.active-tab { background-color: #38a169; color: white; }
+</style>
+
+<script>
+const allData = {
+    cronicas: {{ cronicas | tojson }},
+    datos: {{ datos | tojson }}
+};
+let currentTab = 'cronicas';
+const originalHtml = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+    originalHtml.cronicas = document.getElementById('cronicas-container').innerHTML;
+    originalHtml.datos = document.getElementById('datos-container').innerHTML;
+
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam === 'datos') setTab('datos');
+});
+
+function setTab(tab) {
+    currentTab = tab;
+    ['cronicas', 'datos'].forEach(t => {
+        document.getElementById('btn-' + t).classList.toggle('active-tab', t === tab);
+        document.getElementById(t + '-container').classList.toggle('hidden', t !== tab);
+    });
+    clearSearch();
+}
+
+function clearSearch() {
+    const input = document.getElementById('search-input');
+    input.value = '';
+    document.getElementById('clear-btn').classList.add('hidden');
+    document.getElementById('no-results').classList.add('hidden');
+    const container = document.getElementById(currentTab + '-container');
+    if (originalHtml[currentTab] !== undefined) container.innerHTML = originalHtml[currentTab];
+}
+
+document.getElementById('search-input').addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    document.getElementById('clear-btn').classList.toggle('hidden', !q);
+    document.getElementById('no-results').classList.add('hidden');
+    const container = document.getElementById(currentTab + '-container');
+
+    if (!q) {
+        container.innerHTML = originalHtml[currentTab] || '';
+        return;
+    }
+
+    const filtered = allData[currentTab].filter(m => {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = m.contenido;
+        return (m.titulo + m.autor + (tmp.textContent || '')).toLowerCase().includes(q);
+    });
+
+    document.getElementById('no-results').classList.toggle('hidden', filtered.length > 0);
+    container.innerHTML = filtered.map(m => `
+        <article class="card p-6 rounded-xl shadow-md">
             <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-900 message-title">{{ message.titulo }}</h2>
-                    <p class="text-sm font-medium text-green-700 mt-1 message-author">por {{ message.autor }}</p>
+                    <h2 class="text-xl font-bold text-gray-900">${m.titulo}</h2>
+                    <p class="text-sm font-medium text-green-700 mt-1">por ${m.autor}</p>
                 </div>
-                <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
+                <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${m.fecha}</span>
             </div>
-            <div class="prose max-w-none leading-relaxed message-content">{{ message.contenido | safe }}</div>
+            <div class="prose max-w-none leading-relaxed">${m.contenido}</div>
         </article>
-        {% endfor %}
-    </div>
-
-    <!-- Contenedor para Datos Curiosos (oculto por defecto) -->
-    <div id="datos-container" class="content-section space-y-6 hidden">
-        {% for message in datos %}
-        <article class="message-card card p-6 rounded-xl shadow-md">
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900 message-title">{{ message.titulo }}</h2>
-                    <p class="text-sm font-medium text-green-700 mt-1 message-author">por {{ message.autor }}</p>
-                </div>
-                <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
-            </div>
-            <div class="prose max-w-none leading-relaxed message-content">{{ message.contenido | safe }}</div>
-        </article>
-        {% endfor %}
-    </div>
-
-    <!-- Contenedor para Clausulazos (oculto por defecto) -->
-    <div id="clausulazos-container" class="content-section hidden">
-        {% if clausulazos_error %}
-            <div class="card p-6 text-center text-red-500">{{ clausulazos_error }}</div>
-        {% elif clausulazos %}
-
-            <!-- Tabla de Justicia -->
-            {% if tabla_justicia %}
-            <div class="mb-10">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
-                    <div class="flex rounded-full overflow-hidden border border-gray-200 text-sm font-semibold">
-                        <button id="btn-tabla-ataques"
-                                onclick="setTablaMode('ataques')"
-                                class="tabla-mode-btn active-tabla px-5 py-2 transition">
-                            🗡️ Realizados
-                        </button>
-                        <button id="btn-tabla-defensa"
-                                onclick="setTablaMode('defensa')"
-                                class="tabla-mode-btn px-5 py-2 transition">
-                            🛡️ Recibidos
-                        </button>
-                    </div>
-                </div>
-                <div class="card rounded-2xl shadow-md overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-gray-50 border-b border-gray-200">
-                                <th class="text-left px-5 py-3 font-semibold text-gray-600">#</th>
-                                <th class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
-                                <th id="th-count" class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
-                                <th id="th-objetivo" class="text-left px-5 py-3 font-semibold text-gray-600">Punto de mira</th>
-                                <th class="text-left px-5 py-3 font-semibold text-gray-600">Desglose</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-justicia-body"></tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Cards de clausulazos -->
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Historial</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for c in clausulazos %}
-                <div class="clausulazo-card card rounded-2xl shadow-md p-6 flex flex-col items-center text-center">
-                    <p class="text-xs text-gray-400 mb-3">{{ c.fecha }}</p>
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">{{ c.jugador }}</h3>
-                    <div class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-4 w-full">
-                        <span class="font-medium text-gray-700 truncate">{{ c.equipo_vendedor }}</span>
-                        <span class="text-gray-400 flex-shrink-0">→</span>
-                        <span class="font-medium text-gray-700 truncate">{{ c.equipo_comprador }}</span>
-                    </div>
-                    <div class="clausulazo-price mt-auto">
-                        <span class="text-lg font-bold text-green-700">
-                            {{ "{:,.0f}".format(c.precio).replace(",", ".") }} €
-                        </span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <div class="card p-6 text-center text-gray-500">
-                No hay clausulazos registrados todavía.
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Mensaje para cuando no hay resultados de búsqueda -->
-    <div id="no-results" class="hidden card p-6 text-center">
-        <h3 class="text-xl font-medium">No se encontraron resultados.</h3>
-    </div>
-
-    <style>
-        .filter-btn {
-            background-color: #e2e8f0;
-            color: #4a5568;
-        }
-        .filter-btn.active {
-            background-color: #38a169;
-            color: white;
-        }
-        .clausulazo-card {
-            border-top: 3px solid #38a169;
-        }
-        .clausulazo-price {
-            background-color: #f0fff4;
-            border-radius: 9999px;
-            padding: 4px 16px;
-        }
-        .tabla-mode-btn {
-            background-color: #f1f5f9;
-            color: #64748b;
-        }
-        .tabla-mode-btn.active-tabla {
-            background-color: #38a169;
-            color: white;
-        }
-    </style>
-
-    <script>
-        const allCronicas = {{ cronicas | tojson }};
-        const allDatos = {{ datos | tojson }};
-
-        const btnCronicas = document.getElementById('btn-cronicas');
-        const btnDatos = document.getElementById('btn-datos');
-        const btnClausulazos = document.getElementById('btn-clausulazos');
-        const cronicasContainer = document.getElementById('cronicas-container');
-        const datosContainer = document.getElementById('datos-container');
-        const clausulazosContainer = document.getElementById('clausulazos-container');
-        const searchWrapper = document.getElementById('search-wrapper');
-        const searchInput = document.getElementById('search-input');
-        const noResultsDiv = document.getElementById('no-results');
-
-        const originalCronicasHTML = cronicasContainer.innerHTML;
-        const originalDatosHTML = datosContainer.innerHTML;
-
-        let activeContainer = cronicasContainer;
-        let activeDataset = allCronicas;
-        let activeOriginalHTML = originalCronicasHTML;
-
-        function setActive(button, container, dataset, originalHTML, showSearch) {
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.content-section').forEach(cont => cont.classList.add('hidden'));
-
-            button.classList.add('active');
-            container.classList.remove('hidden');
-            activeContainer = container;
-            activeDataset = dataset;
-            activeOriginalHTML = originalHTML;
-
-            searchWrapper.classList.toggle('hidden', !showSearch);
-
-            if (originalHTML) container.innerHTML = originalHTML;
-            searchInput.value = '';
-            noResultsDiv.classList.add('hidden');
-        }
-
-        btnCronicas.addEventListener('click', () => setActive(btnCronicas, cronicasContainer, allCronicas, originalCronicasHTML, true));
-        btnDatos.addEventListener('click', () => setActive(btnDatos, datosContainer, allDatos, originalDatosHTML, true));
-        btnClausulazos.addEventListener('click', () => setActive(btnClausulazos, clausulazosContainer, [], null, false));
-
-        function createMessageCard(message) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = message.contenido;
-            const contentText = tempDiv.textContent || tempDiv.innerText || "";
-
-            return {
-                html: `
-                <article class="message-card card p-6 rounded-xl shadow-md">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 message-title">${message.titulo}</h2>
-                            <p class="text-sm font-medium text-green-700 mt-1 message-author">por ${message.autor}</p>
-                        </div>
-                        <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${message.fecha}</span>
-                    </div>
-                    <div class="prose max-w-none leading-relaxed message-content">${message.contenido}</div>
-                </article>
-                `,
-                searchableText: (message.titulo + message.autor + contentText).toLowerCase()
-            };
-        }
-
-        function filterContent() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            noResultsDiv.classList.add('hidden');
-
-            if (!searchTerm) {
-                activeContainer.innerHTML = activeOriginalHTML;
-                return;
-            }
-
-            const filteredMessages = activeDataset.filter(msg => {
-                const cardData = createMessageCard(msg);
-                return cardData.searchableText.includes(searchTerm);
-            });
-
-            activeContainer.innerHTML = '';
-
-            if (filteredMessages.length > 0) {
-                filteredMessages.forEach(msg => {
-                    activeContainer.innerHTML += createMessageCard(msg).html;
-                });
-            } else {
-                noResultsDiv.classList.remove('hidden');
-            }
-        }
-
-        searchInput.addEventListener('input', filterContent);
-
-        // --- TABLA DE JUSTICIA ---
-        const tablaData = {{ tabla_justicia | tojson }};
-
-        function renderTabla(mode) {
-            const thCount = document.getElementById('th-count');
-            const thObjetivo = document.getElementById('th-objetivo');
-            const tbody = document.getElementById('tabla-justicia-body');
-            const btnAtaques = document.getElementById('btn-tabla-ataques');
-            const btnDefensa = document.getElementById('btn-tabla-defensa');
-
-            if (!tbody) return;
-
-            if (mode === 'ataques') {
-                btnAtaques.classList.add('active-tabla');
-                btnDefensa.classList.remove('active-tabla');
-                thCount.className = 'text-center px-5 py-3 font-semibold text-green-700';
-                thObjetivo.textContent = 'Punto de mira';
-            } else {
-                btnDefensa.classList.add('active-tabla');
-                btnAtaques.classList.remove('active-tabla');
-                thCount.className = 'text-center px-5 py-3 font-semibold text-red-600';
-                thObjetivo.textContent = 'Mayor agresor';
-            }
-
-            const sorted = [...tablaData].sort((a, b) =>
-                mode === 'ataques'
-                    ? b.total_hechos - a.total_hechos
-                    : b.total_recibidos - a.total_recibidos
-            );
-
-            tbody.innerHTML = sorted.map((row, i) => {
-                const total = mode === 'ataques' ? row.total_hechos : row.total_recibidos;
-                const countColor = mode === 'ataques' ? 'text-green-700' : 'text-red-600';
-                const objetivo = mode === 'ataques' ? row.punto_de_mira : row.mayor_agresor;
-                const objetivoIcon = mode === 'ataques' ? '🎯' : '😤';
-                const objetivoColor = mode === 'ataques' ? 'text-orange-600' : 'text-red-500';
-                const detalle = mode === 'ataques' ? row.hechos : row.recibidos;
-
-                const detalleHtml = detalle.map(([nombre, count]) =>
-                    `<span class="inline-block mr-2 whitespace-nowrap">
-                        <span class="font-semibold text-gray-700">${count}×</span> ${nombre}
-                    </span>`
-                ).join('');
-
-                const objetivoHtml = objetivo && objetivo !== '—'
-                    ? `<span class="${objetivoColor} font-medium">${objetivoIcon} ${objetivo}</span>`
-                    : `<span class="text-gray-400">—</span>`;
-
-                return `
-                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
-                    <td class="px-5 py-3 text-gray-400 font-medium">${i + 1}</td>
-                    <td class="px-5 py-3 font-semibold text-gray-800 whitespace-nowrap">${row.equipo}</td>
-                    <td class="px-5 py-3 text-center">
-                        <span class="font-bold text-base ${countColor}">${total}</span>
-                    </td>
-                    <td class="px-5 py-3 whitespace-nowrap">${objetivoHtml}</td>
-                    <td class="px-5 py-3 text-gray-500 text-xs">${detalleHtml}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        function setTablaMode(mode) {
-            renderTabla(mode);
-        }
-
-        // Render inicial
-        if (document.getElementById('tabla-justicia-body')) {
-            renderTabla('ataques');
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab');
-
-            if (tab === 'clausulazos') {
-                setActive(btnClausulazos, clausulazosContainer, [], null, false);
-            } else if (tab === 'datos') {
-                setActive(btnDatos, datosContainer, allDatos, originalDatosHTML, true);
-            } else {
-                setActive(btnCronicas, cronicasContainer, allCronicas, originalCronicasHTML, true);
-            }
-        });
-    </script>
+    `).join('');
+});
+</script>
 {% endblock %}
