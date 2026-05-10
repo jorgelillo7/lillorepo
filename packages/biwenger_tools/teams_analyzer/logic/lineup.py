@@ -117,14 +117,23 @@ def pick_lineup(squad_rows: list) -> dict | None:
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
         bench_pool = [r for r in available if r["bw_id"] not in starter_ids]
-        # Biwenger requires reserve slot #1 to be a GK
-        gk_bench = sorted(
-            (r for r in bench_pool if r.get("position_id") == GK), key=_sf, reverse=True
-        )
-        outfield_bench = sorted(
-            (r for r in bench_pool if r.get("position_id") != GK), key=_sf, reverse=True
-        )
-        reserves = (gk_bench[:1] + outfield_bench)[:4]
+        # Biwenger reserve slots are positional: slot1=GK, slot2=DEF, slot3=MID, slot4=FWD
+        used_ids: set = set()
+        reserves = []
+        for slot_pos in (GK, DEF, MID, FWD):
+            candidates = sorted(
+                (
+                    r for r in bench_pool
+                    if r["bw_id"] not in used_ids and slot_pos in _positions(r)
+                ),
+                key=_sf,
+                reverse=True,
+            )
+            if candidates:
+                reserves.append(candidates[0])
+                used_ids.add(candidates[0]["bw_id"])
+            else:
+                reserves.append(None)
 
         captain = _pick_captain([r for r, _ in assignment])
 
@@ -170,9 +179,11 @@ def format_lineup_message(result: dict) -> str:
             cap = " ©" if row["bw_id"] == captain["bw_id"] else ""
             lines.append(f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}")
 
-    if reserves:
+    slot_label = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
+    filled = [(slot_label[pos], r) for pos, r in zip((GK, DEF, MID, FWD), reserves) if r]
+    if filled:
         lines.append("\n<b>Suplentes:</b>")
-        for r in reserves:
-            lines.append(f"  {escape(r['name'])} (SF:{_sf(r)})")
+        for label, r in filled:
+            lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)})")
 
     return "\n".join(lines)

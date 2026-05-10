@@ -218,8 +218,7 @@ def main():
                 r["bw_id"]
                 for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
             ]
-            reserves_ids = [r["bw_id"] for r in result["reserves"]]
-            reserves_ids += [None] * (4 - len(reserves_ids))
+            reserves_ids = [r["bw_id"] if r else None for r in result["reserves"]]
             biwenger.set_lineup(
                 config.LINEUP_URL,
                 result["formation"],
