@@ -5,7 +5,12 @@ import os
 import requests
 from flask import Flask, render_template, request
 
-from core.sdk.telegram import send_telegram_message
+from core.sdk.telegram import (
+    extract_webhook_update,
+    parse_command,
+    send_telegram_message,
+    validate_webhook_secret,
+)
 from core.utils import get_logger
 from packages.chucknorris_bot.bot import config
 
@@ -42,10 +47,6 @@ def _fetch_joke(category: str | None = None) -> str:
         return "Chuck Norris broke the internet. Try again."
 
 
-def _parse_command(text: str) -> str:
-    return text.lower().split()[0].split("@")[0] if text.strip() else ""
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -53,20 +54,15 @@ def index():
 
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
-    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if secret != config.TELEGRAM_WEBHOOK_SECRET:
+    if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
         logger.warning("Webhook: invalid secret token")
         return "", 401
 
-    body = request.get_json(silent=True) or {}
-    message = body.get("message", {})
-    chat_id = str(message.get("chat", {}).get("id", ""))
-    text = (message.get("text") or "").strip()
-
+    chat_id, text = extract_webhook_update(request)
     if not chat_id or not text:
         return "", 200
 
-    cmd = _parse_command(text)
+    cmd = parse_command(text)
 
     if cmd in ("/start", "/help"):
         send_telegram_message(

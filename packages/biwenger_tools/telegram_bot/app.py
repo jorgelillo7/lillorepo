@@ -4,7 +4,12 @@ import os
 
 from flask import Flask, request
 
-from core.sdk.telegram import send_telegram_message
+from core.sdk.telegram import (
+    extract_webhook_update,
+    parse_command,
+    send_telegram_message,
+    validate_webhook_secret,
+)
 from core.utils import get_logger
 from packages.biwenger_tools.telegram_bot import config, job_trigger
 
@@ -29,26 +34,13 @@ _JOB_MODES = {
 }
 
 
-def _parse_command(text: str) -> str:
-    """Extract bare command from text, stripping @botname and arguments.
-
-    '/analizar@biwenger_tools_bot' → '/analizar'
-    '/myteam foo' → '/myteam'
-    """
-    return text.lower().split()[0].split("@")[0] if text.strip() else ""
-
-
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
-    secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    if secret != config.TELEGRAM_WEBHOOK_SECRET:
+    if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
         logger.warning("Webhook: invalid secret token")
         return "", 401
 
-    body = request.get_json(silent=True) or {}
-    message = body.get("message", {})
-    chat_id = str(message.get("chat", {}).get("id", ""))
-    text = (message.get("text") or "").strip()
+    chat_id, text = extract_webhook_update(request)
 
     if chat_id != config.TELEGRAM_CHAT_ID:
         logger.info(
@@ -57,7 +49,7 @@ def webhook():
         )
         return "", 200
 
-    cmd = _parse_command(text)
+    cmd = parse_command(text)
 
     if cmd in _JOB_MODES:
         mode = _JOB_MODES[cmd]

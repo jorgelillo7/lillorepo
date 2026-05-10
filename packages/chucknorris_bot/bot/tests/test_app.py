@@ -4,7 +4,8 @@ import pytest
 from unittest.mock import patch
 
 import packages.chucknorris_bot.bot.config as cfg
-from packages.chucknorris_bot.bot.app import app, _fetch_joke, _parse_command
+from core.sdk.telegram import parse_command
+from packages.chucknorris_bot.bot.app import app, _fetch_joke
 
 _VALID_SECRET = "test-secret"
 
@@ -122,19 +123,19 @@ def test_message_without_text_is_ignored(client):
     mock_send.assert_not_called()
 
 
-# --- _parse_command ---
+# --- parse_command (from core) ---
 
 
 def test_parse_command_strips_botname():
-    assert _parse_command("/random@mybot") == "/random"
+    assert parse_command("/random@mybot") == "/random"
 
 
 def test_parse_command_lowercase():
-    assert _parse_command("/HELP") == "/help"
+    assert parse_command("/HELP") == "/help"
 
 
 def test_parse_command_empty():
-    assert _parse_command("") == ""
+    assert parse_command("") == ""
 
 
 # --- _fetch_joke ---
