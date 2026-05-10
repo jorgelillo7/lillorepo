@@ -29,9 +29,10 @@
 - [x] **Deploy teams_analyzer a GCP** — Cloud Run Job `biwenger-teams-analyzer` corriendo diario a las 16:00 Madrid. CI auto-despliega.
 - [x] **Telegram bot interactivo** — Cloud Run Service dedicado (`biwenger-telegram-bot`). Comandos: `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/help`. Webhook con secret token.
 - [x] **Auto-alineación `/alinear`** — `logic/lineup.py`, greedy sobre 12 formaciones, multi-posición vía `altPositions`, capitán < 3M. `BiwengerClient.set_lineup()` en core.
-- [ ] **Sección VAR en web** — revisar y conectar trigger manual del AI scraper o cron job
+- [x] **Sección VAR en web** — botón "Forzar ejecución" del scraper + panel rediseñado (PR #19, 2026-05-10).
 - [ ] **Nuevo proyecto Google para fotos**
 - [x] **Chuck Norris bot** — @ChuckNorrisJokesBot desplegado en Cloud Run, en CI (PR #17, 2026-05-10).
+- [x] **Web UI 2.0** — sticky nav, hamburger móvil, nueva sección Mercado, acordeón en Reglamento, medallas en Participación, desglose expandible en Tabla de Justicia (PR #20, 2026-05-10).
 
 ## Arquitectura (medio plazo)
 
