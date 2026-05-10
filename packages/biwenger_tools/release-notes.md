@@ -2,6 +2,31 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v5.1 - El Regreso de Chuck (10 May 2026)**
+
+A bot that first went live on 6 October 2015 — commit message: *"appbot example"* — is back. It spent a decade dormant in a public GitHub repo, originally built to experiment with Node.js, Heroku, and the Telegram Bot API. It now lives in this monorepo, rewritten in Python, deployed on Cloud Run, and sharing the same Bazel infrastructure as everything else. Same jokes. Different everything else.
+
+* **🤜 Chuck Norris Bot resurrected**: New package `packages/chucknorris_bot` — Python/Flask rewrite of the [original 2015 Node.js bot](https://github.com/jorgelillo7/ChuckNorrisJokesBot). Supports `/random`, `/science`, `/food`, `/animal`, `/dev`, `/start` and `/help`. Facts served by [chucknorris.io](https://api.chucknorris.io), secured with Telegram webhook secret validation, deployed on Cloud Run.
+* **🌐 Landing page recovered**: The original Bootstrap + jQuery + Angular frontend is gone. In its place: a pure CSS dark-mode landing — near-black background, `CHUCKBOT` in Black Ops One with a red glow, command grid, and an origin card telling the 2015 → 2026 story. No JS, no frameworks, no images.
+* **🔑 Webhook secret newline fix**: Cloud Run mounts secrets with a trailing newline; `config.py` now strips both token and webhook secret to avoid silent 401 mismatches on every Telegram update.
+* **🎨 DESIGN.md**: Design system documented — colors, typography, component rules — following the same format as `biwenger_tools/web`.
+
+---
+
+### **v5.0 - Bot Interactivo & Alineación Automática (10 May 2026)**
+
+The analyzer grows a brain and a mouth. A dedicated Telegram bot service wires up five commands, and the new `/alinear` engine picks the best eleven for you — backtracking across every formation, respecting positions, injury statuses, and a captain price cap the Biwenger API actually enforces. Teams are now delivered as pixel-perfect PNG tables instead of plain text.
+
+* **🤖 Telegram Bot Service**: A new Flask Cloud Run Service (`telegram_bot`) receives webhooks from Telegram and fans out to Cloud Run Jobs — one per command, one per mode. Validated by `X-Telegram-Bot-Api-Secret-Token`; silently ignores any chat that isn't yours.
+* **📋 Five Commands, Zero Friction**: `/analizar` (all squads + market), `/myTeam` (just yours), `/mercado` (market only), `/alinear` (auto-lineup), `/help` (command list). Each sends an immediate ACK ("⏳ recibido, procesando…") so you know the request landed, and reports any Cloud Run error back to the chat.
+* **🧠 `/alinear` — Lineup Optimizer**: Backtracking search over 12 formations picks the assignment that maximises total SF predict score. Multi-position players are assigned to their most defensive eligible slot first. Reserve slots follow Biwenger's PT/DF/MC/DL positional order. Captain must have a market value strictly below 3 M€ (excluding unknown-price players) — the API rejects anything else.
+* **🖼️ PNG Table Images**: Squad and market tables are now rendered as images with `matplotlib` rather than plain-text messages. Columns auto-fit; colours, fonts, and layout are consistent across every report.
+* **🔒 Clausulable Data**: Rival squad tables now include two extra columns — whether the player's clause is currently activatable and for how many days the lock runs. Derived from `owner.clauseLockedUntil` in the Biwenger squad endpoint.
+* **🚀 CI Levels Up**: `teams_analyzer` gets its own deploy step in the pipeline. Artifact Registry cleanup now uses `roles/artifactregistry.repoAdmin` (previously `writer`, which lacks delete) — the clean-images script finally runs without PERMISSION_DENIED. GH Actions runners bumped; Python libs upgraded.
+* **🧹 Dead Code Purge**: Text/CSV formatting paths that predated the PNG switch are removed. No feature flags, no backwards-compatibility shims — just less code.
+
+---
+
 ### **v4.2 - Selenium Goes Home (3 May 2026)**
 
 The teams_analyzer trades its browser for a single HTTP call. Selenium and

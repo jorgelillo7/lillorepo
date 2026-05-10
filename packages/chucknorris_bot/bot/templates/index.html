@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChuckBot — Chuck Norris Facts for Telegram</title>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0d0d0d;
+      --surface:      #1a1a1a;
+      --border:       #2a2a2a;
+      --text:         #f5f5f5;
+      --muted:        #888;
+      --accent:       #dc2626;
+      --accent-hover: #b91c1c;
+      --gold:         #f59e0b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6rem 2rem 5rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -160px; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(220,38,38,.18) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(220,38,38,.12);
+      border: 1px solid rgba(220,38,38,.3);
+      color: var(--accent);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 999px;
+      margin-bottom: 1.75rem;
+    }
+
+    h1 {
+      font-family: 'Black Ops One', serif;
+      font-size: clamp(4.5rem, 14vw, 10rem);
+      line-height: .9;
+      letter-spacing: -.02em;
+      color: var(--text);
+      text-shadow: 0 0 100px rgba(220,38,38,.45);
+    }
+    h1 span { color: var(--accent); }
+
+    .tagline {
+      margin-top: 1.75rem;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted);
+      max-width: 440px;
+    }
+
+    .cta {
+      margin-top: 2.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 14px 30px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background .15s, transform .1s;
+    }
+    .cta:hover { background: var(--accent-hover); transform: translateY(-2px); }
+    .cta svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+    /* ── Layout ── */
+    .divider { border-top: 1px solid var(--border); max-width: 800px; margin: 0 auto; }
+
+    section { max-width: 800px; margin: 0 auto; padding: 3.5rem 2rem; }
+
+    .section-label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.75rem;
+    }
+
+    /* ── Commands grid ── */
+    .commands {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+    .cmd-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1rem;
+      text-align: center;
+      transition: border-color .15s, transform .15s;
+    }
+    .cmd-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .cmd-emoji  { font-size: 1.75rem; display: block; margin-bottom: .5rem; }
+    .cmd-name   {
+      font-family: 'Courier New', monospace;
+      font-size: .85rem;
+      color: var(--gold);
+      display: block;
+      margin-bottom: .25rem;
+    }
+    .cmd-desc   { font-size: .78rem; color: var(--muted); }
+
+    /* ── Origin ── */
+    .origin-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem 2.25rem;
+    }
+    .year-badge {
+      display: inline-block;
+      background: rgba(245,158,11,.12);
+      border: 1px solid rgba(245,158,11,.3);
+      color: var(--gold);
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+    }
+    .origin-card h3 {
+      font-family: 'Black Ops One', serif;
+      font-size: 1.3rem;
+      color: var(--gold);
+      margin-bottom: 1rem;
+    }
+    .origin-card p { color: var(--muted); font-size: .9rem; line-height: 1.75; }
+    .origin-card p + p { margin-top: .75rem; }
+    .origin-card em { color: var(--text); font-style: italic; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    footer a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--border); }
+    footer a:hover { color: var(--text); }
+    .dot { margin: 0 .5rem; opacity: .35; }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge">🤜 Telegram Bot</div>
+    <h1>CHUCK<span>BOT</span></h1>
+    <p class="tagline">Chuck Norris facts, delivered to your Telegram. No browser. No waiting. No mercy.</p>
+    <a href="https://t.me/ChuckNorrisJokesBot" class="cta" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.24 13.56l-2.94-.916c-.638-.203-.653-.638.136-.943l11.49-4.43c.533-.194 1 .131.968.95z"/>
+      </svg>
+      Open in Telegram
+    </a>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Commands -->
+  <section>
+    <p class="section-label">Commands</p>
+    <div class="commands">
+      <div class="cmd-card">
+        <span class="cmd-emoji">🎲</span>
+        <span class="cmd-name">/random</span>
+        <span class="cmd-desc">Random fact</span>
+      </div>
+      <div class="cmd-card">
+        <span class="cmd-emoji">🔬</span>
+        <span class="cmd-name">/science</span>
+        <span class="cmd-desc">Science fact</span>
+      </div>
+      <div class="cmd-card">
+        <span class="cmd-emoji">🍔</span>
+        <span class="cmd-name">/food</span>
+        <span class="cmd-desc">Food fact</span>
+      </div>
+      <div class="cmd-card">
+        <span class="cmd-emoji">🐾</span>
+        <span class="cmd-name">/animal</span>
+        <span class="cmd-desc">Animal fact</span>
+      </div>
+      <div class="cmd-card">
+        <span class="cmd-emoji">💻</span>
+        <span class="cmd-name">/dev</span>
+        <span class="cmd-desc">Dev fact</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Origin -->
+  <section>
+    <p class="section-label">Origin</p>
+    <div class="origin-card">
+      <div class="year-badge">2015 → 2026</div>
+      <h3>From Heroku to Cloud Run</h3>
+      <p>
+        Born on 6 October 2015 with a commit message that read <em>"appbot example"</em> —
+        a weekend project to try Node.js, Heroku, and the Telegram Bot API all at once.
+        It shipped with a Bootstrap landing page, an Angular controller, and
+        <code style="color:var(--gold);font-size:.85em">jquery-2.1.4.min.js</code>.
+      </p>
+      <p>
+        In 2026 it was resurrected: rewritten in Python, moved into a Bazel monorepo,
+        and deployed on Google Cloud Run. Same jokes API. Different everything else.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    Facts by <a href="https://api.chucknorris.io" target="_blank" rel="noopener">chucknorris.io</a>
+    <span class="dot">·</span>
+    Deployed on <a href="https://cloud.google.com/run" target="_blank" rel="noopener">Google Cloud Run</a>
+    <span class="dot">·</span>
+    Part of <a href="https://github.com/jorgelillo7/lillorepo" target="_blank" rel="noopener">lillorepo</a>
+    <span class="dot">·</span>
+    Jorge Lillo (2015–2026)
+  </footer>
+
+</body>
+</html>

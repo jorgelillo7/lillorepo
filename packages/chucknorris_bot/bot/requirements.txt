@@ -1,0 +1,5 @@
+# All deps (flask, gunicorn, python-dotenv, requests) are already
+# present in requirements_lock.txt. No new additions needed.
+Flask
+gunicorn
+python-dotenv
