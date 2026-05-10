@@ -116,7 +116,7 @@ def pick_lineup(squad_rows: list) -> dict | None:
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
         bench_pool = [r for r in available if r["bw_id"] not in starter_ids]
-        # Biwenger reserve slots are positional: slot1=GK, slot2=DEF, slot3=MID, slot4=FWD
+        # Biwenger reserve slots are positional: GK→DEF→MID→FWD
         used_ids: set = set()
         reserves = []
         for slot_pos in (GK, DEF, MID, FWD):
@@ -197,7 +197,11 @@ def format_lineup_message(result: dict) -> str:
             lines.append(f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}")
 
     slot_label = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
-    filled = [(slot_label[pos], r) for pos, r in zip((GK, DEF, MID, FWD), reserves) if r]
+    filled = [
+        (slot_label[pos], r)
+        for pos, r in zip((GK, DEF, MID, FWD), reserves)
+        if r
+    ]
     if filled:
         lines.append("\n<b>Suplentes:</b>")
         for label, r in filled:

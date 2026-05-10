@@ -193,7 +193,7 @@ def test_captain_falls_back_to_cheapest_when_no_known_cheap():
 
 
 def test_captain_excludes_zero_price_players():
-    # price=0 means unknown MV — must not be selected as captain when a known-cheap exists
+    # price=0 means unknown MV — excluded even if best SF
     starters = [
         _player(1, GK, sf=600, price=0),       # unknown price, best SF
         _player(2, DEF, sf=300, price=2_000_000),  # cheap, known
