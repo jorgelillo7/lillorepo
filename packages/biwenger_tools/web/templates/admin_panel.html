@@ -1,70 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}Panel de Administración{% endblock %}
+{% block title %}VAR — Panel de Administración{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
-    <!-- Panel principal -->
-    <div class="card p-8 rounded-xl shadow-lg">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="font-header text-3xl font-bold text-gray-900">Panel de Administración (VAR)</h2>
-            <a href="{{ url_for('admin.logout') }}" class="text-sm text-red-600 hover:underline">Cerrar Sesión</a>
+<div class="space-y-6">
+
+    <!-- Header del panel -->
+    <div class="card p-6 rounded-xl shadow-md flex justify-between items-center">
+        <div>
+            <h2 class="font-header text-3xl font-bold text-gray-900">VAR</h2>
+            <p class="text-gray-500 text-sm mt-1">Panel de administración de la liga</p>
         </div>
-        <p class="text-gray-600">Desde aquí podrás ver el estado del sistema y gestionar la temporada.</p>
+        <a href="{{ url_for('admin.logout') }}" class="text-sm text-red-500 hover:text-red-700 hover:underline">
+            Cerrar sesión
+        </a>
     </div>
 
-    <!-- Estado de los Ficheros -->
-    <div class="card p-6 rounded-xl shadow-lg">
-        <h3 class="font-header text-2xl font-bold text-gray-800 mb-4">Estado de los Ficheros de Datos (Temporada {{ season }})</h3>
-        {% if error %}
-            <p class="text-red-500">{{ error }}</p>
-        {% else %}
-            <div class="space-y-3">
-                {% for file in file_statuses %}
-                {% set row_color = 'bg-green-50' %}
-                {% if file.status != 'Encontrado' %}
-                    {% set row_color = 'bg-red-50' %}
-                {% elif file.is_stale %}
-                    {% set row_color = 'bg-yellow-50' %}
-                {% endif %}
+    <!-- Scraper Job -->
+    <div class="card p-6 rounded-xl shadow-md">
+        <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Scraper Job</h3>
+        <p class="text-sm text-gray-500 mb-5">
+            Fuerza una ejecución inmediata del scraper (<code class="bg-gray-100 px-1 rounded text-xs">{{ job_name }}</code>).
+            Útil cuando hay datos nuevos que no pueden esperar al cron semanal.
+        </p>
 
-                <div class="flex justify-between items-center p-3 rounded-md {{ row_color }}">
-                    <p class="font-medium text-gray-700">{{ file.name }}</p>
-                    <div>
-                        <span class="text-sm text-gray-500 mr-4">Última actualización: {{ file.last_updated }}</span>
-                        
-                        {% set badge_color = 'bg-green-200 text-green-800' %}
-                        {% if file.status != 'Encontrado' %}
-                            {% set badge_color = 'bg-red-200 text-red-800' %}
-                        {% elif file.is_stale %}
-                            {% set badge_color = 'bg-yellow-200 text-yellow-800' %}
-                        {% endif %}
-                        <span class="text-xs font-semibold px-2 py-1 rounded-full {{ badge_color }}">
-                            {% if file.is_stale %}Desactualizado{% else %}{{ file.status }}{% endif %}
-                        </span>
+        <div class="flex flex-wrap gap-3 items-center">
+            <!-- Botón de forzar ejecución -->
+            <form method="POST" action="{{ url_for('admin.run_scraper') }}"
+                  onsubmit="return confirm('¿Lanzar el scraper ahora? La ejecución tarda ~2 min.');">
+                <button type="submit"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700
+                               text-white text-sm font-semibold rounded-lg shadow transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                         viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/>
+                    </svg>
+                    Forzar ejecución
+                </button>
+            </form>
+
+            <!-- Ver logs -->
+            <a href="{{ log_url }}" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 hover:border-gray-400
+                      bg-white text-gray-700 text-sm font-medium rounded-lg shadow-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                     viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4
+                             M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Ver logs en Cloud Run
+            </a>
+        </div>
+    </div>
+
+    <!-- Estado de los ficheros -->
+    <div class="card p-6 rounded-xl shadow-md">
+        <h3 class="font-header text-xl font-bold text-gray-800 mb-4">
+            Ficheros de datos — Temporada {{ season }}
+        </h3>
+
+        {% if error %}
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-lg">
+                {{ error }}
+            </div>
+        {% elif file_statuses %}
+            <div class="divide-y divide-gray-100">
+                {% for file in file_statuses %}
+                    {% if file.status != 'Encontrado' %}
+                        {% set indicator = 'bg-red-500' %}
+                        {% set label = 'No encontrado' %}
+                        {% set label_color = 'bg-red-100 text-red-700' %}
+                    {% elif file.is_stale %}
+                        {% set indicator = 'bg-yellow-400' %}
+                        {% set label = 'Desactualizado' %}
+                        {% set label_color = 'bg-yellow-100 text-yellow-700' %}
+                    {% else %}
+                        {% set indicator = 'bg-green-500' %}
+                        {% set label = 'OK' %}
+                        {% set label_color = 'bg-green-100 text-green-700' %}
+                    {% endif %}
+
+                    <div class="flex justify-between items-center py-3 gap-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="flex-shrink-0 w-2 h-2 rounded-full {{ indicator }}"></span>
+                            <span class="text-sm font-medium text-gray-700 truncate">{{ file.name }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 flex-shrink-0">
+                            <span class="text-xs text-gray-400">{{ file.last_updated }}</span>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ label_color }}">
+                                {{ label }}
+                            </span>
+                        </div>
                     </div>
-                </div>
                 {% endfor %}
             </div>
+        {% else %}
+            <p class="text-sm text-gray-400">No hay ficheros para mostrar.</p>
         {% endif %}
     </div>
 
-    <!-- Herramientas -->
-    <div class="card p-6 rounded-xl shadow-lg">
-        <h3 class="font-header text-2xl font-bold text-gray-800 mb-4">Herramientas</h3>
-        <div class="flex items-center">
-            <a href="{{ log_url }}" target="_blank" rel="noopener noreferrer"
-               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Ver Logs del Scraper en Cloud Run
-                <svg class="ml-2 -mr-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                </svg>
-            </a>
-            <p class="ml-4 text-sm text-gray-500">
-                Abre los registros de la última ejecución del job en Google Cloud.
-            </p>
-        </div>
+    <!-- Sistema -->
+    <div class="card p-6 rounded-xl shadow-md">
+        <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Sistema</h3>
+        <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+            <div>
+                <dt class="text-gray-400 text-xs uppercase tracking-wide">Versión</dt>
+                <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ git_commit }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-400 text-xs uppercase tracking-wide">Desplegado</dt>
+                <dd class="font-medium text-gray-800 mt-0.5">{{ deploy_time or '—' }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-400 text-xs uppercase tracking-wide">Proyecto GCP</dt>
+                <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ gcp_project }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-400 text-xs uppercase tracking-wide">Región</dt>
+                <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ cloud_run_region }}</dd>
+            </div>
+            <div>
+                <dt class="text-gray-400 text-xs uppercase tracking-wide">Temporada activa</dt>
+                <dd class="font-medium text-gray-800 mt-0.5">{{ temporada_actual }}</dd>
+            </div>
+        </dl>
     </div>
+
 </div>
 {% endblock %}
