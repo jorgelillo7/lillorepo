@@ -2,6 +2,20 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v5.0 - Bot Interactivo & Alineación Automática (10 May 2026)**
+
+The analyzer grows a brain and a mouth. A dedicated Telegram bot service wires up five commands, and the new `/alinear` engine picks the best eleven for you — backtracking across every formation, respecting positions, injury statuses, and a captain price cap the Biwenger API actually enforces. Teams are now delivered as pixel-perfect PNG tables instead of plain text.
+
+* **🤖 Telegram Bot Service**: A new Flask Cloud Run Service (`telegram_bot`) receives webhooks from Telegram and fans out to Cloud Run Jobs — one per command, one per mode. Validated by `X-Telegram-Bot-Api-Secret-Token`; silently ignores any chat that isn't yours.
+* **📋 Five Commands, Zero Friction**: `/analizar` (all squads + market), `/myTeam` (just yours), `/mercado` (market only), `/alinear` (auto-lineup), `/help` (command list). Each sends an immediate ACK ("⏳ recibido, procesando…") so you know the request landed, and reports any Cloud Run error back to the chat.
+* **🧠 `/alinear` — Lineup Optimizer**: Backtracking search over 12 formations picks the assignment that maximises total SF predict score. Multi-position players are assigned to their most defensive eligible slot first. Reserve slots follow Biwenger's PT/DF/MC/DL positional order. Captain must have a market value strictly below 3 M€ (excluding unknown-price players) — the API rejects anything else.
+* **🖼️ PNG Table Images**: Squad and market tables are now rendered as images with `matplotlib` rather than plain-text messages. Columns auto-fit; colours, fonts, and layout are consistent across every report.
+* **🔒 Clausulable Data**: Rival squad tables now include two extra columns — whether the player's clause is currently activatable and for how many days the lock runs. Derived from `owner.clauseLockedUntil` in the Biwenger squad endpoint.
+* **🚀 CI Levels Up**: `teams_analyzer` gets its own deploy step in the pipeline. Artifact Registry cleanup now uses `roles/artifactregistry.repoAdmin` (previously `writer`, which lacks delete) — the clean-images script finally runs without PERMISSION_DENIED. GH Actions runners bumped; Python libs upgraded.
+* **🧹 Dead Code Purge**: Text/CSV formatting paths that predated the PNG switch are removed. No feature flags, no backwards-compatibility shims — just less code.
+
+---
+
 ### **v4.2 - Selenium Goes Home (3 May 2026)**
 
 The teams_analyzer trades its browser for a single HTTP call. Selenium and
