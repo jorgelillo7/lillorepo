@@ -1,3 +1,5 @@
+from typing import Any
+
 import requests
 
 from core.utils import get_logger
@@ -91,3 +93,31 @@ def set_commands_menu_button(bot_token: str) -> None:
         logger.info("Menu button set to 'commands'.")
     except Exception as e:
         logger.error("Failed to set menu button.", extra={"error": str(e)})
+
+
+def parse_command(text: str) -> str:
+    """Extract the bare command from a Telegram message text.
+
+    '/analizar@bot arg' → '/analizar'
+    '/HELP' → '/help'
+    '' → ''
+    """
+    return text.lower().split()[0].split("@")[0] if text.strip() else ""
+
+
+def extract_webhook_update(request: Any) -> tuple[str, str]:
+    """Extract (chat_id, text) from a Flask webhook POST request body.
+
+    Returns ('', '') for empty or malformed bodies.
+    """
+    body = request.get_json(silent=True) or {}
+    message = body.get("message", {})
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    text = (message.get("text") or "").strip()
+    return chat_id, text
+
+
+def validate_webhook_secret(request: Any, expected: str) -> bool:
+    """Return True if the X-Telegram-Bot-Api-Secret-Token header matches."""
+    received = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    return received == expected
