@@ -210,6 +210,42 @@ Commands for running each component.
         `TELEGRAM_CHAT_ID`. Adapt the `gcloud run jobs create` snippet from the
         Scraper Job section above.
 
+### 4\. Telegram Bot
+
+The bot is a Cloud Run Service that receives Telegram webhook requests and triggers
+the `biwenger-teams-analyzer` Cloud Run Job with the right `ANALYSIS_MODE`.
+
+  * **Tests:**
+    ```bash
+      bazel test //packages/biwenger_tools/telegram_bot:telegram_bot_tests --test_output=streamed --test_arg=-v
+    ```
+
+  * **Register bot commands (one-shot, run after deploy or when commands change):**
+
+    Must be run manually — CI does not call this automatically.
+
+    ```bash
+      PYTHONPATH=. python3 packages/biwenger_tools/telegram_bot/setup_commands.py
+    ```
+
+    This calls `setMyCommands` + `setChatMenuButton` so the slash-command menu in
+    Telegram shows the current command list. Requires `TELEGRAM_BOT_TOKEN` in the
+    local `.env` (or environment).
+
+  * **Deploy to production (Cloud Run Service):**
+
+    CI deploys automatically on push to `master` when `packages/biwenger_tools/telegram_bot/**`
+    changes. To deploy manually:
+
+    ```bash
+      bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
+          --platforms=//platforms:linux_amd64
+      gcloud run deploy biwenger-telegram-bot \
+          --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/telegram_bot \
+          --region europe-southwest1 \
+          --project biwenger-tools
+    ```
+
 ### Extra\. Core
 
   * **Tests:**

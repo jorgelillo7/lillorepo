@@ -1,5 +1,3 @@
-import io
-
 import requests
 
 from core.utils import get_logger
@@ -7,7 +5,6 @@ from core.utils import get_logger
 logger = get_logger(__name__)
 
 TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
-TELEGRAM_SEND_DOCUMENT_URL = "https://api.telegram.org/bot{token}/sendDocument"
 TELEGRAM_SET_COMMANDS_URL = "https://api.telegram.org/bot{token}/setMyCommands"
 TELEGRAM_SET_MENU_BUTTON_URL = "https://api.telegram.org/bot{token}/setChatMenuButton"
 
@@ -45,28 +42,6 @@ def send_telegram_message(
         logger.info("Telegram message sent.", extra={"chars": len(text)})
     except Exception as e:
         logger.error("Failed to send Telegram message.", extra={"error": str(e)})
-
-
-def send_telegram_document(
-    bot_token: str,
-    chat_id: str,
-    filename: str,
-    data: bytes,
-    caption: str = "",
-) -> None:
-    """Sends a file (CSV, PDF, …) to a Telegram chat via sendDocument."""
-    url = TELEGRAM_SEND_DOCUMENT_URL.format(token=bot_token)
-    try:
-        response = requests.post(
-            url,
-            data={"chat_id": chat_id, "caption": caption, "parse_mode": "HTML"},
-            files={"document": (filename, io.BytesIO(data), "text/csv")},
-            timeout=30,
-        )
-        response.raise_for_status()
-        logger.info("Telegram document sent.", extra={"filename": filename})
-    except Exception as e:
-        logger.error("Failed to send Telegram document.", extra={"error": str(e)})
 
 
 def send_telegram_photo(
