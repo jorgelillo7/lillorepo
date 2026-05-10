@@ -3,6 +3,7 @@
 from packages.biwenger_tools.teams_analyzer.logic.lineup import (
     _is_available,
     _pick_captain,
+    _try_fill,
     format_lineup_message,
     pick_lineup,
 )
@@ -106,7 +107,8 @@ def test_pick_lineup_reserves_not_in_starters():
     result = pick_lineup(_squad_444())
     starter_ids = {r["bw_id"] for r, _ in result["starters"]}
     for r in result["reserves"]:
-        assert r["bw_id"] not in starter_ids
+        if r is not None:
+            assert r["bw_id"] not in starter_ids
 
 
 def test_pick_lineup_reserves_at_most_4():
@@ -151,6 +153,22 @@ def test_pick_lineup_uses_alt_positions():
     assert fwd_count >= 1
 
 
+def test_try_fill_prefers_primary_position_for_multiposition_player():
+    # When filling a DEF slot, a player whose primary position is DEF should be
+    # preferred over a player whose primary position is MID but has DEF as alt.
+    p_def_primary = _player(1, DEF, sf=300)           # primary DEF, SF 300
+    p_mid_with_def_alt = _player(2, MID, sf=350, alts=[DEF])  # primary MID, higher SF
+
+    # Both are eligible for DEF. Without the preference rule, SF-only sorting
+    # would pick p_mid_with_def_alt (higher SF). With the rule, p_def_primary wins.
+    slots = {DEF: 1}
+    result = _try_fill([p_def_primary, p_mid_with_def_alt], slots)
+    assert result is not None
+    assigned_player, assigned_pos = result[0]
+    assert assigned_pos == DEF
+    assert assigned_player["bw_id"] == 1  # primary DEF preferred
+
+
 # --- _pick_captain ---
 
 
@@ -164,10 +182,31 @@ def test_captain_prefers_cheap_player_with_high_sf():
     assert captain["bw_id"] == 2  # cheap + highest SF among cheap
 
 
-def test_captain_falls_back_to_highest_sf_when_no_cheap():
+def test_captain_falls_back_to_cheapest_when_no_known_cheap():
+    # No player has 0 < price < 3M — pick cheapest by price
     starters = [
         _player(1, GK, sf=500, price=5_000_000),
         _player(2, DEF, sf=600, price=8_000_000),
+    ]
+    captain = _pick_captain(starters)
+    assert captain["bw_id"] == 1  # cheapest (5M < 8M), not best SF
+
+
+def test_captain_excludes_zero_price_players():
+    # price=0 means unknown MV — must not be selected as captain when a known-cheap exists
+    starters = [
+        _player(1, GK, sf=600, price=0),       # unknown price, best SF
+        _player(2, DEF, sf=300, price=2_000_000),  # cheap, known
+    ]
+    captain = _pick_captain(starters)
+    assert captain["bw_id"] == 2
+
+
+def test_captain_strict_below_3m():
+    # Player with price exactly 3M is NOT eligible (rule: < 3M)
+    starters = [
+        _player(1, GK, sf=500, price=3_000_000),  # exactly 3M → not cheap
+        _player(2, DEF, sf=300, price=2_999_999),  # just under → cheap
     ]
     captain = _pick_captain(starters)
     assert captain["bw_id"] == 2
