@@ -13,15 +13,15 @@ bazel_dep(name = "platforms", version = "1.1.0")
 # --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    python_version = "3.12",
+    python_version = "3.13",
 )
-use_repo(python, python_toolchain = "python_3_12")
+use_repo(python, python_toolchain = "python_3_13")
 
 # Se utiliza la extensión pip para gestionar las dependencias de Python
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "pypi",
-    python_version = "3.12",
+    python_version = "3.13",
     requirements_lock = "//:requirements_lock.txt",
 )
 use_repo(pip, "pypi")
