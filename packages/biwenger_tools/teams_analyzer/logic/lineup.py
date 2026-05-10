@@ -116,11 +116,15 @@ def pick_lineup(squad_rows: list) -> dict | None:
             continue
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
-        reserves = sorted(
-            (r for r in available if r["bw_id"] not in starter_ids),
-            key=_sf,
-            reverse=True,
-        )[:4]
+        bench_pool = [r for r in available if r["bw_id"] not in starter_ids]
+        # Biwenger requires reserve slot #1 to be a GK
+        gk_bench = sorted(
+            (r for r in bench_pool if r.get("position_id") == GK), key=_sf, reverse=True
+        )
+        outfield_bench = sorted(
+            (r for r in bench_pool if r.get("position_id") != GK), key=_sf, reverse=True
+        )
+        reserves = (gk_bench[:1] + outfield_bench)[:4]
 
         captain = _pick_captain([r for r, _ in assignment])
 
