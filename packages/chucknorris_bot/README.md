@@ -55,5 +55,6 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 
 ## Origin
 
-Originally a Node.js app deployed on Heroku ([jorgelillo7/ChuckNorrisJokesBot](https://github.com/jorgelillo7/ChuckNorrisJokesBot)).
-Rewritten in Python and moved into this monorepo to share infrastructure and avoid managing a second GCP project.
+This bot started life on **6 October 2015** as a Node.js + Express experiment — the first commit message was literally *"appbot example"*. Back then it ran on Heroku, used a Bootstrap landing page, and was wired up as a proof of concept for the Telegram Bot API, Node.js and Heroku all at once. It lived quietly at [`jorgelillo7/ChuckNorrisJokesBot`](https://github.com/jorgelillo7/ChuckNorrisJokesBot) for nearly a decade.
+
+Fast-forward to 2026: same bot, same jokes API ([chucknorris.io](https://api.chucknorris.io)), completely different stack. Node.js → Python/Flask. Heroku → Google Cloud Run. Standalone repo → monorepo managed by Bazel. The Heroku `Procfile` is gone; so is the jQuery-flavoured landing page. What remains is the same silly idea, now sharing infrastructure with a Biwenger fantasy football analyzer because, well, why not.

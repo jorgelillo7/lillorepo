@@ -3,7 +3,7 @@
 import os
 
 import requests
-from flask import Flask, request
+from flask import Flask, render_template, request
 
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
@@ -44,6 +44,11 @@ def _fetch_joke(category: str | None = None) -> str:
 
 def _parse_command(text: str) -> str:
     return text.lower().split()[0].split("@")[0] if text.strip() else ""
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
 @app.route("/telegram/webhook", methods=["POST"])

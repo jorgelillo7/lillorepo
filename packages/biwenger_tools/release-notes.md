@@ -2,6 +2,17 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v5.1 - El Regreso de Chuck (10 May 2026)**
+
+A bot that first went live on 6 October 2015 — commit message: *"appbot example"* — is back. It spent a decade dormant in a public GitHub repo, originally built to experiment with Node.js, Heroku, and the Telegram Bot API. It now lives in this monorepo, rewritten in Python, deployed on Cloud Run, and sharing the same Bazel infrastructure as everything else. Same jokes. Different everything else.
+
+* **🤜 Chuck Norris Bot resurrected**: New package `packages/chucknorris_bot` — Python/Flask rewrite of the [original 2015 Node.js bot](https://github.com/jorgelillo7/ChuckNorrisJokesBot). Supports `/random`, `/science`, `/food`, `/animal`, `/dev`, `/start` and `/help`. Facts served by [chucknorris.io](https://api.chucknorris.io), secured with Telegram webhook secret validation, deployed on Cloud Run.
+* **🌐 Landing page recovered**: The original Bootstrap + jQuery + Angular frontend is gone. In its place: a pure CSS dark-mode landing — near-black background, `CHUCKBOT` in Black Ops One with a red glow, command grid, and an origin card telling the 2015 → 2026 story. No JS, no frameworks, no images.
+* **🔑 Webhook secret newline fix**: Cloud Run mounts secrets with a trailing newline; `config.py` now strips both token and webhook secret to avoid silent 401 mismatches on every Telegram update.
+* **🎨 DESIGN.md**: Design system documented — colors, typography, component rules — following the same format as `biwenger_tools/web`.
+
+---
+
 ### **v5.0 - Bot Interactivo & Alineación Automática (10 May 2026)**
 
 The analyzer grows a brain and a mouth. A dedicated Telegram bot service wires up five commands, and the new `/alinear` engine picks the best eleven for you — backtracking across every formation, respecting positions, injury statuses, and a captain price cap the Biwenger API actually enforces. Teams are now delivered as pixel-perfect PNG tables instead of plain text.
