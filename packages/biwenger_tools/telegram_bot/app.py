@@ -62,6 +62,11 @@ def webhook():
     if cmd in _JOB_MODES:
         mode = _JOB_MODES[cmd]
         logger.info("Webhook: %s received — triggering job (%s)", cmd, mode)
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=f"⏳ <code>{cmd}</code> recibido, procesando…",
+        )
         try:
             job_trigger.trigger_analyzer_job(
                 config.GCP_PROJECT_ID,
@@ -77,7 +82,7 @@ def webhook():
             send_telegram_message(
                 bot_token=config.TELEGRAM_BOT_TOKEN,
                 chat_id=config.TELEGRAM_CHAT_ID,
-                text=f"Error al lanzar <code>{cmd}</code>: {exc}",
+                text=f"❌ Error al lanzar <code>{cmd}</code>: <code>{exc}</code>",
             )
     elif cmd == "/help":
         logger.info("Webhook: /help received")

@@ -171,8 +171,10 @@ def test_job_trigger_failure_sends_error_message(client):
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
-    mock_send.assert_called_once()
-    assert "permission denied" in mock_send.call_args.kwargs.get("text", "")
+    # first call = ACK, second call = error
+    assert mock_send.call_count == 2
+    error_text = mock_send.call_args_list[1].kwargs.get("text", "")
+    assert "permission denied" in error_text
 
 
 def test_empty_body_does_not_crash(client):
