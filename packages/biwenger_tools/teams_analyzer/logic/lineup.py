@@ -122,7 +122,8 @@ def pick_lineup(squad_rows: list) -> dict | None:
         for slot_pos in (GK, DEF, MID, FWD):
             candidates = sorted(
                 (
-                    r for r in bench_pool
+                    r
+                    for r in bench_pool
                     if r["bw_id"] not in used_ids and slot_pos in _positions(r)
                 ),
                 key=_sf,
@@ -160,9 +161,7 @@ def _pick_captain(starters: list) -> dict:
     If no player has a known price < 3M, fall back to the cheapest player
     with a known price (price > 0) to minimise the risk of an API rejection.
     """
-    known_cheap = [
-        r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE
-    ]
+    known_cheap = [r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE]
     if known_cheap:
         return max(known_cheap, key=_sf)
 
@@ -198,9 +197,7 @@ def format_lineup_message(result: dict) -> str:
 
     slot_label = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
     filled = [
-        (slot_label[pos], r)
-        for pos, r in zip((GK, DEF, MID, FWD), reserves)
-        if r
+        (slot_label[pos], r) for pos, r in zip((GK, DEF, MID, FWD), reserves) if r
     ]
     if filled:
         lines.append("\n<b>Suplentes:</b>")

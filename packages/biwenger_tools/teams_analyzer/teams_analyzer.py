@@ -215,8 +215,7 @@ def main():
                 )
                 return
             starters_ids = [
-                r["bw_id"]
-                for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
+                r["bw_id"] for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
             ]
             reserves_ids = [r["bw_id"] if r else None for r in result["reserves"]]
             biwenger.set_lineup(
