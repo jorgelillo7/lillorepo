@@ -151,6 +151,30 @@ def test_unknown_command_is_ignored(client):
     mock_send.assert_not_called()
 
 
+def test_command_with_botname_suffix_triggers_job(client):
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job"
+    ) as mock_trigger:
+        resp = _post(client, _update(_VALID_CHAT, "/analizar@biwenger_tools_bot"))
+    assert resp.status_code == 200
+    mock_trigger.assert_called_once_with(
+        "test-project", "us-central1", "test-job", mode="all"
+    )
+
+
+def test_job_trigger_failure_sends_error_message(client):
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job",
+        side_effect=RuntimeError("permission denied"),
+    ), patch(
+        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/analizar"))
+    assert resp.status_code == 200
+    mock_send.assert_called_once()
+    assert "permission denied" in mock_send.call_args.kwargs.get("text", "")
+
+
 def test_empty_body_does_not_crash(client):
     resp = client.post(
         "/telegram/webhook",

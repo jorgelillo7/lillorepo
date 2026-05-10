@@ -21,6 +21,22 @@ _HELP_TEXT = (
     "/help — Muestra este mensaje"
 )
 
+_JOB_MODES = {
+    "/analizar": "all",
+    "/myteam": "my_team",
+    "/mercado": "market",
+    "/alinear": "alinear",
+}
+
+
+def _parse_command(text: str) -> str:
+    """Extract bare command from text, stripping @botname and arguments.
+
+    '/analizar@biwenger_tools_bot' → '/analizar'
+    '/myteam foo' → '/myteam'
+    """
+    return text.lower().split()[0].split("@")[0] if text.strip() else ""
+
 
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
@@ -33,7 +49,6 @@ def webhook():
     message = body.get("message", {})
     chat_id = str(message.get("chat", {}).get("id", ""))
     text = (message.get("text") or "").strip()
-    text_lower = text.lower()
 
     if chat_id != config.TELEGRAM_CHAT_ID:
         logger.info(
@@ -42,39 +57,29 @@ def webhook():
         )
         return "", 200
 
-    if text_lower.startswith("/analizar"):
-        logger.info("Webhook: /analizar received — triggering job (all)")
-        job_trigger.trigger_analyzer_job(
-            config.GCP_PROJECT_ID,
-            config.CLOUD_RUN_REGION,
-            config.CLOUD_RUN_JOB_NAME,
-            mode="all",
-        )
-    elif text_lower.startswith("/myteam"):
-        logger.info("Webhook: /myteam received — triggering job (my_team)")
-        job_trigger.trigger_analyzer_job(
-            config.GCP_PROJECT_ID,
-            config.CLOUD_RUN_REGION,
-            config.CLOUD_RUN_JOB_NAME,
-            mode="my_team",
-        )
-    elif text_lower.startswith("/mercado"):
-        logger.info("Webhook: /mercado received — triggering job (market)")
-        job_trigger.trigger_analyzer_job(
-            config.GCP_PROJECT_ID,
-            config.CLOUD_RUN_REGION,
-            config.CLOUD_RUN_JOB_NAME,
-            mode="market",
-        )
-    elif text_lower.startswith("/alinear"):
-        logger.info("Webhook: /alinear received — triggering job (alinear)")
-        job_trigger.trigger_analyzer_job(
-            config.GCP_PROJECT_ID,
-            config.CLOUD_RUN_REGION,
-            config.CLOUD_RUN_JOB_NAME,
-            mode="alinear",
-        )
-    elif text_lower.startswith("/help"):
+    cmd = _parse_command(text)
+
+    if cmd in _JOB_MODES:
+        mode = _JOB_MODES[cmd]
+        logger.info("Webhook: %s received — triggering job (%s)", cmd, mode)
+        try:
+            job_trigger.trigger_analyzer_job(
+                config.GCP_PROJECT_ID,
+                config.CLOUD_RUN_REGION,
+                config.CLOUD_RUN_JOB_NAME,
+                mode=mode,
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: job trigger failed",
+                extra={"cmd": cmd, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=config.TELEGRAM_CHAT_ID,
+                text=f"Error al lanzar <code>{cmd}</code>: {exc}",
+            )
+    elif cmd == "/help":
         logger.info("Webhook: /help received")
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
