@@ -334,3 +334,36 @@ def test_logout_clears_session(client):
     assert response.status_code == 200
     with client.session_transaction() as sess:
         assert "admin_logged_in" not in sess
+
+
+# --- Scraper trigger tests ---
+
+
+@patch("packages.biwenger_tools.web.routes.admin._trigger_scraper_job")
+def test_run_scraper_triggers_job_and_redirects(mock_trigger, client):
+    """Logged-in admin POSTing to /admin/run-scraper gets a flash and redirect."""
+    mock_trigger.return_value = (True, "Job lanzado correctamente (ejecución: abc123).")
+    with client.session_transaction() as sess:
+        sess["admin_logged_in"] = True
+    response = client.post("/admin/run-scraper", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/admin" in response.headers["Location"]
+    mock_trigger.assert_called_once()
+
+
+@patch("packages.biwenger_tools.web.routes.admin._trigger_scraper_job")
+def test_run_scraper_shows_error_flash_on_failure(mock_trigger, client):
+    """When the job trigger fails, an error flash is set and admin is shown."""
+    mock_trigger.return_value = (False, "Error al lanzar el job: timeout.")
+    with client.session_transaction() as sess:
+        sess["admin_logged_in"] = True
+    response = client.post("/admin/run-scraper", follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Error al lanzar el job" in response.data
+
+
+def test_run_scraper_requires_login(client):
+    """Unauthenticated POST to /admin/run-scraper is redirected to admin login."""
+    response = client.post("/admin/run-scraper", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/admin" in response.headers["Location"]

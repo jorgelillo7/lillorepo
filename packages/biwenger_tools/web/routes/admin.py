@@ -1,8 +1,11 @@
-"""Admin routes: login panel and logout."""
+"""Admin routes: login panel, logout, and on-demand scraper trigger."""
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import google.auth
+import google.auth.transport.requests
+import requests as http_requests
 from dateutil import parser
 from flask import (
     Blueprint,
@@ -17,11 +20,17 @@ from flask import (
 )
 
 from core.sdk.gcp import get_file_metadata
+from core.utils import get_logger
 from packages.biwenger_tools.web import config, services
 
 bp = Blueprint("admin", __name__)
+logger = get_logger(__name__)
 
 MADRID_TZ = ZoneInfo("Europe/Madrid")
+
+_CLOUD_RUN_JOBS_API = (
+    "https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run"
+)
 
 
 def _get_sheet_file_status(sheet_id: str) -> dict:
@@ -60,9 +69,42 @@ def _build_file_statuses() -> list:
     return statuses
 
 
+def _trigger_scraper_job() -> tuple[bool, str]:
+    """
+    Trigger the scraper Cloud Run Job via the Cloud Run API v2.
+    Returns (success, message).
+    Uses ADC — works in Cloud Run if the service SA has roles/run.developer.
+    """
+    try:
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        auth_req = google.auth.transport.requests.Request()
+        credentials.refresh(auth_req)
+
+        url = _CLOUD_RUN_JOBS_API.format(
+            project=config.GCP_PROJECT_ID,
+            region=config.CLOUD_RUN_REGION,
+            job=config.CLOUD_RUN_JOB_NAME,
+        )
+        resp = http_requests.post(
+            url,
+            headers={"Authorization": f"Bearer {credentials.token}"},
+            json={},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        execution_name = resp.json().get("name", "").split("/")[-1]
+        logger.info("Scraper job triggered.", extra={"execution": execution_name})
+        return True, f"Job lanzado correctamente (ejecución: {execution_name})."
+    except Exception as exc:
+        logger.error("Failed to trigger scraper job.", extra={"error": str(exc)})
+        return False, f"Error al lanzar el job: {exc}"
+
+
 @bp.route("/admin", methods=["GET", "POST"])
 def admin() -> Response:
-    """Admin panel: login form or file-status dashboard."""
+    """Admin panel: login form or VAR dashboard."""
     if "admin_logged_in" in session:
         file_statuses: list = []
         error = None
@@ -84,6 +126,9 @@ def admin() -> Response:
             file_statuses=file_statuses,
             log_url=log_url,
             error=error,
+            gcp_project=config.GCP_PROJECT_ID,
+            cloud_run_region=config.CLOUD_RUN_REGION,
+            job_name=config.CLOUD_RUN_JOB_NAME,
         )
 
     if request.method == "POST":
@@ -93,6 +138,18 @@ def admin() -> Response:
         flash("Contraseña incorrecta. Inténtalo de nuevo.", "error")
 
     return render_template("admin_login.html", active_page="admin")
+
+
+@bp.route("/admin/run-scraper", methods=["POST"])
+def run_scraper() -> Response:
+    """Trigger the scraper Cloud Run Job on demand."""
+    if "admin_logged_in" not in session:
+        flash("Acceso denegado.", "error")
+        return redirect(url_for("admin.admin"))
+
+    success, message = _trigger_scraper_job()
+    flash(message, "success" if success else "error")
+    return redirect(url_for("admin.admin"))
 
 
 @bp.route("/logout")
