@@ -156,7 +156,7 @@ def test_pick_lineup_uses_alt_positions():
 def test_try_fill_prefers_primary_position_for_multiposition_player():
     # When filling a DEF slot, a player whose primary position is DEF should be
     # preferred over a player whose primary position is MID but has DEF as alt.
-    p_def_primary = _player(1, DEF, sf=300)           # primary DEF, SF 300
+    p_def_primary = _player(1, DEF, sf=300)  # primary DEF, SF 300
     p_mid_with_def_alt = _player(2, MID, sf=350, alts=[DEF])  # primary MID, higher SF
 
     # Both are eligible for DEF. Without the preference rule, SF-only sorting
@@ -195,7 +195,7 @@ def test_captain_falls_back_to_cheapest_when_no_known_cheap():
 def test_captain_excludes_zero_price_players():
     # price=0 means unknown MV — excluded even if best SF
     starters = [
-        _player(1, GK, sf=600, price=0),       # unknown price, best SF
+        _player(1, GK, sf=600, price=0),  # unknown price, best SF
         _player(2, DEF, sf=300, price=2_000_000),  # cheap, known
     ]
     captain = _pick_captain(starters)
