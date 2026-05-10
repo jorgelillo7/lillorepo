@@ -3,33 +3,23 @@
 {% block title %}Lloros Awards{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-6">
 
-    <!-- Botones -->
-    <div class="flex justify-center space-x-4 mb-8">
-        <button id="btn-ligas" class="filter-btn px-6 py-2 rounded-full font-semibold transition">Ligas Especiales</button>
-        <button id="btn-trofeos" class="filter-btn px-6 py-2 rounded-full font-semibold transition">Trofeos</button>
+    <!-- Tabs -->
+    <div class="flex gap-2">
+        <button id="btn-ligas" onclick="loadSection('ligas')"
+                class="tab-btn active-tab px-5 py-2 rounded-lg font-semibold text-sm transition">🏆 Ligas Especiales</button>
+        <button id="btn-trofeos" onclick="loadSection('trofeos')"
+                class="tab-btn px-5 py-2 rounded-lg font-semibold text-sm transition">🥇 Trofeos</button>
     </div>
 
-    <!-- Mensaje inicial -->
-    <div id="info-message" class="card p-6 text-center text-gray-700">
-        Seleccione una sección antes de continuar
-    </div>
-
-    <!-- Contenedores para los datos -->
-    <div id="ligas-container" class="content-section hidden"></div>
-    <div id="trofeos-container" class="content-section hidden"></div>
+    <div id="ligas-container"></div>
+    <div id="trofeos-container" class="hidden"></div>
 </div>
 
 <style>
-.filter-btn {
-    background-color: #e2e8f0;
-    color: #4a5568;
-}
-.filter-btn.active {
-    background-color: #38a169;
-    color: white;
-}
+.tab-btn { background-color: #f1f5f9; color: #64748b; }
+.tab-btn.active-tab { background-color: #38a169; color: white; }
 .spinner {
     border: 4px solid #f3f3f3;
     border-top: 4px solid #38a169;
@@ -39,89 +29,66 @@
     animation: spin 1s linear infinite;
     margin: 2rem auto;
 }
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 
 <script>
 const season = "{{ season }}";
+const loaded = { ligas: false, trofeos: false };
 
-const btnLigas = document.getElementById('btn-ligas');
-const btnTrofeos = document.getElementById('btn-trofeos');
-const infoMessage = document.getElementById('info-message');
-const ligasContainer = document.getElementById('ligas-container');
-const trofeosContainer = document.getElementById('trofeos-container');
+async function loadSection(section) {
+    const container = document.getElementById(section + '-container');
+    const other = section === 'ligas' ? 'trofeos' : 'ligas';
 
-btnLigas.addEventListener('click', async () => {
-    btnLigas.classList.add('active');
-    btnTrofeos.classList.remove('active');
-    infoMessage.classList.add('hidden');
-    ligasContainer.classList.remove('hidden');
-    trofeosContainer.classList.add('hidden');
+    document.getElementById('btn-' + section).classList.add('active-tab');
+    document.getElementById('btn-' + other).classList.remove('active-tab');
+    document.getElementById(other + '-container').classList.add('hidden');
+    container.classList.remove('hidden');
 
-    if (!ligasContainer.innerHTML) {
-        ligasContainer.innerHTML = '<div class="spinner"></div>';
-        try {
-            const res = await fetch(`/api/lloros-awards/ligas?season=${season}`);
-            const data = await res.json();
-            ligasContainer.innerHTML = renderTable(data);
-        } catch (err) {
-            ligasContainer.innerHTML = `<div class="card p-6 text-center text-red-500">Error al cargar los datos.</div>`;
-        }
+    if (loaded[section]) return;
+
+    container.innerHTML = '<div class="spinner"></div>';
+    try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`/api/lloros-awards/${section}?season=${season}`, { signal: controller.signal });
+        clearTimeout(tid);
+        const data = await res.json();
+        container.innerHTML = renderTable(data);
+        loaded[section] = true;
+    } catch (err) {
+        const msg = err.name === 'AbortError'
+            ? 'La solicitud tardó demasiado. Inténtalo de nuevo.'
+            : 'Error al cargar los datos.';
+        container.innerHTML = `<div class="card p-6 text-center text-red-500 rounded-xl">${msg}</div>`;
     }
-});
-
-btnTrofeos.addEventListener('click', async () => {
-    btnTrofeos.classList.add('active');
-    btnLigas.classList.remove('active');
-    infoMessage.classList.add('hidden');
-    trofeosContainer.classList.remove('hidden');
-    ligasContainer.classList.add('hidden');
-
-    if (!trofeosContainer.innerHTML) {
-        trofeosContainer.innerHTML = '<div class="spinner"></div>';
-        try {
-            const res = await fetch(`/api/lloros-awards/trofeos?season=${season}`);
-            const data = await res.json();
-            trofeosContainer.innerHTML = renderTable(data);
-        } catch (err) {
-            trofeosContainer.innerHTML = `<div class="card p-6 text-center text-red-500">Error al cargar los datos.</div>`;
-        }
-    }
-});
+}
 
 function renderTable(data) {
-    if (!data || data.length === 0) return '<p class="text-center p-6">No hay datos disponibles.</p>';
-    let html = '';
-    data.forEach(league => {
-        html += `<div class="card p-6 rounded-xl shadow-lg mb-6">`;
-        html += `<div class="mb-6 border-b border-gray-300 pb-4">`;
-        html += `<h2 class="font-header text-3xl font-bold text-gray-900">${league.nombre}</h2>`;
-        html += `<p class="mt-2 text-gray-600 whitespace-pre-wrap">${league.descripcion}</p>`;
-        html += `<p class="mt-2 text-sm"><strong class="font-medium text-green-700">Premio:</strong> ${league.premio}</p>`;
-        html += `</div>`;
-
-        html += `<div class="overflow-x-auto"><table class="min-w-full text-center"><thead><tr>`;
-        league.headers.forEach(header => {
-            const cls = header.includes('Total') ? 'text-green-700' : 'text-gray-600';
-            html += `<th class="p-3 text-sm font-bold uppercase tracking-wider ${cls}">${header}</th>`;
-        });
-        html += `</tr></thead><tbody class="divide-y divide-gray-200">`;
-        league.rows.forEach(row => {
-            html += `<tr class="hover:bg-gray-50 transition-colors">`;
-            row.forEach((cell, i) => {
-                let cls = '';
-                if (i === 0) cls += 'text-left font-medium text-gray-800';
-                if (league.headers[i].includes('Total')) cls += ' font-bold text-green-700';
-                html += `<td class="p-3 whitespace-nowrap ${cls}">${cell}</td>`;
-            });
-            html += `</tr>`;
-        });
-        html += `</tbody></table></div></div>`;
-    });
-    return html;
+    if (!data || data.length === 0) return '<p class="text-center p-6 text-gray-500">No hay datos disponibles.</p>';
+    return data.map(league => `
+        <div class="card p-6 rounded-xl shadow-md mb-6">
+            <div class="mb-6 border-b border-gray-200 pb-4">
+                <h2 class="font-header text-2xl font-bold text-gray-900">${league.nombre}</h2>
+                <p class="mt-2 text-gray-600 whitespace-pre-wrap">${league.descripcion}</p>
+                <p class="mt-2 text-sm"><strong class="font-medium text-green-700">Premio:</strong> ${league.premio}</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-center text-sm">
+                    <thead><tr>${league.headers.map(h =>
+                        `<th class="p-3 font-semibold uppercase tracking-wider ${h.includes('Total') ? 'text-green-700' : 'text-gray-500'}">${h}</th>`
+                    ).join('')}</tr></thead>
+                    <tbody class="divide-y divide-gray-100">${league.rows.map(row =>
+                        `<tr class="hover:bg-gray-50 transition">${row.map((cell, i) =>
+                            `<td class="p-3 whitespace-nowrap ${i === 0 ? 'text-left font-medium text-gray-800' : ''} ${league.headers[i]?.includes('Total') ? 'font-bold text-green-700' : 'text-gray-600'}">${cell}</td>`
+                        ).join('')}</tr>`
+                    ).join('')}</tbody>
+                </table>
+            </div>
+        </div>
+    `).join('');
 }
+
+document.addEventListener('DOMContentLoaded', () => loadSection('ligas'));
 </script>
 {% endblock %}

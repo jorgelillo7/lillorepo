@@ -367,3 +367,55 @@ def test_run_scraper_requires_login(client):
     response = client.post("/admin/run-scraper", follow_redirects=False)
     assert response.status_code == 302
     assert "/admin" in response.headers["Location"]
+
+
+# --- Mercado route tests ---
+
+
+@patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
+@patch("packages.biwenger_tools.web.routes.season.find_file_on_drive")
+def test_mercado_success(mock_find_file, mock_download_csv, client):
+    """Mercado page renders clausulazos and tabla de justicia when both files exist."""
+    clausulazos_row = {
+        "fecha": "01-01-2025",
+        "jugador": "Mbappé",
+        "equipo_vendedor": "PSG",
+        "equipo_comprador": "Real Madrid",
+        "precio": "180000000",
+    }
+    tabla_row = {
+        "equipo": "Real Madrid",
+        "total_hechos": "3",
+        "total_recibidos": "1",
+        "punto_de_mira": "PSG",
+        "mayor_agresor": "Barça",
+        "hechos": "[]",
+        "recibidos": "[]",
+    }
+    mock_find_file.side_effect = [{"id": "clausulazos_id"}, {"id": "tabla_id"}]
+    mock_download_csv.side_effect = [[clausulazos_row], [tabla_row]]
+
+    response = client.get("/24-25/mercado")
+
+    assert response.status_code == 200
+    body = response.data.decode("utf-8")
+    assert "Mbappé" in body
+    assert "Real Madrid" in body
+
+
+@patch(
+    "packages.biwenger_tools.web.routes.season.find_file_on_drive", return_value=None
+)
+def test_mercado_no_data(mock_find_file, client):
+    """Mercado page renders without error when no CSV files are found."""
+    response = client.get("/24-25/mercado")
+    assert response.status_code == 200
+    assert b"error" not in response.data.lower()
+
+
+def test_mercado_drive_unavailable(client):
+    """Mercado page shows an error when Drive service is unavailable."""
+    services.drive_service = None
+    response = client.get("/24-25/mercado")
+    assert response.status_code == 200
+    assert "error" in response.data.decode("utf-8").lower()

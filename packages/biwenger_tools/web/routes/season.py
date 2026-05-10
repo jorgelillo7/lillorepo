@@ -179,6 +179,49 @@ def participacion(season: str) -> str:
     )
 
 
+@bp.route("/<season>/mercado")
+def mercado(season: str) -> str:
+    """Display transfers and justice table for a given season."""
+    clausulazos: list = []
+    tabla_justicia: list = []
+    error = None
+    try:
+        if not services.drive_service:
+            raise Exception("El servicio de Google Drive no está disponible.")
+
+        clausulazos_meta = find_file_on_drive(
+            services.drive_service,
+            f"{config.CLAUSULAZOS_FILENAME_BASE}_{g.season}.csv",
+            config.GDRIVE_FOLDER_ID,
+        )
+        if clausulazos_meta:
+            rows = download_csv_as_dict(services.drive_service, clausulazos_meta["id"])
+            clausulazos = [Clausulazo.from_csv_row(r) for r in rows]
+
+        tabla_meta = find_file_on_drive(
+            services.drive_service,
+            f"{config.TABLA_JUSTICIA_FILENAME_BASE}_{g.season}.csv",
+            config.GDRIVE_FOLDER_ID,
+        )
+        if tabla_meta:
+            rows = download_csv_as_dict(services.drive_service, tabla_meta["id"])
+            tabla_justicia = [asdict(JusticeEntry.from_csv_row(r)) for r in rows]
+    except Exception:
+        error = (
+            "Ocurrió un error al cargar los datos del mercado"
+            f" de la temporada {g.season}."
+        )
+        logger.exception("Error loading mercado.", extra={"season": g.season})
+
+    return render_template(
+        "mercado.html",
+        clausulazos=clausulazos,
+        tabla_justicia=tabla_justicia,
+        error=error,
+        active_page="mercado",
+    )
+
+
 @bp.route("/<season>/lloros-awards")
 def lloros_awards(season: str) -> str:
     """Display the Lloros Awards page for a given season."""

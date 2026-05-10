@@ -3,125 +3,189 @@
 {% block title %}Fair Play / Reglamento{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-6">
+    <!-- Video -->
     <div class="card p-6 rounded-xl shadow-lg">
         <h2 class="font-header text-3xl font-bold text-gray-900 mb-4 text-center">Fair Play / El Veredicto</h2>
-        
-        <!-- Video de YouTube Embebido y Centrado -->
-        <div class="flex justify-center my-6">
+        <div class="flex justify-center my-4">
             <div class="w-full max-w-2xl">
                 <div class="aspect-video rounded-lg overflow-hidden shadow-md">
-                    <iframe class="w-full h-full" src="https://www.youtube.com/embed/zM_Rc6V-OCU" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    <iframe class="w-full h-full" src="https://www.youtube.com/embed/zM_Rc6V-OCU"
+                            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Índice de Contenidos -->
-        <div class="prose max-w-none mb-8 p-4 bg-gray-50 rounded-md border">
-            <h3 class="font-header">Índice del Partido</h3>
-            <ul class="list-none p-0 space-y-1">
-                <li><a href="#reglas-biwenger" class="text-green-700 hover:underline">1. Reglas Biwenger</a></li>
-                <li><a href="#nuevos-torneos" class="text-green-700 hover:underline">2. Nuevos Torneos</a>
-                    <ul class="list-none pl-4 mt-1 space-y-1">
-                        <li><a href="#copa-navidad" class="text-sm text-gray-600 hover:underline">2.1 Copa Navidad</a></li>
-                        <li><a href="#copa-castolo" class="text-sm text-gray-600 hover:underline">2.2 Copa Castolo</a></li>
-                        <li><a href="#liga-camareros" class="text-sm text-gray-600 hover:underline">2.3 Liga Camareros</a></li>
-                        <li><a href="#liga-amistad" class="text-sm text-gray-600 hover:underline">2.4 Liga Amistad</a></li>
-                    </ul>
-                </li>
-                <li><a href="#normas-comunicados" class="text-green-700 hover:underline">3. Normas para Comunicados</a></li>
-                <li><a href="#reglas-draft" class="text-green-700 hover:underline">4. El Draft</a></li>
-                <li><a href="#final-temporada" class="text-green-700 hover:underline">5. Final de Temporada</a></li>
-            </ul>
-        </div>
+    <!-- Índice -->
+    <div class="card p-5 rounded-xl shadow-sm">
+        <h3 class="font-header text-lg font-bold text-gray-700 mb-3">Índice del Partido</h3>
+        <ul class="space-y-1 text-sm">
+            <li><a href="#sec-reglas" onclick="openSection('sec-reglas')" class="text-green-700 hover:underline">1. Reglas Biwenger</a></li>
+            <li><a href="#sec-torneos" onclick="openSection('sec-torneos')" class="text-green-700 hover:underline">2. Nuevos Torneos y Trofeos</a>
+                <ul class="pl-4 mt-1 space-y-1 text-gray-500">
+                    <li><a href="#copa-navidad" onclick="openSection('sec-torneos')" class="hover:underline">2.1 Copa Navidad</a></li>
+                    <li><a href="#copa-castolo" onclick="openSection('sec-torneos')" class="hover:underline">2.2 Copa Castolo</a></li>
+                    <li><a href="#liga-camareros" onclick="openSection('sec-torneos')" class="hover:underline">2.3 Liga Camareros</a></li>
+                    <li><a href="#liga-amistad" onclick="openSection('sec-torneos')" class="hover:underline">2.4 Liga Amistad</a></li>
+                </ul>
+            </li>
+            <li><a href="#sec-comunicados" onclick="openSection('sec-comunicados')" class="text-green-700 hover:underline">3. Normas para Comunicados</a></li>
+            <li><a href="#sec-draft" onclick="openSection('sec-draft')" class="text-green-700 hover:underline">4. El Draft</a></li>
+            <li><a href="#sec-final" onclick="openSection('sec-final')" class="text-green-700 hover:underline">5. Final de Temporada</a></li>
+        </ul>
+    </div>
 
-        <div class="prose max-w-none">
-            <!-- Sección Reglas Biwenger -->
-            <h3 id="reglas-biwenger" class="font-header">1. Reglas Biwenger</h3>
-            <ul>
-                <li>
-                    <strong>Puntuación Personalizada:</strong> Se utiliza un sistema de puntuación personalizado.
-                    <div class="mt-2 flex flex-wrap gap-4">
-                        <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition" 
-                             data-src="{{ url_for('static', filename='nota_sofascore.jpg') }}">
-                            <p class="italic text-sm text-gray-600">Nota Sofascore</p>
-                            <img src="{{ url_for('static', filename='nota_sofascore.jpg') }}" alt="Nota Sofascore" class="max-h-64">
-                        </div>
-                        <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
-                             data-src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}">
-                            <p class="italic text-sm text-gray-600">Puntuación Personalizada</p>
-                            <img src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}" alt="Puntuación Personalizada" class="max-h-64">
-                        </div>
-                    </div>
-                </li>
-                <li><strong>Clausulazos:</strong> Ilimitados, pero con restricciones:
+    <!-- Acordeón -->
+    <div class="space-y-2">
+
+        <!-- 1. Reglas Biwenger -->
+        <div class="card rounded-xl overflow-hidden" id="sec-reglas">
+            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                    data-target="body-reglas">
+                <span class="font-header text-xl font-bold text-gray-800">1. Reglas Biwenger</span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="body-reglas" class="accordion-content px-5 pb-5 border-t border-gray-100">
+                <div class="prose max-w-none mt-4">
                     <ul>
-                        <li>El jugador clausulado queda <strong>bloqueado durante 2 semanas</strong> para el equipo comprador.</li>
-                        <li>Solo se podrá clausular un portero si el equipo afectado tiene un suplente disponible.</li>
+                        <li>
+                            <strong>Puntuación Personalizada:</strong> Se utiliza un sistema de puntuación personalizado.
+                            <div class="mt-2 flex flex-wrap gap-4">
+                                <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
+                                     data-src="{{ url_for('static', filename='nota_sofascore.jpg') }}">
+                                    <p class="italic text-sm text-gray-600">Nota Sofascore</p>
+                                    <img src="{{ url_for('static', filename='nota_sofascore.jpg') }}" alt="Nota Sofascore" class="max-h-64">
+                                </div>
+                                <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
+                                     data-src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}">
+                                    <p class="italic text-sm text-gray-600">Puntuación Personalizada</p>
+                                    <img src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}" alt="Puntuación Personalizada" class="max-h-64">
+                                </div>
+                            </div>
+                        </li>
+                        <li><strong>Clausulazos:</strong> Ilimitados, pero con restricciones:
+                            <ul>
+                                <li>El jugador clausulado queda <strong>bloqueado durante 2 semanas</strong> para el equipo comprador.</li>
+                                <li>Solo se podrá clausular un portero si el equipo afectado tiene un suplente disponible.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Capitán:</strong> Se puede elegir un capitán que puntúa doble. Su valor de mercado no puede superar los <strong>3 millones de euros</strong> al inicio de la jornada.</li>
+                        <li><strong>Partidos Aplazados:</strong> Los puntos y el dinero de la jornada se abonarán únicamente cuando se hayan disputado todos los partidos, incluidos los aplazados.</li>
+                        <li><strong>Duelos:</strong> Se pueden realizar duelos con apuestas entre mánagers, notificándolo a la administración antes de la jornada.</li>
+                        <li><strong>Básicos:</strong> Estar en positivo antes del inicio de la jornada y tener 11 jugadores alineados.</li>
                     </ul>
-                </li>
-                <li><strong>Capitán:</strong> Se puede elegir un capitán que puntúa doble. Su valor de mercado no puede superar los <strong>3 millones de euros</strong> al inicio de la jornada.</li>
-                <li><strong>Partidos Aplazados:</strong> Los puntos y el dinero de la jornada se abonarán únicamente cuando se hayan disputado **todos** los partidos, incluidos los aplazados.</li>
-                <li><strong>Duelos:</strong> Se pueden realizar duelos con apuestas entre mánagers, notificándolo a la administración antes de la jornada.</li>
-                <li><strong>Básicos:</strong> Estar en positivo antes del inicio de la jornada y tener 11 jugadores alineados.</li>
-            </ul>
-
-            <!-- Nuevos Torneos -->
-            <h3 id="nuevos-torneos" class="font-header">2. Nuevos Torneos y Trofeos</h3>
-            <p>Puedes consultar los resultados y clasificaciones en la sección de <a href="{{ url_for('season.lloros_awards', season=season) }}" class="text-green-700 hover:underline">Torneos y Trofeos</a>.</p>
-            <div class="space-y-4 not-prose">
-                <div id="copa-navidad" class="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-md">
-                    <h4 class="font-bold text-gray-800">Copa Navidad</h4>
-                    <p class="text-sm text-gray-700">Fase de grupos y Final Four. La final coincide con la última jornada del año.</p>
-                </div>
-                <div id="copa-castolo" class="p-4 border-l-4 border-purple-500 bg-purple-50 rounded-r-md">
-                    <h4 class="font-bold text-gray-800">Copa Castolo</h4>
-                    <p class="text-sm text-gray-700">Eliminatoria directa. El campeón de la Copa Navidad entra directamente en semifinales y el ganador obtiene recompensas para la siguiente temporada.</p>
-                </div>
-                <div id="liga-camareros" class="p-4 border-l-4 border-green-500 bg-green-50 rounded-r-md">
-                    <h4 class="font-bold text-gray-800">Liga Camareros</h4>
-                    <p class="text-sm text-gray-700">Los presidentes se dividen en 2 grupos. La puntuación de cada grupo es la media de sus miembros. El grupo perdedor tendrá que servir bebidas al grupo ganador durante la fiesta final.</p>
-                </div>
-                <div id="liga-amistad" class="p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded-r-md">
-                    <h4 class="font-bold text-gray-800">Liga de la Amistad</h4>
-                    <p class="text-sm text-gray-700">Los presidentes se dividen en 3 equipos. El equipo con menos puntos al final de la temporada será el "Campeón de la Amistad" y deberá estar esposado durante una hora en la fiesta final.</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Normas para escribir comunicados -->
-            <h3 id="normas-comunicados" class="font-header">3. Normas para Comunicados</h3>
-            <ul>
-                <li>Si quieres publicar una crónica, el título debe empezar por <strong>"CRÓNICA - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='cronicas') }}" class="text-green-700 hover:underline">Salseo (Crónicas)</a>.</li>
-                <li>Si quieres publicar un "dato curioso", el título debe empezar por <strong>"DATO - "</strong> o <strong>"DATOS - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='datos') }}" class="text-green-700 hover:underline">Salseo (Mr. Lucen)</a>.</li>
-                <li>Para registrar una cesión, el título del mensaje debe empezar por <strong>"CESIÓN - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season, tab='cesiones') }}" class="text-green-700 hover:underline">Salseo (Cesiones)</a>.</li>
-                <li>El resto de mensajes se considerarán comunicados oficiales y aparecerán en la <a href="{{ url_for('season.comunicados', season=season) }}" class="text-green-700 hover:underline">página principal</a>.</li>
-            </ul>
+        <!-- 2. Nuevos Torneos -->
+        <div class="card rounded-xl overflow-hidden" id="sec-torneos">
+            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                    data-target="body-torneos">
+                <span class="font-header text-xl font-bold text-gray-800">2. Nuevos Torneos y Trofeos</span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="body-torneos" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
+                <div class="prose max-w-none mt-4">
+                    <p>Puedes consultar los resultados y clasificaciones en la sección de
+                        <a href="{{ url_for('season.lloros_awards', season=season) }}" class="text-green-700 hover:underline">Torneos y Trofeos</a>.
+                    </p>
+                </div>
+                <div class="space-y-3 mt-4">
+                    <div id="copa-navidad" class="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-md">
+                        <h4 class="font-bold text-gray-800">Copa Navidad</h4>
+                        <p class="text-sm text-gray-700 mt-1">Fase de grupos y Final Four. La final coincide con la última jornada del año.</p>
+                    </div>
+                    <div id="copa-castolo" class="p-4 border-l-4 border-purple-500 bg-purple-50 rounded-r-md">
+                        <h4 class="font-bold text-gray-800">Copa Castolo</h4>
+                        <p class="text-sm text-gray-700 mt-1">Eliminatoria directa. El campeón de la Copa Navidad entra directamente en semifinales y el ganador obtiene recompensas para la siguiente temporada.</p>
+                    </div>
+                    <div id="liga-camareros" class="p-4 border-l-4 border-green-500 bg-green-50 rounded-r-md">
+                        <h4 class="font-bold text-gray-800">Liga Camareros</h4>
+                        <p class="text-sm text-gray-700 mt-1">Los presidentes se dividen en 2 grupos. La puntuación de cada grupo es la media de sus miembros. El grupo perdedor tendrá que servir bebidas al grupo ganador durante la fiesta final.</p>
+                    </div>
+                    <div id="liga-amistad" class="p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded-r-md">
+                        <h4 class="font-bold text-gray-800">Liga de la Amistad</h4>
+                        <p class="text-sm text-gray-700 mt-1">Los presidentes se dividen en 3 equipos. El equipo con menos puntos al final de la temporada será el "Campeón de la Amistad" y deberá estar esposado durante una hora en la fiesta final.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            <!-- Sección Draft -->
-            <h3 id="reglas-draft" class="font-header">4. El Draft</h3>
-            <ul>
-                <li><strong>Fecha y Hora:</strong> Se acuerda un día para el evento, preferentemente un mes antes de empezar la liga.</li>
-                <li><strong>Presupuesto:</strong> Cada mánager empieza con <strong>50 Millones de euros</strong>.</li>
-                <li><strong>Plataforma:</strong> Preferentemente en una casa con cerveza/cocacola y todos conectados a Discord para el salseo en directo.</li>
-                <li><strong>Formato:</strong> Sistema "serpiente", empezando por el último clasificado del año anterior.</li>
-                <li><strong>Rondas:</strong> Son <strong>15 rondas</strong> para elegir un mínimo de 15 jugadores (11 titulares + 4 suplentes). El máximo por plantilla durante la temporada es de 25.</li>
-                <li><strong>Ayudas Externas:</strong> Está permitido tanto usar IA como llamar en secreto a tu compañero de trabajo futbolero.</li>
-            </ul>
+        <!-- 3. Normas Comunicados -->
+        <div class="card rounded-xl overflow-hidden" id="sec-comunicados">
+            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                    data-target="body-comunicados">
+                <span class="font-header text-xl font-bold text-gray-800">3. Normas para Comunicados</span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="body-comunicados" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
+                <div class="prose max-w-none mt-4">
+                    <ul>
+                        <li>Si quieres publicar una crónica, el título debe empezar por <strong>"CRÓNICA - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season) }}?tab=cronicas" class="text-green-700 hover:underline">Salseo (Crónicas)</a>.</li>
+                        <li>Si quieres publicar un "dato curioso", el título debe empezar por <strong>"DATO - "</strong> o <strong>"DATOS - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season) }}?tab=datos" class="text-green-700 hover:underline">Salseo (Mr. Lucen)</a>.</li>
+                        <li>Para registrar una cesión, el título del mensaje debe empezar por <strong>"CESIÓN - "</strong>. Los movimientos del mercado se pueden consultar en <a href="{{ url_for('season.mercado', season=season) }}" class="text-green-700 hover:underline">Mercado</a>.</li>
+                        <li>El resto de mensajes se considerarán comunicados oficiales y aparecerán en la <a href="{{ url_for('season.comunicados', season=season) }}" class="text-green-700 hover:underline">página principal</a>.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
-            <!-- Final de Temporada -->
-            <h3 id="final-temporada" class="font-header">5. Final de Temporada</h3>
-            <ul>
-                <li>Los <strong>3 primeros</strong> reciben la gloria, el honor y una invitación a comer por parte del resto.</li>
-                <li>El <strong>4º clasificado</strong> es territorio neutral: no paga ni cobra, salvo su propia comida.</li>
-                <li>Los <strong>3 últimos</strong>, además de pagar su comida, invitan a los 4 de arriba.</li>
-                <li>Puedes consultar el histórico en la sección de <a href="{{ url_for('main.palmares') }}" class="text-green-700 hover:underline">Palmarés</a>.</li>
-                <li><strong>Opción Extra:</strong> Se puede proponer la compra de camisetas sorpresa en <a href="https://camisetasfutbolsorpresa.com/" target="_blank" rel="noopener noreferrer" class="text-green-700 hover:underline">camisetasfutbolsorpresa.com</a>.</li>
-            </ul>
+        <!-- 4. El Draft -->
+        <div class="card rounded-xl overflow-hidden" id="sec-draft">
+            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                    data-target="body-draft">
+                <span class="font-header text-xl font-bold text-gray-800">4. El Draft</span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="body-draft" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
+                <div class="prose max-w-none mt-4">
+                    <ul>
+                        <li><strong>Fecha y Hora:</strong> Se acuerda un día para el evento, preferentemente un mes antes de empezar la liga.</li>
+                        <li><strong>Presupuesto:</strong> Cada mánager empieza con <strong>50 Millones de euros</strong>.</li>
+                        <li><strong>Plataforma:</strong> Preferentemente en una casa con cerveza/cocacola y todos conectados a Discord para el salseo en directo.</li>
+                        <li><strong>Formato:</strong> Sistema "serpiente", empezando por el último clasificado del año anterior.</li>
+                        <li><strong>Rondas:</strong> Son <strong>15 rondas</strong> para elegir un mínimo de 15 jugadores (11 titulares + 4 suplentes). El máximo por plantilla durante la temporada es de 25.</li>
+                        <li><strong>Ayudas Externas:</strong> Está permitido tanto usar IA como llamar en secreto a tu compañero de trabajo futbolero.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Final de Temporada -->
+        <div class="card rounded-xl overflow-hidden" id="sec-final">
+            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                    data-target="body-final">
+                <span class="font-header text-xl font-bold text-gray-800">5. Final de Temporada</span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div id="body-final" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
+                <div class="prose max-w-none mt-4">
+                    <ul>
+                        <li>Los <strong>3 primeros</strong> reciben la gloria, el honor y una invitación a comer por parte del resto.</li>
+                        <li>El <strong>4º clasificado</strong> es territorio neutral: no paga ni cobra, salvo su propia comida.</li>
+                        <li>Los <strong>3 últimos</strong>, además de pagar su comida, invitan a los 4 de arriba.</li>
+                        <li>Puedes consultar el histórico en la sección de <a href="{{ url_for('main.palmares') }}" class="text-green-700 hover:underline">Palmarés</a>.</li>
+                        <li><strong>Opción Extra:</strong> Se puede proponer la compra de camisetas sorpresa en <a href="https://camisetasfutbolsorpresa.com/" target="_blank" rel="noopener noreferrer" class="text-green-700 hover:underline">camisetasfutbolsorpresa.com</a>.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Modal para mostrar la imagen en grande -->
+<!-- Modal imagen -->
 <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
     <div class="relative max-w-4xl max-h-full">
         <img id="modal-image" src="" alt="Imagen ampliada" class="w-auto h-auto max-w-full max-h-[90vh] rounded-lg">
@@ -130,31 +194,56 @@
 </div>
 
 <script>
-    const modal = document.getElementById('image-modal');
-    const modalImage = document.getElementById('modal-image');
-    const closeModalBtn = document.getElementById('close-modal');
-    const images = document.querySelectorAll('.zoomable-image');
-
-    images.forEach(image => {
-        image.addEventListener('click', () => {
-            const imageSrc = image.getAttribute('data-src');
-            if (imageSrc) {
-                modalImage.src = imageSrc;
-                modal.classList.remove('hidden');
-            }
+    // Accordion
+    document.querySelectorAll('.accordion-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const content = document.getElementById(btn.dataset.target);
+            const icon = btn.querySelector('.accordion-icon');
+            const isOpen = !content.classList.contains('hidden');
+            content.classList.toggle('hidden', isOpen);
+            icon.classList.toggle('rotate-180', !isOpen);
         });
     });
 
-    function closeModal() {
-        modal.classList.add('hidden');
-        modalImage.src = ''; // Limpiar la imagen para evitar cargas innecesarias
+    function openSection(sectionId) {
+        const content = document.getElementById('body-' + sectionId.replace('sec-', ''));
+        if (content && content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            const btn = content.previousElementSibling;
+            btn?.querySelector('.accordion-icon')?.classList.add('rotate-180');
+        }
     }
 
-    closeModalBtn.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
+    // Auto-open section from URL hash
+    function openByHash() {
+        const hash = window.location.hash;
+        if (!hash) return;
+        const el = document.querySelector(hash);
+        if (!el) return;
+        const card = el.classList.contains('card') ? el : el.closest('.card');
+        if (!card) return;
+        const content = card.querySelector('.accordion-content');
+        if (content && content.classList.contains('hidden')) {
+            content.classList.remove('hidden');
+            card.querySelector('.accordion-icon')?.classList.add('rotate-180');
         }
+    }
+    window.addEventListener('hashchange', openByHash);
+    document.addEventListener('DOMContentLoaded', openByHash);
+
+    // Image modal
+    const modal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+    document.getElementById('close-modal').addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modalImage.src = '';
+    });
+    modal.addEventListener('click', e => { if (e.target === modal) { modal.classList.add('hidden'); modalImage.src = ''; } });
+    document.querySelectorAll('.zoomable-image').forEach(img => {
+        img.addEventListener('click', () => {
+            modalImage.src = img.getAttribute('data-src');
+            modal.classList.remove('hidden');
+        });
     });
 </script>
 {% endblock %}
