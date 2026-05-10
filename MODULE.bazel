@@ -13,15 +13,15 @@ bazel_dep(name = "platforms", version = "1.1.0")
 # --- TOOLCHAINS Y DEPENDENCIAS DE PYTHON ---
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    python_version = "3.12",
+    python_version = "3.13",
 )
-use_repo(python, python_toolchain = "python_3_12")
+use_repo(python, python_toolchain = "python_3_13")
 
 # Se utiliza la extensión pip para gestionar las dependencias de Python
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "pypi",
-    python_version = "3.12",
+    python_version = "3.13",
     requirements_lock = "//:requirements_lock.txt",
 )
 use_repo(pip, "pypi")
@@ -32,7 +32,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
-    digest = "sha256:a4e1848751ff5f326a2ad10df2c559241e9750907164cf020165aec706432ae5",
+    digest = "sha256:5553373fe4697cd936f56eb9ead8d289d8184aa58e4455d94d23a3bb0a75aeac",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",

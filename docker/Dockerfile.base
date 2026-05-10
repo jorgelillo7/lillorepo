@@ -6,7 +6,7 @@
 # Si añades/quitas una dep en cualquier requirements.txt, regenera el lock
 # y actualiza esta lista (ver docs/operations.md).
 
-FROM python:3.12-slim@sha256:4386a385d81dba9f72ed72a6fe4237755d7f5440c84b417650f38336bbc43117
+FROM python:3.13-slim@sha256:0ee2df98db454606ca92bb7a79d47ff7dc9cc0c8d5901e32eb71e6b5203377b2
 
 RUN pip install --no-cache-dir \
     beautifulsoup4==4.14.3 \

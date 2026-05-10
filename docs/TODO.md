@@ -10,8 +10,8 @@
 - [x] **GitHub Actions secrets** — todos añadidos en el repo
 - [x] **Primer deploy via CI** — disparado tras los primeros pushes a `master`
 - [x] **Eliminar GitHub Secrets obsoletos** — `COMUNICADOS_CSV_URL`, `PALMARES_CSV_URL`, `PARTICIPACION_CSV_URL` borrados (2026-05-04).
-- [ ] **Auditar y rotar SA key** si la del repo es la real (~30min)
-- [ ] **Mover IDs de Drive/Sheets a Secret Manager / env** — actualmente hardcodeados en `packages/biwenger_tools/web/BUILD.bazel:13-19`
+- [x] **Auditar y rotar SA key** — SA key está gitignoreada, nunca se subió. No hay riesgo (2026-05-10).
+- [ ] **Mover IDs de Drive/Sheets a Secret Manager / env** — actualmente hardcodeados en `packages/biwenger_tools/web/BUILD.bazel:13-19` (mueren con la migración Firestore)
 
 ## Técnico
 
@@ -31,9 +31,11 @@
 - [x] **Auto-alineación `/alinear`** — `logic/lineup.py`, greedy sobre 12 formaciones, multi-posición vía `altPositions`, capitán < 3M. `BiwengerClient.set_lineup()` en core.
 - [ ] **Sección VAR en web** — revisar y conectar trigger manual del AI scraper o cron job
 - [ ] **Nuevo proyecto Google para fotos**
+- [x] **Chuck Norris bot** — @ChuckNorrisJokesBot desplegado en Cloud Run, en CI (PR #17, 2026-05-10).
 
 ## Arquitectura (medio plazo)
 
 - [x] **Domain models aplicados** — `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry` con `from_csv_row`/`to_csv_row` ya se usan en scraper (escritura) y web (lectura). El call site del CSV-as-DB queda contenido en una capa: facilita la futura migración a Firestore.
 - [ ] **Migración CSV → Firestore** — los modelos de dominio están listos para que el cambio sea localizado en lecturas/escrituras GCP en lugar de tocar todos los call sites. Sin urgencia, ver project_pitch.md para narrativa.
-- [ ] **Bumps de dependencias** — ver Fase D en `.claude/plans/next_phases.md`. Prioridad: `rules_python` 0.40→2.0 + `platforms` 0.0.10→1.1 (warnings en cada build), luego GH Actions, luego Python libs.
+- [x] **Bumps de dependencias (Phase D)** — todo al día a 2026-05-10. rules_python 2.0, platforms 1.1, GH Actions en major actual, libs Python todas en latest.
+- [ ] **Upgrade Python 3.12 → 3.13** — 3.12 en security-only desde oct 2025. Ver rama `chore/python-313-upgrade` (en curso).
