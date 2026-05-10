@@ -1,9 +1,7 @@
 # TODO
 
 > 📌 **Para retomar trabajo en una sesión nueva**, leer
-> [`.claude/plans/next_phases.md`](../.claude/plans/next_phases.md). Tiene
-> el plan ordenado por fases (A → B → C → D), con comandos exactos y
-> decisiones ya tomadas.
+> [`.claude/plans/next_phases.md`](../.claude/plans/next_phases.md).
 
 ## Prioritario
 
@@ -39,4 +37,4 @@
 - [x] **Domain models aplicados** — `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry` con `from_csv_row`/`to_csv_row` ya se usan en scraper (escritura) y web (lectura). El call site del CSV-as-DB queda contenido en una capa: facilita la futura migración a Firestore.
 - [ ] **Migración CSV → Firestore** — los modelos de dominio están listos para que el cambio sea localizado en lecturas/escrituras GCP en lugar de tocar todos los call sites. Sin urgencia, ver project_pitch.md para narrativa.
 - [x] **Bumps de dependencias (Phase D)** — todo al día a 2026-05-10. rules_python 2.0, platforms 1.1, GH Actions en major actual, libs Python todas en latest.
-- [ ] **Upgrade Python 3.12 → 3.13** — 3.12 en security-only desde oct 2025. Ver rama `chore/python-313-upgrade` (en curso).
+- [x] **Upgrade Python 3.12 → 3.13** — hecho en PR #18 (2026-05-10). Toolchain, Dockerfile.base y MODULE.bazel actualizados.

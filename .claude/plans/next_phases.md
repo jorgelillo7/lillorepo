@@ -6,70 +6,81 @@ are already taken.
 
 ## State on 2026-05-10
 
-- **`master`**: clean. All A/B/C phases shipped.
+- **`master`**: clean. PRs #15–#20 merged.
 - **JP API**: alive, token unchanged.
-- **`teams_analyzer_rewrite.md`**: deleted — all three phases implemented.
+- **All packages in CI**: web, scraper_job, teams_analyzer, telegram_bot, chucknorris_bot.
+- **Python**: 3.13 (PR #18).
+- **Deuda técnica**: prácticamente cero. No hay work pendiente urgente.
 
-## What shipped (Phases A, B, C)
+## What shipped this sprint
 
-### Phase A — teams_analyzer on Cloud Run ✅
-Daily Cloud Run Job `biwenger-teams-analyzer` running at 16:00 Madrid.
-CI auto-deploys on changes to `packages/biwenger_tools/teams_analyzer/**`.
-Image in Artifact Registry. Cleanup script working.
+### Chuck Norris Bot ✅ (PR #17)
+- `packages/chucknorris_bot/bot` — Python/Flask rewrite del bot original de 2015 (Node.js/Heroku).
+- Cloud Run Service `chucknorris-bot`, europe-southwest1, proyecto biwenger-tools.
+- Bot: @ChuckNorrisJokesBot. Landing page dark-mode. CI wired.
 
-### Phase B — Telegram bot ✅
-Implemented as a **dedicated Cloud Run Service** (`biwenger-telegram-bot`),
-not the Flask web (plan said Option A but dedicated service was cleaner).
-Module: `packages/biwenger_tools/telegram_bot/`.
-Commands registered: `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/help`.
-Webhook validated with `X-Telegram-Bot-Api-Secret-Token`.
-CI auto-deploys on `packages/biwenger_tools/telegram_bot/**` changes.
+### Python 3.13 ✅ (PR #18)
+- Toolchain, Dockerfile.base (nueva imagen pushed), deploy.yml, digest MODULE.bazel actualizados.
 
-### Phase C — Auto-lineup `/alinear` ✅
-`pick_lineup()` in `teams_analyzer/logic/lineup.py`.
-Greedy formation search over 12 formations, multi-position support via
-`altPositions` field discovered in Biwenger API (was the open research question).
-Captain: price < 3M → highest SF; fallback: highest SF overall.
-Dry-run exposed as preview step in `/alinear` before applying.
-`BiwengerClient.set_lineup()` added to `core/sdk/biwenger.py`.
+### VAR panel — scraper on-demand ✅ (PR #19)
+- `POST /admin/run-scraper` lanza `biwenger-scraper-data` Cloud Run Job vía ADC (roles/run.developer ya en la SA).
+- Panel rediseñado: 4 cards (header, scraper controls, ficheros, sistema).
+- SA: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`, gitignoreada, no rotación necesaria.
+
+### Web UI 2.0 ✅ (PR #20)
+- Sticky nav con hamburger en móvil. Season selector como pill en desktop.
+- Nueva sección `/mercado` (Clausulazos + Tabla de Justicia, split de Salseo).
+- Salseo simplificado a 2 tabs (Crónicas + Datos). Búsqueda con botón ✕ y contador.
+- Participación: columna Total, medallas 🥇🥈🥉, barra de progreso, cards en móvil.
+- Tabla de Justicia: filas expandibles (click = desglose quién atacó a quién).
+- Lloros Awards: auto-carga primera tab. Reglamento: acordeón. Palmarés: badge dorado campeón.
+- VAR link en footer siempre visible. 23 tests, lint limpio, CI verde.
+
+---
+
+## Pending work
+
+### 1. Firestore migration (~16h, $0/mes) — DEFERRED
+La única tarea grande pendiente. Deferred indefinidamente por el usuario (2026-05-10).
+Domain models en `core/domain/models.py` ya mapean directo a Firestore.
+
+Estructura de colecciones decidida:
+```
+comunicados/{season}/messages/{id_hash}
+clausulazos/{season}/transfers/{auto_id}
+tabla_justicia/{season}/teams/{equipo}
+participacion/{season}/authors/{autor}
+palmares/{auto_id}
+```
+
+Orden de ataque cuando se retome:
+1. `core/sdk/firestore.py` — CRUD helpers, ADC auth
+2. `scraper_job` — escribir a Firestore en vez de CSV → Drive
+3. `web` — leer de Firestore en vez de Drive CSVs
+4. Borrar secrets `gdrive-folder-id-regional` y `biwenger-tools-sa-regional`
+
+### 2. Nuevo proyecto Google para fotos (sin urgencia)
+Mencionado como TODO pero sin spec. Sin blockers técnicos.
+
+---
+
+## Closed / won't do
+
+- **Auditar y rotar SA key** — gitignoreada, nunca subida. No hay riesgo.
+- **Mover IDs de Drive/Sheets a Secret Manager** — mueren con Firestore.
+- **Phase D dependencies** — todo al día (2026-05-10).
+
+---
 
 ## Decisions already taken (don't reopen)
 
-- Telegram bot → **dedicated Cloud Run Service**, not the Flask web.
-  The Flask web (`biwenger-summary`) stays focused on data visualisation.
-- Multi-position → `altPositions` field in Biwenger API (array of pos IDs).
-  `BiwengerClient.get_manager_squad()` already returns it; lineup builder reads it.
-- Auto-lineup captain rule → price < 3M preferred (double points in Biwenger),
-  then highest SF. This is locked in `logic/lineup.py`.
-- All output modes (my_team, market, all, alinear, daily) send **PNG images**
-  via `sendPhoto`, not text/CSV. `send_telegram_document` removed from core.
-- `telegram_formatter.py` is now a thin helpers module (5 functions) used only
-  by `image_formatter.py`. All text/CSV builders deleted.
-
----
-
-## Phase D — Dependency maintenance (next priority)
-
-These are standalone PRs; none block each other. Do them in order.
-Run `/check-deps` first to confirm latest versions.
-
-| Order | Bump | Files | Risk |
-|-------|------|-------|------|
-| 1st | `rules_python` 0.40.0 → 2.0.0 | `MODULE.bazel`, `*/BUILD.bazel` if deprecated APIs used | Medium |
-| 1st | `platforms` 0.0.10 → 1.1.0 | `MODULE.bazel` | Low |
-| 2nd | GitHub Actions: checkout v6, setup-python v6, setup-bazel 0.19.0, paths-filter v4, google-github-actions/* v3 | `.github/workflows/deploy.yml` | Low; drop `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` in same PR |
-| 3rd | Python libs: gunicorn 23→25, pytest 8→9, black 25→26, google-api-python-client + google-auth latest | per-module `requirements.txt`, regen lock, rebuild + repush `Dockerfile.base`, update digest in `MODULE.bazel` | Medium |
-| Last | Python 3.12 → 3.14 | `MODULE.bazel`, `Dockerfile.base`, CI, lock regen | High — only if there's a reason; 3.12 supported until Oct 2028 |
-
----
-
-## Other open work (not urgent)
-
-- **Auditar y rotar SA key** — if the key in the repo is real (~30min).
-- **Mover IDs de Drive/Sheets a Secret Manager** — currently hardcoded in
-  `packages/biwenger_tools/web/BUILD.bazel:13-19`.
-- **Sección VAR en web** — trigger manual del AI scraper o cron job.
-- **Migración CSV → Firestore** — domain models ready; no urgency.
+- Telegram bot → Cloud Run Service dedicado, no el Flask web.
+- Output (teams, market) → PNG via `sendPhoto`. No texto/CSV.
+- Auto-lineup capitán → precio < 3M estricto, mayor SF. Fallback: más barato con precio conocido.
+- Chuck Norris bot → mismo proyecto GCP (`biwenger-tools`). Secrets regionales.
+- Webhook helpers → `core/sdk/telegram.py`, no duplicados por bot.
+- Firestore migration → deferred; stack CSV/Drive permanece hasta que se retome explícitamente.
+- Web UI → Tailwind CDN + vanilla JS, sin frameworks. Misma paleta verde #38a169.
 
 ---
 
@@ -79,9 +90,7 @@ Run `/check-deps` first to confirm latest versions.
 2. `git checkout master && git pull --ff-only`
 3. Read `CLAUDE.md` (root) + `.claude/CLAUDE.md`.
 4. Read this file.
-5. Default next action: **Phase D** (pick the first pending bump).
-
-Useful shorthands:
+5. No hay "next action" urgente — preguntar al usuario qué quiere hacer.
 
 ```bash
 # Full test sweep
@@ -89,19 +98,15 @@ bazel test //core:core_tests \
   //packages/biwenger_tools/web:web_tests \
   //packages/biwenger_tools/scraper_job:scraper_job_tests \
   //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests \
-  //packages/biwenger_tools/telegram_bot:telegram_bot_tests
+  //packages/biwenger_tools/telegram_bot:telegram_bot_tests \
+  //packages/chucknorris_bot/bot:bot_tests
 
 # Lint (same as CI)
-flake8 core/ packages/ && black --check core/ packages/
-
-# Register bot commands (run manually after adding a command)
-TELEGRAM_BOT_TOKEN=xxx PYTHONPATH=. python3 \
-  packages/biwenger_tools/telegram_bot/setup_commands.py
+python3 -m flake8 core/ packages/ && python3 -m black --check core/ packages/
 ```
 
 Do **not**:
-
-- Commit directly to `master` (CI deploys on push).
+- Commit directly to `master`.
 - Touch `requirements_lock.txt` by hand.
 - Add `Co-Authored-By` to commit messages.
 - Bump dependencies in the same PR as a feature.
