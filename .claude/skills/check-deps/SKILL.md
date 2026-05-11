@@ -20,7 +20,7 @@ the latest release of each one, and tell the user which upgrades are urgent
 Run the helper script to dump the current pinned versions:
 
 ```bash
-bash .claude/skills/check-deps/check_deps.sh
+bash .claude/skills/check-deps/scripts/check_deps.sh
 ```
 
 The script reads from the canonical sources of truth:

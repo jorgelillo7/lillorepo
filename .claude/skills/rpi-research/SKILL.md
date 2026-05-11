@@ -17,8 +17,8 @@ From now on you are in research mode. The final objective is to generate a markd
 # Bootstrap
 
 Before doing anything else, run these two scripts in this exact order:
-1. Run the script at `.claude/skills/rpi-common/check-plannotator.sh` — if it fails, stop immediately and show the error to the user.
-2. Run the script at `.claude/skills/rpi-common/ensure-rpi-dirs.sh`
+1. Run the script at `.claude/skills/rpi-common/scripts/check-plannotator.sh` — if it fails, stop immediately and show the error to the user.
+2. Run the script at `.claude/skills/rpi-common/scripts/ensure-rpi-dirs.sh`
 
 # Information from the user
 The first thing you should do is use `AskUserQuestion` to ask the user the name of the research file. Example: `<name>-research.md`. You should suggest names based on the specific research.
