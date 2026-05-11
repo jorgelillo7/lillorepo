@@ -25,7 +25,9 @@ TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
 _BIWENGER_CREDS = _load_json_secret("BIWENGER_CREDENTIALS_JSON")
 BIWENGER_EMAIL = _BIWENGER_CREDS.get("email") or os.getenv("BIWENGER_EMAIL")
 BIWENGER_PASSWORD = _BIWENGER_CREDS.get("password") or os.getenv("BIWENGER_PASSWORD")
-GDRIVE_FOLDER_ID = _BIWENGER_CREDS.get("gdrive_folder_id") or os.getenv("GDRIVE_FOLDER_ID")
+GDRIVE_FOLDER_ID = (
+    _BIWENGER_CREDS.get("gdrive_folder_id") or os.getenv("GDRIVE_FOLDER_ID")
+)
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 LEAGUE_ID = "340703"

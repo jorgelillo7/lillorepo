@@ -16,5 +16,9 @@ def _load_json_secret(env_var: str) -> dict:
 
 _CHUCKNORRIS_CFG = _load_json_secret("CHUCKNORRIS_BOT_CONFIG_JSON")
 
-TELEGRAM_BOT_TOKEN = (_CHUCKNORRIS_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")).strip()
-TELEGRAM_WEBHOOK_SECRET = (_CHUCKNORRIS_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")).strip()
+TELEGRAM_BOT_TOKEN = (
+    _CHUCKNORRIS_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+).strip()
+TELEGRAM_WEBHOOK_SECRET = (
+    _CHUCKNORRIS_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+).strip()
