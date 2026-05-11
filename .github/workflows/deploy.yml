@@ -207,7 +207,8 @@ jobs:
             --image ${{ env.REGISTRY }}/scraper_job \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }}
+            --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }} \
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
 
   # -------------------------------------------------------
   # 2c. Build and update teams_analyzer Cloud Run Job (only if teams_analyzer changed)
@@ -292,10 +293,7 @@ jobs:
             --allow-unauthenticated \
             --memory=256Mi \
             --cpu=1 \
-            --update-secrets="\
-          TELEGRAM_BOT_TOKEN=telegram-bot-token-regional:latest,\
-          TELEGRAM_CHAT_ID=telegram-chat-id-regional:latest,\
-          TELEGRAM_WEBHOOK_SECRET=telegram-webhook-secret-regional:latest" \
+            --update-secrets="TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
             --set-env-vars="\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
           CLOUD_RUN_REGION=${{ env.REGION }},\
@@ -344,9 +342,7 @@ jobs:
             --allow-unauthenticated \
             --memory=256Mi \
             --cpu=1 \
-            --update-secrets="\
-          TELEGRAM_BOT_TOKEN=chucknorris-bot-token-regional:latest,\
-          TELEGRAM_WEBHOOK_SECRET=chucknorris-bot-webhook-secret-regional:latest"
+            --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-bot-config-regional:latest"
 
   # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds

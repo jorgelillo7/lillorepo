@@ -18,7 +18,7 @@ from core.sdk.gcp import (
     get_google_service,
     upload_csv_to_drive,
 )
-from core.utils import get_logger, read_secret_from_file
+from core.utils import get_logger
 from packages.biwenger_tools.scraper_job import config
 from packages.biwenger_tools.scraper_job.logic.processing import (
     build_tabla_justicia,
@@ -34,12 +34,10 @@ MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def _read_credentials(cfg) -> tuple[str, str, str]:
-    """Read Biwenger and Drive credentials from secrets or environment variables."""
-    email = read_secret_from_file(cfg.BIWENGER_EMAIL_PATH) or cfg.BIWENGER_EMAIL
-    password = (
-        read_secret_from_file(cfg.BIWENGER_PASSWORD_PATH) or cfg.BIWENGER_PASSWORD
-    )
-    folder_id = read_secret_from_file(cfg.GDRIVE_FOLDER_ID_PATH) or cfg.GDRIVE_FOLDER_ID
+    """Read Biwenger and Drive credentials from environment variables."""
+    email = cfg.BIWENGER_EMAIL
+    password = cfg.BIWENGER_PASSWORD
+    folder_id = cfg.GDRIVE_FOLDER_ID
     if not all([email, password, folder_id]):
         raise ValueError("No se pudieron leer todas las credenciales necesarias.")
     return email, password, folder_id

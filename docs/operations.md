@@ -99,6 +99,8 @@ Commands for running each component.
 
     URL: https://biwenger-summary-pjpqofuevq-no.a.run.app/25-26/
 
+    > **Note:** The footer shows "local" when deploying from a local machine because the `GIT_COMMIT` env var is not set (defaults to `"local"`). CI injects the real value automatically via `${GITHUB_SHA::7}`. This is expected behaviour — it does not indicate a failed deploy.
+
 ### 2\. Scraper Job
 
   * **Run locally:**
@@ -144,9 +146,7 @@ Commands for running each component.
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 \
               --set-secrets="/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest" \
-              --set-secrets="/biwenger_email/biwenger-email=biwenger-email-regional:latest" \
-              --set-secrets="/biwenger_password/biwenger-password=biwenger-password-regional:latest" \
-              --set-secrets="/gdrive_folder_id/gdrive-folder-id=gdrive-folder-id-regional:latest"
+              --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
         ```
       * **Update the Job (when changing the image or secrets):**
         ```bash
