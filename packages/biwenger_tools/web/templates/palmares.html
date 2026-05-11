@@ -41,6 +41,9 @@
                     <p><strong class="font-medium text-gray-600">Puntuación:</strong> {{ data.puntuacion }}</p>
                     <p><strong class="font-medium text-gray-600">Récord de Puntos:</strong> {{ data.record_puntos }}</p>
                     <p><strong class="font-medium text-gray-600">Más Jornadas Ganadas:</strong> {{ data.jornadas_ganadas }}</p>
+                    {% if data.clausulazos_total %}
+                    <p><strong class="font-medium text-gray-600">Clausulazos totales:</strong> {{ data.clausulazos_total }}</p>
+                    {% endif %}
 
                     <h3 class="font-header text-xl font-bold text-red-600 mt-6">Les toca pagar a:</h3>
                     <ul class="list-none space-y-2">
