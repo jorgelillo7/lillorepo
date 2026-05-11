@@ -224,7 +224,9 @@ def mercado(season: str) -> str:
                     continue
             return datetime.min
 
-        clausulazos_by_date = sorted(clausulazos, key=lambda c: _parse_fecha(c.fecha), reverse=True)
+        clausulazos_by_date = sorted(
+            clausulazos, key=lambda c: _parse_fecha(c.fecha), reverse=True
+        )
         clausulazos_summary = {
             "total": len(clausulazos),
             "total_eur": sum(c.precio for c in clausulazos),
