@@ -2,6 +2,7 @@
 
 import ssl
 from dataclasses import asdict
+from datetime import datetime
 from typing import Optional
 
 from flask import Blueprint, Response, g, jsonify, render_template, request
@@ -213,9 +214,28 @@ def mercado(season: str) -> str:
         )
         logger.exception("Error loading mercado.", extra={"season": g.season})
 
+    clausulazos_summary = None
+    if clausulazos:
+        def _parse_fecha(f: str) -> datetime:
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+                try:
+                    return datetime.strptime(f, fmt)
+                except ValueError:
+                    continue
+            return datetime.min
+
+        clausulazos_by_date = sorted(clausulazos, key=lambda c: _parse_fecha(c.fecha), reverse=True)
+        clausulazos_summary = {
+            "total": len(clausulazos),
+            "total_eur": sum(c.precio for c in clausulazos),
+            "max_clausulazo": max(clausulazos, key=lambda c: c.precio),
+            "ultimo": clausulazos_by_date[0],
+        }
+
     return render_template(
         "mercado.html",
         clausulazos=clausulazos,
+        clausulazos_summary=clausulazos_summary,
         tabla_justicia=tabla_justicia,
         error=error,
         active_page="mercado",
