@@ -17,8 +17,8 @@ From now on you are in plan mode. The final objective is to generate a markdown 
 # Bootstrap
 
 Before doing anything else, run these two scripts in this exact order:
-1. Run the script at `.claude/skills/rpi-common/check-plannotator.sh` — if it fails, stop immediately and show the error to the user.
-2. Run the script at `.claude/skills/rpi-common/ensure-rpi-dirs.sh`
+1. Run the script at `.claude/skills/rpi-common/scripts/check-plannotator.sh` — if it fails, stop immediately and show the error to the user.
+2. Run the script at `.claude/skills/rpi-common/scripts/ensure-rpi-dirs.sh`
 
 # Information from the user
 The first thing you should do is use `AskUserQuestion` to ask the user if there is an existing research to base this plan on. List the most recent files in `~/.claude/rpi/researchs/` as candidates. Also give the option to plan without a prior research.
