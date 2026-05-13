@@ -14,6 +14,8 @@ def _load_json_secret(env_var: str) -> dict:
         return {}
 
 
+# Production: TELEGRAM_BOT_CONFIG_JSON = {"bot_token": "...", "chat_id": "...", "webhook_secret": "..."}
+# Local dev: individual env vars TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID / TELEGRAM_WEBHOOK_SECRET as fallback.
 _TELEGRAM_CFG = _load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
 
 TELEGRAM_BOT_TOKEN = (
