@@ -6,47 +6,46 @@ are already taken.
 
 ## State on 2026-05-13
 
-- **`master`**: clean. PRs #21–#27 merged. CI green.
+- **`master`**: clean. PRs #21–#34 merged. CI green. No open PRs. No stale branches.
 - **JP API**: alive, token unchanged.
 - **All packages in CI**: web, scraper_job, teams_analyzer, telegram_bot, chucknorris_bot.
-- **Python**: 3.13 (PR #18).
-- **Open PR**: #25 — secrets consolidation (requires manual GCP secret creation before merging).
+- **Python**: 3.13.
+- **GCP secrets**: consolidated — 3 JSON regional secrets only.
+  - `biwenger-credentials-regional` — `{email, password, gdrive_folder_id}`
+  - `telegram-bot-config-regional` — `{bot_token, chat_id, webhook_secret}`
+  - `chucknorris-bot-config-regional` — `{bot_token, webhook_secret}`
+  - `biwenger-tools-sa-regional` — Google Drive SA key (file mount at `/gdrive_sa/`)
+- **All Cloud Run services/jobs verified working** (2026-05-13):
+  - `biwenger-summary` (web) ✅
+  - `biwenger-telegram-bot` ✅ (webhook 200)
+  - `chucknorris-bot` ✅ (webhook 200)
+  - `biwenger-teams-analyzer` job ✅ (executed successfully)
+  - `biwenger-scraper-data` job ✅ (config correct)
 
 ## What shipped this sprint (2026-05-13)
 
-### Skills layout standardisation ✅ (PR #21)
-- Shell scripts moved into `scripts/` subdirs within each skill folder.
-- Affected: `check-deps/`, `rpi-common/` (shared by rpi-plan, rpi-implement, rpi-research).
-
-### check-gcp-costs.sh v2 ✅ (PRs #23, #26, #27)
-- Full rewrite covering Storage, Artifact Registry, Cloud Run Services/Jobs,
-  Secret Manager, Cloud Scheduler, Logging.
-- Summary table with OK/WARN/OVER status and free-tier percentages.
-- bash 3.2 compatible (macOS default shell — no `declare -A`).
-
-### season-rollover skill update ✅ (PR #22)
-- Documents that teams_analyzer/telegram_bot/chucknorris_bot don't use TEMPORADA_ACTUAL.
-- Added Step 2b: auto-generate palmarés CSV via `fetch_palmares.py`.
-- New script: `.claude/skills/season-rollover/scripts/fetch_palmares.py`.
-
 ### Mercado summary + filters ✅ (PR #24)
-- Summary cards: total clausulazos, € movido, mayor gasto (buyer+player), último.
-- Filter panel: text search + buyer/seller dropdowns + clear button + counter.
-- Client-side JS, no extra requests.
+- Summary cards: total clausulazos, € movido, mayor gasto, último.
+- Filter panel: text search + buyer/seller dropdowns + clear button.
+
+### Secrets consolidation ✅ (PRs #25–#34)
+- 9 individual GCP secrets → 3 JSON regional secrets.
+- All `config.py` modules updated to read JSON first, fall back to individual env vars for local dev.
+- All Cloud Run services/jobs updated via `gcloud run services/jobs update --set-secrets`.
+- Cascading outages fixed: web service (remove-secrets), both bots (image rebuild PR #33), teams_analyzer job (config.py PR #34).
+
+### docs/gcp.md ✅
+- GCP services inventory + cost decisions documented.
+
+### DESIGN.md gaps fixed ✅
+- Mobile active nav state documented (`bg-green-50 text-green-700`).
+- Card padding corrected to `24px (p-6)`.
 
 ---
 
 ## Pending work
 
-### 1. Secrets consolidation — PR #25 (blocked on manual GCP step)
-Before merging #25, create the 4 consolidated secrets in GCP Secret Manager:
-- `biwenger-credentials-regional` — JSON: `{"email": "...", "password": "...", "gdrive_folder_id": "..."}`
-- `telegram-bot-config-regional` — JSON: `{"token": "...", "chat_id": "...", "webhook_secret": "..."}`
-- `chucknorris-bot-config-regional` — JSON: `{"token": "...", "webhook_secret": "..."}`
-
-Once created: merge PR #25, then delete the 9 old individual secrets.
-
-### 2. Firestore migration (~16h, $0/mes) — DEFERRED
+### 1. Firestore migration (~16h, $0/mes) — DEFERRED
 Deferred indefinitely by the user (2026-05-10).
 Domain models in `core/domain/models.py` already map directly to Firestore.
 
@@ -63,21 +62,26 @@ Attack order when resumed:
 1. `core/sdk/firestore.py` — CRUD helpers, ADC auth
 2. `scraper_job` — write to Firestore instead of CSV → Drive
 3. `web` — read from Firestore instead of Drive CSVs
-4. Delete secrets `gdrive-folder-id-regional` and `biwenger-tools-sa-regional`
+4. Delete secrets `biwenger-tools-sa-regional` (Drive SA no longer needed)
 
-### 3. Opus doc review (future)
+### 2. Opus doc review (future, user-initiated)
 Pass Opus over all MDs, docs, READMEs, diagrams across the repo.
-No urgency — user-initiated when ready.
 
-### 4. New GCP project for photos (no spec yet)
+### 3. New GCP project for photos (no spec yet)
 Mentioned as TODO, no blockers. Waiting for spec.
+
+### 4. Move Drive/Sheets IDs out of BUILD.bazel
+Currently hardcoded in `packages/biwenger_tools/web/BUILD.bazel:13-19`.
+Dies naturally with Firestore migration — no urgency until then.
 
 ---
 
 ## Closed / won't do
 
 - **Audit and rotate SA key** — gitignored, never pushed. No risk.
-- **Move Drive/Sheets IDs to Secret Manager** — dies with Firestore migration.
+- **Skills layout standardisation** — done PR #21.
+- **season-rollover skill update** — done PR #22.
+- **check-gcp-costs.sh v2** — done PRs #23/26/27.
 - **Phase D dependencies** — up to date (2026-05-10).
 
 ---
@@ -92,6 +96,7 @@ Mentioned as TODO, no blockers. Waiting for spec.
 - Firestore migration → deferred; CSV/Drive stack stays until explicitly resumed.
 - Web UI → Tailwind CDN + vanilla JS, no frameworks. Same green palette #38a169.
 - `.claude/plans/` → git-tracked (plans reference code paths, lifecycle cleanup on merge).
+- GCP secrets → JSON-consolidated, regional (`europe-southwest1`), free tier.
 
 ---
 

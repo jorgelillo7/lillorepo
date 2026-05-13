@@ -9,7 +9,7 @@
 - [x] **Primer deploy via CI** — disparado tras los primeros pushes a `master`
 - [x] **Eliminar GitHub Secrets obsoletos** — `COMUNICADOS_CSV_URL`, `PALMARES_CSV_URL`, `PARTICIPACION_CSV_URL` borrados (2026-05-04).
 - [x] **Auditar y rotar SA key** — SA key está gitignoreada, nunca se subió. No hay riesgo (2026-05-10).
-- [ ] **Mover IDs de Drive/Sheets a Secret Manager / env** — actualmente hardcodeados en `packages/biwenger_tools/web/BUILD.bazel:13-19` (mueren con la migración Firestore)
+- [ ] **Mover IDs de Drive/Sheets a Secret Manager / env** — hardcodeados en `packages/biwenger_tools/web/BUILD.bazel:13-19`; mueren con la migración Firestore, no hay urgencia hasta entonces.
 
 ## Técnico
 
@@ -38,15 +38,13 @@
 - [ ] **Migración CSV → Firestore** — los modelos de dominio están listos para que el cambio sea localizado en lecturas/escrituras GCP en lugar de tocar todos los call sites. Sin urgencia, ver project_pitch.md para narrativa.
 - [x] **Bumps de dependencias (Phase D)** — todo al día a 2026-05-10. rules_python 2.0, platforms 1.1, GH Actions en major actual, libs Python todas en latest.
 - [x] **Upgrade Python 3.12 → 3.13** — hecho en PR #18 (2026-05-10). Toolchain, Dockerfile.base y MODULE.bazel actualizados.
+- [x] **Secretos consolidados en JSON** — 9 secretos individuales → 3 JSON regionales. PRs #25–#34 (2026-05-13). Todos los módulos y Cloud Run jobs actualizados.
 
 
+## Deuda técnica / próximas sesiones
 
-
-
-- revisar costes: /Users/jorge/Projects/lillorepo/scripts/check-gcp-costs.sh es una version temprana no esta adaptada a los ultimos cambios
-- secretos con json para tener menos, revisa todos los secretos actuales y veamos si podemos implementar algo rollo guardar un json secreto por proyecto y con varias clave valor separadas ((por evitar el limite de secretos antes de corbarte))
-- arquitectura skills: que si tienen script tengan una carpeta scripts o si tienen referencia references
-- skill nueva temporada revisar -> /Users/jorge/Projects/lillorepo/.claude/skills/season-rollover
-
-
-pasarle opus a revisar todo mds docs readmes diagramas... todo el repo!
+- [x] **`check-gcp-costs.sh` v2** — reescrito, cubre todos los servicios actuales (PR #23/26/27).
+- [x] **Skills layout** — scripts en `scripts/`, referencias en `references/` (PR #21).
+- [x] **season-rollover skill** — revisado y actualizado (PR #22).
+- [ ] **Opus doc review** — pasar Opus sobre todos los MDs, docs, READMEs y diagramas del repo. Sin urgencia, a iniciativa del usuario.
+- [ ] **Nuevo proyecto Google para fotos** — sin spec todavía.
