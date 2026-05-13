@@ -38,3 +38,15 @@
 - [ ] **Migración CSV → Firestore** — los modelos de dominio están listos para que el cambio sea localizado en lecturas/escrituras GCP en lugar de tocar todos los call sites. Sin urgencia, ver project_pitch.md para narrativa.
 - [x] **Bumps de dependencias (Phase D)** — todo al día a 2026-05-10. rules_python 2.0, platforms 1.1, GH Actions en major actual, libs Python todas en latest.
 - [x] **Upgrade Python 3.12 → 3.13** — hecho en PR #18 (2026-05-10). Toolchain, Dockerfile.base y MODULE.bazel actualizados.
+
+
+
+
+
+- revisar costes: /Users/jorge/Projects/lillorepo/scripts/check-gcp-costs.sh es una version temprana no esta adaptada a los ultimos cambios
+- secretos con json para tener menos, revisa todos los secretos actuales y veamos si podemos implementar algo rollo guardar un json secreto por proyecto y con varias clave valor separadas ((por evitar el limite de secretos antes de corbarte))
+- arquitectura skills: que si tienen script tengan una carpeta scripts o si tienen referencia references
+- skill nueva temporada revisar -> /Users/jorge/Projects/lillorepo/.claude/skills/season-rollover
+
+
+pasarle opus a revisar todo mds docs readmes diagramas... todo el repo!

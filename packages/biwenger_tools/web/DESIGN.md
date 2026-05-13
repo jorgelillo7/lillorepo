@@ -69,60 +69,121 @@ components:
 
 ## Overview
 
-Sport dashboard con personalidad — mezcla de marcador de fútbol y tablón de anuncios de una liga de amigos. El tono es desenfadado pero el layout es limpio. El verde acento remite al campo de juego; los grises oscuros aportan legibilidad sin resultar corporativos.
+Sport dashboard with personality — part football scoreboard, part private league noticeboard. Tone is informal but the layout is clean. The green accent references the pitch; dark greys give readability without feeling corporate.
 
-La app no es un producto comercial, es una intranet de liga privada. El diseño puede ser directo y denso en información; no hay que vender nada.
+This is not a commercial product — it's a private league intranet. The design can be dense and direct; there's nothing to sell.
 
 ## Colors
 
-El verde `#38a169` es el único color "vivo" de la paleta y debe usarse con criterio:
+`#38a169` is the only "live" colour in the palette and must be used sparingly:
 
-- **Primary (#2d3748):** Texto principal, titulares de contenido, iconos de UI.
-- **Secondary (#4a5568):** Texto secundario, labels, metadatos.
-- **Muted (#718096):** Fechas, pies de nota, contenido de menor jerarquía.
-- **Accent (#38a169):** Indicador de nav activo, botones de acción confirmada, números de página activos, highlights de autor. Único color "vivo" — no usar como decoración.
-- **Background (#f7fafc):** Base de página, levemente off-white para reducir fatiga visual frente a blanco puro.
-- **Surface (#ffffff):** Cards y paneles elevados sobre el fondo.
-- **Border (#e2e8f0):** Separadores y bordes de card — sutil, no prominente.
+- **Primary (#2d3748):** Main text, content headings, UI icons.
+- **Secondary (#4a5568):** Secondary text, labels, metadata.
+- **Muted (#718096):** Dates, footnotes, lower-hierarchy content.
+- **Accent (#38a169):** Active nav indicator, confirmed-action buttons, active page numbers, author highlights. The only live colour — don't use it as decoration.
+- **Background (#f7fafc):** Page base, slightly off-white to reduce eye fatigue vs. pure white.
+- **Surface (#ffffff):** Cards and panels elevated above the background.
+- **Border (#e2e8f0):** Dividers and card borders — subtle, not prominent.
 
 ## Typography
 
-Dos familias, roles bien separados:
+Two families, clearly separated roles:
 
-- **Oswald** para el logotipo `LLOROS LEAGUE` y títulos de sección con alto impacto. Siempre en peso 500 o 700, nunca por debajo. El tracking amplio (0.05em) en el heading principal refuerza el carácter deportivo.
-- **Roboto** para todo el cuerpo de texto: comunicados, tablas, formularios, metadatos. Legible en densidades de información alta.
+- **Oswald** for the `LLOROS LEAGUE` logotype and high-impact section headings. Always weight 500 or 700, never lighter. Wide tracking (0.05em) on the main heading reinforces the sport character.
+- **Roboto** for all body text: messages, tables, forms, metadata. Readable at high information density.
 
-No mezclar las dos familias en el mismo bloque de texto.
+Never mix both families in the same text block.
 
 ## Layout
 
-- **Max-width:** `max-w-4xl` (56rem) centrado — suficiente para tablas de datos sin resultar excesivamente ancho en desktop.
-- **Padding de página:** `p-4` en móvil, `p-8` en desktop.
-- La cabecera usa un layout de tres columnas en desktop (espaciador / título centrado / selector de temporada) que colapsa a centrado en móvil.
-- Las cards usan `shadow-md` en reposo y `shadow-lg` en hover para dar profundidad sin ser excesivas.
+- **Max-width:** `max-w-4xl` (56rem) centred — enough for data tables without becoming too wide on desktop.
+- **Page padding:** `p-4` on mobile, `p-8` on desktop.
+- Cards use `shadow-md` at rest and `shadow-lg` on hover for depth without excess.
 
 ## Components
 
 ### Card
 
-La unidad básica de contenido. Fondo blanco, borde sutil `#e2e8f0`, radio `rounded-xl` (12px), padding `p-6`. Todas las páginas de contenido usan cards como contenedor principal.
+The basic content unit. White background, subtle `#e2e8f0` border, `rounded-xl` radius (12px), `p-6` padding. All content pages use cards as their main container.
 
-### Nav
+### Sticky Nav (UI 2.0)
 
-Barra horizontal bajo el header. Los links inactivos son `#4a5568`; el activo usa `#2d3748` en negrita con un subrayado de 2px en `#38a169`. No usar color de fondo en el item activo — el subrayado es el indicador.
+`base.html` implements a sticky bar (`position: sticky; top: 0; z-index: 20`) with two layers:
+
+- **Mobile bar** (`md:hidden`): logo + hamburger button with two SVGs (menu / close) toggled via `classList.toggle('hidden')`. When open, shows a vertical link panel with season pills below.
+- **Desktop nav** (`hidden md:flex`, 48px tall): logo + `.nav-link` items + season pill dropdown. The active link uses `border-bottom: 2px solid #38a169`; inactive links use `border-bottom: 2px solid transparent` to prevent layout shift.
+
+Don't use background colour on the active item — the underline is the indicator. The season selector on desktop is a dropdown with `stopPropagation` and click-outside close.
 
 ### Search Input
 
-Input de ancho completo con `focus:ring-2 focus:ring-green-500`. El foco debe ser claramente visible.
+Full-width input with `focus:ring-2 focus:ring-green-500`. The focus ring must be clearly visible.
 
 ### Pagination
 
-Botones con borde, radio `rounded-md`. La página activa invierte colores: fondo `#38a169`, texto blanco.
+Bordered buttons, `rounded-md` radius. The active page inverts colours: `#38a169` background, white text.
+
+## JS Template Conventions
+
+Vanilla JS only — no frameworks. Standardised patterns for consistency across templates:
+
+### `originalHtml` — restore server-rendered content
+
+When an interaction (search, tab switch) replaces Jinja2-rendered content, store the original HTML on `DOMContentLoaded` and restore it on clear:
+
+```js
+const originalHtml = {};
+document.addEventListener('DOMContentLoaded', () => {
+    originalHtml.tab = document.getElementById('container').innerHTML;
+});
+function clearSearch() {
+    container.innerHTML = originalHtml.tab || '';
+}
+```
+
+Never reconstruct in JS what Jinja2 already rendered correctly.
+
+### Expandable table rows
+
+Add `data-row-idx` to each `<tr>` and use `insertAdjacentElement('afterend', detailTr)` to insert the detail row. Close any previously open detail before opening a new one (avoids multiple open rows at once).
+
+```js
+function toggleRowDetail(idx) {
+    document.querySelectorAll('[data-detail-row]').forEach(r => r.remove());
+    const anchor = document.querySelector(`[data-row-idx="${idx}"]`);
+    if (anchor) anchor.insertAdjacentElement('afterend', buildDetailTr());
+}
+```
+
+On mobile use a `<div id="card-detail-{i}">` toggled with `classList.toggle('hidden')` instead of inserting rows.
+
+### `AbortController` for fetch with timeout
+
+```js
+const controller = new AbortController();
+const tid = setTimeout(() => controller.abort(), 5000);
+const res = await fetch(url, { signal: controller.signal });
+clearTimeout(tid);
+```
+
+### Passing server data to JS
+
+Use `{{ data | tojson }}` in a `<script>` block at the top of the JS section. Never hardcode data in JS or make an extra fetch if Jinja2 already has the data available.
+
+```html
+<script>
+const DATA = {{ rows | tojson }};
+</script>
+```
+
+### Accordion
+
+Button with `data-target="section-id"` + collapsible div. First item open by default; the rest start with class `hidden`. The chevron uses `classList.toggle('rotate-180', isOpen)`.
 
 ## Do's and Don'ts
 
-- **Do:** Usar `accent` para un único elemento interactivo activo por contexto.
-- **Do:** Mantener la densidad de información alta — esta app la necesita.
-- **Don't:** Usar Oswald en peso < 500.
-- **Don't:** Añadir nuevos colores sin actualizar este archivo primero.
-- **Don't:** Usar sombras más pronunciadas que `shadow-lg` — el diseño es plano con sombra funcional.
+- **Do:** Use `accent` for a single active interactive element per context.
+- **Do:** Keep information density high — this app needs it.
+- **Don't:** Use Oswald at weight < 500.
+- **Don't:** Add new colours without updating this file first.
+- **Don't:** Use shadows heavier than `shadow-lg` — the design is flat with functional shadow.

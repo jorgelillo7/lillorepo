@@ -4,47 +4,53 @@ This file is the entry point for any session continuing work in this repo.
 Reads in 3 minutes; tells you what's done, what's next, and which decisions
 are already taken.
 
-## State on 2026-05-10
+## State on 2026-05-13
 
-- **`master`**: clean. PRs #15–#20 merged.
+- **`master`**: clean. PRs #21–#27 merged. CI green.
 - **JP API**: alive, token unchanged.
 - **All packages in CI**: web, scraper_job, teams_analyzer, telegram_bot, chucknorris_bot.
 - **Python**: 3.13 (PR #18).
-- **Deuda técnica**: prácticamente cero. No hay work pendiente urgente.
+- **Open PR**: #25 — secrets consolidation (requires manual GCP secret creation before merging).
 
-## What shipped this sprint
+## What shipped this sprint (2026-05-13)
 
-### Chuck Norris Bot ✅ (PR #17)
-- `packages/chucknorris_bot/bot` — Python/Flask rewrite del bot original de 2015 (Node.js/Heroku).
-- Cloud Run Service `chucknorris-bot`, europe-southwest1, proyecto biwenger-tools.
-- Bot: @ChuckNorrisJokesBot. Landing page dark-mode. CI wired.
+### Skills layout standardisation ✅ (PR #21)
+- Shell scripts moved into `scripts/` subdirs within each skill folder.
+- Affected: `check-deps/`, `rpi-common/` (shared by rpi-plan, rpi-implement, rpi-research).
 
-### Python 3.13 ✅ (PR #18)
-- Toolchain, Dockerfile.base (nueva imagen pushed), deploy.yml, digest MODULE.bazel actualizados.
+### check-gcp-costs.sh v2 ✅ (PRs #23, #26, #27)
+- Full rewrite covering Storage, Artifact Registry, Cloud Run Services/Jobs,
+  Secret Manager, Cloud Scheduler, Logging.
+- Summary table with OK/WARN/OVER status and free-tier percentages.
+- bash 3.2 compatible (macOS default shell — no `declare -A`).
 
-### VAR panel — scraper on-demand ✅ (PR #19)
-- `POST /admin/run-scraper` lanza `biwenger-scraper-data` Cloud Run Job vía ADC (roles/run.developer ya en la SA).
-- Panel rediseñado: 4 cards (header, scraper controls, ficheros, sistema).
-- SA: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`, gitignoreada, no rotación necesaria.
+### season-rollover skill update ✅ (PR #22)
+- Documents that teams_analyzer/telegram_bot/chucknorris_bot don't use TEMPORADA_ACTUAL.
+- Added Step 2b: auto-generate palmarés CSV via `fetch_palmares.py`.
+- New script: `.claude/skills/season-rollover/scripts/fetch_palmares.py`.
 
-### Web UI 2.0 ✅ (PR #20)
-- Sticky nav con hamburger en móvil. Season selector como pill en desktop.
-- Nueva sección `/mercado` (Clausulazos + Tabla de Justicia, split de Salseo).
-- Salseo simplificado a 2 tabs (Crónicas + Datos). Búsqueda con botón ✕ y contador.
-- Participación: columna Total, medallas 🥇🥈🥉, barra de progreso, cards en móvil.
-- Tabla de Justicia: filas expandibles (click = desglose quién atacó a quién).
-- Lloros Awards: auto-carga primera tab. Reglamento: acordeón. Palmarés: badge dorado campeón.
-- VAR link en footer siempre visible. 23 tests, lint limpio, CI verde.
+### Mercado summary + filters ✅ (PR #24)
+- Summary cards: total clausulazos, € movido, mayor gasto (buyer+player), último.
+- Filter panel: text search + buyer/seller dropdowns + clear button + counter.
+- Client-side JS, no extra requests.
 
 ---
 
 ## Pending work
 
-### 1. Firestore migration (~16h, $0/mes) — DEFERRED
-La única tarea grande pendiente. Deferred indefinidamente por el usuario (2026-05-10).
-Domain models en `core/domain/models.py` ya mapean directo a Firestore.
+### 1. Secrets consolidation — PR #25 (blocked on manual GCP step)
+Before merging #25, create the 4 consolidated secrets in GCP Secret Manager:
+- `biwenger-credentials-regional` — JSON: `{"email": "...", "password": "...", "gdrive_folder_id": "..."}`
+- `telegram-bot-config-regional` — JSON: `{"token": "...", "chat_id": "...", "webhook_secret": "..."}`
+- `chucknorris-bot-config-regional` — JSON: `{"token": "...", "webhook_secret": "..."}`
 
-Estructura de colecciones decidida:
+Once created: merge PR #25, then delete the 9 old individual secrets.
+
+### 2. Firestore migration (~16h, $0/mes) — DEFERRED
+Deferred indefinitely by the user (2026-05-10).
+Domain models in `core/domain/models.py` already map directly to Firestore.
+
+Agreed collection structure:
 ```
 comunicados/{season}/messages/{id_hash}
 clausulazos/{season}/transfers/{auto_id}
@@ -53,34 +59,39 @@ participacion/{season}/authors/{autor}
 palmares/{auto_id}
 ```
 
-Orden de ataque cuando se retome:
+Attack order when resumed:
 1. `core/sdk/firestore.py` — CRUD helpers, ADC auth
-2. `scraper_job` — escribir a Firestore en vez de CSV → Drive
-3. `web` — leer de Firestore en vez de Drive CSVs
-4. Borrar secrets `gdrive-folder-id-regional` y `biwenger-tools-sa-regional`
+2. `scraper_job` — write to Firestore instead of CSV → Drive
+3. `web` — read from Firestore instead of Drive CSVs
+4. Delete secrets `gdrive-folder-id-regional` and `biwenger-tools-sa-regional`
 
-### 2. Nuevo proyecto Google para fotos (sin urgencia)
-Mencionado como TODO pero sin spec. Sin blockers técnicos.
+### 3. Opus doc review (future)
+Pass Opus over all MDs, docs, READMEs, diagrams across the repo.
+No urgency — user-initiated when ready.
+
+### 4. New GCP project for photos (no spec yet)
+Mentioned as TODO, no blockers. Waiting for spec.
 
 ---
 
 ## Closed / won't do
 
-- **Auditar y rotar SA key** — gitignoreada, nunca subida. No hay riesgo.
-- **Mover IDs de Drive/Sheets a Secret Manager** — mueren con Firestore.
-- **Phase D dependencies** — todo al día (2026-05-10).
+- **Audit and rotate SA key** — gitignored, never pushed. No risk.
+- **Move Drive/Sheets IDs to Secret Manager** — dies with Firestore migration.
+- **Phase D dependencies** — up to date (2026-05-10).
 
 ---
 
 ## Decisions already taken (don't reopen)
 
-- Telegram bot → Cloud Run Service dedicado, no el Flask web.
-- Output (teams, market) → PNG via `sendPhoto`. No texto/CSV.
-- Auto-lineup capitán → precio < 3M estricto, mayor SF. Fallback: más barato con precio conocido.
-- Chuck Norris bot → mismo proyecto GCP (`biwenger-tools`). Secrets regionales.
-- Webhook helpers → `core/sdk/telegram.py`, no duplicados por bot.
-- Firestore migration → deferred; stack CSV/Drive permanece hasta que se retome explícitamente.
-- Web UI → Tailwind CDN + vanilla JS, sin frameworks. Misma paleta verde #38a169.
+- Telegram bot → dedicated Cloud Run Service, not the Flask web.
+- Output (teams, market) → PNG via `sendPhoto`. No text/CSV.
+- Auto-lineup captain → price < 3M strict, highest SF. Fallback: cheapest with known price.
+- Chuck Norris bot → same GCP project (`biwenger-tools`). Regional secrets.
+- Webhook helpers → `core/sdk/telegram.py`, not duplicated per bot.
+- Firestore migration → deferred; CSV/Drive stack stays until explicitly resumed.
+- Web UI → Tailwind CDN + vanilla JS, no frameworks. Same green palette #38a169.
+- `.claude/plans/` → git-tracked (plans reference code paths, lifecycle cleanup on merge).
 
 ---
 
@@ -90,7 +101,7 @@ Mencionado como TODO pero sin spec. Sin blockers técnicos.
 2. `git checkout master && git pull --ff-only`
 3. Read `CLAUDE.md` (root) + `.claude/CLAUDE.md`.
 4. Read this file.
-5. No hay "next action" urgente — preguntar al usuario qué quiere hacer.
+5. Check open PRs: `gh pr list --state open`.
 
 ```bash
 # Full test sweep
