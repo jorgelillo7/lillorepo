@@ -48,10 +48,75 @@
 <!-- Clausulazos -->
 <div>
     <h2 class="font-header text-2xl font-bold text-gray-800 mb-4">💸 Historial de Clausulazos</h2>
+    {% if clausulazos_summary %}
+    <!-- Resumen -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="card p-4 rounded-xl text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">📊 Total</p>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ clausulazos_summary.total }}</p>
+        </div>
+        <div class="card p-4 rounded-xl text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">💰 Movido</p>
+            <p class="text-xl font-bold text-green-700 mt-1">
+                {{ "{:,.0f}".format(clausulazos_summary.total_eur / 1000000).replace(",", ".") }} M €
+            </p>
+        </div>
+        <div class="card p-4 rounded-xl text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">🏆 Mayor gasto</p>
+            {% if clausulazos_summary.max_clausulazo %}
+            <p class="text-xl font-bold text-green-700 mt-1">
+                {{ "{:,.0f}".format(clausulazos_summary.max_clausulazo.precio).replace(",", ".") }} €
+            </p>
+            <p class="text-sm font-semibold text-gray-800 mt-0.5">{{ clausulazos_summary.max_clausulazo.equipo_comprador }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ clausulazos_summary.max_clausulazo.jugador }}</p>
+            {% endif %}
+        </div>
+        <div class="card p-4 rounded-xl text-center">
+            <p class="text-xs text-gray-500 uppercase tracking-wide">📅 Último</p>
+            {% if clausulazos_summary.ultimo %}
+            <p class="text-sm font-bold text-gray-800 mt-1">{{ clausulazos_summary.ultimo.fecha }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ clausulazos_summary.ultimo.jugador }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <!-- Filtros -->
+    <div class="card p-4 rounded-xl mb-4">
+        <div class="flex flex-wrap items-center gap-3">
+            <input id="filter-player" type="text" placeholder="🔍 Jugador..."
+                   oninput="applyFilters()"
+                   class="flex-1 min-w-[140px] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
+            <select id="filter-vendedor" onchange="applyFilters()"
+                    class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
+                <option value="">Todos los vendedores</option>
+                {% for team in clausulazos | map(attribute='equipo_vendedor') | unique | sort %}
+                <option value="{{ team }}">{{ team }}</option>
+                {% endfor %}
+            </select>
+            <select id="filter-comprador" onchange="applyFilters()"
+                    class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
+                <option value="">Todos los compradores</option>
+                {% for team in clausulazos | map(attribute='equipo_comprador') | unique | sort %}
+                <option value="{{ team }}">{{ team }}</option>
+                {% endfor %}
+            </select>
+            <button onclick="clearFilters()"
+                    class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                Limpiar
+            </button>
+            <span id="filter-counter" class="text-sm text-gray-500 ml-auto">
+                {{ clausulazos | length }} de {{ clausulazos | length }}
+            </span>
+        </div>
+    </div>
+    {% endif %}
     {% if clausulazos %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="clausulazos-grid">
             {% for c in clausulazos %}
-            <div class="card rounded-xl shadow-md p-5 flex flex-col items-center text-center border-t-2 border-green-500">
+            <div class="card rounded-xl shadow-md p-5 flex flex-col items-center text-center border-t-2 border-green-500"
+                 data-clausulazo
+                 data-jugador="{{ c.jugador }}"
+                 data-vendedor="{{ c.equipo_vendedor }}"
+                 data-comprador="{{ c.equipo_comprador }}">
                 <p class="text-xs text-gray-400 mb-2">{{ c.fecha }}</p>
                 <h3 class="text-lg font-bold text-gray-900 mb-3">{{ c.jugador }}</h3>
                 <div class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-3 w-full">
@@ -196,5 +261,36 @@ function renderTabla(mode) {
 function setTablaMode(mode) { renderTabla(mode); }
 
 if (tablaData.length > 0) renderTabla('ataques');
+
+// --- Clausulazos filters ---
+function applyFilters() {
+    const player = document.getElementById('filter-player').value.toLowerCase();
+    const vendedor = document.getElementById('filter-vendedor').value;
+    const comprador = document.getElementById('filter-comprador').value;
+    const cards = document.querySelectorAll('[data-clausulazo]');
+    let visible = 0;
+    cards.forEach(card => {
+        const j = card.dataset.jugador.toLowerCase();
+        const v = card.dataset.vendedor;
+        const c = card.dataset.comprador;
+        const match = (!player || j.includes(player))
+                   && (!vendedor || v === vendedor)
+                   && (!comprador || c === comprador);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    const counter = document.getElementById('filter-counter');
+    if (counter) counter.textContent = visible + ' de ' + cards.length;
+}
+
+function clearFilters() {
+    const player = document.getElementById('filter-player');
+    const vendedor = document.getElementById('filter-vendedor');
+    const comprador = document.getElementById('filter-comprador');
+    if (player) player.value = '';
+    if (vendedor) vendedor.value = '';
+    if (comprador) comprador.value = '';
+    applyFilters();
+}
 </script>
 {% endblock %}
