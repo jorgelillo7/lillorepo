@@ -1,16 +1,34 @@
+import json
 import os
 from dotenv import load_dotenv
 
 from core.sdk import biwenger as biwenger_sdk
 
-# Carga las variables del archivo .env para el desarrollo local
 load_dotenv()
 
-# --- CONFIGURACIÓN CRÍTICA (leída desde el entorno) ---
-BIWENGER_EMAIL = os.getenv("BIWENGER_EMAIL")
-BIWENGER_PASSWORD = os.getenv("BIWENGER_PASSWORD")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+def _load_json_secret(env_var: str) -> dict:
+    raw = os.getenv(env_var, "{}")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+
+
+# Production: BIWENGER_CREDENTIALS_JSON (keys: email, password)
+# Production: TELEGRAM_BOT_CONFIG_JSON (keys: bot_token, chat_id)
+# Local dev: individual env vars as fallback.
+_BIWENGER_CFG = _load_json_secret("BIWENGER_CREDENTIALS_JSON")
+_TELEGRAM_CFG = _load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
+
+BIWENGER_EMAIL = _BIWENGER_CFG.get("email") or os.getenv("BIWENGER_EMAIL")
+BIWENGER_PASSWORD = _BIWENGER_CFG.get("password") or os.getenv("BIWENGER_PASSWORD")
+TELEGRAM_BOT_TOKEN = (
+    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+).strip()
+TELEGRAM_CHAT_ID = (
+    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
+).strip()
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 LEAGUE_ID = "340703"
