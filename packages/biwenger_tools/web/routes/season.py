@@ -216,6 +216,7 @@ def mercado(season: str) -> str:
 
     clausulazos_summary = None
     if clausulazos:
+
         def _parse_fecha(f: str) -> datetime:
             for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
                 try:
