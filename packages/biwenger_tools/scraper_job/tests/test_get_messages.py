@@ -13,8 +13,24 @@ def mock_external_deps():
     """Fixture para mockear servicios externos como Drive y Biwenger."""
     # Las rutas de los patches se actualizan
     with patch(
-        "packages.biwenger_tools.scraper_job.get_messages.read_secret_from_file",
-        return_value="mock_secret",
+        "packages.biwenger_tools.scraper_job.get_messages.config",
+        **{
+            "BIWENGER_EMAIL": "test@example.com",
+            "BIWENGER_PASSWORD": "test_password",
+            "GDRIVE_FOLDER_ID": "mock_folder_id",
+            "SERVICE_ACCOUNT_PATH": "/fake/sa.json",
+            "SCOPES": [],
+            "TEMPORADA_ACTUAL": "25-26",
+            "CLAUSULAZOS_FILENAME_BASE": "clausulazos",
+            "TABLA_JUSTICIA_FILENAME_BASE": "tabla_justicia",
+            "LOGIN_URL": "https://fake-login",
+            "ACCOUNT_URL": "https://fake-account",
+            "ALL_PLAYERS_DATA_URL": "https://fake-players",
+            "LEAGUE_USERS_URL": "https://fake-users",
+            "CLAUSULAZOS_URL": "https://fake-clausulazos",
+            "BOARD_MESSAGES_URL": "https://fake-board",
+            "LEAGUE_ID": "340703",
+        },
     ), patch(
         "packages.biwenger_tools.scraper_job.get_messages.get_google_service"
     ) as mock_gservice, patch(
