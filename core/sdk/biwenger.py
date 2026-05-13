@@ -131,6 +131,17 @@ class BiwengerClient:
         logger.info("User map built.", extra={"count": len(user_map)})
         return user_map
 
+    def get_standings_full(self, league_standings_url: str) -> list:
+        """Returns the full standings list ordered by final position.
+
+        Each entry is a dict with at least 'position', 'name', and 'points'.
+        """
+        response = self.session.get(league_standings_url)
+        response.raise_for_status()
+        standings = response.json().get("data", {}).get("standings", [])
+        logger.info("Standings fetched.", extra={"count": len(standings)})
+        return standings
+
     def get_board_messages(self, board_messages_url: str) -> dict:
         """Returns a single page of board messages."""
         response = self.session.get(board_messages_url)
