@@ -27,8 +27,8 @@ py_library(
 # =================================================================
 py_binary(
     name = "teams_analyzer_local",
-    main = "teams_analyzer.py",
-    srcs = ["teams_analyzer.py"],
+    main = "main.py",
+    srcs = ["main.py"],
     data = [".env"],
     deps = [":teams_analyzer_lib"],
 )

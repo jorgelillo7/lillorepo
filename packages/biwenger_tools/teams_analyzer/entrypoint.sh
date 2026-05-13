@@ -13,4 +13,4 @@ fi
 export PYTHONPATH="/app:${PYTHONPATH}"
 
 echo ">>> Starting teams analyzer..."
-exec python3 -m packages.biwenger_tools.teams_analyzer.teams_analyzer
+exec python3 -m packages.biwenger_tools.teams_analyzer.main

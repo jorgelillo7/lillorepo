@@ -1,19 +1,11 @@
-import json
 import os
 from dotenv import load_dotenv
 
 from core.sdk import biwenger as biwenger_sdk
+from core.utils import load_json_secret
 
 # Carga las variables del archivo .env para el desarrollo local
 load_dotenv()
-
-
-def _load_json_secret(env_var: str) -> dict:
-    raw = os.getenv(env_var, "{}")
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
 
 
 # --- CONFIGURACIÓN DE TEMPORADA ---
@@ -22,10 +14,10 @@ def _load_json_secret(env_var: str) -> dict:
 TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
 
 # --- CONFIGURACIÓN CRÍTICA (leída desde el entorno) ---
-_BIWENGER_CREDS = _load_json_secret("BIWENGER_CREDENTIALS_JSON")
-BIWENGER_EMAIL = _BIWENGER_CREDS.get("email") or os.getenv("BIWENGER_EMAIL")
-BIWENGER_PASSWORD = _BIWENGER_CREDS.get("password") or os.getenv("BIWENGER_PASSWORD")
-GDRIVE_FOLDER_ID = _BIWENGER_CREDS.get("gdrive_folder_id") or os.getenv(
+_BIWENGER_CFG = load_json_secret("BIWENGER_CREDENTIALS_JSON")
+BIWENGER_EMAIL = _BIWENGER_CFG.get("email") or os.getenv("BIWENGER_EMAIL")
+BIWENGER_PASSWORD = _BIWENGER_CFG.get("password") or os.getenv("BIWENGER_PASSWORD")
+GDRIVE_FOLDER_ID = _BIWENGER_CFG.get("gdrive_folder_id") or os.getenv(
     "GDRIVE_FOLDER_ID"
 )
 

@@ -70,10 +70,9 @@ If you don't have a bot yet:
 2. Send a message to your bot, then visit
    `https://api.telegram.org/bot<TOKEN>/getUpdates` to get your `chat_id`.
 
-## 🗺️ Roadmap
+## 🗺️ Entry point
 
-This package is mid-rewrite. Phase 1 (this version) replaces the old Selenium +
-Analítica Fantasy scrapers with the JP API and Telegram message output. Phase 2
-adds an interactive bot (`/analizar`, `/alinear` commands) and Phase 3 adds the
-auto-lineup using Biwenger's `PUT /api/v2/user` endpoint. See
-`.claude/plans/teams_analyzer_rewrite.md` for the full plan.
+`main.py` is the single entry point. It dispatches to one of five mode handlers
+based on the `ANALYSIS_MODE` env var (`daily`, `all`, `my_team`, `market`,
+`alinear`). To follow the flow, open `main.py` and look at `_MODE_HANDLERS` —
+each handler is its own function.

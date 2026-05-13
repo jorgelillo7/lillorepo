@@ -8,15 +8,14 @@ matplotlib.use("Agg")  # non-interactive backend, must be set before pyplot impo
 import matplotlib.pyplot as plt  # noqa: E402
 
 from core.sdk.jp import get_predict_rate  # noqa: E402
-from packages.biwenger_tools.teams_analyzer.telegram_formatter import (  # noqa: E402
-    _count_status,
-    _juega_str,
-    _short_pos,
-    _sort_key_sf_desc,
-    _status_emoji,
+from packages.biwenger_tools.teams_analyzer.player_formatting import (  # noqa: E402
+    SCORE_SF,
+    count_status_buckets,
+    play_status_label,
+    short_position,
+    sort_key_sf_desc,
+    status_emoji,
 )
-
-SCORE_SF = 2
 
 _ROW_BG = {
     "🟢": "#e8f5e9",
@@ -34,8 +33,17 @@ _GREEN = "#388e3c"
 _AMBER = "#f57f17"
 _RED = "#c62828"
 
-_BASE_COLS = ["Jugador", "Pos", "Precio", "SF", "Racha", "Juega"]
-_COL_WIDTHS = [0.30, 0.07, 0.09, 0.07, 0.08, 0.14]
+# Base columns: (header, relative_width). Keep header and width together so
+# adding/removing a column is a single-line edit instead of two parallel lists.
+_BASE_COLUMNS: list[tuple[str, float]] = [
+    ("Jugador", 0.30),
+    ("Pos", 0.07),
+    ("Precio", 0.09),
+    ("SF", 0.07),
+    ("Racha", 0.08),
+    ("Juega", 0.14),
+]
+_EXTRA_COL_WIDTH = 0.18
 
 
 def _strip_emoji(text: str) -> str:
@@ -53,10 +61,10 @@ def _price_exact(price) -> str:
 
 def _pos_str(row: dict) -> str:
     """Primary position + alt positions, e.g. 'DEF/MED'."""
-    primary = _short_pos(row.get("position_id"))
+    primary = short_position(row.get("position_id"))
     alts = row.get("alt_positions") or []
     if alts:
-        return "/".join([primary] + [_short_pos(a) for a in alts[:2]])
+        return "/".join([primary] + [short_position(a) for a in alts[:2]])
     return primary
 
 
@@ -69,7 +77,7 @@ def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
         _price_exact(row.get("price", 0)),
         str(sf) if sf is not None else "-",
         str(jp.get("streak", 0)) if jp else "-",
-        _juega_str(jp),
+        play_status_label(jp),
     ]
     for col in extra_cols:
         cells.append(str(row.get(col, "")))
@@ -109,14 +117,16 @@ def build_table_image(
 ) -> bytes:
     """Returns PNG bytes of a styled player table."""
     extra_cols = extra_cols or []
-    headers = _BASE_COLS + extra_cols
+    base_headers = [h for h, _ in _BASE_COLUMNS]
+    base_widths = [w for _, w in _BASE_COLUMNS]
+    headers = base_headers + extra_cols
 
-    sorted_rows = sorted(rows, key=_sort_key_sf_desc, reverse=True)
-    g, ylw, r, _ = _count_status(sorted_rows)
+    sorted_rows = sorted(rows, key=sort_key_sf_desc, reverse=True)
+    green, yellow, red, _ = count_status_buckets(sorted_rows)
 
     cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
     cell_colors = [
-        [_ROW_BG.get(_status_emoji(row.get("jp_player")), _ROW_BG["⚪"])] * len(headers)
+        [_ROW_BG.get(status_emoji(row.get("jp_player")), _ROW_BG["⚪"])] * len(headers)
         for row in sorted_rows
     ]
 
@@ -144,9 +154,9 @@ def build_table_image(
         va="top",
         color=_TITLE_FG,
     )
-    _draw_status_summary(ax, g, ylw, r, len(sorted_rows))
+    _draw_status_summary(ax, green, yellow, red, len(sorted_rows))
 
-    col_widths = _COL_WIDTHS + [0.18] * len(extra_cols)
+    col_widths = base_widths + [_EXTRA_COL_WIDTH] * len(extra_cols)
     total = sum(col_widths)
     col_widths = [w / total for w in col_widths]
 

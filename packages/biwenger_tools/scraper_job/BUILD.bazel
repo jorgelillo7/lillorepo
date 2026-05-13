@@ -27,8 +27,8 @@ py_library(
 # =================================================================
 py_binary(
     name = "scraper_job_local",
-    main = "get_messages.py",
-    srcs = ["get_messages.py"],
+    main = "main.py",
+    srcs = ["main.py"],
     data = [
         "biwenger-tools-sa.json",
         ".env",

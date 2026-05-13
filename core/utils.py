@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -32,3 +33,16 @@ def read_secret_from_file(secret_path: str, fallback=None):
         with open(secret_path, "r") as f:
             return f.read().strip()
     return fallback
+
+
+def load_json_secret(env_var: str) -> dict:
+    """
+    Reads a JSON-encoded secret from an env var and parses it.
+    Returns an empty dict if the var is missing or invalid JSON so callers can
+    safely chain `.get(...)` over the result.
+    """
+    raw = os.getenv(env_var, "{}")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {}

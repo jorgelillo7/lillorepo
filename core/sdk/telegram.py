@@ -10,6 +10,9 @@ TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 TELEGRAM_SET_COMMANDS_URL = "https://api.telegram.org/bot{token}/setMyCommands"
 TELEGRAM_SET_MENU_BUTTON_URL = "https://api.telegram.org/bot{token}/setChatMenuButton"
 
+# Hard limit on Bot API sendMessage; anything longer is truncated server-side.
+TELEGRAM_MAX_MESSAGE_LENGTH = 4096
+
 
 def send_telegram_message(
     bot_token: str,
@@ -20,16 +23,16 @@ def send_telegram_message(
 ) -> None:
     """Sends a text message to a Telegram chat via the Bot API.
 
-    Truncates messages over 4096 chars (the Telegram limit). For long content
+    Truncates messages over TELEGRAM_MAX_MESSAGE_LENGTH chars. For long content
     that needs splitting, do the splitting at the call site so each chunk
     forms a coherent unit.
     """
-    if len(text) > 4096:
+    if len(text) > TELEGRAM_MAX_MESSAGE_LENGTH:
         logger.warning(
-            "Telegram message exceeds 4096 chars — truncating.",
-            extra={"length": len(text)},
+            "Telegram message exceeds limit — truncating.",
+            extra={"length": len(text), "limit": TELEGRAM_MAX_MESSAGE_LENGTH},
         )
-        text = text[:4093] + "..."
+        text = text[: TELEGRAM_MAX_MESSAGE_LENGTH - 3] + "..."
 
     url = TELEGRAM_SEND_MESSAGE_URL.format(token=bot_token)
     payload = {

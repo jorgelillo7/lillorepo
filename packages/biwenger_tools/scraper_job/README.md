@@ -10,6 +10,13 @@ Data is saved to CSV files and synced directly to a Google Drive folder for easy
 * **CSV storage**: Organises extracted data into a structured format.
 * **Google Drive sync**: Uploads generated CSV files to a specific folder in your Google Drive.
 
+## 🗺️ Entry point
+
+`main.py` orchestrates the whole job: read existing CSVs from Drive → fetch the
+Biwenger board → diff new messages → write comunicados/participacion/clausulazos/
+tabla_justicia CSVs back to Drive. Pure-function processing lives in
+`logic/processing.py`.
+
 ## ⚙️ Configuration and Usage
 
 For detailed setup instructions, see the main operations document.
