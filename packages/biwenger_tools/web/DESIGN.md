@@ -47,7 +47,7 @@ components:
     backgroundColor: "{colors.surface}"
     borderColor: "{colors.border}"
     borderRadius: "{rounded.lg}"
-    padding: "{spacing.lg}"
+    padding: "24px (p-6)"
   nav-link:
     color: "{colors.secondary}"
     activeColor: "{colors.primary}"
@@ -114,6 +114,8 @@ The basic content unit. White background, subtle `#e2e8f0` border, `rounded-xl` 
 - **Desktop nav** (`hidden md:flex`, 48px tall): logo + `.nav-link` items + season pill dropdown. The active link uses `border-bottom: 2px solid #38a169`; inactive links use `border-bottom: 2px solid transparent` to prevent layout shift.
 
 Don't use background colour on the active item — the underline is the indicator. The season selector on desktop is a dropdown with `stopPropagation` and click-outside close.
+
+On **mobile**, the active link uses `bg-green-50 text-green-700` (no underline — the background fill replaces it in the vertical panel context).
 
 ### Search Input
 
