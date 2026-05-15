@@ -1,22 +1,15 @@
-import json
 import os
 
 from dotenv import load_dotenv
 
+from core.utils import load_json_secret
+
 load_dotenv()
-
-
-def _load_json_secret(env_var: str) -> dict:
-    raw = os.getenv(env_var, "{}")
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
 
 
 # Production: TELEGRAM_BOT_CONFIG_JSON (keys: bot_token, chat_id, webhook_secret)
 # Local dev: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID / TELEGRAM_WEBHOOK_SECRET fallback.
-_TELEGRAM_CFG = _load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
+_TELEGRAM_CFG = load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
 
 TELEGRAM_BOT_TOKEN = (
     _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")

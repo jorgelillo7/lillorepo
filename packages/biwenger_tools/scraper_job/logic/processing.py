@@ -66,10 +66,37 @@ def sort_messages(messages: list) -> list:
     return messages
 
 
+def _resolve_player_name(player_data, players_map: dict) -> str:
+    """Returns the player name from the API payload, falling back to id-only.
+
+    The 'player' field comes as either an inline dict (recent format) or an
+    integer id (older format that needs lookup against the full players map).
+    """
+    if isinstance(player_data, dict):
+        return player_data.get("name") or f"#{player_data.get('id', '?')}"
+    if player_data is None:
+        return "Desconocido"
+    player_id = int(player_data)
+    return players_map.get(player_id, {}).get("name") or f"#{player_id}"
+
+
+def _parse_clause_item(item: dict, fecha: str, players_map: dict) -> Clausulazo:
+    from_team = item.get("from") or {}
+    to_team = item.get("to") or {}
+    return Clausulazo(
+        fecha=fecha,
+        jugador=_resolve_player_name(item.get("player"), players_map),
+        equipo_vendedor=from_team.get("name", "—"),
+        equipo_comprador=to_team.get("name", "—"),
+        precio=int(item.get("amount", 0)),
+    )
+
+
 def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
     """Transforma la respuesta cruda de la API en una lista de Clausulazo.
 
-    Cada entry puede contener varios clausulazos en su campo `content`.
+    Cada entry puede contener varios clausulazos en su campo `content`. Una
+    entry malformada se ignora y se loguea — el resto de entries sí se procesan.
     """
     entries = raw_data.get("data", [])
     if isinstance(entries, dict):
@@ -78,51 +105,22 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
     clausulazos: list[Clausulazo] = []
 
     for entry in entries:
-        try:
-            content = entry.get("content") or []
-            clause_items = [c for c in content if c.get("type") == "clause"]
-            if not clause_items:
-                continue
+        content = entry.get("content") or []
+        clause_items = [c for c in content if c.get("type") == "clause"]
+        if not clause_items:
+            continue
 
+        try:
             timestamp = entry.get("date", 0)
             fecha = datetime.fromtimestamp(timestamp, tz=MADRID_TZ).strftime(
                 "%d-%m-%Y %H:%M"
             )
-
             for item in clause_items:
-                player_data = item.get("player")
-                if isinstance(player_data, dict):
-                    jugador = (
-                        player_data.get("name") or f"#{player_data.get('id', '?')}"
-                    )
-                elif player_data is not None:
-                    player_id = int(player_data)
-                    player_info = players_map.get(player_id, {})
-                    jugador = player_info.get("name") or f"#{player_id}"
-                else:
-                    jugador = "Desconocido"
-
-                from_team = item.get("from") or {}
-                equipo_vendedor = from_team.get("name", "—")
-
-                to_team = item.get("to") or {}
-                equipo_comprador = to_team.get("name", "—")
-
-                precio = int(item.get("amount", 0))
-
-                clausulazos.append(
-                    Clausulazo(
-                        fecha=fecha,
-                        jugador=jugador,
-                        equipo_vendedor=equipo_vendedor,
-                        equipo_comprador=equipo_comprador,
-                        precio=precio,
-                    )
-                )
-        except Exception:
+                clausulazos.append(_parse_clause_item(item, fecha, players_map))
+        except (KeyError, ValueError, TypeError):
             logger.warning(
                 "Error parsing clausulazo entry.",
-                extra={"entry": str(entry)},
+                extra={"entry_date": entry.get("date")},
                 exc_info=True,
             )
 

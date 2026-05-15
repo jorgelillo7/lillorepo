@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from packages.biwenger_tools.scraper_job.get_messages import main
+from packages.biwenger_tools.scraper_job.main import main
 
 # --- Fixture para mockear servicios externos en todos los tests del archivo ---
 
@@ -13,7 +13,7 @@ def mock_external_deps():
     """Fixture para mockear servicios externos como Drive y Biwenger."""
     # Las rutas de los patches se actualizan
     with patch(
-        "packages.biwenger_tools.scraper_job.get_messages.config",
+        "packages.biwenger_tools.scraper_job.main.config",
         **{
             "BIWENGER_EMAIL": "test@example.com",
             "BIWENGER_PASSWORD": "test_password",
@@ -32,17 +32,17 @@ def mock_external_deps():
             "LEAGUE_ID": "340703",
         },
     ), patch(
-        "packages.biwenger_tools.scraper_job.get_messages.get_google_service"
+        "packages.biwenger_tools.scraper_job.main.get_google_service"
     ) as mock_gservice, patch(
-        "packages.biwenger_tools.scraper_job.get_messages.BiwengerClient"
+        "packages.biwenger_tools.scraper_job.main.BiwengerClient"
     ) as mock_biwenger_client, patch(
-        "packages.biwenger_tools.scraper_job.get_messages.find_file_on_drive"
+        "packages.biwenger_tools.scraper_job.main.find_file_on_drive"
     ) as mock_find_file, patch(
-        "packages.biwenger_tools.scraper_job.get_messages.download_csv_as_dict"
+        "packages.biwenger_tools.scraper_job.main.download_csv_as_dict"
     ) as mock_download_csv, patch(
-        "packages.biwenger_tools.scraper_job.get_messages.upload_csv_to_drive"
+        "packages.biwenger_tools.scraper_job.main.upload_csv_to_drive"
     ) as mock_upload_csv, patch(
-        "packages.biwenger_tools.scraper_job.get_messages.os.path.exists",
+        "packages.biwenger_tools.scraper_job.main.os.path.exists",
         return_value=True,
     ):
 
@@ -64,7 +64,7 @@ def mock_external_deps():
 
 
 @patch(
-    "packages.biwenger_tools.scraper_job.get_messages.os.path.exists",
+    "packages.biwenger_tools.scraper_job.main.os.path.exists",
     MagicMock(return_value=False),
 )
 def test_main_with_new_messages(mock_external_deps):

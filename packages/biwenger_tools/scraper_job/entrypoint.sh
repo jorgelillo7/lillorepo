@@ -13,4 +13,4 @@ fi
 export PYTHONPATH="/app:${PYTHONPATH}"
 
 echo ">>> Starting scraper job..."
-exec python3 -m packages.biwenger_tools.scraper_job.get_messages
+exec python3 -m packages.biwenger_tools.scraper_job.main

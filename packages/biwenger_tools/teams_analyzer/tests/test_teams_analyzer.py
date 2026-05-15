@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from packages.biwenger_tools.teams_analyzer.teams_analyzer import main
+from packages.biwenger_tools.teams_analyzer.main import main
 
 _DUMMY_IMG = b"PNG"
 
@@ -30,24 +30,24 @@ def mock_config_module():
 def mock_all_dependencies():
     with (
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.BiwengerClient"
+            "packages.biwenger_tools.teams_analyzer.main.BiwengerClient"
         ) as mock_biwenger_client,
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.fetch_all_players"
+            "packages.biwenger_tools.teams_analyzer.main.fetch_all_players"
         ) as mock_fetch_jp,
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.check_api_health"
+            "packages.biwenger_tools.teams_analyzer.main.check_api_health"
         ) as mock_health,
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.send_telegram_photo"
+            "packages.biwenger_tools.teams_analyzer.main.send_telegram_photo"
         ) as mock_send,
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.build_table_image",
+            "packages.biwenger_tools.teams_analyzer.main.build_table_image",
             return_value=_DUMMY_IMG,
         ),
-        patch("packages.biwenger_tools.teams_analyzer.teams_analyzer.time.sleep"),
+        patch("packages.biwenger_tools.teams_analyzer.main.time.sleep"),
         patch(
-            "packages.biwenger_tools.teams_analyzer.teams_analyzer.time.time",
+            "packages.biwenger_tools.teams_analyzer.main.time.time",
             return_value=1_800_000_000,
         ),
     ):

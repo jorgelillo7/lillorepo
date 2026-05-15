@@ -104,7 +104,8 @@ Lifecycle:
 Do not accumulate stale plans. If a plan describes work that was never started and is
 still relevant, keep it. If the code exists and works, the plan is redundant — delete it.
 
-Current active plans: `.claude/plans/teams_analyzer_rewrite.md`
+Current active plans: none. `.claude/plans/next_phases.md` is a pickup-notes file
+(state of the repo, decisions taken, pending follow-ups) — not a plan, do not delete.
 
 ## Memory
 
