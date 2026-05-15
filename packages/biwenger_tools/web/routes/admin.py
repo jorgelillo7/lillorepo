@@ -22,6 +22,7 @@ from flask import (
 from core.sdk.gcp import get_file_metadata
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, services
+from packages.biwenger_tools.web.csrf import verify_csrf_token
 
 bp = Blueprint("admin", __name__)
 logger = get_logger(__name__)
@@ -132,6 +133,13 @@ def admin() -> Response:
         )
 
     if request.method == "POST":
+        if not verify_csrf_token():
+            logger.warning(
+                "CSRF token mismatch on /admin login.",
+                extra={"remote_addr": request.remote_addr},
+            )
+            flash("Sesión expirada. Vuelve a intentarlo.", "error")
+            return redirect(url_for("admin.admin"))
         if request.form.get("password") == config.ADMIN_PASSWORD:
             session["admin_logged_in"] = True
             return redirect(url_for("admin.admin"))
@@ -145,6 +153,14 @@ def run_scraper() -> Response:
     """Trigger the scraper Cloud Run Job on demand."""
     if "admin_logged_in" not in session:
         flash("Acceso denegado.", "error")
+        return redirect(url_for("admin.admin"))
+
+    if not verify_csrf_token():
+        logger.warning(
+            "CSRF token mismatch on /admin/run-scraper.",
+            extra={"remote_addr": request.remote_addr},
+        )
+        flash("Sesión expirada. Recarga la página y vuelve a intentarlo.", "error")
         return redirect(url_for("admin.admin"))
 
     success, message = _trigger_scraper_job()

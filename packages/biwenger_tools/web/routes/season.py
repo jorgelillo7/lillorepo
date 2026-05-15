@@ -11,13 +11,20 @@ from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Particip
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, services
+from packages.biwenger_tools.web.sanitize import safe_html
 
 logger = get_logger(__name__)
 bp = Blueprint("season", __name__)
 
 
 def _load_messages(filename: str) -> tuple[list, Optional[str]]:
-    """Load all LeagueMessage entries from a Drive CSV. Returns (messages, error)."""
+    """Load all LeagueMessage entries from a Drive CSV. Returns (messages, error).
+
+    `contenido` is stripped of its HTML markup eagerly here: every caller either
+    renders it through the `safe_html` Jinja filter or ships it to the browser
+    via `tojson` to be assigned with `innerHTML`. Sanitizing once at load time
+    makes both paths XSS-safe regardless of what Biwenger writes upstream.
+    """
     if not services.drive_service:
         return [], "El servicio de Google Drive no está disponible."
     file_meta = find_file_on_drive(
@@ -26,7 +33,13 @@ def _load_messages(filename: str) -> tuple[list, Optional[str]]:
     if not file_meta:
         return [], f"El archivo '{filename}' no se encontró en Google Drive."
     rows = download_csv_as_dict(services.drive_service, file_meta["id"])
-    return [LeagueMessage.from_csv_row(r) for r in rows], None
+    messages = [LeagueMessage.from_csv_row(r) for r in rows]
+    for m in messages:
+        # Pre-render as HTML-escaped Markup with <br> for newlines so the
+        # value is safe for both server-side rendering and the JS innerHTML
+        # paths that pull it via `{{ ... | tojson }}`.
+        m.contenido = str(safe_html(m.contenido))
+    return messages, None
 
 
 @bp.route("/<season>/")

@@ -36,7 +36,7 @@
             </div>
             <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
         </div>
-        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe }}</div>
+        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe_html }}</div>
     </article>
     {% else %}
     <div class="card p-8 text-center text-gray-400 rounded-xl">No hay crónicas esta temporada.</div>
@@ -54,7 +54,7 @@
             </div>
             <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">{{ message.fecha }}</span>
         </div>
-        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe }}</div>
+        <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe_html }}</div>
     </article>
     {% else %}
     <div class="card p-8 text-center text-gray-400 rounded-xl">No hay datos curiosos esta temporada.</div>

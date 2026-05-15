@@ -1,3 +1,4 @@
+import hmac
 from typing import Any
 
 import requests
@@ -118,6 +119,10 @@ def extract_webhook_update(request: Any) -> tuple[str, str]:
 
 
 def validate_webhook_secret(request: Any, expected: str) -> bool:
-    """Return True if the X-Telegram-Bot-Api-Secret-Token header matches."""
+    """Return True if the X-Telegram-Bot-Api-Secret-Token header matches.
+
+    Uses constant-time comparison to avoid leaking the expected token via
+    response-time side channels.
+    """
     received = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    return received == expected
+    return hmac.compare_digest(received, expected)

@@ -43,7 +43,12 @@ LEAGUE_DATA_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
 USER_SQUAD_URL = biwenger_sdk.manager_squad_url("{manager_id}")
 
 # --- JORNADA PERFECTA (API privada) ---
-JP_AUTH_TOKEN = "lks9k2k$iJK"
+# JP_AUTH_TOKEN is sourced from the BIWENGER_CREDENTIALS_JSON secret (new key
+# `jp_auth_token`) so it stops living in the public git history. Fallback to a
+# JP_AUTH_TOKEN env var for local dev. The token belongs to the JP mobile app
+# and can't be rotated by us, so this only limits exposure surface — it does
+# not "secret-ify" something we own.
+JP_AUTH_TOKEN = _BIWENGER_CFG.get("jp_auth_token") or os.getenv("JP_AUTH_TOKEN", "")
 JP_COMPETITION = 1  # LaLiga
 JP_SCORE_TYPE = 2  # SofaScore (sistema usado por el Automanager)
 

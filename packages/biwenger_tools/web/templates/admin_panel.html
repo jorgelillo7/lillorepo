@@ -28,6 +28,7 @@
             <!-- Botón de forzar ejecución -->
             <form method="POST" action="{{ url_for('admin.run_scraper') }}"
                   onsubmit="return confirm('¿Lanzar el scraper ahora? La ejecución tarda ~2 min.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
                         class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700
                                text-white text-sm font-semibold rounded-lg shadow transition-colors">
