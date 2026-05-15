@@ -1,8 +1,11 @@
 import os
 from dotenv import load_dotenv
 
+from core.constants import LEAGUE_ID  # re-exported for callers
 from core.sdk import biwenger as biwenger_sdk
 from core.utils import load_json_secret
+
+_ = LEAGUE_ID  # noqa: F841  (silence unused-import for callers via config.LEAGUE_ID)
 
 load_dotenv()
 
@@ -23,7 +26,7 @@ TELEGRAM_CHAT_ID = (
 ).strip()
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
-LEAGUE_ID = "340703"
+# LEAGUE_ID re-exported from core.constants at the top of the file.
 
 # --- URLs DE LA API DE BIWENGER (desde core; deriva las dependientes de la liga) ---
 LOGIN_URL = biwenger_sdk.LOGIN_URL

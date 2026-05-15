@@ -1,18 +1,16 @@
 import csv
 import io
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
 from dateutil import parser
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
+from core.constants import DRIVE_STALE_THRESHOLD, MADRID_TZ
 from core.utils import get_logger
 
 logger = get_logger(__name__)
-
-MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 # --- AUTHENTICATION ---
@@ -145,8 +143,9 @@ def get_file_metadata(
             dt_utc = parser.isoparse(file["modifiedTime"])
             dt_madrid = dt_utc.astimezone(MADRID_TZ)
             formatted_date = dt_madrid.strftime("%d-%m-%Y a las %H:%M:%S")
-            is_stale = name in dynamic_files and (now_madrid - dt_madrid) > timedelta(
-                days=7
+            is_stale = (
+                name in dynamic_files
+                and (now_madrid - dt_madrid) > DRIVE_STALE_THRESHOLD
             )
             statuses.append(
                 {

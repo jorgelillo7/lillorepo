@@ -1,15 +1,13 @@
 from collections import defaultdict
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import unidecode
 
+from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
 from core.utils import get_logger
 
 logger = get_logger(__name__)
-
-MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def categorize_title(title):

@@ -8,6 +8,7 @@ py_library(
     name = "_init",
     srcs = [
         "__init__.py",
+        "constants.py",
         "utils.py",
         "domain/__init__.py",
         "domain/models.py",
