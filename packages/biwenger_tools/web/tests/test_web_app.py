@@ -280,6 +280,19 @@ def test_api_lloros_trofeos_returns_sheets_data(mock_get_sheets, client):
 # --- Admin panel tests ---
 
 
+def _seed_csrf(client) -> str:
+    """Plant a known CSRF token in the session and return it.
+
+    Form POSTs require the field to match `session["csrf_token"]`; we set both
+    sides explicitly so the tests exercise the real path instead of mocking
+    `verify_csrf_token`.
+    """
+    token = "test-csrf-token"
+    with client.session_transaction() as sess:
+        sess["csrf_token"] = token
+    return token
+
+
 @patch("packages.biwenger_tools.web.app.config.ADMIN_PASSWORD", "test_password")
 def test_admin_login_get_page(client):
     """Verify that the admin login page loads correctly."""
@@ -291,8 +304,11 @@ def test_admin_login_get_page(client):
 @patch("packages.biwenger_tools.web.app.config.ADMIN_PASSWORD", "test_password")
 def test_admin_login_post_success(client):
     """Verify that login succeeds with the correct password."""
+    token = _seed_csrf(client)
     response = client.post(
-        "/admin", data={"password": "test_password"}, follow_redirects=True
+        "/admin",
+        data={"password": "test_password", "csrf_token": token},
+        follow_redirects=True,
     )
     assert response.status_code == 200
     with client.session_transaction() as sess:
@@ -302,8 +318,22 @@ def test_admin_login_post_success(client):
 @patch("packages.biwenger_tools.web.app.config.ADMIN_PASSWORD", "test_password")
 def test_admin_login_post_fail(client):
     """Verify that login fails with an incorrect password."""
-    response = client.post("/admin", data={"password": "wrong_password"})
+    token = _seed_csrf(client)
+    response = client.post(
+        "/admin", data={"password": "wrong_password", "csrf_token": token}
+    )
     assert response.status_code == 200
+    with client.session_transaction() as sess:
+        assert "admin_logged_in" not in sess
+
+
+def test_admin_login_post_rejected_without_csrf(client):
+    """POST without a valid csrf_token must not authenticate."""
+    with patch(
+        "packages.biwenger_tools.web.app.config.ADMIN_PASSWORD", "test_password"
+    ):
+        response = client.post("/admin", data={"password": "test_password"})
+    assert response.status_code in (302, 200)
     with client.session_transaction() as sess:
         assert "admin_logged_in" not in sess
 
@@ -345,7 +375,12 @@ def test_run_scraper_triggers_job_and_redirects(mock_trigger, client):
     mock_trigger.return_value = (True, "Job lanzado correctamente (ejecución: abc123).")
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
-    response = client.post("/admin/run-scraper", follow_redirects=False)
+        sess["csrf_token"] = "test-csrf-token"
+    response = client.post(
+        "/admin/run-scraper",
+        data={"csrf_token": "test-csrf-token"},
+        follow_redirects=False,
+    )
     assert response.status_code == 302
     assert "/admin" in response.headers["Location"]
     mock_trigger.assert_called_once()
@@ -357,7 +392,12 @@ def test_run_scraper_shows_error_flash_on_failure(mock_trigger, client):
     mock_trigger.return_value = (False, "Error al lanzar el job: timeout.")
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
-    response = client.post("/admin/run-scraper", follow_redirects=True)
+        sess["csrf_token"] = "test-csrf-token"
+    response = client.post(
+        "/admin/run-scraper",
+        data={"csrf_token": "test-csrf-token"},
+        follow_redirects=True,
+    )
     assert response.status_code == 200
     assert b"Error al lanzar el job" in response.data
 
@@ -367,6 +407,16 @@ def test_run_scraper_requires_login(client):
     response = client.post("/admin/run-scraper", follow_redirects=False)
     assert response.status_code == 302
     assert "/admin" in response.headers["Location"]
+
+
+@patch("packages.biwenger_tools.web.routes.admin._trigger_scraper_job")
+def test_run_scraper_rejected_without_csrf(mock_trigger, client):
+    """Logged-in admin without csrf_token must not trigger the job."""
+    with client.session_transaction() as sess:
+        sess["admin_logged_in"] = True
+    response = client.post("/admin/run-scraper", follow_redirects=False)
+    assert response.status_code == 302
+    mock_trigger.assert_not_called()
 
 
 # --- Mercado route tests ---

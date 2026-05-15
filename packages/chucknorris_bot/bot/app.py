@@ -55,7 +55,13 @@ def index():
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
     if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
-        logger.warning("Webhook: invalid secret token")
+        logger.warning(
+            "Webhook: invalid secret token",
+            extra={
+                "remote_addr": request.remote_addr,
+                "user_agent": request.headers.get("User-Agent", ""),
+            },
+        )
         return "", 401
 
     chat_id, text = extract_webhook_update(request)
