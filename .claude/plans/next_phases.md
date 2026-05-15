@@ -11,7 +11,7 @@ are already taken.
 - **All packages in CI**: web, scraper_job, teams_analyzer, telegram_bot, chucknorris_bot.
 - **Python**: 3.13.
 - **GCP secrets**: consolidated — 3 JSON regional secrets only.
-  - `biwenger-credentials-regional` — `{email, password, gdrive_folder_id}`
+  - `biwenger-credentials-regional` — `{email, password, gdrive_folder_id, jp_auth_token}` *(jp_auth_token added 2026-05-16 to remove the hardcoded JP token from public git; see `fix/security-hardening`)*
   - `telegram-bot-config-regional` — `{bot_token, chat_id, webhook_secret}`
   - `chucknorris-bot-config-regional` — `{bot_token, webhook_secret}`
   - `biwenger-tools-sa-regional` — Google Drive SA key (file mount at `/gdrive_sa/`)

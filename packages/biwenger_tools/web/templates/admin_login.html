@@ -6,6 +6,7 @@
 <div class="card p-8 rounded-xl shadow-lg max-w-md mx-auto">
     <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 text-center">Acceso al VAR</h2>
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-4">
             <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
             <input type="password" name="password" id="password" required
