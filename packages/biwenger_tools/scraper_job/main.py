@@ -6,10 +6,10 @@ import io
 import os
 from datetime import datetime, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from bs4 import BeautifulSoup
 
+from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.gcp import (
@@ -29,8 +29,6 @@ from packages.biwenger_tools.scraper_job.logic.processing import (
 )
 
 logger = get_logger(__name__)
-
-MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 
 def _read_credentials(cfg) -> tuple[str, str, str]:

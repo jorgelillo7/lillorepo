@@ -5,8 +5,7 @@ and 11-player assignment that maximises the total SF predict score.
 """
 
 from core.sdk.jp import get_predict_rate
-
-SCORE_SF = 2
+from packages.biwenger_tools.teams_analyzer.player_formatting import SCORE_SF
 
 # All supported formations as (label, def, mid, fwd)
 FORMATIONS = [

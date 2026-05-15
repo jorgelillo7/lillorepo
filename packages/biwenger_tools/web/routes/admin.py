@@ -1,7 +1,6 @@
 """Admin routes: login panel, logout, and on-demand scraper trigger."""
 
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime
 
 import google.auth
 import google.auth.transport.requests
@@ -19,6 +18,7 @@ from flask import (
     url_for,
 )
 
+from core.constants import DRIVE_STALE_THRESHOLD, MADRID_TZ
 from core.sdk.gcp import get_file_metadata
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, services
@@ -26,8 +26,6 @@ from packages.biwenger_tools.web.csrf import verify_csrf_token
 
 bp = Blueprint("admin", __name__)
 logger = get_logger(__name__)
-
-MADRID_TZ = ZoneInfo("Europe/Madrid")
 
 _CLOUD_RUN_JOBS_API = (
     "https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run"
@@ -43,7 +41,7 @@ def _get_sheet_file_status(sheet_id: str) -> dict:
     )
     dt_utc = parser.isoparse(sheet_metadata["modifiedTime"])
     dt_madrid = dt_utc.astimezone(MADRID_TZ)
-    is_stale = (datetime.now(MADRID_TZ) - dt_madrid) > timedelta(days=7)
+    is_stale = (datetime.now(MADRID_TZ) - dt_madrid) > DRIVE_STALE_THRESHOLD
     return {
         "name": f"{sheet_metadata['name']} (Sheet)",
         "status": "Encontrado",

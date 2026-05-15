@@ -1,8 +1,11 @@
 import os
 from dotenv import load_dotenv
 
+from core.constants import LEAGUE_ID  # re-exported for callers
 from core.sdk import biwenger as biwenger_sdk
 from core.utils import load_json_secret
+
+_ = LEAGUE_ID  # noqa: F841  (silence unused-import for callers via config.LEAGUE_ID)
 
 # Carga las variables del archivo .env para el desarrollo local
 load_dotenv()
@@ -22,7 +25,7 @@ GDRIVE_FOLDER_ID = _BIWENGER_CFG.get("gdrive_folder_id") or os.getenv(
 )
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
-LEAGUE_ID = "340703"
+# LEAGUE_ID re-exported from core.constants at the top of the file.
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 # --- URLs DE LA API DE BIWENGER (constantes en core; deriva las de la liga) ---
