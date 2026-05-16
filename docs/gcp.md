@@ -11,8 +11,8 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
 | Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → CSV → Google Drive |
 | Cloud Run (Jobs) | `biwenger-teams-analyzer` | Daily squad + market analysis → Telegram |
-| Cloud Scheduler | `biwenger-scraper-trigger` | Triggers scraper job (cron) |
-| Cloud Scheduler | `biwenger-teams-analyzer-trigger` | Triggers teams analyzer daily at 16:00 Madrid |
+| Cloud Scheduler | `biwenger-scraper-data-scheduler-trigger` (`europe-west1`) | Triggers scraper job (cron weekly Sun 22:00) |
+| Cloud Scheduler | `biwenger-teams-analyzer-trigger` (`europe-west1`) | Triggers teams analyzer daily 16:00 |
 | Secret Manager | 4 secrets (see below) | Credentials and bot tokens |
 | Artifact Registry | `biwenger-docker` | Docker images for all Cloud Run services/jobs |
 | Cloud Logging | — | Automatic, structured logs via `get_logger()` |
@@ -21,7 +21,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 | Secret | Contents |
 |---|---|
-| `biwenger-credentials-regional` | `{"email", "password", "gdrive_folder_id"}` |
+| `biwenger-credentials-regional` | `{"email", "password", "gdrive_folder_id", "jp_auth_token"}` |
 | `telegram-bot-config-regional` | `{"bot_token", "chat_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
 | `biwenger-tools-sa-regional` | Google Drive service account JSON key |
@@ -42,6 +42,9 @@ instead of separate `biwenger-email`, `biwenger-password`, `gdrive-folder-id`) r
 active secret count from 9 to 4, staying well within the free tier.
 Config modules read the JSON first, fall back to individual env vars for local dev.
 
+The `jp_auth_token` (Jornada Perfecta) was added to `biwenger-credentials-regional` in
+2026-05-16 instead of creating a new secret — same scope (teams_analyzer), no extra cost.
+
 ### Shared Python base image
 All Cloud Run services and jobs extend a shared `python-base` image stored in Artifact Registry.
 This is rebuilt only when dependencies change, not on every deploy. Benefits:
@@ -51,6 +54,36 @@ This is rebuilt only when dependencies change, not on every deploy. Benefits:
 ### min-instances = 0 on all services
 No idle compute billing. All services are request-driven or job-driven.
 Acceptable because this is a private league intranet, not a latency-sensitive product.
+
+### Bots with cpu=0.5 + concurrency=1
+`biwenger-telegram-bot` and `chucknorris-bot` are webhook handlers that do at most one
+HTTP call per request (fan-out to a Cloud Run Job or fetch from chucknorris.io). They
+serve one request per instance and scale horizontally if a second arrives in flight.
+GCP forbids `cpu < 1` with `concurrency > 1`, so this is the configuration that buys
+the cpu reduction. The web service stays at `cpu=1 concurrency=80` — it serves a
+real browser audience and benefits from sharing one instance across requests.
+
+### Log retention 7 days
+The `_Default` log bucket retains for 7 days (down from the GCP default of 30). At our
+volume we stay far below the 50 GB/month free ingestion, but a shorter retention caps
+the long-tail storage cost as the project grows and gives us a smaller window when
+debugging — by design, recent issues are the only ones worth debugging.
+
+### Budget alert at €1/month
+A budget named "€1 Alerta de presupuesto mensual" fires email alerts at 50%, 90%,
+100% and 150% of €1 EUR. €1 is a meaningful threshold given we should be on the
+free tier; any breach is a signal that something has escaped the constraints, not a
+normal-operations event.
+
+### Artifact Registry cleanup includes every service
+`scripts/clean-images-artifact.sh` purges old digests per image. Note that the
+`SIMPLE_IMAGES` array must list **every** Cloud Run service/job repo — `chucknorris_bot`
+was missing until 2026-05-16 and quietly accumulated 8 digests. When adding a new
+service, add its repo name to that array. `python-base` is multi-arch and managed
+separately (deletes only orphan untagged digests older than 24 h).
+
+The script is invoked by CI's `cleanup` job after any successful deploy. If a week
+passes without merges, run it manually.
 
 ### Cloud Run instead of GCE/GKE
 Serverless — no VM management, no always-on cost. Free tier: 2M requests/month,
