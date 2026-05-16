@@ -67,22 +67,32 @@ jobs:
             web:
               - 'core/**'
               - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
               - 'packages/biwenger_tools/web/**'
             scraper:
               - 'core/**'
               - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
               - 'packages/biwenger_tools/scraper_job/**'
             teams_analyzer:
               - 'core/**'
               - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
               - 'packages/biwenger_tools/teams_analyzer/**'
             telegram_bot:
               - 'core/**'
               - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
               - 'packages/biwenger_tools/telegram_bot/**'
             chucknorris_bot:
               - 'core/**'
               - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
               - 'packages/chucknorris_bot/**'
 
   # -------------------------------------------------------
