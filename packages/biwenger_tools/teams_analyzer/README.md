@@ -3,43 +3,45 @@
 Pre-matchday analysis tool. Pulls squads, market and rival data from the Biwenger API,
 enriches them with predicted ratings from the **Jornada Perfecta private API** (the
 SofaScore-based "Automanager" rating, `predict[type=2].rate`), and posts the digest
-to Telegram as formatted text messages.
+to Telegram as PNG table images.
 
 No browser automation, no scraping — one HTTP call per source.
 
 ## 🚀 What it does
 
-1. **Health-check the JP API** — fails fast if the hardcoded app token has rotated.
+1. **Health-check the JP API** — fails fast if the app token has rotated.
 2. **Fetch all LaLiga players from JP** — 1 request, ~600 players, includes predicted
    rating, status, fitness, streak, next-match info.
 3. **Log into Biwenger** — fetch the league standings, your own squad, every rival
    squad, and the current free-agent market.
 4. **Match Biwenger ↔ JP** — by normalised name (with slug fallback and a manual
    override map for known mismatches like `vinicius jr` → `vini jr`).
-5. **Send Telegram messages** in three sections:
-   - 🛡️ **MI EQUIPO** — your starters sorted by predict-SF descending
-   - 🛒 **MERCADO** — free agents, top 10 by predict-SF
-   - 👤 **One message per rival manager** — same sort order, split if the message
-     would exceed 4096 chars
+5. **Render PNG tables with matplotlib** and push them to Telegram via `sendPhoto`.
+   What is sent depends on `ANALYSIS_MODE` (see entry point below).
 
-Each player line includes a traffic-light emoji (🟢/🟡/🔴/⚪), position, price, today's
-price increment, four prediction columns (SF / AS / Avg / Streak) and whether they
-will play in their next match.
+Each row in the table includes a traffic-light cell (🟢/🟡/🔴/⚪ via background color),
+position, price, SF predict, streak and a play-status label (casa/fuera/lesionado/
+sancionado/no convocado/duda/sin partido).
 
 ## ⚙️ Configuration
 
-`.env` at this directory must define:
+In production the job reads `BIWENGER_CREDENTIALS_JSON` and `TELEGRAM_BOT_CONFIG_JSON`
+from Secret Manager. The JP API token lives inside `BIWENGER_CREDENTIALS_JSON` as the
+`jp_auth_token` key (moved there from a hardcoded constant on 2026-05-16 so it stops
+living in public git history).
+
+For local dev, `.env` at this directory can fall back to individual vars:
 
 ```
 BIWENGER_EMAIL=...
 BIWENGER_PASSWORD=...
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHAT_ID=...
+JP_AUTH_TOKEN=...
 ```
 
-The JP token is hardcoded in `core/sdk/jp.py` (it lives in the JP Android app bundle,
-not a per-user session). If JP rotates it, `check_api_health()` raises with the
-extraction command — see `docs/technical/reverse-engineering/frida-android-intercept.md`.
+If JP rotates the token, `check_api_health()` raises with the extraction command —
+see `docs/technical/reverse-engineering/frida-android-intercept.md`.
 
 For run/test commands see [`docs/operations.md`](../../../docs/operations.md) section
 **1.3 Teams Analyzer**.
