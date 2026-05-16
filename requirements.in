@@ -34,6 +34,7 @@ Flask
 python-dotenv
 unidecode
 beautifulsoup4
+bleach
 gunicorn
 
 # Para el manejo de fechas y zonas horarias
