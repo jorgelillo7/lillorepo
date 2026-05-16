@@ -46,7 +46,7 @@ def send_telegram_message(
         response = requests.post(url, json=payload, timeout=15)
         response.raise_for_status()
         logger.info("Telegram message sent.", extra={"chars": len(text)})
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error("Failed to send Telegram message.", extra={"error": str(e)})
 
 
@@ -67,7 +67,7 @@ def send_telegram_photo(
         )
         response.raise_for_status()
         logger.info("Telegram photo sent.", extra={"caption": caption[:40]})
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error("Failed to send Telegram photo.", extra={"error": str(e)})
 
 
@@ -82,7 +82,7 @@ def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
         response = requests.post(url, json={"commands": commands}, timeout=15)
         response.raise_for_status()
         logger.info("Bot commands registered.", extra={"count": len(commands)})
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error("Failed to register bot commands.", extra={"error": str(e)})
 
 
@@ -95,7 +95,7 @@ def set_commands_menu_button(bot_token: str) -> None:
         )
         response.raise_for_status()
         logger.info("Menu button set to 'commands'.")
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error("Failed to set menu button.", extra={"error": str(e)})
 
 

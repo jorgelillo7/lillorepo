@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import google.auth
+import google.auth.exceptions
 import google.auth.transport.requests
 import requests as http_requests
 from dateutil import parser
@@ -96,7 +97,10 @@ def _trigger_scraper_job() -> tuple[bool, str]:
         execution_name = resp.json().get("name", "").split("/")[-1]
         logger.info("Scraper job triggered.", extra={"execution": execution_name})
         return True, f"Job lanzado correctamente (ejecución: {execution_name})."
-    except Exception as exc:
+    except (
+        google.auth.exceptions.GoogleAuthError,
+        http_requests.RequestException,
+    ) as exc:
         logger.error("Failed to trigger scraper job.", extra={"error": str(exc)})
         return False, f"Error al lanzar el job: {exc}"
 
