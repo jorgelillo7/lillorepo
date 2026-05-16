@@ -1,19 +1,27 @@
 # CI/CD — deploy.yml
 
-Workflow that runs on every push to `master` when files under `core/`, `packages/biwenger_tools/`, `tools/`, or `.github/workflows/` change.
+Workflow that runs on every push to `master` when files under `core/`, `packages/`, `tools/`, `docker/`, `MODULE.bazel` or `.github/workflows/` change.
 
 ## Stages
 
 ```
-Run tests → Deploy web app ─┐
-                             ├→ Clean up old images
-           Deploy scraper ──┘
+Lint → Detect changed modules → Run tests ─┬→ Deploy web ────────────┐
+                                            ├→ Deploy scraper ────────┤
+                                            ├→ Deploy teams_analyzer ─┼→ Clean up old images
+                                            ├→ Deploy telegram_bot ───┤
+                                            └→ Deploy chucknorris_bot ┘
 ```
 
-1. **Run tests** — `bazel test` for all three modules (web, scraper_job, core).
-2. **Deploy web app** — builds and pushes the OCI image, then deploys to the `biwenger-summary` Cloud Run service.
-3. **Deploy scraper job** — builds and pushes the OCI image, then updates the `biwenger-scraper-data` Cloud Run Job.
-4. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale images from Artifact Registry.
+1. **Lint** — flake8 + `black --check`.
+2. **Detect changed modules** — `paths-filter` per service decides which deploys to run. `core/`, `tools/`, `docker/` or `MODULE.bazel` triggers all of them; a package-only change only its own deploy.
+3. **Run tests** — full Bazel test sweep for all packages.
+4. **Deploy (parallel)** — each service builds and pushes its OCI image, then deploys/updates the matching Cloud Run resource:
+   - **web** → `biwenger-summary` Cloud Run Service
+   - **scraper_job** → `biwenger-scraper-data` Cloud Run Job
+   - **teams_analyzer** → `biwenger-teams-analyzer` Cloud Run Job
+   - **telegram_bot** → `biwenger-telegram-bot` Cloud Run Service
+   - **chucknorris_bot** → `chucknorris-bot` Cloud Run Service
+5. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale digests from Artifact Registry.
 
 ## Required GitHub secrets
 
@@ -26,9 +34,8 @@ Run tests → Deploy web app ─┐
 | `LIGAS_ESPECIALES_SHEET_ID_25_26` | Google Sheets ID (ligas especiales 25-26) |
 | `LIGAS_ESPECIALES_SHEET_ID_24_25` | Google Sheets ID (ligas especiales 24-25) |
 | `TROFEOS_SHEET_ID_25_26` | Google Sheets ID (trofeos 25-26) |
-| `COMUNICADOS_CSV_URL` | Public Drive URL for comunicados CSV |
-| `PALMARES_CSV_URL` | Public Drive URL for palmarés CSV |
-| `PARTICIPACION_CSV_URL` | Public Drive URL for participación CSV |
+
+> The legacy `COMUNICADOS_CSV_URL`, `PALMARES_CSV_URL`, and `PARTICIPACION_CSV_URL` secrets were deleted on 2026-05-04 when the web stopped fetching CSVs via public URLs and started using the Drive SA directly. Other credentials (Biwenger login, Telegram bot tokens, JP token) live in Secret Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
 
 ## Service account permissions
 
