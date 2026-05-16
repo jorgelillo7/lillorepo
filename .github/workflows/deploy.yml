@@ -302,7 +302,8 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
             --memory=256Mi \
-            --cpu=1 \
+            --cpu=0.5 \
+            --concurrency=1 \
             --update-secrets="TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
             --set-env-vars="\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
@@ -351,7 +352,8 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
             --memory=256Mi \
-            --cpu=1 \
+            --cpu=0.5 \
+            --concurrency=1 \
             --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-bot-config-regional:latest"
 
   # -------------------------------------------------------
