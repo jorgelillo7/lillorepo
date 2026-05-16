@@ -51,6 +51,18 @@ This is rebuilt only when dependencies change, not on every deploy. Benefits:
 - Cold start time drops significantly (heavy deps like `google-cloud-*` are pre-installed).
 - Artifact Registry storage stays low — only incremental layers change per deploy.
 
+The image is **runtime-only**: test/dev deps (pytest, black, flake8, freezegun,
+requests-mock and their transitives) are listed in `requirements_lock.txt` for
+Bazel's hermetic sandbox but **not installed** in `Dockerfile.base`. Same for
+the `googleapiclient/discovery_cache/documents` cache, which is pruned in the
+same `RUN` layer to drive/sheets/run only — the 581 other JSON discovery docs
+are dead weight (~96 MB). These two together drop the image from ~443 MB to
+~275 MB, well inside the 500 MB Artifact Registry free tier.
+
+When using \`pip install\` in the Dockerfile, keep \`--no-compile\` and the
+\`__pycache__\` / \`.pyc\` cleanup at the end of the same \`RUN\` — Python
+re-creates bytecode on first import, no need to ship it.
+
 ### min-instances = 0 on all services
 No idle compute billing. All services are request-driven or job-driven.
 Acceptable because this is a private league intranet, not a latency-sensitive product.
