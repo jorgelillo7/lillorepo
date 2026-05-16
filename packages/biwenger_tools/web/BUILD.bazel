@@ -6,6 +6,7 @@ python_service(
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/web",
     secrets = ["biwenger-tools-sa.json", ".env"],
+    deps = ["@pypi//bleach"],
     extra_env = {
         "PORT": "8080",
         "PYTHONPATH": "/app",
