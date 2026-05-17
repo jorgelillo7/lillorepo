@@ -16,6 +16,7 @@ COMMANDS = [
     {"command": "myteam", "description": "Análisis solo de mi equipo"},
     {"command": "mercado", "description": "Solo el mercado"},
     {"command": "alinear", "description": "Aplica la mejor alineación posible"},
+    {"command": "version", "description": "Versión desplegada del bot y del job"},
     {"command": "help", "description": "Muestra todos los comandos disponibles"},
 ]
 

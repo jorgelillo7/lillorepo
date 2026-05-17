@@ -17,3 +17,7 @@ TELEGRAM_BOT_TOKEN = (
 TELEGRAM_WEBHOOK_SECRET = (
     _CHUCKNORRIS_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 ).strip()
+
+# Deployed version metadata (set by CI, see deploy.yml). Used by /version.
+GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
+DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

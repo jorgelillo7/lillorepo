@@ -68,6 +68,18 @@ def test_start_sends_message(client):
     mock_send.assert_called_once()
 
 
+def test_version_returns_commit_and_deploy_time(client):
+    """`/version` returns the bot SHA + deploy timestamp injected by CI."""
+    cfg.GIT_COMMIT = "abc1234"
+    cfg.DEPLOY_TIME = "17/05/2026 14:00"
+    with patch("packages.chucknorris_bot.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _update("123", "/version"))
+    assert resp.status_code == 200
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "abc1234" in text
+    assert "17/05/2026 14:00" in text
+
+
 def test_random_fetches_and_sends(client):
     with patch(
         "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."

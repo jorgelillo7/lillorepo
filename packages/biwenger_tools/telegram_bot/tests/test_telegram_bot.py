@@ -139,6 +139,41 @@ def test_help_sends_message(client):
     assert call_kwargs.get("chat_id") == _VALID_CHAT
 
 
+def test_version_returns_bot_and_job_state(client):
+    """`/version` includes the bot SHA and the job updateTime."""
+    cfg.GIT_COMMIT = "abc1234"
+    cfg.DEPLOY_TIME = "17/05/2026 14:00"
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.get_job_update_time",
+        return_value="2026-05-17T12:34:56Z",
+    ), patch(
+        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/version"))
+    assert resp.status_code == 200
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "abc1234" in text
+    assert "17/05/2026 14:00" in text
+    assert "2026-05-17T12:34:56Z" in text
+
+
+def test_version_tolerates_job_lookup_failure(client):
+    """If the Cloud Run API call fails the bot still responds, with '—'."""
+    cfg.GIT_COMMIT = "abc1234"
+    cfg.DEPLOY_TIME = "17/05/2026 14:00"
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.get_job_update_time",
+        return_value=None,
+    ), patch(
+        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/version"))
+    assert resp.status_code == 200
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "abc1234" in text
+    assert "updated —" in text
+
+
 def test_unknown_command_is_ignored(client):
     with patch(
         "packages.biwenger_tools.telegram_bot.app.job_trigger.trigger_analyzer_job"

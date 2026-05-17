@@ -30,8 +30,19 @@ _HELP_TEXT = (
     "/food — food fact\n"
     "/animal — animal fact\n"
     "/dev — developer fact\n"
+    "/version — deployed bot version\n"
     "/help — show this message"
 )
+
+
+def _build_version_text() -> str:
+    """Render the /version response."""
+    commit = config.GIT_COMMIT or "unknown"
+    deploy_time = config.DEPLOY_TIME or "—"
+    return (
+        "<b>📦 Bot version</b>\n\n"
+        f"🤜 chucknorris-bot:\n  <code>{commit}</code> · {deploy_time}"
+    )
 
 
 def _fetch_joke(category: str | None = None) -> str:
@@ -75,6 +86,12 @@ def webhook():
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=chat_id,
             text=_HELP_TEXT,
+        )
+    elif cmd == "/version":
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            text=_build_version_text(),
         )
     elif cmd == "/random":
         joke = _fetch_joke()
