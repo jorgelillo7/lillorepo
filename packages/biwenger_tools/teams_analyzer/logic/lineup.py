@@ -61,7 +61,11 @@ def pick_lineup(squad_rows: list) -> dict | None:
     available.sort(key=_sf, reverse=True)
 
     best: dict | None = None
-    best_sf = -1
+    # Lexicographic (sum_sf, back_bias). Same tiebreaker as `_try_fill`, so
+    # ties between formations (3-4-3 vs 4-4-2 with the same SF) are broken in
+    # favour of the one that places more players further back than their
+    # primary position.
+    best_score: tuple[int, int] = (-1, -(10**9))
 
     for label, n_def, n_mid, n_fwd in FORMATIONS:
         slots = {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
@@ -70,14 +74,16 @@ def pick_lineup(squad_rows: list) -> dict | None:
             continue
 
         total_sf = sum(_sf(r) for r, _ in assignment)
-        if total_sf <= best_sf:
+        total_bias = _back_bias(assignment)
+        score = (total_sf, total_bias)
+        if score <= best_score:
             continue
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
         reserves = _pick_reserves(available, starter_ids)
         captain = _pick_captain([r for r, _ in assignment])
 
-        best_sf = total_sf
+        best_score = score
         best = {
             "formation": label,
             "starters": assignment,
@@ -135,6 +141,36 @@ def _positions(row: dict) -> set:
     return {primary} | set(alts)
 
 
+def _back_bias_one(player: dict, slot: int) -> int:
+    """Score how "back" a player ends up vs their primary position.
+
+    Biwenger gives a bigger goal-scoring bonus the further back the slot:
+    POR +10, DEF +7, MED +5, DEL +4. JP's SF is a single per-player number
+    that does NOT model the slot bonus, so when two assignments tie on SF
+    we still prefer the one that places more players further back than
+    their natural position.
+
+    Returns +1 if the slot is strictly behind the player's primary
+    (e.g. a FWD/MID played as MID), 0 if exactly the primary, -1 if the
+    slot is ahead of the primary.
+
+    Position IDs increase as you move forward: GK=1 < DEF=2 < MID=3 < FWD=4.
+    """
+    primary = player.get("position_id")
+    if primary is None:
+        return 0
+    if slot < primary:
+        return 1
+    if slot > primary:
+        return -1
+    return 0
+
+
+def _back_bias(assignment: list) -> int:
+    """Sum of `_back_bias_one` across an assignment. Higher = more "back"."""
+    return sum(_back_bias_one(p, slot) for p, slot in assignment)
+
+
 def _is_available(row: dict) -> bool:
     """Whether a player can be picked for the lineup.
 
@@ -165,24 +201,36 @@ def _is_available(row: dict) -> bool:
 
 
 def _try_fill(players: list, slots: dict) -> list | None:
-    """Pick the assignment of `players` to `slots` that maximises total SF.
+    """Pick the assignment of `players` to `slots` that maximises (SF, back-bias).
 
     Exhaustive backtracking: for each open slot try every eligible candidate,
-    recurse on the rest, and keep the assignment with the highest sum of SF.
-    Returns `None` if no valid assignment exists.
+    recurse on the rest, and keep the assignment with the highest **lexicographic**
+    `(sum of SF, back-bias)` score. Returns `None` if no valid assignment exists.
 
-    Why exhaustive: a previous version returned the first feasible solution,
-    which was wrong for multi-position players. Example with formation 4-3-3
-    (3 MID + 3 FWD), a FWD/MID player X with SF 400, three other FWDs
-    (380/360/340) and three MIDs (350/320/280):
+    Why two metrics:
+
+    1. SF (predicted score) is the primary signal. It already accounts for
+       most of what makes a player valuable for a given matchday.
+    2. When two assignments tie on SF — which happens often once you have
+       multi-position players — Biwenger's per-position goal bonus breaks
+       the tie. A DEF that scores a goal earns +7 points, a MID +5, a DEL
+       +4. JP's SF is a single number per player and does NOT change with
+       the slot, so picking the assignment that places players further back
+       captures expected bonus points the SF can't see. See `_back_bias_one`.
+
+    Worked example with formation 4-3-3 that motivated the exhaustive search
+    (a FWD/MID player X with SF 400, three other FWDs 380/360/340 and three
+    MIDs 350/320/280):
 
       X as FWD → FWDs sum 1140, MIDs sum 950 = 2090
-      X as MID → FWDs sum 1080, MIDs sum 1070 = 2150  ← global optimum
+      X as MID → FWDs sum 1080, MIDs sum 1070 = 2150  ← higher SF, picked
 
-    The "first feasible" heuristic picked X as FWD because that's its primary
-    position; the exhaustive variant picks the assignment that maximises the
-    11-player SF total. The outer `pick_lineup()` still iterates the 12
-    formations and keeps the best of those.
+    And the tiebreaker example (3-4-3 vs 4-4-2 with multi-position players
+    that all sum to the same SF total):
+
+      3-4-3 with Mingueza/J.Iglesias as MED, Tsygankov as DEL  → bias 0
+      4-4-2 with Mingueza/J.Iglesias as DEF, Tsygankov as MED   → bias +3
+      Same SF, the 4-4-2 variant wins on bias.
 
     To prune the search a bit, we fill the most-constrained position first
     (fewest eligible players). This does not change correctness but cuts
@@ -208,15 +256,17 @@ def _try_fill(players: list, slots: dict) -> list | None:
     )
 
     best: list | None = None
-    best_sf = -1
+    best_score = (-1, -(10**9))  # (sum_sf, back_bias) lexicographic
     for player in candidates:
         remaining = [r for r in players if r["bw_id"] != player["bw_id"]]
         sub = _try_fill(remaining, new_slots)
         if sub is None:
             continue
         sub_sf = _sf(player) + sum(_sf(r) for r, _ in sub)
-        if sub_sf > best_sf:
-            best_sf = sub_sf
+        sub_bias = _back_bias_one(player, pos_to_fill) + _back_bias(sub)
+        score = (sub_sf, sub_bias)
+        if score > best_score:
+            best_score = score
             best = [(player, pos_to_fill)] + sub
 
     return best
