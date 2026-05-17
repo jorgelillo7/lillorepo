@@ -12,6 +12,8 @@ import math
 import time
 from datetime import datetime
 
+import requests
+
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
 from core.sdk.telegram import send_telegram_message, send_telegram_photo
@@ -282,13 +284,33 @@ def _run_alinear(
         r["bw_id"] for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
     ]
     reserves_ids = [r["bw_id"] if r else None for r in result["reserves"]]
-    biwenger.set_lineup(
-        config.LINEUP_URL,
-        result["formation"],
-        starters_ids,
-        reserves_ids,
-        result["captain"]["bw_id"],
-    )
+    try:
+        biwenger.set_lineup(
+            config.LINEUP_URL,
+            result["formation"],
+            starters_ids,
+            reserves_ids,
+            result["captain"]["bw_id"],
+        )
+    except requests.RequestException as exc:
+        # The Biwenger PUT already retries transient failures internally
+        # (see core/sdk/biwenger.py:set_lineup). If we get here it means the
+        # retries also failed, or Biwenger returned a 4xx (e.g. invalid
+        # captain). Either way the user deserves a clear message instead of
+        # silence.
+        logger.error("set_lineup failed after retries.", extra={"error": str(exc)})
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text=(
+                "❌ No se pudo aplicar la alineación en Biwenger.\n"
+                f"<code>{exc}</code>\n"
+                "Suele ser un blip de la API — vuelve a probar /alinear "
+                "en 1-2 minutos."
+            ),
+        )
+        return
+
     send_telegram_message(
         bot_token=token, chat_id=chat_id, text=format_lineup_message(result)
     )
