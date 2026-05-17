@@ -237,9 +237,10 @@ def _is_available(row: dict) -> bool:
 def _try_fill(players: list, slots: dict) -> list | None:
     """Pick the assignment of `players` to `slots` that maximises (SF, back-bias).
 
-    Exhaustive backtracking: for each open slot try every eligible candidate,
-    recurse on the rest, and keep the assignment with the highest **lexicographic**
-    `(sum of SF, back-bias)` score. Returns `None` if no valid assignment exists.
+    Memoised exhaustive backtracking: for each open slot try every eligible
+    candidate, recurse on the rest, and keep the assignment with the highest
+    **lexicographic** `(sum of SF, back-bias)` score. Returns `None` if no
+    valid assignment exists.
 
     Why two metrics:
 
@@ -252,6 +253,13 @@ def _try_fill(players: list, slots: dict) -> list | None:
        the slot, so picking the assignment that places players further back
        captures expected bonus points the SF can't see. See `_back_bias_one`.
 
+    Why memoisation: the naive recursive search explores every ordering of
+    player picks, which is up to N! for a single formation. Many of those
+    orderings reach the same sub-state `(remaining_players, remaining_slots)`
+    by different paths. We cache by that state so each is solved once. A
+    squad of 12 with several multi-position players that previously timed
+    out the 300s job now completes in under a second.
+
     Worked example with formation 4-3-3 that motivated the exhaustive search
     (a FWD/MID player X with SF 400, three other FWDs 380/360/340 and three
     MIDs 350/320/280):
@@ -259,51 +267,71 @@ def _try_fill(players: list, slots: dict) -> list | None:
       X as FWD → FWDs sum 1140, MIDs sum 950 = 2090
       X as MID → FWDs sum 1080, MIDs sum 1070 = 2150  ← higher SF, picked
 
-    And the tiebreaker example (3-4-3 vs 4-4-2 with multi-position players
-    that all sum to the same SF total):
-
-      3-4-3 with Mingueza/J.Iglesias as MED, Tsygankov as DEL  → bias 0
-      4-4-2 with Mingueza/J.Iglesias as DEF, Tsygankov as MED   → bias +3
-      Same SF, the 4-4-2 variant wins on bias.
-
     To prune the search a bit, we fill the most-constrained position first
     (fewest eligible players). This does not change correctness but cuts
     branches early.
     """
-    open_slots = [(pos, cnt) for pos, cnt in slots.items() if cnt > 0]
-    if not open_slots:
+    if not any(cnt > 0 for cnt in slots.values()):
         return []
+    if not players:
+        return None
 
-    def eligible_count(pos):
-        return sum(1 for r in players if pos in _positions(r))
+    # We memoise on (frozenset of bw_ids, sorted tuple of (pos, count)).
+    # Both keys are hashable and capture exactly the state of the search.
+    lookup = {p["bw_id"]: p for p in players}
+    cache: dict[tuple, tuple | None] = {}
 
-    pos_to_fill = min(open_slots, key=lambda pc: eligible_count(pc[0]))[0]
-    new_slots = {**slots, pos_to_fill: slots[pos_to_fill] - 1}
+    def _solve(player_ids: frozenset, slots_t: tuple) -> tuple | None:
+        if not slots_t:
+            return ()
+        key = (player_ids, slots_t)
+        if key in cache:
+            return cache[key]
 
-    # Try every candidate that can play this slot. Higher SF first so good
-    # partial assignments surface early; this is a hint, not a guarantee,
-    # since we explore all of them anyway.
-    candidates = sorted(
-        (r for r in players if pos_to_fill in _positions(r)),
-        key=_sf,
-        reverse=True,
-    )
+        slots_dict = dict(slots_t)
 
-    best: list | None = None
-    best_score = (-1, -(10**9))  # (sum_sf, back_bias) lexicographic
-    for player in candidates:
-        remaining = [r for r in players if r["bw_id"] != player["bw_id"]]
-        sub = _try_fill(remaining, new_slots)
-        if sub is None:
-            continue
-        sub_sf = _sf(player) + sum(_sf(r) for r, _ in sub)
-        sub_bias = _back_bias_one(player, pos_to_fill) + _back_bias(sub)
-        score = (sub_sf, sub_bias)
-        if score > best_score:
-            best_score = score
-            best = [(player, pos_to_fill)] + sub
+        def eligible(pos: int) -> int:
+            return sum(1 for pid in player_ids if pos in _positions(lookup[pid]))
 
-    return best
+        pos_to_fill = min(slots_dict.keys(), key=eligible)
+        new_count = slots_dict[pos_to_fill] - 1
+        new_slots = dict(slots_dict)
+        if new_count == 0:
+            del new_slots[pos_to_fill]
+        else:
+            new_slots[pos_to_fill] = new_count
+        new_slots_t = tuple(sorted(new_slots.items()))
+
+        candidates = sorted(
+            (pid for pid in player_ids if pos_to_fill in _positions(lookup[pid])),
+            key=lambda pid: _sf(lookup[pid]),
+            reverse=True,
+        )
+
+        best: tuple | None = None
+        best_score = (-1, -(10**9))
+        for pid in candidates:
+            sub = _solve(player_ids - {pid}, new_slots_t)
+            if sub is None:
+                continue
+            here_sf = _sf(lookup[pid]) + sum(_sf(lookup[s_pid]) for s_pid, _ in sub)
+            here_bias = _back_bias_one(lookup[pid], pos_to_fill) + sum(
+                _back_bias_one(lookup[s_pid], slot) for s_pid, slot in sub
+            )
+            score = (here_sf, here_bias)
+            if score > best_score:
+                best_score = score
+                best = ((pid, pos_to_fill),) + sub
+
+        cache[key] = best
+        return best
+
+    initial_ids = frozenset(p["bw_id"] for p in players)
+    initial_slots = tuple(sorted((p, c) for p, c in slots.items() if c > 0))
+    solved = _solve(initial_ids, initial_slots)
+    if solved is None:
+        return None
+    return [(lookup[pid], slot) for pid, slot in solved]
 
 
 # ---------------------------------------------------------------------------
