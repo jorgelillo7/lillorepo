@@ -41,25 +41,52 @@ def _positions(row: dict) -> set:
 
 
 def _is_available(row: dict) -> bool:
+    """Whether a player can be picked for the lineup.
+
+    Excludes:
+    - players with no JP data (we can't predict their SF),
+    - injured or suspended (per JP status),
+    - matches in `break` (their team has no game this matchday),
+    - `playerInLineup is False` — JP has *explicitly* said the player is not
+      in the official squad list. A `None` means "unknown yet", which is the
+      normal state hours before kickoff and is treated as still available.
+    """
     jp = row.get("jp_player")
     if jp is None:
         return False
-    status = jp.get("status", "ok")
-    if status in ("injured", "suspended"):
+    if jp.get("status") in ("injured", "suspended"):
         return False
-    return jp.get("nextMatch", {}).get("status") != "break"
+    next_match = jp.get("nextMatch") or {}
+    if next_match.get("status") == "break":
+        return False
+    if next_match.get("playerInLineup") is False:
+        return False
+    return True
 
 
 def _try_fill(players: list, slots: dict) -> list | None:
-    """Backtracking: fills `slots` {pos: count} from `players` sorted by SF desc.
+    """Pick the assignment of `players` to `slots` that maximises total SF.
 
-    Returns a list of (player, assigned_pos) for the starters, or None if the
-    formation cannot be filled with the given players.
-    Assigns the most-constrained positions first (fewest eligible players).
+    This is exhaustive backtracking: for each open slot we try every eligible
+    candidate, recurse, and keep the assignment with the highest sum of SF.
+    Returns `None` if no valid assignment exists.
 
-    For multi-position players, prefer assigning to their primary (most
-    defensive) position: candidates whose position_id matches the slot being
-    filled come before candidates using an alt_position for that slot.
+    Why exhaustive: a previous version returned the first feasible solution,
+    which was wrong for multi-position players. Example with formation 4-3-3
+    (3 MID + 3 FWD), a FWD/MID player X with SF 400, three other FWDs
+    (380/360/340) and three MIDs (350/320/280):
+
+      X as FWD → FWDs sum 1140, MIDs sum 950 = 2090
+      X as MID → FWDs sum 1080, MIDs sum 1070 = 2150  ← global optimum
+
+    The "first feasible" heuristic picked X as FWD because that's its primary
+    position; the exhaustive variant picks the assignment that maximises the
+    11-player SF total. The outer `pick_lineup()` still iterates the 12
+    formations and keeps the best of those.
+
+    To prune the search a bit, we fill the most-constrained position first
+    (fewest eligible players). This does not change correctness but cuts
+    branches early.
     """
     open_slots = [(pos, cnt) for pos, cnt in slots.items() if cnt > 0]
     if not open_slots:
@@ -71,18 +98,28 @@ def _try_fill(players: list, slots: dict) -> list | None:
     pos_to_fill = min(open_slots, key=lambda pc: eligible_count(pc[0]))[0]
     new_slots = {**slots, pos_to_fill: slots[pos_to_fill] - 1}
 
-    # Prefer players whose PRIMARY position matches the slot (most defensive use)
+    # Try every candidate that can play this slot. Higher SF first so good
+    # partial assignments surface early; this is a hint, not a guarantee,
+    # since we explore all of them anyway.
     candidates = sorted(
         (r for r in players if pos_to_fill in _positions(r)),
-        key=lambda r: (r.get("position_id") != pos_to_fill, -_sf(r)),
+        key=_sf,
+        reverse=True,
     )
+
+    best: list | None = None
+    best_sf = -1
     for player in candidates:
         remaining = [r for r in players if r["bw_id"] != player["bw_id"]]
-        result = _try_fill(remaining, new_slots)
-        if result is not None:
-            return [(player, pos_to_fill)] + result
+        sub = _try_fill(remaining, new_slots)
+        if sub is None:
+            continue
+        sub_sf = _sf(player) + sum(_sf(r) for r, _ in sub)
+        if sub_sf > best_sf:
+            best_sf = sub_sf
+            best = [(player, pos_to_fill)] + sub
 
-    return None
+    return best
 
 
 def pick_lineup(squad_rows: list) -> dict | None:

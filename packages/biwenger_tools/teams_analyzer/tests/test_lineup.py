@@ -11,17 +11,24 @@ from packages.biwenger_tools.teams_analyzer.logic.lineup import (
 GK, DEF, MID, FWD = 1, 2, 3, 4
 
 
-def _jp(sf=300, status="ok", match_status="pending"):
+def _jp(sf=300, status="ok", match_status="pending", in_lineup=True):
     predict = [{"type": 2, "rate": sf}] if sf else []
     return {
         "status": status,
         "predict": predict,
-        "nextMatch": {"status": match_status, "playerInLineup": True},
+        "nextMatch": {"status": match_status, "playerInLineup": in_lineup},
     }
 
 
 def _player(
-    bw_id, pos, sf=300, status="ok", match_status="pending", price=5_000_000, alts=None
+    bw_id,
+    pos,
+    sf=300,
+    status="ok",
+    match_status="pending",
+    price=5_000_000,
+    alts=None,
+    in_lineup=True,
 ):
     return {
         "bw_id": bw_id,
@@ -29,7 +36,7 @@ def _player(
         "position_id": pos,
         "alt_positions": alts or [],
         "price": price,
-        "jp_player": _jp(sf, status, match_status),
+        "jp_player": _jp(sf, status, match_status, in_lineup=in_lineup),
     }
 
 
@@ -74,6 +81,26 @@ def test_unavailable_no_jp():
         "jp_player": None,
     }
     assert _is_available(row) is False
+
+
+def test_unavailable_when_not_in_lineup():
+    """JP says playerInLineup=False (explicit "not convocado") → excluded."""
+    p = _player(1, GK, sf=400, in_lineup=False)
+    assert _is_available(p) is False
+
+
+def test_available_when_lineup_unknown():
+    """playerInLineup=None means JP doesn't know yet → still available."""
+    p = _player(1, GK, sf=400)
+    p["jp_player"]["nextMatch"]["playerInLineup"] = None
+    assert _is_available(p) is True
+
+
+def test_doubt_status_still_available():
+    """Doubt is reported in the table but not filtered from the lineup —
+    user wants to play those minutes (see commit thread 2026-05-17)."""
+    p = _player(1, GK, sf=400, status="doubt")
+    assert _is_available(p) is True
 
 
 # --- pick_lineup ---
@@ -153,20 +180,57 @@ def test_pick_lineup_uses_alt_positions():
     assert fwd_count >= 1
 
 
-def test_try_fill_prefers_primary_position_for_multiposition_player():
-    # When filling a DEF slot, a player whose primary position is DEF should be
-    # preferred over a player whose primary position is MID but has DEF as alt.
-    p_def_primary = _player(1, DEF, sf=300)  # primary DEF, SF 300
-    p_mid_with_def_alt = _player(2, MID, sf=350, alts=[DEF])  # primary MID, higher SF
-
-    # Both are eligible for DEF. Without the preference rule, SF-only sorting
-    # would pick p_mid_with_def_alt (higher SF). With the rule, p_def_primary wins.
+def test_try_fill_picks_max_sf_for_single_slot():
+    """For a single open DEF slot with two eligible candidates, the higher-SF
+    one wins — even if it covers DEF only via alt_positions.
+    Previously the function preferred the primary-position candidate (300)
+    over the higher-SF alt candidate (350); the new exhaustive search picks
+    the global optimum (SF 350)."""
+    p_def = _player(1, DEF, sf=300)
+    p_mid_alt_def = _player(2, MID, sf=350, alts=[DEF])
     slots = {DEF: 1}
-    result = _try_fill([p_def_primary, p_mid_with_def_alt], slots)
+    result = _try_fill([p_def, p_mid_alt_def], slots)
     assert result is not None
-    assigned_player, assigned_pos = result[0]
-    assert assigned_pos == DEF
-    assert assigned_player["bw_id"] == 1  # primary DEF preferred
+    assigned_player, _ = result[0]
+    assert assigned_player["bw_id"] == 2  # SF 350 beats SF 300
+
+
+def test_try_fill_places_multiposition_where_it_maximises_total():
+    """Real-world bug: a FWD/MID player must go to MID if doing so frees a
+    better FWD trio. Setup mirrors the case reported by the user 2026-05-17:
+
+      4 FWDs (one is multi-position FWD/MID with SF 400) and 3 MIDs.
+      Formation has 3 MID + 3 FWD slots.
+
+      Multi as FWD → FWDs 400+380+360=1140 · MIDs 350+320+280=950   → 2090
+      Multi as MID → FWDs 380+360+340=1080 · MIDs 400+350+320=1070  → 2150  ← wins
+    """
+    multi = _player(1, FWD, sf=400, alts=[MID])  # FWD primary, MID alt
+    fwd_b = _player(2, FWD, sf=380)
+    fwd_c = _player(3, FWD, sf=360)
+    fwd_d = _player(4, FWD, sf=340)
+    mid_a = _player(10, MID, sf=350)
+    mid_b = _player(11, MID, sf=320)
+    mid_c = _player(12, MID, sf=280)
+
+    slots = {MID: 3, FWD: 3}
+    result = _try_fill([multi, fwd_b, fwd_c, fwd_d, mid_a, mid_b, mid_c], slots)
+    assert result is not None
+
+    multi_assignment = next(pos for r, pos in result if r["bw_id"] == 1)
+    assert multi_assignment == MID  # placed at MID, not FWD primary
+
+    total = sum(_sf(r) for r, _ in result)
+    assert total == 2150
+
+
+def _sf(row):
+    """Helper mirroring lineup._sf for assertions."""
+    jp = row["jp_player"]
+    for entry in jp.get("predict") or []:
+        if entry.get("type") == 2:
+            return entry.get("rate", 0)
+    return 0
 
 
 # --- _pick_captain ---
