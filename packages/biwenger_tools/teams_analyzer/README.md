@@ -78,3 +78,63 @@ If you don't have a bot yet:
 based on the `ANALYSIS_MODE` env var (`daily`, `all`, `my_team`, `market`,
 `alinear`). To follow the flow, open `main.py` and look at `_MODE_HANDLERS` —
 each handler is its own function.
+
+## 🧠 How `/alinear` picks the lineup
+
+All in `logic/lineup.py`. Read it top-to-bottom: `pick_lineup` is the public
+entry, helpers come after.
+
+### Step by step
+
+1. **Filter to available players** (`_is_available`). Out: no JP data,
+   injured, suspended, team has no match this week, or JP says
+   `playerInLineup=False` (explicit "no convocado"). `None` ("don't know
+   yet") is *kept* — we want the gamble. `doubt` is also kept.
+2. **Iterate the 12 supported formations** (`FORMATIONS`).
+3. For each formation, **find the 11-player assignment that maximises the
+   sum of SF** (`_try_fill`). This honours multi-position players (a
+   FWD/MID can play either slot) and chooses the placement that gives the
+   best total, not the first that fits.
+4. **Compare totals across formations** and keep the best.
+5. **Pick reserves** (`_pick_reserves`) in Biwenger's positional order
+   POR → DEF → MED → DEL: highest-SF eligible bench player per slot.
+6. **Pick captain** (`_pick_captain`): highest SF among starters whose
+   market value is strictly below 3 M€ (Biwenger API rejects ≥ 3 M).
+   Fallback: cheapest known-price player if nobody is under the cap.
+
+### Why exhaustive backtracking
+
+The previous version of `_try_fill` returned the first feasible assignment
+and used a "prefer primary position" heuristic for multi-position players.
+That broke as soon as moving a multi-position player to their alt freed up
+a stronger combination at the primary. Worked example with formation 4-3-3:
+
+- Squad: 4 FWDs (one is FWD/MID with SF 400, others 380/360/340) and 3 MIDs
+  (350/320/280).
+- **Option A** — multi-position player as FWD:
+  FWDs = 400 + 380 + 360 = **1140** · MIDs = 350 + 320 + 280 = **950** → 2090
+- **Option B** — multi-position player as MID:
+  FWDs = 380 + 360 + 340 = **1080** · MIDs = 400 + 350 + 320 = **1070** → **2150** ← picked
+
+Now the function explores every valid assignment for a given formation and
+returns the one with the highest total SF. The unit test
+`test_try_fill_places_multiposition_where_it_maximises_total` reproduces
+exactly this scenario.
+
+### Performance
+
+Squad sizes are 20-25 players. Worst case is `O((squad_size choose 11) × 11!)`
+in theory, but the "most-constrained slot first" pruning + the small input
+size keep it well under a second per `/alinear`. If the squad grows to 50+
+players (it won't in Biwenger) we'd add memoisation by sorted-bw_id key.
+
+### When you want to tweak something
+
+- **Add or remove a formation** → edit `FORMATIONS`.
+- **Change the "no convocado" policy** (e.g. penalise SF instead of
+  excluding) → edit the last branch of `_is_available`.
+- **Change the captain rule** → `_pick_captain` is the only place.
+- **Reserves order** → currently `(GK, DEF, MID, FWD)` in `_pick_reserves`,
+  which mirrors Biwenger's slot order on the bench.
+- **Penalise `doubt` status** → not done today (user wants to gamble); if
+  reopened, the place would be `_sf` returning a discounted value.
