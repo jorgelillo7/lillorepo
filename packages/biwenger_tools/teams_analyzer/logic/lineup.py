@@ -35,6 +35,13 @@ GK, DEF, MID, FWD = 1, 2, 3, 4
 # Biwenger refuses to set a captain whose market value is ≥ 3M.
 _CAPTAIN_MAX_PRICE = 3_000_000
 
+# Score we attribute to a player JP has explicitly marked as not in the lineup.
+# Big enough to keep the picker honest (positive, so it still beats an empty
+# slot), small enough that any other eligible player wins on SF. The user
+# prefers filling the slot with someone unlikely to play (0 points) over
+# leaving a hole and losing the -4 "empty slot" penalty Biwenger applies.
+_UNCALLED_SF = 1
+
 
 # ---------------------------------------------------------------------------
 # Public entry point
@@ -120,6 +127,13 @@ def format_lineup_message(result: dict) -> str:
         for label, r in filled:
             lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)})")
 
+    uncalled = [r for r, _ in starters if _is_uncalled(r)]
+    if uncalled:
+        lines.append("\n<b>⚠️ Aviso — alineados sin estar convocados</b>")
+        lines.append("  (mejor 0 puntos que dejar hueco y perder -4):")
+        for r in uncalled:
+            lines.append(f"  · {escape(r['name'])}")
+
     return "\n".join(lines)
 
 
@@ -129,9 +143,28 @@ def format_lineup_message(result: dict) -> str:
 
 
 def _sf(row: dict) -> int:
-    """Predicted SF score for a player. 0 if JP has no prediction."""
-    jp = row.get("jp_player")
+    """Predicted SF score for a player.
+
+    Special cases:
+    - 0 if JP has no prediction at all.
+    - `_UNCALLED_SF` (1) if JP has marked the player as `playerInLineup=False`
+      ("no convocado"). They stay eligible so the picker doesn't leave a slot
+      empty (Biwenger penalises an empty slot by -4), but they only get used
+      when there is no real alternative — any other available player at the
+      same position wins easily on SF.
+    """
+    jp = row.get("jp_player") or {}
+    next_match = jp.get("nextMatch") or {}
+    if next_match.get("playerInLineup") is False:
+        return _UNCALLED_SF
     return get_predict_rate(jp, SCORE_SF) or 0
+
+
+def _is_uncalled(row: dict) -> bool:
+    """True if JP has explicitly flagged the player as not in the lineup."""
+    jp = row.get("jp_player") or {}
+    next_match = jp.get("nextMatch") or {}
+    return next_match.get("playerInLineup") is False
 
 
 def _positions(row: dict) -> set:
@@ -177,10 +210,13 @@ def _is_available(row: dict) -> bool:
     Excludes:
     - players with no JP data (we can't predict their SF),
     - injured or suspended (per JP status),
-    - matches in `break` (their team has no game this matchday),
-    - `playerInLineup is False` — JP has *explicitly* said the player is not
-      in the official squad list. A `None` means "unknown yet", which is the
-      normal state hours before kickoff and is treated as still available.
+    - matches in `break` (their team has no game this matchday).
+
+    Note: `playerInLineup is False` ("no convocado") used to be a hard
+    exclusion. It is now a soft penalty applied in `_sf` instead — a
+    not-called player still beats an empty slot in Biwenger's scoring
+    (empty slot = -4, not playing = 0), so we want them as fallback,
+    not removed.
     """
     jp = row.get("jp_player")
     if jp is None:
@@ -189,8 +225,6 @@ def _is_available(row: dict) -> bool:
         return False
     next_match = jp.get("nextMatch") or {}
     if next_match.get("status") == "break":
-        return False
-    if next_match.get("playerInLineup") is False:
         return False
     return True
 

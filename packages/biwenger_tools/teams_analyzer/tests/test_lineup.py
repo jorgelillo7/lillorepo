@@ -83,10 +83,59 @@ def test_unavailable_no_jp():
     assert _is_available(row) is False
 
 
-def test_unavailable_when_not_in_lineup():
-    """JP says playerInLineup=False (explicit "not convocado") → excluded."""
+def test_uncalled_player_is_available_with_penalty_sf():
+    """JP says playerInLineup=False ("no convocado") — kept eligible but with
+    SF penalised to 1 so the picker only uses them as a last resort.
+
+    User-reported scenario 2026-05-17: the squad had a single GK and JP
+    marked him uncalled. The previous "hard filter" rule made pick_lineup
+    return None and Biwenger applied a -4 empty-slot penalty. We prefer
+    fielding the uncalled player (0 points if he doesn't play) to losing
+    the empty-slot penalty.
+    """
+    from packages.biwenger_tools.teams_analyzer.logic.lineup import (
+        _UNCALLED_SF,
+        _sf as lineup_sf,
+    )
+
     p = _player(1, GK, sf=400, in_lineup=False)
-    assert _is_available(p) is False
+    assert _is_available(p) is True
+    assert lineup_sf(p) == _UNCALLED_SF
+
+
+def test_uncalled_only_used_when_no_alternative():
+    """In a single-slot duel, an uncalled SF=500 loses to a convocado SF=300.
+    With only the uncalled player available, the picker still uses him."""
+    convocado = _player(1, GK, sf=300, in_lineup=True)
+    uncalled = _player(2, GK, sf=500, in_lineup=False)
+
+    # Duel: convocado wins despite lower raw SF (uncalled gets penalised to 1).
+    duel = pick_lineup(
+        [
+            convocado,
+            uncalled,
+            *[_player(10 + i, DEF, sf=300) for i in range(4)],
+            *[_player(20 + i, MID, sf=300) for i in range(4)],
+            *[_player(30 + i, FWD, sf=300) for i in range(2)],
+        ]
+    )
+    assert duel is not None
+    gk = next(r for r, pos in duel["starters"] if pos == GK)
+    assert gk["bw_id"] == 1  # convocado picked
+
+    # Same setup, only the uncalled GK available → still picked rather than
+    # leaving an empty GK slot.
+    only_uncalled = pick_lineup(
+        [
+            uncalled,
+            *[_player(10 + i, DEF, sf=300) for i in range(4)],
+            *[_player(20 + i, MID, sf=300) for i in range(4)],
+            *[_player(30 + i, FWD, sf=300) for i in range(2)],
+        ]
+    )
+    assert only_uncalled is not None
+    gk = next(r for r, pos in only_uncalled["starters"] if pos == GK)
+    assert gk["bw_id"] == 2  # uncalled picked as last resort
 
 
 def test_available_when_lineup_unknown():
