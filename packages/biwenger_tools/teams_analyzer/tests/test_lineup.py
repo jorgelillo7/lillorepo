@@ -164,20 +164,36 @@ def test_pick_lineup_returns_none_when_no_gk():
     assert pick_lineup(squad) is None
 
 
-def test_pick_lineup_uses_alt_positions():
-    # 1 GK, 4 DEF, 6 MID (one with FWD alt), 0 primary FWD
-    # 4-5-1: place MID-as-FWD in FWD slot, 5 remaining MIDs fill MID, 4 DEFs fill DEF
+def test_pick_lineup_uses_alt_positions_when_needed():
+    """When a formation cannot be filled with pure-position players, the
+    algorithm uses alt_positions to bridge the gap.
+
+    Setup (11 players total):
+      - 1 GK
+      - 4 pure DEFs
+      - 4 pure MIDs
+      - 1 multi MID/FWD
+      - 1 pure FWD
+
+    4-6-0 not viable (only 5 MIDs available). 4-5-1 wins: pure FWD at his
+    slot, multi-MID/FWD stays at his MID primary (bias 0). 4-4-2 with the
+    multi pushed to FWD would have bias -1 and lose the tiebreaker.
+    """
     squad = [_player(1, GK)]
     for i in range(4):
         squad.append(_player(10 + i, DEF, sf=300))
-    for i in range(6):
+    for i in range(4):
         squad.append(_player(20 + i, MID, sf=300))
-    squad[5]["alt_positions"] = [FWD]  # squad[5] = player(20, MID) can also play FWD
+    squad.append(_player(50, MID, sf=300, alts=[FWD]))  # multi MID/FWD
+    squad.append(_player(60, FWD, sf=300))  # pure FWD
 
     result = pick_lineup(squad)
     assert result is not None
-    fwd_count = sum(1 for _, pos in result["starters"] if pos == FWD)
-    assert fwd_count >= 1
+    by_id = {r["bw_id"]: pos for r, pos in result["starters"]}
+    # Multi player stays at his primary MID (back-bias prefers it).
+    assert by_id[50] == MID
+    # Pure FWD fills the FWD slot.
+    assert by_id[60] == FWD
 
 
 def test_try_fill_picks_max_sf_for_single_slot():
@@ -193,6 +209,53 @@ def test_try_fill_picks_max_sf_for_single_slot():
     assert result is not None
     assigned_player, _ = result[0]
     assert assigned_player["bw_id"] == 2  # SF 350 beats SF 300
+
+
+def test_pick_lineup_breaks_sf_tie_by_back_position():
+    """Reported by the user 2026-05-17 with a real /alinear output.
+
+    Biwenger gives a per-position goal bonus (DEF +7, MID +5, DEL +4) that
+    JP's SF does not model. When two formations tie on SF total, we prefer
+    the one that puts more players further back than their primary, so the
+    expected bonus from any goal they score is higher.
+
+    Setup mirrors the lineup from the screenshot:
+      - 1 GK
+      - 3 pure DEFs (Huijsen 715, Affengruber 573, Bellerín 451)
+      - 1 DEF/MID multi (Mingueza 447, primary DEF)
+      - 1 DEF/MID multi (J.Iglesias 432, primary DEF)
+      - 2 pure MIDs (Kubo 486, P.Martinez 434)
+      - 1 DEL/MID multi (Tsygankov 495, primary DEL)
+      - 2 pure FWDs (Mbappé 721, Jutglà 551)
+
+    Multiple formations tie on SF total 5832. With the back-position
+    tiebreaker 5-3-2 wins: both Mingueza and J.Iglesias stay at their
+    primary DEF (so neither goes forward), and Tsygankov pulls back from
+    his primary FWD to MED — net bias +1 (vs e.g. 4-4-2 where J.Iglesias
+    would have to go forward to MED, giving bias 0).
+    """
+    squad = [
+        _player(0, GK, sf=527),
+        _player(1, DEF, sf=715),
+        _player(2, DEF, sf=573),
+        _player(3, DEF, sf=451),
+        _player(10, DEF, sf=447, alts=[MID]),  # Mingueza
+        _player(11, DEF, sf=432, alts=[MID]),  # J.Iglesias
+        _player(12, MID, sf=486),  # Kubo
+        _player(13, MID, sf=434),  # P.Martinez
+        _player(20, FWD, sf=495, alts=[MID]),  # Tsygankov
+        _player(21, FWD, sf=721),  # Mbappé
+        _player(22, FWD, sf=551),  # Jutglà
+    ]
+    result = pick_lineup(squad)
+    assert result is not None
+    # Multiple valid formations sum to the same SF, so SF alone can't decide.
+    assert result["total_sf"] == 5832
+    assert result["formation"] == "5-3-2"
+    by_id = {r["bw_id"]: pos for r, pos in result["starters"]}
+    assert by_id[10] == DEF  # Mingueza at her primary
+    assert by_id[11] == DEF  # J.Iglesias at her primary
+    assert by_id[20] == MID  # Tsygankov pulled back from FWD primary
 
 
 def test_try_fill_places_multiposition_where_it_maximises_total():
