@@ -1,9 +1,11 @@
 """Telegram bot service — handles webhook requests and triggers Cloud Run Jobs."""
 
 import os
+from datetime import datetime
 
 from flask import Flask, request
 
+from core.constants import MADRID_TZ
 from core.sdk.telegram import (
     extract_webhook_update,
     parse_command,
@@ -35,17 +37,33 @@ _JOB_MODES = {
 }
 
 
+def _format_madrid(iso_str: str | None) -> str:
+    """Render an ISO-8601 UTC timestamp as `dd/MM/YYYY HH:mm` in Madrid time.
+
+    The Cloud Run Jobs API returns `updateTime` as RFC3339 / ISO 8601 in UTC
+    (e.g. `2026-05-17T13:25:20.461797Z`). We surface it next to the bot's own
+    DEPLOY_TIME, which is already Madrid-localised by CI, so the two read at
+    a glance instead of forcing the user to do timezone math.
+    """
+    if not iso_str:
+        return "—"
+    try:
+        dt_utc = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        return dt_utc.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
+    except (ValueError, TypeError):
+        return iso_str  # fall back to raw if the API ever returns an oddity
+
+
 def _build_version_text() -> str:
     """Render the /version response showing bot + analyzer-job state."""
     bot_commit = config.GIT_COMMIT or "unknown"
     bot_time = config.DEPLOY_TIME or "—"
-    job_time = (
+    job_time = _format_madrid(
         job_trigger.get_job_update_time(
             config.GCP_PROJECT_ID,
             config.CLOUD_RUN_REGION,
             config.CLOUD_RUN_JOB_NAME,
         )
-        or "—"
     )
     return (
         "<b>📦 Versiones desplegadas</b>\n\n"

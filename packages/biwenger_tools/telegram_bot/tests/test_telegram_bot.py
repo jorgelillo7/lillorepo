@@ -140,7 +140,7 @@ def test_help_sends_message(client):
 
 
 def test_version_returns_bot_and_job_state(client):
-    """`/version` includes the bot SHA and the job updateTime."""
+    """`/version` includes the bot SHA and the job updateTime formatted in Madrid."""
     cfg.GIT_COMMIT = "abc1234"
     cfg.DEPLOY_TIME = "17/05/2026 14:00"
     with patch(
@@ -154,7 +154,8 @@ def test_version_returns_bot_and_job_state(client):
     text = mock_send.call_args.kwargs.get("text", "")
     assert "abc1234" in text
     assert "17/05/2026 14:00" in text
-    assert "2026-05-17T12:34:56Z" in text
+    # UTC 12:34 → Madrid CEST 14:34 (Mayo 17 cae en DST).
+    assert "17/05/2026 14:34" in text
 
 
 def test_version_tolerates_job_lookup_failure(client):
@@ -172,6 +173,22 @@ def test_version_tolerates_job_lookup_failure(client):
     text = mock_send.call_args.kwargs.get("text", "")
     assert "abc1234" in text
     assert "updated —" in text
+
+
+def test_version_falls_back_to_raw_on_malformed_timestamp(client):
+    """If the API ever returns an unparseable timestamp, surface it raw."""
+    cfg.GIT_COMMIT = "abc1234"
+    cfg.DEPLOY_TIME = "17/05/2026 14:00"
+    with patch(
+        "packages.biwenger_tools.telegram_bot.app.job_trigger.get_job_update_time",
+        return_value="not-a-timestamp",
+    ), patch(
+        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/version"))
+    assert resp.status_code == 200
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "not-a-timestamp" in text
 
 
 def test_unknown_command_is_ignored(client):
