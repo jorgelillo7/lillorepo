@@ -109,6 +109,56 @@ def _send_image(token: str, chat_id: str, image: bytes, caption: str) -> None:
     time.sleep(0.5)
 
 
+def _squad_breakdown(rows: list[dict]) -> dict:
+    """Counts of squad rows by JP status — used to debug a `None` lineup pick.
+
+    Mirrors the exclusion rules in `lineup._is_available`: a row is "available"
+    only if it has JP data, is not injured/suspended, has a match this week,
+    and JP has not flagged it as `playerInLineup=False`.
+    """
+    counts = {
+        "no_jp": 0,
+        "injured": 0,
+        "suspended": 0,
+        "doubt": 0,
+        "no_match": 0,
+        "not_in_lineup": 0,
+        "available": 0,
+    }
+    for row in rows:
+        jp = row.get("jp_player")
+        if jp is None:
+            counts["no_jp"] += 1
+            continue
+        status = jp.get("status", "ok")
+        if status == "injured":
+            counts["injured"] += 1
+            continue
+        if status == "suspended":
+            counts["suspended"] += 1
+            continue
+        next_match = jp.get("nextMatch") or {}
+        if next_match.get("status") == "break":
+            counts["no_match"] += 1
+            continue
+        if next_match.get("playerInLineup") is False:
+            counts["not_in_lineup"] += 1
+            continue
+        if status == "doubt":
+            counts["doubt"] += 1
+        counts["available"] += 1
+    return counts
+
+
+def _names_by_position(rows: list[dict]) -> dict:
+    """Mapping `position_id → [player names]` for the rows in the squad."""
+    by_pos: dict[int, list[str]] = {}
+    for row in rows:
+        pos = row.get("position_id")
+        by_pos.setdefault(pos, []).append(row.get("name", "?"))
+    return {str(k): v for k, v in by_pos.items()}
+
+
 # ---------------------------------------------------------------------------
 # Mode handlers — one per ANALYSIS_MODE value. main() picks one and runs it.
 # ---------------------------------------------------------------------------
@@ -199,8 +249,28 @@ def _run_alinear(
     """Pick the best lineup, apply it on Biwenger and confirm via Telegram."""
     my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
     my_team = _build_squad_rows(my_squad, biwenger_players, jp_index)
+
+    # Breakdown of the squad so a None lineup is debuggable from Cloud Logging
+    # (the picker is silent about *why* a formation can't be filled).
+    by_status = _squad_breakdown(my_team)
+    logger.info(
+        "Squad ready for /alinear.",
+        extra={
+            "total": len(my_team),
+            **by_status,
+        },
+    )
+
     result = pick_lineup(my_team)
     if result is None:
+        logger.warning(
+            "pick_lineup returned None — sending fallback message.",
+            extra={
+                "total": len(my_team),
+                **by_status,
+                "names_by_position": _names_by_position(my_team),
+            },
+        )
         send_telegram_message(
             bot_token=token,
             chat_id=chat_id,
