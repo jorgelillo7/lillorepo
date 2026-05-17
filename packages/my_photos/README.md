@@ -143,8 +143,9 @@ iPhone Mujer ─┴─→ iCloud (fototeca compartida) ─→ app Fotos en Mac
    todos los originales. Por tanto el volcado one-off va con **`icloudpd`**
    contra los servidores de iCloud, no con `osxphotos` contra la biblioteca
    local.
-2. **Mujer y disco duro**: ¿el disco está en una casa donde ambos accedéis o
-   solo Jorge? Cambia si el bot puede asumir presencia de cualquiera.
+2. ~~**Mujer y disco duro**~~ — **resuelto** (2026-05-17): misma casa, mismo
+   acceso al disco. El bot puede asumir que cualquiera de los dos puede
+   disparar `/photos-sync`, no hace falta lógica de "esperar al dueño".
 3. **App Amazon Photos desde CLI**: que yo sepa **no hay CLI oficial**.
    Alternativas: dejar el cliente desktop corriendo (auto-upload de la carpeta
    del disco), o usar `rclone` con WebDAV si Amazon lo expone (no creo).
