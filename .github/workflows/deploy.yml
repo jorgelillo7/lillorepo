@@ -308,7 +308,9 @@ jobs:
             --set-env-vars="\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
           CLOUD_RUN_REGION=${{ env.REGION }},\
-          CLOUD_RUN_JOB_NAME=biwenger-teams-analyzer"
+          CLOUD_RUN_JOB_NAME=biwenger-teams-analyzer,\
+          GIT_COMMIT=${GITHUB_SHA::7},\
+          DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
   # 2e. Build and deploy Chuck Norris bot Cloud Run Service
@@ -354,7 +356,10 @@ jobs:
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
-            --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-bot-config-regional:latest"
+            --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-bot-config-regional:latest" \
+            --set-env-vars="\
+          GIT_COMMIT=${GITHUB_SHA::7},\
+          DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds

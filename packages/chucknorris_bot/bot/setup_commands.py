@@ -17,6 +17,7 @@ COMMANDS = [
     {"command": "food", "description": "Food fact"},
     {"command": "animal", "description": "Animal fact"},
     {"command": "dev", "description": "Developer fact"},
+    {"command": "version", "description": "Deployed bot version"},
     {"command": "help", "description": "Show all commands"},
 ]
 

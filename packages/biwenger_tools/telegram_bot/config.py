@@ -24,3 +24,7 @@ TELEGRAM_WEBHOOK_SECRET = (
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
 CLOUD_RUN_JOB_NAME = os.getenv("CLOUD_RUN_JOB_NAME", "biwenger-teams-analyzer")
+
+# Deployed version metadata (set by CI, see deploy.yml). Used by /version.
+GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
+DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

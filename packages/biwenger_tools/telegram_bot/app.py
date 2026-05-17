@@ -23,6 +23,7 @@ _HELP_TEXT = (
     "/myteam — Análisis solo de mi equipo\n"
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
+    "/version — Versión desplegada del bot y del job\n"
     "/help — Muestra este mensaje"
 )
 
@@ -32,6 +33,25 @@ _JOB_MODES = {
     "/mercado": "market",
     "/alinear": "alinear",
 }
+
+
+def _build_version_text() -> str:
+    """Render the /version response showing bot + analyzer-job state."""
+    bot_commit = config.GIT_COMMIT or "unknown"
+    bot_time = config.DEPLOY_TIME or "—"
+    job_time = (
+        job_trigger.get_job_update_time(
+            config.GCP_PROJECT_ID,
+            config.CLOUD_RUN_REGION,
+            config.CLOUD_RUN_JOB_NAME,
+        )
+        or "—"
+    )
+    return (
+        "<b>📦 Versiones desplegadas</b>\n\n"
+        f"🤖 Bot service:\n  <code>{bot_commit}</code> · {bot_time}\n\n"
+        f"⚙️ Analyzer job ({config.CLOUD_RUN_JOB_NAME}):\n  updated {job_time}"
+    )
 
 
 @app.route("/telegram/webhook", methods=["POST"])
@@ -88,6 +108,13 @@ def webhook():
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
             text=_HELP_TEXT,
+        )
+    elif cmd == "/version":
+        logger.info("Webhook: /version received")
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=_build_version_text(),
         )
     else:
         logger.info("Webhook: unknown command, ignoring", extra={"text": text[:50]})
