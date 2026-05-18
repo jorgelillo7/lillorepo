@@ -302,6 +302,15 @@ jobs:
           bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
             --platforms=//platforms:linux_amd64
 
+      - name: Resolve biwenger-api URL
+        id: api_url
+        run: |
+          URL=$(gcloud run services describe biwenger-api \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
       - name: Deploy telegram bot to Cloud Run
         run: |
           gcloud run deploy biwenger-telegram-bot \
@@ -315,9 +324,7 @@ jobs:
             --concurrency=1 \
             --update-secrets="TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
             --set-env-vars="\
-          GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
-          CLOUD_RUN_REGION=${{ env.REGION }},\
-          CLOUD_RUN_JOB_NAME=biwenger-teams-analyzer,\
+          BIWENGER_API_URL=${{ steps.api_url.outputs.url }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 

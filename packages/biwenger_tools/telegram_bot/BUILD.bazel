@@ -9,8 +9,5 @@ python_service(
     extra_env = {
         "PORT": "8080",
         "PYTHONPATH": "/app",
-        "GCP_PROJECT_ID": "biwenger-tools",
-        "CLOUD_RUN_REGION": "europe-southwest1",
-        "CLOUD_RUN_JOB_NAME": "biwenger-teams-analyzer",
     },
 )

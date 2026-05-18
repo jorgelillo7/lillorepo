@@ -1,11 +1,9 @@
-"""Telegram bot service — handles webhook requests and triggers Cloud Run Jobs."""
+"""Telegram bot service — handles webhook requests and calls biwenger-api."""
 
 import os
-from datetime import datetime
 
 from flask import Flask, request
 
-from core.constants import MADRID_TZ
 from core.sdk.telegram import (
     extract_webhook_update,
     parse_command,
@@ -13,7 +11,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
-from packages.biwenger_tools.telegram_bot import config, job_trigger
+from packages.biwenger_tools.telegram_bot import api_client, config
 
 logger = get_logger(__name__)
 
@@ -25,50 +23,39 @@ _HELP_TEXT = (
     "/myteam — Análisis solo de mi equipo\n"
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
-    "/version — Versión desplegada del bot y del job\n"
+    "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
 )
 
-_JOB_MODES = {
-    "/analizar": "all",
-    "/myteam": "my_team",
-    "/mercado": "market",
-    "/alinear": "alinear",
+# Map Telegram command → (api path, http method).
+_COMMAND_ROUTES = {
+    "/analizar": ("/teams", "GET"),
+    "/myteam": ("/teams/mine", "GET"),
+    "/mercado": ("/market", "GET"),
+    "/alinear": ("/lineups/auto-pick", "POST"),
 }
 
 
-def _format_madrid(iso_str: str | None) -> str:
-    """Render an ISO-8601 UTC timestamp as `dd/MM/YYYY HH:mm` in Madrid time.
-
-    The Cloud Run Jobs API returns `updateTime` as RFC3339 / ISO 8601 in UTC
-    (e.g. `2026-05-17T13:25:20.461797Z`). We surface it next to the bot's own
-    DEPLOY_TIME, which is already Madrid-localised by CI, so the two read at
-    a glance instead of forcing the user to do timezone math.
-    """
-    if not iso_str:
-        return "—"
-    try:
-        dt_utc = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return dt_utc.astimezone(MADRID_TZ).strftime("%d/%m/%Y %H:%M")
-    except (ValueError, TypeError):
-        return iso_str  # fall back to raw if the API ever returns an oddity
-
-
 def _build_version_text() -> str:
-    """Render the /version response showing bot + analyzer-job state."""
+    """Render /version showing bot + biwenger-api state."""
     bot_commit = config.GIT_COMMIT or "unknown"
     bot_time = config.DEPLOY_TIME or "—"
-    job_time = _format_madrid(
-        job_trigger.get_job_update_time(
-            config.GCP_PROJECT_ID,
-            config.CLOUD_RUN_REGION,
-            config.CLOUD_RUN_JOB_NAME,
-        )
+    api_meta = (
+        api_client.get_api_version(config.BIWENGER_API_URL)
+        if config.BIWENGER_API_URL
+        else None
     )
+    if api_meta:
+        api_line = (
+            f"  <code>{api_meta.get('commit', '?')}</code> · "
+            f"{api_meta.get('deploy_time', '—')}"
+        )
+    else:
+        api_line = "  (unreachable)"
     return (
         "<b>📦 Versiones desplegadas</b>\n\n"
         f"🤖 Bot service:\n  <code>{bot_commit}</code> · {bot_time}\n\n"
-        f"⚙️ Analyzer job ({config.CLOUD_RUN_JOB_NAME}):\n  updated {job_time}"
+        f"⚙️ Biwenger API:\n{api_line}"
     )
 
 
@@ -95,30 +82,25 @@ def webhook():
 
     cmd = parse_command(text)
 
-    if cmd in _JOB_MODES:
-        mode = _JOB_MODES[cmd]
-        logger.info("Webhook: %s received — triggering job (%s)", cmd, mode)
+    if cmd in _COMMAND_ROUTES:
+        path, method = _COMMAND_ROUTES[cmd]
+        logger.info("Webhook: %s received — calling api %s %s", cmd, method, path)
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
             text=f"⏳ <code>{cmd}</code> recibido, procesando…",
         )
         try:
-            job_trigger.trigger_analyzer_job(
-                config.GCP_PROJECT_ID,
-                config.CLOUD_RUN_REGION,
-                config.CLOUD_RUN_JOB_NAME,
-                mode=mode,
-            )
+            api_client.call_api(config.BIWENGER_API_URL, path, method=method)
         except Exception as exc:
             logger.error(
-                "Webhook: job trigger failed",
+                "Webhook: api call failed",
                 extra={"cmd": cmd, "error": str(exc)},
             )
             send_telegram_message(
                 bot_token=config.TELEGRAM_BOT_TOKEN,
                 chat_id=config.TELEGRAM_CHAT_ID,
-                text=f"❌ Error al lanzar <code>{cmd}</code>: <code>{exc}</code>",
+                text=f"❌ Error al ejecutar <code>{cmd}</code>: <code>{exc}</code>",
             )
     elif cmd == "/help":
         logger.info("Webhook: /help received")
