@@ -2,6 +2,28 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v6.0 - The API Era (18 May 2026)**
+
+The Telegram bot stops fanning out to a Cloud Run **Job** and starts calling a real HTTP **Service**. Five business modes — analyze, my team, market, auto-lineup, daily digest — now live behind RESTful endpoints in `biwenger-api`. The job that spent 5–10 s of cold start on every `/alinear` is gone. A new `/recomendar` command tells you whom to grab if you get clauselazo'd. Six PRs, end-to-end.
+
+* **🆕 `biwenger-api` (Cloud Run Service)**: new package `packages/biwenger_tools/api/`. Flask + gunicorn, `--no-allow-unauthenticated`. Endpoints (English, RESTful):
+  - `GET /health` (NOT `/healthz` — Google Frontend reserves it on `*.run.app`)
+  - `GET /version` · `{service, commit, deploy_time}`
+  - `GET /teams` · all managers + market (was `/analizar`)
+  - `GET /teams/mine` · my squad (was `/myteam`)
+  - `GET /market` · transfer market (was `/mercado`)
+  - `POST /lineups/auto-pick` · pick + apply lineup (was `/alinear`)
+  - `POST /digests/daily` · cron-only daily digest
+  - `GET /budget/recommendations[?top=N]` · **new** — top affordable clausulazo targets per position
+* **💡 `/recomendar` — "if I get clauselazo'd, who do I grab?"**: pulls cash + `maxBid` from `/account`, walks every rival squad, filters clausulable players whose clause ≤ max bid, groups by primary position, returns top 3 per position. Multi-position players appear once (under their primary) with a `[multi: MED]` badge — never duplicated. Text message, not PNG.
+* **🤖 Bot ↔ API auth**: bot calls api with a Google-signed ID token (`fetch_id_token` against the metadata server). Compute SA has `roles/run.invoker` on `biwenger-api`. Same for Cloud Scheduler.
+* **📦 Package rename + cleanup**: `packages/biwenger_tools/telegram_bot/` → `bot/`. `packages/biwenger_tools/teams_analyzer/` deleted entirely. Cloud Run service `biwenger-telegram-bot` → `biwenger-bot`. Cloud Run Job `biwenger-teams-analyzer` deleted. Net topology shrinks from 6 to 5 deployed units (4 services + 1 job).
+* **🚏 `/healthz` lesson learned**: Google Frontend on `*.run.app` reserves the exact path `/healthz` and returns its own 404 before the request reaches the container. `/HEALTHZ` (uppercase) goes through. `/health` works. Renamed across PR 2.
+* **♻️ Row builder reuse**: `build_squad_rows` carries both formatted strings (`Clausulable`, `Cláusula` — for the PNG renderer) and raw values (`clause_value`, `clausulable_now` — for the JSON recommendations endpoint). One source of truth, two consumers.
+* **🧹 Sweep**: READMEs, `docs/operations.md`, `docs/gcp.md`, `AGENTS.md`, CLAUDE.md, skills updated. Orphan Artifact Registry images (`telegram_bot`, `teams_analyzer`) removed. `scripts/check-gcp-costs.sh` and `scripts/clean-images-artifact.sh` re-run green against the new topology.
+
+---
+
 ### **v5.2 - Bulletproof /alinear (17 May 2026)**
 
 After v5.0 wired up `/alinear`, real-world use surfaced rough edges: a multi-position squad timed out the 300 s job, "no convocado" players left empty slots that Biwenger penalised, ties between formations were broken arbitrarily, and a flaky PUT to Biwenger occasionally failed silently. This release closes all of them.

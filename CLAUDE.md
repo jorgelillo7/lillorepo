@@ -8,8 +8,9 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
 /core           Shared libraries (Biwenger SDK, JP SDK, GCP, Telegram; domain models; utils)
 /packages       Self-contained projects
   biwenger_tools/
+    api/            Flask service exposing the Biwenger business logic over HTTP
+    bot/            Telegram bot service — webhooks → calls api
     scraper_job/    League message scraper → CSV → Google Drive
-    teams_analyzer/ Biwenger squad + market analysis enriched with JP predictions → Telegram messages
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
 /docs           Documentation (operations.md = command reference, setup/linter.md = lint/format)
@@ -37,13 +38,15 @@ bazel build //...
 # Tests (any module)
 bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v
+bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
+bazel test //packages/biwenger_tools/bot:bot_tests --test_output=streamed --test_arg=-v
 bazel test //core:core_tests --test_output=streamed --test_arg=-v
 
 # Run locally
 bazel run //packages/biwenger_tools/web:web_local
 bazel run //packages/biwenger_tools/scraper_job:scraper_job_local
-bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
+bazel run //packages/biwenger_tools/api:api_local
+bazel run //packages/biwenger_tools/bot:bot_local
 
 # Deploy (web)
 bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64

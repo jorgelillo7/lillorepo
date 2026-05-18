@@ -160,64 +160,63 @@ Commands for running each component.
           gcloud run jobs execute biwenger-scraper-data --region europe-southwest1
         ```
 
-### 3\. Teams Analyzer
+### 3\. Biwenger API (`api`)
 
-  * **Setup:** Make sure you have a `.env` file with Biwenger and Telegram credentials.
-    The Jornada Perfecta token is hardcoded in `core/sdk/jp.py` — no per-user value.
+Cloud Run **Service** that owns the Biwenger business logic over HTTP. Called
+by the bot (every Telegram command) and by Cloud Scheduler (the daily digest).
+Deployed with `--no-allow-unauthenticated`; invokers authenticate with an OIDC
+ID token whose service account has `roles/run.invoker` on `biwenger-api`.
+
+  * **Setup:** `.env` with Biwenger + Telegram credentials. The JP token lives
+    inside `BIWENGER_CREDENTIALS_JSON.jp_auth_token`.
 
   * **Run locally:**
 
     ```bash
-        bazel run //packages/biwenger_tools/teams_analyzer:teams_analyzer_local
+      bazel run //packages/biwenger_tools/api:api_local
     ```
-
-    Output is sent to your Telegram chat (no CSV files generated since v4.2 — the
-    Selenium + Analítica Fantasy path was removed in favour of the JP private API).
 
   * **Tests:**
 
     ```bash
-      # Run tests with Bazel (verbose output)
-      bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v
-
-      # Force test run ignoring cache
-      bazel test //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests --test_output=streamed --test_arg=-v --cache_test_results=no
-
-      # Run tests directly with pytest (requires venv activated)
-      pytest packages/biwenger_tools/teams_analyzer/tests/
+      bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
+      bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v --cache_test_results=no
+      pytest packages/biwenger_tools/api/tests/
     ```
 
-  * **Run with Docker locally:**
+  * **Endpoints:**
+
+    | Method | Path | What |
+    |---|---|---|
+    | `GET`  | `/health` | Liveness (do NOT use `/healthz` — GFE reserves it) |
+    | `GET`  | `/version` | SHA + deploy time |
+    | `GET`  | `/teams` | All managers + market (was `/analizar`) |
+    | `GET`  | `/teams/mine` | My squad (was `/myteam`) |
+    | `GET`  | `/market` | Transfer market (was `/mercado`) |
+    | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
+    | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position |
+    | `POST` | `/digests/daily` | Cron — my team + market (Scheduler only) |
+
+  * **Smoke test:**
 
     ```bash
-      bazel run //packages/biwenger_tools/teams_analyzer:load_image_to_docker_local
-      docker run --rm bazel/teams_analyzer:local
+      URL=$(gcloud run services describe biwenger-api --region europe-southwest1 --format='value(status.url)')
+      TOKEN=$(gcloud auth print-identity-token)
+      curl -H "Authorization: Bearer $TOKEN" $URL/health
+      curl -H "Authorization: Bearer $TOKEN" $URL/version
     ```
 
-    > Note: the `--shm-size=2g` flag previously needed for the Chromium-based
-    > scraper is no longer required.
+  * **Deploy:** CI on push to `master` when `packages/biwenger_tools/api/**`,
+    `core/**`, `tools/**`, `docker/**` or `MODULE.bazel` changes.
 
-  * **Deploy to production (Cloud Run Job):**
+### 4\. Biwenger Bot (`bot`)
 
-      * **Build and push the image to GCP:**
-        ```bash
-          bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
-              --platforms=//platforms:linux_amd64
-        ```
-      * **Create the Job (first time only):** secrets and the schedule are
-        defined when first creating the Cloud Run Job. The minimum env/secrets:
-        `BIWENGER_EMAIL`, `BIWENGER_PASSWORD`, `TELEGRAM_BOT_TOKEN`,
-        `TELEGRAM_CHAT_ID`. Adapt the `gcloud run jobs create` snippet from the
-        Scraper Job section above.
-
-### 4\. Telegram Bot
-
-The bot is a Cloud Run Service that receives Telegram webhook requests and triggers
-the `biwenger-teams-analyzer` Cloud Run Job with the right `ANALYSIS_MODE`.
+Cloud Run Service that receives Telegram webhooks and calls `biwenger-api`
+over HTTP with an ID token. Stateless orchestrator — no business logic.
 
   * **Tests:**
     ```bash
-      bazel test //packages/biwenger_tools/telegram_bot:telegram_bot_tests --test_output=streamed --test_arg=-v
+      bazel test //packages/biwenger_tools/bot:bot_tests --test_output=streamed --test_arg=-v
     ```
 
   * **Register bot commands (one-shot, run after deploy or when commands change):**
@@ -225,23 +224,31 @@ the `biwenger-teams-analyzer` Cloud Run Job with the right `ANALYSIS_MODE`.
     Must be run manually — CI does not call this automatically.
 
     ```bash
-      PYTHONPATH=. python3 packages/biwenger_tools/telegram_bot/setup_commands.py
+      PYTHONPATH=. python3 packages/biwenger_tools/bot/setup_commands.py
     ```
 
     This calls `setMyCommands` + `setChatMenuButton` so the slash-command menu in
     Telegram shows the current command list. Requires `TELEGRAM_BOT_TOKEN` in the
     local `.env` (or environment).
 
+  * **Update the Telegram webhook URL** (after a destructive bot rename, etc.):
+
+    ```bash
+      curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+        -H "Content-Type: application/json" \
+        -d "{\"url\":\"https://biwenger-bot-<hash>.run.app/telegram/webhook\",\"secret_token\":\"<WEBHOOK_SECRET>\"}"
+    ```
+
   * **Deploy to production (Cloud Run Service):**
 
-    CI deploys automatically on push to `master` when `packages/biwenger_tools/telegram_bot/**`
+    CI deploys automatically on push to `master` when `packages/biwenger_tools/bot/**`
     changes. To deploy manually:
 
     ```bash
-      bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
+      bazel run //packages/biwenger_tools/bot:push_image_to_gcp \
           --platforms=//platforms:linux_amd64
-      gcloud run deploy biwenger-telegram-bot \
-          --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/telegram_bot \
+      gcloud run deploy biwenger-bot \
+          --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/bot \
           --region europe-southwest1 \
           --project biwenger-tools
     ```
@@ -298,8 +305,10 @@ Run this command from the project root. It will pick up the changes you made in 
 {
   for req_file in core/requirements.txt \
     packages/biwenger_tools/scraper_job/requirements.txt \
-    packages/biwenger_tools/teams_analyzer/requirements.txt \
-    packages/biwenger_tools/web/requirements.txt; do
+    packages/biwenger_tools/api/requirements.txt \
+    packages/biwenger_tools/bot/requirements.txt \
+    packages/biwenger_tools/web/requirements.txt \
+    packages/chucknorris_bot/bot/requirements.txt; do
     echo; echo "# From: $req_file"; cat "$req_file"
   done
 } > requirements.in

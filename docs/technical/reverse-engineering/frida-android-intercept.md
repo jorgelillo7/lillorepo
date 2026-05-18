@@ -11,7 +11,9 @@ Using this process we obtained the full endpoint, auth token and response struct
 
 **Result:** `GET https://www.jornadaperfecta.com/api/fitness-daily?auth=lks9k2k$iJK&...`
 
-See full implementation plan in `.claude/plans/teams_analyzer_rewrite.md`.
+The JP client lives in `core/sdk/jp.py` and is consumed today by `biwenger-api`.
+The full reimplementation plan that drove that move was deleted once shipped
+(see the v4.2 entry in `packages/biwenger_tools/release-notes.md`).
 
 ---
 
@@ -242,7 +244,7 @@ var RealCall = Java.use('okhttp3.RealCall');                // some versions
 |------|-------------|
 | `scripts/jp_intercept.js` | Frida script: SSL bypass + full HTTP interceptor |
 | `scripts/extract_token.sh` | Extracts auth token from JS bundle without Frida |
-| `.claude/plans/teams_analyzer_rewrite.md` | Full reimplementation plan with the discovered API |
+| `core/sdk/jp.py` | The JP client that resulted from this work (used today by `biwenger-api`) |
 
 ---
 

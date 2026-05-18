@@ -23,17 +23,28 @@ The main projects are located under `packages/biwenger_tools`:
     - Syncs the generated CSV files with a specified Google Drive folder.
 - **Technology:** Python, Google Drive API.
 
-### 2. Teams Analyzer (`/packages/biwenger_tools/teams_analyzer`)
+### 2. Biwenger API (`/packages/biwenger_tools/api`)
 
-- **Purpose:** This agent analyzes squads, the free-agent market, and rivals in a Biwenger league, sending an enriched digest to Telegram.
+- **Purpose:** Owns all the Biwenger business logic over HTTP. Called by the bot for every Telegram command and by Cloud Scheduler for the daily digest.
 - **Functionality:**
     - Fetches squad and market data from the Biwenger API.
     - Pulls predicted player ratings from the **Jornada Perfecta private API** (the SofaScore-based "Automanager" rating system) — one HTTP call instead of browser automation.
     - Cross-references both sources by normalised player name + slug.
-    - Sends a series of formatted Telegram messages: own squad, market top-N, one message per rival manager.
-- **Technology:** Python, Biwenger API, Jornada Perfecta private API, Telegram Bot API.
+    - Endpoints: `GET /teams`, `GET /teams/mine`, `GET /market`, `POST /lineups/auto-pick`, `GET /budget/recommendations`, `POST /digests/daily`.
+    - Renders PNG tables (matplotlib) and sends them as Telegram photos.
+- **Technology:** Python, Flask + gunicorn, Biwenger API, Jornada Perfecta private API, Telegram Bot API, matplotlib. Deployed on Cloud Run with `--no-allow-unauthenticated`.
 
-### 3. Web App (`/packages/biwenger_tools/web`)
+### 3. Biwenger Bot (`/packages/biwenger_tools/bot`)
+
+- **Purpose:** Telegram webhook handler. Maps each command to an api call.
+- **Functionality:**
+    - Validates the webhook secret (constant-time).
+    - Drops messages from any chat other than the configured one.
+    - For each known command, sends an immediate ACK ("⏳ recibido…") and calls the api with a Google-signed ID token.
+    - `/version` shows the bot SHA + the api's `/version` response.
+- **Technology:** Python, Flask + gunicorn, Google ID tokens via metadata server.
+
+### 4. Web App (`/packages/biwenger_tools/web`)
 
 - **Purpose:** A web application that provides a user interface to visualize the data collected by the `scraper_job`.
 - **Functionality:**
@@ -47,7 +58,7 @@ The main projects are located under `packages/biwenger_tools`:
 The `/core` directory contains the foundational components that are shared across the projects:
 
 - **Biwenger SDK (`/core/sdk/biwenger.py`):** Client for the Biwenger API. Exposes URL constants, helpers for league/manager URLs, and built-in paginators (`get_all_board_messages`, `get_all_clausulazos`).
-- **JP SDK (`/core/sdk/jp.py`):** Client for the private Jornada Perfecta API used by `teams_analyzer`. Includes a health-check that flags token rotation.
+- **JP SDK (`/core/sdk/jp.py`):** Client for the private Jornada Perfecta API used by `biwenger-api`. Includes a health-check that flags token rotation.
 - **GCP Services (`/core/sdk/gcp.py`):** Utilities for interacting with Google Drive and Sheets.
 - **Telegram Client (`/core/sdk/telegram.py`):** Sends text messages via the Bot API (HTML, truncates at 4096 chars).
 - **Domain Models (`/core/domain/models.py`):** Dataclasses (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`) with `from_csv_row`/`to_csv_row` helpers — the data contract between scraper and web.

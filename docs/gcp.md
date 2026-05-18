@@ -7,12 +7,12 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Service | Resource | Purpose |
 |---|---|---|
 | Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, lloros awards |
-| Cloud Run (Services) | `biwenger-telegram-bot` | Teams analyzer Telegram bot |
+| Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (`--no-allow-unauthenticated`) |
+| Cloud Run (Services) | `biwenger-bot` | Telegram bot — receives webhooks, calls `biwenger-api` |
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
 | Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → CSV → Google Drive |
-| Cloud Run (Jobs) | `biwenger-teams-analyzer` | Daily squad + market analysis → Telegram |
 | Cloud Scheduler | `biwenger-scraper-data-scheduler-trigger` (`europe-west1`) | Triggers scraper job (cron weekly Sun 22:00) |
-| Cloud Scheduler | `biwenger-teams-analyzer-trigger` (`europe-west1`) | Triggers teams analyzer daily 16:00 |
+| Cloud Scheduler | `biwenger-teams-analyzer-trigger` (`europe-west1`) | Triggers `biwenger-api/digests/daily` (daily 16:00 Madrid); name is legacy — points at the api now |
 | Secret Manager | 4 secrets (see below) | Credentials and bot tokens |
 | Artifact Registry | `biwenger-docker` | Docker images for all Cloud Run services/jobs |
 | Cloud Logging | — | Automatic, structured logs via `get_logger()` |
@@ -43,7 +43,7 @@ active secret count from 9 to 4, staying well within the free tier.
 Config modules read the JSON first, fall back to individual env vars for local dev.
 
 The `jp_auth_token` (Jornada Perfecta) was added to `biwenger-credentials-regional` in
-2026-05-16 instead of creating a new secret — same scope (teams_analyzer), no extra cost.
+2026-05-16 instead of creating a new secret — same scope (now `biwenger-api`), no extra cost.
 
 ### Shared Python base image
 All Cloud Run services and jobs extend a shared `python-base` image stored in Artifact Registry.
@@ -68,12 +68,12 @@ No idle compute billing. All services are request-driven or job-driven.
 Acceptable because this is a private league intranet, not a latency-sensitive product.
 
 ### Bots with cpu=0.5 + concurrency=1
-`biwenger-telegram-bot` and `chucknorris-bot` are webhook handlers that do at most one
-HTTP call per request (fan-out to a Cloud Run Job or fetch from chucknorris.io). They
-serve one request per instance and scale horizontally if a second arrives in flight.
-GCP forbids `cpu < 1` with `concurrency > 1`, so this is the configuration that buys
-the cpu reduction. The web service stays at `cpu=1 concurrency=80` — it serves a
-real browser audience and benefits from sharing one instance across requests.
+`biwenger-bot` and `chucknorris-bot` are webhook handlers that do at most one
+HTTP call per request (call to `biwenger-api`, or fetch from chucknorris.io).
+They serve one request per instance and scale horizontally if a second arrives
+in flight. GCP forbids `cpu < 1` with `concurrency > 1`, so this is the
+configuration that buys the cpu reduction. The web and api services stay at
+`cpu=1` — they do the heavy work (templates, matplotlib, Biwenger/JP traffic).
 
 ### Log retention 7 days
 The `_Default` log bucket retains for 7 days (down from the GCP default of 30). At our

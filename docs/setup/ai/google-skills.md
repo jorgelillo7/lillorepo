@@ -48,7 +48,7 @@ Every overwrite is gated by an interactive `[y/N]` after showing the file-level 
 
 | Skill | Why it's relevant for lillorepo |
 |---|---|
-| `google-cloud-run-basics` | Every service (web, telegram_bot, chucknorris_bot) and job (scraper, teams_analyzer) is Cloud Run |
+| `google-cloud-run-basics` | Every service (web, api, bot, chucknorris_bot) and job (scraper) is Cloud Run |
 | `google-cloud-recipe-auth` | We use ADC, Service Account keys, Secret Manager — this skill captures the canonical patterns |
 | `google-cloud-waf-security` | Security pillar of the Well-Architected Framework — IAM, network, data protection, ops |
 | `google-cloud-waf-reliability` | Reliability pillar — useful for the Cloud Run + Cloud Run Jobs setup |
