@@ -160,9 +160,7 @@ def _gather_candidates(
     return my_ids, candidates
 
 
-def _filter_affordable(
-    candidates: list[dict], my_ids: set, target: int
-) -> list[dict]:
+def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list[dict]:
     """Keep candidates I can actually afford (clause ≤ target) and skip mine."""
     out: list[dict] = []
     for row in candidates:
