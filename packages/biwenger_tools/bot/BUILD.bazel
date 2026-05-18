@@ -1,10 +1,10 @@
 load("//tools/bazel:python_service.bzl", "python_service")
 
 python_service(
-    name = "telegram_bot",
+    name = "bot",
     package = "biwenger_tools",
     main = "app.py",
-    repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/telegram_bot",
+    repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/bot",
     secrets = [".env"],
     extra_env = {
         "PORT": "8080",

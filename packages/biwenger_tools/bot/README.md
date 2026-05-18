@@ -60,7 +60,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 after creating the bot or whenever commands change:
 
 ```bash
-python3 packages/biwenger_tools/telegram_bot/setup_commands.py
+python3 packages/biwenger_tools/bot/setup_commands.py
 ```
 
 ## 🚀 Runtime config

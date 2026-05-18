@@ -1,11 +1,11 @@
-"""Tests for the Telegram bot webhook."""
+"""Tests for the Biwenger bot webhook."""
 
 from unittest.mock import patch
 
 import pytest
 
-import packages.biwenger_tools.telegram_bot.config as cfg
-from packages.biwenger_tools.telegram_bot.app import app
+import packages.biwenger_tools.bot.config as cfg
+from packages.biwenger_tools.bot.app import app
 
 _VALID_SECRET = "test-secret"
 _VALID_CHAT = "111222333"
@@ -50,7 +50,7 @@ def test_wrong_secret_returns_401(client):
 
 
 def test_correct_secret_returns_200(client):
-    with patch("packages.biwenger_tools.telegram_bot.app.api_client.call_api"):
+    with patch("packages.biwenger_tools.bot.app.api_client.call_api"):
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
 
@@ -60,7 +60,7 @@ def test_correct_secret_returns_200(client):
 
 def test_wrong_chat_id_is_silently_ignored(client):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.call_api"
+        "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call:
         resp = _post(client, _update("999999", "/analizar"))
     assert resp.status_code == 200
@@ -83,7 +83,7 @@ def test_wrong_chat_id_is_silently_ignored(client):
 )
 def test_command_calls_correct_api_endpoint(client, command, path, method):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.call_api"
+        "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call:
         resp = _post(client, _update(_VALID_CHAT, command))
     assert resp.status_code == 200
@@ -92,7 +92,7 @@ def test_command_calls_correct_api_endpoint(client, command, path, method):
 
 def test_command_with_botname_suffix_calls_api(client):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.call_api"
+        "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call:
         resp = _post(client, _update(_VALID_CHAT, "/analizar@biwenger_tools_bot"))
     assert resp.status_code == 200
@@ -101,10 +101,10 @@ def test_command_with_botname_suffix_calls_api(client):
 
 def test_api_call_failure_sends_error_message(client):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.call_api",
+        "packages.biwenger_tools.bot.app.api_client.call_api",
         side_effect=RuntimeError("permission denied"),
     ), patch(
-        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+        "packages.biwenger_tools.bot.app.send_telegram_message"
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
@@ -119,7 +119,7 @@ def test_api_call_failure_sends_error_message(client):
 
 def test_help_sends_message(client):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+        "packages.biwenger_tools.bot.app.send_telegram_message"
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/help"))
     assert resp.status_code == 200
@@ -138,10 +138,10 @@ def test_version_includes_bot_and_api(client):
         "deploy_time": "18/05/2026 16:00",
     }
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.get_api_version",
+        "packages.biwenger_tools.bot.app.api_client.get_api_version",
         return_value=api_meta,
     ), patch(
-        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+        "packages.biwenger_tools.bot.app.send_telegram_message"
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/version"))
     assert resp.status_code == 200
@@ -157,10 +157,10 @@ def test_version_tolerates_api_unreachable(client):
     cfg.GIT_COMMIT = "abc1234"
     cfg.DEPLOY_TIME = "17/05/2026 14:00"
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.get_api_version",
+        "packages.biwenger_tools.bot.app.api_client.get_api_version",
         return_value=None,
     ), patch(
-        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+        "packages.biwenger_tools.bot.app.send_telegram_message"
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/version"))
     assert resp.status_code == 200
@@ -171,9 +171,9 @@ def test_version_tolerates_api_unreachable(client):
 
 def test_unknown_command_is_ignored(client):
     with patch(
-        "packages.biwenger_tools.telegram_bot.app.api_client.call_api"
+        "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call, patch(
-        "packages.biwenger_tools.telegram_bot.app.send_telegram_message"
+        "packages.biwenger_tools.bot.app.send_telegram_message"
     ) as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/unknown"))
     assert resp.status_code == 200

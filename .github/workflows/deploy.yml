@@ -7,8 +7,7 @@ on:
       - "core/**"
       - "packages/biwenger_tools/web/**"
       - "packages/biwenger_tools/scraper_job/**"
-      - "packages/biwenger_tools/teams_analyzer/**"
-      - "packages/biwenger_tools/telegram_bot/**"
+      - "packages/biwenger_tools/bot/**"
       - "packages/biwenger_tools/api/**"
       - "packages/chucknorris_bot/**"
       - "tools/**"
@@ -55,8 +54,7 @@ jobs:
     outputs:
       web: ${{ steps.filter.outputs.web }}
       scraper: ${{ steps.filter.outputs.scraper }}
-      teams_analyzer: ${{ steps.filter.outputs.teams_analyzer }}
-      telegram_bot: ${{ steps.filter.outputs.telegram_bot }}
+      bot: ${{ steps.filter.outputs.bot }}
       api: ${{ steps.filter.outputs.api }}
       chucknorris_bot: ${{ steps.filter.outputs.chucknorris_bot }}
     steps:
@@ -78,18 +76,12 @@ jobs:
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/biwenger_tools/scraper_job/**'
-            teams_analyzer:
+            bot:
               - 'core/**'
               - 'tools/**'
               - 'docker/**'
               - 'MODULE.bazel'
-              - 'packages/biwenger_tools/teams_analyzer/**'
-            telegram_bot:
-              - 'core/**'
-              - 'tools/**'
-              - 'docker/**'
-              - 'MODULE.bazel'
-              - 'packages/biwenger_tools/telegram_bot/**'
+              - 'packages/biwenger_tools/bot/**'
             api:
               - 'core/**'
               - 'tools/**'
@@ -125,8 +117,7 @@ jobs:
             //core:core_tests \
             //packages/biwenger_tools/web:web_tests \
             //packages/biwenger_tools/scraper_job:scraper_job_tests \
-            //packages/biwenger_tools/teams_analyzer:teams_analyzer_tests \
-            //packages/biwenger_tools/telegram_bot:telegram_bot_tests \
+            //packages/biwenger_tools/bot:bot_tests \
             //packages/biwenger_tools/api:api_tests \
             //packages/chucknorris_bot/bot:bot_tests \
             --test_output=streamed --test_arg=-v
@@ -230,12 +221,12 @@ jobs:
             --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
 
   # -------------------------------------------------------
-  # 2c. Build and update teams_analyzer Cloud Run Job (only if teams_analyzer changed)
+  # 2c. Build and deploy bot Cloud Run Service
   # -------------------------------------------------------
-  deploy-teams-analyzer:
-    name: Deploy teams_analyzer job
+  deploy-bot:
+    name: Deploy bot service
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.teams_analyzer == 'true'
+    if: needs.detect-changes.outputs.bot == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -257,49 +248,9 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
 
-      - name: Build and push teams_analyzer image
+      - name: Build and push bot image
         run: |
-          bazel run //packages/biwenger_tools/teams_analyzer:push_image_to_gcp \
-            --platforms=//platforms:linux_amd64
-
-      - name: Update Cloud Run Job image
-        run: |
-          gcloud run jobs update biwenger-teams-analyzer \
-            --image ${{ env.REGISTRY }}/teams_analyzer \
-            --region ${{ env.REGION }} \
-            --project ${{ env.PROJECT_ID }}
-
-  # -------------------------------------------------------
-  # 2d. Build and deploy telegram bot Cloud Run Service
-  # -------------------------------------------------------
-  deploy-telegram-bot:
-    name: Deploy telegram bot service
-    needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.telegram_bot == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@v3
-
-      - name: Configure Docker auth for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
-
-      - name: Set up Bazel
-        uses: bazel-contrib/setup-bazel@0.19.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-
-      - name: Build and push telegram bot image
-        run: |
-          bazel run //packages/biwenger_tools/telegram_bot:push_image_to_gcp \
+          bazel run //packages/biwenger_tools/bot:push_image_to_gcp \
             --platforms=//platforms:linux_amd64
 
       - name: Resolve biwenger-api URL
@@ -311,10 +262,10 @@ jobs:
             --format='value(status.url)')
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy telegram bot to Cloud Run
+      - name: Deploy bot to Cloud Run
         run: |
-          gcloud run deploy biwenger-telegram-bot \
-            --image ${{ env.REGISTRY }}/telegram_bot \
+          gcloud run deploy biwenger-bot \
+            --image ${{ env.REGISTRY }}/bot \
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
@@ -329,7 +280,7 @@ jobs:
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
-  # 2e. Build and deploy biwenger-api Cloud Run Service
+  # 2d. Build and deploy biwenger-api Cloud Run Service
   # -------------------------------------------------------
   deploy-api:
     name: Deploy biwenger API service
@@ -378,7 +329,7 @@ jobs:
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
-  # 2f. Build and deploy Chuck Norris bot Cloud Run Service
+  # 2e. Build and deploy Chuck Norris bot Cloud Run Service
   # -------------------------------------------------------
   deploy-chucknorris-bot:
     name: Deploy Chuck Norris bot service
@@ -431,8 +382,8 @@ jobs:
   # -------------------------------------------------------
   cleanup:
     name: Clean up old images
-    needs: [deploy-web, deploy-scraper, deploy-teams-analyzer, deploy-telegram-bot, deploy-api, deploy-chucknorris-bot]
-    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-teams-analyzer.result == 'success' || needs.deploy-telegram-bot.result == 'success' || needs.deploy-api.result == 'success' || needs.deploy-chucknorris-bot.result == 'success')
+    needs: [deploy-web, deploy-scraper, deploy-bot, deploy-api, deploy-chucknorris-bot]
+    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-bot.result == 'success' || needs.deploy-api.result == 'success' || needs.deploy-chucknorris-bot.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

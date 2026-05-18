@@ -2,9 +2,9 @@
 # Garbage-collect Artifact Registry to stay inside the free tier.
 #
 # Two strategies:
-#   - SIMPLE_IMAGES (web, scraper_job, teams_analyzer): single-arch images
-#     pushed via rules_oci's oci_push. Keep only the most recent digest, drop
-#     the rest.
+#   - SIMPLE_IMAGES (web, scraper_job, bot, api, chucknorris_bot): single-arch
+#     images pushed via rules_oci's oci_push. Keep only the most recent digest,
+#     drop the rest.
 #   - MULTI_ARCH_IMAGES (python-base): multi-arch images pushed via docker
 #     buildx. The tagged "latest" is a manifest list referencing per-arch
 #     children that are themselves untagged — never delete recent untagged
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO="europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker"
-SIMPLE_IMAGES=("web" "scraper_job" "teams_analyzer" "telegram_bot" "api" "chucknorris_bot")
+SIMPLE_IMAGES=("web" "scraper_job" "bot" "api" "chucknorris_bot")
 MULTI_ARCH_IMAGES=("python-base")
 UNTAGGED_MIN_AGE_HOURS="${UNTAGGED_MIN_AGE_HOURS:-24}"
 DRY_RUN="${DRY_RUN:-0}"
