@@ -1,0 +1,12 @@
+load("//tools/bazel:python_service.bzl", "python_service")
+
+python_service(
+    name = "api",
+    package = "biwenger_tools",
+    main = "app.py",
+    repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/api",
+    extra_env = {
+        "PORT": "8080",
+        "PYTHONPATH": "/app",
+    },
+)
