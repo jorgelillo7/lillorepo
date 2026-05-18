@@ -2,6 +2,20 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v5.2 - Bulletproof /alinear (17 May 2026)**
+
+After v5.0 wired up `/alinear`, real-world use surfaced rough edges: a multi-position squad timed out the 300 s job, "no convocado" players left empty slots that Biwenger penalised, ties between formations were broken arbitrarily, and a flaky PUT to Biwenger occasionally failed silently. This release closes all of them.
+
+* **♻️ Memoised lineup search**: `pick_lineup` now caches `(remaining_players, remaining_slots)` states across the backtracking. A squad of 12 with multi-position players that previously timed out the Cloud Run Job completes in under a second.
+* **🎯 Global SF maximisation + back-bias tiebreaker**: The picker compares whole assignments lexicographically by `(sum of SF, back-bias)`. When two formations tie on SF, the one placing more players further back wins — capturing the per-position goal bonus the SF score doesn't model (DEF +7, MID +5, DEL +4).
+* **⚠️ "No convocado" demoted to last-resort fallback**: Players JP flags as not in the matchday squad used to be hard-excluded, leaving slots empty and costing -4 each. They now score `SF=1` — only chosen when no real alternative exists. Better 0 points than -4.
+* **🔁 Retried Biwenger lineup PUT**: `set_lineup` now retries transient network failures (2 s / 5 s / 10 s backoff). Permanent 4xx errors (e.g. invalid captain) fail fast. If all retries fail, the bot sends a clear error to Telegram instead of going silent.
+* **🪲 Squad breakdown logging**: When `/alinear` returns `None`, the analyzer logs why — counts of `injured`, `suspended`, `doubt`, `no_match`, `not_in_lineup`, `no_jp`, `available`, plus names grouped by primary position. Debuggable from Cloud Logging instead of guessing.
+* **📦 `/version` on both bots**: New command shows SHA + deploy time for the bot service, and for the Biwenger bot also the analyzer-job's `updateTime` (formatted in Madrid local time, not raw RFC3339).
+* **🧹 `lineup.py` refactor**: `pick_lineup` decomposed into smaller pure helpers (`_sf`, `_is_available`, `_is_uncalled`, `_back_bias`, `_pick_reserves`, `_pick_captain`). Worked-example docstring with the multi-position case that motivated the exhaustive search.
+
+---
+
 ### **v5.1 - El Regreso de Chuck (10 May 2026)**
 
 A bot that first went live on 6 October 2015 — commit message: *"appbot example"* — is back. It spent a decade dormant in a public GitHub repo, originally built to experiment with Node.js, Heroku, and the Telegram Bot API. It now lives in this monorepo, rewritten in Python, deployed on Cloud Run, and sharing the same Bazel infrastructure as everything else. Same jokes. Different everything else.
