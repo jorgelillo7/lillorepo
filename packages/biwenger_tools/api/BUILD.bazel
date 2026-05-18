@@ -5,6 +5,11 @@ python_service(
     package = "biwenger_tools",
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/api",
+    deps = [
+        "@pypi//matplotlib",
+        "@pypi//requests",
+        "@pypi//unidecode",
+    ],
     extra_env = {
         "PORT": "8080",
         "PYTHONPATH": "/app",
