@@ -127,20 +127,49 @@ class BiwengerClient:
         """Returns the user's current cash balance and max bid for the league.
 
         Biwenger surfaces both per league at `/account`. `balance` is the
-        actual cash you have right now; `maxBid` is the max possible bid
-        assuming you'd sell the rest of your squad to fund it (Biwenger
-        computes this server-side, so we just surface what they return).
+        actual cash you have right now. `maxBid` (the field name the API
+        actually uses) is what you could spend if you sold the rest of
+        your squad — Biwenger pre-computes this server-side.
+
+        First production read showed `user.balance` populated and the
+        max-bid field absent under `user`. We try a few alternate paths
+        and log all candidate keys until we see which one Biwenger
+        returns for this account.
         """
         response = self.session.get(self.account_url)
         response.raise_for_status()
         leagues = response.json().get("data", {}).get("leagues", [])
         for league in leagues:
-            if str(league.get("id")) == self.league_id:
-                user = league.get("user", {}) or {}
-                return {
-                    "cash": int(user.get("balance") or 0),
-                    "max_bid": int(user.get("maxBid") or 0),
-                }
+            if str(league.get("id")) != self.league_id:
+                continue
+            user = league.get("user", {}) or {}
+            cash = int(user.get("balance") or 0)
+            # Try several known shapes — Biwenger has shifted these
+            # around between API versions.
+            max_bid_candidates = [
+                user.get("maxBid"),
+                league.get("maxBid"),
+                user.get("teamValue"),  # not the same but a useful fallback
+            ]
+            max_bid = 0
+            for cand in max_bid_candidates:
+                if cand is not None:
+                    try:
+                        max_bid = int(cand)
+                        break
+                    except (TypeError, ValueError):
+                        continue
+            logger.info(
+                "Account state read.",
+                extra={
+                    "cash": cash,
+                    "max_bid": max_bid,
+                    "league_id": self.league_id,
+                    "user_keys": sorted(user.keys()),
+                    "league_keys": sorted(league.keys()),
+                },
+            )
+            return {"cash": cash, "max_bid": max_bid}
         return {"cash": 0, "max_bid": 0}
 
     def get_league_users(self, league_users_url: str) -> dict:

@@ -29,6 +29,13 @@ logger = get_logger(__name__)
 
 DEFAULT_TOP_N = 3
 
+# How much over the user's cash they're willing to stretch by signing
+# a clausulazo. They explicitly don't want recommendations up to the
+# max_bid (which assumes selling the rest of the squad) — only what
+# they could afford with a small extra margin. 5M is the default
+# requested by the user; overridable via `?margin=N` on the endpoint.
+DEFAULT_MARGIN = 5_000_000
+
 # Position labels in the JSON response (English) and for the Telegram message
 # header (Spanish with emojis, to match the rest of the bot voice).
 _POSITION_KEYS = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
@@ -40,14 +47,16 @@ _POSITION_LABELS_ES = {
 }
 
 
-def _money(n: int) -> str:
-    """Format an integer Biwenger amount in millions (one decimal)."""
-    if not n:
-        return "0"
-    m = n / 1_000_000
-    if abs(n) % 1_000_000 == 0:
-        return f"{int(m)}M"
-    return f"{m:.1f}M"
+def _euros(n: int | None) -> str:
+    """Format an integer as Spanish-style euros: 12.972.212 €.
+
+    `None` and 0 are surfaced explicitly so the user can tell the difference
+    between "Biwenger returned 0" and "Biwenger didn't return this field".
+    """
+    if n is None:
+        return "—"
+    s = f"{int(n):,}".replace(",", ".")
+    return f"{s} €"
 
 
 def _sf_of(row: dict) -> int:
@@ -99,9 +108,18 @@ def _pick_top_per_position(candidates: list[dict], top: int) -> dict[str, list[d
 
 def _format_telegram_text(payload: dict) -> str:
     """Render the JSON payload as the Telegram message the bot would send."""
-    cash = _money(payload["budget"]["cash"])
-    max_bid = _money(payload["budget"]["max_bid"])
-    lines = [f"💰 Cash: {cash}  ·  Max bid: {max_bid}"]
+    budget = payload["budget"]
+    cash = _euros(budget["cash"])
+    target = _euros(budget["target"])
+    max_bid_value = budget.get("max_bid")
+    max_bid_str = _euros(max_bid_value) if max_bid_value else "—"
+    margin = _euros(budget["margin"])
+
+    lines = [
+        f"💰 <b>Saldo:</b> {cash}",
+        f"🎯 <b>Objetivo (saldo + {margin}):</b> {target}",
+        f"ℹ️ <i>Puja máx. Biwenger: {max_bid_str}</i>",
+    ]
 
     for pos_id in (1, 2, 3, 4):
         key = _POSITION_KEYS[pos_id]
@@ -115,7 +133,7 @@ def _format_telegram_text(payload: dict) -> str:
             badge = f"  <i>[multi: {'/'.join(r['multi'])}]</i>" if r["multi"] else ""
             lines.append(
                 f"  · {r['name']} ({r['owner']}) — "
-                f"cláusula {_money(r['clause'])} · SF {r['sf']}{badge}"
+                f"cláusula {_euros(r['clause'])} · SF {r['sf']}{badge}"
             )
     return "\n".join(lines)
 
@@ -142,7 +160,10 @@ def _gather_candidates(
     return my_ids, candidates
 
 
-def _filter_affordable(candidates: list[dict], my_ids: set, max_bid: int) -> list[dict]:
+def _filter_affordable(
+    candidates: list[dict], my_ids: set, target: int
+) -> list[dict]:
+    """Keep candidates I can actually afford (clause ≤ target) and skip mine."""
     out: list[dict] = []
     for row in candidates:
         if row.get("bw_id") in my_ids:
@@ -150,7 +171,7 @@ def _filter_affordable(candidates: list[dict], my_ids: set, max_bid: int) -> lis
         if not row.get("clausulable_now", False):
             continue
         clause = row.get("clause_value") or 0
-        if clause <= 0 or clause > max_bid:
+        if clause <= 0 or clause > target:
             continue
         if _sf_of(row) <= 0:
             continue
@@ -158,11 +179,17 @@ def _filter_affordable(candidates: list[dict], my_ids: set, max_bid: int) -> lis
     return out
 
 
-def run_recommendations(top: int = DEFAULT_TOP_N) -> dict:
+def run_recommendations(
+    top: int = DEFAULT_TOP_N,
+    margin: int = DEFAULT_MARGIN,
+) -> dict:
     """Compute the recommendations and send the formatted message to Telegram.
 
-    Returns a JSON-friendly payload (also useful for tests / API clients
-    that may want the structured data later).
+    `margin` is how much over the user's current cash they'd stretch to. The
+    filter uses `cash + margin` as the upper bound on clause amounts — NOT
+    `max_bid`, which assumes selling the rest of the squad and is usually too
+    generous for "who could I grab right now" planning. `max_bid` is still
+    surfaced in the message header as informational.
     """
     check_api_health(
         config.JP_AUTH_TOKEN,
@@ -186,13 +213,19 @@ def run_recommendations(top: int = DEFAULT_TOP_N) -> dict:
     biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
     account_state = biwenger.get_account_state()
     cash, max_bid = account_state["cash"], account_state["max_bid"]
+    target = cash + max(0, margin)
 
     my_ids, candidates = _gather_candidates(biwenger, biwenger_players, jp_index)
-    affordable = _filter_affordable(candidates, my_ids, max_bid)
+    affordable = _filter_affordable(candidates, my_ids, target)
     recommendations = _pick_top_per_position(affordable, top)
 
     payload = {
-        "budget": {"cash": cash, "max_bid": max_bid},
+        "budget": {
+            "cash": cash,
+            "max_bid": max_bid,
+            "margin": max(0, margin),
+            "target": target,
+        },
         "recommendations": recommendations,
     }
     logger.info(
@@ -200,6 +233,8 @@ def run_recommendations(top: int = DEFAULT_TOP_N) -> dict:
         extra={
             "cash": cash,
             "max_bid": max_bid,
+            "margin": margin,
+            "target": target,
             "candidates": len(candidates),
             "affordable": len(affordable),
             "per_position": {k: len(v) for k, v in recommendations.items()},

@@ -161,10 +161,15 @@ def test_action_endpoint_returns_500_on_exception(client):
 # --- /budget/recommendations ---
 
 
-def test_budget_recommendations_calls_run_with_default_top(client):
+def test_budget_recommendations_calls_run_with_defaults(client):
     fake = {
         "sent": 1,
-        "budget": {"cash": 7_000_000, "max_bid": 35_000_000},
+        "budget": {
+            "cash": 7_000_000,
+            "max_bid": 35_000_000,
+            "margin": 5_000_000,
+            "target": 12_000_000,
+        },
         "recommendations": {"GK": [], "DEF": [], "MID": [], "FWD": []},
     }
     with patch(
@@ -172,34 +177,45 @@ def test_budget_recommendations_calls_run_with_default_top(client):
         return_value=fake,
     ) as mock_run:
         resp = client.get("/budget/recommendations")
-    mock_run.assert_called_once_with(top=3)
+    mock_run.assert_called_once_with(top=3, margin=5_000_000)
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["budget"]["cash"] == 7_000_000
+    assert body["budget"]["target"] == 12_000_000
 
 
-def test_budget_recommendations_respects_top_query_param(client):
-    fake = {"sent": 1, "budget": {"cash": 0, "max_bid": 0}, "recommendations": {}}
+def test_budget_recommendations_respects_top_and_margin_query_params(client):
+    fake = {
+        "sent": 1,
+        "budget": {"cash": 0, "max_bid": 0, "margin": 0, "target": 0},
+        "recommendations": {},
+    }
     with patch(
         "packages.biwenger_tools.api.app.recommendations.run_recommendations",
         return_value=fake,
     ) as mock_run:
-        client.get("/budget/recommendations?top=5")
-    mock_run.assert_called_once_with(top=5)
+        client.get("/budget/recommendations?top=5&margin=10000000")
+    mock_run.assert_called_once_with(top=5, margin=10_000_000)
 
 
-def test_budget_recommendations_clamps_top_param(client):
-    fake = {"sent": 1, "budget": {"cash": 0, "max_bid": 0}, "recommendations": {}}
+def test_budget_recommendations_clamps_query_params(client):
+    fake = {
+        "sent": 1,
+        "budget": {"cash": 0, "max_bid": 0, "margin": 0, "target": 0},
+        "recommendations": {},
+    }
     with patch(
         "packages.biwenger_tools.api.app.recommendations.run_recommendations",
         return_value=fake,
     ) as mock_run:
-        client.get("/budget/recommendations?top=99")
-        client.get("/budget/recommendations?top=0")
-        client.get("/budget/recommendations?top=garbage")
-    # 99 → 10, 0 → 1, garbage → default 3
-    calls = [c.kwargs["top"] for c in mock_run.call_args_list]
-    assert calls == [10, 1, 3]
+        client.get("/budget/recommendations?top=99&margin=99999999999")
+        client.get("/budget/recommendations?top=0&margin=-1")
+        client.get("/budget/recommendations?top=garbage&margin=garbage")
+    calls = mock_run.call_args_list
+    # top: 99 → 10, 0 → 1, garbage → 3 (default)
+    assert [c.kwargs["top"] for c in calls] == [10, 1, 3]
+    # margin: 99999999999 → 50M, -1 → 0, garbage → 5M (default)
+    assert [c.kwargs["margin"] for c in calls] == [50_000_000, 0, 5_000_000]
 
 
 # --- recommendations unit tests (filtering + grouping) ---
@@ -227,11 +243,11 @@ def test_filter_affordable_excludes_my_players_and_locked_and_too_expensive():
     rows = [
         _row(1, "Mine", pos=2),  # excluded: mine
         _row(2, "Locked", pos=2, clausulable=False),  # excluded: locked
-        _row(3, "Expensive", pos=2, clause=100_000_000),  # excluded: > max_bid
+        _row(3, "Expensive", pos=2, clause=100_000_000),  # excluded: > target
         _row(4, "Cheap", pos=2, clause=20_000_000),  # included
         _row(5, "NoSF", pos=2, sf=0, clause=15_000_000),  # excluded: SF 0
     ]
-    out = recs._filter_affordable(rows, my_ids, max_bid=50_000_000)
+    out = recs._filter_affordable(rows, my_ids, target=50_000_000)
     assert [r["bw_id"] for r in out] == [4]
 
 
@@ -263,11 +279,16 @@ def test_top_per_position_caps_at_top_n():
     assert out["FWD"][0]["sf"] > out["FWD"][1]["sf"] > out["FWD"][2]["sf"]
 
 
-def test_format_telegram_text_includes_multi_badge():
+def test_format_telegram_text_includes_multi_badge_and_exact_euros():
     from packages.biwenger_tools.api.logic import recommendations as recs
 
     payload = {
-        "budget": {"cash": 7_000_000, "max_bid": 35_000_000},
+        "budget": {
+            "cash": 12_972_212,
+            "max_bid": 36_334_712,
+            "margin": 5_000_000,
+            "target": 17_972_212,
+        },
         "recommendations": {
             "GK": [],
             "DEF": [
@@ -275,7 +296,7 @@ def test_format_telegram_text_includes_multi_badge():
                     "bw_id": 1,
                     "name": "Vivian",
                     "owner": "Ana",
-                    "clause": 12_000_000,
+                    "clause": 12_345_678,
                     "sf": 410,
                     "multi": ["MED"],
                 }
@@ -285,12 +306,30 @@ def test_format_telegram_text_includes_multi_badge():
         },
     }
     text = recs._format_telegram_text(payload)
-    assert "Cash: 7M" in text
-    assert "Max bid: 35M" in text
+    # Exact euros in Spanish format (dots as thousands separators)
+    assert "12.972.212 €" in text
+    assert "17.972.212 €" in text
+    assert "36.334.712 €" in text
     assert "Vivian (Ana)" in text
-    assert "12M" in text
+    assert "12.345.678 €" in text
     assert "SF 410" in text
     assert "multi: MED" in text
+
+
+def test_format_telegram_text_dashes_when_max_bid_missing():
+    from packages.biwenger_tools.api.logic import recommendations as recs
+
+    payload = {
+        "budget": {
+            "cash": 12_972_212,
+            "max_bid": 0,  # Biwenger didn't return it
+            "margin": 5_000_000,
+            "target": 17_972_212,
+        },
+        "recommendations": {"GK": [], "DEF": [], "MID": [], "FWD": []},
+    }
+    text = recs._format_telegram_text(payload)
+    assert "Puja máx. Biwenger: —" in text
 
 
 # --- digests.run_daily unit tests ---
