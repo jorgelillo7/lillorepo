@@ -34,7 +34,7 @@ Read these files to understand the current season and build the exact diffs need
 - `packages/biwenger_tools/scraper_job/.env` — find `TEMPORADA_ACTUAL`
 - `docs/operations.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference
 
-Note: `teams_analyzer`, `telegram_bot`, and `chucknorris_bot` do **not** use `TEMPORADA_ACTUAL`
+Note: `api`, `bot`, and `chucknorris_bot` do **not** use `TEMPORADA_ACTUAL`
 (verified 2026-05-12 — they don't have season-specific data paths). Do not add them to the edit
 list unless a future grep finds new references.
 

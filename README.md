@@ -6,14 +6,15 @@ Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fanta
 
 ```mermaid
 graph TD
-    API[Biwenger API] -->|board messages| SJ[scraper_job<br/>Cloud Run Job]
-    JP[Jornada Perfecta<br/>private API] -->|predictions| TA[teams_analyzer<br/>Cloud Run Job]
-    API -->|squads + market| TA
+    BWAPI[Biwenger API] -->|board messages| SJ[scraper_job<br/>Cloud Run Job]
+    BWAPI -->|squads + market| API[biwenger-api<br/>Cloud Run Service]
+    JP[Jornada Perfecta<br/>private API] -->|predictions| API
     SJ -->|CSV files| GD[(Google Drive)]
     GD -->|CSV read| WEB[web<br/>Cloud Run Service]
-    TA -->|PNG via sendPhoto| TG[Telegram]
-    USR((Users)) -->|/analizar /alinear ...| TBOT[telegram_bot<br/>Cloud Run Service]
-    TBOT -->|fan-out| TA
+    API -->|PNG via sendPhoto| TG[Telegram]
+    USR((Users)) -->|/analizar /alinear /recomendar ...| BOT[bot<br/>Cloud Run Service]
+    BOT -->|HTTP + ID token| API
+    SCH[Cloud Scheduler] -->|daily digest| API
     USR -->|/random /science ...| CBOT[chucknorris_bot<br/>Cloud Run Service]
     CN[chucknorris.io] --> CBOT
     GS[Google Sheets] --> WEB
@@ -26,8 +27,8 @@ graph TD
 |---------|-------------|------------|
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run Service |
 | `biwenger_tools/scraper_job` | League board scraper → CSV → Drive | Cloud Run Job (weekly cron) |
-| `biwenger_tools/teams_analyzer` | Squad + market analysis enriched with JP predictions, rendered as PNG and pushed to Telegram | Cloud Run Job (daily cron) |
-| `biwenger_tools/telegram_bot` | Webhook handler for `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/help` — fans out to the teams_analyzer job | Cloud Run Service |
+| `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
+| `biwenger_tools/bot` | Webhook handler for `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/recomendar`, `/help` — calls the api with an ID token | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 
 ## Repository Structure
@@ -98,7 +99,7 @@ CI/CD runs on every push to `master`. Per-service `paths-filter` only deploys wh
 3. **Deploy** (selective, in parallel):
    - **web** → `biwenger-summary` Cloud Run Service
    - **scraper_job** → `biwenger-scraper-data` Cloud Run Job
-   - **teams_analyzer** → `biwenger-teams-analyzer` Cloud Run Job
-   - **telegram_bot** → `biwenger-telegram-bot` Cloud Run Service
+   - **api** → `biwenger-api` Cloud Run Service
+   - **bot** → `biwenger-bot` Cloud Run Service
    - **chucknorris_bot** → `chucknorris-bot` Cloud Run Service
 4. **Cleanup** — removes old images from Artifact Registry (keeps the digest currently tagged `latest` for each repo)

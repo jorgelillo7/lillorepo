@@ -33,7 +33,7 @@ Add a new Python library to the monorepo so it works in Bazel tests, local runs,
 Use `AskUserQuestion` to ask (all in one message):
 
 - **Library name** as it appears on PyPI (e.g. `python-json-logger`)
-- **Which module needs it**: `core`, `web`, `scraper_job`, or `teams_analyzer`
+- **Which module needs it**: `core`, `web`, `scraper_job`, `api`, `bot`, or `chucknorris_bot`
 - **Which BUILD.bazel target** within that module should declare it (e.g. `_init`, `gcp`, `web_lib`)
 
 If the user is unsure about the BUILD.bazel target, read the relevant `BUILD.bazel` and suggest the most specific target that makes sense based on which source file will use the library.
@@ -69,14 +69,17 @@ Skip this step if already present.
 
 # Step 4 — Regenerate requirements.in
 
-Run this exact command from the project root. It must list **all four** module requirements files:
+Run this exact command from the project root. It must list every module
+requirements file in the monorepo:
 
 ```bash
 {
   for req_file in core/requirements.txt \
     packages/biwenger_tools/scraper_job/requirements.txt \
-    packages/biwenger_tools/teams_analyzer/requirements.txt \
-    packages/biwenger_tools/web/requirements.txt; do
+    packages/biwenger_tools/api/requirements.txt \
+    packages/biwenger_tools/bot/requirements.txt \
+    packages/biwenger_tools/web/requirements.txt \
+    packages/chucknorris_bot/bot/requirements.txt; do
     echo; echo "# From: $req_file"; cat "$req_file"
   done
 } > requirements.in

@@ -7,8 +7,8 @@ Workflow that runs on every push to `master` when files under `core/`, `packages
 ```
 Lint → Detect changed modules → Run tests ─┬→ Deploy web ────────────┐
                                             ├→ Deploy scraper ────────┤
-                                            ├→ Deploy teams_analyzer ─┼→ Clean up old images
-                                            ├→ Deploy telegram_bot ───┤
+                                            ├→ Deploy api ────────────┼→ Clean up old images
+                                            ├→ Deploy bot ────────────┤
                                             └→ Deploy chucknorris_bot ┘
 ```
 
@@ -18,8 +18,8 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 4. **Deploy (parallel)** — each service builds and pushes its OCI image, then deploys/updates the matching Cloud Run resource:
    - **web** → `biwenger-summary` Cloud Run Service
    - **scraper_job** → `biwenger-scraper-data` Cloud Run Job
-   - **teams_analyzer** → `biwenger-teams-analyzer` Cloud Run Job
-   - **telegram_bot** → `biwenger-telegram-bot` Cloud Run Service
+   - **api** → `biwenger-api` Cloud Run Service (`--no-allow-unauthenticated`)
+   - **bot** → `biwenger-bot` Cloud Run Service
    - **chucknorris_bot** → `chucknorris-bot` Cloud Run Service
 5. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale digests from Artifact Registry.
 

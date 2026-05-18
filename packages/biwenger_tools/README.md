@@ -16,8 +16,8 @@ Four packages working together to archive, visualise and analyse data from a Biw
 |---|---|---|
 | [`scraper_job/`](scraper_job/README.md) | Cloud Run Job (weekly cron) | Scrapes the league board → CSV → Google Drive |
 | [`web/`](web/README.md) | Cloud Run Service | Flask dashboard at https://biwenger-summary-pjpqofuevq-no.a.run.app/ |
-| [`teams_analyzer/`](teams_analyzer/README.md) | Cloud Run Job (daily cron + on-demand) | PNG squad/market tables enriched with JP predictions |
-| [`telegram_bot/`](telegram_bot/README.md) | Cloud Run Service | Webhook for `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/help` |
+| [`api/`](api/README.md) | Cloud Run Service | Biwenger business logic over HTTP — `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, etc. |
+| [`bot/`](bot/README.md) | Cloud Run Service | Telegram webhook → calls `api` |
 
 ## 🔁 How they fit together
 
@@ -33,17 +33,24 @@ Four packages working together to archive, visualise and analyse data from a Biw
                                │ Cloud Run Svc │
                                └───────────────┘
 
-      ┌──────────────────────────────┐
-      │   teams_analyzer (Job)       │
-      │                              │
-      │  daily cron ──┐              │
-      │               ▼              │
-      │   matplotlib → PNG → Telegram│
-      │   ▲                          │
-      └───┼──────────────────────────┘
-          │ on /analizar etc.
-          │
-   user ──┴──▶ telegram_bot (Svc) ──┘ fan-out
+                          ┌──────────────────────────────┐
+                          │   api  (Cloud Run Service)   │
+                          │   Flask + matplotlib         │
+                          │   /teams /market /lineups    │
+                          │   /budget /digests           │
+                          └──────────────────────────────┘
+                              ▲                    │
+                              │ ID token           │ sendPhoto / sendMessage
+                              │ (run.invoker)      ▼
+                          ┌───────────┐       ┌────────────┐
+   Telegram ──webhook────▶│   bot     │       │  Telegram  │
+                          │ (Service) │       │            │
+                          └───────────┘       └────────────┘
+                              ▲
+                              │ HTTPS + OIDC
+                          ┌──────────────────┐
+                          │ Cloud Scheduler  │ daily digest
+                          └──────────────────┘
 ```
 
 ## 🛠 Operational commands
