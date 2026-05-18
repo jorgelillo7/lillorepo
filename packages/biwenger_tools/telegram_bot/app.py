@@ -23,6 +23,7 @@ _HELP_TEXT = (
     "/myteam — Análisis solo de mi equipo\n"
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
+    "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
 )
@@ -33,6 +34,7 @@ _COMMAND_ROUTES = {
     "/myteam": ("/teams/mine", "GET"),
     "/mercado": ("/market", "GET"),
     "/alinear": ("/lineups/auto-pick", "POST"),
+    "/recomendar": ("/budget/recommendations", "GET"),
 }
 
 

@@ -78,6 +78,7 @@ def test_wrong_chat_id_is_silently_ignored(client):
         ("/myteam", "/teams/mine", "GET"),
         ("/mercado", "/market", "GET"),
         ("/alinear", "/lineups/auto-pick", "POST"),
+        ("/recomendar", "/budget/recommendations", "GET"),
     ],
 )
 def test_command_calls_correct_api_endpoint(client, command, path, method):

@@ -8,11 +8,11 @@ state (Biwenger lineup PUT, daily cron tick).
 
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, digests
+from packages.biwenger_tools.api.logic import actions, digests, recommendations
 
 logger = get_logger(__name__)
 
@@ -77,6 +77,22 @@ def market():
 def lineups_auto_pick():
     """Pick best lineup, apply on Biwenger, confirm via Telegram — was /alinear."""
     return _run_action("lineups.auto-pick", actions.run_auto_pick_lineup)
+
+
+@app.route("/budget/recommendations", methods=["GET"])
+def budget_recommendations():
+    """Top-N affordable clausulazo targets per position. New endpoint.
+
+    Query: `?top=N` (1–10, default 3).
+    """
+    try:
+        top = int(request.args.get("top", recommendations.DEFAULT_TOP_N))
+    except (TypeError, ValueError):
+        top = recommendations.DEFAULT_TOP_N
+    top = max(1, min(10, top))
+    return _run_action(
+        "budget.recommendations", lambda: recommendations.run_recommendations(top=top)
+    )
 
 
 # --- Scheduler-triggered endpoints -----------------------------------------

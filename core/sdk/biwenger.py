@@ -123,6 +123,26 @@ class BiwengerClient:
         )
         logger.info("Biwenger session ready.")
 
+    def get_account_state(self) -> dict:
+        """Returns the user's current cash balance and max bid for the league.
+
+        Biwenger surfaces both per league at `/account`. `balance` is the
+        actual cash you have right now; `maxBid` is the max possible bid
+        assuming you'd sell the rest of your squad to fund it (Biwenger
+        computes this server-side, so we just surface what they return).
+        """
+        response = self.session.get(self.account_url)
+        response.raise_for_status()
+        leagues = response.json().get("data", {}).get("leagues", [])
+        for league in leagues:
+            if str(league.get("id")) == self.league_id:
+                user = league.get("user", {}) or {}
+                return {
+                    "cash": int(user.get("balance") or 0),
+                    "max_bid": int(user.get("maxBid") or 0),
+                }
+        return {"cash": 0, "max_bid": 0}
+
     def get_league_users(self, league_users_url: str) -> dict:
         """Returns a mapping of user ID → name for the league."""
         logger.info("Fetching league users...")
