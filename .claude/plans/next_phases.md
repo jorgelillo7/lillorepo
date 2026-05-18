@@ -14,7 +14,7 @@ are already taken.
   - `chucknorris-bot` — unchanged ✅
   - `biwenger-scraper-data` (Job, weekly Sun 22:00) ✅
 - **Deleted**: `biwenger-teams-analyzer` Job. Its modes are now HTTP endpoints on `biwenger-api`.
-- **Cloud Scheduler `biwenger-teams-analyzer-trigger`**: points at `biwenger-api/digests/daily` (daily 16:00 Madrid). Name is legacy; cosmetic rename is optional.
+- **Cloud Scheduler `biwenger-daily-digest-trigger`**: points at `biwenger-api/digests/daily` (daily 16:00 Madrid). Renamed from `biwenger-teams-analyzer-trigger` on 2026-05-18.
 - **JP API**: alive, token unchanged. Read from `BIWENGER_CREDENTIALS_JSON.jp_auth_token`.
 - **Python**: 3.13.
 - **`python-base` image**: 275 MB (inside the 500 MB Artifact Registry free tier).
@@ -59,17 +59,14 @@ Attack order when resumed:
 3. `web` — read from Firestore instead of Drive CSVs
 4. Delete secret `biwenger-tools-sa-regional` (Drive SA no longer needed)
 
-### 2. (cosmetic) rename `biwenger-teams-analyzer-trigger` Scheduler
-Currently points at `biwenger-api/digests/daily` but keeps the legacy name. Pure cosmetic — works as-is.
-
-### 3. (cosmetic) rename bot display name in Telegram to "Biwenger Bot"
-Done via BotFather (interactive). Optional.
-
-### 4. New GCP project for photos (no spec yet)
+### 2. New GCP project for photos (no spec yet)
 Mentioned as TODO. Waiting for spec.
 
-### 5. Move Drive/Sheets IDs out of BUILD.bazel
+### 3. Move Drive/Sheets IDs out of BUILD.bazel
 Currently hardcoded in `packages/biwenger_tools/web/BUILD.bazel`. Dies naturally with Firestore migration.
+
+### 4. Bot display name in Telegram set to "Biwenger Tools Bot"
+Done via BotFather on 2026-05-18.
 
 ---
 
@@ -113,8 +110,8 @@ bazel test //core:core_tests \
   //packages/biwenger_tools/bot:bot_tests \
   //packages/chucknorris_bot/bot:bot_tests
 
-# Lint (same as CI)
-python3 -m flake8 core/ packages/ && python3 -m black --check core/ packages/
+# Lint (same Python 3.13 toolchain CI uses)
+bash scripts/lint.sh
 
 # Cost + drift check
 bash scripts/check-gcp-costs.sh
