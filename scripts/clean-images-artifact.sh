@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO="europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker"
-SIMPLE_IMAGES=("web" "scraper_job" "teams_analyzer" "telegram_bot" "chucknorris_bot")
+SIMPLE_IMAGES=("web" "scraper_job" "teams_analyzer" "telegram_bot" "api" "chucknorris_bot")
 MULTI_ARCH_IMAGES=("python-base")
 UNTAGGED_MIN_AGE_HOURS="${UNTAGGED_MIN_AGE_HOURS:-24}"
 DRY_RUN="${DRY_RUN:-0}"
