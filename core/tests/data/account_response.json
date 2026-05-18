@@ -6,7 +6,8 @@
         "name": "MiLiga de Prueba",
         "user": {
           "id": 98765,
-          "name": "Usuario de Prueba"
+          "name": "Usuario de Prueba",
+          "balance": 10000000
         }
       }
     ]

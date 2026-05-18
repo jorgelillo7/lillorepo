@@ -214,3 +214,61 @@ def test_get_all_clausulazos_stops_on_empty(biwenger_client_authenticated):
     result = client.get_all_clausulazos("http://api/board?type=transfer")
     assert result == {"data": []}
     assert len(calls) == 1
+
+
+def test_get_account_state_cash_only(biwenger_client_authenticated, load_json_fixture):
+    """Without squad+all_players, only cash is returned (max_bid=0)."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
+        state = client.get_account_state()
+    assert state == {"cash": 10_000_000, "max_bid": 0}
+
+
+def test_get_account_state_computes_max_bid_with_squad_and_prices(
+    biwenger_client_authenticated, load_json_fixture
+):
+    """max_bid = cash + 25% of squad_value (sum of player.price).
+
+    Verified empirically against Biwenger's displayed "Puja máxima":
+    12,972,212 € cash + 25% * 93,450,000 € squad = 36,334,712 € (matches
+    Biwenger UI to the euro).
+    """
+    client = biwenger_client_authenticated
+    squad = [{"id": 1}, {"id": 2}, {"id": 3}]
+    all_players = {
+        1: {"price": 20_000_000},
+        2: {"price": 10_000_000},
+        3: {"price": 5_000_000},
+    }
+    with requests_mock.Mocker() as m:
+        m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
+        state = client.get_account_state(squad=squad, all_players=all_players)
+    # 35M squad value * 25% = 8.75M; cash 10M -> max_bid 18.75M
+    assert state["cash"] == 10_000_000
+    assert state["max_bid"] == 18_750_000
+
+
+def test_get_account_state_handles_missing_prices(
+    biwenger_client_authenticated, load_json_fixture
+):
+    """Players not present in all_players don't crash; they contribute 0."""
+    client = biwenger_client_authenticated
+    squad = [{"id": 1}, {"id": 999}]  # 999 not in lookup
+    all_players = {1: {"price": 4_000_000}}
+    with requests_mock.Mocker() as m:
+        m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
+        state = client.get_account_state(squad=squad, all_players=all_players)
+    assert state["max_bid"] == 10_000_000 + 4_000_000 // 4  # cash + 1M
+
+
+def test_get_account_state_unknown_league_returns_zeros(
+    biwenger_client_authenticated, load_json_fixture
+):
+    """When the league_id isn't found in the response, both fields are 0."""
+    client = biwenger_client_authenticated
+    client.league_id = "doesnotexist"
+    with requests_mock.Mocker() as m:
+        m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
+        state = client.get_account_state()
+    assert state == {"cash": 0, "max_bid": 0}

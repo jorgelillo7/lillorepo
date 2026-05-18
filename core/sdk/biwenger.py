@@ -123,18 +123,27 @@ class BiwengerClient:
         )
         logger.info("Biwenger session ready.")
 
-    def get_account_state(self) -> dict:
+    def get_account_state(
+        self,
+        squad: Optional[list] = None,
+        all_players: Optional[dict] = None,
+    ) -> dict:
         """Returns the user's current cash balance and max bid for the league.
 
-        Biwenger surfaces both per league at `/account`. `balance` is the
-        actual cash you have right now. `maxBid` (the field name the API
-        actually uses) is what you could spend if you sold the rest of
-        your squad — Biwenger pre-computes this server-side.
+        Biwenger's `/account` endpoint exposes `balance` (cash) per league but
+        NOT `maxBid` — the "Puja máxima" the mobile app displays is computed
+        client-side. Empirically verified against the displayed value
+        (2026-05-18):
 
-        First production read showed `user.balance` populated and the
-        max-bid field absent under `user`. We try a few alternate paths
-        and log all candidate keys until we see which one Biwenger
-        returns for this account.
+            puja_maxima = cash + 0.25 * sum(player.price for player in squad)
+
+        The 25% factor matched my account to the euro. If a future league has
+        a different setting and the factor drifts, the discrepancy will be
+        visible in the bot's `/recomendar` header next to `Saldo`.
+
+        Pass `squad` (list from `get_manager_squad`) and `all_players`
+        (dict from `get_all_players_data_map`) to compute max_bid. Without
+        them, max_bid is 0 (only cash is returned).
         """
         response = self.session.get(self.account_url)
         response.raise_for_status()
@@ -144,31 +153,13 @@ class BiwengerClient:
                 continue
             user = league.get("user", {}) or {}
             cash = int(user.get("balance") or 0)
-            # Try several known shapes — Biwenger has shifted these
-            # around between API versions.
-            max_bid_candidates = [
-                user.get("maxBid"),
-                league.get("maxBid"),
-                user.get("teamValue"),  # not the same but a useful fallback
-            ]
             max_bid = 0
-            for cand in max_bid_candidates:
-                if cand is not None:
-                    try:
-                        max_bid = int(cand)
-                        break
-                    except (TypeError, ValueError):
-                        continue
-            logger.info(
-                "Account state read.",
-                extra={
-                    "cash": cash,
-                    "max_bid": max_bid,
-                    "league_id": self.league_id,
-                    "user_keys": sorted(user.keys()),
-                    "league_keys": sorted(league.keys()),
-                },
-            )
+            if squad is not None and all_players is not None:
+                squad_value = sum(
+                    int(all_players.get(p.get("id"), {}).get("price") or 0)
+                    for p in squad
+                )
+                max_bid = cash + squad_value // 4  # 25% factor
             return {"cash": cash, "max_bid": max_bid}
         return {"cash": 0, "max_bid": 0}
 

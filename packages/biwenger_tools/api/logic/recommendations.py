@@ -15,6 +15,7 @@ formats that as a `[multi: MED]` badge.
 """
 
 import time
+from typing import Optional
 
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players, get_predict_rate
@@ -29,12 +30,30 @@ logger = get_logger(__name__)
 
 DEFAULT_TOP_N = 3
 
-# How much over the user's cash they're willing to stretch by signing
-# a clausulazo. They explicitly don't want recommendations up to the
-# max_bid (which assumes selling the rest of the squad) — only what
-# they could afford with a small extra margin. 5M is the default
-# requested by the user; overridable via `?margin=N` on the endpoint.
-DEFAULT_MARGIN = 5_000_000
+# Dynamic margin coefficients. When the user does not pass `?margin=N`, we
+# compute a margin proportional to their cash so a poor balance doesn't get
+# overshadowed by huge-clause players, and a rich balance gets a sensible
+# (but bounded) stretch. Rounded to nearest 500k for readability.
+_MARGIN_PCT = 0.40
+_MARGIN_MIN = 2_000_000
+_MARGIN_MAX = 10_000_000
+_MARGIN_ROUND = 500_000
+
+
+def compute_dynamic_margin(cash: int) -> int:
+    """Margin proportional to cash, clamped and rounded.
+
+    cash=  5M → 2.0M
+    cash= 13M → 5.0M (0.40 * 13M = 5.2M → round to 5.0M)
+    cash= 20M → 8.0M
+    cash= 30M → 10M (capped)
+    """
+    if cash <= 0:
+        return _MARGIN_MIN
+    raw = cash * _MARGIN_PCT
+    rounded = round(raw / _MARGIN_ROUND) * _MARGIN_ROUND
+    return int(max(_MARGIN_MIN, min(rounded, _MARGIN_MAX)))
+
 
 # Position labels in the JSON response (English) and for the Telegram message
 # header (Spanish with emojis, to match the rest of the bot voice).
@@ -114,10 +133,12 @@ def _format_telegram_text(payload: dict) -> str:
     max_bid_value = budget.get("max_bid")
     max_bid_str = _euros(max_bid_value) if max_bid_value else "—"
     margin = _euros(budget["margin"])
+    margin_source = budget.get("margin_source", "auto")
+    margin_label = "auto" if margin_source == "auto" else "fijo"
 
     lines = [
         f"💰 <b>Saldo:</b> {cash}",
-        f"🎯 <b>Objetivo (saldo + {margin}):</b> {target}",
+        f"🎯 <b>Objetivo (saldo + {margin}, {margin_label}):</b> {target}",
         f"ℹ️ <i>Puja máx. Biwenger: {max_bid_str}</i>",
     ]
 
@@ -138,26 +159,28 @@ def _format_telegram_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
-def _gather_candidates(
+def _gather_rivals(
     biwenger: BiwengerClient,
     biwenger_players: dict,
     jp_index: dict,
-) -> tuple[set, list[dict]]:
-    """Build (my_squad_ids, rival_rows). Rival rows have an `owner` field."""
+) -> list[dict]:
+    """Build the rival_rows list, tagged with `owner = manager_name`.
+
+    Skips the logged-in user's own squad. My own squad is fetched separately
+    in `run_recommendations` so we can compute Biwenger's max_bid from it.
+    """
     managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
-    my_ids: set = set()
-    candidates: list[dict] = []
+    rivals: list[dict] = []
     for manager_id, manager_name in managers.items():
+        if manager_id == biwenger.user_id:
+            continue
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
         rows = build_squad_rows(squad, biwenger_players, jp_index, include_clause=True)
-        if manager_id == biwenger.user_id:
-            my_ids = {r["bw_id"] for r in rows}
-        else:
-            for r in rows:
-                r["owner"] = manager_name
-                candidates.append(r)
+        for r in rows:
+            r["owner"] = manager_name
+            rivals.append(r)
         time.sleep(0.3)
-    return my_ids, candidates
+    return rivals
 
 
 def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list[dict]:
@@ -179,15 +202,19 @@ def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list
 
 def run_recommendations(
     top: int = DEFAULT_TOP_N,
-    margin: int = DEFAULT_MARGIN,
+    margin: Optional[int] = None,
 ) -> dict:
     """Compute the recommendations and send the formatted message to Telegram.
 
     `margin` is how much over the user's current cash they'd stretch to. The
     filter uses `cash + margin` as the upper bound on clause amounts — NOT
-    `max_bid`, which assumes selling the rest of the squad and is usually too
-    generous for "who could I grab right now" planning. `max_bid` is still
-    surfaced in the message header as informational.
+    `max_bid`, which assumes selling 100% of the squad and is too generous
+    for "who could I grab right now" planning.
+
+    When `margin` is `None` (the default — what the bot sends), it is
+    computed dynamically from cash (`compute_dynamic_margin`). When the
+    caller passes an explicit value, that value wins (after clamping
+    happens in the route handler).
     """
     check_api_health(
         config.JP_AUTH_TOKEN,
@@ -209,19 +236,32 @@ def run_recommendations(
         config.LEAGUE_ID,
     )
     biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-    account_state = biwenger.get_account_state()
-    cash, max_bid = account_state["cash"], account_state["max_bid"]
-    target = cash + max(0, margin)
 
-    my_ids, candidates = _gather_candidates(biwenger, biwenger_players, jp_index)
-    affordable = _filter_affordable(candidates, my_ids, target)
+    # Fetch my squad once: needed to compute max_bid AND to mark my players
+    # as excluded from the rival pool. We hit /user/{me}?fields=players(*)
+    # via the same paginated client method as the rest.
+    my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
+    my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
+
+    account_state = biwenger.get_account_state(my_squad, biwenger_players)
+    cash, max_bid = account_state["cash"], account_state["max_bid"]
+
+    margin_source = "auto" if margin is None else "manual"
+    if margin is None:
+        margin = compute_dynamic_margin(cash)
+    margin = max(0, margin)
+    target = cash + margin
+
+    rivals = _gather_rivals(biwenger, biwenger_players, jp_index)
+    affordable = _filter_affordable(rivals, my_ids, target)
     recommendations = _pick_top_per_position(affordable, top)
 
     payload = {
         "budget": {
             "cash": cash,
             "max_bid": max_bid,
-            "margin": max(0, margin),
+            "margin": margin,
+            "margin_source": margin_source,
             "target": target,
         },
         "recommendations": recommendations,
@@ -233,7 +273,7 @@ def run_recommendations(
             "max_bid": max_bid,
             "margin": margin,
             "target": target,
-            "candidates": len(candidates),
+            "rivals": len(rivals),
             "affordable": len(affordable),
             "per_position": {k: len(v) for k, v in recommendations.items()},
         },

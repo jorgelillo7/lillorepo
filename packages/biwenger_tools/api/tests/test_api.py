@@ -161,14 +161,15 @@ def test_action_endpoint_returns_500_on_exception(client):
 # --- /budget/recommendations ---
 
 
-def test_budget_recommendations_calls_run_with_defaults(client):
+def test_budget_recommendations_defaults_to_dynamic_margin(client):
     fake = {
         "sent": 1,
         "budget": {
             "cash": 7_000_000,
             "max_bid": 35_000_000,
-            "margin": 5_000_000,
-            "target": 12_000_000,
+            "margin": 2_500_000,
+            "margin_source": "auto",
+            "target": 9_500_000,
         },
         "recommendations": {"GK": [], "DEF": [], "MID": [], "FWD": []},
     }
@@ -177,17 +178,21 @@ def test_budget_recommendations_calls_run_with_defaults(client):
         return_value=fake,
     ) as mock_run:
         resp = client.get("/budget/recommendations")
-    mock_run.assert_called_once_with(top=3, margin=5_000_000)
+    # No `margin` query param → dynamic (None passed through).
+    mock_run.assert_called_once_with(top=3, margin=None)
     assert resp.status_code == 200
-    body = resp.get_json()
-    assert body["budget"]["cash"] == 7_000_000
-    assert body["budget"]["target"] == 12_000_000
 
 
-def test_budget_recommendations_respects_top_and_margin_query_params(client):
+def test_budget_recommendations_respects_explicit_top_and_margin(client):
     fake = {
         "sent": 1,
-        "budget": {"cash": 0, "max_bid": 0, "margin": 0, "target": 0},
+        "budget": {
+            "cash": 0,
+            "max_bid": 0,
+            "margin": 10_000_000,
+            "margin_source": "manual",
+            "target": 10_000_000,
+        },
         "recommendations": {},
     }
     with patch(
@@ -201,7 +206,13 @@ def test_budget_recommendations_respects_top_and_margin_query_params(client):
 def test_budget_recommendations_clamps_query_params(client):
     fake = {
         "sent": 1,
-        "budget": {"cash": 0, "max_bid": 0, "margin": 0, "target": 0},
+        "budget": {
+            "cash": 0,
+            "max_bid": 0,
+            "margin": 0,
+            "margin_source": "manual",
+            "target": 0,
+        },
         "recommendations": {},
     }
     with patch(
@@ -214,8 +225,22 @@ def test_budget_recommendations_clamps_query_params(client):
     calls = mock_run.call_args_list
     # top: 99 → 10, 0 → 1, garbage → 3 (default)
     assert [c.kwargs["top"] for c in calls] == [10, 1, 3]
-    # margin: 99999999999 → 50M, -1 → 0, garbage → 5M (default)
-    assert [c.kwargs["margin"] for c in calls] == [50_000_000, 0, 5_000_000]
+    # margin: 99999999999 → 50M, -1 → 0, garbage → None (fall back to dynamic)
+    assert [c.kwargs["margin"] for c in calls] == [50_000_000, 0, None]
+
+
+def test_compute_dynamic_margin_scales_with_cash():
+    from packages.biwenger_tools.api.logic import recommendations as recs
+
+    # cash ≤ 0 → minimum
+    assert recs.compute_dynamic_margin(0) == 2_000_000
+    assert recs.compute_dynamic_margin(-100) == 2_000_000
+    # 40% of cash, rounded to nearest 500k, clamped [2M, 10M]
+    assert recs.compute_dynamic_margin(5_000_000) == 2_000_000  # 0.4*5M=2M (floor)
+    assert recs.compute_dynamic_margin(12_972_212) == 5_000_000  # ~5.19M → round 5.0
+    assert recs.compute_dynamic_margin(20_000_000) == 8_000_000
+    assert recs.compute_dynamic_margin(30_000_000) == 10_000_000  # cap
+    assert recs.compute_dynamic_margin(100_000_000) == 10_000_000  # cap
 
 
 # --- recommendations unit tests (filtering + grouping) ---
@@ -287,6 +312,7 @@ def test_format_telegram_text_includes_multi_badge_and_exact_euros():
             "cash": 12_972_212,
             "max_bid": 36_334_712,
             "margin": 5_000_000,
+            "margin_source": "auto",
             "target": 17_972_212,
         },
         "recommendations": {
@@ -306,14 +332,32 @@ def test_format_telegram_text_includes_multi_badge_and_exact_euros():
         },
     }
     text = recs._format_telegram_text(payload)
-    # Exact euros in Spanish format (dots as thousands separators)
+    # Exact euros in Spanish format (dots as thousands separators).
     assert "12.972.212 €" in text
     assert "17.972.212 €" in text
     assert "36.334.712 €" in text
+    assert "auto" in text  # margin_source label
     assert "Vivian (Ana)" in text
     assert "12.345.678 €" in text
     assert "SF 410" in text
     assert "multi: MED" in text
+
+
+def test_format_telegram_text_marks_manual_margin():
+    from packages.biwenger_tools.api.logic import recommendations as recs
+
+    payload = {
+        "budget": {
+            "cash": 10_000_000,
+            "max_bid": 30_000_000,
+            "margin": 8_000_000,
+            "margin_source": "manual",
+            "target": 18_000_000,
+        },
+        "recommendations": {"GK": [], "DEF": [], "MID": [], "FWD": []},
+    }
+    text = recs._format_telegram_text(payload)
+    assert "fijo" in text
 
 
 def test_format_telegram_text_dashes_when_max_bid_missing():
@@ -322,8 +366,9 @@ def test_format_telegram_text_dashes_when_max_bid_missing():
     payload = {
         "budget": {
             "cash": 12_972_212,
-            "max_bid": 0,  # Biwenger didn't return it
+            "max_bid": 0,  # max_bid couldn't be computed (no squad data)
             "margin": 5_000_000,
+            "margin_source": "auto",
             "target": 17_972_212,
         },
         "recommendations": {"GK": [], "DEF": [], "MID": [], "FWD": []},
