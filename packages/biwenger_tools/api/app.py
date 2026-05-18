@@ -85,8 +85,9 @@ def budget_recommendations():
 
     Query params:
       - `top=N`     — players per position, 1–10, default 3.
-      - `margin=N`  — extra euros over current cash to count as "affordable",
-                       0 – 50M, default 5M.
+      - `margin=N`  — fixed extra euros over current cash to count as
+                       "affordable", 0–50M. **If omitted, a dynamic margin
+                       is computed from cash** (see compute_dynamic_margin).
     """
     try:
         top = int(request.args.get("top", recommendations.DEFAULT_TOP_N))
@@ -94,11 +95,14 @@ def budget_recommendations():
         top = recommendations.DEFAULT_TOP_N
     top = max(1, min(10, top))
 
-    try:
-        margin = int(request.args.get("margin", recommendations.DEFAULT_MARGIN))
-    except (TypeError, ValueError):
-        margin = recommendations.DEFAULT_MARGIN
-    margin = max(0, min(50_000_000, margin))
+    margin_arg = request.args.get("margin")
+    if margin_arg is None:
+        margin = None  # dynamic
+    else:
+        try:
+            margin = max(0, min(50_000_000, int(margin_arg)))
+        except (TypeError, ValueError):
+            margin = None  # fall back to dynamic on garbage
 
     return _run_action(
         "budget.recommendations",
