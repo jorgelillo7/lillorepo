@@ -73,7 +73,17 @@ def build_squad_rows(
         row = build_row(bw_player, jp_index)
         if include_clause:
             owner = player_data.get("owner") or {}
-            row["Clausulable"] = clausulable_str(owner.get("clauseLockedUntil"))
-            row["Cláusula"] = clause_str(owner.get("clause"))
+            locked_until = owner.get("clauseLockedUntil")
+            clause_raw = owner.get("clause")
+            # Formatted strings — consumed by the PNG renderer.
+            row["Clausulable"] = clausulable_str(locked_until)
+            row["Cláusula"] = clause_str(clause_raw)
+            # Raw values — consumed by the JSON recommendations endpoint.
+            # Don't show up in PNG output (only "Clausulable"/"Cláusula" are
+            # rendered as extra columns there).
+            row["clause_value"] = int(clause_raw) if clause_raw else 0
+            row["clausulable_now"] = locked_until is None or (
+                (locked_until - time.time()) <= 0
+            )
         rows.append(row)
     return rows
