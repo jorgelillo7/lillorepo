@@ -420,13 +420,17 @@ the `lint` job in `.github/workflows/deploy.yml`. A lint failure blocks
 Editor and CLI usage, pinned versions, and how to upgrade live in
 [`setup/linter.md`](setup/linter.md).
 
-Quick local invocation (same versions as CI):
+Quick local invocation (same hermetic Python 3.13 toolchain as CI — no
+version drift, no pip install needed):
 
 ```bash
-pip3 install flake8==7.3.0 black==25.1.0
-flake8 core/ packages/
-black --check core/ packages/    # CI runs this
+bash scripts/lint.sh         # check
+bash scripts/lint.sh --fix   # apply black in place
 ```
+
+Under the hood: `bazel run //tools/lint:black -- ...` and `//tools/lint:flake8`.
+The first invocation is slow (Bazel resolves the lint targets); subsequent
+calls are cached.
 
 
 ## 🧹 GCP Cleanup and Cost Control

@@ -4,57 +4,53 @@ This repo uses **flake8** (linter) and **black** (formatter). Both run as a
 GitHub Actions job on every push to `master`; the build fails if either
 reports issues.
 
-## What was already in the repo
+## How it works
 
-- **`.flake8`** at repo root — `max-line-length = 88`, ignores `E203, W503`
-  (Black-compatible defaults).
-- **`.vscode/settings.json`** — enables flake8 + Black-on-save in the editor.
-- **`core/requirements.txt`** lists `flake8` and `black` as dev tooling, so
-  both are pinned in `requirements_lock.txt`.
+Lint runs through Bazel's hermetic Python 3.13 toolchain so local devs and
+CI are guaranteed to use the same interpreter and the same `black` /
+`flake8` versions resolved by `requirements_lock.txt`.
 
-The editor side worked out of the box because the VS Code extensions ship
-their own bundled tools; what was missing was a CLI / CI path.
+Two thin Bazel targets in `tools/lint/BUILD.bazel`:
 
-## What was added
+```python
+py_console_script_binary(name = "black",  pkg = "@pypi//black")
+py_console_script_binary(name = "flake8", pkg = "@pypi//flake8")
+```
 
-| Change | Where |
-|--------|-------|
-| New CI job `lint` (flake8 + `black --check`) before `test` | `.github/workflows/deploy.yml` |
-| Pinned tool versions documented and aligned with `requirements_lock.txt` | this file + workflow comment |
-| Cleanup pass (E501 line-length, F401 unused imports, F541 empty f-strings) so the lint step starts green | various files |
+A wrapper script `scripts/lint.sh` runs both with the right paths:
+
+```bash
+bash scripts/lint.sh         # check (what CI runs)
+bash scripts/lint.sh --fix   # apply black in place
+```
+
+CI calls the same script (`.github/workflows/deploy.yml` → `lint` job).
+
+## Why hermetic
+
+Before this setup, the maintainer ran lint on Python 3.12 locally while CI
+used 3.13. Black 26.3.1's wrapping heuristics shift subtly across Python
+versions, which caused multiple "passes locally, fails on CI" fixup
+commits during the v6.0 refactor. The hermetic Bazel toolchain removes
+the drift entirely.
 
 ## Pinned versions
 
 The lockfile is the source of truth. As of this writing:
 
 ```
+black==26.3.1
 flake8==7.3.0
-black==25.1.0
 ```
 
-The CI step pins these explicitly. **Bump both the workflow and the
-lockfile in the same PR** when upgrading; otherwise a regen of
-`requirements_lock.txt` will drift from CI.
-
-## Running locally
-
-```bash
-# One-time install (matches CI versions)
-pip3 install flake8==7.3.0 black==25.1.0
-
-# Lint
-flake8 core/ packages/
-
-# Format check (read-only — same as CI)
-black --check core/ packages/
-
-# Format in place
-black core/ packages/
-```
+To upgrade: edit `core/requirements.txt`, regenerate `requirements.in` and
+`requirements_lock.txt` (see [`operations.md`](../operations.md)), and
+push. Bazel will pick up the new versions automatically on the next lint
+invocation. No manual `pip install` step anywhere.
 
 ## Editor integration
 
-The `.vscode/settings.json` already shipped enables:
+The shipped `.vscode/settings.json` enables:
 
 - `python.linting.flake8Enabled: true` — flake8 squiggles in the gutter.
 - `editor.defaultFormatter: ms-python.black-formatter` + `formatOnSave` —
@@ -67,26 +63,16 @@ Required VS Code extensions:
 - `ms-python.python`
 - `ms-python.black-formatter`
 
-## CI behavior
-
-`.github/workflows/deploy.yml` runs the workflow only when paths under
-`core/`, `packages/biwenger_tools/{web,scraper_job}/`, `tools/` or the
-workflow itself change. Within that scope the dependency chain is:
-
-```
-lint ──► test ──► deploy-web / deploy-scraper
-```
-
-A lint failure blocks `test`, which in turn blocks the deploy. Lint
-finishes in seconds (no Bazel needed), so it acts as a fast pre-flight.
+Editor extensions use their own bundled tools, so they may drift from
+`scripts/lint.sh` slightly — the final word is what CI says.
 
 ## Known gotchas
 
 - **Line-length 88** is the only deviation from PEP 8. Any longer line
   needs to be either reformatted or split — Black handles most cases, but
-  long mocked attribute chains in tests (e.g. `mock.x.y.z.return_value...`)
-  are best refactored to an intermediate variable rather than suppressed.
+  long mocked attribute chains in tests are best refactored to an
+  intermediate variable rather than suppressed.
 - **Don't add `# noqa`** unless there is no clean alternative. Document
   the reason on the same line if you must.
 - The repo uses `flake8`'s default ruleset minus `E203` and `W503` (both
-  conflict with Black). Adding new ignores should be discussed in the PR.
+  conflict with Black).
