@@ -88,6 +88,76 @@ def test_digests_daily_rejects_get(client):
     assert resp.status_code == 405  # method not allowed
 
 
+# --- /teams, /teams/mine, /market, /lineups/auto-pick ---
+
+
+def test_teams_calls_run_all_teams(client):
+    fake = {"sent": 5, "teams": 4, "market": 6}
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_all_teams",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.get("/teams")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["teams"] == 4
+
+
+def test_teams_mine_calls_run_my_team(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_my_team",
+        return_value={"sent": 1, "size": 12},
+    ) as mock_run:
+        resp = client.get("/teams/mine")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json()["size"] == 12
+
+
+def test_market_calls_run_market(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_market",
+        return_value={"sent": 1, "size": 7},
+    ) as mock_run:
+        resp = client.get("/market")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json()["size"] == 7
+
+
+def test_lineups_auto_pick_calls_run_auto_pick(client):
+    fake = {"sent": 1, "applied": True, "formation": "4-3-3", "total_sf": 4200}
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_auto_pick_lineup",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/lineups/auto-pick")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["applied"] is True
+    assert body["formation"] == "4-3-3"
+
+
+def test_lineups_auto_pick_rejects_get(client):
+    resp = client.get("/lineups/auto-pick")
+    assert resp.status_code == 405
+
+
+def test_action_endpoint_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_all_teams",
+        side_effect=RuntimeError("biwenger 503"),
+    ):
+        resp = client.get("/teams")
+    assert resp.status_code == 500
+    body = resp.get_json()
+    assert body["status"] == "error"
+    assert "biwenger 503" in body["error"]
+
+
 # --- digests.run_daily unit tests ---
 
 

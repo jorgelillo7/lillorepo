@@ -21,9 +21,9 @@ TELEGRAM_WEBHOOK_SECRET = (
     _TELEGRAM_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 ).strip()
 
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
-CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
-CLOUD_RUN_JOB_NAME = os.getenv("CLOUD_RUN_JOB_NAME", "biwenger-teams-analyzer")
+# Base URL of the biwenger-api Cloud Run service. The bot calls it for every
+# command (and uses the same URL as the audience for the ID token).
+BIWENGER_API_URL = os.getenv("BIWENGER_API_URL", "")
 
 # Deployed version metadata (set by CI, see deploy.yml). Used by /version.
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")

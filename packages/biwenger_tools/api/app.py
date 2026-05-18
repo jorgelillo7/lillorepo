@@ -1,7 +1,9 @@
 """Biwenger API service — HTTP entry points for Telegram bot + Cloud Scheduler.
 
-PR 1 scaffold: /health and /version.
-PR 2 (this): adds POST /digests/daily for the cron.
+Each route is a thin shell that delegates to `logic/`. Most routes have a
+side effect (PNG/message to Telegram); we still call them GET when the
+endpoint only *reads* from Biwenger/JP, and POST when it mutates external
+state (Biwenger lineup PUT, daily cron tick).
 """
 
 import os
@@ -10,18 +12,29 @@ from flask import Flask, jsonify
 
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import digests
+from packages.biwenger_tools.api.logic import actions, digests
 
 logger = get_logger(__name__)
 
 app = Flask(__name__)
 
 
+def _run_action(name: str, fn):
+    try:
+        result = fn()
+        return jsonify({"status": "ok", **result}), 200
+    except Exception as exc:
+        logger.exception("%s failed.", name)
+        return jsonify({"status": "error", "error": str(exc)}), 500
+
+
+# --- Liveness / metadata ---------------------------------------------------
+
+
 @app.route("/health", methods=["GET"])
 def health():
-    # Note: do NOT use "/healthz" — Google Frontend reserves that path on
-    # *.run.app and returns its own 404 before the request reaches the
-    # container. "/health" works.
+    # Do NOT use "/healthz" — Google Frontend reserves that path on *.run.app
+    # and returns its own 404 before the request reaches the container.
     return jsonify({"status": "ok"}), 200
 
 
@@ -39,20 +52,40 @@ def version():
     )
 
 
+# --- Bot-triggered endpoints ----------------------------------------------
+
+
+@app.route("/teams", methods=["GET"])
+def teams():
+    """All managers + market — was /analizar."""
+    return _run_action("teams", actions.run_all_teams)
+
+
+@app.route("/teams/mine", methods=["GET"])
+def teams_mine():
+    """My squad only — was /myteam."""
+    return _run_action("teams.mine", actions.run_my_team)
+
+
+@app.route("/market", methods=["GET"])
+def market():
+    """Transfer market only — was /mercado."""
+    return _run_action("market", actions.run_market)
+
+
+@app.route("/lineups/auto-pick", methods=["POST"])
+def lineups_auto_pick():
+    """Pick best lineup, apply on Biwenger, confirm via Telegram — was /alinear."""
+    return _run_action("lineups.auto-pick", actions.run_auto_pick_lineup)
+
+
+# --- Scheduler-triggered endpoints -----------------------------------------
+
+
 @app.route("/digests/daily", methods=["POST"])
 def digests_daily():
-    """Cron-triggered: send "my team + market" PNGs to Telegram.
-
-    Cloud Scheduler hits this once a day with an OIDC token. The Biwenger
-    + JP traffic is real (no preview mode), so this should only ever be
-    called by the Scheduler.
-    """
-    try:
-        result = digests.run_daily()
-        return jsonify({"status": "ok", **result}), 200
-    except Exception as exc:
-        logger.exception("Daily digest failed.")
-        return jsonify({"status": "error", "error": str(exc)}), 500
+    """Cron-triggered: send "my team + market" PNGs to Telegram."""
+    return _run_action("digests.daily", digests.run_daily)
 
 
 if __name__ == "__main__":
