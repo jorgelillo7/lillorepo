@@ -11,4 +11,4 @@ fi
 export PYTHONPATH="/app:${PYTHONPATH}"
 
 echo ">>> Iniciando la aplicación..."
-exec python3 /app/packages/biwenger_tools/telegram_bot/gunicorn_prod_runner.py
+exec python3 /app/packages/biwenger_tools/bot/gunicorn_prod_runner.py

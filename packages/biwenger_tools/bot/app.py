@@ -1,4 +1,4 @@
-"""Telegram bot service — handles webhook requests and calls biwenger-api."""
+"""Biwenger bot service — handles Telegram webhook and calls biwenger-api."""
 
 import os
 
@@ -11,7 +11,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
-from packages.biwenger_tools.telegram_bot import api_client, config
+from packages.biwenger_tools.bot import api_client, config
 
 logger = get_logger(__name__)
 

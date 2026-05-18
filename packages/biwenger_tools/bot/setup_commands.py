@@ -1,14 +1,14 @@
 """One-shot script: registers bot commands and sets the menu button.
 
 Run once after deploy (or whenever commands change):
-  python3 packages/biwenger_tools/telegram_bot/setup_commands.py
+  python3 packages/biwenger_tools/bot/setup_commands.py
 
 Requires TELEGRAM_BOT_TOKEN in the environment (or .env file).
 """
 
 import sys
 
-from packages.biwenger_tools.telegram_bot import config
+from packages.biwenger_tools.bot import config
 from core.sdk.telegram import register_bot_commands, set_commands_menu_button
 
 COMMANDS = [

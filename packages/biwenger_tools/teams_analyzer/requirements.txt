@@ -1,5 +1,0 @@
-# teams_analyzer/requirements.txt
-python-dotenv
-requests
-unidecode
-matplotlib
