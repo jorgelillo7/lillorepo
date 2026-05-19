@@ -24,6 +24,7 @@ _HELP_TEXT = (
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
+    "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
 )
@@ -35,6 +36,7 @@ _COMMAND_ROUTES = {
     "/mercado": ("/market", "GET"),
     "/alinear": ("/lineups/auto-pick", "POST"),
     "/recomendar": ("/budget/recommendations", "GET"),
+    "/scrapper": ("/scraper/trigger", "POST"),
 }
 
 

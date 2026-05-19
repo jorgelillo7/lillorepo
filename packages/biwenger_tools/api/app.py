@@ -12,7 +12,12 @@ from flask import Flask, jsonify, request
 
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, digests, recommendations
+from packages.biwenger_tools.api.logic import (
+    actions,
+    digests,
+    recommendations,
+    scraper,
+)
 
 logger = get_logger(__name__)
 
@@ -108,6 +113,12 @@ def budget_recommendations():
         "budget.recommendations",
         lambda: recommendations.run_recommendations(top=top, margin=margin),
     )
+
+
+@app.route("/scraper/trigger", methods=["POST"])
+def scraper_trigger():
+    """Queue an execution of the scraper Cloud Run Job — bot's /scrapper."""
+    return _run_action("scraper.trigger", scraper.run_trigger_scraper)
 
 
 # --- Scheduler-triggered endpoints -----------------------------------------

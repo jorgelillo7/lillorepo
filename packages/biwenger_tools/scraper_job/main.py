@@ -18,6 +18,7 @@ from core.sdk.gcp import (
     get_google_service,
     upload_csv_to_drive,
 )
+from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.scraper_job import config
 from packages.biwenger_tools.scraper_job.logic.processing import (
@@ -156,8 +157,32 @@ def _upload_clausulazos(
     logger.info("Clausulazos and tabla_justicia CSVs uploaded.")
 
 
+def _notify(text: str) -> None:
+    """Send a Telegram message to the configured chat. No-op without creds.
+
+    Notification failures are swallowed — they should never mask the
+    scraper result. The Telegram SDK already logs its own errors.
+    """
+    if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
+        logger.warning("Telegram creds missing — skipping scraper notify.")
+        return
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=text,
+    )
+
+
 def main() -> None:
-    """Orchestrate message scraping, processing, and Drive upload."""
+    """Orchestrate message scraping, processing, and Drive upload.
+
+    Sends a Telegram message to the configured chat at the end (success or
+    failure). On failure, re-raises so Cloud Run marks the execution as
+    failed — silent failure used to leave dead executions looking green.
+    """
+    started_at = datetime.now(timezone.utc)
+    new_count = 0
+
     try:
         logger.info("Scraper started.", extra={"temporada": config.TEMPORADA_ACTUAL})
 
@@ -177,8 +202,9 @@ def main() -> None:
         user_map = biwenger.get_league_users(config.LEAGUE_USERS_URL)
 
         new_messages = _process_new_messages(board_messages, existing_ids, user_map)
+        new_count = len(new_messages)
         if new_messages:
-            logger.info("New messages found.", extra={"count": len(new_messages)})
+            logger.info("New messages found.", extra={"count": new_count})
             all_messages = sort_messages(all_messages + new_messages)
             _write_and_upload_csv(
                 drive_service,
@@ -205,8 +231,22 @@ def main() -> None:
 
         _upload_clausulazos(drive_service, biwenger, config, folder_id)
 
-    except Exception:
+    except Exception as exc:
         logger.exception("Unexpected error in scraper.")
+        elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+        _notify(
+            "❌ <b>Scraper falló</b>\n"
+            f"<code>{type(exc).__name__}: {exc}</code>\n"
+            f"⏱️ {elapsed:.0f}s · ver logs en Cloud Run"
+        )
+        raise  # let Cloud Run mark the execution as failed
+
+    elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
+    if new_count > 0:
+        body = f"🧹 <b>Scraper OK</b> · {new_count} mensajes nuevos · {elapsed:.0f}s"
+    else:
+        body = f"🧹 <b>Scraper OK</b> · sin mensajes nuevos · {elapsed:.0f}s"
+    _notify(body)
 
 
 if __name__ == "__main__":

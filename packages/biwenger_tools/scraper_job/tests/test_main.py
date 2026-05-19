@@ -30,6 +30,10 @@ def mock_external_deps():
             "CLAUSULAZOS_URL": "https://fake-clausulazos",
             "BOARD_MESSAGES_URL": "https://fake-board",
             "LEAGUE_ID": "340703",
+            # Empty by default → _notify becomes a no-op in tests that don't
+            # explicitly enable it. Avoids accidental real HTTP calls.
+            "TELEGRAM_BOT_TOKEN": "",
+            "TELEGRAM_CHAT_ID": "",
         },
     ), patch(
         "packages.biwenger_tools.scraper_job.main.get_google_service"
@@ -129,3 +133,56 @@ def test_main_no_new_messages(mock_external_deps):
     ]
     assert any("clausulazos" in name for name in uploaded_names)
     assert any("tabla_justicia" in name for name in uploaded_names)
+
+
+# --- Telegram notify on completion ---
+
+
+def _enable_notify(monkeypatch_config) -> None:
+    """Flip the config mock so _notify actually sends."""
+    cfg = monkeypatch_config["config"] if "config" in monkeypatch_config else None
+    if cfg is None:
+        # The fixture patches the `config` symbol module-wide; we set the
+        # values via module attribute access.
+        from packages.biwenger_tools.scraper_job import main as scraper_main
+
+        scraper_main.config.TELEGRAM_BOT_TOKEN = "test-token"
+        scraper_main.config.TELEGRAM_CHAT_ID = "test-chat"
+
+
+def test_main_sends_telegram_on_success(mock_external_deps):
+    """On success, the scraper notifies the configured chat."""
+    _enable_notify(mock_external_deps)
+    mock_external_deps["biwenger"].get_league_users.return_value = {}
+    mock_external_deps["biwenger"].get_all_board_messages.return_value = []
+    mock_external_deps["find_file"].return_value = None
+
+    with patch(
+        "packages.biwenger_tools.scraper_job.main.send_telegram_message"
+    ) as mock_send:
+        main()
+
+    mock_send.assert_called_once()
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "Scraper OK" in text
+    assert "sin mensajes nuevos" in text
+
+
+def test_main_sends_telegram_and_reraises_on_error(mock_external_deps):
+    """On error, the scraper notifies AND re-raises so Cloud Run marks failed."""
+    _enable_notify(mock_external_deps)
+    mock_external_deps["biwenger"].get_all_board_messages.side_effect = RuntimeError(
+        "biwenger 503"
+    )
+    mock_external_deps["find_file"].return_value = None
+
+    with patch(
+        "packages.biwenger_tools.scraper_job.main.send_telegram_message"
+    ) as mock_send:
+        with pytest.raises(RuntimeError, match="biwenger 503"):
+            main()
+
+    mock_send.assert_called_once()
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "Scraper falló" in text
+    assert "biwenger 503" in text
