@@ -43,6 +43,11 @@ JP_AUTH_TOKEN = _BIWENGER_CFG.get("jp_auth_token") or os.getenv("JP_AUTH_TOKEN",
 JP_COMPETITION = 1  # LaLiga
 JP_SCORE_TYPE = 2  # SofaScore (Automanager system)
 
+# --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
+CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
+SCRAPER_JOB_NAME = os.getenv("SCRAPER_JOB_NAME", "biwenger-scraper-data")
+
 # Deployed version metadata (set by CI, see deploy.yml). Used by /version.
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

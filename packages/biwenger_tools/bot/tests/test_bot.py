@@ -77,6 +77,7 @@ def test_wrong_chat_id_is_silently_ignored(client):
         ("/mercado", "/market", "GET"),
         ("/alinear", "/lineups/auto-pick", "POST"),
         ("/recomendar", "/budget/recommendations", "GET"),
+        ("/scrapper", "/scraper/trigger", "POST"),
     ],
 )
 def test_command_calls_correct_api_endpoint(client, command, path, method):

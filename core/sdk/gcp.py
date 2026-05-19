@@ -2,6 +2,10 @@ import csv
 import io
 from datetime import datetime
 
+import google.auth
+import google.auth.exceptions
+import google.auth.transport.requests
+import requests as http_requests
 from dateutil import parser
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -22,6 +26,45 @@ def get_google_service(api_name, api_version, service_account_file, scopes):
         service_account_file, scopes=scopes
     )
     return build(api_name, api_version, credentials=credentials)
+
+
+# --- CLOUD RUN JOBS ---
+
+_CLOUD_RUN_JOBS_API = (
+    "https://run.googleapis.com/v2/projects/{project}/locations/{region}"
+    "/jobs/{job}:run"
+)
+
+
+def trigger_cloud_run_job(project: str, region: str, job_name: str) -> str:
+    """Trigger a Cloud Run Job via the Cloud Run Admin API.
+
+    Uses Application Default Credentials — works in Cloud Run when the
+    runtime service account has `roles/run.developer` (or a narrower
+    role with `run.executions.create`).
+
+    Returns the execution name (short form) on success. Raises
+    `requests.HTTPError` on non-2xx and `google.auth.exceptions.GoogleAuthError`
+    if credentials can't be obtained.
+    """
+    credentials, _ = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    credentials.refresh(google.auth.transport.requests.Request())
+    url = _CLOUD_RUN_JOBS_API.format(project=project, region=region, job=job_name)
+    resp = http_requests.post(
+        url,
+        headers={"Authorization": f"Bearer {credentials.token}"},
+        json={},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    execution_name = resp.json().get("name", "").split("/")[-1]
+    logger.info(
+        "Cloud Run Job triggered.",
+        extra={"job": job_name, "execution": execution_name},
+    )
+    return execution_name
 
 
 # --- GOOGLE DRIVE ---

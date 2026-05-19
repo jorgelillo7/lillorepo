@@ -215,7 +215,7 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }} \
-            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest"
 
   # -------------------------------------------------------
   # 2c. Build and deploy bot Cloud Run Service

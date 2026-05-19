@@ -24,6 +24,18 @@ GDRIVE_FOLDER_ID = _BIWENGER_CFG.get("gdrive_folder_id") or os.getenv(
     "GDRIVE_FOLDER_ID"
 )
 
+# --- TELEGRAM (notificación al acabar) ---
+# Both keys live in TELEGRAM_BOT_CONFIG_JSON which we bind to the job in CI.
+# If neither is set (e.g. local dev without secret), the scraper still runs;
+# the notification just gets skipped.
+_TELEGRAM_CFG = load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
+TELEGRAM_BOT_TOKEN = (
+    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+).strip()
+TELEGRAM_CHAT_ID = (
+    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
+).strip()
+
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 # LEAGUE_ID re-exported from core.constants at the top of the file.
 SCOPES = ["https://www.googleapis.com/auth/drive"]

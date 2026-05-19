@@ -20,6 +20,10 @@ COMMANDS = [
         "command": "recomendar",
         "description": "Qué fichar si me clausulan (top 3 por posición)",
     },
+    {
+        "command": "scrapper",
+        "description": "Lanza el scraper a demanda (te avisa al acabar)",
+    },
     {"command": "version", "description": "Versión desplegada del bot y de la API"},
     {"command": "help", "description": "Muestra todos los comandos disponibles"},
 ]

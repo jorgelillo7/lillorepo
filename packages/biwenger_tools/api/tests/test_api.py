@@ -52,6 +52,39 @@ def test_version_tolerates_missing_metadata(client):
     assert body["commit"] == "unknown"
 
 
+# --- /scraper/trigger ---
+
+
+def test_scraper_trigger_queues_job(client):
+    fake = {"queued": True, "execution": "abc-123", "job": "biwenger-scraper-data"}
+    with patch(
+        "packages.biwenger_tools.api.app.scraper.run_trigger_scraper",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/scraper/trigger")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["queued"] is True
+    assert body["execution"] == "abc-123"
+
+
+def test_scraper_trigger_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.scraper.run_trigger_scraper",
+        side_effect=RuntimeError("perm denied"),
+    ):
+        resp = client.post("/scraper/trigger")
+    assert resp.status_code == 500
+    assert "perm denied" in resp.get_json()["error"]
+
+
+def test_scraper_trigger_rejects_get(client):
+    resp = client.get("/scraper/trigger")
+    assert resp.status_code == 405
+
+
 # --- /digests/daily ---
 
 
