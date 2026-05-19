@@ -14,7 +14,7 @@ are already taken.
   - `chucknorris-bot` — unchanged ✅
   - `biwenger-scraper-data` (Job, weekly Sun 22:00) ✅
 - **Deleted**: `biwenger-teams-analyzer` Job. Its modes are now HTTP endpoints on `biwenger-api`.
-- **Cloud Scheduler `biwenger-daily-digest-trigger`**: points at `biwenger-api/digests/daily` (daily 16:00 Madrid). Renamed from `biwenger-teams-analyzer-trigger` on 2026-05-18.
+- **Cloud Scheduler `biwenger-daily-digest-trigger`**: points at `biwenger-api/digests/daily` (daily 09:00 Madrid, was 16:00 — moved on 2026-05-19 so the user sees the digest in the morning). Renamed from `biwenger-teams-analyzer-trigger` on 2026-05-18.
 - **JP API**: alive, token unchanged. Read from `BIWENGER_CREDENTIALS_JSON.jp_auth_token`.
 - **Python**: 3.13.
 - **`python-base` image**: 275 MB (inside the 500 MB Artifact Registry free tier).

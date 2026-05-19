@@ -12,7 +12,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
 | Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → CSV → Google Drive |
 | Cloud Scheduler | `biwenger-scraper-data-scheduler-trigger` (`europe-west1`) | Triggers scraper job (cron weekly Sun 22:00) |
-| Cloud Scheduler | `biwenger-daily-digest-trigger` (`europe-west1`) | Triggers `biwenger-api/digests/daily` (daily 16:00 Madrid) |
+| Cloud Scheduler | `biwenger-daily-digest-trigger` (`europe-west1`) | Triggers `biwenger-api/digests/daily` (daily 09:00 Madrid) |
 | Secret Manager | 4 secrets (see below) | Credentials and bot tokens |
 | Artifact Registry | `biwenger-docker` | Docker images for all Cloud Run services/jobs |
 | Cloud Logging | — | Automatic, structured logs via `get_logger()` |
