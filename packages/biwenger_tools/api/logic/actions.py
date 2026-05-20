@@ -236,13 +236,23 @@ def run_auto_pick_lineup() -> dict:
         r["bw_id"] for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
     ]
     reserves_ids = [r["bw_id"] if r else None for r in result["reserves"]]
+    captain = result.get("captain")
+    captain_id = captain["bw_id"] if captain else None
+    if captain is None:
+        # No starter clears Biwenger's 3M cap on captain MV. Send the lineup
+        # anyway with no captain — Biwenger accepts `captain=0` and applies
+        # the rest; better than skipping the whole PUT.
+        logger.warning(
+            "No eligible captain under Biwenger's MV cap — applying without one.",
+            extra={"formation": result["formation"], "total_sf": result["total_sf"]},
+        )
     try:
         biwenger.set_lineup(
             config.LINEUP_URL,
             result["formation"],
             starters_ids,
             reserves_ids,
-            result["captain"]["bw_id"],
+            captain_id,
         )
     except requests.RequestException as exc:
         # Biwenger PUT retries internally on transient failures. If we land

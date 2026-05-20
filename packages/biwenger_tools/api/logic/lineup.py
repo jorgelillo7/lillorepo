@@ -32,7 +32,10 @@ FORMATIONS = [
 # Position IDs as Biwenger reports them.
 GK, DEF, MID, FWD = 1, 2, 3, 4
 
-# Biwenger refuses to set a captain whose market value is ≥ 3M.
+# Biwenger refuses (HTTP 403, "Captain over max MV") any captain whose
+# per-league live market value is ≥ 3M. Rows fed into the picker carry the
+# live MV (see `build_squad_rows`, which pulls `owner.price` from the
+# user's squad endpoint), so the cap can be applied exactly — no margin.
 _CAPTAIN_MAX_PRICE = 3_000_000
 
 # Score we attribute to a player JP has explicitly marked as not in the lineup.
@@ -107,7 +110,8 @@ def format_lineup_message(result: dict) -> str:
     formation = result["formation"]
     starters = result["starters"]
     reserves = result["reserves"]
-    captain = result["captain"]
+    captain = result.get("captain")
+    captain_bw_id = captain["bw_id"] if captain else None
     total_sf = result["total_sf"]
 
     pos_name = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
@@ -118,8 +122,14 @@ def format_lineup_message(result: dict) -> str:
         group.sort(key=lambda rp: _sf(rp[0]), reverse=True)
         for row, _ in group:
             sf = _sf(row)
-            cap = " ©" if row["bw_id"] == captain["bw_id"] else ""
+            cap = " ©" if captain_bw_id and row["bw_id"] == captain_bw_id else ""
             lines.append(f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}")
+
+    if captain is None:
+        lines.append(
+            "\n⚠️ <b>Sin capitán</b>: ningún titular cabe bajo el tope de 3M de MV. "
+            "Asigna capitán manualmente en la app."
+        )
 
     filled = [(pos_name[pos], r) for pos, r in zip((GK, DEF, MID, FWD), reserves) if r]
     if filled:
@@ -367,26 +377,18 @@ def _pick_reserves(available: list, starter_ids: set) -> list:
     return reserves
 
 
-def _pick_captain(starters: list) -> dict:
-    """Captain must have price strictly < 3M (Biwenger API hard limit).
+def _pick_captain(starters: list) -> dict | None:
+    """Pick the highest-SF starter strictly below the 3M MV cap, or `None`.
 
-    Among eligible players, pick the highest SF (all cheap players double
-    their score as captain, so relative SF ranking is the ordering criterion).
+    Biwenger rejects any captain whose live per-league MV is ≥ 3M. The
+    `price` on the row is the live MV (sourced from `owner.price` in the
+    squad endpoint, see `build_squad_rows`), so the cap is applied exactly.
 
-    If price is 0 (unknown / not set in API), treat as unknown and exclude —
-    a 0-price player could be any value according to the API.
-
-    If no player has a known price < 3M, fall back to the cheapest player
-    with a known price (price > 0) to minimise the risk of an API rejection.
+    A `price` of 0 means "unknown" and is excluded — gambling a 403 on a
+    player whose MV could be anything is worse than returning `None` and
+    letting the caller apply the lineup without a captain.
     """
-    known_cheap = [r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE]
-    if known_cheap:
-        return max(known_cheap, key=_sf)
-
-    # No player with a known cheap price — pick the cheapest non-zero-price player
-    with_price = [r for r in starters if r.get("price", 0) > 0]
-    if with_price:
-        return min(with_price, key=lambda r: r.get("price", 0))
-
-    # All prices unknown — fall back to best SF
-    return max(starters, key=_sf)
+    eligible = [r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE]
+    if not eligible:
+        return None
+    return max(eligible, key=_sf)
