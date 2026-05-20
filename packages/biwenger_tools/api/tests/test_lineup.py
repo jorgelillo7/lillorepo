@@ -1,10 +1,10 @@
-"""Tests for `_pick_captain`, `format_lineup_message`, and the live-MV
-override in `build_squad_rows`.
+"""Tests for `_pick_captain`, `format_lineup_message`, and the cf-base
+price kept by `build_squad_rows`.
 
-`_pick_captain` operates on rows whose `price` is already the per-league
-live market value (see `build_squad_rows`), so the 3M cap is exact — no
-margin needed. A row with `price=0` ("unknown") is excluded; the caller
-applies the lineup without a captain when nobody qualifies.
+`_pick_captain` gates on `row["price"]`, which is the cf.biwenger.com base
+price — the same value Biwenger's server uses for its `Captain over max MV`
+check. A row with `price=0` ("unknown") is excluded; the caller applies the
+lineup without a captain when nobody qualifies.
 """
 
 from packages.biwenger_tools.api.logic.lineup import (
@@ -102,34 +102,37 @@ def test_format_lineup_message_renders_no_captain_warning():
     assert "tope de 3M" in msg
 
 
-# --- build_squad_rows: live-MV override ----------------------------------
+# --- build_squad_rows: keeps cf-base price -------------------------------
 
 
-def test_build_squad_rows_uses_live_mv_from_owner():
-    """The squad row's `price` must come from `owner.price` (the per-league
-    live MV) when present, not from the cf-base value — Biwenger's caps
-    evaluate against the live MV and cf-base can drift wildly (observed
-    +56% on a real player)."""
+def test_build_squad_rows_keeps_cf_base_price_ignoring_owner():
+    """`row["price"]` must stay as the cf.biwenger.com base price — that is
+    what Biwenger's server-side captain cap evaluates against.
+
+    Regression for Pablo Martínez (player 4245, 2026-05-20): owner.price
+    1.6M, cf-base 3.16M. We previously overrode `row["price"]` with
+    owner.price, picked him as captain (eligible at 1.6M < 3M), and the
+    server rejected with `Captain over max MV: 3160000 > 3000000`."""
     biwenger_players = {
-        42: {
-            "id": 42,
-            "name": "Test",
-            "position": 4,
+        4245: {
+            "id": 4245,
+            "name": "Pablo Martínez",
+            "position": 3,
             "altPositions": [],
-            "price": 9_230_000,
+            "price": 3_160_000,
         },
     }
-    squad = [{"id": 42, "owner": {"price": 14_425_012}}]
+    squad = [{"id": 4245, "owner": {"price": 1_600_000}}]
     rows = build_squad_rows(
         squad, biwenger_players, jp_index={"by_name": {}, "by_slug": {}}
     )
     assert len(rows) == 1
-    assert rows[0]["price"] == 14_425_012
+    assert rows[0]["price"] == 3_160_000
 
 
-def test_build_squad_rows_falls_back_to_cf_price_without_owner():
-    """When the squad entry lacks an `owner` (older payloads, fixtures),
-    keep the cf-base price as before."""
+def test_build_squad_rows_keeps_cf_base_price_without_owner():
+    """When the squad entry lacks an `owner` block, `row["price"]` is still
+    the cf-base price."""
     biwenger_players = {
         7: {"id": 7, "name": "T", "position": 2, "altPositions": [], "price": 500_000},
     }

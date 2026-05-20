@@ -71,17 +71,16 @@ def build_squad_rows(
         if not bw_player:
             continue
         row = build_row(bw_player, jp_index)
-        # Override the competition-level `price` from cf.biwenger.com with
-        # the per-league live market value when the squad endpoint gives us
-        # one (`owner.price`). Biwenger's server-side checks (the 3M cap on
-        # captain MV, plus the maxBid math) evaluate against this live MV —
-        # and it drifts wildly from the cf-base price (observed +56% on a
-        # real player). Market/other flows that hit `build_row` directly
-        # without an `owner` block keep the cf-base price.
-        owner = player_data.get("owner") or {}
-        live_price = owner.get("price")
-        if live_price is not None:
-            row["price"] = int(live_price)
+        # `row["price"]` stays as the cf.biwenger.com base price.
+        # Empirically verified (player 4245, Pablo Martínez, 2026-05-20):
+        #   - owner.price (per-league live MV) = 1.6M
+        #   - cf.biwenger.com price (cf-base)  = 3.16M
+        # Biwenger's server rejected the lineup with "Captain over max MV:
+        # 3160000 > 3000000" — i.e. the captain cap is checked against the
+        # cf-base price, NOT the per-league live MV. `core/sdk/biwenger.py`
+        # confirms the same: the maxBid math also reads cf-base (via
+        # `all_players[id].price`). The per-league `owner.price` is only used
+        # for the clause block below.
         if include_clause:
             owner = player_data.get("owner") or {}
             locked_until = owner.get("clauseLockedUntil")
