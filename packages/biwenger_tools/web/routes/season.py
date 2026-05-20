@@ -10,7 +10,7 @@ from flask import Blueprint, Response, g, jsonify, render_template, request
 from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, services
+from packages.biwenger_tools.web import config, repository, services
 from packages.biwenger_tools.web.sanitize import safe_html
 
 logger = get_logger(__name__)
@@ -42,9 +42,172 @@ def _load_messages(filename: str) -> tuple[list, Optional[str]]:
     return messages, None
 
 
+# --- Firestore backend ----------------------------------------------------
+# These companions back the `DATA_BACKEND=firestore` branch. The CSV route
+# bodies below are left untouched so the existing tests keep passing; the
+# whole CSV path is removed once the migration flag is retired.
+
+
+def _firestore_messages_sanitized(season: str) -> list:
+    """Fetch league messages from Firestore with `contenido` sanitized.
+
+    Mirrors `_load_messages` — sanitization is a presentation concern, so it
+    happens on read regardless of which backend stored the HTML.
+    """
+    messages = repository.get_messages(season)
+    for m in messages:
+        m.contenido = str(safe_html(m.contenido))
+    return messages
+
+
+def _comunicados_firestore(season: str) -> str:
+    """Firestore-backed version of the comunicados route."""
+    error = None
+    paginated_messages: list = []
+    comunicados_only: list = []
+    page = 1
+    total_pages = 1
+    try:
+        all_messages = _firestore_messages_sanitized(season)
+        comunicados_only = [
+            m for m in all_messages if m.categoria.strip() == "comunicado"
+        ]
+        page = request.args.get("page", 1, type=int)
+        start = (page - 1) * config.MESSAGES_PER_PAGE
+        paginated_messages = comunicados_only[start : start + config.MESSAGES_PER_PAGE]
+        total_pages = max(
+            1,
+            (len(comunicados_only) + config.MESSAGES_PER_PAGE - 1)
+            // config.MESSAGES_PER_PAGE,
+        )
+    except Exception:
+        error = f"Ocurrió un error al cargar los comunicados de la temporada {season}."
+        logger.exception(
+            "Error loading comunicados from Firestore.", extra={"season": season}
+        )
+    return render_template(
+        "index.html",
+        messages=paginated_messages,
+        all_comunicados=comunicados_only,
+        error=error,
+        active_page="comunicados",
+        current_page=page,
+        total_pages=total_pages,
+    )
+
+
+def _salseo_firestore(season: str) -> str:
+    """Firestore-backed version of the salseo route."""
+    error = None
+    clausulazos_error = None
+    datos_curiosos: list = []
+    cronicas: list = []
+    clausulazos: list = []
+    tabla_justicia: list = []
+    try:
+        all_messages = _firestore_messages_sanitized(season)
+        datos_curiosos = [m for m in all_messages if m.categoria.strip() == "dato"]
+        cronicas = [m for m in all_messages if m.categoria.strip() == "cronica"]
+    except Exception:
+        error = f"Ocurrió un error al cargar los datos de la temporada {season}."
+        logger.exception(
+            "Error loading salseo from Firestore.", extra={"season": season}
+        )
+    try:
+        clausulazos = repository.get_clausulazos(season)
+        tabla_justicia = [asdict(e) for e in repository.get_tabla_justicia(season)]
+    except Exception:
+        clausulazos_error = "Error al cargar clausulazos."
+        logger.exception(
+            "Error loading clausulazos from Firestore.", extra={"season": season}
+        )
+    return render_template(
+        "salseo.html",
+        datos=datos_curiosos,
+        cronicas=cronicas,
+        clausulazos=clausulazos,
+        tabla_justicia=tabla_justicia,
+        clausulazos_error=clausulazos_error,
+        error=error,
+        active_page="salseo",
+    )
+
+
+def _participacion_firestore(season: str) -> str:
+    """Firestore-backed version of the participacion route."""
+    error = None
+    stats: list = []
+    try:
+        participations = repository.get_participaciones(season)
+        stats = [
+            {
+                "autor": p.autor,
+                "comunicados": len(p.comunicados),
+                "datos": len(p.datos),
+                "cesiones": len(p.cesiones),
+                "cronicas": len(p.cronicas),
+                "total": p.total,
+            }
+            for p in participations
+        ]
+        stats.sort(key=lambda item: item["total"], reverse=True)
+    except Exception:
+        error = (
+            f"Ocurrió un error al calcular las estadísticas de la temporada {season}."
+        )
+        logger.exception(
+            "Error loading participacion from Firestore.", extra={"season": season}
+        )
+    return render_template(
+        "participacion.html",
+        stats=stats,
+        error=error,
+        active_page="participacion",
+    )
+
+
+def _mercado_firestore(season: str) -> str:
+    """Firestore-backed version of the mercado route."""
+    clausulazos: list = []
+    tabla_justicia: list = []
+    error = None
+    try:
+        clausulazos = repository.get_clausulazos(season)
+        tabla_justicia = [asdict(e) for e in repository.get_tabla_justicia(season)]
+    except Exception:
+        error = (
+            "Ocurrió un error al cargar los datos del mercado"
+            f" de la temporada {season}."
+        )
+        logger.exception(
+            "Error loading mercado from Firestore.", extra={"season": season}
+        )
+
+    clausulazos_summary = None
+    if clausulazos:
+        # repository.get_clausulazos returns most-recent-first.
+        clausulazos_summary = {
+            "total": len(clausulazos),
+            "total_eur": sum(c.precio for c in clausulazos),
+            "max_clausulazo": max(clausulazos, key=lambda c: c.precio),
+            "ultimo": clausulazos[0],
+        }
+
+    return render_template(
+        "mercado.html",
+        clausulazos=clausulazos,
+        clausulazos_summary=clausulazos_summary,
+        tabla_justicia=tabla_justicia,
+        error=error,
+        active_page="mercado",
+    )
+
+
 @bp.route("/<season>/")
 def comunicados(season: str) -> str:
     """Display paginated announcements for a given season."""
+    if config.DATA_BACKEND == "firestore":
+        return _comunicados_firestore(g.season)
     error = None
     paginated_messages: list = []
     comunicados_only: list = []
@@ -89,6 +252,8 @@ def comunicados(season: str) -> str:
 @bp.route("/<season>/salseo")
 def salseo(season: str) -> str:
     """Display various categories of content for a given season."""
+    if config.DATA_BACKEND == "firestore":
+        return _salseo_firestore(g.season)
     error = None
     datos_curiosos: list = []
     cronicas: list = []
@@ -151,6 +316,8 @@ def salseo(season: str) -> str:
 @bp.route("/<season>/participacion")
 def participacion(season: str) -> str:
     """Display participation statistics for a given season."""
+    if config.DATA_BACKEND == "firestore":
+        return _participacion_firestore(g.season)
     error = None
     stats: list = []
     try:
@@ -196,6 +363,8 @@ def participacion(season: str) -> str:
 @bp.route("/<season>/mercado")
 def mercado(season: str) -> str:
     """Display transfers and justice table for a given season."""
+    if config.DATA_BACKEND == "firestore":
+        return _mercado_firestore(g.season)
     clausulazos: list = []
     tabla_justicia: list = []
     error = None

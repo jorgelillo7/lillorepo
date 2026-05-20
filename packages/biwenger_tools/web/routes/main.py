@@ -7,7 +7,7 @@ from flask import Blueprint, Response, g, jsonify, redirect, render_template, ur
 
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, services
+from packages.biwenger_tools.web import config, repository, services
 
 logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
@@ -32,9 +32,50 @@ def home() -> Response:
     return redirect(url_for("season.comunicados", season=g.season))
 
 
+def _palmares_firestore() -> str:
+    """Firestore-backed version of the palmares route.
+
+    Reshapes each `Palmares` document into the dict the template expects:
+    direct keys for the podium/season data and an `otros` list for the
+    "les toca pagar a" block (multas + farolillo).
+    """
+    error = None
+    sorted_seasons: list = []
+    try:
+        seasons_data: dict = {}
+        for p in repository.get_palmares():
+            otros = [{"tipo": "multa", "valor": m} for m in p.multas]
+            if p.farolillo:
+                otros.append({"tipo": "farolillo", "valor": p.farolillo})
+            seasons_data[p.temporada] = {
+                "campeon": p.campeon,
+                "subcampeon": p.subcampeon,
+                "tercero": p.tercero,
+                "puntuacion": p.puntuacion,
+                "record_puntos": p.record_puntos,
+                "jornadas_ganadas": p.jornadas_ganadas,
+                "otros": otros,
+            }
+        sorted_seasons = sorted(
+            seasons_data.items(), key=lambda item: item[0], reverse=True
+        )
+    except Exception:
+        error = "Ocurrió un error al cargar el palmarés."
+        logger.exception("Error loading palmares from Firestore.")
+
+    return render_template(
+        "palmares.html",
+        seasons=sorted_seasons,
+        error=error,
+        active_page="palmares",
+    )
+
+
 @bp.route("/palmares")
 def palmares() -> str:
     """Display historical records and awards."""
+    if config.DATA_BACKEND == "firestore":
+        return _palmares_firestore()
     seasons: dict = defaultdict(lambda: defaultdict(list))
     error = None
     sorted_seasons: list = []
