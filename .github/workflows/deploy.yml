@@ -1,5 +1,9 @@
 name: Deploy to Cloud Run
 
+# 2026-05-20: nudge — the merge of PR #72 (the /alinear captain-MV fix)
+# updated master HEAD but GH Actions never received the push event, so the
+# deploy never ran. This single-line touch re-triggers the workflow.
+
 on:
   push:
     branches: [master]
