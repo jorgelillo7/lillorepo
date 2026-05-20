@@ -1,5 +1,13 @@
 name: Deploy to Cloud Run
 
+# Triggers:
+# - push to master: auto-deploys modules whose code changed (via paths-filter).
+# - workflow_dispatch: manual trigger to redeploy when a push event was missed
+#   (e.g. PR #72 merged but GH never delivered the push event, so the api
+#   deploy never ran — see PR #73 nudge attempt that also failed because the
+#   per-module paths-filter only diffs the nudge commit, not the missed one).
+#   Manual runs deploy every module by default; toggle inputs to scope.
+
 on:
   push:
     branches: [master]
@@ -12,6 +20,28 @@ on:
       - "packages/chucknorris_bot/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: "Deploy biwenger-api"
+        type: boolean
+        default: true
+      deploy_web:
+        description: "Deploy web app"
+        type: boolean
+        default: true
+      deploy_bot:
+        description: "Deploy biwenger bot"
+        type: boolean
+        default: true
+      deploy_scraper:
+        description: "Deploy scraper job"
+        type: boolean
+        default: true
+      deploy_chucknorris_bot:
+        description: "Deploy Chuck Norris bot"
+        type: boolean
+        default: true
 
 env:
   REGION: europe-southwest1
@@ -125,7 +155,9 @@ jobs:
   deploy-web:
     name: Deploy web app
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.web == 'true'
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.web == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_web)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -181,7 +213,9 @@ jobs:
   deploy-scraper:
     name: Deploy scraper job
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.scraper == 'true'
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.scraper == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_scraper)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -223,7 +257,9 @@ jobs:
   deploy-bot:
     name: Deploy bot service
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.bot == 'true'
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.bot == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_bot)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -282,7 +318,9 @@ jobs:
   deploy-api:
     name: Deploy biwenger API service
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.api == 'true'
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.api == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_api)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -331,7 +369,9 @@ jobs:
   deploy-chucknorris-bot:
     name: Deploy Chuck Norris bot service
     needs: [detect-changes, test]
-    if: needs.detect-changes.outputs.chucknorris_bot == 'true'
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.chucknorris_bot == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_chucknorris_bot)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

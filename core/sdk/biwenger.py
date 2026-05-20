@@ -308,9 +308,14 @@ class BiwengerClient:
         formation: str,
         players_id: list,
         reserves_id: list,
-        captain: int,
+        captain: Optional[int],
     ) -> dict:
         """Sets the lineup via PUT. Returns the API response dict.
+
+        `captain=None` (or 0) tells Biwenger to apply the lineup without a
+        captain — used when no starter clears the 3M MV cap. Internally we
+        send `0`, which matches the "no captain selected" convention the
+        Biwenger payload accepts.
 
         Retries the PUT on transient network errors (Connection reset, read
         timeout, etc.) with the backoff schedule in `_LINEUP_RETRY_BACKOFFS`.
@@ -322,7 +327,7 @@ class BiwengerClient:
                 "type": formation,
                 "playersID": players_id,
                 "reservesID": reserves_id,
-                "captain": captain,
+                "captain": captain if captain else 0,
             }
         }
         logger.info(
