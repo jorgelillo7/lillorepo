@@ -32,10 +32,12 @@ FORMATIONS = [
 # Position IDs as Biwenger reports them.
 GK, DEF, MID, FWD = 1, 2, 3, 4
 
-# Biwenger refuses (HTTP 403, "Captain over max MV") any captain whose
-# per-league live market value is ≥ 3M. Rows fed into the picker carry the
-# live MV (see `build_squad_rows`, which pulls `owner.price` from the
-# user's squad endpoint), so the cap can be applied exactly — no margin.
+# Biwenger refuses (HTTP 403, "Captain over max MV: <X> > 3000000") any
+# captain whose cf-base price is ≥ 3M. The check is against the
+# competition-level `price` from cf.biwenger.com — NOT the per-league live
+# market value (`owner.price`), which can be much lower (Pablo Martínez:
+# owner.price 1.6M, cf-base 3.16M; server rejected when we picked him).
+# `row["price"]` is the cf-base value, so the cap applies exactly.
 _CAPTAIN_MAX_PRICE = 3_000_000
 
 # Score we attribute to a player JP has explicitly marked as not in the lineup.
@@ -380,12 +382,12 @@ def _pick_reserves(available: list, starter_ids: set) -> list:
 def _pick_captain(starters: list) -> dict | None:
     """Pick the highest-SF starter strictly below the 3M MV cap, or `None`.
 
-    Biwenger rejects any captain whose live per-league MV is ≥ 3M. The
-    `price` on the row is the live MV (sourced from `owner.price` in the
-    squad endpoint, see `build_squad_rows`), so the cap is applied exactly.
+    Biwenger rejects any captain whose cf-base price is ≥ 3M. The `price`
+    on the row is the cf-base value (from cf.biwenger.com via
+    `build_squad_rows` → `build_row`), so the cap is applied exactly.
 
     A `price` of 0 means "unknown" and is excluded — gambling a 403 on a
-    player whose MV could be anything is worse than returning `None` and
+    player whose price could be anything is worse than returning `None` and
     letting the caller apply the lineup without a captain.
     """
     eligible = [r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE]
