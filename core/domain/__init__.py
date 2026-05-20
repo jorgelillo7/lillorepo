@@ -1,3 +1,9 @@
-from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
+from core.domain.models import (
+    Clausulazo,
+    JusticeEntry,
+    LeagueMessage,
+    Palmares,
+    Participation,
+)
 
-__all__ = ["LeagueMessage", "Participation", "Clausulazo", "JusticeEntry"]
+__all__ = ["LeagueMessage", "Participation", "Clausulazo", "JusticeEntry", "Palmares"]

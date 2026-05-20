@@ -67,6 +67,16 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "firestore",
+    srcs = ["sdk/firestore.py"],
+    deps = [
+        ":_init",
+        "@pypi//google_cloud_firestore",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # ------------------------------------------------------------------
 # Umbrella target — backward compat for existing //core references
 # ------------------------------------------------------------------
@@ -74,6 +84,7 @@ py_library(
     name = "core",
     deps = [
         ":biwenger",
+        ":firestore",
         ":gcp",
         ":jp",
         ":telegram",
