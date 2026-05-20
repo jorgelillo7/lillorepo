@@ -46,6 +46,8 @@ def mock_external_deps():
     ) as mock_download_csv, patch(
         "packages.biwenger_tools.scraper_job.main.upload_csv_to_drive"
     ) as mock_upload_csv, patch(
+        "packages.biwenger_tools.scraper_job.main.firestore"
+    ) as mock_firestore, patch(
         "packages.biwenger_tools.scraper_job.main.os.path.exists",
         return_value=True,
     ):
@@ -55,12 +57,17 @@ def mock_external_deps():
         mock_biwenger_instance.get_all_players_data_map.return_value = {}
         mock_biwenger_instance.get_all_clausulazos.return_value = {"data": []}
 
+        # Firestore helpers return ints; tests inspect the call sites, not values.
+        mock_firestore.delete_collection.return_value = 0
+        mock_firestore.batch_write.side_effect = lambda _coll, pairs: len(pairs)
+
         yield {
             "gservice": mock_gservice,
             "biwenger": mock_biwenger_instance,
             "find_file": mock_find_file,
             "download_csv": mock_download_csv,
             "upload_csv": mock_upload_csv,
+            "firestore": mock_firestore,
         }
 
 
@@ -95,6 +102,25 @@ def test_main_with_new_messages(mock_external_deps):
     call_args = mock_external_deps["upload_csv"].call_args_list[0]
     uploaded_content = call_args[0][3]
     assert "Un nuevo comunicado" in uploaded_content
+
+    # Dual-write: same 4 collections also land in Firestore.
+    firestore_collections = [
+        call.args[0]
+        for call in mock_external_deps["firestore"].batch_write.call_args_list
+    ]
+    assert firestore_collections == [
+        "comunicados/25-26/messages",
+        "participacion/25-26/authors",
+        "clausulazos/25-26/transfers",
+        "tabla_justicia/25-26/teams",
+    ]
+    # Firestore wipe-then-write contract: every batch_write is paired with
+    # a delete_collection on the same collection, in the same order.
+    deleted_collections = [
+        call.args[0]
+        for call in mock_external_deps["firestore"].delete_collection.call_args_list
+    ]
+    assert deleted_collections == firestore_collections
 
 
 def test_main_no_new_messages(mock_external_deps):
@@ -133,6 +159,17 @@ def test_main_no_new_messages(mock_external_deps):
     ]
     assert any("clausulazos" in name for name in uploaded_names)
     assert any("tabla_justicia" in name for name in uploaded_names)
+
+    # Same parity in Firestore: only clausulazos + tabla_justicia get
+    # rewritten when there are no new messages.
+    firestore_collections = [
+        call.args[0]
+        for call in mock_external_deps["firestore"].batch_write.call_args_list
+    ]
+    assert firestore_collections == [
+        "clausulazos/25-26/transfers",
+        "tabla_justicia/25-26/teams",
+    ]
 
 
 # --- Telegram notify on completion ---
