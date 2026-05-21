@@ -14,6 +14,7 @@ on the JS side after a `{{ ... | tojson }}`.
 """
 
 import bleach
+from bs4 import BeautifulSoup
 from markupsafe import Markup
 
 # Tags we accept from Biwenger announcements. Kept conservative:
@@ -67,3 +68,18 @@ def html_to_plain_text(html: str | None) -> str:
     template path and the `innerHTML` JS path safe.
     """
     return str(safe_html(html))
+
+
+def to_text(html: str | None) -> str:
+    """Return ``html`` stripped of every tag, preserving line breaks.
+
+    Used by the search-data endpoint to ship a slim, format-free payload
+    to the client. ``contenido`` from Biwenger can carry styled HTML
+    (~50% of the search payload is tags + attributes); collapsing it to
+    plain text with `\\n` line breaks roughly halves the bytes on the
+    wire. Safe for `textContent` (the search card renders with
+    `whitespace-pre-wrap` so the line breaks survive).
+    """
+    if not html:
+        return ""
+    return BeautifulSoup(html, "html.parser").get_text(separator="\n", strip=True)
