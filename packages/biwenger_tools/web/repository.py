@@ -15,9 +15,14 @@ layout written by ``scripts/backfill_firestore.py`` and the scraper:
     clausulazos/{season}/transfers/{id}
     tabla_justicia/{season}/teams/{equipo}
     palmares/{temporada}
+
+The Firestore client calls live inline here — one query per function — so
+the path, the where clause, and the ordering are obvious at the call site.
 """
 
-from datetime import datetime
+from typing import Optional
+
+from google.cloud import firestore as gfs
 
 from core.domain.models import (
     Clausulazo,
@@ -25,57 +30,126 @@ from core.domain.models import (
     LeagueMessage,
     Palmares,
     Participation,
-    _parse_fecha,
 )
-from core.sdk import firestore
+from core.sdk.firestore import get_client
+
+# --- comunicados (messages) ----------------------------------------------
+# Subcollection: comunicados/{season}/messages
+# Composite index needed for the category-filtered + fecha-sorted reads:
+#   collection group "messages", fields (categoria ASC, fecha DESC).
+# Declared in firestore.indexes.json at the repo root.
 
 
-def _fecha_sort_key(fecha: str) -> datetime:
-    """Naive datetime sort key for a display date string.
+def get_messages_by_category(
+    season: str,
+    categoria: str,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> list[LeagueMessage]:
+    """Messages of one ``categoria`` for a season, newest first.
 
-    Returns ``datetime.min`` when the value is empty or unparseable, and
-    strips tzinfo so parsed and fallback values stay mutually comparable.
+    Server-side: filters by ``categoria``, orders by ``fecha`` DESC, and
+    applies ``limit``/``offset`` for paginated reads. ``offset`` still bills
+    skipped docs as reads (Firestore's offset is not free), so it's only
+    used by the comunicados page that exposes ``?page=N`` URLs — keep the
+    page size small to stay inside the free tier.
     """
-    parsed = _parse_fecha(fecha)
-    return parsed.replace(tzinfo=None) if parsed else datetime.min
+    ref = (
+        get_client()
+        .collection(f"comunicados/{season}/messages")
+        .where(filter=gfs.FieldFilter("categoria", "==", categoria))
+        .order_by("fecha", direction=gfs.Query.DESCENDING)
+    )
+    if limit is not None:
+        ref = ref.limit(limit)
+    if offset is not None:
+        ref = ref.offset(offset)
+    return [
+        LeagueMessage.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in ref.stream()
+    ]
 
 
-def get_messages(season: str) -> list[LeagueMessage]:
-    """All league messages for a season, most recent first.
+def count_messages_by_category(season: str, categoria: str) -> int:
+    """Total docs in ``comunicados/{season}/messages`` for one ``categoria``.
 
-    Firestore returns documents unordered; the scraper used to hand the web a
-    pre-sorted CSV, so we re-sort here to preserve that contract.
+    Uses Firestore's count aggregation — billed at a tiny fixed cost
+    regardless of result size, so the comunicados page can compute its
+    ``total_pages`` without pulling every doc.
     """
-    docs = firestore.list_documents(f"comunicados/{season}/messages")
-    messages = [LeagueMessage.from_firestore(doc_id, data) for doc_id, data in docs]
-    messages.sort(key=lambda m: _fecha_sort_key(m.fecha), reverse=True)
-    return messages
+    aggregation = (
+        get_client()
+        .collection(f"comunicados/{season}/messages")
+        .where(filter=gfs.FieldFilter("categoria", "==", categoria))
+        .count()
+        .get()
+    )
+    return int(aggregation[0][0].value)
+
+
+# --- participacion -------------------------------------------------------
 
 
 def get_participaciones(season: str) -> list[Participation]:
-    """Participation aggregates for a season (unordered — the route sorts)."""
-    docs = firestore.list_documents(f"participacion/{season}/authors")
-    return [Participation.from_firestore(doc_id, data) for doc_id, data in docs]
+    """Participation aggregates for a season, ordered by ``total`` DESC.
+
+    The collection is tiny (~7 docs, one per author) so ordering server-side
+    is mostly cosmetic — but it keeps the route free of Python sorting.
+    """
+    return [
+        Participation.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in (
+            get_client()
+            .collection(f"participacion/{season}/authors")
+            .order_by("total", direction=gfs.Query.DESCENDING)
+            .stream()
+        )
+    ]
+
+
+# --- clausulazos ---------------------------------------------------------
 
 
 def get_clausulazos(season: str) -> list[Clausulazo]:
-    """Release-clause transfers for a season, most recent first."""
-    docs = firestore.list_documents(f"clausulazos/{season}/transfers")
-    clausulazos = [Clausulazo.from_firestore(doc_id, data) for doc_id, data in docs]
-    clausulazos.sort(key=lambda c: _fecha_sort_key(c.fecha), reverse=True)
-    return clausulazos
+    """Release-clause transfers for a season, newest first."""
+    return [
+        Clausulazo.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in (
+            get_client()
+            .collection(f"clausulazos/{season}/transfers")
+            .order_by("fecha", direction=gfs.Query.DESCENDING)
+            .stream()
+        )
+    ]
+
+
+# --- tabla_justicia ------------------------------------------------------
 
 
 def get_tabla_justicia(season: str) -> list[JusticeEntry]:
-    """Justice table for a season, ordered by attacks made (descending) —
-    the same order the scraper wrote into the CSV."""
-    docs = firestore.list_documents(f"tabla_justicia/{season}/teams")
-    tabla = [JusticeEntry.from_firestore(doc_id, data) for doc_id, data in docs]
-    tabla.sort(key=lambda e: e.total_hechos, reverse=True)
-    return tabla
+    """Justice table for a season, ordered by attacks made (descending)."""
+    return [
+        JusticeEntry.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in (
+            get_client()
+            .collection(f"tabla_justicia/{season}/teams")
+            .order_by("total_hechos", direction=gfs.Query.DESCENDING)
+            .stream()
+        )
+    ]
+
+
+# --- palmares ------------------------------------------------------------
 
 
 def get_palmares() -> list[Palmares]:
-    """All historical honours (unordered — the route sorts by season)."""
-    docs = firestore.list_documents("palmares")
-    return [Palmares.from_firestore(doc_id, data) for doc_id, data in docs]
+    """All historical honours, ordered by season DESC (most recent first)."""
+    return [
+        Palmares.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in (
+            get_client()
+            .collection("palmares")
+            .order_by("__name__", direction=gfs.Query.DESCENDING)
+            .stream()
+        )
+    ]
