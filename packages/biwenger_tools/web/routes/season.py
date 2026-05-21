@@ -11,7 +11,7 @@ from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Particip
 from core.sdk.gcp import download_csv_as_dict, find_file_on_drive, get_sheets_data
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, repository, services
-from packages.biwenger_tools.web.sanitize import safe_html
+from packages.biwenger_tools.web.sanitize import safe_html, to_text
 
 logger = get_logger(__name__)
 bp = Blueprint("season", __name__)
@@ -279,10 +279,23 @@ def comunicados_search_data(season: str) -> Response:
     if config.DATA_BACKEND != "firestore":
         return jsonify([])
     try:
-        msgs = _sanitize_contenido(
-            repository.get_messages_by_category(g.season, "comunicado")
+        msgs = repository.get_messages_by_category(g.season, "comunicado")
+        # Plain text instead of HTML: ~50% less on the wire and search
+        # filters on text content anyway. The search card renders with
+        # `whitespace-pre-wrap` to keep the `\n` line breaks visible.
+        return jsonify(
+            [
+                {
+                    "id_hash": m.id_hash,
+                    "titulo": m.titulo,
+                    "autor": m.autor,
+                    "fecha": m.fecha,
+                    "categoria": m.categoria,
+                    "contenido": to_text(m.contenido),
+                }
+                for m in msgs
+            ]
         )
-        return jsonify([asdict(m) for m in msgs])
     except Exception:
         logger.exception(
             "Error loading comunicados search-data from Firestore.",

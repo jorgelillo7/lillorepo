@@ -109,17 +109,27 @@
         // Warm the cache on focus so the first keystroke has the data ready.
         searchInput.addEventListener('focus', ensureAllMessages, { once: true });
 
+        // `msg.contenido` arrives as plain text (server-side strip in
+        // /comunicados/search-data) — `whitespace-pre-wrap` preserves the
+        // line breaks. Title/autor/contenido all come from board posts so
+        // escape every interpolation to keep the search cards XSS-safe.
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : s;
+            return d.innerHTML;
+        }
+
         function createCardHtml(msg) {
             return `
             <article class="message-card card p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900">${msg.titulo}</h2>
-                        <p class="text-sm font-medium text-green-700 mt-1">por ${msg.autor}</p>
+                        <h2 class="text-2xl font-bold text-gray-900">${escapeHtml(msg.titulo)}</h2>
+                        <p class="text-sm font-medium text-green-700 mt-1">por ${escapeHtml(msg.autor)}</p>
                     </div>
-                    <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${msg.fecha}</span>
+                    <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${escapeHtml(msg.fecha)}</span>
                 </div>
-                <div class="prose max-w-none leading-relaxed">${msg.contenido}</div>
+                <div class="prose max-w-none leading-relaxed whitespace-pre-wrap">${escapeHtml(msg.contenido)}</div>
             </article>`;
         }
 
@@ -164,9 +174,8 @@
             await ensureAllMessages();
 
             filteredMessages = allMessages.filter(msg => {
-                const tmp = document.createElement('div');
-                tmp.innerHTML = msg.contenido;
-                return (msg.titulo + msg.autor + (tmp.textContent || '')).toLowerCase().includes(q);
+                // contenido is already plain text (search-data endpoint).
+                return (msg.titulo + msg.autor + (msg.contenido || '')).toLowerCase().includes(q);
             });
 
             noResultsDiv.classList.toggle('hidden', filteredMessages.length > 0);
