@@ -1,29 +1,29 @@
-# Buenas Prácticas en Python - Retrofit Team
+# Python Best Practices - Retrofit Team
 
-> Guía de estándares de desarrollo Python basada en PEP 8, PEP 20 y experiencia del equipo Retrofit
+> Python development standards guide based on PEP 8, PEP 20, and Retrofit team experience.
 
-**Actualizado:** Febrero 2026
-**Mantenedor:** Retrofit Chapter - MasOrange
-**Basado en:** Refactorización MOS MCP Server v1.4.0
+**Updated:** February 2026
+**Maintainer:** Retrofit Chapter - MasOrange
+**Based on:** MOS MCP Server v1.4.0 refactoring
 
 ---
 
-## 📋 Índice
+## 📋 Index
 
-1. [Los Mandamientos (PEP 20)](#los-mandamientos-pep-20)
-2. [Estructura de Proyectos](#estructura-de-proyectos)
-3. [Organización del Código](#organización-del-código)
-4. [Funciones vs Clases](#funciones-vs-clases)
-5. [Composición sobre Herencia](#composición-sobre-herencia)
-6. [Convenciones de Nombres](#convenciones-de-nombres)
-7. [Documentación](#documentación)
+1. [The Commandments (PEP 20)](#the-commandments-pep-20)
+2. [Project Structure](#project-structure)
+3. [Code Organization](#code-organization)
+4. [Functions vs Classes](#functions-vs-classes)
+5. [Composition over Inheritance](#composition-over-inheritance)
+6. [Naming Conventions](#naming-conventions)
+7. [Documentation](#documentation)
 8. [Testing](#testing)
-9. [Errores Comunes a Evitar](#errores-comunes-a-evitar)
-10. [Checklist de Code Review](#checklist-de-code-review)
+9. [Common Mistakes to Avoid](#common-mistakes-to-avoid)
+10. [Code Review Checklist](#code-review-checklist)
 
 ---
 
-## 🧘 Los Mandamientos (PEP 20)
+## 🧘 The Commandments (PEP 20)
 
 ### The Zen of Python
 
@@ -31,20 +31,20 @@
 import this
 ```
 
-### Principios Clave Aplicados en Retrofit
+### Key Principles Applied in Retrofit
 
 #### ✅ "Simple is better than complex"
 
-**❌ Evitar:**
+**❌ Avoid:**
 ```python
-# Herencia múltiple innecesaria
+# Unnecessary multiple inheritance
 class Client(LoginMixin, SearchMixin, ArticleMixin, HelpersMixin, Base):
-    pass  # ¿De dónde viene cada método?
+    pass  # Where does each method come from?
 ```
 
-**✅ Preferir:**
+**✅ Prefer:**
 ```python
-# Composición simple y explícita
+# Simple, explicit composition
 class Client:
     def __init__(self):
         self.session = Session()
@@ -56,17 +56,17 @@ class Client:
 
 #### ✅ "Flat is better than nested"
 
-**❌ Evitar:**
+**❌ Avoid:**
 ```python
 src/
 ├── core/
 │   ├── modules/
 │   │   ├── components/
 │   │   │   ├── handlers/
-│   │   │   │   └── login.py  # 4 niveles!
+│   │   │   │   └── login.py  # 4 levels deep!
 ```
 
-**✅ Preferir:**
+**✅ Prefer:**
 ```python
 src/
 ├── client/
@@ -76,24 +76,24 @@ src/
 │   └── api.py
 ```
 
-**Máximo 2-3 niveles de anidamiento**
+**Maximum 2-3 nesting levels.**
 
 #### ✅ "Explicit is better than implicit"
 
-**❌ Evitar:**
+**❌ Avoid:**
 ```python
-# Magia implícita
+# Implicit magic
 class Magic:
     def __getattr__(self, name):
-        return lambda: f"Called {name}"  # ¿Qué métodos existen?
+        return lambda: f"Called {name}"  # Which methods exist?
 
 magic = Magic()
-magic.anything()  # Funciona pero... ¿qué hace?
+magic.anything()  # Works but... what does it do?
 ```
 
-**✅ Preferir:**
+**✅ Prefer:**
 ```python
-# Métodos explícitos
+# Explicit methods
 class Client:
     async def login(self):
         """Login explicitly defined."""
@@ -106,42 +106,42 @@ class Client:
 
 #### ✅ "Readability counts"
 
-**Archivos de 50-200 líneas** son más legibles que 1 archivo de 800 líneas.
+**Files of 50-200 lines** are more readable than one 800-line file.
 
 ---
 
-## 📦 Estructura de Proyectos
+## 📦 Project Structure
 
-### Estructura Estándar Retrofit
+### Retrofit Standard Layout
 
 ```
 project/
 │
-├── README.md                  # Documentación principal
-├── pyproject.toml             # Configuración moderna (PEP 621)
-├── requirements.txt           # Dependencias
+├── README.md                  # Main documentation
+├── pyproject.toml             # Modern config (PEP 621)
+├── requirements.txt           # Dependencies
 ├── .gitignore
 │
 ├── src/
 │   ├── __init__.py
 │   │
-│   ├── exceptions.py          # Excepciones centralizadas
-│   ├── config.py              # Configuración
+│   ├── exceptions.py          # Centralised exceptions
+│   ├── config.py              # Configuration
 │   │
-│   ├── client/                # Módulo cliente
-│   │   ├── __init__.py        # Exporta clase principal
-│   │   ├── session.py         # Gestión de sesión
-│   │   ├── login.py           # Funciones de login
-│   │   ├── search.py          # Funciones de búsqueda
-│   │   └── helpers.py         # Funciones auxiliares puras
+│   ├── client/                # Client module
+│   │   ├── __init__.py        # Exports main class
+│   │   ├── session.py         # Session management
+│   │   ├── login.py           # Login functions
+│   │   ├── search.py          # Search functions
+│   │   └── helpers.py         # Pure helper functions
 │   │
-│   ├── handlers/              # Handlers de API/eventos
+│   ├── handlers/              # API/event handlers
 │   │   ├── __init__.py
-│   │   ├── base.py            # Handler base con lógica común
-│   │   ├── api.py             # Handlers de API
-│   │   └── events.py          # Handlers de eventos
+│   │   ├── base.py            # Base handler with shared logic
+│   │   ├── api.py             # API handlers
+│   │   └── events.py          # Event handlers
 │   │
-│   └── server.py              # Punto de entrada
+│   └── server.py              # Entry point
 │
 ├── tests/
 │   ├── __init__.py
@@ -154,17 +154,17 @@ project/
     └── architecture/
 ```
 
-### Principios de Organización
+### Organisation Principles
 
-1. **Un módulo = Una responsabilidad**
-   - `login.py` → Solo login
-   - `search.py` → Solo búsqueda
-   - `helpers.py` → Solo funciones auxiliares
+1. **One module = one responsibility**
+   - `login.py` → login only
+   - `search.py` → search only
+   - `helpers.py` → helper functions only
 
-2. **Máximo 200 líneas por archivo**
-   - Si crece más, dividir en submódulos
+2. **Maximum 200 lines per file**
+   - If it grows, split into submodules.
 
-3. **Imports explícitos en `__init__.py`**
+3. **Explicit imports in `__init__.py`**
    ```python
    # src/client/__init__.py
    from src.client.session import Session
@@ -175,32 +175,32 @@ project/
 
 ---
 
-## 🏗️ Organización del Código
+## 🏗️ Code Organization
 
-### Orden de Elementos en un Archivo
+### Order of Elements in a File
 
 ```python
 #!/usr/bin/env python3
-"""Module docstring - Qué hace este módulo."""
+"""Module docstring - what this module does."""
 
-# 1. Imports estándar
+# 1. Standard library imports
 import os
 import sys
 from pathlib import Path
 
-# 2. Imports de terceros
+# 2. Third-party imports
 import requests
 from playwright.async_api import async_playwright
 
-# 3. Imports locales
+# 3. Local imports
 from src.exceptions import CustomError
 from src.config import settings
 
-# 4. Constantes módulo
+# 4. Module-level constants
 DEFAULT_TIMEOUT = 30
 API_VERSION = "v1"
 
-# 5. Clases y funciones
+# 5. Classes and functions
 class MyClass:
     """Class docstring."""
     pass
@@ -209,27 +209,27 @@ def my_function():
     """Function docstring."""
     pass
 
-# 6. Script principal (si aplica)
+# 6. Main script (if applicable)
 if __name__ == "__main__":
     main()
 ```
 
-### Tamaño de Funciones
+### Function Size
 
-**Regla:** Una función = Una responsabilidad
+**Rule:** One function = one responsibility.
 
-**❌ Evitar funciones largas:**
+**❌ Avoid long functions:**
 ```python
 async def process_user(user_id):
-    # 150 líneas de código...
-    # Hace validación, búsqueda, procesamiento, logging, notificación...
+    # 150 lines of code...
+    # Does validation, lookup, processing, logging, notification...
     pass
 ```
 
-**✅ Dividir en funciones pequeñas:**
+**✅ Split into small functions:**
 ```python
 async def process_user(user_id):
-    """Procesa un usuario (orquestación)."""
+    """Process a user (orchestration)."""
     user = await fetch_user(user_id)
     validate_user(user)
     result = await apply_business_logic(user)
@@ -237,58 +237,58 @@ async def process_user(user_id):
     return result
 
 async def fetch_user(user_id):
-    """Obtiene datos del usuario."""
+    """Fetch user data."""
     pass
 
 def validate_user(user):
-    """Valida estructura del usuario."""
+    """Validate user structure."""
     pass
 
 async def apply_business_logic(user):
-    """Aplica lógica de negocio."""
+    """Apply business logic."""
     pass
 
 async def notify_result(result):
-    """Notifica el resultado."""
+    """Notify the result."""
     pass
 ```
 
 ---
 
-## 🔧 Funciones vs Clases
+## 🔧 Functions vs Classes
 
-### Cuándo Usar Funciones (Preferido)
+### When to Use Functions (Preferred)
 
-**✅ Usa funciones cuando:**
-- No hay estado que mantener
-- Es una transformación pura (input → output)
-- Se puede testear fácilmente
+**✅ Use functions when:**
+- There is no state to keep.
+- It's a pure transformation (input → output).
+- It's easy to test.
 
 ```python
-# ✅ BUENO: Función pura
+# ✅ GOOD: Pure function
 def extract_doc_id(text: str) -> str:
     """
-    Extrae Doc ID de un texto.
+    Extract Doc ID from a text.
 
-    Función pura: mismo input → mismo output.
-    Sin efectos secundarios.
+    Pure function: same input → same output.
+    No side effects.
     """
     import re
     match = re.search(r'\[ID\s+(\d+)\]', text)
     return match.group(1) if match else "unknown"
 ```
 
-### Cuándo Usar Clases
+### When to Use Classes
 
-**✅ Usa clases cuando:**
-- Necesitas mantener estado
-- Necesitas lifecycle (contexto `with`, `async with`)
-- Agrupas lógica relacionada con datos
+**✅ Use classes when:**
+- You need to keep state.
+- You need a lifecycle (`with`, `async with` contexts).
+- You group logic tightly related to data.
 
 ```python
-# ✅ BUENO: Clase con estado
+# ✅ GOOD: Stateful class
 class Session:
-    """Gestiona sesión de navegador."""
+    """Manages a browser session."""
 
     def __init__(self, headless: bool = True):
         self.headless = headless
@@ -303,118 +303,118 @@ class Session:
         await self.close()
 
     async def start(self):
-        """Inicia sesión."""
+        """Start the session."""
         self.browser = await launch_browser(self.headless)
         self.page = await self.browser.new_page()
 
     async def close(self):
-        """Cierra sesión."""
+        """Close the session."""
         if self.browser:
             await self.browser.close()
 ```
 
 ---
 
-## 🧩 Composición sobre Herencia
+## 🧩 Composition over Inheritance
 
-### ❌ Evitar: Herencia Múltiple
+### ❌ Avoid: Multiple Inheritance
 
 ```python
-# ❌ MAL: Herencia múltiple confusa
+# ❌ BAD: Confusing multiple inheritance
 class Client(LoginMixin, SearchMixin, ArticleMixin, Base):
-    """¿De dónde viene cada método? No es obvio."""
+    """Where does each method come from? Not obvious."""
     pass
 
 client = Client()
-client.login()  # ¿De qué clase viene?
+client.login()  # Which class does this come from?
 ```
 
-**Problemas:**
-- Método Resolution Order (MRO) complejo
-- Difícil de debuggear
-- Difícil de testear
+**Problems:**
+- Complex Method Resolution Order (MRO).
+- Hard to debug.
+- Hard to test.
 
-### ✅ Preferir: Composición
+### ✅ Prefer: Composition
 
 ```python
-# ✅ BUENO: Composición explícita
+# ✅ GOOD: Explicit composition
 class Client:
-    """Cliente con composición clara."""
+    """Client with clear composition."""
 
     def __init__(self):
         self.session = Session()
         self.auth = Auth()
 
     async def login(self, code=None):
-        """Delega explícitamente a módulo login."""
+        """Explicitly delegate to the login module."""
         return await login_module.login(self.session, self.auth, code)
 
     async def search(self, query):
-        """Delega explícitamente a módulo search."""
+        """Explicitly delegate to the search module."""
         return await search_module.search(self.session, query)
 ```
 
-**Ventajas:**
-- Explícito: se ve claramente de dónde viene cada cosa
-- Testeable: puedes mockear `session` y `auth`
-- Mantenible: cambios localizados
+**Advantages:**
+- Explicit: the origin of every call is obvious.
+- Testable: `session` and `auth` are easy to mock.
+- Maintainable: changes stay localised.
 
 ---
 
-## 📝 Convenciones de Nombres
+## 📝 Naming Conventions
 
 ### PEP 8 Naming Conventions
 
 ```python
-# Módulos y paquetes
+# Modules and packages
 my_module.py
 my_package/
 
-# Clases (PascalCase)
+# Classes (PascalCase)
 class MyClass:
     pass
 
-# Funciones y variables (snake_case)
+# Functions and variables (snake_case)
 def my_function():
     pass
 
 my_variable = 42
 
-# Constantes (UPPER_CASE)
+# Constants (UPPER_CASE)
 MAX_CONNECTIONS = 100
 API_TIMEOUT = 30
 
-# Métodos/funciones privadas (prefijo _)
+# Private methods/functions (_ prefix)
 def _internal_helper():
     pass
 
-# Métodos "muy privados" (prefijo __)
+# "Very private" methods (__ prefix)
 def __name_mangling():
     pass
 ```
 
-### Nombres Descriptivos
+### Descriptive Names
 
-**❌ Evitar:**
+**❌ Avoid:**
 ```python
 def proc(d):
     return d * 2
 ```
 
-**✅ Preferir:**
+**✅ Prefer:**
 ```python
 def calculate_double(value: float) -> float:
-    """Calcula el doble de un valor."""
+    """Calculate the double of a value."""
     return value * 2
 ```
 
 ---
 
-## 📚 Documentación
+## 📚 Documentation
 
 ### Docstrings (PEP 257)
 
-**Para módulos:**
+**For modules:**
 ```python
 """
 MOS Client - Functional approach.
@@ -424,7 +424,7 @@ No mixins, no multiple inheritance - just clean, explicit code.
 """
 ```
 
-**Para funciones:**
+**For functions:**
 ```python
 def extract_doc_id(text: str) -> str:
     """
@@ -447,7 +447,7 @@ def extract_doc_id(text: str) -> str:
     # Implementation...
 ```
 
-**Para clases:**
+**For classes:**
 ```python
 class MOSClient:
     """
@@ -465,7 +465,7 @@ class MOSClient:
 
 ### Type Hints (PEP 484)
 
-**✅ Usar type hints siempre:**
+**✅ Always use type hints:**
 ```python
 from typing import Optional, List, Dict
 
@@ -494,7 +494,7 @@ async def search(
 
 ## 🧪 Testing
 
-### Estructura de Tests
+### Test Structure
 
 ```python
 # tests/test_helpers.py
@@ -523,19 +523,19 @@ async def test_login_success(mock_session, mock_auth):
     assert result is True
 ```
 
-### Funciones Puras = Fáciles de Testear
+### Pure Functions = Easy to Test
 
-**Funciones puras** (sin estado, sin efectos secundarios) son **extremadamente fáciles de testear**:
+**Pure functions** (no state, no side effects) are **trivially testable**:
 
 ```python
-# ✅ Función pura - Test trivial
+# ✅ Pure function - trivial test
 def extract_doc_id(text: str) -> str:
-    """Función pura."""
+    """Pure function."""
     import re
     match = re.search(r'\[ID\s+(\d+)\]', text)
     return match.group(1) if match else "unknown"
 
-# Test: solo necesitas verificar input → output
+# Test: just verify input → output
 def test_extract_doc_id():
     assert extract_doc_id("[ID 123]") == "123"
     assert extract_doc_id("No ID") == "unknown"
@@ -543,71 +543,71 @@ def test_extract_doc_id():
 
 ---
 
-## ⚠️ Errores Comunes a Evitar
+## ⚠️ Common Mistakes to Avoid
 
-### 1. ❌ Código Muerto
+### 1. ❌ Dead Code
 
 ```python
-# ❌ MAL: Función que nunca se usa
-def list_service_requests():  # 199 líneas de código muerto
+# ❌ BAD: Function that is never called
+def list_service_requests():  # 199 lines of dead code
     pass
 
-# ❌ MAL: Test ejecutado al importar
+# ❌ BAD: Test executed on import
 if __name__ == "__main__":
-    asyncio.run(test())  # Se ejecuta al importar!
+    asyncio.run(test())  # Runs at import time!
 ```
 
-**✅ Solución:**
-- Revisar periódicamente código no usado
-- Eliminar sin miedo (está en git)
-- No dejar código comentado
+**✅ Fix:**
+- Review unused code periodically.
+- Delete without fear (it's in git).
+- Do not leave commented-out code.
 
-### 2. ❌ Archivos Demasiado Grandes
+### 2. ❌ Files That Are Too Big
 
 ```python
-# ❌ MAL: client.py con 793 líneas
+# ❌ BAD: client.py with 793 lines
 class MOSClient:
-    # 160 líneas de login
-    # 153 líneas de search
-    # 76 líneas de get_article
-    # 199 líneas de método no usado
+    # 160 lines of login
+    # 153 lines of search
+    # 76 lines of get_article
+    # 199 lines of an unused method
     pass
 ```
 
-**✅ Solución:**
-- Dividir en módulos de 50-200 líneas
-- Cada módulo = una responsabilidad
+**✅ Fix:**
+- Split into 50-200 line modules.
+- One module = one responsibility.
 
-### 3. ❌ Imports Circulares
+### 3. ❌ Circular Imports
 
 ```python
-# ❌ MAL: module_a.py
+# ❌ BAD: module_a.py
 from module_b import foo
 
-# ❌ MAL: module_b.py
+# ❌ BAD: module_b.py
 from module_a import bar  # Circular!
 ```
 
-**✅ Solución:**
-- Imports al final de la función (si es necesario)
-- Reorganizar módulos
-- Usar inyección de dependencias
+**✅ Fix:**
+- Import inside the function (if needed).
+- Reorganise modules.
+- Use dependency injection.
 
-### 4. ❌ Mutación de Argumentos
+### 4. ❌ Argument Mutation
 
 ```python
-# ❌ MAL: Mutación inesperada
+# ❌ BAD: Unexpected mutation
 def add_item(items_list=[]):
     items_list.append("new")
     return items_list
 
 result1 = add_item()  # ["new"]
-result2 = add_item()  # ["new", "new"] ¡Sorpresa!
+result2 = add_item()  # ["new", "new"] - surprise!
 ```
 
-**✅ Solución:**
+**✅ Fix:**
 ```python
-# ✅ BUENO: Valor por defecto inmutable
+# ✅ GOOD: Immutable default
 def add_item(items_list=None):
     if items_list is None:
         items_list = []
@@ -617,45 +617,45 @@ def add_item(items_list=None):
 
 ---
 
-## ✅ Checklist de Code Review
+## ✅ Code Review Checklist
 
-### Estructura
-- [ ] ¿Archivos < 200 líneas?
-- [ ] ¿Funciones < 50 líneas?
-- [ ] ¿Estructura de carpetas clara (max 2-3 niveles)?
-- [ ] ¿Cada módulo tiene una responsabilidad?
+### Structure
+- [ ] Are files < 200 lines?
+- [ ] Are functions < 50 lines?
+- [ ] Is the folder structure clear (max 2-3 levels)?
+- [ ] Does each module have a single responsibility?
 
-### Código
-- [ ] ¿Usa composición en lugar de herencia múltiple?
-- [ ] ¿Funciones puras donde es posible?
-- [ ] ¿Type hints en funciones públicas?
-- [ ] ¿Sin código muerto?
-- [ ] ¿Sin imports circulares?
+### Code
+- [ ] Does it favour composition over multiple inheritance?
+- [ ] Are functions pure where possible?
+- [ ] Type hints on public functions?
+- [ ] No dead code?
+- [ ] No circular imports?
 
-### Documentación
-- [ ] ¿Docstrings en funciones públicas?
-- [ ] ¿Docstring en módulo?
-- [ ] ¿Ejemplos en docstrings de funciones complejas?
-- [ ] ¿README actualizado?
+### Documentation
+- [ ] Docstrings on public functions?
+- [ ] Module-level docstring?
+- [ ] Examples in docstrings for complex functions?
+- [ ] README up to date?
 
 ### Testing
-- [ ] ¿Tests para funciones críticas?
-- [ ] ¿Tests para funciones puras?
-- [ ] ¿Nombres de tests descriptivos?
+- [ ] Tests for critical functions?
+- [ ] Tests for pure functions?
+- [ ] Descriptive test names?
 
 ### PEP Compliance
-- [ ] ¿Sigue PEP 8 (snake_case, etc.)?
-- [ ] ¿Sigue PEP 20 (simple, explícito, flat)?
-- [ ] ¿Imports ordenados correctamente?
+- [ ] Follows PEP 8 (snake_case, etc.)?
+- [ ] Follows PEP 20 (simple, explicit, flat)?
+- [ ] Imports ordered correctly?
 
 ### Performance
-- [ ] ¿Sin duplicación innecesaria?
-- [ ] ¿Operaciones costosas optimizadas?
-- [ ] ¿Usa generadores donde es apropiado?
+- [ ] No needless duplication?
+- [ ] Expensive operations optimised?
+- [ ] Uses generators where appropriate?
 
 ---
 
-## 📖 Referencias
+## 📖 References
 
 - [PEP 8 - Style Guide for Python Code](https://peps.python.org/pep-0008/)
 - [PEP 20 - The Zen of Python](https://peps.python.org/pep-0020/)
@@ -664,9 +664,9 @@ def add_item(items_list=None):
 
 ---
 
-**Nota:** Este documento es un *living document* y se actualiza con cada aprendizaje del equipo.
+**Note:** This is a living document, updated with every team learning.
 
-**Última refactorización:** MOS MCP Server v1.4.0 (Febrero 2026)
-- Eliminó 199 líneas de código muerto
-- Redujo archivo principal de 793 → 114 líneas
-- Aplicó enfoque funcional sobre herencia múltiple
+**Last refactor:** MOS MCP Server v1.4.0 (February 2026)
+- Removed 199 lines of dead code.
+- Cut main file from 793 → 114 lines.
+- Adopted functional composition over multiple inheritance.
