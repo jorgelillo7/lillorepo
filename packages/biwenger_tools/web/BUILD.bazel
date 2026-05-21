@@ -15,16 +15,11 @@ python_service(
         "CLOUD_RUN_REGION": "europe-southwest1",
         "LIGAS_ESPECIALES_SHEET_ID_25_26": "1ZaFZtKLFc0K4Ku099x3iV20OBkLZz9BEvojZpyOP0es",
         "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
-        "GDRIVE_FOLDER_ID": "1DEY5pzf0iyZi3uxAFsjnE0tgVf8YiYI7",
         # GOOGLE_APPLICATION_CREDENTIALS intentionally NOT set:
-        #   - Drive SDK gets its SA key path explicitly via `SERVICE_ACCOUNT_PATH`
-        #     in web/config.py → `/gdrive_sa/biwenger-tools-sa.json`
-        #     (mounted from Secret Manager in deploy.yml).
-        #   - Firestore SDK uses ADC (the Cloud Run compute SA), which has
-        #     Firestore access at project level.
-        # Setting GOOGLE_APPLICATION_CREDENTIALS to a path that only exists
-        # in the local image (where `secrets` are baked into the OCI tar)
-        # made the Firestore client try to load a non-existent file and
-        # crash every Firestore read.
+        # the Sheets client gets its SA file path explicitly via
+        # `SERVICE_ACCOUNT_PATH` (mounted at /gdrive_sa from Secret
+        # Manager in deploy.yml); Firestore uses ADC (the Cloud Run
+        # compute SA). Pointing GAC at a path that only exists in the
+        # local image used to crash every Firestore read in prod.
     },
 )

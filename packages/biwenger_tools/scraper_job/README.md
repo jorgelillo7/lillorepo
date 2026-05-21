@@ -1,58 +1,32 @@
 # 🤖 Biwenger Message Scraper
 
-Automated scraping job that extracts announcements (messages) from your Biwenger league and saves them as CSV files. The primary goal is building a data history that can be consumed by other tools.
+Cloud Run Job that extracts announcements from the Biwenger league board
+and writes them to Firestore. Builds the data history that the web app
+(and any future consumer) reads.
 
-Data is saved to CSV files and synced directly to a Google Drive folder for easy access.
+## 🚀 Key features
 
-## 🚀 Key Features
-
-* **Data extraction**: Automatically collects important messages from your Biwenger league feed.
-* **CSV storage**: Organises extracted data into a structured format.
-* **Google Drive sync**: Uploads generated CSV files to a specific folder in your Google Drive.
+* **Board extraction**: pulls every message from the league board on each run.
+* **Firestore-native storage**: writes to `comunicados/{season}/messages` and
+  derives `participacion`, `clausulazos`, `tabla_justicia` collections.
+* **Idempotent**: doc ids are deterministic content hashes; re-running the
+  scraper rewrites the same documents (no duplicates).
 
 ## 🗺️ Entry point
 
-`main.py` orchestrates the whole job: read existing CSVs from Drive → fetch the
-Biwenger board → diff new messages → write comunicados/participacion/clausulazos/
-tabla_justicia CSVs back to Drive. Pure-function processing lives in
-`logic/processing.py`.
+`main.py` orchestrates the whole job: read existing message ids from
+Firestore → fetch the Biwenger board → diff new messages → wipe + bulk
+write `comunicados`, `participacion`, `clausulazos`, `tabla_justicia`.
+Pure-function processing lives in `logic/processing.py`.
 
-## ⚙️ Configuration and Usage
+Schemas, indexes, and read costs are documented in `docs/firestore.md`.
 
-For detailed setup instructions, see the main operations document.
+## ⚙️ Configuration and usage
 
-* **Installation and dependencies**: See section **`1.2 Scraper Job`** in `operations.md`.
-* **Google API setup**: Follow the Google API credential setup steps.
-* **Running and deploying**: Local execution and GCP deployment commands are in `operations.md` **`2.2 Scraper Job`**.
-
----
-
-### **Google API Setup (First time only, if using OAuth)**
-
-If you want the script to create CSVs directly in your **personal Drive** automatically:
-
-* **Configure the Consent Screen:**
-
-  * Go to **Google Cloud Console** > **APIs & Services** > **OAuth consent screen**.
-  * Select **External**, fill in your app details, and add your email as a test user.
-
-* **Create Credentials:**
-
-  * In **APIs & Services** > **Credentials**, click **+ CREATE CREDENTIALS** > **OAuth client ID**.
-  * Select **Desktop application**.
-  * Download the JSON file and rename it to `client_secrets.json` in the scraper folder.
-
-* **Configure the Drive Folder:**
-
-  * Create a folder in your Google Drive for the CSV files.
-  * Copy the folder ID from the URL and paste it into the scraper's `.env` file.
-
-> ⚠️ Note: This flow lets the script write to your personal Drive, but **the OAuth token expires and refreshing it is cumbersome**. That is why we use a **Service Account** instead, which never expires.
-> ⚠️ Limitation: Since your account is not Google Workspace, the Service Account **cannot create files directly in your personal Drive**. To make it work, **you must manually create empty CSV files in the Drive folder before running the scraper**.
-
----
-
-## ⚠️ Important Notes
-
-* **First local run**: Requires manual browser authorisation to access Google Drive (only if using OAuth).
-* **Security**: Never commit the `biwenger-tools-sa.json` file to the repository.
+* **Installation and dependencies**: see section **`1.2 Scraper Job`** in
+  `docs/operations.md`.
+* **Local run + GCP deploy**: see **`2.2 Scraper Job`** in
+  `docs/operations.md`.
+* **Auth**: Application Default Credentials. In Cloud Run the compute SA
+  is picked up automatically; locally, run
+  `gcloud auth application-default login` once.

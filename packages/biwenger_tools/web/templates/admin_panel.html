@@ -55,52 +55,6 @@
         </div>
     </div>
 
-    <!-- Estado de los ficheros -->
-    <div class="card p-6 rounded-xl shadow-md">
-        <h3 class="font-header text-xl font-bold text-gray-800 mb-4">
-            Ficheros de datos — Temporada {{ season }}
-        </h3>
-
-        {% if error %}
-            <div class="bg-red-50 border border-red-200 text-red-700 text-sm p-4 rounded-lg">
-                {{ error }}
-            </div>
-        {% elif file_statuses %}
-            <div class="divide-y divide-gray-100">
-                {% for file in file_statuses %}
-                    {% if file.status != 'Encontrado' %}
-                        {% set indicator = 'bg-red-500' %}
-                        {% set label = 'No encontrado' %}
-                        {% set label_color = 'bg-red-100 text-red-700' %}
-                    {% elif file.is_stale %}
-                        {% set indicator = 'bg-yellow-400' %}
-                        {% set label = 'Desactualizado' %}
-                        {% set label_color = 'bg-yellow-100 text-yellow-700' %}
-                    {% else %}
-                        {% set indicator = 'bg-green-500' %}
-                        {% set label = 'OK' %}
-                        {% set label_color = 'bg-green-100 text-green-700' %}
-                    {% endif %}
-
-                    <div class="flex justify-between items-center py-3 gap-4">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <span class="flex-shrink-0 w-2 h-2 rounded-full {{ indicator }}"></span>
-                            <span class="text-sm font-medium text-gray-700 truncate">{{ file.name }}</span>
-                        </div>
-                        <div class="flex items-center gap-3 flex-shrink-0">
-                            <span class="text-xs text-gray-400">{{ file.last_updated }}</span>
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ label_color }}">
-                                {{ label }}
-                            </span>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-sm text-gray-400">No hay ficheros para mostrar.</p>
-        {% endif %}
-    </div>
-
     <!-- Sistema -->
     <div class="card p-6 rounded-xl shadow-md">
         <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Sistema</h3>

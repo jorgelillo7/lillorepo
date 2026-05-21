@@ -29,10 +29,7 @@ py_binary(
     name = "scraper_job_local",
     main = "main.py",
     srcs = ["main.py"],
-    data = [
-        "biwenger-tools-sa.json",
-        ".env",
-    ],
+    data = [".env"],
     deps = [":scraper_job_lib"],
 )
 
@@ -68,10 +65,7 @@ pkg_tar(
 # Secretos (solo local)
 pkg_tar(
     name = "_secrets",
-    srcs = [
-        "biwenger-tools-sa.json",
-        ".env",
-    ],
+    srcs = [".env"],
     package_dir = "/app/packages/biwenger_tools/scraper_job",
     strip_prefix = strip_prefix.from_pkg(),
 )

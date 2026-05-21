@@ -1,4 +1,10 @@
-"""Google API service initialization for the web app."""
+"""Google API service initialization for the web app.
+
+Only the Sheets client lives here now — Drive retired with the
+Firestore migration. The Sheets API still needs an explicit SA key for
+the ligas especiales / trofeos reads (the user shared those sheets
+with the SA, not with the Cloud Run compute identity).
+"""
 
 import os
 
@@ -8,13 +14,12 @@ from packages.biwenger_tools.web import config
 
 logger = get_logger(__name__)
 
-drive_service = None
 sheets_service = None
 
 
 def init_services() -> None:
-    """Initialize Google Drive and Sheets services as module-level globals."""
-    global drive_service, sheets_service
+    """Initialize the Sheets service as a module-level global."""
+    global sheets_service
 
     sa_path = config.SERVICE_ACCOUNT_PATH
     if not os.path.exists(sa_path):
@@ -22,11 +27,10 @@ def init_services() -> None:
         sa_path = os.path.join(base_dir, "biwenger-tools-sa.json")
 
     try:
-        drive_service = get_google_service("drive", "v3", sa_path, config.SCOPES)
         sheets_service = get_google_service("sheets", "v4", sa_path, config.SCOPES)
     except Exception as e:
         logger.critical(
-            "Failed to initialize Google services.",
+            "Failed to initialize Sheets service.",
             extra={"error": str(e)},
             exc_info=True,
         )
