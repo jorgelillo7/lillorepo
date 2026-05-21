@@ -7,12 +7,11 @@ from dotenv import load_dotenv
 # Carga las variables del archivo .env si existe (para desarrollo local)
 load_dotenv()
 
+# --- GOOGLE SHEETS SERVICE ACCOUNT ---
+# Mounted from Secret Manager in Cloud Run. Only the Sheets API uses it
+# (Drive retired with the Firestore migration).
 SERVICE_ACCOUNT_PATH = "/gdrive_sa/biwenger-tools-sa.json"
-
-SCOPES = [
-    "https://www.googleapis.com/auth/drive.readonly",
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
-]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 
 # --- CONFIGURACIÓN DE TEMPORADA ---
@@ -22,20 +21,19 @@ TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
 # Añadir la nueva temporada aquí al inicio de cada año (ver docs/operations.md).
 TEMPORADAS_DISPONIBLES = ["24-25", "25-26"]
 
-# NUEVO: Diccionario para mapear temporadas a IDs de Google Sheets
+# Per-season Sheet IDs for the Lloros Awards pages. Hand-edited in Sheets
+# by the user, never moved to Firestore.
 LIGAS_ESPECIALES_SHEETS = {
     "25-26": os.getenv("LIGAS_ESPECIALES_SHEET_ID_25_26"),
-    "24-25": os.getenv("LIGAS_ESPECIALES_SHEET_ID_24_25"),
 }
 
-# --- NUEVO: Diccionario de Trofeos ---
 TROFEOS_SHEETS = {
     "25-26": os.getenv("TROFEOS_SHEET_ID_25_26"),
 }
 
 
-# --- CONFIGURACIÓN (leída desde el entorno) ---
-GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID")
+# --- SCRAPER TRIGGER (admin panel) ---
+# Used by `/admin/run-scraper` to launch the Cloud Run Job.
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 CLOUD_RUN_JOB_NAME = os.getenv("CLOUD_RUN_JOB_NAME")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
@@ -63,10 +61,3 @@ DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7
-
-# Nombres base de los archivos. La temporada se añadirá dinámicamente.
-COMUNICADOS_FILENAME_BASE = "comunicados"
-PARTICIPACION_FILENAME_BASE = "participacion"
-PALMARES_FILENAME = "palmares.csv"
-CLAUSULAZOS_FILENAME_BASE = "clausulazos"
-TABLA_JUSTICIA_FILENAME_BASE = "tabla_justicia"

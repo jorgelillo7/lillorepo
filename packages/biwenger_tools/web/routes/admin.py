@@ -1,15 +1,11 @@
 """Admin routes: login panel, logout, and on-demand scraper trigger."""
 
-from datetime import datetime
-
 import google.auth.exceptions
 import requests as http_requests
-from dateutil import parser
 from flask import (
     Blueprint,
     Response,
     flash,
-    g,
     redirect,
     render_template,
     request,
@@ -17,50 +13,13 @@ from flask import (
     url_for,
 )
 
-from core.constants import DRIVE_STALE_THRESHOLD, MADRID_TZ
-from core.sdk.gcp import get_file_metadata, trigger_cloud_run_job
+from core.sdk.gcp import trigger_cloud_run_job
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, services
+from packages.biwenger_tools.web import config
 from packages.biwenger_tools.web.csrf import verify_csrf_token
 
 bp = Blueprint("admin", __name__)
 logger = get_logger(__name__)
-
-
-def _get_sheet_file_status(sheet_id: str) -> dict:
-    """Fetch metadata for a Google Sheet and return a status dict."""
-    sheet_metadata = (
-        services.drive_service.files()
-        .get(fileId=sheet_id, fields="name, modifiedTime")
-        .execute()
-    )
-    dt_utc = parser.isoparse(sheet_metadata["modifiedTime"])
-    dt_madrid = dt_utc.astimezone(MADRID_TZ)
-    is_stale = (datetime.now(MADRID_TZ) - dt_madrid) > DRIVE_STALE_THRESHOLD
-    return {
-        "name": f"{sheet_metadata['name']} (Sheet)",
-        "status": "Encontrado",
-        "last_updated": dt_madrid.strftime("%d-%m-%Y a las %H:%M:%S"),
-        "is_stale": is_stale,
-    }
-
-
-def _build_file_statuses() -> list:
-    """Collect status information for all relevant Drive/Sheets files."""
-    comunicados_actual = f"{config.COMUNICADOS_FILENAME_BASE}_{g.season}.csv"
-    participacion_actual = f"{config.PARTICIPACION_FILENAME_BASE}_{g.season}.csv"
-    filenames = [comunicados_actual, participacion_actual, config.PALMARES_FILENAME]
-    dynamic_files = [comunicados_actual, participacion_actual]
-
-    statuses = get_file_metadata(
-        services.drive_service, config.GDRIVE_FOLDER_ID, filenames, dynamic_files
-    )
-
-    sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(g.season)
-    if sheet_id:
-        statuses.append(_get_sheet_file_status(sheet_id))
-
-    return statuses
 
 
 def _trigger_scraper_job() -> tuple[bool, str]:
@@ -80,17 +39,8 @@ def _trigger_scraper_job() -> tuple[bool, str]:
 
 @bp.route("/admin", methods=["GET", "POST"])
 def admin() -> Response:
-    """Admin panel: login form or VAR dashboard."""
+    """Admin panel: login form or scraper-trigger dashboard."""
     if "admin_logged_in" in session:
-        file_statuses: list = []
-        error = None
-        try:
-            if not services.drive_service:
-                raise Exception("El servicio de Google Drive no está disponible.")
-            file_statuses = _build_file_statuses()
-        except Exception as e:
-            error = f"No se pudo conectar con Google Drive: {e}"
-
         log_url = (
             f"https://console.cloud.google.com/run/jobs/details/"
             f"{config.CLOUD_RUN_REGION}/{config.CLOUD_RUN_JOB_NAME}"
@@ -99,9 +49,7 @@ def admin() -> Response:
         return render_template(
             "admin_panel.html",
             active_page="admin",
-            file_statuses=file_statuses,
             log_url=log_url,
-            error=error,
             gcp_project=config.GCP_PROJECT_ID,
             cloud_run_region=config.CLOUD_RUN_REGION,
             job_name=config.CLOUD_RUN_JOB_NAME,

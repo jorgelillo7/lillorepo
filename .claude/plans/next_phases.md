@@ -40,128 +40,24 @@ PR 1 – PR 6 of `.claude/plans/biwenger_api_refactor.md` (now deleted, see rele
 
 ## Pending work
 
-### 1. Firestore migration (~16h, $0/mes) — DEFERRED, plan refined 2026-05-19
+### 1. Firestore migration — SHIPPED (2026-05-21)
 
-Deferred indefinitely by the user (2026-05-10). On 2026-05-19 we reviewed the
-actual CSVs sitting on Drive (sample under `~/Downloads/Biwenger/`) and
-expanded the plan with concrete schemas, gotchas, and a one-time backfill
-step that was missing.
+Done. Web reads from Firestore, scraper writes to Firestore, indexes
+declared in `firestore.indexes.json`, schemas + read-cost reference in
+`docs/firestore.md`. The CSV/Drive read path was retired in PR #82 and
+the dual-write retired in the "part 2" cleanup PR. Drive folder
+contents will be deleted by the user when the league ends.
 
-Domain models in `core/domain/models.py` cover `LeagueMessage`,
-`Participation`, `Clausulazo`, `JusticeEntry`. **Missing**: `Palmares` —
-the CSV exists (`palmares.csv` with `temporada,categoria,valor` rows) but
-no dataclass owns the schema. Add one as part of this migration.
+The deferred-plan section that used to live here (with schemas, gotchas,
+and the one-time backfill) is preserved in the git history at
+commit 08c4a4e (`.claude/plans/firestore_pickup.md`) in case the
+context is ever needed again.
 
-`google-firebase-basics` skill is already committed in `.claude/skills/`
-for when this resumes.
+Schemas, indexes, and read-cost reference live in `docs/firestore.md`.
 
-#### Current data sources (from real CSVs)
-
-| File | Rows (25-26) | Shape | Domain model |
-|---|---|---|---|
-| `comunicados_{season}.csv` | ~2,795 | `id_hash, fecha, autor, titulo, contenido, categoria` — `contenido` is HTML, `categoria ∈ {comunicado, dato, cronica, cesion}` | `LeagueMessage` ✅ |
-| `participacion_{season}.csv` | 7 (one per author) | `autor, comunicados, datos, cesiones, cronicas` — fields are **`;` joined id_hash lists** | `Participation` ✅ |
-| `clausulazos_{season}.csv` | 104 | `fecha, jugador, equipo_vendedor, equipo_comprador, precio` | `Clausulazo` ✅ |
-| `tabla_justicia_{season}.csv` | 7 (one per team) | `equipo, total_hechos, total_recibidos, punto_de_mira, mayor_agresor, hechos, recibidos` — `hechos`/`recibidos` are **JSON-encoded `[[team, count], …]`** | `JusticeEntry` ✅ |
-| `palmares.csv` | 27 (3 seasons × 9 categorías) | `temporada, categoria, valor` — multi-row per season; some categorías repeat (`multa` × 2) | **missing model: `Palmares` (add it)** |
-
-Plus three Google Sheets currently read by `web/routes/season.py` (and a 4th
-implicit one — the lucenismo data lives in `lucen_ligas_{season}.xlsx` /
-`lucen_trofeos_{season}.xlsx` on Drive as Excel files exported from Sheets):
-
-| Sheet (env var) | Used for |
-|---|---|
-| `LIGAS_ESPECIALES_SHEETS[season]` | "Ligas especiales" sub-page |
-| `TROFEOS_SHEETS[season]` | "Trofeos" sub-page |
-
-These **don't** move in v1 of the Firestore migration — they're hand-edited
-in Sheets by the user. Either keep them on Sheets and document the
-exception, or build a Sheets-to-Firestore sync as a follow-up.
-
-#### Target collection structure (refined)
-
-```
-comunicados/{season}/messages/{id_hash}      ← LeagueMessage
-  fields: fecha (timestamp), autor (string), titulo (string),
-          contenido (string, HTML), categoria (string enum)
-
-participacion/{season}/authors/{autor}        ← Participation
-  fields: comunicados (array<string>),  ← native array, NOT joined string
-          datos (array<string>),
-          cesiones (array<string>),
-          cronicas (array<string>),
-          total (int, derived for query convenience)
-
-clausulazos/{season}/transfers/{auto_id}      ← Clausulazo
-  fields: fecha (timestamp), jugador, equipo_vendedor,
-          equipo_comprador, precio (int)
-
-tabla_justicia/{season}/teams/{equipo}        ← JusticeEntry
-  fields: total_hechos (int), total_recibidos (int),
-          punto_de_mira (string), mayor_agresor (string),
-          hechos (array<map<team:str,count:int>>),  ← native nested
-          recibidos (array<map<team:str,count:int>>)
-
-palmares/{temporada}                          ← Palmares (NEW model)
-  fields: campeon, subcampeon, tercero, farolillo,
-          multas (array<string>),  ← multiple rows in CSV collapse here
-          puntuacion (string),
-          record_puntos (string),  e.g. "112 @fabio"
-          jornadas_ganadas (string)
-```
-
-Key shape decisions vs the CSV:
-- **`participacion`**: use native arrays, not `;`-joined strings. Same for the
-  derived `total`.
-- **`tabla_justicia`**: store `hechos`/`recibidos` as native arrays of small
-  maps. The CSV has them JSON-stringified with awful escaping
-  (`""Team A"", 8`); Firestore lets us drop that hack.
-- **`palmares`**: collapse multi-row-per-season into one doc per season.
-  `multa` appears twice in `palmares.csv` (2-3 people pagan multa por
-  temporada) — store as `multas: [...]` array. Doc id = `temporada` for
-  natural sort.
-- **`fecha`**: store as Firestore timestamp, not string. Existing CSVs use
-  `dd-MM-YYYY HH:mm:ss` — parse during backfill.
-
-#### Attack order when resumed (refined)
-
-1. **`core/sdk/firestore.py`** — thin CRUD helpers, ADC auth (no SA key file
-   needed when running in Cloud Run). `get`, `set`, `query`, `batch_write`.
-2. **`core/domain/models.py`** — add `Palmares` dataclass with
-   `from_firestore`/`to_firestore` helpers. Existing models gain matching
-   helpers (replace `from_csv_row`/`to_csv_row`).
-3. **One-shot backfill script** — `scripts/backfill_firestore.py` — reads
-   the existing CSVs from Drive (or a local copy in
-   `~/Downloads/Biwenger/`) and bulk-writes to Firestore. Idempotent (uses
-   doc ids = id_hash / autor / temporada / equipo). Verify counts match
-   before flipping reads.
-4. **`scraper_job`** — write to Firestore alongside CSV (dual write) for
-   one week, then drop CSV writes once we verify parity.
-5. **`web`** — switch reads to Firestore (`palmares`, `comunicados`,
-   `participacion`, `clausulazos`, `tabla_justicia`). Keep Sheets reads
-   for `ligas_especiales` + `trofeos` as documented exception.
-6. **Cleanup** — delete `biwenger-tools-sa-regional` secret (Drive SA no
-   longer needed), delete the Drive folder contents, retire
-   `core.sdk.gcp.{find_file_on_drive, upload_csv_to_drive,
-   download_csv_as_dict}` once nothing imports them.
-7. **Tests** — replace CSV fixtures with Firestore emulator fixtures.
-   Emulator is free and runs locally (`gcloud emulators firestore start`).
-
-#### Gotchas surfaced by reviewing the real CSVs
-
-- `participacion_24-25.csv` has empty fields — perfectly normal: the season
-  was wiped and only one placeholder `comunicado` was kept for 24-25.
-  Firestore docs with empty arrays are fine.
-- `tabla_justicia` CSV uses `Usuario` as the name for the deleted-user row
-  (`Usuario,0,1,—,Rayo Entrebirras,[],...`). Keep this — it's how Biwenger
-  represents users who left the league.
-- `comunicados.contenido` is HTML — keep the `bleach` sanitisation in the
-  web reader, not in the writer. Firestore stores arbitrary strings;
-  sanitisation is presentation-layer.
-- `palmares` historic data goes back to 2022-2023. Doc id `2022-2023` is
-  fine; alphabetical sort still works backwards through seasons.
-- `clausulazos` CSV has `precio` as a plain int (e.g. `6475000`). Same as
-  Biwenger's API — no formatting needed before write.
+**User-owned cleanup (week of 2026-05-26):** delete the Drive folder
+contents, then drop the `biwenger-tools-sa-regional` secret (or repoint
+it to a Sheets-only SA — Sheets API is still wired up).
 
 ### 2. New GCP project for photos (no spec yet)
 Mentioned as TODO. Waiting for spec.

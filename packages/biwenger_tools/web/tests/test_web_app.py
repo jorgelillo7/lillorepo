@@ -362,22 +362,18 @@ def test_admin_login_post_rejected_without_csrf(client):
         assert "admin_logged_in" not in sess
 
 
-@patch("packages.biwenger_tools.web.routes.admin._build_file_statuses")
-def test_admin_panel_page_loads(mock_build_statuses, client):
-    """Verify that the admin panel loads when the user is logged in."""
+def test_admin_panel_page_loads(client):
+    """Verify that the admin panel loads when the user is logged in.
+
+    Panel is now just the scraper-trigger card + system info; the
+    Drive-backed file-status table retired with the Firestore migration.
+    """
     with client.session_transaction() as sess:
         sess["admin_logged_in"] = True
-    mock_build_statuses.return_value = [
-        {
-            "name": "comunicados_24-25.csv",
-            "status": "Encontrado",
-            "is_stale": False,
-            "last_updated": "01-01-2025 a las 00:00:00",
-        },
-    ]
     response = client.get("/admin")
     assert response.status_code == 200
-    assert b"comunicados_24-25.csv" in response.data
+    assert b"Scraper Job" in response.data
+    assert b"Forzar ejecuci" in response.data
 
 
 def test_logout_clears_session(client):

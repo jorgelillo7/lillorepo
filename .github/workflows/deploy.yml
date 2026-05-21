@@ -195,14 +195,12 @@ jobs:
             --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
-          GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }},\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
           CLOUD_RUN_JOB_NAME=biwenger-scraper-data,\
           CLOUD_RUN_REGION=${{ env.REGION }},\
           SECRET_KEY=${{ secrets.SECRET_KEY }},\
           ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }},\
           LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
-          LIGAS_ESPECIALES_SHEET_ID_24_25=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_24_25 }},\
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
