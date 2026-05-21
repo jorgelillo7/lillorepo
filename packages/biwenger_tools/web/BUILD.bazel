@@ -26,9 +26,5 @@ python_service(
         # in the local image (where `secrets` are baked into the OCI tar)
         # made the Firestore client try to load a non-existent file and
         # crash every Firestore read.
-        # Flips the web off CSVs/Drive and onto Firestore. `web/config.py`
-        # still defaults to "csv" so `bazel run //...:web_local` and the
-        # tests stay on the unchanged path unless this env var is set.
-        "DATA_BACKEND": "firestore",
     },
 )

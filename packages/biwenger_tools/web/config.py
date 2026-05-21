@@ -61,13 +61,6 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
-# --- DATA BACKEND (feature flag: CSV/Drive → Firestore migration) ---
-# "csv"       → legacy reads from Google Drive CSVs (the proven path).
-# "firestore" → reads from Firestore via routes → repository.py.
-# Defaults to "csv" so master stays safe until Firestore is validated; flip
-# by setting DATA_BACKEND=firestore in deploy.yml (or .env for local dev).
-DATA_BACKEND = os.getenv("DATA_BACKEND", "csv").strip().lower()
-
 # --- CONFIGURACIÓN NO CRÍTICA (valores fijos) ---
 MESSAGES_PER_PAGE = 7
 

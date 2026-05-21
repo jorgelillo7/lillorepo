@@ -3,15 +3,28 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from packages.biwenger_tools.web.app import app
 from packages.biwenger_tools.web import services
+from packages.biwenger_tools.web.app import app
+from core.domain.models import (
+    Clausulazo,
+    JusticeEntry,
+    LeagueMessage,
+    Palmares,
+    Participation,
+)
 
 # --- Fixtures ---
 
 
 @pytest.fixture(autouse=True)
 def mock_services():
-    """Inject mock Google services before each test."""
+    """Inject mock Google services before each test.
+
+    Drive + Sheets still get a MagicMock so the admin panel + Lloros
+    Awards routes don't crash when they touch `services.*` — the content
+    routes themselves never touch Google services any more (they read
+    Firestore via `repository.*`, which the per-test patches stub out).
+    """
     services.drive_service = MagicMock()
     services.sheets_service = MagicMock()
     yield
@@ -28,63 +41,17 @@ def client():
         yield client
 
 
-def _row(id_hash: str, titulo: str, categoria: str, autor: str = "Jorge") -> dict:
-    """Build a CSV-shaped row with all the fields LeagueMessage.from_csv_row reads."""
-    return {
-        "id_hash": id_hash,
-        "fecha": "01-01-2025 10:00:00",
-        "autor": autor,
-        "titulo": titulo,
-        "contenido": f"<p>cuerpo de {titulo}</p>",
-        "categoria": categoria,
-    }
-
-
-@pytest.fixture
-def mock_comunicados_data():
-    """Realistic CSV rows — every field LeagueMessage.from_csv_row touches."""
-    return [
-        _row("h1", "C1", "comunicado"),
-        _row("h2", "D1", "dato"),
-        _row("h3", "C2", "comunicado"),
-        _row("h4", "CES1", "cesion"),
-        _row("h5", "CR1", "cronica"),
-        _row("h6", "C3", "comunicado"),
-    ]
-
-
-@pytest.fixture
-def mock_participacion_data():
-    """Sample participation data — counts will be 2/1/0/0 vs 0/2/0/0."""
-    return [
-        {
-            "autor": "Autor1",
-            "comunicados": "c1;c2",
-            "datos": "d1",
-            "cesiones": "",
-            "cronicas": "",
-        },
-        {
-            "autor": "Autor2",
-            "comunicados": "",
-            "datos": "d1;d2",
-            "cesiones": "",
-            "cronicas": "",
-        },
-    ]
-
-
-@pytest.fixture
-def mock_palmares_data():
-    """Mixes "regular" categories (campeon) with the "otros" group (multa, sancion,
-    farolillo) so we can verify grouping logic, not just rendering."""
-    return [
-        {"temporada": "24-25", "categoria": "campeon", "valor": "Jorge"},
-        {"temporada": "23-24", "categoria": "multa", "valor": "20"},
-        {"temporada": "23-24", "categoria": "sancion", "valor": "tarjeta roja"},
-        {"temporada": "23-24", "categoria": "farolillo", "valor": "Pepe"},
-        {"temporada": "23-24", "categoria": "campeon", "valor": "Dani"},
-    ]
+def _msg(
+    id_hash: str, titulo: str, categoria: str, autor: str = "Jorge"
+) -> LeagueMessage:
+    return LeagueMessage(
+        id_hash=id_hash,
+        fecha="01-01-2025 10:00:00",
+        autor=autor,
+        titulo=titulo,
+        contenido=f"<p>cuerpo de {titulo}</p>",
+        categoria=categoria,
+    )
 
 
 # --- Session and routing tests ---
@@ -121,117 +88,141 @@ def test_before_request_ignores_invalid_url(client):
 # --- Content route tests ---
 
 
-@patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_by_category")
 @patch(
-    "packages.biwenger_tools.web.routes.season.find_file_on_drive",
-    return_value={"id": "fake_id"},
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
 )
-def test_comunicados_success(
-    mock_find_file, mock_download_csv, client, mock_comunicados_data
-):
-    """Verify that the comunicados page loads correctly with data."""
-    mock_download_csv.return_value = mock_comunicados_data
+def test_comunicados_success(mock_count, mock_get, client):
+    """Verify that the comunicados page loads correctly with Firestore data."""
+    mock_count.return_value = 2
+    mock_get.return_value = [
+        _msg("h1", "C1", "comunicado"),
+        _msg("h2", "C2", "comunicado"),
+    ]
     response = client.get("/24-25/")
     assert response.status_code == 200
     assert b"C1" in response.data
     assert b"C2" in response.data
-    assert b"D1" not in response.data
+    # The route asks the repo with the right (season, categoria, limit, offset)
+    mock_get.assert_called_once()
+    args, kwargs = mock_get.call_args
+    assert args[0] == "24-25"
+    assert args[1] == "comunicado"
+    assert kwargs["limit"] == 7
+    assert kwargs["offset"] == 0
 
 
 @patch(
-    "packages.biwenger_tools.web.routes.season.find_file_on_drive", return_value=None
-)
-def test_comunicados_file_not_found(mock_find_file, client):
-    """Verify that an error is shown when the file is not found."""
-    response = client.get("/24-25/")
-    assert response.status_code == 200
-    assert b"error" in response.data.lower()
-
-
-@patch(
-    "packages.biwenger_tools.web.routes.season.download_csv_as_dict",
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category",
     side_effect=Exception("Test error"),
 )
-@patch(
-    "packages.biwenger_tools.web.routes.season.find_file_on_drive",
-    return_value={"id": "fake_id"},
-)
-def test_comunicados_general_exception(mock_find_file, mock_download_csv, client):
-    """Verify that a general exception is handled gracefully."""
+def test_comunicados_general_exception(mock_count, client):
+    """A Firestore failure surfaces as a friendly error message."""
     response = client.get("/24-25/")
     assert response.status_code == 200
     assert b"Ocurri\xc3\xb3 un error al cargar los comunicados" in response.data
 
 
-@patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
-@patch("packages.biwenger_tools.web.routes.season.find_file_on_drive")
-def test_salseo_success(
-    mock_find_file, mock_download_csv, client, mock_comunicados_data
-):
-    """Verify that the salseo page loads correctly with data."""
-    mock_find_file.side_effect = [{"id": "fake_id"}, None, None]
-    mock_download_csv.return_value = mock_comunicados_data
-    response = client.get("/24-25/salseo")
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_by_category")
+def test_salseo_success(mock_get, client):
+    """Salseo renders datos + crónicas + clausulazos + tabla."""
+
+    def _by_categoria(season, categoria):
+        if categoria == "dato":
+            return [_msg("h2", "D1", "dato")]
+        if categoria == "cronica":
+            return [_msg("h5", "CR1", "cronica")]
+        return []
+
+    mock_get.side_effect = _by_categoria
+    with patch(
+        "packages.biwenger_tools.web.routes.season.repository.get_clausulazos",
+        return_value=[],
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+        return_value=[],
+    ):
+        response = client.get("/24-25/salseo")
     assert response.status_code == 200
     assert b"D1" in response.data
     assert b"CR1" in response.data
-    assert b"C1" not in response.data
+    # Comunicados must NOT leak into salseo
+    assert b"cuerpo de C1" not in response.data
 
 
-@patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
-@patch(
-    "packages.biwenger_tools.web.routes.season.find_file_on_drive",
-    return_value={"id": "fake_id"},
-)
-def test_participacion_renders_calculated_counts(
-    mock_find_file, mock_download_csv, client, mock_participacion_data
-):
-    """The route must compute counts from the semicolon-joined CSV cells.
+@patch("packages.biwenger_tools.web.routes.season.repository.get_participaciones")
+def test_participacion_renders_calculated_counts(mock_get, client):
+    """The route turns Participation arrays into their lengths.
 
-    Autor1 has comunicados="c1;c2", datos="d1" → 2 comunicados, 1 dato.
-    Autor2 has datos="d1;d2" → 2 datos. The page must render those
-    numbers, not the raw "c1;c2" string.
+    Autor1 has 2 comunicados + 1 dato; Autor2 has 2 datos. The template
+    renders those numbers, not the raw arrays — verify the page reflects
+    the counts the repo handed back.
     """
-    mock_download_csv.return_value = mock_participacion_data
+    mock_get.return_value = [
+        Participation(
+            autor="Autor1",
+            comunicados=["c1", "c2"],
+            datos=["d1"],
+            cesiones=[],
+            cronicas=[],
+        ),
+        Participation(
+            autor="Autor2",
+            comunicados=[],
+            datos=["d1", "d2"],
+            cesiones=[],
+            cronicas=[],
+        ),
+    ]
     response = client.get("/24-25/participacion")
     assert response.status_code == 200
     body = response.data.decode("utf-8")
 
-    # The raw CSV strings must NOT leak into the HTML
+    # The raw lists must NOT leak as joined strings
     assert "c1;c2" not in body
-    assert "d1;d2" not in body
+    assert "['c1'" not in body
 
-    # Authors and computed counts must appear
     assert "Autor1" in body
     assert "Autor2" in body
-    # Autor1's comunicados cell should render as 2; Autor2's datos cell as 2
-    # Use regex-friendly substring that locks the cell to the row
-    assert ">2<" in body  # at least one cell shows the count 2
-    assert ">1<" in body  # Autor1's "datos" count
+    assert ">2<" in body
+    assert ">1<" in body
 
 
-@patch("packages.biwenger_tools.web.routes.main.download_csv_as_dict")
-@patch(
-    "packages.biwenger_tools.web.routes.main.find_file_on_drive",
-    return_value={"id": "fake_id"},
-)
-def test_palmares_groups_otros_categories(
-    mock_find_file, mock_download_csv, client, mock_palmares_data
-):
-    """multa/sancion/farolillo are bucketed into seasons[year]["otros"];
-    other categories (e.g. campeon) become direct keys. Verify the grouping
-    actually happens — not just that names appear in the HTML."""
-    mock_download_csv.return_value = mock_palmares_data
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_groups_otros_categories(mock_get, client):
+    """multa/farolillo become entries in the `otros` block; podium keys stay direct."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="24-25",
+            campeon="Jorge",
+            subcampeon="",
+            tercero="",
+            farolillo="",
+            puntuacion="",
+            record_puntos="",
+            jornadas_ganadas="",
+            multas=[],
+        ),
+        Palmares(
+            temporada="23-24",
+            campeon="Dani",
+            subcampeon="",
+            tercero="",
+            farolillo="Pepe",
+            puntuacion="",
+            record_puntos="",
+            jornadas_ganadas="",
+            multas=["20"],
+        ),
+    ]
     response = client.get("/palmares")
     assert response.status_code == 200
     body = response.data.decode("utf-8")
 
-    # Direct categories rendered
     assert "Jorge" in body  # 24-25 campeon
     assert "Dani" in body  # 23-24 campeon
-    # "otros" group payload (multa/sancion/farolillo all from 23-24)
+    # `otros` block (multa + farolillo) for 23-24
     assert "20" in body
-    assert "tarjeta roja" in body
     assert "Pepe" in body
 
 
@@ -275,6 +266,39 @@ def test_api_lloros_trofeos_returns_sheets_data(mock_get_sheets, client):
         response = client.get("/api/lloros-awards/trofeos")
     assert response.status_code == 200
     assert response.get_json() == payload
+
+
+# --- Search-data endpoint ---
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_by_category")
+def test_comunicados_search_data_returns_plain_text(mock_get, client):
+    """The search-data endpoint strips HTML and only sends search-relevant fields."""
+    mock_get.return_value = [
+        LeagueMessage(
+            id_hash="h1",
+            fecha="01-01-2025 10:00:00",
+            autor="Jorge",
+            titulo="A title",
+            contenido="<p>Line one</p><p>Line two</p>",
+            categoria="comunicado",
+        ),
+    ]
+    response = client.get("/24-25/comunicados/search-data")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert len(payload) == 1
+    item = payload[0]
+    # HTML tags are stripped; line breaks preserved as \n
+    assert "<p>" not in item["contenido"]
+    assert "Line one" in item["contenido"]
+    assert "Line two" in item["contenido"]
+    assert "\n" in item["contenido"]
+    # All the fields the search box uses
+    assert item["titulo"] == "A title"
+    assert item["autor"] == "Jorge"
+    assert item["fecha"] == "01-01-2025 10:00:00"
+    assert item["categoria"] == "comunicado"
 
 
 # --- Admin panel tests ---
@@ -422,31 +446,31 @@ def test_run_scraper_rejected_without_csrf(mock_trigger, client):
 # --- Mercado route tests ---
 
 
-@patch("packages.biwenger_tools.web.routes.season.download_csv_as_dict")
-@patch("packages.biwenger_tools.web.routes.season.find_file_on_drive")
-def test_mercado_success(mock_find_file, mock_download_csv, client):
-    """Mercado page renders clausulazos and tabla de justicia when both files exist."""
-    clausulazos_row = {
-        "fecha": "01-01-2025",
-        "jugador": "Mbappé",
-        "equipo_vendedor": "PSG",
-        "equipo_comprador": "Real Madrid",
-        "precio": "180000000",
-    }
-    tabla_row = {
-        "equipo": "Real Madrid",
-        "total_hechos": "3",
-        "total_recibidos": "1",
-        "punto_de_mira": "PSG",
-        "mayor_agresor": "Barça",
-        "hechos": "[]",
-        "recibidos": "[]",
-    }
-    mock_find_file.side_effect = [{"id": "clausulazos_id"}, {"id": "tabla_id"}]
-    mock_download_csv.side_effect = [[clausulazos_row], [tabla_row]]
-
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch("packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia")
+def test_mercado_success(mock_tabla, mock_clausulazos, client):
+    """Mercado renders clausulazos + tabla de justicia."""
+    mock_clausulazos.return_value = [
+        Clausulazo(
+            fecha="01-01-2025 10:00",
+            jugador="Mbappé",
+            equipo_vendedor="PSG",
+            equipo_comprador="Real Madrid",
+            precio=180_000_000,
+        ),
+    ]
+    mock_tabla.return_value = [
+        JusticeEntry(
+            equipo="Real Madrid",
+            total_hechos=3,
+            total_recibidos=1,
+            punto_de_mira="PSG",
+            mayor_agresor="Barça",
+            hechos=[],
+            recibidos=[],
+        ),
+    ]
     response = client.get("/24-25/mercado")
-
     assert response.status_code == 200
     body = response.data.decode("utf-8")
     assert "Mbappé" in body
@@ -454,18 +478,15 @@ def test_mercado_success(mock_find_file, mock_download_csv, client):
 
 
 @patch(
-    "packages.biwenger_tools.web.routes.season.find_file_on_drive", return_value=None
+    "packages.biwenger_tools.web.routes.season.repository.get_clausulazos",
+    return_value=[],
 )
-def test_mercado_no_data(mock_find_file, client):
-    """Mercado page renders without error when no CSV files are found."""
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+    return_value=[],
+)
+def test_mercado_no_data(mock_tabla, mock_clausulazos, client):
+    """Mercado page renders without error when both collections are empty."""
     response = client.get("/24-25/mercado")
     assert response.status_code == 200
     assert b"error" not in response.data.lower()
-
-
-def test_mercado_drive_unavailable(client):
-    """Mercado page shows an error when Drive service is unavailable."""
-    services.drive_service = None
-    response = client.get("/24-25/mercado")
-    assert response.status_code == 200
-    assert "error" in response.data.decode("utf-8").lower()
