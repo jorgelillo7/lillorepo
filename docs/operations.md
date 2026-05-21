@@ -190,11 +190,12 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     |---|---|---|
     | `GET`  | `/health` | Liveness (do NOT use `/healthz` — GFE reserves it) |
     | `GET`  | `/version` | SHA + deploy time |
-    | `GET`  | `/teams` | All managers + market (was `/analizar`) |
-    | `GET`  | `/teams/mine` | My squad (was `/myteam`) |
+    | `GET`  | `/teams[?manager=<id>]` | One squad if `manager` is set; all managers + market otherwise |
+    | `GET`  | `/managers` | League managers list (powers the bot's `/analizar` picker) |
     | `GET`  | `/market` | Transfer market (was `/mercado`) |
     | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
     | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position |
+    | `POST` | `/scraper/trigger` | Queue a scraper job execution (bot's `/scrapper`) |
     | `POST` | `/digests/daily` | Cron — my team + market (Scheduler only) |
 
   * **Smoke test:**

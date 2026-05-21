@@ -27,7 +27,11 @@ def _fetch_id_token(audience: str) -> str:
 
 
 def call_api(
-    base_url: str, path: str, method: str = "POST", timeout: int = 600
+    base_url: str,
+    path: str,
+    method: str = "POST",
+    timeout: int = 600,
+    params: dict | None = None,
 ) -> None:
     """Call biwenger-api with an ID token. Raises on non-2xx.
 
@@ -45,6 +49,7 @@ def call_api(
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
+        params=params,
         json={} if method != "GET" else None,
         timeout=timeout,
     )
@@ -53,6 +58,32 @@ def call_api(
         "biwenger-api call ok.",
         extra={"path": path, "method": method, "status": resp.status_code},
     )
+
+
+def list_managers(base_url: str, timeout: int = 30) -> list[dict] | None:
+    """Fetch the league managers — used by the bot's /analizar picker.
+
+    Returns a list of `{id, name, is_me}` or None on failure. Short
+    timeout: the api endpoint hits Biwenger's `league` endpoint once and
+    returns plain JSON, no images.
+    """
+    url = base_url.rstrip("/") + "/managers"
+    try:
+        token = _fetch_id_token(base_url)
+        resp = http_requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("managers", [])
+    except (
+        google.auth.exceptions.GoogleAuthError,
+        http_requests.RequestException,
+        ValueError,
+    ) as exc:
+        logger.warning("Failed to fetch managers.", extra={"error": str(exc)})
+        return None
 
 
 def get_api_version(base_url: str, timeout: int = 10) -> dict | None:

@@ -1,17 +1,34 @@
-"""Biwenger bot service — handles Telegram webhook and calls biwenger-api."""
+"""Biwenger bot service — handles Telegram webhook and calls biwenger-api.
+
+Two kinds of updates land on the webhook:
+
+1. **Text commands** (`/menu`, `/analizar`, etc.). `/analizar` opens the
+   manager picker; the rest dispatch directly to biwenger-api.
+2. **Inline-keyboard taps** (callback_query). `menu:<action>` rows
+   either dispatch the action (mercado, alinear, …) or — for analizar —
+   answer with the manager picker. `analizar:<id|all>` taps run the
+   teams endpoint with the selected filter.
+
+Heavy work always runs synchronously against biwenger-api; the bot only
+acknowledges the tap, edits the picker into a "processing…" message and
+lets the api post the results.
+"""
 
 import os
 
 from flask import Flask, request
 
 from core.sdk.telegram import (
+    answer_callback_query,
+    edit_message_text,
+    extract_webhook_callback,
     extract_webhook_update,
     parse_command,
     send_telegram_message,
     validate_webhook_secret,
 )
 from core.utils import get_logger
-from packages.biwenger_tools.bot import api_client, config
+from packages.biwenger_tools.bot import api_client, config, menu
 
 logger = get_logger(__name__)
 
@@ -19,8 +36,8 @@ app = Flask(__name__)
 
 _HELP_TEXT = (
     "<b>Biwenger Bot</b>\n\n"
-    "/analizar — Análisis completo (todos los equipos)\n"
-    "/myteam — Análisis solo de mi equipo\n"
+    "/menu — Menú visual con botones (recomendado)\n"
+    "/analizar — Análisis (te pregunta a quién)\n"
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
@@ -29,14 +46,13 @@ _HELP_TEXT = (
     "/help — Muestra este mensaje"
 )
 
-# Map Telegram command → (api path, http method).
-_COMMAND_ROUTES = {
-    "/analizar": ("/teams", "GET"),
-    "/myteam": ("/teams/mine", "GET"),
-    "/mercado": ("/market", "GET"),
-    "/alinear": ("/lineups/auto-pick", "POST"),
-    "/recomendar": ("/budget/recommendations", "GET"),
-    "/scrapper": ("/scraper/trigger", "POST"),
+# Map main-menu action key → (api path, http method). `analizar` is special
+# because it opens the manager picker before hitting any endpoint.
+_ACTION_ROUTES = {
+    "mercado": ("/market", "GET"),
+    "alinear": ("/lineups/auto-pick", "POST"),
+    "recomendar": ("/budget/recommendations", "GET"),
+    "scrapper": ("/scraper/trigger", "POST"),
 }
 
 
@@ -63,6 +79,144 @@ def _build_version_text() -> str:
     )
 
 
+def _send_menu() -> None:
+    """Send the main inline-keyboard menu to the configured chat."""
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="<b>¿Qué hacemos?</b>",
+        reply_markup=menu.main_menu_keyboard(),
+    )
+
+
+def _send_manager_picker() -> None:
+    """Ask biwenger-api for the manager list and post the picker keyboard.
+
+    Hitting `/managers` on every tap is fine — it's a single Biwenger
+    league call (well under a second). No caching keeps the flow stateless.
+    """
+    managers = (
+        api_client.list_managers(config.BIWENGER_API_URL)
+        if config.BIWENGER_API_URL
+        else None
+    )
+    if not managers:
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text="❌ No pude cargar la lista de managers. Vuelve a intentarlo.",
+        )
+        return
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="<b>📊 Analizar — ¿a quién?</b>",
+        reply_markup=menu.managers_keyboard(managers),
+    )
+
+
+def _dispatch_action(action_key: str, label: str) -> None:
+    """Send "procesando…" and fire the matching api endpoint."""
+    path, method = _ACTION_ROUTES[action_key]
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=f"⏳ <b>{label}</b> — procesando…",
+    )
+    try:
+        api_client.call_api(config.BIWENGER_API_URL, path, method=method)
+    except Exception as exc:
+        logger.error(
+            "Webhook: api call failed",
+            extra={"action": action_key, "error": str(exc)},
+        )
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
+        )
+
+
+def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None:
+    """Call `/teams` with the selected manager filter.
+
+    `edit_into` is a `(chat_id, message_id)` of the picker that triggered
+    this — when present, the picker is replaced with a "procesando…" line
+    so the chat history stays clean. `manager_value` is the raw callback
+    payload: either a digit string (manager id) or `"all"`.
+    """
+    if manager_value == "all":
+        params = None
+        label = "Analizar — TODOS"
+    else:
+        params = {"manager": manager_value}
+        label = f"Analizar — manager {manager_value}"
+
+    status_text = f"⏳ <b>{label}</b> — procesando…"
+    if edit_into is not None:
+        chat_id, message_id = edit_into
+        edit_message_text(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            text=status_text,
+        )
+    else:
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=status_text,
+        )
+
+    try:
+        api_client.call_api(
+            config.BIWENGER_API_URL, "/teams", method="GET", params=params
+        )
+    except Exception as exc:
+        logger.error(
+            "Webhook: /teams call failed",
+            extra={"manager": manager_value, "error": str(exc)},
+        )
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
+        )
+
+
+def _handle_callback(cb: dict) -> None:
+    """Dispatch on the callback_data prefix.
+
+    `menu:analizar` opens the manager picker (a second keyboard).
+    `menu:<other>` fires the matching api endpoint.
+    `analizar:<id|all>` runs `/teams` with the filter.
+    """
+    answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
+    data = cb.get("data", "")
+    if ":" not in data:
+        logger.info("Webhook: unknown callback_data", extra={"data": data})
+        return
+    prefix, value = data.split(":", 1)
+
+    if prefix == "menu":
+        if value == "analizar":
+            _send_manager_picker()
+            return
+        if value in _ACTION_ROUTES:
+            label = next(lbl for key, lbl in menu.MAIN_MENU_ACTIONS if key == value)
+            _dispatch_action(value, label)
+            return
+        logger.info("Webhook: unknown menu action", extra={"value": value})
+        return
+
+    if prefix == "analizar":
+        edit_into = (cb["chat_id"], cb["message_id"]) if cb.get("message_id") else None
+        _run_analizar(value, edit_into)
+        return
+
+    logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
+
+
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
     if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
@@ -75,8 +229,19 @@ def webhook():
         )
         return "", 401
 
-    chat_id, text = extract_webhook_update(request)
+    # Inline-keyboard tap first — callback updates carry no `message.text`.
+    cb = extract_webhook_callback(request)
+    if cb is not None:
+        if cb["chat_id"] != config.TELEGRAM_CHAT_ID:
+            logger.info(
+                "Webhook: ignoring callback from unknown chat",
+                extra={"chat_id": cb["chat_id"]},
+            )
+            return "", 200
+        _handle_callback(cb)
+        return "", 200
 
+    chat_id, text = extract_webhook_update(request)
     if chat_id != config.TELEGRAM_CHAT_ID:
         logger.info(
             "Webhook: ignoring message from unknown chat",
@@ -86,35 +251,27 @@ def webhook():
 
     cmd = parse_command(text)
 
-    if cmd in _COMMAND_ROUTES:
-        path, method = _COMMAND_ROUTES[cmd]
-        logger.info("Webhook: %s received — calling api %s %s", cmd, method, path)
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=f"⏳ <code>{cmd}</code> recibido, procesando…",
-        )
-        try:
-            api_client.call_api(config.BIWENGER_API_URL, path, method=method)
-        except Exception as exc:
-            logger.error(
-                "Webhook: api call failed",
-                extra={"cmd": cmd, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
-                chat_id=config.TELEGRAM_CHAT_ID,
-                text=f"❌ Error al ejecutar <code>{cmd}</code>: <code>{exc}</code>",
-            )
+    if cmd in ("/menu", "/start"):
+        logger.info("Webhook: %s received", cmd)
+        _send_menu()
+    elif cmd == "/analizar":
+        logger.info("Webhook: /analizar received — sending picker")
+        _send_manager_picker()
+    elif cmd == "/mercado":
+        _dispatch_action("mercado", "🛒 Mercado")
+    elif cmd == "/alinear":
+        _dispatch_action("alinear", "📋 Alinear")
+    elif cmd == "/recomendar":
+        _dispatch_action("recomendar", "💡 Recomendar")
+    elif cmd == "/scrapper":
+        _dispatch_action("scrapper", "🧹 Scraper")
     elif cmd == "/help":
-        logger.info("Webhook: /help received")
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
             text=_HELP_TEXT,
         )
     elif cmd == "/version":
-        logger.info("Webhook: /version received")
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,

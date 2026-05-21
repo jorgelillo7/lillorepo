@@ -1,5 +1,5 @@
 import hmac
-from typing import Any
+from typing import Any, Optional
 
 import requests
 
@@ -10,6 +10,8 @@ logger = get_logger(__name__)
 TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 TELEGRAM_SET_COMMANDS_URL = "https://api.telegram.org/bot{token}/setMyCommands"
 TELEGRAM_SET_MENU_BUTTON_URL = "https://api.telegram.org/bot{token}/setChatMenuButton"
+TELEGRAM_ANSWER_CALLBACK_URL = "https://api.telegram.org/bot{token}/answerCallbackQuery"
+TELEGRAM_EDIT_MESSAGE_URL = "https://api.telegram.org/bot{token}/editMessageText"
 
 # Hard limit on Bot API sendMessage; anything longer is truncated server-side.
 TELEGRAM_MAX_MESSAGE_LENGTH = 4096
@@ -21,12 +23,14 @@ def send_telegram_message(
     text: str,
     parse_mode: str = "HTML",
     disable_web_page_preview: bool = True,
+    reply_markup: Optional[dict] = None,
 ) -> None:
     """Sends a text message to a Telegram chat via the Bot API.
 
     Truncates messages over TELEGRAM_MAX_MESSAGE_LENGTH chars. For long content
     that needs splitting, do the splitting at the call site so each chunk
-    forms a coherent unit.
+    forms a coherent unit. `reply_markup` accepts a Telegram InlineKeyboard
+    dict (or any of the markup shapes the Bot API documents).
     """
     if len(text) > TELEGRAM_MAX_MESSAGE_LENGTH:
         logger.warning(
@@ -36,18 +40,69 @@ def send_telegram_message(
         text = text[: TELEGRAM_MAX_MESSAGE_LENGTH - 3] + "..."
 
     url = TELEGRAM_SEND_MESSAGE_URL.format(token=bot_token)
-    payload = {
+    payload: dict[str, Any] = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": parse_mode,
         "disable_web_page_preview": disable_web_page_preview,
     }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
     try:
         response = requests.post(url, json=payload, timeout=15)
         response.raise_for_status()
         logger.info("Telegram message sent.", extra={"chars": len(text)})
     except requests.RequestException as e:
         logger.error("Failed to send Telegram message.", extra={"error": str(e)})
+
+
+def answer_callback_query(
+    bot_token: str, callback_query_id: str, text: str = ""
+) -> None:
+    """Acknowledge an inline-keyboard tap.
+
+    Telegram shows the loading spinner on the tapped button until this is
+    called (or 30s pass). `text` (≤200 chars) flashes as a toast — keep it
+    short or omit it; the real response should come via a regular message.
+    """
+    url = TELEGRAM_ANSWER_CALLBACK_URL.format(token=bot_token)
+    payload = {"callback_query_id": callback_query_id}
+    if text:
+        payload["text"] = text[:200]
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error("Failed to answer callback_query.", extra={"error": str(e)})
+
+
+def edit_message_text(
+    bot_token: str,
+    chat_id: str,
+    message_id: int,
+    text: str,
+    parse_mode: str = "HTML",
+    reply_markup: Optional[dict] = None,
+) -> None:
+    """Replace an existing message's text (and optionally its keyboard).
+
+    Used after a callback_query tap to swap the picker for a "processing…"
+    status without leaving a stale menu hanging on the chat.
+    """
+    url = TELEGRAM_EDIT_MESSAGE_URL.format(token=bot_token)
+    payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": parse_mode,
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error("Failed to edit Telegram message.", extra={"error": str(e)})
 
 
 def send_telegram_photo(
@@ -112,13 +167,36 @@ def parse_command(text: str) -> str:
 def extract_webhook_update(request: Any) -> tuple[str, str]:
     """Extract (chat_id, text) from a Flask webhook POST request body.
 
-    Returns ('', '') for empty or malformed bodies.
+    Only handles plain text messages — callback_query updates go through
+    `extract_webhook_callback`. Returns ('', '') for empty/malformed bodies
+    or for updates that aren't text messages.
     """
     body = request.get_json(silent=True) or {}
     message = body.get("message", {})
     chat_id = str(message.get("chat", {}).get("id", ""))
     text = (message.get("text") or "").strip()
     return chat_id, text
+
+
+def extract_webhook_callback(request: Any) -> Optional[dict]:
+    """Pull the callback_query out of a Flask webhook POST.
+
+    Returns a dict with `id`, `chat_id`, `message_id` and `data` when the
+    update is an inline-keyboard tap, or None for any other update kind.
+    `data` is the `callback_data` string the button was created with —
+    typically `"prefix:value"`.
+    """
+    body = request.get_json(silent=True) or {}
+    cq = body.get("callback_query")
+    if not cq:
+        return None
+    message = cq.get("message") or {}
+    return {
+        "id": cq.get("id", ""),
+        "chat_id": str(message.get("chat", {}).get("id", "")),
+        "message_id": message.get("message_id"),
+        "data": cq.get("data", ""),
+    }
 
 
 def validate_webhook_secret(request: Any, expected: str) -> bool:

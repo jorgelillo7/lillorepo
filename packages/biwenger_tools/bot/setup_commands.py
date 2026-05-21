@@ -12,8 +12,8 @@ from packages.biwenger_tools.bot import config
 from core.sdk.telegram import register_bot_commands, set_commands_menu_button
 
 COMMANDS = [
-    {"command": "analizar", "description": "Análisis completo de todos los equipos"},
-    {"command": "myteam", "description": "Análisis solo de mi equipo"},
+    {"command": "menu", "description": "Menú visual con botones (recomendado)"},
+    {"command": "analizar", "description": "Análisis (te pregunta a quién)"},
     {"command": "mercado", "description": "Solo el mercado"},
     {"command": "alinear", "description": "Aplica la mejor alineación posible"},
     {
