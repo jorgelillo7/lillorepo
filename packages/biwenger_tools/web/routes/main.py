@@ -37,28 +37,31 @@ def _palmares_firestore() -> str:
 
     Reshapes each `Palmares` document into the dict the template expects:
     direct keys for the podium/season data and an `otros` list for the
-    "les toca pagar a" block (multas + farolillo).
+    "les toca pagar a" block (multas + farolillo). `repository.get_palmares`
+    returns rows ordered by season DESC, so no Python sort here.
     """
     error = None
     sorted_seasons: list = []
     try:
-        seasons_data: dict = {}
+        sorted_seasons = []
         for p in repository.get_palmares():
             otros = [{"tipo": "multa", "valor": m} for m in p.multas]
             if p.farolillo:
                 otros.append({"tipo": "farolillo", "valor": p.farolillo})
-            seasons_data[p.temporada] = {
-                "campeon": p.campeon,
-                "subcampeon": p.subcampeon,
-                "tercero": p.tercero,
-                "puntuacion": p.puntuacion,
-                "record_puntos": p.record_puntos,
-                "jornadas_ganadas": p.jornadas_ganadas,
-                "otros": otros,
-            }
-        sorted_seasons = sorted(
-            seasons_data.items(), key=lambda item: item[0], reverse=True
-        )
+            sorted_seasons.append(
+                (
+                    p.temporada,
+                    {
+                        "campeon": p.campeon,
+                        "subcampeon": p.subcampeon,
+                        "tercero": p.tercero,
+                        "puntuacion": p.puntuacion,
+                        "record_puntos": p.record_puntos,
+                        "jornadas_ganadas": p.jornadas_ganadas,
+                        "otros": otros,
+                    },
+                )
+            )
     except Exception:
         error = "Ocurrió un error al cargar el palmarés."
         logger.exception("Error loading palmares from Firestore.")

@@ -66,7 +66,31 @@
     </div>
 
     <script>
-        const allMessages = {{ all_comunicados | tojson }};
+        // Server-rendered: empty list. The full collection is fetched on
+        // demand from /<season>/comunicados/search-data the first time the
+        // user interacts with the search input — one Firestore read per
+        // session, only when someone actually searches.
+        const PRELOADED_COMUNICADOS = {{ all_comunicados | tojson }};
+        let allMessages = Array.isArray(PRELOADED_COMUNICADOS) ? PRELOADED_COMUNICADOS : [];
+        let allMessagesLoaded = allMessages.length > 0;
+        let allMessagesLoading = null;  // in-flight Promise to dedupe concurrent fetches
+
+        async function ensureAllMessages() {
+            if (allMessagesLoaded) return;
+            if (allMessagesLoading) return allMessagesLoading;
+            counter.textContent = 'Cargando comunicados…';
+            counter.classList.remove('hidden');
+            allMessagesLoading = fetch(window.location.pathname.replace(/\/?$/, '/') + 'comunicados/search-data')
+                .then(r => r.ok ? r.json() : [])
+                .then(data => {
+                    allMessages = data;
+                    allMessagesLoaded = true;
+                })
+                .catch(() => { allMessages = []; })
+                .finally(() => { allMessagesLoading = null; });
+            return allMessagesLoading;
+        }
+
         const PAGE_SIZE = 7;
 
         const searchInput = document.getElementById('search-input');
@@ -81,6 +105,9 @@
 
         let filteredMessages = [];
         let searchPage = 1;
+
+        // Warm the cache on focus so the first keystroke has the data ready.
+        searchInput.addEventListener('focus', ensureAllMessages, { once: true });
 
         function createCardHtml(msg) {
             return `
@@ -125,7 +152,7 @@
             paginationContainer.innerHTML = originalPaginationHTML;
         }
 
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', async function() {
             const q = this.value.toLowerCase().trim();
             clearBtn.classList.toggle('hidden', !q);
 
@@ -133,6 +160,8 @@
                 clearSearch();
                 return;
             }
+
+            await ensureAllMessages();
 
             filteredMessages = allMessages.filter(msg => {
                 const tmp = document.createElement('div');

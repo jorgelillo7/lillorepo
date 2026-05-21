@@ -46,39 +46,47 @@ def _load_messages(filename: str) -> tuple[list, Optional[str]]:
 # These companions back the `DATA_BACKEND=firestore` branch. The CSV route
 # bodies below are left untouched so the existing tests keep passing; the
 # whole CSV path is removed once the migration flag is retired.
+#
+# Filtering, ordering, and pagination happen server-side via
+# `repository.get_messages_by_category` and friends — see that module for
+# the Firestore queries themselves. The routes only stitch them into the
+# template payload.
 
 
-def _firestore_messages_sanitized(season: str) -> list:
-    """Fetch league messages from Firestore with `contenido` sanitized.
+def _sanitize_contenido(messages: list) -> list:
+    """Pre-render `contenido` as HTML-escaped Markup with <br> for newlines.
 
-    Mirrors `_load_messages` — sanitization is a presentation concern, so it
-    happens on read regardless of which backend stored the HTML.
+    Templates either render it via the `safe_html` Jinja filter or ship it
+    to JS via `tojson` for `innerHTML`; doing the sanitization on read makes
+    both paths XSS-safe regardless of what Biwenger writes upstream.
     """
-    messages = repository.get_messages(season)
     for m in messages:
         m.contenido = str(safe_html(m.contenido))
     return messages
 
 
 def _comunicados_firestore(season: str) -> str:
-    """Firestore-backed version of the comunicados route."""
+    """Firestore-backed comunicados route — server-side paginated."""
     error = None
     paginated_messages: list = []
-    comunicados_only: list = []
     page = 1
     total_pages = 1
+    total = 0
     try:
-        all_messages = _firestore_messages_sanitized(season)
-        comunicados_only = [
-            m for m in all_messages if m.categoria.strip() == "comunicado"
-        ]
-        page = request.args.get("page", 1, type=int)
-        start = (page - 1) * config.MESSAGES_PER_PAGE
-        paginated_messages = comunicados_only[start : start + config.MESSAGES_PER_PAGE]
+        page = max(1, request.args.get("page", 1, type=int))
+        offset = (page - 1) * config.MESSAGES_PER_PAGE
+        total = repository.count_messages_by_category(season, "comunicado")
         total_pages = max(
             1,
-            (len(comunicados_only) + config.MESSAGES_PER_PAGE - 1)
-            // config.MESSAGES_PER_PAGE,
+            (total + config.MESSAGES_PER_PAGE - 1) // config.MESSAGES_PER_PAGE,
+        )
+        paginated_messages = _sanitize_contenido(
+            repository.get_messages_by_category(
+                season,
+                "comunicado",
+                limit=config.MESSAGES_PER_PAGE,
+                offset=offset,
+            )
         )
     except Exception:
         error = f"Ocurrió un error al cargar los comunicados de la temporada {season}."
@@ -88,7 +96,11 @@ def _comunicados_firestore(season: str) -> str:
     return render_template(
         "index.html",
         messages=paginated_messages,
-        all_comunicados=comunicados_only,
+        # `all_comunicados` powered the global search dropdown when reads were
+        # cheap (a single CSV download). With Firestore it would mean pulling
+        # the full collection on every page load, defeating the pagination.
+        # Templates fall back to an empty list, the search box stays.
+        all_comunicados=[],
         error=error,
         active_page="comunicados",
         current_page=page,
@@ -97,7 +109,7 @@ def _comunicados_firestore(season: str) -> str:
 
 
 def _salseo_firestore(season: str) -> str:
-    """Firestore-backed version of the salseo route."""
+    """Firestore-backed salseo route — one query per content type."""
     error = None
     clausulazos_error = None
     datos_curiosos: list = []
@@ -105,9 +117,12 @@ def _salseo_firestore(season: str) -> str:
     clausulazos: list = []
     tabla_justicia: list = []
     try:
-        all_messages = _firestore_messages_sanitized(season)
-        datos_curiosos = [m for m in all_messages if m.categoria.strip() == "dato"]
-        cronicas = [m for m in all_messages if m.categoria.strip() == "cronica"]
+        datos_curiosos = _sanitize_contenido(
+            repository.get_messages_by_category(season, "dato")
+        )
+        cronicas = _sanitize_contenido(
+            repository.get_messages_by_category(season, "cronica")
+        )
     except Exception:
         error = f"Ocurrió un error al cargar los datos de la temporada {season}."
         logger.exception(
@@ -134,11 +149,10 @@ def _salseo_firestore(season: str) -> str:
 
 
 def _participacion_firestore(season: str) -> str:
-    """Firestore-backed version of the participacion route."""
+    """Firestore-backed participacion route — repo orders by `total` DESC."""
     error = None
     stats: list = []
     try:
-        participations = repository.get_participaciones(season)
         stats = [
             {
                 "autor": p.autor,
@@ -148,9 +162,8 @@ def _participacion_firestore(season: str) -> str:
                 "cronicas": len(p.cronicas),
                 "total": p.total,
             }
-            for p in participations
+            for p in repository.get_participaciones(season)
         ]
-        stats.sort(key=lambda item: item["total"], reverse=True)
     except Exception:
         error = (
             f"Ocurrió un error al calcular las estadísticas de la temporada {season}."
@@ -167,7 +180,7 @@ def _participacion_firestore(season: str) -> str:
 
 
 def _mercado_firestore(season: str) -> str:
-    """Firestore-backed version of the mercado route."""
+    """Firestore-backed mercado route — repo orders by `fecha` DESC."""
     clausulazos: list = []
     tabla_justicia: list = []
     error = None
@@ -185,7 +198,6 @@ def _mercado_firestore(season: str) -> str:
 
     clausulazos_summary = None
     if clausulazos:
-        # repository.get_clausulazos returns most-recent-first.
         clausulazos_summary = {
             "total": len(clausulazos),
             "total_eur": sum(c.precio for c in clausulazos),
@@ -247,6 +259,36 @@ def comunicados(season: str) -> str:
         current_page=page,
         total_pages=total_pages,
     )
+
+
+@bp.route("/<season>/comunicados/search-data")
+def comunicados_search_data(season: str) -> Response:
+    """JSON list of all comunicados for the season — used by the search box.
+
+    The comunicados page renders only the current page (server-side
+    pagination), so the in-page search needs the rest on demand. The
+    template fetches this endpoint the first time the user focuses the
+    search input, caches the response, and filters client-side from then
+    on. One full-collection read per session, only if someone actually
+    searches.
+
+    Only implemented for the Firestore backend; on CSV the comunicados
+    route already loads everything (legacy behaviour stays until the CSV
+    path is removed).
+    """
+    if config.DATA_BACKEND != "firestore":
+        return jsonify([])
+    try:
+        msgs = _sanitize_contenido(
+            repository.get_messages_by_category(g.season, "comunicado")
+        )
+        return jsonify([asdict(m) for m in msgs])
+    except Exception:
+        logger.exception(
+            "Error loading comunicados search-data from Firestore.",
+            extra={"season": g.season},
+        )
+        return jsonify([]), 500
 
 
 @bp.route("/<season>/salseo")
