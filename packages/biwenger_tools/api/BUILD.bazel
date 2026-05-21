@@ -5,6 +5,7 @@ python_service(
     package = "biwenger_tools",
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/api",
+    secrets = [".env"],
     deps = [
         "@pypi//matplotlib",
         "@pypi//requests",
