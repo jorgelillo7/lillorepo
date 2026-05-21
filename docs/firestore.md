@@ -136,7 +136,12 @@ Every "order by a single field" query works out of the box:
 | `participacion/{season}/authors`          | `order_by("total", DESCENDING)`                |
 | `clausulazos/{season}/transfers`          | `order_by("fecha", DESCENDING)`                |
 | `tabla_justicia/{season}/teams`           | `order_by("total_hechos", DESCENDING)`         |
-| `palmares`                                | `order_by("__name__", DESCENDING)` (doc id)    |
+
+**Caveat:** Firestore does **not** auto-index `__name__` in DESCENDING
+order. If you need to order a collection by its document id descending,
+either create a single-field DESC index for `__name__` on that
+collection, or — when the collection is tiny — sort in Python after a
+plain `.stream()` (that's what `get_palmares()` does).
 
 ### Composite (declared)
 

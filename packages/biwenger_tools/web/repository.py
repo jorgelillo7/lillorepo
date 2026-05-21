@@ -143,13 +143,16 @@ def get_tabla_justicia(season: str) -> list[JusticeEntry]:
 
 
 def get_palmares() -> list[Palmares]:
-    """All historical honours, ordered by season DESC (most recent first)."""
-    return [
+    """All historical honours, sorted by season DESC (most recent first).
+
+    Ordering happens in Python: the collection only has one doc per
+    season (~3 total), and `order_by("__name__", DESCENDING)` would need
+    a Firestore index — Firestore auto-indexes `__name__` ASC but not
+    DESC. Not worth a composite index for three documents.
+    """
+    items = [
         Palmares.from_firestore(snap.id, snap.to_dict() or {})
-        for snap in (
-            get_client()
-            .collection("palmares")
-            .order_by("__name__", direction=gfs.Query.DESCENDING)
-            .stream()
-        )
+        for snap in get_client().collection("palmares").stream()
     ]
+    items.sort(key=lambda p: p.temporada, reverse=True)
+    return items
