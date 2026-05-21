@@ -1,43 +1,43 @@
-# Presentación del proyecto
+# Project pitch
 
-> Notas de cómo narrar este proyecto en una entrevista o revisión técnica.
+> Notes on how to narrate this project in an interview or technical review.
 
-## La frase de posicionamiento
+## The positioning line
 
-> "Usé un proyecto de Biwenger como excusa para practicar Bazel monorepos, arquitectura GCP cloud-native y CI/CD a nivel producción."
+> "I used a Biwenger project as an excuse to practice Bazel monorepos, cloud-native GCP architecture, and production-grade CI/CD."
 
-Esa frase posiciona el proyecto correctamente: no como un side project de primavera sino como práctica deliberada de habilidades reales.
-
----
-
-## Puntos fuertes a destacar
-
-**Bazel en un proyecto personal** es la señal más fuerte. El 99% de side projects usan un Makefile o directamente `python app.py`. Este repo tiene bzlmod, macros custom, capas OCI separadas, lock file con hashes, imagen base pre-compilada y plataformas definidas.
-
-**Imagen base pre-compilada** (`Dockerfile.base` con todos los deps pre-instalados) reduce cold starts. Es un detalle de optimización del ciclo de deployment que no todo el mundo considera.
-
-**Secrets management correcto.** Secret Manager con montaje como fichero en Cloud Run, sin variables de entorno con datos sensibles, con fallback local a `.env`. Exactamente como se hace en producción.
-
-**CI/CD con cleanup automático incluido.** El script de limpieza que distingue entre imágenes tagged y untagged multi-arch en Artifact Registry es un detalle fino. Muchos proyectos dejan el registry llenarse.
-
-**`DESIGN.md` para un proyecto personal.** Adopción del formato de [Google Labs](https://github.com/google-labs-code/design.md) para describir sistemas de diseño a agentes de IA: tokens de color, tipografía y reglas de composición en YAML + prosa legible por humanos. La mayoría de devs backend nunca documentan la UI; además, este formato es el estándar emergente para que los agentes apliquen consistencia visual de forma programática.
-
-**Pipeline de datos desacoplado correctamente.** El scraper no sabe nada de la web, la web no sabe nada del scraper. La interfaz es el CSV en Drive (y en el futuro, Firestore).
+That line frames the project correctly: not as a one-off spring side project but as deliberate practice of real-world skills.
 
 ---
 
-## Debilidades a tener preparadas
+## Strong points to highlight
 
-**CSV como base de datos.** Es la pregunta más obvia. La respuesta honesta funciona bien: "Drive ya estaba en el stack, el dataset es pequeño, el scraper es single-instance por diseño, y prioricé simplicidad sobre escalabilidad para este caso concreto." Lo que no se puede decir es que no se había pensado en ello. La migración a Firestore ya está planificada.
+**Bazel in a personal project** is the strongest signal. 99% of side projects use a Makefile or just `python app.py`. This repo has bzlmod, custom macros, separate OCI layers, a lockfile with hashes, a pre-compiled base image, and explicit platform definitions.
 
-**JSON dentro de celdas CSV** en `tabla_justicia` (`hechos`, `recibidos`). Es señal de que el formato CSV se está estirando más allá de sus límites. Se resuelve con Firestore.
+**Pre-compiled base image** (`Dockerfile.base` with every dep pre-installed) cuts cold-start time. It's a deployment-loop optimisation detail that not everyone thinks of.
 
-**`TEMPORADA_ACTUAL` duplicado** en `web/config.py` y `scraper_job/config.py` — dos deployments independientes que pueden desincronizarse.
+**Correct secrets management.** Secret Manager with file mounts in Cloud Run, no sensitive data in env vars, with a local `.env` fallback. Exactly how it's done in production.
 
-**La imagen base aún incluye Selenium** (~150MB) por inercia: ya nadie la usa (v4.2 reemplazó la única dependencia por una llamada HTTP directa a la API privada de Jornada Perfecta; toda esa lógica vive hoy en `biwenger-api`). El siguiente rebuild de `Dockerfile.base` la quita.
+**CI/CD with automatic cleanup baked in.** The cleanup script that distinguishes between tagged and untagged multi-arch images in Artifact Registry is a fine detail. Many projects let the registry balloon.
+
+**`DESIGN.md` for a personal project.** Adopts the [Google Labs](https://github.com/google-labs-code/design.md) format for describing design systems to AI agents: colour tokens, typography, and composition rules in YAML + human-readable prose. Most backend devs never document the UI; this format is also the emerging standard for getting agents to apply visual consistency programmatically.
+
+**Properly decoupled data pipeline.** The scraper knows nothing about the web; the web knows nothing about the scraper. The interface used to be the CSV on Drive — now it's Firestore.
 
 ---
 
-## Valoración global
+## Weaknesses to be ready for
 
-Para carta de presentación: sólido. Demuestra que se sabe construir infraestructura real alrededor de un proyecto Python: build system, cloud deployment, secrets, CI/CD, tests, documentación. Eso ya es más de lo que muestra el 80% de portfolios.
+**CSV as a database.** The most obvious question. The honest answer works well: "Drive was already in the stack, the dataset is small, the scraper is single-instance by design, and I prioritised simplicity over scalability for this specific case." What you cannot say is that you never thought about it. The Firestore migration is now live.
+
+**JSON inside CSV cells** in `tabla_justicia` (`hechos`, `recibidos`). A sign that the CSV format was being stretched past its limits. Solved by Firestore.
+
+**`TEMPORADA_ACTUAL` duplicated** in `web/config.py` and `scraper_job/config.py` — two independent deployments that can drift out of sync.
+
+**The base image still includes Selenium** (~150MB) by inertia: nobody uses it any more (v4.2 replaced the only dependency with a direct HTTP call to the Jornada Perfecta private API; all that logic now lives in `biwenger-api`). The next `Dockerfile.base` rebuild removes it.
+
+---
+
+## Overall assessment
+
+For a cover-letter signal: solid. Shows that you can build real infrastructure around a Python project: build system, cloud deployment, secrets, CI/CD, tests, documentation. That's already more than 80% of portfolios show.
