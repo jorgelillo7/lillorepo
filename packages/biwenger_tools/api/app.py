@@ -62,14 +62,32 @@ def version():
 
 @app.route("/teams", methods=["GET"])
 def teams():
-    """All managers + market — was /analizar."""
-    return _run_action("teams", actions.run_all_teams)
+    """Squad images to Telegram.
+
+    Query params:
+      - `manager=<int>` — only that manager's squad (no market block).
+      - omitted (or `manager=all`) — every manager + market (the
+        original `/analizar` flow).
+    """
+    manager_arg = request.args.get("manager")
+    manager_id: int | None
+    if manager_arg in (None, "", "all"):
+        manager_id = None
+    else:
+        try:
+            manager_id = int(manager_arg)
+        except (TypeError, ValueError):
+            return (
+                jsonify({"status": "error", "error": "manager must be an integer"}),
+                400,
+            )
+    return _run_action("teams", lambda: actions.run_teams(manager_id))
 
 
-@app.route("/teams/mine", methods=["GET"])
-def teams_mine():
-    """My squad only — was /myteam."""
-    return _run_action("teams.mine", actions.run_my_team)
+@app.route("/managers", methods=["GET"])
+def managers():
+    """League managers — used by the bot's `/analizar` picker."""
+    return _run_action("managers", actions.list_managers)
 
 
 @app.route("/market", methods=["GET"])

@@ -16,8 +16,8 @@ OIDC ID token; the bot's and the Scheduler's service accounts both have
 |---|---|---|
 | `GET`  | `/health` | Liveness. **Do not use `/healthz`** — Google Frontend reserves it on `*.run.app`. |
 | `GET`  | `/version` | `{service, commit, deploy_time}` |
-| `GET`  | `/teams` | All managers + market (was `/analizar`) |
-| `GET`  | `/teams/mine` | My squad (was `/myteam`) |
+| `GET`  | `/teams[?manager=<id>]` | One squad if `manager` is set; all managers + market otherwise |
+| `GET`  | `/managers` | League managers list (powers the bot's `/analizar` picker) |
 | `GET`  | `/market` | Transfer market (was `/mercado`) |
 | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
 | `GET`  | `/budget/recommendations[?top=N]` | Top-N affordable clausulazo targets per position |

@@ -121,32 +121,72 @@ def test_digests_daily_rejects_get(client):
     assert resp.status_code == 405  # method not allowed
 
 
-# --- /teams, /teams/mine, /market, /lineups/auto-pick ---
+# --- /teams, /managers, /market, /lineups/auto-pick ---
 
 
-def test_teams_calls_run_all_teams(client):
+def test_teams_without_manager_calls_run_teams_with_none(client):
+    """No `manager` query → run_teams(None) (all-managers + market)."""
     fake = {"sent": 5, "teams": 4, "market": 6}
     with patch(
-        "packages.biwenger_tools.api.app.actions.run_all_teams",
+        "packages.biwenger_tools.api.app.actions.run_teams",
         return_value=fake,
     ) as mock_run:
         resp = client.get("/teams")
-    mock_run.assert_called_once()
+    mock_run.assert_called_once_with(None)
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["status"] == "ok"
     assert body["teams"] == 4
 
 
-def test_teams_mine_calls_run_my_team(client):
+def test_teams_with_manager_id_filters(client):
+    """`?manager=42` → run_teams(42) (single-squad image, no market)."""
     with patch(
-        "packages.biwenger_tools.api.app.actions.run_my_team",
-        return_value={"sent": 1, "size": 12},
+        "packages.biwenger_tools.api.app.actions.run_teams",
+        return_value={"sent": 1, "manager": "Jorge", "size": 12},
     ) as mock_run:
-        resp = client.get("/teams/mine")
-    mock_run.assert_called_once()
+        resp = client.get("/teams?manager=42")
+    mock_run.assert_called_once_with(42)
     assert resp.status_code == 200
     assert resp.get_json()["size"] == 12
+
+
+def test_teams_with_manager_all_is_alias_for_no_filter(client):
+    """`?manager=all` is treated the same as omitting the param."""
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_teams",
+        return_value={"sent": 5, "teams": 4, "market": 6},
+    ) as mock_run:
+        resp = client.get("/teams?manager=all")
+    mock_run.assert_called_once_with(None)
+    assert resp.status_code == 200
+
+
+def test_teams_with_invalid_manager_returns_400(client):
+    """A non-integer `manager` param is rejected upfront."""
+    resp = client.get("/teams?manager=abc")
+    assert resp.status_code == 400
+    assert "manager must be an integer" in resp.get_json()["error"]
+
+
+def test_managers_endpoint(client):
+    """The picker endpoint exposes the manager list to the bot."""
+    fake = {
+        "managers": [
+            {"id": 1, "name": "Jorge", "is_me": True},
+            {"id": 2, "name": "Pepe", "is_me": False},
+        ]
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.actions.list_managers",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.get("/managers")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["managers"][0]["is_me"] is True
 
 
 def test_market_calls_run_market(client):
@@ -181,7 +221,7 @@ def test_lineups_auto_pick_rejects_get(client):
 
 def test_action_endpoint_returns_500_on_exception(client):
     with patch(
-        "packages.biwenger_tools.api.app.actions.run_all_teams",
+        "packages.biwenger_tools.api.app.actions.run_teams",
         side_effect=RuntimeError("biwenger 503"),
     ):
         resp = client.get("/teams")

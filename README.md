@@ -26,9 +26,9 @@ graph TD
 | Package | Description | Deployment |
 |---------|-------------|------------|
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run Service |
-| `biwenger_tools/scraper_job` | League board scraper → CSV → Drive | Cloud Run Job (weekly cron) |
-| `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
-| `biwenger_tools/bot` | Webhook handler for `/analizar`, `/myteam`, `/mercado`, `/alinear`, `/recomendar`, `/help` — calls the api with an ID token | Cloud Run Service |
+| `biwenger_tools/scraper_job` | League board scraper → Firestore | Cloud Run Job (weekly cron) |
+| `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, `/managers`, etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
+| `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/recomendar`, `/scrapper`, `/help` plus inline-keyboard callbacks — calls the api with an ID token | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 
 ## Repository Structure

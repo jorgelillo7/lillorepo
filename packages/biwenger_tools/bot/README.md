@@ -21,14 +21,19 @@ silently dropped (returns `200` so Telegram does not retry).
    with a Google-signed ID token.
 
 ```
-/analizar    →  GET  /teams
-/myteam      →  GET  /teams/mine
+/menu        →  sends an inline-keyboard menu (no api call)
+/analizar    →  opens the manager picker (GET /managers, then /teams?manager=<id|all>)
 /mercado     →  GET  /market
 /alinear     →  POST /lineups/auto-pick
 /recomendar  →  GET  /budget/recommendations
+/scrapper    →  POST /scraper/trigger
 /version     →  bot SHA + GET /version on biwenger-api
 /help        →  static HTML message (no api call)
 ```
+
+Inline-keyboard taps come back as `callback_query` updates. They share
+the same webhook entry point and dispatch on a `prefix:value`
+`callback_data` shape (`menu:<action>`, `analizar:<id|all>`).
 
 The api processes each request synchronously (build JP index, talk to
 Biwenger, render PNG, send to Telegram). The bot is just the HTTP edge.

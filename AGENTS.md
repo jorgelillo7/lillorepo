@@ -30,7 +30,7 @@ The main projects are located under `packages/biwenger_tools`:
     - Fetches squad and market data from the Biwenger API.
     - Pulls predicted player ratings from the **Jornada Perfecta private API** (the SofaScore-based "Automanager" rating system) — one HTTP call instead of browser automation.
     - Cross-references both sources by normalised player name + slug.
-    - Endpoints: `GET /teams`, `GET /teams/mine`, `GET /market`, `POST /lineups/auto-pick`, `GET /budget/recommendations`, `POST /digests/daily`.
+    - Endpoints: `GET /teams[?manager=<id>]`, `GET /managers`, `GET /market`, `POST /lineups/auto-pick`, `GET /budget/recommendations`, `POST /scraper/trigger`, `POST /digests/daily`.
     - Renders PNG tables (matplotlib) and sends them as Telegram photos.
 - **Technology:** Python, Flask + gunicorn, Biwenger API, Jornada Perfecta private API, Telegram Bot API, matplotlib. Deployed on Cloud Run with `--no-allow-unauthenticated`.
 

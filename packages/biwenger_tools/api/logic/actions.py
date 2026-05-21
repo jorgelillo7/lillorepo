@@ -1,5 +1,5 @@
-"""Handlers for the bot-triggered endpoints (/teams, /teams/mine, /market,
-/lineups/auto-pick).
+"""Handlers for the bot-triggered endpoints (/teams, /market,
+/lineups/auto-pick, /managers).
 
 Each function owns one mode end to end: builds the JP index, opens the
 Biwenger session, computes the response, and sends the result to Telegram.
@@ -113,8 +113,15 @@ def _require_telegram() -> tuple[str, str] | None:
     return config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID
 
 
-def run_all_teams() -> dict:
-    """Send a separate image per manager + market — used by /teams (was /analizar)."""
+def run_teams(manager_id: int | None = None) -> dict:
+    """Send squad image(s) to Telegram.
+
+    - `manager_id is None` → ALL managers + market (the original
+      `/analizar` behaviour, used by the bot's "TODOS" menu choice).
+    - `manager_id` set → just that manager's squad; no market. The
+      Clausulable/Cláusula columns are included for rivals (not for
+      yourself — you already know your own clauses).
+    """
     biwenger, biwenger_players, jp_index = _prepare_context()
     telegram = _require_telegram()
     if telegram is None:
@@ -122,16 +129,46 @@ def run_all_teams() -> dict:
     token, chat_id = telegram
 
     managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+
+    if manager_id is not None:
+        # Single-manager mode: one image, no market.
+        if manager_id not in managers:
+            send_telegram_message(
+                bot_token=token,
+                chat_id=chat_id,
+                text=(
+                    f"❌ Manager <code>{manager_id}</code> no encontrado en la liga."
+                ),
+            )
+            return {"sent": 0, "reason": "manager_not_found"}
+        manager_name = managers[manager_id]
+        is_me = manager_id == biwenger.user_id
+        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        rows = build_squad_rows(
+            squad, biwenger_players, jp_index, include_clause=not is_me
+        )
+        title = "🛡️ Mi equipo" if is_me else f"👤 {manager_name}"
+        extra_cols = None if is_me else ["Clausulable", "Cláusula"]
+        _send_image(
+            token, chat_id, build_table_image(rows, title, extra_cols=extra_cols), title
+        )
+        logger.info(
+            "Single-manager analysis sent.",
+            extra={"manager": manager_name, "size": len(rows)},
+        )
+        return {"sent": 1, "manager": manager_name, "size": len(rows)}
+
+    # All-managers mode (original /analizar): every squad + market.
     my_team: list[dict] = []
     rivals: dict[str, list[dict]] = {}
 
-    for manager_id, manager_name in managers.items():
-        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+    for mgr_id, manager_name in managers.items():
+        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, mgr_id)
         logger.info(
             "Squad fetched.",
             extra={"manager": manager_name, "size": len(squad)},
         )
-        if manager_id == biwenger.user_id:
+        if mgr_id == biwenger.user_id:
             my_team = build_squad_rows(squad, biwenger_players, jp_index)
         else:
             rivals[manager_name] = build_squad_rows(
@@ -165,19 +202,27 @@ def run_all_teams() -> dict:
     }
 
 
-def run_my_team() -> dict:
-    """Send only my squad — used by /teams/mine (was /myTeam)."""
-    biwenger, biwenger_players, jp_index = _prepare_context()
-    telegram = _require_telegram()
-    if telegram is None:
-        return {"sent": 0, "reason": "telegram_credentials_missing"}
-    token, chat_id = telegram
+def list_managers() -> dict:
+    """Return the manager list for the league.
 
-    my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
-    my_team = build_squad_rows(my_squad, biwenger_players, jp_index)
-    _send_image(token, chat_id, build_table_image(my_team, "Mi equipo"), "Mi equipo")
-    logger.info("My-team analysis sent.", extra={"size": len(my_team)})
-    return {"sent": 1, "size": len(my_team)}
+    Powers the bot's `/analizar` picker. Plain JSON, no Telegram side
+    effects — the bot uses the response to build an inline keyboard.
+    Mine is flagged so the bot can present it as "🛡️ Mi equipo".
+    """
+    biwenger = BiwengerClient(
+        config.BIWENGER_EMAIL,
+        config.BIWENGER_PASSWORD,
+        config.LOGIN_URL,
+        config.ACCOUNT_URL,
+        config.LEAGUE_ID,
+    )
+    managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    items = [
+        {"id": mgr_id, "name": name, "is_me": mgr_id == biwenger.user_id}
+        for mgr_id, name in managers.items()
+    ]
+    items.sort(key=lambda m: (not m["is_me"], m["name"].lower()))
+    return {"managers": items}
 
 
 def run_market() -> dict:
