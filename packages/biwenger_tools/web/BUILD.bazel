@@ -17,5 +17,9 @@ python_service(
         "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
         "GDRIVE_FOLDER_ID": "1DEY5pzf0iyZi3uxAFsjnE0tgVf8YiYI7",
         "GOOGLE_APPLICATION_CREDENTIALS": "/app/packages/biwenger_tools/web/biwenger-tools-sa.json",
+        # Flips the web off CSVs/Drive and onto Firestore. `web/config.py`
+        # still defaults to "csv" so `bazel run //...:web_local` and the
+        # tests stay on the unchanged path unless this env var is set.
+        "DATA_BACKEND": "firestore",
     },
 )

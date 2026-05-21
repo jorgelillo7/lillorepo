@@ -1,4 +1,10 @@
-"""Scraper job: fetch Biwenger messages and upload CSVs to Google Drive."""
+"""Scraper job: fetch Biwenger messages and dual-write CSV + Firestore.
+
+CSVs are uploaded to Google Drive (legacy path, served when
+``DATA_BACKEND=csv``) and the same data is mirrored into Firestore
+(read by the web when ``DATA_BACKEND=firestore``). After the flag flip
+and cleanup PR, the CSV path goes away.
+"""
 
 import csv
 import hashlib
@@ -11,6 +17,7 @@ from bs4 import BeautifulSoup
 
 from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
+from core.sdk import firestore
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.gcp import (
     download_csv_as_dict,
@@ -120,6 +127,35 @@ def _write_and_upload_csv(
     )
 
 
+def _clausulazo_doc_id(c: Clausulazo) -> str:
+    """Deterministic Firestore doc id for a clausulazo — content hash.
+
+    Must match ``scripts/backfill_firestore.py::_clausulazo_id`` so the
+    scraper and the one-shot backfill produce identical doc ids for the
+    same transfer.
+    """
+    raw = "|".join(
+        str(v)
+        for v in (c.fecha, c.jugador, c.equipo_vendedor, c.equipo_comprador, c.precio)
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def _write_to_firestore(collection: str, pairs: list[tuple[str, dict]]) -> None:
+    """Wipe + bulk-write a Firestore collection.
+
+    Mirrors the CSV-overwrite semantics: every scraper run reflects the
+    full latest state, so deletions on Biwenger propagate (a board message
+    removed upstream disappears from Firestore on the next run).
+    """
+    deleted = firestore.delete_collection(collection)
+    written = firestore.batch_write(collection, pairs)
+    logger.info(
+        "Firestore collection rewritten.",
+        extra={"collection": collection, "deleted": deleted, "written": written},
+    )
+
+
 def _upload_clausulazos(
     drive_service, biwenger: BiwengerClient, cfg, folder_id: str
 ) -> None:
@@ -131,7 +167,8 @@ def _upload_clausulazos(
     tabla_justicia = build_tabla_justicia(clausulazos)
     logger.info("Clausulazos processed.", extra={"count": len(clausulazos)})
 
-    clausulazos_filename = f"{cfg.CLAUSULAZOS_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
+    season = cfg.TEMPORADA_ACTUAL
+    clausulazos_filename = f"{cfg.CLAUSULAZOS_FILENAME_BASE}_{season}.csv"
     clausulazos_meta = find_file_on_drive(
         drive_service, clausulazos_filename, folder_id
     )
@@ -143,8 +180,12 @@ def _upload_clausulazos(
         clausulazos,
         clausulazos_meta["id"] if clausulazos_meta else None,
     )
+    _write_to_firestore(
+        f"clausulazos/{season}/transfers",
+        [(_clausulazo_doc_id(c), c.to_firestore()) for c in clausulazos],
+    )
 
-    tabla_filename = f"{cfg.TABLA_JUSTICIA_FILENAME_BASE}_{cfg.TEMPORADA_ACTUAL}.csv"
+    tabla_filename = f"{cfg.TABLA_JUSTICIA_FILENAME_BASE}_{season}.csv"
     tabla_meta = find_file_on_drive(drive_service, tabla_filename, folder_id)
     _write_and_upload_csv(
         drive_service,
@@ -154,7 +195,11 @@ def _upload_clausulazos(
         tabla_justicia,
         tabla_meta["id"] if tabla_meta else None,
     )
-    logger.info("Clausulazos and tabla_justicia CSVs uploaded.")
+    _write_to_firestore(
+        f"tabla_justicia/{season}/teams",
+        [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
+    )
+    logger.info("Clausulazos and tabla_justicia written to CSV + Firestore.")
 
 
 def _notify(text: str) -> None:
@@ -205,6 +250,7 @@ def main() -> None:
         new_count = len(new_messages)
         if new_messages:
             logger.info("New messages found.", extra={"count": new_count})
+            season = config.TEMPORADA_ACTUAL
             all_messages = sort_messages(all_messages + new_messages)
             _write_and_upload_csv(
                 drive_service,
@@ -214,17 +260,26 @@ def main() -> None:
                 all_messages,
                 existing_file_id,
             )
-            participacion_filename = f"participacion_{config.TEMPORADA_ACTUAL}.csv"
+            _write_to_firestore(
+                f"comunicados/{season}/messages",
+                [(m.id_hash, m.to_firestore()) for m in all_messages if m.id_hash],
+            )
+            participacion_filename = f"participacion_{season}.csv"
             part_meta = find_file_on_drive(
                 drive_service, participacion_filename, folder_id
             )
+            participaciones = process_participation(all_messages, user_map)
             _write_and_upload_csv(
                 drive_service,
                 folder_id,
                 participacion_filename,
                 Participation,
-                process_participation(all_messages, user_map),
+                participaciones,
                 part_meta["id"] if part_meta else None,
+            )
+            _write_to_firestore(
+                f"participacion/{season}/authors",
+                [(p.autor, p.to_firestore()) for p in participaciones if p.autor],
             )
         else:
             logger.info("No new messages found.")
