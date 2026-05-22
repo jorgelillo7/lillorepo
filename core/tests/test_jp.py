@@ -2,6 +2,7 @@ import pytest
 import requests
 import requests_mock
 
+from core.sdk import jp
 from core.sdk.jp import (
     JP_URL,
     check_api_health,
@@ -12,16 +13,66 @@ from core.sdk.jp import (
 TOKEN = "abc"
 
 
+@pytest.fixture(autouse=True)
+def reset_cache():
+    """Wipe the in-process JP cache between tests so they stay isolated."""
+    jp._CACHE.clear()
+    yield
+    jp._CACHE.clear()
+
+
+def _player(pid: int, name: str, updated_at: int = 1779000000) -> dict:
+    return {
+        "id": pid,
+        "name": name,
+        "predict": [{"type": 2, "rate": 100 + pid, "updated_at": updated_at}],
+    }
+
+
 def test_fetch_all_players_returns_list():
     with requests_mock.Mocker() as m:
-        m.get(JP_URL, json={"players": [{"id": 1, "name": "X"}]})
+        m.get(JP_URL, json={"players": [_player(1, "X")]})
         players = fetch_all_players(TOKEN)
-        assert players == [{"id": 1, "name": "X"}]
-        # Sanity-check the params we send
+        assert players == [_player(1, "X")]
+        # Sanity-check the params on the last (full) request
         sent = m.last_request.qs
         assert sent["auth"] == [TOKEN]
         assert sent["showpredict"] == ["true"]
         assert sent["limit"] == ["600"]
+
+
+def test_fetch_all_players_uses_cache_when_updated_at_unchanged():
+    """Second call hits a `limit=1` peek but reuses the cached payload."""
+    payload = {"players": [_player(1, "X", updated_at=1779000000)]}
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json=payload)
+        first = fetch_all_players(TOKEN)
+        second = fetch_all_players(TOKEN)
+        assert first == second
+        # Requests in order: full (no peek on cold cache), peek, …
+        # Cold-cache path skips the peek (no cached_players); first call
+        # is one full request. The second call peeks and finds the cache
+        # still valid → no full re-fetch.
+        limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
+        # 1 cold full + 1 warm peek = 2 calls total, limits "600" and "1".
+        assert limits == ["600", "1"]
+
+
+def test_fetch_all_players_invalidates_when_updated_at_changes():
+    """If the peek shows a newer `updated_at`, we re-fetch in full."""
+    stale_payload = {"players": [_player(1, "X", updated_at=1779000000)]}
+    fresh_payload = {"players": [_player(1, "X", updated_at=1779999999)]}
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json=stale_payload)
+        first = fetch_all_players(TOKEN)
+        # JP refreshes: peek + full both return the newer timestamp.
+        m.get(JP_URL, json=fresh_payload)
+        second = fetch_all_players(TOKEN)
+        assert first == [_player(1, "X", updated_at=1779000000)]
+        assert second == [_player(1, "X", updated_at=1779999999)]
+        limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
+        # cold full + peek (sees fresh) + full re-fetch = 3 calls.
+        assert limits == ["600", "1", "600"]
 
 
 def test_get_predict_rate_returns_value():
