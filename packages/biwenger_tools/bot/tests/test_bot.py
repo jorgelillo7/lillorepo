@@ -88,26 +88,37 @@ def test_wrong_chat_callback_is_silently_ignored(client):
 
 
 @pytest.mark.parametrize(
-    "command,path,method",
+    "command,path,method,params",
     [
-        ("/mercado", "/market", "GET"),
-        ("/alinear", "/lineups/auto-pick", "POST"),
-        ("/recomendar", "/budget/recommendations", "GET"),
-        ("/scrapper", "/scraper/trigger", "POST"),
+        ("/mercado", "/market", "GET", None),
+        ("/alinear", "/lineups/auto-pick", "POST", None),
+        ("/preview", "/lineups/auto-pick", "POST", {"dry_run": "1"}),
+        ("/recomendar", "/budget/recommendations", "GET", None),
+        ("/scrapper", "/scraper/trigger", "POST", None),
     ],
 )
-def test_text_command_calls_api(client, command, path, method):
+def test_text_command_calls_api(client, command, path, method, params):
     with patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
         resp = _post(client, _update(_VALID_CHAT, command))
     assert resp.status_code == 200
-    mock_call.assert_called_once_with(_API_URL, path, method=method)
+    mock_call.assert_called_once_with(_API_URL, path, method=method, params=params)
 
 
 def test_command_with_botname_suffix_routes_correctly(client):
     with patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
         resp = _post(client, _update(_VALID_CHAT, "/mercado@biwenger_tools_bot"))
     assert resp.status_code == 200
-    mock_call.assert_called_once_with(_API_URL, "/market", method="GET")
+    mock_call.assert_called_once_with(_API_URL, "/market", method="GET", params=None)
+
+
+def test_preview_text_command_calls_api_with_dry_run(client):
+    """`/preview` calls /lineups/auto-pick with `?dry_run=1`."""
+    with patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+        resp = _post(client, _update(_VALID_CHAT, "/preview"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        _API_URL, "/lineups/auto-pick", method="POST", params={"dry_run": "1"}
+    )
 
 
 def test_api_call_failure_sends_error_message(client):
@@ -199,7 +210,7 @@ def test_menu_callback_dispatches_action(client):
         resp = _post(client, _callback_update(_VALID_CHAT, "menu:mercado"))
     assert resp.status_code == 200
     mock_ack.assert_called_once()
-    mock_call.assert_called_once_with(_API_URL, "/market", method="GET")
+    mock_call.assert_called_once_with(_API_URL, "/market", method="GET", params=None)
 
 
 def test_menu_analizar_callback_opens_picker(client):

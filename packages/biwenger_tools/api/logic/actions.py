@@ -240,10 +240,12 @@ def run_market() -> dict:
     return {"sent": 1, "size": len(market_rows)}
 
 
-def run_auto_pick_lineup() -> dict:
+def run_auto_pick_lineup(dry_run: bool = False) -> dict:
     """Pick the best lineup, apply it on Biwenger, confirm via Telegram.
 
-    Used by POST /lineups/auto-pick (was /alinear).
+    Used by POST /lineups/auto-pick (was /alinear). With `dry_run=True`
+    skips the Biwenger PUT and sends the would-be lineup to Telegram as
+    a preview — useful before a high-stakes matchday.
     """
     biwenger, biwenger_players, jp_index = _prepare_context()
     telegram = _require_telegram()
@@ -257,7 +259,7 @@ def run_auto_pick_lineup() -> dict:
     by_status = _squad_breakdown(my_team)
     logger.info(
         "Squad ready for auto-pick.",
-        extra={"total": len(my_team), **by_status},
+        extra={"total": len(my_team), **by_status, "dry_run": dry_run},
     )
 
     result = pick_lineup(my_team)
@@ -276,6 +278,23 @@ def run_auto_pick_lineup() -> dict:
             text="No se pudo calcular la alineacion (jugadores insuficientes).",
         )
         return {"sent": 1, "applied": False, "reason": "no_lineup"}
+
+    if dry_run:
+        preview = format_lineup_message(result).replace(
+            "✅ Alineación aplicada", "👀 <b>Preview</b> — no aplicada"
+        )
+        send_telegram_message(bot_token=token, chat_id=chat_id, text=preview)
+        logger.info(
+            "Dry-run lineup preview sent.",
+            extra={"formation": result["formation"], "total_sf": result["total_sf"]},
+        )
+        return {
+            "sent": 1,
+            "applied": False,
+            "dry_run": True,
+            "formation": result["formation"],
+            "total_sf": result["total_sf"],
+        }
 
     starters_ids = [
         r["bw_id"] for r, _ in sorted(result["starters"], key=lambda rp: rp[1])
