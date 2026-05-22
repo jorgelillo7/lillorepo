@@ -154,6 +154,43 @@ def set_commands_menu_button(bot_token: str) -> None:
         logger.error("Failed to set menu button.", extra={"error": str(e)})
 
 
+def set_webhook(
+    bot_token: str,
+    url: str,
+    secret_token: str,
+    allowed_updates: Optional[list[str]] = None,
+) -> None:
+    """Register a webhook with Telegram.
+
+    `allowed_updates` defaults to `["message", "callback_query"]` — that
+    combination is the *only* one that lets the bot receive both text
+    commands and inline-keyboard taps. Calling `setWebhook` without this
+    parameter ends up at Telegram's default (which historically defaulted
+    to `["message"]` for our bot — that's exactly the trap that broke
+    every menu callback for hours until we found it).
+    """
+    if allowed_updates is None:
+        allowed_updates = ["message", "callback_query"]
+    api_url = f"https://api.telegram.org/bot{bot_token}/setWebhook"
+    try:
+        response = requests.post(
+            api_url,
+            json={
+                "url": url,
+                "secret_token": secret_token,
+                "allowed_updates": allowed_updates,
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        logger.info(
+            "Webhook set.",
+            extra={"url": url, "allowed_updates": allowed_updates},
+        )
+    except requests.RequestException as e:
+        logger.error("Failed to set webhook.", extra={"error": str(e)})
+
+
 def parse_command(text: str) -> str:
     """Extract the bare command from a Telegram message text.
 
