@@ -207,11 +207,32 @@ def test_lineups_auto_pick_calls_run_auto_pick(client):
         return_value=fake,
     ) as mock_run:
         resp = client.post("/lineups/auto-pick")
-    mock_run.assert_called_once()
+    mock_run.assert_called_once_with(dry_run=False)
     assert resp.status_code == 200
     body = resp.get_json()
     assert body["applied"] is True
     assert body["formation"] == "4-3-3"
+
+
+def test_lineups_auto_pick_with_dry_run_flag(client):
+    """`?dry_run=1` flips `run_auto_pick_lineup(dry_run=True)`."""
+    fake = {
+        "sent": 1,
+        "applied": False,
+        "dry_run": True,
+        "formation": "4-3-3",
+        "total_sf": 4200,
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_auto_pick_lineup",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/lineups/auto-pick?dry_run=1")
+    mock_run.assert_called_once_with(dry_run=True)
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["applied"] is False
+    assert body["dry_run"] is True
 
 
 def test_lineups_auto_pick_rejects_get(client):

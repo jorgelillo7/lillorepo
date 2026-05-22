@@ -40,85 +40,30 @@ PR 1 – PR 6 of `.claude/plans/biwenger_api_refactor.md` (now deleted, see rele
 
 ## Pending work
 
-### 1. Firestore migration — SHIPPED (2026-05-21)
+### 1. Drive folder cleanup — USER-OWNED (week of 2026-05-26)
 
-Done. Web reads from Firestore, scraper writes to Firestore, indexes
-declared in `firestore.indexes.json`, schemas + read-cost reference in
-`docs/firestore.md`. The CSV/Drive read path was retired in PR #82 and
-the dual-write retired in the "part 2" cleanup PR. Drive folder
-contents will be deleted by the user when the league ends.
+When the league ends: delete the Drive folder contents (the old CSVs the
+scraper used to upload), then drop the `biwenger-tools-sa-regional`
+secret — or repoint it to a Sheets-only SA, because the Sheets API
+(ligas_especiales, trofeos) still authenticates through that mount.
 
-The deferred-plan section that used to live here (with schemas, gotchas,
-and the one-time backfill) is preserved in the git history at
-commit 08c4a4e (`.claude/plans/firestore_pickup.md`) in case the
-context is ever needed again.
-
-Schemas, indexes, and read-cost reference live in `docs/firestore.md`.
-
-**User-owned cleanup (week of 2026-05-26):** delete the Drive folder
-contents, then drop the `biwenger-tools-sa-regional` secret (or repoint
-it to a Sheets-only SA — Sheets API is still wired up).
-
-### 2. New GCP project for photos (no spec yet)
-Mentioned as TODO. Waiting for spec.
+### 2. Photo-recognition project
+Tracked in `packages/my_photos/README.md`, not here.
 
 ### 3. Move Drive/Sheets IDs out of BUILD.bazel
-Currently hardcoded in `packages/biwenger_tools/web/BUILD.bazel`. Dies naturally with Firestore migration.
-
-### 4. Bot display name in Telegram set to "Biwenger Tools Bot"
-Done via BotFather on 2026-05-18.
+Sheets IDs are still hardcoded in `packages/biwenger_tools/web/BUILD.bazel`. Env-var the `LIGAS_ESPECIALES_*` / `TROFEOS_*` entries when convenient — low priority.
 
 ---
 
-## Mejoras propuestas (senior review 2026-05-19, ordenadas por impacto)
+## Shipped this sprint (2026-05-21 → 22)
 
-Surfaced during a code-review pass after the v6.0 refactor shipped. None
-of these block anything; pick when ready.
-
-1. **JP cache in the api.** Today `/alinear`, `/teams`, etc. pay ~5–10s of
-   JP fetch per call. A 5-minute in-process cache on
-   `core.sdk.jp.fetch_all_players` (the JP response is identical for all
-   five endpoints within a few minutes) drops average request time to
-   ~2s and reduces load on the private JP API. ~10 LoC with a TTL decorator.
-
-2. **Cloud Run alerts for `biwenger-api` and the scraper job.** Free tier
-   covers 5 alerts. Two minimum:
-   - `biwenger-api` 5xx > 0 in a 5-minute window
-   - Scraper job execution failed (now that the job re-raises on error,
-     this is finally meaningful)
-   The api already notifies Telegram on `/alinear` failure; Cloud Run alerts
-   add coverage for the cases where the bot never even reaches the api
-   (deploy regression, OIDC misconfiguration, etc.).
-
-3. **`/alinear` dry-run mode.** `POST /lineups/auto-pick?dry_run=1` skips
-   the Biwenger PUT and just sends "would have done X" to Telegram. ~10
-   LoC plus a bot flag or a separate `/alinear?` syntax. Useful when you
-   want to see what the picker would do without committing.
-
-4. **Auto-register bot commands on deploy.** `setup_commands.py` is
-   one-shot and manual today. Hook it into CI's `deploy-bot` job
-   (post-deploy step). Doable in 1 step:
-   `gcloud run jobs execute biwenger-bot-setup-commands` — or simpler,
-   add a `setup-commands` step to the deploy.yml that uses
-   `gcloud secrets versions access` + a few lines of curl.
-
-5. **Single-tenant escape.** League ID, chat ID and user identity are
-   hard-coded for one user. If a second pana wants to use it, ~1 sprint
-   to extract per-user config into a Firestore `users/{user_id}`
-   collection. Decision should drive whether to invest — if it's a
-   personal project, fine to keep single-tenant.
-
-6. **Tests mutate module-level `cfg.X`.** Works because pytest is serial.
-   Migrate the relevant tests to use a `monkeypatch` fixture-injection
-   pattern. Low priority — touched only when we modify those tests.
-
-7. **Drive/Sheets IDs in `web/BUILD.bazel`.** Dies naturally with the
-   Firestore migration; until then, env-vars would work fine.
-
-8. **Documentation auto-render of the architecture diagram.** The
-   Mermaid in `README.md` is hand-written and drifts. A small script
-   that introspects `deploy.yml` + READMEs could regenerate it. Low
-   priority.
+- **Firestore migration** — web reads/writes through `repository.py`; scraper writes only to Firestore; schemas + indexes + read-cost reference in `docs/firestore.md`.
+- **Server-side queries** in the web — paginated comunicados via Firestore `count` + `limit/offset`; salseo runs one query per content type instead of full-scan; lazy-load search box for free-text.
+- **Drive/CSV pipeline retired** — `core.sdk.gcp.{find_file_on_drive, download_csv_*, upload_csv_*, get_file_metadata}` deleted. Sheets API still uses the SA mount.
+- **Bot UI overhaul** — `/menu` keyboard + `/analizar` manager picker (`menu:<action>`, `analizar:<id|all>` callbacks). `/myteam` retired in favour of "🛡️ Mi equipo" in the picker.
+- **`/preview`** — `POST /lineups/auto-pick?dry_run=1` previews the lineup without the Biwenger PUT.
+- **JP cache** (`core/sdk/jp.py`) — in-process dict keyed by `(competition, score_type)`, invalidated via a `limit=1` `updated_at` probe. ~5-10s → ~200ms on cache hits.
+- **Bot auto-setup in CI** — post-deploy step re-registers commands + sets the webhook with `allowed_updates=["message","callback_query"]` so the menu callbacks never silently break again.
 
 ---
 

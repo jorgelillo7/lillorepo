@@ -40,19 +40,23 @@ _HELP_TEXT = (
     "/analizar — Análisis (te pregunta a quién)\n"
     "/mercado — Solo el mercado\n"
     "/alinear — Aplica la mejor alineación posible\n"
+    "/preview — Previsualiza la alineación sin aplicarla\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
 )
 
-# Map main-menu action key → (api path, http method). `analizar` is special
-# because it opens the manager picker before hitting any endpoint.
-_ACTION_ROUTES = {
-    "mercado": ("/market", "GET"),
-    "alinear": ("/lineups/auto-pick", "POST"),
-    "recomendar": ("/budget/recommendations", "GET"),
-    "scrapper": ("/scraper/trigger", "POST"),
+# Map main-menu action key → (api path, http method, query params).
+# `analizar` is special because it opens the manager picker before
+# hitting any endpoint. `alinear_dry` mirrors `alinear` but with
+# `?dry_run=1` so the api previews the lineup without doing the PUT.
+_ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
+    "mercado": ("/market", "GET", None),
+    "alinear": ("/lineups/auto-pick", "POST", None),
+    "alinear_dry": ("/lineups/auto-pick", "POST", {"dry_run": "1"}),
+    "recomendar": ("/budget/recommendations", "GET", None),
+    "scrapper": ("/scraper/trigger", "POST", None),
 }
 
 
@@ -117,14 +121,14 @@ def _send_manager_picker() -> None:
 
 def _dispatch_action(action_key: str, label: str) -> None:
     """Send "procesando…" and fire the matching api endpoint."""
-    path, method = _ACTION_ROUTES[action_key]
+    path, method, params = _ACTION_ROUTES[action_key]
     send_telegram_message(
         bot_token=config.TELEGRAM_BOT_TOKEN,
         chat_id=config.TELEGRAM_CHAT_ID,
         text=f"⏳ <b>{label}</b> — procesando…",
     )
     try:
-        api_client.call_api(config.BIWENGER_API_URL, path, method=method)
+        api_client.call_api(config.BIWENGER_API_URL, path, method=method, params=params)
     except Exception as exc:
         logger.error(
             "Webhook: api call failed",
@@ -261,6 +265,8 @@ def webhook():
         _dispatch_action("mercado", "🛒 Mercado")
     elif cmd == "/alinear":
         _dispatch_action("alinear", "📋 Alinear")
+    elif cmd == "/preview":
+        _dispatch_action("alinear_dry", "👀 Preview alineación")
     elif cmd == "/recomendar":
         _dispatch_action("recomendar", "💡 Recomendar")
     elif cmd == "/scrapper":

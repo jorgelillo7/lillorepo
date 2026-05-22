@@ -310,6 +310,28 @@ jobs:
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
+      - name: Refresh bot commands + webhook
+        # Idempotent post-deploy hook. Refreshes the `/`-menu so command
+        # additions/removals reach Telegram, and re-registers the webhook
+        # with `allowed_updates=[message, callback_query]` so inline keyboards
+        # keep working. The latter is what dropped on 2026-05-21 — without
+        # `callback_query` in `allowed_updates`, Telegram silently drops
+        # menu taps.
+        run: |
+          CFG=$(gcloud secrets versions access latest \
+            --secret=telegram-bot-config-regional --project=${{ env.PROJECT_ID }})
+          TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
+          TELEGRAM_WEBHOOK_SECRET=$(echo "$CFG" | jq -r .webhook_secret)
+          BOT_URL=$(gcloud run services describe biwenger-bot \
+            --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          pip install --quiet requests python-dotenv
+          PYTHONPATH=. \
+            TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+            TELEGRAM_WEBHOOK_SECRET="$TELEGRAM_WEBHOOK_SECRET" \
+            BIWENGER_BOT_URL="${BOT_URL}/telegram/webhook" \
+            python3 packages/biwenger_tools/bot/setup_commands.py
+
   # -------------------------------------------------------
   # 2d. Build and deploy biwenger-api Cloud Run Service
   # -------------------------------------------------------

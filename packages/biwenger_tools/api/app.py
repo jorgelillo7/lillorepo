@@ -98,8 +98,16 @@ def market():
 
 @app.route("/lineups/auto-pick", methods=["POST"])
 def lineups_auto_pick():
-    """Pick best lineup, apply on Biwenger, confirm via Telegram — was /alinear."""
-    return _run_action("lineups.auto-pick", actions.run_auto_pick_lineup)
+    """Pick best lineup, apply on Biwenger, confirm via Telegram — was /alinear.
+
+    Query param `dry_run=1` previews the lineup without doing the
+    Biwenger PUT — sends the same Telegram message but tagged "Preview".
+    """
+    dry_run_raw = (request.args.get("dry_run") or "").strip().lower()
+    dry_run = dry_run_raw in ("1", "true", "yes")
+    return _run_action(
+        "lineups.auto-pick", lambda: actions.run_auto_pick_lineup(dry_run=dry_run)
+    )
 
 
 @app.route("/budget/recommendations", methods=["GET"])
