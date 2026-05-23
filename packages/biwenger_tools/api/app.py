@@ -14,6 +14,7 @@ from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import (
     actions,
+    auto_bid,
     digests,
     recommendations,
     scraper,
@@ -154,6 +155,16 @@ def scraper_trigger():
 def digests_daily():
     """Cron-triggered: send "my team + market" PNGs to Telegram."""
     return _run_action("digests.daily", digests.run_daily)
+
+
+@app.route("/market/auto-bid", methods=["POST"])
+def market_auto_bid():
+    """Cron-triggered (09:00 Madrid): tiered auto-bid on the daily market.
+
+    Idempotent across same-day retries — bids are logged to Firestore
+    under `auto_bid_log/{date}/bids` and skipped on replay.
+    """
+    return _run_action("market.auto-bid", auto_bid.run_auto_bid)
 
 
 if __name__ == "__main__":
