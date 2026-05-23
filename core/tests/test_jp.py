@@ -29,6 +29,13 @@ def _player(pid: int, name: str, updated_at: int = 1779000000) -> dict:
     }
 
 
+def _batch(start_ts: int) -> list[dict]:
+    """A 5-player sample with `updated_at` values spread over ~120 seconds —
+    matches JP's real shape where each player gets its own timestamp
+    inside the batch window."""
+    return [_player(i, f"P{i}", updated_at=start_ts + (i * 30)) for i in range(1, 6)]
+
+
 def test_fetch_all_players_returns_list():
     with requests_mock.Mocker() as m:
         m.get(JP_URL, json={"players": [_player(1, "X")]})
@@ -41,38 +48,59 @@ def test_fetch_all_players_returns_list():
         assert sent["limit"] == ["600"]
 
 
-def test_fetch_all_players_uses_cache_when_updated_at_unchanged():
-    """Second call hits a `limit=1` peek but reuses the cached payload."""
-    payload = {"players": [_player(1, "X", updated_at=1779000000)]}
+def test_fetch_all_players_uses_cache_when_fingerprint_unchanged():
+    """Second call hits a `limit=5` peek but reuses the cached payload.
+
+    The probe and the cached fingerprint both compute `max(updated_at)`
+    across the same top-N sample, so unchanged data → identical maxes
+    → cache hit.
+    """
+    batch = _batch(start_ts=1779000000)
     with requests_mock.Mocker() as m:
-        m.get(JP_URL, json=payload)
+        m.get(JP_URL, json={"players": batch})
         first = fetch_all_players(TOKEN)
         second = fetch_all_players(TOKEN)
         assert first == second
-        # Requests in order: full (no peek on cold cache), peek, …
-        # Cold-cache path skips the peek (no cached_players); first call
-        # is one full request. The second call peeks and finds the cache
-        # still valid → no full re-fetch.
         limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
-        # 1 cold full + 1 warm peek = 2 calls total, limits "600" and "1".
-        assert limits == ["600", "1"]
+        # 1 cold full + 1 warm probe = 2 calls. The probe sends limit=5
+        # (sample size); the cold full sends the default 600.
+        assert limits == ["600", "5"]
 
 
-def test_fetch_all_players_invalidates_when_updated_at_changes():
-    """If the peek shows a newer `updated_at`, we re-fetch in full."""
-    stale_payload = {"players": [_player(1, "X", updated_at=1779000000)]}
-    fresh_payload = {"players": [_player(1, "X", updated_at=1779999999)]}
+def test_fetch_all_players_invalidates_when_any_top_player_refreshes():
+    """A new max within the probe sample triggers re-fetch."""
+    stale = _batch(start_ts=1779000000)
+    # Same five players, but one of them got a newer timestamp → max moves up.
+    fresh = _batch(start_ts=1779000000)
+    fresh[2]["predict"][0]["updated_at"] = 1779999999  # third player refreshed
+
     with requests_mock.Mocker() as m:
-        m.get(JP_URL, json=stale_payload)
-        first = fetch_all_players(TOKEN)
-        # JP refreshes: peek + full both return the newer timestamp.
-        m.get(JP_URL, json=fresh_payload)
+        m.get(JP_URL, json={"players": stale})
+        fetch_all_players(TOKEN)
+        m.get(JP_URL, json={"players": fresh})
         second = fetch_all_players(TOKEN)
-        assert first == [_player(1, "X", updated_at=1779000000)]
-        assert second == [_player(1, "X", updated_at=1779999999)]
+        # Cache invalidated because probe's max (1779999999) differs from
+        # the cached max (1779000000 + 4*30 = 1779000120).
+        assert second == fresh
         limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
-        # cold full + peek (sees fresh) + full re-fetch = 3 calls.
-        assert limits == ["600", "1", "600"]
+        # cold full + probe (sees newer max) + full re-fetch = 3 calls.
+        assert limits == ["600", "5", "600"]
+
+
+def test_fetch_all_players_probe_resilient_to_player_without_timestamp():
+    """Cache stays valid when the probe sample includes a player without
+    `predict[type=2]` — the max ignores `None`s and uses the rest."""
+    batch_with_gap = _batch(start_ts=1779000000)
+    batch_with_gap[0]["predict"] = []  # first player has no prediction
+
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json={"players": batch_with_gap})
+        first = fetch_all_players(TOKEN)
+        second = fetch_all_players(TOKEN)
+        assert first == second
+        # Still serves from cache on the second call.
+        limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
+        assert limits == ["600", "5"]
 
 
 def test_get_predict_rate_returns_value():
