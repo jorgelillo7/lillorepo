@@ -1,4 +1,5 @@
 import pytest
+import requests
 import requests_mock
 
 from core.sdk.biwenger import BiwengerClient
@@ -11,6 +12,7 @@ from .constants import (
     TEST_LOGIN_URL,
     TEST_MANAGER_SQUAD_URL_TEMPLATE,
     TEST_MARKET_URL,
+    TEST_OFFERS_URL,
     TEST_PASSWORD,
     TEST_PLAYERS_DATA_URL,
 )
@@ -260,6 +262,93 @@ def test_get_account_state_handles_missing_prices(
         m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
         state = client.get_account_state(squad=squad, all_players=all_players)
     assert state["max_bid"] == 10_000_000 + 4_000_000 // 4  # cash + 1M
+
+
+# --- place_market_bid ---
+
+
+def test_place_market_bid_posts_offer_with_expected_body(
+    biwenger_client_authenticated,
+):
+    """Body shape must be {to: null, type: "purchase", amount, requestedPlayers:[id]}.
+
+    `to=None` is the marker for daily-market players (computer-owned);
+    deviating from that shape would route the bid as a user-to-user offer.
+    """
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(
+            TEST_OFFERS_URL,
+            json={
+                "status": 200,
+                "data": {
+                    "fromID": 1,
+                    "toID": None,
+                    "type": "purchase",
+                    "amount": 8_480_000,
+                    "id": 99,
+                    "status": "waiting",
+                },
+            },
+            status_code=200,
+        )
+        data = client.place_market_bid(
+            player_id=20102, amount=8_480_000, offers_url=TEST_OFFERS_URL
+        )
+
+    assert data["id"] == 99
+    assert data["status"] == "waiting"
+    assert m.last_request.json() == {
+        "to": None,
+        "type": "purchase",
+        "amount": 8_480_000,
+        "requestedPlayers": [20102],
+    }
+
+
+def test_place_market_bid_coerces_numeric_args_to_int(biwenger_client_authenticated):
+    """Callers may pass numpy ints, floats from intermediate maths, etc.; the
+    payload must always serialise as plain ints (Biwenger 400s on floats)."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_OFFERS_URL, json={"data": {}}, status_code=200)
+        client.place_market_bid(
+            player_id="20102",  # type: ignore[arg-type]
+            amount=8_480_000.0,  # type: ignore[arg-type]
+            offers_url=TEST_OFFERS_URL,
+        )
+    body = m.last_request.json()
+    assert body["amount"] == 8_480_000
+    assert body["requestedPlayers"] == [20102]
+    assert isinstance(body["amount"], int)
+    assert isinstance(body["requestedPlayers"][0], int)
+
+
+def test_place_market_bid_raises_on_4xx(biwenger_client_authenticated):
+    """Biwenger returns 4xx when a higher bid already locked the player or
+    the offer is otherwise rejected. The SDK surfaces the error so the
+    caller can log + continue with the next candidate."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_OFFERS_URL, status_code=409, text="conflict")
+        with pytest.raises(requests.HTTPError):
+            client.place_market_bid(
+                player_id=1, amount=1_000_000, offers_url=TEST_OFFERS_URL
+            )
+
+
+def test_place_market_bid_returns_empty_dict_when_data_missing(
+    biwenger_client_authenticated,
+):
+    """Defensive: if Biwenger returns 200 with no `data` field we still
+    return an empty dict instead of None so the caller can `.get("id")`."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_OFFERS_URL, json={"status": 200}, status_code=200)
+        data = client.place_market_bid(
+            player_id=1, amount=1, offers_url=TEST_OFFERS_URL
+        )
+    assert data == {}
 
 
 def test_get_account_state_unknown_league_returns_zeros(
