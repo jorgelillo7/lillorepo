@@ -121,6 +121,50 @@ def test_digests_daily_rejects_get(client):
     assert resp.status_code == 405  # method not allowed
 
 
+# --- /market/auto-bid ---
+
+
+def test_market_auto_bid_calls_run_auto_bid(client):
+    fake = {
+        "sent": 1,
+        "day": "2026-05-23",
+        "candidates": 7,
+        "bid_count": 2,
+        "skipped_count": 5,
+        "total_bid_eur": 12_000_000,
+        "remaining_cash_eur": 1_000_000,
+        "bids": [],
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.auto_bid.run_auto_bid",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/market/auto-bid")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["status"] == "ok"
+    assert body["bid_count"] == 2
+    assert body["total_bid_eur"] == 12_000_000
+
+
+def test_market_auto_bid_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.auto_bid.run_auto_bid",
+        side_effect=RuntimeError("biwenger 503"),
+    ):
+        resp = client.post("/market/auto-bid")
+    assert resp.status_code == 500
+    body = resp.get_json()
+    assert body["status"] == "error"
+    assert "biwenger 503" in body["error"]
+
+
+def test_market_auto_bid_rejects_get(client):
+    resp = client.get("/market/auto-bid")
+    assert resp.status_code == 405
+
+
 # --- /teams, /managers, /market, /lineups/auto-pick ---
 
 
