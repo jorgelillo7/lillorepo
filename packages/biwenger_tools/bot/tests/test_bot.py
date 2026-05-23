@@ -94,6 +94,7 @@ def test_wrong_chat_callback_is_silently_ignored(client):
         ("/alinear", "/lineups/auto-pick", "POST", None),
         ("/preview", "/lineups/auto-pick", "POST", {"dry_run": "1"}),
         ("/recomendar", "/budget/recommendations", "GET", None),
+        ("/pujar", "/market/auto-bid", "POST", None),
         ("/scrapper", "/scraper/trigger", "POST", None),
     ],
 )
@@ -183,11 +184,27 @@ def test_menu_sends_inline_keyboard(client):
     assert resp.status_code == 200
     markup = mock_send.call_args.kwargs.get("reply_markup")
     assert markup is not None
-    # 5 actions arranged in 2 columns → 3 rows
+    # 6 actions arranged in 2 columns → 3 rows
     assert len(markup["inline_keyboard"]) == 3
     flattened = [b["callback_data"] for row in markup["inline_keyboard"] for b in row]
     assert "menu:analizar" in flattened
+    assert "menu:pujar" in flattened
     assert "menu:scrapper" in flattened
+
+
+def test_menu_pujar_callback_dispatches_auto_bid(client):
+    """Tapping the "Pujar" button on the menu fires `/market/auto-bid`."""
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "menu:pujar"))
+    assert resp.status_code == 200
+    mock_ack.assert_called_once()
+    mock_call.assert_called_once_with(
+        _API_URL, "/market/auto-bid", method="POST", params=None
+    )
 
 
 def test_start_aliases_menu(client):

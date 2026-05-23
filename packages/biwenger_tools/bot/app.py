@@ -42,6 +42,7 @@ _HELP_TEXT = (
     "/alinear — Aplica la mejor alineación posible\n"
     "/preview — Previsualiza la alineación sin aplicarla\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
+    "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
@@ -56,6 +57,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "alinear": ("/lineups/auto-pick", "POST", None),
     "alinear_dry": ("/lineups/auto-pick", "POST", {"dry_run": "1"}),
     "recomendar": ("/budget/recommendations", "GET", None),
+    "pujar": ("/market/auto-bid", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
 }
 
@@ -269,6 +271,8 @@ def webhook():
         _dispatch_action("alinear_dry", "👀 Preview alineación")
     elif cmd == "/recomendar":
         _dispatch_action("recomendar", "💡 Recomendar")
+    elif cmd == "/pujar":
+        _dispatch_action("pujar", "💸 Pujar")
     elif cmd == "/scrapper":
         _dispatch_action("scrapper", "🧹 Scraper")
     elif cmd == "/help":
