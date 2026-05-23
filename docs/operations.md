@@ -196,27 +196,8 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
     | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position |
     | `POST` | `/scraper/trigger` | Queue a scraper job execution (bot's `/scrapper`) |
-    | `POST` | `/digests/daily` | Cron — my team + market (Scheduler only) |
-    | `POST` | `/market/auto-bid` | Cron — tiered auto-bid on the daily market (Scheduler only) |
-
-  * **Create the auto-bid Cloud Scheduler job (one-shot):**
-
-    ```bash
-      API_URL=$(gcloud run services describe biwenger-api --region europe-southwest1 --format='value(status.url)')
-      gcloud scheduler jobs create http biwenger-auto-bid-trigger \
-        --schedule="0 9 * * *" \
-        --time-zone="Europe/Madrid" \
-        --location=europe-west1 \
-        --uri="$API_URL/market/auto-bid" \
-        --http-method=POST \
-        --oidc-service-account-email=biwenger-scheduler@biwenger-tools.iam.gserviceaccount.com \
-        --oidc-token-audience="$API_URL" \
-        --attempt-deadline=120s
-    ```
-
-    Same service account + audience pattern as `biwenger-daily-digest-trigger`.
-    Idempotency is handled by the endpoint itself (Firestore `auto_bid_log/{date}`),
-    so a retry on transient 5xx is safe.
+    | `POST` | `/digests/daily` | Cron — my team + market images, then auto-bid summary (chained, Scheduler only) |
+    | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
   * **Smoke test:**
 
