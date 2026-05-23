@@ -1,8 +1,12 @@
-"""Daily digest logic — sends "my team + market" as PNGs to Telegram.
+"""Daily digest logic — sends "my team + market + auto-bid summary" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
 orchestration (JP health check, build index, Biwenger session, send) lives
 here so the Flask handler stays a thin shell that translates HTTP errors.
+
+The auto-bid step is chained at the end on purpose: a single daily cron
+gives the user a coherent morning message (squad → market → bids) in
+guaranteed order, instead of two independent Scheduler jobs racing.
 """
 
 import time
@@ -12,6 +16,7 @@ from core.sdk.jp import check_api_health, fetch_all_players
 from core.sdk.telegram import send_telegram_photo
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import auto_bid
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
@@ -73,8 +78,28 @@ def run_daily() -> dict:
         "Mercado",
     )
 
+    # Auto-bid chained as the final step so the chat reads: squad → market →
+    # bid summary in guaranteed order. Wrapped in a broad try/except — a
+    # broken auto-bid run must not lose the digest we already sent above.
+    auto_bid_result: dict
+    try:
+        auto_bid_result = auto_bid.run_auto_bid()
+    except Exception as exc:
+        logger.exception("Auto-bid step failed inside daily digest.")
+        auto_bid_result = {"error": str(exc)}
+
     logger.info(
         "Daily analysis sent.",
-        extra={"my_team": len(my_team), "market": len(market_rows)},
+        extra={
+            "my_team": len(my_team),
+            "market": len(market_rows),
+            "auto_bid_placed": auto_bid_result.get("bid_count"),
+            "auto_bid_skipped": auto_bid_result.get("skipped_count"),
+        },
     )
-    return {"sent": 2, "my_team": len(my_team), "market": len(market_rows)}
+    return {
+        "sent": 2,
+        "my_team": len(my_team),
+        "market": len(market_rows),
+        "auto_bid": auto_bid_result,
+    }
