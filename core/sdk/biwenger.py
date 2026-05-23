@@ -24,6 +24,7 @@ BIWENGER_CF_BASE = "https://cf.biwenger.com/api/v2"
 LOGIN_URL = f"{BIWENGER_API_BASE}/auth/login"
 ACCOUNT_URL = f"{BIWENGER_API_BASE}/account"
 MARKET_URL = f"{BIWENGER_API_BASE}/market"
+OFFERS_URL = f"{BIWENGER_API_BASE}/offers"
 LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
@@ -265,6 +266,46 @@ class BiwengerClient:
         market_players = response.json().get("data", {}).get("sales", [])
         logger.info("Market players fetched.", extra={"count": len(market_players)})
         return market_players
+
+    def place_market_bid(
+        self, *, player_id: int, amount: int, offers_url: str = OFFERS_URL
+    ) -> dict:
+        """POST a market bid on a daily-market (computer-owned) player.
+
+        Body shape captured 2026-05-23 on `POST /api/v2/offers`:
+            {"to": null, "type": "purchase",
+             "amount": <eur>, "requestedPlayers": [<player_id>]}
+
+        `to=None` is the differentiator for daily-market players. User
+        listings use `to=<seller_user_id>`; those are out of scope for
+        auto-bid and should be filtered out by the caller.
+
+        Returns the `data` dict from Biwenger's response (includes the
+        offer `id`, useful for later cancellation/diagnostics).
+        """
+        payload = {
+            "to": None,
+            "type": "purchase",
+            "amount": int(amount),
+            "requestedPlayers": [int(player_id)],
+        }
+        logger.info(
+            "Placing market bid.",
+            extra={"player_id": player_id, "amount": amount},
+        )
+        response = self.session.post(offers_url, json=payload)
+        response.raise_for_status()
+        data = response.json().get("data", {}) or {}
+        logger.info(
+            "Market bid accepted.",
+            extra={
+                "player_id": player_id,
+                "amount": amount,
+                "offer_id": data.get("id"),
+                "status": data.get("status"),
+            },
+        )
+        return data
 
     def get_clausulazos(self, clausulazos_url: str) -> dict:
         """Returns a single page of release-clause transfer entries."""
