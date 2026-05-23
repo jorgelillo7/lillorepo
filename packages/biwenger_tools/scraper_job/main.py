@@ -122,8 +122,12 @@ def _write_collection(collection: str, pairs: list[tuple[str, dict]]) -> None:
     )
 
 
-def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> None:
-    """Pull the clausulazos feed, derive the justice table, write both."""
+def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> int:
+    """Pull the clausulazos feed, derive the justice table, write both.
+
+    Returns the total number of clausulazos written so `main()` can
+    surface the count in the Telegram notify.
+    """
     logger.info("Processing clausulazos...")
     players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
     raw = biwenger.get_all_clausulazos(cfg.CLAUSULAZOS_URL)
@@ -141,6 +145,7 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> None:
         [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
+    return len(clausulazos)
 
 
 def _notify(text: str) -> None:
@@ -164,6 +169,7 @@ def main() -> None:
     """
     started_at = datetime.now(timezone.utc)
     new_count = 0
+    clausulazos_count = 0
 
     try:
         season = config.TEMPORADA_ACTUAL
@@ -197,7 +203,7 @@ def main() -> None:
         else:
             logger.info("No new messages found.")
 
-        _write_clausulazos_and_tabla(biwenger, config)
+        clausulazos_count = _write_clausulazos_and_tabla(biwenger, config)
 
     except Exception as exc:
         logger.exception("Unexpected error in scraper.")
@@ -211,9 +217,16 @@ def main() -> None:
 
     elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
     if new_count > 0:
-        body = f"🧹 <b>Scraper OK</b> · {new_count} mensajes nuevos · {elapsed:.0f}s"
+        msg_s = "s" if new_count != 1 else ""
+        messages_part = f"{new_count} mensaje{msg_s} nuevo{msg_s}"
     else:
-        body = f"🧹 <b>Scraper OK</b> · sin mensajes nuevos · {elapsed:.0f}s"
+        messages_part = "sin mensajes nuevos"
+    cl_s = "s" if clausulazos_count != 1 else ""
+    clausulazos_part = f"{clausulazos_count} clausulazo{cl_s}"
+    body = (
+        f"🧹 <b>Scraper OK</b> · {messages_part} · "
+        f"{clausulazos_part} · {elapsed:.0f}s"
+    )
     _notify(body)
 
 
