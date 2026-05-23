@@ -143,10 +143,13 @@ def _enable_notify() -> None:
 
 
 def test_main_sends_telegram_on_success(mock_external_deps):
-    """On success, the scraper notifies the configured chat."""
+    """On success, the scraper notifies the configured chat with both
+    counts (messages + clausulazos)."""
     _enable_notify()
     mock_external_deps["biwenger"].get_league_users.return_value = {}
     mock_external_deps["biwenger"].get_all_board_messages.return_value = []
+    # parse_clausulazos returns nothing by default in the fixture, so the
+    # count will be 0 — assert the wording reflects that.
 
     with patch(
         "packages.biwenger_tools.scraper_job.main.send_telegram_message"
@@ -157,6 +160,8 @@ def test_main_sends_telegram_on_success(mock_external_deps):
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Scraper OK" in text
     assert "sin mensajes nuevos" in text
+    # Clausulazos count is always reported, even when 0.
+    assert "0 clausulazos" in text
 
 
 def test_main_sends_telegram_and_reraises_on_error(mock_external_deps):

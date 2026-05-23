@@ -4,13 +4,17 @@ La app móvil usa un token fijo hardcoded en el bundle JS. El endpoint
 fitness-daily devuelve la lista completa de jugadores de LaLiga con sus
 predicciones para la próxima jornada.
 
-JP marca cada `predict` con un `updated_at` (Unix timestamp). Usamos ese
-campo para invalidar la cache en proceso: un `limit=1` muy barato lee
-sólo el primer jugador y compara su `updated_at`; si coincide con lo
-cacheado, devolvemos el payload completo de memoria sin volver a pegar a
-JP. Asumimos que JP actualiza el `updated_at` de todos los jugadores
-para un `score_type` a la vez (consistente con lo que muestra la app —
-"última actualización ayer a las 23:59" para toda la liga).
+JP marca cada `predict` con un `updated_at` (Unix timestamp). Usamos
+esos timestamps como fingerprint de freshness: un `limit=5` muy barato
+lee los 5 primeros jugadores y calcula `max(updated_at)`. Si ese máximo
+coincide con el cacheado, devolvemos el payload completo de memoria sin
+volver a pegar a JP completo.
+
+Empíricamente (2026-05-23) JP escribe los ~549 jugadores en una ventana
+de ~4.5 min, así que cada jugador tiene su propio `updated_at` dentro
+del batch. Probar solo 1 jugador era brittle (el "primero" cambia con
+el orden por `priceIncrement DESC`); con 5 cubrimos la probabilidad de
+que al menos uno haya cambiado tras un refresh.
 """
 
 from typing import Optional
@@ -60,25 +64,39 @@ def _extract_updated_at(player: dict, score_type: int) -> Optional[int]:
     return None
 
 
-def _peek_updated_at(
+_PROBE_SAMPLE_SIZE = 5
+
+
+def _max_updated_at(players: list[dict], score_type: int) -> Optional[int]:
+    """Highest `updated_at` across the given players for `score_type`.
+
+    Returns None if no player in the sample has a usable timestamp.
+    """
+    timestamps = [_extract_updated_at(p, score_type) for p in players]
+    valid = [t for t in timestamps if t is not None]
+    return max(valid) if valid else None
+
+
+def _peek_fingerprint(
     auth_token: str, competition: int, score_type: int
 ) -> Optional[int]:
-    """Lightweight freshness probe: 1-player `limit=1` request.
+    """Lightweight freshness probe: `limit=N` request, returns max timestamp.
 
-    Returns the `updated_at` of the first player's prediction for the
-    requested `score_type`, or `None` if the API can't be parsed.
+    JP writes the league in a batch over a few minutes, so each player's
+    `updated_at` is its own value within the batch window. Sampling N
+    players and taking the max is a stable fingerprint of the snapshot
+    — strictly stronger than reading just the first player (whose
+    position by `priceIncrement DESC` shifts between requests).
     """
     params = _build_params(auth_token, competition, score_type)
-    params["limit"] = "1"
+    params["limit"] = str(_PROBE_SAMPLE_SIZE)
     try:
         response = requests.get(JP_URL, headers=JP_HEADERS, params=params, timeout=10)
         response.raise_for_status()
         players = response.json().get("players") or []
     except (requests.RequestException, ValueError):
         return None
-    if not players:
-        return None
-    return _extract_updated_at(players[0], score_type)
+    return _max_updated_at(players, score_type)
 
 
 def fetch_all_players(
@@ -88,25 +106,32 @@ def fetch_all_players(
 ) -> list[dict]:
     """Returns the full JP player list for the given competition + score type.
 
-    On a warm cache, validates freshness via a `limit=1` probe (~200ms)
+    On a warm cache, validates freshness via a `limit=5` probe (~200ms)
     and returns the cached payload when JP hasn't refreshed. On a cold
     cache, skips the probe — we'd fetch in full either way.
+
+    Cache fingerprint is `max(updated_at)` across the probe sample; the
+    cached payload stores `max(updated_at)` across all ~549 players so
+    a strictly increasing snapshot triggers a refetch.
     """
     cache_key = (competition, score_type)
     cached_entry = _CACHE.get(cache_key)
 
-    # Warm-cache path: probe for staleness with a cheap limit=1 call.
+    # Warm-cache path: probe for staleness with a cheap multi-player call.
     if cached_entry is not None:
-        cached_updated_at, cached_players = cached_entry
-        current_updated_at = _peek_updated_at(auth_token, competition, score_type)
-        if current_updated_at is not None and cached_updated_at == current_updated_at:
+        cached_fingerprint, cached_players = cached_entry
+        current_fingerprint = _peek_fingerprint(auth_token, competition, score_type)
+        if (
+            current_fingerprint is not None
+            and cached_fingerprint == current_fingerprint
+        ):
             logger.info(
                 "JP players served from cache.",
                 extra={
                     "competition": competition,
                     "score_type": score_type,
                     "count": len(cached_players),
-                    "updated_at": cached_updated_at,
+                    "fingerprint": cached_fingerprint,
                 },
             )
             return cached_players
@@ -120,12 +145,14 @@ def fetch_all_players(
     response.raise_for_status()
     players = response.json().get("players", [])
 
-    fresh_updated_at = _extract_updated_at(players[0], score_type) if players else None
-    _CACHE[cache_key] = (fresh_updated_at, players)
+    # Use the same `top N by priceIncrement DESC` sample the probe sees,
+    # so the next probe's max is comparable to what we cache here.
+    fresh_fingerprint = _max_updated_at(players[:_PROBE_SAMPLE_SIZE], score_type)
+    _CACHE[cache_key] = (fresh_fingerprint, players)
 
     logger.info(
         "JP players fetched.",
-        extra={"count": len(players), "updated_at": fresh_updated_at},
+        extra={"count": len(players), "fingerprint": fresh_fingerprint},
     )
     return players
 
