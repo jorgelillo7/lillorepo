@@ -1,17 +1,6 @@
 """HTTP utilities shared by SDK clients.
 
-Currently exposes `retry_http_request`: a single retry loop that wraps
-calls against external APIs we don't own (Biwenger, JP, Telegram).
-
-The retry policy is opinionated for this kind of caller:
-- **Retried**: network errors (timeout, connection reset, DNS) and 5xx
-  responses — the server might recover on the next attempt.
-- **Fail-fast**: 4xx responses — they won't get better; the request is
-  semantically wrong.
-
-Why a shared helper instead of a library: keeps the dep footprint
-small (we already use `requests`, no need for tenacity/backoff) and
-gives every SDK the same observable behaviour in Cloud Logging.
+`retry_http_request` retries on network errors + 5xx, fails fast on 4xx.
 """
 
 import time

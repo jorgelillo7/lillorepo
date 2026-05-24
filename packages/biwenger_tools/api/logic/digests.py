@@ -32,8 +32,7 @@ def _send_image(token: str, chat_id: str, image: bytes, caption: str) -> None:
 
 
 def _safe_run_auto_bid() -> dict:
-    """Wrap `auto_bid.run_auto_bid` so a broken run does not invalidate
-    the digest we already sent. The error surfaces in the response."""
+    """Run auto-bid but never raise — the digest above already shipped."""
     try:
         return auto_bid.run_auto_bid()
     except Exception as exc:

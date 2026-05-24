@@ -141,13 +141,7 @@ def send_telegram_photo(
 
 
 class TelegramDeliveryError(RuntimeError):
-    """Raised by the `_or_raise` helpers when Telegram refuses delivery.
-
-    Surfaces upstream so route handlers can return 500 and the bot can
-    post a fallback plaintext error to the user. Catch this specifically
-    (not bare `Exception`) when you need to differentiate Telegram
-    failures from upstream Biwenger/JP failures.
-    """
+    """Raised by the `_or_raise` helpers when Telegram refuses delivery."""
 
 
 def send_telegram_message_or_raise(
@@ -158,9 +152,7 @@ def send_telegram_message_or_raise(
     disable_web_page_preview: bool = True,
     reply_markup: Optional[dict] = None,
 ) -> None:
-    """`send_telegram_message` that raises `TelegramDeliveryError` on
-    failure. Use this when the caller is a request handler that should
-    surface delivery failures as a non-2xx response."""
+    """`send_telegram_message` that raises `TelegramDeliveryError` on failure."""
     if not send_telegram_message(
         bot_token=bot_token,
         chat_id=chat_id,
@@ -178,21 +170,15 @@ def send_telegram_photo_or_raise(
     image_bytes: bytes,
     caption: str = "",
 ) -> None:
-    """`send_telegram_photo` that raises `TelegramDeliveryError` on
-    failure. Use in request handlers; the route returns 5xx and the
-    bot tells the user."""
+    """`send_telegram_photo` that raises `TelegramDeliveryError` on failure."""
     if not send_telegram_photo(bot_token, chat_id, image_bytes, caption):
         raise TelegramDeliveryError("Telegram photo delivery failed")
 
 
 def build_persistent_reply_keyboard(labels: list[str], cols: int = 2) -> dict:
-    """Build a `ReplyKeyboardMarkup` dict laid out in `cols` columns.
-
-    Pinned via `is_persistent: true` so it stays below the input across
-    messages; `resize_keyboard: true` lets clients shrink button height
-    when the device is narrow. Tapping a button posts its label as a
-    plain text message — the webhook caller routes that text by exact
-    match. Shared by every bot that needs a native-feeling button menu.
+    """`ReplyKeyboardMarkup` laid out in `cols` columns, pinned via
+    `is_persistent: true`. Tapping a button posts its label as plain
+    text — webhook callers route by exact match.
     """
     rows = [labels[i : i + cols] for i in range(0, len(labels), cols)]
     return {

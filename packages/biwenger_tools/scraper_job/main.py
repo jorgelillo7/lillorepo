@@ -122,20 +122,32 @@ def _write_collection(collection: str, pairs: list[tuple[str, dict]]) -> None:
     )
 
 
+def _existing_clausulazo_ids(season: str) -> set[str]:
+    """Doc ids of clausulazos already in Firestore for the season."""
+    collection = firestore.get_client().collection(f"clausulazos/{season}/transfers")
+    return {snap.id for snap in collection.select([]).stream()}
+
+
 def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> int:
     """Pull the clausulazos feed, derive the justice table, write both.
 
-    Returns the total number of clausulazos written so `main()` can
-    surface the count in the Telegram notify.
+    Returns the number of clausulazos that did not exist in Firestore
+    before this run (i.e. new since the last scraper execution).
     """
     logger.info("Processing clausulazos...")
     players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
     raw = biwenger.get_all_clausulazos(cfg.CLAUSULAZOS_URL)
     clausulazos = parse_clausulazos(raw, players_map)
     tabla_justicia = build_tabla_justicia(clausulazos)
-    logger.info("Clausulazos processed.", extra={"count": len(clausulazos)})
 
     season = cfg.TEMPORADA_ACTUAL
+    existing_ids = _existing_clausulazo_ids(season)
+    new_count = sum(1 for c in clausulazos if _clausulazo_doc_id(c) not in existing_ids)
+    logger.info(
+        "Clausulazos processed.",
+        extra={"total": len(clausulazos), "new": new_count},
+    )
+
     _write_collection(
         f"clausulazos/{season}/transfers",
         [(_clausulazo_doc_id(c), c.to_firestore()) for c in clausulazos],
@@ -145,7 +157,7 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> int:
         [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
-    return len(clausulazos)
+    return new_count
 
 
 def _notify(text: str) -> None:
@@ -221,8 +233,11 @@ def main() -> None:
         messages_part = f"{new_count} mensaje{msg_s} nuevo{msg_s}"
     else:
         messages_part = "sin mensajes nuevos"
-    cl_s = "s" if clausulazos_count != 1 else ""
-    clausulazos_part = f"{clausulazos_count} clausulazo{cl_s}"
+    if clausulazos_count > 0:
+        cl_s = "s" if clausulazos_count != 1 else ""
+        clausulazos_part = f"{clausulazos_count} clausulazo{cl_s} nuevo{cl_s}"
+    else:
+        clausulazos_part = "sin clausulazos nuevos"
     body = (
         f"🧹 <b>Scraper OK</b> · {messages_part} · "
         f"{clausulazos_part} · {elapsed:.0f}s"

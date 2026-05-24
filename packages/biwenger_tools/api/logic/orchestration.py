@@ -1,22 +1,10 @@
-"""Shared boilerplate every action / digest / recommendation needs.
+"""Shared setup for endpoints that talk to JP + Biwenger.
 
-Until 2026-05-24 four call sites (`actions._prepare_context`,
-`digests.run_daily`, `recommendations.run_recommendations`,
-`auto_bid.run_auto_bid`) each reimplemented the same 4-step setup:
-JP health probe + fetch all players + build JP index + open a
-Biwenger session. This module centralises that.
-
-Two entry points cover every caller:
-
-- `build_context()` — full setup (JP + Biwenger session + players map).
-  Used by every endpoint that does real work against the Biwenger /
-  JP graph.
-- `build_biwenger_session()` — Biwenger session only (no JP, no
-  players map). Used by `list_managers` which only needs the league
-  users list.
-
-Plus `require_telegram()` for the same opt-in skip-if-credentials-
-missing branch that every Telegram-emitting handler needs.
+- `build_context()` — full setup: JP health probe, JP index,
+  Biwenger session, players map.
+- `build_biwenger_session()` — Biwenger only, for handlers that
+  don't need JP.
+- `require_telegram()` — `(token, chat_id)` if configured, else None.
 """
 
 from dataclasses import dataclass
@@ -36,8 +24,8 @@ class OrchestratorContext:
     """Bundle of collaborators every endpoint needs.
 
     `biwenger_players` is the cf-base player database keyed by id —
-    callers should always read prices/positions from here (see memory
-    `project_biwenger_prices` for the cf-base vs owner.price rule).
+    callers must read prices and positions from here (the per-league
+    `owner.price` is unreliable for server-side caps).
     """
 
     biwenger: BiwengerClient
@@ -80,12 +68,7 @@ def build_biwenger_session() -> BiwengerClient:
 
 
 def require_telegram() -> Optional[Tuple[str, str]]:
-    """Return `(bot_token, chat_id)` if both are configured, else None.
-
-    A None return is the signal handlers use to short-circuit before
-    doing any work — useful in local dev where Telegram credentials
-    are intentionally empty.
-    """
+    """Return `(bot_token, chat_id)` if both are configured, else None."""
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
         logger.warning("Telegram credentials missing — skipping send.")
         return None
