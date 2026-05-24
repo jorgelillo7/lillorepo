@@ -86,6 +86,12 @@ feature.
 This repo deploys to production on every push to `master` (see `.github/workflows/deploy.yml`).
 **Always work on a feature branch and open a PR** — never commit directly to master.
 
+**No silent exceptions.** Even for changes that look risk-free (docs, comments,
+CLAUDE.md edits, README typos), do NOT commit directly to master unless the
+user has *explicitly* authorised it in the current turn ("commitealo en master
+como excepción" or equivalent). "Looks harmless" is not consent — ask, or open
+a PR. Authorisation given once does not carry over to later changes.
+
 ```bash
 git checkout -b feat/my-feature
 # ... do work ...
