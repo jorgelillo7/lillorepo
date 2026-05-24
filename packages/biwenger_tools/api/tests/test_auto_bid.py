@@ -62,8 +62,8 @@ def test_tier_plus_500k_band():
 
 
 def test_tier_below_floor_returns_none():
-    """SF ≤ 300 → skip (T4 floor; T3 boundary stayed at 400)."""
-    bid, reason = auto_bid.tier_bid(sf=300, price=1_000_000, remaining_cash=50_000_000)
+    """SF < 300 → skip (T4 floor, inclusive)."""
+    bid, reason = auto_bid.tier_bid(sf=299, price=1_000_000, remaining_cash=50_000_000)
     assert bid is None
     assert "300" in reason
 
@@ -71,18 +71,23 @@ def test_tier_below_floor_returns_none():
 @pytest.mark.parametrize(
     "sf,expected_band",
     [
-        (801, "T1"),  # boundary just above all-in
-        (800, "T2"),  # boundary: 800 is NOT all-in
+        (801, "T1"),
+        (800, "T1"),  # 800 inclusive — lands in T1, not T2
+        (799, "T2"),
         (601, "T2"),
-        (600, "T3"),  # 600 falls to T3 band
+        (600, "T2"),  # 600 inclusive — T2, not T3
+        (599, "T3"),
         (401, "T3"),
-        (400, "T4"),  # NEW: 400 now lands in T4 (was skipped pre-T4)
+        (400, "T3"),  # 400 inclusive — T3, not T4 (user-requested boundary)
+        (399, "T4"),
         (301, "T4"),
-        (300, None),  # boundary: 300 skipped (T4 floor strict `>`)
+        (300, "T4"),  # 300 inclusive — T4, not skip
+        (299, None),  # below T4 floor → skip
     ],
 )
 def test_tier_boundaries(sf, expected_band):
-    """Pin the exact boundary semantics (strict `>` between bands)."""
+    """Pin the boundary semantics: thresholds are inclusive on the lower
+    end (`>=`). A player at exactly TIER_X_MIN lands in that tier."""
     bid, label = auto_bid.tier_bid(sf=sf, price=1_000_000, remaining_cash=50_000_000)
     if expected_band is None:
         assert bid is None
