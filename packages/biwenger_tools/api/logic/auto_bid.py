@@ -28,6 +28,7 @@ in that log before bidding, so a retry of a half-completed run does
 not double-bid the players that already went through.
 """
 
+import html
 import random
 from datetime import datetime, timedelta
 from typing import Optional
@@ -211,43 +212,67 @@ def _format_telegram_text(
     total_bid: int,
     remaining_cash: int,
 ) -> str:
-    """Render the per-run summary message the Telegram chat receives."""
+    """Render the per-run summary message the Telegram chat receives.
+
+    Every dynamic value flowing in (player names, tier labels, skip
+    reasons) is HTML-escaped because Telegram's HTML parser is strict:
+    a stray `<`/`>`/`&` in the body triggers a 400 Bad Request and the
+    whole message is dropped. The skip reason `"bid 1.000.000 € > cash
+    500.000 €"` exposed this on 2026-05-24 — `>` was read as the start
+    of a tag and the run failed silently.
+    """
+    esc = lambda s: html.escape(str(s), quote=False)  # noqa: E731
+
     header_date = datetime.now(MADRID_TZ).strftime("%d/%m %H:%M")
     lines = [f"💸 <b>Pujas automáticas en el mercado — {header_date}</b>", ""]
 
     for entry in placed:
         lines.append(
-            f"✅ Pujado <b>{_euros(entry['bid'])}</b> por "
-            f"<b>{entry['name']}</b> ({entry['tier_label']})"
+            f"✅ Pujado <b>{esc(_euros(entry['bid']))}</b> por "
+            f"<b>{esc(entry['name'])}</b> ({esc(entry['tier_label'])})"
         )
 
     if skipped:
         for entry in skipped:
-            lines.append(f"⏭️ Saltado <b>{entry['name']}</b> ({entry['reason']})")
+            lines.append(
+                f"⏭️ Saltado <b>{esc(entry['name'])}</b> ({esc(entry['reason'])})"
+            )
 
     if not placed and not skipped:
         lines.append("Sin candidatos en el mercado diario.")
 
     lines.append("")
     lines.append(
-        f"Total pujado: <b>{_euros(total_bid)}</b> · "
-        f"Cash restante: <b>{_euros(remaining_cash)}</b>"
+        f"Total pujado: <b>{esc(_euros(total_bid))}</b> · "
+        f"Cash restante: <b>{esc(_euros(remaining_cash))}</b>"
     )
     if not placed:
-        lines.append(f"<i>Log: auto_bid_log/{day}</i>")
+        lines.append(f"<i>Log: auto_bid_log/{esc(day)}</i>")
     return "\n".join(lines)
 
 
 def _maybe_notify(text: str) -> int:
-    """Send the summary to Telegram if creds are configured. Returns sent count."""
+    """Send the summary to Telegram if creds are configured. Returns sent count.
+
+    Raises ``RuntimeError`` if Telegram refuses the message (4xx parse
+    error, 5xx, timeout). The route handler converts that into a 500
+    so the bot can tell the user something went wrong instead of
+    leaving the chat with a "⏳ procesando…" message that never
+    resolves (regression spotted 2026-05-24, fixed in this commit).
+    """
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
         logger.warning("Telegram credentials missing — skipping send.")
         return 0
-    send_telegram_message(
+    sent = send_telegram_message(
         bot_token=config.TELEGRAM_BOT_TOKEN,
         chat_id=config.TELEGRAM_CHAT_ID,
         text=text,
     )
+    if not sent:
+        raise RuntimeError(
+            "Telegram summary delivery failed — bids already placed "
+            "(see Firestore `auto_bid_log` + Cloud Logging)."
+        )
     return 1
 
 

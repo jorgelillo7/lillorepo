@@ -135,6 +135,24 @@ def test_api_call_failure_sends_error_message(client):
     assert "permission denied" in error_text
 
 
+def test_api_call_failure_html_escapes_exception_message(client):
+    """The error message embeds `exc` inside `<code>...</code>`. If `exc`
+    itself contains `<` / `>` / `&` (e.g. an HTTP error body with markup),
+    the second Telegram send would also 400 and the user would see
+    nothing. Defensive escape keeps the failure path actionable."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api",
+        side_effect=RuntimeError("500: <error>boom & boom</error>"),
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/pujar"))
+    assert resp.status_code == 200
+    error_text = mock_send.call_args_list[1].kwargs.get("text", "")
+    # The exception text is escaped before landing in the body.
+    assert "&lt;error&gt;boom &amp; boom&lt;/error&gt;" in error_text
+    # The literal raw `<error>` substring must NOT leak through.
+    assert "<error>" not in error_text
+
+
 # --- /analizar opens the manager picker ---
 
 

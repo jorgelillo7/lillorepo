@@ -24,13 +24,19 @@ def send_telegram_message(
     parse_mode: str = "HTML",
     disable_web_page_preview: bool = True,
     reply_markup: Optional[dict] = None,
-) -> None:
+) -> bool:
     """Sends a text message to a Telegram chat via the Bot API.
 
-    Truncates messages over TELEGRAM_MAX_MESSAGE_LENGTH chars. For long content
-    that needs splitting, do the splitting at the call site so each chunk
-    forms a coherent unit. `reply_markup` accepts a Telegram InlineKeyboard
-    dict (or any of the markup shapes the Bot API documents).
+    Returns ``True`` if the message was delivered, ``False`` on any
+    network or 4xx/5xx failure (also logged). Callers that need to
+    react to a failed delivery (the auto-bid endpoint surfaces it as
+    a 500 so the bot can notify the user) check the return value;
+    fire-and-forget callers can keep ignoring it.
+
+    Truncates messages over TELEGRAM_MAX_MESSAGE_LENGTH chars. For long
+    content that needs splitting, do the splitting at the call site so
+    each chunk forms a coherent unit. `reply_markup` accepts a Telegram
+    InlineKeyboard dict (or any of the markup shapes the Bot API documents).
     """
     if len(text) > TELEGRAM_MAX_MESSAGE_LENGTH:
         logger.warning(
@@ -52,8 +58,10 @@ def send_telegram_message(
         response = requests.post(url, json=payload, timeout=15)
         response.raise_for_status()
         logger.info("Telegram message sent.", extra={"chars": len(text)})
+        return True
     except requests.RequestException as e:
         logger.error("Failed to send Telegram message.", extra={"error": str(e)})
+        return False
 
 
 def answer_callback_query(

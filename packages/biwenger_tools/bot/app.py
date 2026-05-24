@@ -14,6 +14,7 @@ acknowledges the tap, edits the picker into a "processing…" message and
 lets the api post the results.
 """
 
+import html
 import os
 
 from flask import Flask, request
@@ -136,10 +137,17 @@ def _dispatch_action(action_key: str, label: str) -> None:
             "Webhook: api call failed",
             extra={"action": action_key, "error": str(exc)},
         )
+        # Defensive HTML escape on `exc` — request body fragments and
+        # gcloud-style messages can contain `<`/`>`/`&` which would
+        # otherwise trigger a second Telegram 400 and leave the user
+        # with no feedback at all.
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
-            text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
+            text=(
+                f"❌ Error al ejecutar <b>{html.escape(label)}</b>: "
+                f"<code>{html.escape(str(exc))}</code>"
+            ),
         )
 
 
