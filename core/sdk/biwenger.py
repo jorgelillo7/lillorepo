@@ -2,19 +2,14 @@
 
 import json
 import re
-import time
 from typing import Optional, Union
 
 import requests
 
+from core.sdk.http import retry_http_request
 from core.utils import get_logger
 
 logger = get_logger(__name__)
-
-# Backoff schedule (seconds) for transient network failures on the lineup PUT.
-# Biwenger has occasionally dropped TCP mid-response — when that happens, the
-# right move is to retry rather than fail the whole `/alinear` flow.
-_LINEUP_RETRY_BACKOFFS = (2, 5, 10)
 
 # --- Public Biwenger API URLs ---
 # Any package can import these constants instead of redefining them.
@@ -278,6 +273,11 @@ class BiwengerClient:
         listings use `to=<seller_user_id>`; those are out of scope for
         auto-bid and should be filtered out by the caller.
 
+        Wrapped in `retry_http_request` so a transient Biwenger 5xx /
+        network blip doesn't lose a bid the auto-bid loop already
+        decided to place. 4xx (player gone, higher bid in, etc.) still
+        surfaces immediately so the caller can `skip + continue`.
+
         Returns the `data` dict from Biwenger's response (includes the
         offer `id`, useful for diagnostics).
         """
@@ -291,8 +291,10 @@ class BiwengerClient:
             "Placing market bid.",
             extra={"player_id": player_id, "amount": amount},
         )
-        response = self.session.post(offers_url, json=payload)
-        response.raise_for_status()
+        response = retry_http_request(
+            lambda: self.session.post(offers_url, json=payload, timeout=30),
+            label="market bid POST",
+        )
         data = response.json().get("data", {}) or {}
         logger.info(
             "Market bid accepted.",
@@ -356,10 +358,9 @@ class BiwengerClient:
         send `0`, which matches the "no captain selected" convention the
         Biwenger payload accepts.
 
-        Retries the PUT on transient network errors (Connection reset, read
-        timeout, etc.) with the backoff schedule in `_LINEUP_RETRY_BACKOFFS`.
-        A 4xx response (e.g. invalid captain) is treated as terminal — those
-        won't get better on retry. Only network-level failures are retried.
+        Wrapped in `retry_http_request`: 5xx + network errors retry with
+        backoff, 4xx (invalid captain, malformed payload) surface
+        immediately so the caller can fail fast.
         """
         payload = {
             "lineup": {
@@ -378,55 +379,12 @@ class BiwengerClient:
                 "captain": captain,
             },
         )
-
-        last_exc: Optional[requests.RequestException] = None
-        for attempt, backoff in enumerate((0,) + _LINEUP_RETRY_BACKOFFS, start=1):
-            if backoff:
-                logger.warning(
-                    "Lineup PUT transient failure — retrying.",
-                    extra={
-                        "attempt": attempt,
-                        "backoff_s": backoff,
-                        "error": str(last_exc),
-                    },
-                )
-                time.sleep(backoff)
-            try:
-                response = self.session.put(lineup_url, json=payload, timeout=30)
-            except requests.RequestException as exc:
-                last_exc = exc
-                continue
-
-            if not response.ok:
-                logger.error(
-                    "Lineup PUT returned non-2xx.",
-                    extra={
-                        "status": response.status_code,
-                        "body": response.text[:500],
-                    },
-                )
-                # 4xx is a terminal error (invalid payload, wrong captain, etc.)
-                # 5xx is worth retrying — Biwenger backend may recover.
-                if 400 <= response.status_code < 500:
-                    response.raise_for_status()
-                last_exc = requests.HTTPError(
-                    f"Biwenger HTTP {response.status_code}", response=response
-                )
-                continue
-
-            logger.info(
-                "Lineup set.",
-                extra={"formation": formation, "captain": captain, "attempts": attempt},
-            )
-            return response.json()
-
-        # Out of retries.
-        logger.error(
-            "Lineup PUT failed after retries.",
-            extra={
-                "attempts": len(_LINEUP_RETRY_BACKOFFS) + 1,
-                "error": str(last_exc),
-            },
+        response = retry_http_request(
+            lambda: self.session.put(lineup_url, json=payload, timeout=30),
+            label="lineup PUT",
         )
-        assert last_exc is not None
-        raise last_exc
+        logger.info(
+            "Lineup set.",
+            extra={"formation": formation, "captain": captain},
+        )
+        return response.json()
