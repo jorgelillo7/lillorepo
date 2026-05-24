@@ -48,10 +48,21 @@ py_library(
 )
 
 py_library(
+    name = "http",
+    srcs = ["sdk/http.py"],
+    deps = [
+        ":_init",
+        "@pypi//requests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
     name = "biwenger",
     srcs = ["sdk/biwenger.py"],
     deps = [
         ":_init",
+        ":http",
         "@pypi//requests",
     ],
     visibility = ["//visibility:public"],
@@ -86,6 +97,7 @@ py_library(
         ":biwenger",
         ":firestore",
         ":gcp",
+        ":http",
         ":jp",
         ":telegram",
     ],
