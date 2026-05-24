@@ -300,12 +300,11 @@ def run_auto_bid() -> dict:
     successful bid, one Telegram message.
     """
     ctx = build_context()
-    market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
+    biwenger = ctx.biwenger
+    market_players = biwenger.get_market_players(config.MARKET_URL)
     candidates = _build_candidates(market_players, ctx.biwenger_players, ctx.jp_index)
 
-    account_state = ctx.biwenger.get_account_state()
-    remaining_cash = int(account_state.get("cash") or 0)
-    biwenger = ctx.biwenger  # alias for the bid loop below
+    remaining_cash = int(biwenger.get_account_state().get("cash") or 0)
 
     day = _today_madrid()
     already_bid = _already_bid_ids(day)

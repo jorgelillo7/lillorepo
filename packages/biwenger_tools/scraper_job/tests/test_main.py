@@ -160,8 +160,9 @@ def test_main_sends_telegram_on_success(mock_external_deps):
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Scraper OK" in text
     assert "sin mensajes nuevos" in text
-    # Clausulazos count is always reported, even when 0.
-    assert "0 clausulazos" in text
+    # New-clausulazos count is always reported; the test mock returns
+    # an empty clausulazos feed so the count is 0.
+    assert "sin clausulazos nuevos" in text
 
 
 def test_main_sends_telegram_and_reraises_on_error(mock_external_deps):
