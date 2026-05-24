@@ -8,14 +8,22 @@ stopping when cash runs out.
 
 Tiers (over Biwenger's cf-base `price`, NOT `owner.price`). Boundaries
 are INCLUSIVE on the lower end (a player at exactly 400 lands in T3,
-not T4). Every non-skipped bid carries a random 0–`BID_JITTER_MAX` €
-offset so the amounts don't look botty:
+not T4). Each non-T1 tier uses `min(price × multiplier, price + cap)`:
+the multiplier dominates on cheap players (so a 750K T3 doesn't get a
+ridiculous +2M surcharge), the absolute cap dominates on expensive
+ones (a 10M T3 stops climbing at +2M instead of going to +50%). Every
+non-skipped bid then adds a 0–`BID_JITTER_MAX` € random offset so the
+amounts don't look botty:
 
-    SF ≥ 800             → bid = remaining_cash - jitter   (all-in)
-    600 ≤ SF < 800       → bid = price + 5_000_000 + jitter (aggressive)
-    400 ≤ SF < 600       → bid = price + 2_000_000 + jitter
-    300 ≤ SF < 400       → bid = price +   500_000 + jitter (low conviction)
+    SF ≥ 800             → bid = remaining_cash - jitter           (all-in)
+    600 ≤ SF < 800  (T2) → bid = min(price × 1.7, price + 5M) + jitter
+    400 ≤ SF < 600  (T3) → bid = min(price × 1.5, price + 2M) + jitter
+    300 ≤ SF < 400  (T4) → bid = min(price × 1.2, price + 500K) + jitter
     SF < 300             → skip
+
+Crossover prices (where multiplier == cap): T2 ≈ 7.14M, T3 = 4M,
+T4 = 2.5M. Below the crossover the multiplier wins (smaller bid);
+above it the cap wins.
 
 Hard rule across every tier: skip the player when the would-be bid
 exceeds `remaining_cash` — we never go negative. The all-in tier bids
@@ -54,15 +62,20 @@ from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
 logger = get_logger(__name__)
 
-# Tier thresholds and surcharges. Kept as a module-level table so the
-# unit tests can pin every band without reaching into private helpers.
+# Tier thresholds + (multiplier, absolute cap) pairs. Kept as module-level
+# constants so the unit tests can pin every band without reaching into
+# private helpers. Each non-T1 tier bids `min(price × MULT, price + CAP)`
+# — see module docstring for the rationale + crossover prices.
 TIER_ALL_IN_MIN = 800
-TIER_PLUS_5M_MIN = 600
-TIER_PLUS_2M_MIN = 400
-TIER_PLUS_500K_MIN = 300
-TIER_PLUS_5M_SURCHARGE = 5_000_000
-TIER_PLUS_2M_SURCHARGE = 2_000_000
-TIER_PLUS_500K_SURCHARGE = 500_000
+TIER_T2_MIN = 600
+TIER_T3_MIN = 400
+TIER_T4_MIN = 300
+TIER_T2_MULTIPLIER = 1.7
+TIER_T3_MULTIPLIER = 1.5
+TIER_T4_MULTIPLIER = 1.2
+TIER_T2_CAP_SURCHARGE = 5_000_000
+TIER_T3_CAP_SURCHARGE = 2_000_000
+TIER_T4_CAP_SURCHARGE = 500_000
 
 # Per-bid anti-pattern jitter. A bot that always bids in round euros
 # (10.000.000, 10.500.000, …) is a tell — humans dragging the slider
@@ -109,6 +122,17 @@ def _jitter() -> int:
     return random.randint(0, BID_JITTER_MAX)
 
 
+def _capped_multiplier_bid(price: int, multiplier: float, cap_surcharge: int) -> int:
+    """`min(price × multiplier, price + cap_surcharge)`, cast to int.
+
+    The multiplier bounds the bid on cheap players (a 750K T3 player
+    bids 1.125M, not 2.75M); the absolute cap bounds expensive players
+    (a 10M T3 bids 12M, not 15M). Result is the smaller of the two."""
+    by_multiplier = int(price * multiplier)
+    by_cap = price + cap_surcharge
+    return min(by_multiplier, by_cap)
+
+
 def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
@@ -116,9 +140,11 @@ def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], s
     the affordability check (so the skip reason can be richer than a
     bare None).
 
-    Every tier adds (or, for T1 all-in, subtracts) a random 0-`BID_JITTER_MAX`
-    € offset. The economic impact is < 0.01% of any tier but the bid trail
-    stops looking like a bot.
+    Each non-T1 tier bids `min(price × multiplier, price + cap)` so that
+    a cheap player doesn't get an absurd absolute surcharge while an
+    expensive player doesn't run away with the multiplier. Every tier
+    adds (or, for T1 all-in, subtracts) a random 0-`BID_JITTER_MAX` €
+    offset so the bid trail stops looking like a bot.
     """
     jitter = _jitter()
     if sf >= TIER_ALL_IN_MIN:
@@ -127,13 +153,16 @@ def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], s
         # on the table. Jitter SUBTRACTS here (can't bid > cash); the result
         # stays strictly inside [remaining_cash - BID_JITTER_MAX, remaining_cash].
         return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf})"
-    if sf >= TIER_PLUS_5M_MIN:
-        return price + TIER_PLUS_5M_SURCHARGE + jitter, f"T2 precio+5M (SF {sf})"
-    if sf >= TIER_PLUS_2M_MIN:
-        return price + TIER_PLUS_2M_SURCHARGE + jitter, f"T3 precio+2M (SF {sf})"
-    if sf >= TIER_PLUS_500K_MIN:
-        return price + TIER_PLUS_500K_SURCHARGE + jitter, f"T4 precio+500K (SF {sf})"
-    return None, f"SF {sf} < {TIER_PLUS_500K_MIN}"
+    if sf >= TIER_T2_MIN:
+        bid = _capped_multiplier_bid(price, TIER_T2_MULTIPLIER, TIER_T2_CAP_SURCHARGE)
+        return bid + jitter, f"T2 (SF {sf})"
+    if sf >= TIER_T3_MIN:
+        bid = _capped_multiplier_bid(price, TIER_T3_MULTIPLIER, TIER_T3_CAP_SURCHARGE)
+        return bid + jitter, f"T3 (SF {sf})"
+    if sf >= TIER_T4_MIN:
+        bid = _capped_multiplier_bid(price, TIER_T4_MULTIPLIER, TIER_T4_CAP_SURCHARGE)
+        return bid + jitter, f"T4 (SF {sf})"
+    return None, f"SF {sf} < {TIER_T4_MIN}"
 
 
 def _build_candidates(
