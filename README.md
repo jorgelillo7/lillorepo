@@ -2,6 +2,8 @@
 
 Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
 
+> Current maturity: **8.5 / 10**. See [`STATUS.md`](STATUS.md) for the audit, the full capability inventory, and the path to 9.45.
+
 ## Architecture
 
 ```mermaid
