@@ -3,7 +3,7 @@
 Living maturity report for `lillorepo`. Updated as items from `PENDING.md` ship.
 For a feature-by-feature timeline, read `packages/biwenger_tools/release-notes.md`.
 
-**Current score: 8.5 / 10** (senior-dev audit, 2026-05-24).
+**Current score: 8.7 / 10** (post bot reply-keyboard + Telegram-fail propagation across all callers).
 **Projected score after the PENDING follow-ups: ~9.45 / 10.**
 
 The remaining 0.55 is a deliberate cap (see _Accepted gaps_ below).
@@ -78,8 +78,9 @@ Total cap: **~9.5 / 10** without breaking the side-project constraints.
 | Milestone | Score | Delta |
 |---|---|---|
 | Baseline (pre-Firestore, May 2026) | 7.5 | — |
-| Today (post auto-bid + cost opts + HTML-safe fix) | **8.5** | +1.0 |
-| Projected (after PENDING items ship) | **~9.45** | +0.95 |
+| Mid-day 2026-05-24 (auto-bid + cost opts + HTML-safe fix) | 8.5 | +1.0 |
+| Today (+ reply keyboard + Telegram-fail propagation everywhere) | **8.7** | +0.2 |
+| Projected (after PENDING items ship) | **~9.45** | +0.75 |
 | Theoretical max under current constraints | ~9.5 | — |
 
 Gap from baseline to projected: **+1.95 points without spending a euro.**
@@ -93,7 +94,6 @@ The 7 follow-ups tracked in `PENDING.md`:
 | Item | Δ score |
 |---|---|
 | Refactor long orchestration functions (`run_auto_bid` 166 LOC, `run_auto_pick_lineup` 207 LOC, `run_daily` 121 LOC) into context + pure helpers | +0.25 |
-| Propagate `send_telegram_message`'s `bool` return to every caller (today only auto-bid surfaces failures) | +0.20 |
 | Retry helper applied consistently to outbound Biwenger POSTs (today only `set_lineup` retries) | +0.20 |
 | Split monolithic `test_api.py` (~757 LOC) into per-feature files | +0.10 |
 | Standardise code language to English (variables, comments, log messages — Telegram user-facing strings stay in Spanish) | +0.10 |
