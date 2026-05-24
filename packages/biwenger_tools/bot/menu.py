@@ -13,6 +13,8 @@ Two flavours of keyboard are used:
 
 from typing import Iterable
 
+from core.sdk.telegram import build_persistent_reply_keyboard
+
 # Main-menu actions. Order matters — the rows in the keyboard mirror this.
 MAIN_MENU_ACTIONS = [
     ("analizar", "📊 Analizar"),
@@ -28,22 +30,8 @@ LABEL_TO_ACTION = {label: key for key, label in MAIN_MENU_ACTIONS}
 
 
 def main_menu_reply_keyboard() -> dict:
-    """Two-column persistent reply keyboard with every main-menu action.
-
-    `is_persistent: true` keeps the keyboard visible across messages
-    until the bot sends a `ReplyKeyboardRemove`. Tapping a button posts
-    the label as a normal text message — the webhook routes it via
-    `LABEL_TO_ACTION`.
-    """
-    rows = [
-        [{"text": label} for _, label in MAIN_MENU_ACTIONS[i : i + 2]]
-        for i in range(0, len(MAIN_MENU_ACTIONS), 2)
-    ]
-    return {
-        "keyboard": rows,
-        "is_persistent": True,
-        "resize_keyboard": True,
-    }
+    """Two-column persistent reply keyboard with every main-menu action."""
+    return build_persistent_reply_keyboard([label for _, label in MAIN_MENU_ACTIONS])
 
 
 def managers_keyboard(managers: Iterable[dict]) -> dict:
