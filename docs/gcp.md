@@ -10,7 +10,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (`--no-allow-unauthenticated`) |
 | Cloud Run (Services) | `biwenger-bot` | Telegram bot — receives webhooks, calls `biwenger-api` |
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
-| Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → CSV → Google Drive |
+| Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → Firestore (`comunicados`, `participacion`, `clausulazos`, `tabla_justicia`) |
 | Cloud Scheduler | `biwenger-scraper-data-scheduler-trigger` (`europe-west1`) | Triggers scraper job (cron weekly Sun 22:00) |
 | Cloud Scheduler | `biwenger-daily-digest-trigger` (`europe-west1`) | Triggers `biwenger-api/digests/daily` (daily 09:00 Madrid) — sends squad + market images and chains the auto-bid summary at the end |
 | Secret Manager | 4 secrets (see below) | Credentials and bot tokens |
@@ -24,7 +24,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | `biwenger-credentials-regional` | `{"email", "password", "gdrive_folder_id", "jp_auth_token"}` |
 | `telegram-bot-config-regional` | `{"bot_token", "chat_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
-| `biwenger-tools-sa-regional` | Google Drive service account JSON key |
+| `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (`ligas_especiales`, `trofeos`). Pending repoint to a Sheets-only SA once Drive folder is purged — see `PENDING.md`. |
 
 All secrets are regional (`europe-southwest1`). See "Cost decisions" below.
 

@@ -1,11 +1,11 @@
-# 🖥️ Biwenger Tools — Web
+# Biwenger Tools — Web
 
-Flask service that visualises everything the scraper has dumped into Google Drive,
+Flask service that visualises everything the scraper has written to Firestore,
 plus a small admin panel to trigger the scraper on demand.
 
 Production URL: <https://biwenger-summary-pjpqofuevq-no.a.run.app/>
 
-## 🗺️ Entry point
+## Entry point
 
 `app.py` builds the Flask app, registers session cookie hardening + CSRF helpers,
 and mounts three blueprints:
@@ -14,10 +14,12 @@ and mounts three blueprints:
 - [`routes/season.py`](routes/season.py) — `/<season>/`, `/<season>/salseo`, `/<season>/mercado`, `/<season>/participacion`, `/<season>/lloros-awards` plus the `/api/lloros-awards/*` JSON endpoints
 - [`routes/admin.py`](routes/admin.py) — `/admin` (login + dashboard), `/admin/run-scraper`, `/logout`
 
-Common Drive/Sheets initialisation lives in `services.py` and is loaded once at
-boot. Data sanitisation (HTML coming from Biwenger announcements) lives in
-`sanitize.py` and uses `bleach` with a fixed allowlist; never use `|safe`
-directly on `contenido`.
+Data access lives in `repository.py` — typed Firestore queries (server-side
+where possible, including a composite index on `messages` by
+`categoria + fecha`). Sheets clients (for `ligas_especiales` / `trofeos`) are
+initialised once at boot in `services.py`. HTML sanitisation (announcements
+from Biwenger) lives in `sanitize.py` using `bleach` with a fixed allowlist;
+never use `|safe` directly on `contenido`.
 
 ## 🎨 UI
 

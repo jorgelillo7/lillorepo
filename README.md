@@ -9,17 +9,18 @@ Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fanta
 ```mermaid
 graph TD
     BWAPI[Biwenger API] -->|board messages| SJ[scraper_job<br/>Cloud Run Job]
-    BWAPI -->|squads + market| API[biwenger-api<br/>Cloud Run Service]
+    BWAPI -->|squads + market + offers| API[biwenger-api<br/>Cloud Run Service]
     JP[Jornada Perfecta<br/>private API] -->|predictions| API
-    SJ -->|CSV files| GD[(Google Drive)]
-    GD -->|CSV read| WEB[web<br/>Cloud Run Service]
-    API -->|PNG via sendPhoto| TG[Telegram]
-    USR((Users)) -->|/analizar /alinear /recomendar ...| BOT[bot<br/>Cloud Run Service]
+    SJ -->|writes| FS[(Firestore)]
+    FS -->|reads| WEB[web<br/>Cloud Run Service]
+    FS -->|auto-bid log| API
+    API -->|PNG + summary| TG[Telegram]
+    USR((Users)) -->|/menu /analizar /pujar ...| BOT[bot<br/>Cloud Run Service]
     BOT -->|HTTP + ID token| API
-    SCH[Cloud Scheduler] -->|daily digest| API
+    SCH[Cloud Scheduler] -->|daily digest + auto-bid| API
     USR -->|/random /science ...| CBOT[chucknorris_bot<br/>Cloud Run Service]
     CN[chucknorris.io] --> CBOT
-    GS[Google Sheets] --> WEB
+    GS[Google Sheets] -->|ligas especiales, trofeos| WEB
     USR -->|browse| WEB
 ```
 
@@ -28,7 +29,7 @@ graph TD
 | Package | Description | Deployment |
 |---------|-------------|------------|
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run Service |
-| `biwenger_tools/scraper_job` | League board scraper → Firestore | Cloud Run Job (weekly cron) |
+| `biwenger_tools/scraper_job` | League board scraper → Firestore (deterministic doc IDs, idempotent) | Cloud Run Job (weekly cron) |
 | `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, `/managers`, etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
 | `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/recomendar`, `/scrapper`, `/help` plus inline-keyboard callbacks — calls the api with an ID token | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
@@ -74,7 +75,7 @@ See [`docs/operations.md`](docs/operations.md) for the full command reference.
 | Language | Python 3.13 |
 | Web | Flask + Gunicorn |
 | Cloud | GCP — Cloud Run Services, Cloud Run Jobs, Secret Manager, Artifact Registry, Cloud Scheduler |
-| Storage | Google Drive (CSV data lake), Google Sheets (config data) |
+| Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (ligas especiales / trofeos) |
 | CI/CD | GitHub Actions |
 
 ## Core Library
@@ -83,14 +84,15 @@ See [`docs/operations.md`](docs/operations.md) for the full command reference.
 
 | Target | Contains |
 |--------|----------|
-| `//core:gcp` | Drive, Sheets, file status helpers |
+| `//core:gcp` | Sheets API + Cloud Run Jobs trigger helpers |
 | `//core:telegram` | Telegram Bot API client + webhook helpers (parse, secret validation) |
-| `//core:biwenger` | Biwenger API client (URL constants, paginators) |
-| `//core:jp` | Jornada Perfecta private API client |
-| `//core` | Umbrella — all of the above + shared constants (`MADRID_TZ`, `LEAGUE_ID`, `DRIVE_STALE_THRESHOLD`) |
+| `//core:biwenger` | Biwenger API client (URL constants, paginators, market offers) |
+| `//core:jp` | Jornada Perfecta private API client (in-process cache + freshness probe) |
+| `//core:firestore` | Thin Firestore CRUD helpers (get/set/list/query/count/batch_write/delete_collection) |
+| `//core` | Umbrella — all of the above + shared constants (`MADRID_TZ`, `LEAGUE_ID`) |
 | `//core:core_srcs` | Tar of sources for Docker layers |
 
-Domain models (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`) define the CSV contracts between services and live in `core/domain/`.
+Domain models (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares`) live in `core/domain/` with symmetric `from_firestore` / `to_firestore` methods.
 
 ## Deployment
 

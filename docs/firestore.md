@@ -240,8 +240,9 @@ timestamp automatically.
 | Operation | File | Notes |
 |-----------|------|-------|
 | Web reads | `packages/biwenger_tools/web/repository.py` | One query per function, inline — no generic abstraction |
-| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Dual-write CSV + Firestore via `_write_to_firestore` |
-| Backfill (one-shot) | `scripts/backfill_firestore.py` | Wipe + bulk-write from existing CSVs |
+| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, other collections wipe+bulk-write so upstream deletions propagate |
+| Writes (auto-bid) | `packages/biwenger_tools/api/logic/auto_bid.py` | One doc per placed bid under `auto_bid_log/{date}/bids/{player_id}` (TTL 90d) |
+| Backfill (one-shot) | `scripts/backfill_firestore.py` | Wipe + bulk-write from existing CSVs (kept as recovery tool) |
 | SDK | `core/sdk/firestore.py` | Generic helpers only: `get_client`, `list_documents`, `set_document`, `query`, `count`, `batch_write`, `delete_collection` |
 
 ---

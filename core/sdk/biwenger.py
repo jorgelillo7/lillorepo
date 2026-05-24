@@ -132,15 +132,13 @@ class BiwengerClient:
         """Returns the user's current cash balance and max bid for the league.
 
         Biwenger's `/account` endpoint exposes `balance` (cash) per league but
-        NOT `maxBid` — the "Puja máxima" the mobile app displays is computed
-        client-side. Empirically verified against the displayed value
-        (2026-05-18):
+        NOT `maxBid` — the "Puja máxima" the mobile app shows is computed
+        client-side as:
 
             puja_maxima = cash + 0.25 * sum(player.price for player in squad)
 
-        The 25% factor matched my account to the euro. If a future league has
-        a different setting and the factor drifts, the discrepancy will be
-        visible in the bot's `/recomendar` header next to `Saldo`.
+        If a future league setting changes the 25% factor, the drift surfaces
+        in `/recomendar`'s `Saldo` header.
 
         Pass `squad` (list from `get_manager_squad`) and `all_players`
         (dict from `get_all_players_data_map`) to compute max_bid. Without
@@ -272,7 +270,7 @@ class BiwengerClient:
     ) -> dict:
         """POST a market bid on a daily-market (computer-owned) player.
 
-        Body shape captured 2026-05-23 on `POST /api/v2/offers`:
+        Body shape:
             {"to": null, "type": "purchase",
              "amount": <eur>, "requestedPlayers": [<player_id>]}
 
@@ -281,7 +279,7 @@ class BiwengerClient:
         auto-bid and should be filtered out by the caller.
 
         Returns the `data` dict from Biwenger's response (includes the
-        offer `id`, useful for later cancellation/diagnostics).
+        offer `id`, useful for diagnostics).
         """
         payload = {
             "to": None,

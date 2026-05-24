@@ -1,20 +1,20 @@
-"""Cliente HTTP para la API privada de Jornada Perfecta.
+"""HTTP client for the Jornada Perfecta private API.
 
-La app móvil usa un token fijo hardcoded en el bundle JS. El endpoint
-fitness-daily devuelve la lista completa de jugadores de LaLiga con sus
-predicciones para la próxima jornada.
+The mobile app uses a fixed token hardcoded in its JS bundle. The
+`fitness-daily` endpoint returns the full La Liga player list with
+next-matchday predictions.
 
-JP marca cada `predict` con un `updated_at` (Unix timestamp). Usamos
-esos timestamps como fingerprint de freshness: un `limit=5` muy barato
-lee los 5 primeros jugadores y calcula `max(updated_at)`. Si ese máximo
-coincide con el cacheado, devolvemos el payload completo de memoria sin
-volver a pegar a JP completo.
+JP stamps every `predict` with an `updated_at` (Unix timestamp). We
+use those timestamps as a freshness fingerprint: a cheap `limit=5`
+probe reads the first five players and takes `max(updated_at)`. If
+that matches the cached value, the cached payload is returned without
+re-fetching the full list.
 
-Empíricamente (2026-05-23) JP escribe los ~549 jugadores en una ventana
-de ~4.5 min, así que cada jugador tiene su propio `updated_at` dentro
-del batch. Probar solo 1 jugador era brittle (el "primero" cambia con
-el orden por `priceIncrement DESC`); con 5 cubrimos la probabilidad de
-que al menos uno haya cambiado tras un refresh.
+JP writes the ~549 players in a ~4.5 min batch window, so each player
+has its own `updated_at` inside the batch. Sampling 5 players covers
+the case where the top one by `priceIncrement DESC` happens to be a
+no-op in the latest refresh (the failure mode that single-player
+probing exhibited).
 """
 
 from typing import Optional
