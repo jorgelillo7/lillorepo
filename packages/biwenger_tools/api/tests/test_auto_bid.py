@@ -381,6 +381,14 @@ def test_log_bid_writes_expected_document():
     assert payload["offer_id"] == 99
     assert payload["status"] == "waiting"
     assert "created_at" in payload
+    # Firestore TTL contract: expires_at must be exactly _LOG_TTL_DAYS in the
+    # future, so the TTL policy on the `bids` collection-group gardens the
+    # docs after the chosen retention window.
+    from datetime import datetime, timedelta
+
+    expires = payload["expires_at"]
+    created = datetime.fromisoformat(payload["created_at"])
+    assert expires - created == timedelta(days=auto_bid._LOG_TTL_DAYS)
 
 
 # Quiet unused import warning when running just this file.

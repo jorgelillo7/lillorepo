@@ -24,7 +24,7 @@ in that log before bidding, so a retry of a half-completed run does
 not double-bid the players that already went through.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
@@ -60,6 +60,14 @@ TIER_PLUS_2M_SURCHARGE = 2_000_000
 # on 5xx — looking up the log before bidding makes a retried run a no-op
 # on the players that already went through.
 AUTO_BID_LOG_PATH = "auto_bid_log"
+
+# Per-bid Firestore TTL. The TTL policy on the `bids` collection-group
+# (configured once via `gcloud firestore fields ttls update expires_at
+# --collection-group=bids --enable-ttl`) deletes documents when the
+# `expires_at` timestamp passes. 90 days is enough to look back on
+# "what did the bot try yesterday/last week" without letting the
+# collection grow unbounded.
+_LOG_TTL_DAYS = 90
 
 
 def _today_madrid() -> str:
@@ -149,6 +157,7 @@ def _already_bid_ids(day: str) -> set[int]:
 
 def _log_bid(day: str, candidate: dict, bid_amount: int, offer: dict) -> None:
     """Record a successful bid so a retried run won't repeat it."""
+    now = datetime.now(MADRID_TZ)
     firestore.set_document(
         _log_collection_path(day),
         str(candidate["player_id"]),
@@ -160,7 +169,10 @@ def _log_bid(day: str, candidate: dict, bid_amount: int, offer: dict) -> None:
             "bid": bid_amount,
             "offer_id": offer.get("id"),
             "status": offer.get("status"),
-            "created_at": datetime.now(MADRID_TZ).isoformat(),
+            "created_at": now.isoformat(),
+            # Firestore TTL field — the policy on the `bids` collection-group
+            # deletes the doc once this timestamp is in the past.
+            "expires_at": now + timedelta(days=_LOG_TTL_DAYS),
         },
     )
 

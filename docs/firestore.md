@@ -20,6 +20,7 @@ participacion/{season}/authors/{autor}
 clausulazos/{season}/transfers/{content_hash}
 tabla_justicia/{season}/teams/{equipo}
 palmares/{temporada}
+auto_bid_log/{YYYY-MM-DD}/bids/{player_id}
 ```
 
 There is an intermediate "season" document (`comunicados/{season}`,
@@ -119,6 +120,29 @@ Historical honours. One document per season (`24-25`, `23-24`, ...).
 chronological DESC, so `order_by("__name__")` returns e.g.
 `["25-26", "24-25", "23-24"]`.
 
+### `auto_bid_log/{YYYY-MM-DD}/bids/{player_id}` — Auto-bid run log
+
+One document per successful bid placed by `/market/auto-bid`. The run
+reads today's collection up-front and skips any player already bid, so
+a Cloud Scheduler retry of a half-completed run is a no-op on the
+players that already went through.
+
+| Field         | Type      | Notes |
+|---------------|-----------|-------|
+| `player_id`   | int       | Biwenger player id (same as the doc id) |
+| `name`        | string    | Player name at bid time (denormalised for the Telegram log) |
+| `sf`          | int       | SofaScore rating used to pick the tier |
+| `price`       | int       | Biwenger cf-base price (euros) at bid time |
+| `bid`         | int       | Amount we sent in the offer (euros) |
+| `offer_id`    | int       | Biwenger's `data.id` from the offer response |
+| `status`      | string    | Biwenger's `data.status` (e.g. `"waiting"`) |
+| `created_at`  | string    | ISO timestamp (Europe/Madrid) of the bid |
+| `expires_at`  | timestamp | TTL field — Firestore deletes the doc when this passes (90 days) |
+
+**Doc id:** the `player_id` as a string.
+**Retention:** managed by a TTL policy on the `bids` collection-group —
+see "TTL policies" below.
+
 ---
 
 ## Indexes
@@ -179,6 +203,35 @@ gcloud firestore indexes composite delete <id> --project=biwenger-tools
 When a query needs an index that does not exist, Firestore returns
 `FAILED_PRECONDITION` with a direct link to the console to create it.
 Building takes seconds to minutes depending on collection size.
+
+---
+
+## TTL policies
+
+Firestore deletes documents whose TTL field is in the past, free of
+charge (deletes are not billed). We use this to garden the auto-bid
+log so it stays small without a custom cleanup job.
+
+| Collection group | TTL field    | Set by                                | Retention |
+|------------------|--------------|---------------------------------------|-----------|
+| `bids`           | `expires_at` | `auto_bid._log_bid` (created_at + N)  | 90 days   |
+
+### Create / verify the policy
+
+```bash
+# One-shot: enable TTL on the `bids` collection-group
+gcloud firestore fields ttls update expires_at \
+  --collection-group=bids \
+  --enable-ttl \
+  --project=biwenger-tools
+
+# Inspect
+gcloud firestore fields ttls list --project=biwenger-tools
+```
+
+The TTL field must be a `timestamp` (not a string) — the SDK call in
+`auto_bid._log_bid` writes a `datetime` so Firestore stores it as a
+timestamp automatically.
 
 ---
 

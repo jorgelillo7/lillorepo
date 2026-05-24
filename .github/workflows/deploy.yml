@@ -441,6 +441,14 @@ jobs:
     name: Clean up old images
     needs: [deploy-web, deploy-scraper, deploy-bot, deploy-api, deploy-chucknorris-bot]
     if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-bot.result == 'success' || needs.deploy-api.result == 'success' || needs.deploy-chucknorris-bot.result == 'success')
+    # Serialize cleanups across concurrent deploys. Without this, two cleanup
+    # runs racing on the same orphan digest would both call `gcloud images
+    # delete` — the loser hits NOT_FOUND and fails the job (observed on the
+    # 4-PR auto-bid stack merge, 2026-05-24). `cancel-in-progress: false`
+    # queues instead of cancelling so every deploy still gets a cleanup.
+    concurrency:
+      group: cleanup-artifact-registry
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
