@@ -37,28 +37,60 @@ def test_tier_all_in_when_cash_is_zero_returns_zero_so_caller_skips():
     assert bid == 0
 
 
-def test_tier_plus_5m_band():
+def test_tier_t2_cap_wins_on_expensive_player():
+    """T2: at 8M price the cap (+5M = 13M) is cheaper than the multiplier
+    (8M × 1.7 = 13.6M), so the cap wins."""
     bid, label = auto_bid.tier_bid(sf=720, price=8_000_000, remaining_cash=50_000_000)
-    # 8M + 5M + jitter ∈ [13_000_000, 13_001_000]
+    # min(8M × 1.7, 8M + 5M) = min(13.6M, 13M) = 13M
     assert 13_000_000 <= bid <= 13_000_000 + auto_bid.BID_JITTER_MAX
     assert "T2" in label
 
 
-def test_tier_plus_2m_band():
-    bid, label = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
-    # 3M + 2M + jitter ∈ [5_000_000, 5_001_000]
-    assert 5_000_000 <= bid <= 5_000_000 + auto_bid.BID_JITTER_MAX
+def test_tier_t2_multiplier_wins_on_cheap_player():
+    """T2: at 5M price the multiplier (5M × 1.7 = 8.5M) is cheaper than
+    the cap (5M + 5M = 10M), so the multiplier wins."""
+    bid, label = auto_bid.tier_bid(sf=720, price=5_000_000, remaining_cash=50_000_000)
+    # min(5M × 1.7, 5M + 5M) = min(8.5M, 10M) = 8.5M
+    assert 8_500_000 <= bid <= 8_500_000 + auto_bid.BID_JITTER_MAX
+    assert "T2" in label
+
+
+def test_tier_t3_multiplier_wins_on_cheap_player_regression_calvo():
+    """T3 regression for Calvo (2026-05-24): at 750K price the multiplier
+    (750K × 1.5 = 1.125M) is way cheaper than the cap (750K + 2M = 2.75M).
+    The +2M-on-a-750K-player surcharge was unreasonable; now we bid 1.125M
+    instead, which respects the player's actual market value."""
+    bid, label = auto_bid.tier_bid(sf=400, price=750_000, remaining_cash=50_000_000)
+    # min(750K × 1.5, 750K + 2M) = min(1.125M, 2.75M) = 1.125M
+    assert 1_125_000 <= bid <= 1_125_000 + auto_bid.BID_JITTER_MAX
     assert "T3" in label
 
 
-def test_tier_plus_500k_band():
-    """T4: 300 < SF ≤ 400 → price + 500K + jitter. Covers the visual-green-
-    but-low-conviction band (PNG paints green at SF ≥ 300, this tier bids
-    a token amount on those instead of skipping them outright)."""
+def test_tier_t3_cap_wins_on_expensive_player():
+    """T3: at 10M price the cap (+2M = 12M) is cheaper than the multiplier
+    (10M × 1.5 = 15M). Expensive players keep their conservative cap."""
+    bid, label = auto_bid.tier_bid(sf=500, price=10_000_000, remaining_cash=50_000_000)
+    # min(10M × 1.5, 10M + 2M) = min(15M, 12M) = 12M
+    assert 12_000_000 <= bid <= 12_000_000 + auto_bid.BID_JITTER_MAX
+    assert "T3" in label
+
+
+def test_tier_t4_multiplier_wins_on_cheap_player():
+    """T4 on a 1M price: multiplier (1M × 1.2 = 1.2M) beats cap (1M + 500K
+    = 1.5M). Cheap-low-conviction players get a proportional bid."""
     bid, label = auto_bid.tier_bid(sf=350, price=1_000_000, remaining_cash=50_000_000)
-    # 1M + 500K + jitter ∈ [1_500_000, 1_501_000]
-    assert 1_500_000 <= bid <= 1_500_000 + auto_bid.BID_JITTER_MAX
-    assert "T4" in label and "500K" in label
+    # min(1M × 1.2, 1M + 500K) = min(1.2M, 1.5M) = 1.2M
+    assert 1_200_000 <= bid <= 1_200_000 + auto_bid.BID_JITTER_MAX
+    assert "T4" in label
+
+
+def test_tier_t4_cap_wins_on_expensive_player():
+    """T4 on a 5M price: cap (+500K = 5.5M) beats multiplier (5M × 1.2
+    = 6M). The +500K low-conviction cap applies."""
+    bid, label = auto_bid.tier_bid(sf=350, price=5_000_000, remaining_cash=50_000_000)
+    # min(5M × 1.2, 5M + 500K) = min(6M, 5.5M) = 5.5M
+    assert 5_500_000 <= bid <= 5_500_000 + auto_bid.BID_JITTER_MAX
+    assert "T4" in label
 
 
 def test_tier_below_floor_returns_none():
@@ -99,11 +131,14 @@ def test_tier_jitter_is_within_advertised_range():
     """Sample the jitter empirically over many runs; it must never escape
     [0, BID_JITTER_MAX]. Without this guard a future widening (e.g.
     BID_JITTER_MAX → 10_000) could nudge tier-bid values past the affordability
-    cap unnoticed."""
+    cap unnoticed.
+
+    SF=500 + price=3M → T3 = min(3M × 1.5, 3M + 2M) = min(4.5M, 5M) = 4.5M.
+    The multiplier wins at this price so the nominal is 4.5M."""
     seen = set()
     for _ in range(500):
         bid, _ = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
-        seen.add(bid - 5_000_000)
+        seen.add(bid - 4_500_000)
     assert all(0 <= delta <= auto_bid.BID_JITTER_MAX for delta in seen)
     # At least a couple of distinct values out of 500 — proof randomness is on.
     assert len(seen) > 10
@@ -393,15 +428,18 @@ def test_run_auto_bid_skips_already_bid_today(run_env):
 
 def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
     """A 4xx on one bid must not abort the loop — the next candidate still
-    gets its chance. Mirrors set_lineup's "log + continue" stance."""
+    gets its chance. Mirrors set_lineup's "log + continue" stance.
+
+    Both candidates are SF 720 at price 1M → T2 bid =
+    min(1M × 1.7, 1M + 5M) = 1.7M (multiplier wins on cheap players)."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {
         1: _bw(1, "Vinicius", 1_000_000),
         2: _bw(2, "Lewa", 1_000_000),
     }
     jp_players = [
-        _jp_with_sf("Vinicius", 720),  # T2 → bid 6M
-        _jp_with_sf("Lewa", 720),  # T2 → bid 6M
+        _jp_with_sf("Vinicius", 720),  # T2 → bid 1.7M
+        _jp_with_sf("Lewa", 720),  # T2 → bid 1.7M
     ]
     err = requests.HTTPError("409 conflict")
     biwenger, _ = run_env(
@@ -416,8 +454,9 @@ def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
     assert biwenger.place_market_bid.call_count == 2
     assert result["bid_count"] == 1  # Vinicius rejected, Lewa accepted
     assert result["skipped_count"] == 1
-    # Cash only decremented by the successful bid.
-    assert result["remaining_cash_eur"] == 30_000_000 - 6_000_000
+    # Cash only decremented by the successful 1.7M bid (jitter pinned to 0
+    # in run_env, so the math is exact here).
+    assert result["remaining_cash_eur"] == 30_000_000 - 1_700_000
 
 
 def test_run_auto_bid_skips_send_when_telegram_creds_missing(run_env):
