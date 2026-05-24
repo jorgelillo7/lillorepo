@@ -1,2 +1,2 @@
-# Este fichero se deja intencionadamente vacío.
-# Bzlmod se encarga de gestionar las dependencias externas.
+# This file is intentionally left empty.
+# External dependencies are managed by Bzlmod (MODULE.bazel).
