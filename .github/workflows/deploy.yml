@@ -434,6 +434,19 @@ jobs:
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
+      - name: Refresh Chuck Norris bot commands
+        # Idempotent post-deploy hook (mirror of the biwenger-bot step).
+        # Registers the slash autocomplete and resets the "Menú" pill to
+        # default so the reply keyboard stays the single visual menu.
+        run: |
+          CFG=$(gcloud secrets versions access latest \
+            --secret=chucknorris-bot-config-regional --project=${{ env.PROJECT_ID }})
+          TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
+          pip install --quiet requests python-dotenv python-json-logger
+          PYTHONPATH=. \
+            TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+            python3 packages/chucknorris_bot/bot/setup_commands.py
+
   # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds
   # -------------------------------------------------------
