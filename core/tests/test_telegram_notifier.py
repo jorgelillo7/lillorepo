@@ -22,8 +22,9 @@ def test_send_telegram_message_success(caplog):
             status_code=200,
         )
 
-        send_telegram_message(TEST_BOT_TOKEN, TEST_CHAT_ID, "hello <b>world</b>")
+        ok = send_telegram_message(TEST_BOT_TOKEN, TEST_CHAT_ID, "hello <b>world</b>")
 
+        assert ok is True
         assert m.called_once
         body = m.last_request.json()
         assert body["chat_id"] == TEST_CHAT_ID
@@ -47,10 +48,14 @@ def test_send_telegram_message_truncates_long_text():
         assert sent.endswith("...")
 
 
-def test_send_telegram_message_logs_error_on_api_failure(caplog):
+def test_send_telegram_message_returns_false_and_logs_on_api_failure(caplog):
+    """4xx/5xx must surface as `return False` (not just a log line) so
+    callers can decide whether to swallow or re-raise. Auto-bid uses
+    this to bubble HTML-parse 400s up to the bot as an actionable 500."""
     with requests_mock.Mocker() as m:
         m.post(TELEGRAM_SEND_MESSAGE_URL.format(token=TEST_BOT_TOKEN), status_code=500)
-        send_telegram_message(TEST_BOT_TOKEN, TEST_CHAT_ID, "hi")
+        ok = send_telegram_message(TEST_BOT_TOKEN, TEST_CHAT_ID, "hi")
+        assert ok is False
         assert any(
             "Failed to send Telegram message" in r.message for r in caplog.records
         )

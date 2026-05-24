@@ -204,6 +204,46 @@ def test_format_telegram_text_renders_placed_skipped_and_totals():
     assert "Cash restante: <b>3.000.000 €</b>" in text
 
 
+def test_format_telegram_text_html_escapes_user_content():
+    """Regression for the 2026-05-24 silent fail: a skip reason like
+    `"bid 1.000.000 € > cash 500.000 €"` contains a literal `>` which
+    Telegram's HTML parser reads as a tag start → 400 Bad Request →
+    the whole message is dropped. Every dynamic value must be escaped."""
+    placed = [
+        {
+            # Name with `<` and `&` — the kind of edge case real-world
+            # data can include.
+            "name": "<Player & Co>",
+            "bid": 1_000_000,
+            "tier_label": "T3 precio+2M (SF 500)",
+        }
+    ]
+    skipped = [
+        {
+            "name": "Bellingham",
+            # The actual reason format from run_auto_bid — has literal `>`.
+            "reason": "bid 14.000.000 € > cash 3.000.000 €",
+        }
+    ]
+    text = auto_bid._format_telegram_text(
+        day="2026-05-24",
+        placed=placed,
+        skipped=skipped,
+        total_bid=1_000_000,
+        remaining_cash=3_000_000,
+    )
+    # Raw user-controlled `<`, `>`, `&` must NOT appear anywhere outside
+    # of our intentional `<b>...</b>` wrappers.
+    assert "&lt;Player &amp; Co&gt;" in text
+    assert "bid 14.000.000 € &gt; cash 3.000.000 €" in text
+    # The two literal `<` characters in our template must be exactly the
+    # ones we emitted (4 <b> open + 4 </b> close + 1 <b> in skipped + 1
+    # </b> in skipped + 2 in totals + 0 footer = 12 angle-bracket pairs).
+    assert text.count("<b>") == text.count("</b>")  # balanced template tags
+    # No unescaped `>` in the skipped-line reason payload.
+    assert "> cash" not in text
+
+
 def test_format_telegram_text_handles_no_candidates():
     text = auto_bid._format_telegram_text(
         day="2026-05-23",
@@ -397,6 +437,32 @@ def test_run_auto_bid_skips_send_when_telegram_creds_missing(run_env):
     mock_send.assert_not_called()
     assert result["sent"] == 0
     assert result["bid_count"] == 1
+
+
+def test_run_auto_bid_raises_when_telegram_send_returns_false(run_env):
+    """Regression for the 2026-05-24 silent fail: when Telegram refuses
+    the summary (4xx parse error → `send_telegram_message` returns False),
+    `run_auto_bid` must raise so the route returns 500 and the bot can
+    surface the failure to the user. Otherwise the "⏳ procesando…"
+    message hangs forever and the user is blind to the problem."""
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Vinicius", 5_000_000)}
+    jp_players = [_jp_with_sf("Vinicius", 910)]
+    _, mock_send = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+    )
+    # Pin the send to "failed" (False). Bids will have been placed by
+    # the time we hit the notify step — we keep the Firestore log as
+    # the audit trail.
+    mock_send.return_value = False
+
+    with pytest.raises(RuntimeError, match="Telegram summary delivery failed"):
+        auto_bid.run_auto_bid()
+
+    mock_send.assert_called_once()
 
 
 # --- _log_bid + _already_bid_ids smoke -----------------------------------
