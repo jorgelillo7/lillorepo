@@ -21,10 +21,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   messages should be English everywhere. Telegram user-facing strings stay in
   Spanish (intentional, user-facing). Today there's a mix (some Spanish in
   variable names, ES/EN mixed in log messages).
-- **Propagate `send_telegram_message` bool return across all callers** — PR #100
-  added the bool return; only `auto_bid._maybe_notify` reads it and surfaces
-  failures. `recommendations`, `digests`, `actions`, `scraper_job` still swallow
-  silently. Same incident pattern can repeat in any of them.
 - **Retry helper + apply consistently to outbound Biwenger POSTs** — today only
   `set_lineup` retries (hand-coded `_LINEUP_RETRY_BACKOFFS`). `place_market_bid`
   and the rest fail-fast on 5xx, which masks transient Biwenger blips. Wrap in a
