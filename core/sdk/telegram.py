@@ -185,6 +185,23 @@ def send_telegram_photo_or_raise(
         raise TelegramDeliveryError("Telegram photo delivery failed")
 
 
+def build_persistent_reply_keyboard(labels: list[str], cols: int = 2) -> dict:
+    """Build a `ReplyKeyboardMarkup` dict laid out in `cols` columns.
+
+    Pinned via `is_persistent: true` so it stays below the input across
+    messages; `resize_keyboard: true` lets clients shrink button height
+    when the device is narrow. Tapping a button posts its label as a
+    plain text message — the webhook caller routes that text by exact
+    match. Shared by every bot that needs a native-feeling button menu.
+    """
+    rows = [labels[i : i + cols] for i in range(0, len(labels), cols)]
+    return {
+        "keyboard": [[{"text": label} for label in row] for row in rows],
+        "is_persistent": True,
+        "resize_keyboard": True,
+    }
+
+
 def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
     """Registers bot commands so they appear in the Telegram '/' menu.
 

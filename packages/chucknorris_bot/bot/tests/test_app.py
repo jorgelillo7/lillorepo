@@ -53,19 +53,57 @@ def test_correct_secret_returns_200(client):
 # --- Commands ---
 
 
-def test_help_sends_message(client):
+def test_help_attaches_persistent_reply_keyboard(client):
+    """`/help` (and `/start` via the alias) sends the welcome text +
+    the persistent reply keyboard so the fact-category buttons appear
+    natively below the input field."""
     with patch("packages.chucknorris_bot.bot.app.send_telegram_message") as mock_send:
         resp = _post(client, _update("123", "/help"))
     assert resp.status_code == 200
     mock_send.assert_called_once()
-    assert mock_send.call_args.kwargs["chat_id"] == "123"
+    markup = mock_send.call_args.kwargs.get("reply_markup")
+    assert markup is not None
+    assert markup.get("is_persistent") is True
+    flattened = [b["text"] for row in markup["keyboard"] for b in row]
+    assert "🎲 Random" in flattened
+    assert "💻 Dev" in flattened
 
 
-def test_start_sends_message(client):
+def test_start_attaches_persistent_reply_keyboard(client):
     with patch("packages.chucknorris_bot.bot.app.send_telegram_message") as mock_send:
         resp = _post(client, _update("123", "/start"))
     assert resp.status_code == 200
+    markup = mock_send.call_args.kwargs.get("reply_markup")
+    assert markup is not None
+    assert markup.get("is_persistent") is True
+
+
+# --- Reply-keyboard label routing ---
+
+
+@pytest.mark.parametrize(
+    "label,expected_category",
+    [
+        ("🎲 Random", None),  # random → no category arg to _fetch_joke
+        ("🧪 Science", "science"),
+        ("🍔 Food", "food"),
+        ("🐾 Animal", "animal"),
+        ("💻 Dev", "dev"),
+    ],
+)
+def test_reply_keyboard_label_dispatches_joke(client, label, expected_category):
+    """Tapping a keyboard button sends the label as plain text; the bot
+    routes it to `_fetch_joke(category)` and replies with the result."""
+    with patch(
+        "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
+    ) as mock_fetch, patch(
+        "packages.chucknorris_bot.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update("123", label))
+    assert resp.status_code == 200
+    mock_fetch.assert_called_once_with(expected_category)
     mock_send.assert_called_once()
+    assert mock_send.call_args.kwargs["text"] == "A joke."
 
 
 def test_version_returns_commit_and_deploy_time(client):
@@ -88,7 +126,8 @@ def test_random_fetches_and_sends(client):
     ) as mock_send:
         resp = _post(client, _update("123", "/random"))
     assert resp.status_code == 200
-    mock_fetch.assert_called_once_with()
+    # Goes through `_send_joke(chat_id, None)` → fetches with no category.
+    mock_fetch.assert_called_once_with(None)
     mock_send.assert_called_once()
     assert mock_send.call_args.kwargs["text"] == "A joke."
 

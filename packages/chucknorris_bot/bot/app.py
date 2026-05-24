@@ -12,7 +12,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
-from packages.chucknorris_bot.bot import config
+from packages.chucknorris_bot.bot import config, menu
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ _CATEGORIES = {"science", "food", "animal", "dev"}
 
 _HELP_TEXT = (
     "<b>Chuck Norris Bot</b> 🤜\n\n"
-    "Send me a category and I'll hit you with a fact:\n\n"
+    "Tap a button or send a command:\n\n"
     "/random — random fact\n"
     "/science — science fact\n"
     "/food — food fact\n"
@@ -33,6 +33,30 @@ _HELP_TEXT = (
     "/version — deployed bot version\n"
     "/help — show this message"
 )
+
+
+def _send_joke(chat_id: str, category: str | None = None) -> None:
+    """Fetch + post one Chuck Norris fact."""
+    joke = _fetch_joke(category)
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id,
+        text=joke,
+    )
+
+
+def _send_welcome_with_keyboard(chat_id: str) -> None:
+    """Post the help text and pin the persistent reply keyboard.
+
+    Telegram keeps the keyboard visible across subsequent messages
+    (`is_persistent: true`); the bot doesn't need to re-attach it.
+    """
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id,
+        text=_HELP_TEXT,
+        reply_markup=menu.main_menu_reply_keyboard(),
+    )
 
 
 def _build_version_text() -> str:
@@ -79,14 +103,17 @@ def webhook():
     if not chat_id or not text:
         return "", 200
 
+    # Reply-keyboard taps arrive as plain text matching a button label.
+    # Route those before slash commands so the buttons feel native.
+    category = menu.LABEL_TO_CATEGORY.get(text)
+    if category is not None:
+        _send_joke(chat_id, None if category == "random" else category)
+        return "", 200
+
     cmd = parse_command(text)
 
     if cmd in ("/start", "/help"):
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=chat_id,
-            text=_HELP_TEXT,
-        )
+        _send_welcome_with_keyboard(chat_id)
     elif cmd == "/version":
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
@@ -94,20 +121,9 @@ def webhook():
             text=_build_version_text(),
         )
     elif cmd == "/random":
-        joke = _fetch_joke()
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=chat_id,
-            text=joke,
-        )
+        _send_joke(chat_id)
     elif cmd in {f"/{cat}" for cat in _CATEGORIES}:
-        category = cmd[1:]
-        joke = _fetch_joke(category)
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=chat_id,
-            text=joke,
-        )
+        _send_joke(chat_id, cmd[1:])
     else:
         logger.info("Unknown command, ignoring.", extra={"text": text[:50]})
 
