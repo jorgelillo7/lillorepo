@@ -159,6 +159,9 @@ def _format_telegram_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
+GK_POSITION_ID = 1
+
+
 def _gather_rivals(
     biwenger: BiwengerClient,
     biwenger_players: dict,
@@ -168,6 +171,9 @@ def _gather_rivals(
 
     Skips the logged-in user's own squad. My own squad is fetched separately
     in `run_recommendations` so we can compute Biwenger's max_bid from it.
+
+    Each row also carries `owner_gk_count` — used by the house rule that
+    forbids taking a rival's only goalkeeper (see `_filter_affordable`).
     """
     managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
     rivals: list[dict] = []
@@ -176,15 +182,23 @@ def _gather_rivals(
             continue
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
         rows = build_squad_rows(squad, biwenger_players, jp_index, include_clause=True)
+        gk_count = sum(1 for r in rows if r.get("position_id") == GK_POSITION_ID)
         for r in rows:
             r["owner"] = manager_name
+            r["owner_gk_count"] = gk_count
             rivals.append(r)
         time.sleep(0.3)
     return rivals
 
 
 def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list[dict]:
-    """Keep candidates I can actually afford (clause ≤ target) and skip mine."""
+    """Keep candidates I can actually afford (clause ≤ target) and skip mine.
+
+    Also enforces the house rule that we never clauselazo a rival's only
+    goalkeeper — Biwenger would technically allow it but the league agreed
+    leaving someone with zero GKs is unsportsmanlike. The same rule does
+    not apply to outfield positions (rivals are expected to rebuild).
+    """
     out: list[dict] = []
     for row in candidates:
         if row.get("bw_id") in my_ids:
@@ -195,6 +209,12 @@ def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list
         if clause <= 0 or clause > target:
             continue
         if _sf_of(row) <= 0:
+            continue
+        if (
+            row.get("position_id") == GK_POSITION_ID
+            and (row.get("owner_gk_count") or 0) <= 1
+        ):
+            # Owner only has this GK — house rule forbids taking it.
             continue
         out.append(row)
     return out

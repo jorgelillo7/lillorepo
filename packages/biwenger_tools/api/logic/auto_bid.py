@@ -6,15 +6,16 @@ morning, attach SofaScore (Automanager) ratings from JP, and place a
 bid on each player according to the tier below — best score first,
 stopping when cash runs out.
 
-Tiers (over Biwenger's cf-base `price`, NOT `owner.price`). Every
-non-skipped bid carries a random 0–`BID_JITTER_MAX` € offset so the
-amounts don't look botty:
+Tiers (over Biwenger's cf-base `price`, NOT `owner.price`). Boundaries
+are INCLUSIVE on the lower end (a player at exactly 400 lands in T3,
+not T4). Every non-skipped bid carries a random 0–`BID_JITTER_MAX` €
+offset so the amounts don't look botty:
 
-    SF > 800             → bid = remaining_cash - jitter   (all-in)
-    600 < SF ≤ 800       → bid = price + 5_000_000 + jitter (aggressive)
-    400 < SF ≤ 600       → bid = price + 2_000_000 + jitter
-    300 < SF ≤ 400       → bid = price +   500_000 + jitter (low conviction)
-    SF ≤ 300             → skip
+    SF ≥ 800             → bid = remaining_cash - jitter   (all-in)
+    600 ≤ SF < 800       → bid = price + 5_000_000 + jitter (aggressive)
+    400 ≤ SF < 600       → bid = price + 2_000_000 + jitter
+    300 ≤ SF < 400       → bid = price +   500_000 + jitter (low conviction)
+    SF < 300             → skip
 
 Hard rule across every tier: skip the player when the would-be bid
 exceeds `remaining_cash` — we never go negative. The all-in tier bids
@@ -119,19 +120,19 @@ def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], s
     stops looking like a bot.
     """
     jitter = _jitter()
-    if sf > TIER_ALL_IN_MIN:
+    if sf >= TIER_ALL_IN_MIN:
         # All-in on the cash we have right now. Price is irrelevant — the
         # user accepts paying 30M for a 26M player rather than leaving cash
         # on the table. Jitter SUBTRACTS here (can't bid > cash); the result
         # stays strictly inside [remaining_cash - BID_JITTER_MAX, remaining_cash].
         return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf})"
-    if sf > TIER_PLUS_5M_MIN:
+    if sf >= TIER_PLUS_5M_MIN:
         return price + TIER_PLUS_5M_SURCHARGE + jitter, f"T2 precio+5M (SF {sf})"
-    if sf > TIER_PLUS_2M_MIN:
+    if sf >= TIER_PLUS_2M_MIN:
         return price + TIER_PLUS_2M_SURCHARGE + jitter, f"T3 precio+2M (SF {sf})"
-    if sf > TIER_PLUS_500K_MIN:
+    if sf >= TIER_PLUS_500K_MIN:
         return price + TIER_PLUS_500K_SURCHARGE + jitter, f"T4 precio+500K (SF {sf})"
-    return None, f"SF {sf} ≤ {TIER_PLUS_500K_MIN}"
+    return None, f"SF {sf} < {TIER_PLUS_500K_MIN}"
 
 
 def _build_candidates(

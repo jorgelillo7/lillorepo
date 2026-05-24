@@ -1,6 +1,6 @@
 """Tests for the Biwenger API endpoints."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -390,7 +390,16 @@ def test_compute_dynamic_margin_scales_with_cash():
 # --- recommendations unit tests (filtering + grouping) ---
 
 
-def _row(bw_id, name, pos, alt=None, sf=300, clause=10_000_000, clausulable=True):
+def _row(
+    bw_id,
+    name,
+    pos,
+    alt=None,
+    sf=300,
+    clause=10_000_000,
+    clausulable=True,
+    owner_gk_count=2,
+):
     return {
         "bw_id": bw_id,
         "name": name,
@@ -402,6 +411,7 @@ def _row(bw_id, name, pos, alt=None, sf=300, clause=10_000_000, clausulable=True
         "Cláusula": f"{clause / 1_000_000:.1f}M",
         "clause_value": clause,
         "clausulable_now": clausulable,
+        "owner_gk_count": owner_gk_count,
     }
 
 
@@ -418,6 +428,79 @@ def test_filter_affordable_excludes_my_players_and_locked_and_too_expensive():
     ]
     out = recs._filter_affordable(rows, my_ids, target=50_000_000)
     assert [r["bw_id"] for r in out] == [4]
+
+
+def test_filter_affordable_excludes_rival_only_gk_house_rule():
+    """House rule: never clauselazo a rival's only goalkeeper. Biwenger
+    technically allows it but the league agreed leaving someone with zero
+    GKs is unsportsmanlike. The same rule does NOT apply to outfield
+    positions — a rival's only FWD is fair game."""
+    from packages.biwenger_tools.api.logic import recommendations as recs
+
+    rows = [
+        # Sole GK at the rival → filtered out by the house rule.
+        _row(100, "Dituro", pos=1, owner_gk_count=1, clause=8_000_000, sf=350),
+        # Rival with a backup GK → recommendable.
+        _row(101, "OtherGk", pos=1, owner_gk_count=2, clause=9_000_000, sf=350),
+        # The rule must not bleed into outfield: sole striker stays included.
+        _row(102, "SoleFwd", pos=4, owner_gk_count=1, clause=10_000_000, sf=400),
+    ]
+    out = recs._filter_affordable(rows, my_ids=set(), target=50_000_000)
+    assert [r["bw_id"] for r in out] == [101, 102]
+
+
+def test_gather_rivals_annotates_owner_gk_count(monkeypatch):
+    """`_gather_rivals` must tag every rival row with the owner's GK count
+    so the affordability filter can apply the house rule. Two managers,
+    one with 1 GK, one with 2."""
+    from packages.biwenger_tools.api.logic import recommendations as recs
+
+    biwenger = MagicMock()
+    biwenger.user_id = 0
+    biwenger.get_league_users.return_value = {1: "Ana", 2: "Beto"}
+    biwenger.get_manager_squad.side_effect = lambda url, mgr_id: {
+        1: [{"id": 11}, {"id": 12}],  # Ana: 1 GK + 1 DEF
+        2: [{"id": 21}, {"id": 22}, {"id": 23}],  # Beto: 2 GK + 1 FWD
+    }[mgr_id]
+    biwenger_players = {
+        11: {"id": 11, "name": "Ana-Gk", "position": 1, "price": 1, "altPositions": []},
+        12: {
+            "id": 12,
+            "name": "Ana-Def",
+            "position": 2,
+            "price": 1,
+            "altPositions": [],
+        },
+        21: {
+            "id": 21,
+            "name": "Beto-Gk1",
+            "position": 1,
+            "price": 1,
+            "altPositions": [],
+        },
+        22: {
+            "id": 22,
+            "name": "Beto-Gk2",
+            "position": 1,
+            "price": 1,
+            "altPositions": [],
+        },
+        23: {
+            "id": 23,
+            "name": "Beto-Fwd",
+            "position": 4,
+            "price": 1,
+            "altPositions": [],
+        },
+    }
+    monkeypatch.setattr(recs, "time", MagicMock())  # skip sleep
+
+    rivals = recs._gather_rivals(
+        biwenger, biwenger_players, jp_index={"by_name": {}, "by_slug": {}}
+    )
+
+    by_owner = {r["bw_id"]: r["owner_gk_count"] for r in rivals}
+    assert by_owner == {11: 1, 12: 1, 21: 2, 22: 2, 23: 2}
 
 
 def test_top_per_position_groups_by_primary_and_marks_multi():
