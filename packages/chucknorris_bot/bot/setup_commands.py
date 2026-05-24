@@ -8,7 +8,7 @@ Requires TELEGRAM_BOT_TOKEN in the environment (or .env file).
 
 import sys
 
-from core.sdk.telegram import register_bot_commands, set_commands_menu_button
+from core.sdk.telegram import configure_bot_commands
 from packages.chucknorris_bot.bot import config
 
 COMMANDS = [
@@ -28,11 +28,8 @@ def main():
         print("ERROR: TELEGRAM_BOT_TOKEN not set.", file=sys.stderr)
         sys.exit(1)
 
-    print("Registering commands…")
-    register_bot_commands(token, COMMANDS)
-
-    print("Setting menu button…")
-    set_commands_menu_button(token)
+    print("Configuring commands + resetting menu button to default…")
+    configure_bot_commands(token, COMMANDS)
 
     print("Done.")
 

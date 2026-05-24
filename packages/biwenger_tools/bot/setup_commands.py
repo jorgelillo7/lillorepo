@@ -18,11 +18,7 @@ import os
 import sys
 
 from packages.biwenger_tools.bot import config
-from core.sdk.telegram import (
-    register_bot_commands,
-    set_commands_menu_button,
-    set_webhook,
-)
+from core.sdk.telegram import configure_bot_commands, set_webhook
 
 COMMANDS = [
     {"command": "menu", "description": "Menú visual con botones (recomendado)"},
@@ -56,11 +52,8 @@ def main():
         print("ERROR: TELEGRAM_BOT_TOKEN not set.", file=sys.stderr)
         sys.exit(1)
 
-    print("Registering commands…")
-    register_bot_commands(token, COMMANDS)
-
-    print("Setting menu button…")
-    set_commands_menu_button(token)
+    print("Configuring commands + resetting menu button to default…")
+    configure_bot_commands(token, COMMANDS)
 
     bot_url = os.getenv("BIWENGER_BOT_URL", "").strip()
     if bot_url:
