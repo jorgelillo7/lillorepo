@@ -97,7 +97,8 @@ For quick fixes or documentation-only changes, a short-lived branch + immediate 
 ## Plans (`.claude/plans/`)
 
 Implementation plans live in `.claude/plans/`. They are session-scoped: created before
-starting a non-trivial task, deleted once the work is merged.
+starting a non-trivial task, deleted once the work is merged. Between sessions the
+directory should be empty (and may not exist — create on demand).
 
 Lifecycle:
 1. **Create** — write the plan before starting implementation
@@ -107,8 +108,22 @@ Lifecycle:
 Do not accumulate stale plans. If a plan describes work that was never started and is
 still relevant, keep it. If the code exists and works, the plan is redundant — delete it.
 
-Current active plans: none. `.claude/plans/next_phases.md` is a pickup-notes file
-(state of the repo, decisions taken, pending follow-ups) — not a plan, do not delete.
+## Pending work
+
+Long-running follow-ups that don't yet warrant a plan or PR. Keep this list short;
+remove items when they ship or stop being relevant. For "what has shipped", read
+`packages/biwenger_tools/release-notes.md` — single source of truth.
+
+- **Drive folder cleanup** (USER-OWNED, week of 2026-05-26) — when the league ends:
+  delete the Drive folder contents (the old CSVs the scraper used to upload), then
+  drop the `biwenger-tools-sa-regional` secret or repoint it to a Sheets-only SA
+  (Sheets API still authenticates through that mount for `ligas_especiales` /
+  `trofeos`).
+- **Move Drive/Sheets IDs out of BUILD.bazel** — Sheets IDs (`LIGAS_ESPECIALES_*`,
+  `TROFEOS_*`) are still hardcoded in `packages/biwenger_tools/web/BUILD.bazel`.
+  Env-var them when convenient. Low priority.
+- **Photo-recognition project** — tracked in `packages/my_photos/README.md`, not
+  here.
 
 ## Memory
 

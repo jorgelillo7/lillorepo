@@ -53,7 +53,7 @@ Every overwrite is gated by an interactive `[y/N]` after showing the file-level 
 | `google-cloud-waf-security` | Security pillar of the Well-Architected Framework — IAM, network, data protection, ops |
 | `google-cloud-waf-reliability` | Reliability pillar — useful for the Cloud Run + Cloud Run Jobs setup |
 | `google-cloud-waf-cost-optimization` | Cost pillar — we run on the free tier and care about Artifact Registry cleanup |
-| `google-firebase-basics` | Pre-loaded for the upcoming Firestore migration (deferred, see `.claude/plans/next_phases.md`) |
+| `google-firebase-basics` | Firestore is now the system of record (shipped 2026-05-21; see `docs/firestore.md` for schemas/indexes) |
 
 Skills explicitly not installed (and why): `alloydb-basics`, `bigquery-basics`, `cloud-sql-basics`, `gke-basics` (we don't use any of those Google products), `gemini-api` (this repo uses Claude / Anthropic), `google-cloud-networking-observability` (overkill for our footprint), `google-cloud-recipe-onboarding` (project already created).
 
