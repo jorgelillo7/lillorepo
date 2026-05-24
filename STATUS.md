@@ -82,25 +82,24 @@ Total cap: **~9.5 / 10** without breaking the side-project constraints.
 |---|---|---|
 | Baseline (pre-Firestore, May 2026) | 7.5 | — |
 | Mid-day 2026-05-24 (auto-bid + cost opts + HTML-safe fix) | 8.5 | +1.0 |
-| Today (+ reply keyboard + Telegram-fail propagation everywhere) | **8.7** | +0.2 |
-| Projected (after PENDING items ship) | **~9.45** | +0.75 |
+| Reply keyboard + Telegram-fail propagation everywhere | 8.7 | +0.2 |
+| **All PENDING follow-ups shipped** (evening 2026-05-24) | **9.4** | +0.7 |
 | Theoretical max under current constraints | ~9.5 | — |
 
-Gap from baseline to projected: **+1.95 points without spending a euro.**
+Gap from baseline to today: **+1.9 points without spending a euro.**
 
 ---
 
-## Path to 9.45
+## What shipped to get from 8.7 to 9.4
 
-The 7 follow-ups tracked in `PENDING.md`:
+The 7 PENDING items closed in this final sprint:
 
-| Item | Δ score |
+| Item | PR |
 |---|---|
-| Refactor long orchestration functions (`run_auto_bid` 166 LOC, `run_auto_pick_lineup` 207 LOC, `run_daily` 121 LOC) into context + pure helpers | +0.25 |
-| Retry helper applied consistently to outbound Biwenger POSTs (today only `set_lineup` retries) | +0.20 |
-| Split monolithic `test_api.py` (~757 LOC) into per-feature files | +0.10 |
-| Standardise code language to English (variables, comments, log messages — Telegram user-facing strings stay in Spanish) | +0.10 |
-| Define and document an SLO target (~5 min end-to-end for the daily process) | +0.10 |
-| Audit Claude memory: promote load-bearing entries to `CLAUDE.md`, delete stale ones | +0.05 |
-
-Each of these is scoped to a single PR. Nothing requires recurring spend.
+| `OrchestratorContext` refactor — kill 4-way setup duplication in `actions` / `digests` / `recommendations` / `auto_bid` | #115 |
+| Shared `core.sdk.http.retry_http_request` — applied to `set_lineup` AND `place_market_bid` | #114 |
+| Split monolithic `test_api.py` (743 LOC) into `test_routes.py` / `test_recommendations.py` / `test_digests.py` | #111 |
+| Spanish → English pass on code comments, docstrings and log messages (Telegram strings stay Spanish) | #112 |
+| Define the daily-digest SLO (~5 min end-to-end) in `CLAUDE.md` | #113 |
+| Audit Claude memory — promoted load-bearing entries, deleted 4 stale ones (13 → 9) | local |
+| Persistent reply keyboard + cross-bot UX unification + `configure_bot_commands` helper | #105 / #108 / #109 / #110 |
