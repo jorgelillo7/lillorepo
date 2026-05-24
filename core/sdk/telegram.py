@@ -118,8 +118,12 @@ def send_telegram_photo(
     chat_id: str,
     image_bytes: bytes,
     caption: str = "",
-) -> None:
-    """Sends a PNG image to a Telegram chat via sendPhoto."""
+) -> bool:
+    """Sends a PNG image to a Telegram chat via sendPhoto.
+
+    Returns ``True`` on success, ``False`` on any 4xx/5xx/network
+    failure (also logged). Same contract as `send_telegram_message`.
+    """
     url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
     try:
         response = requests.post(
@@ -130,8 +134,55 @@ def send_telegram_photo(
         )
         response.raise_for_status()
         logger.info("Telegram photo sent.", extra={"caption": caption[:40]})
+        return True
     except requests.RequestException as e:
         logger.error("Failed to send Telegram photo.", extra={"error": str(e)})
+        return False
+
+
+class TelegramDeliveryError(RuntimeError):
+    """Raised by the `_or_raise` helpers when Telegram refuses delivery.
+
+    Surfaces upstream so route handlers can return 500 and the bot can
+    post a fallback plaintext error to the user. Catch this specifically
+    (not bare `Exception`) when you need to differentiate Telegram
+    failures from upstream Biwenger/JP failures.
+    """
+
+
+def send_telegram_message_or_raise(
+    bot_token: str,
+    chat_id: str,
+    text: str,
+    parse_mode: str = "HTML",
+    disable_web_page_preview: bool = True,
+    reply_markup: Optional[dict] = None,
+) -> None:
+    """`send_telegram_message` that raises `TelegramDeliveryError` on
+    failure. Use this when the caller is a request handler that should
+    surface delivery failures as a non-2xx response."""
+    if not send_telegram_message(
+        bot_token=bot_token,
+        chat_id=chat_id,
+        text=text,
+        parse_mode=parse_mode,
+        disable_web_page_preview=disable_web_page_preview,
+        reply_markup=reply_markup,
+    ):
+        raise TelegramDeliveryError("Telegram message delivery failed")
+
+
+def send_telegram_photo_or_raise(
+    bot_token: str,
+    chat_id: str,
+    image_bytes: bytes,
+    caption: str = "",
+) -> None:
+    """`send_telegram_photo` that raises `TelegramDeliveryError` on
+    failure. Use in request handlers; the route returns 5xx and the
+    bot tells the user."""
+    if not send_telegram_photo(bot_token, chat_id, image_bytes, caption):
+        raise TelegramDeliveryError("Telegram photo delivery failed")
 
 
 def register_bot_commands(bot_token: str, commands: list[dict]) -> None:

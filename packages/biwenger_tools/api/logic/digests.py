@@ -13,7 +13,7 @@ import time
 
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
-from core.sdk.telegram import send_telegram_photo
+from core.sdk.telegram import send_telegram_photo_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import auto_bid
@@ -25,8 +25,11 @@ logger = get_logger(__name__)
 
 
 def _send_image(token: str, chat_id: str, image: bytes, caption: str) -> None:
-    """sendPhoto + a small pause to stay under Telegram's send-rate cap."""
-    send_telegram_photo(token, chat_id, image, caption)
+    """sendPhoto + a small pause to stay under Telegram's send-rate cap.
+
+    Raises `TelegramDeliveryError` on Telegram refusal so the route
+    handler can surface it as a 500."""
+    send_telegram_photo_or_raise(token, chat_id, image, caption)
     time.sleep(0.5)
 
 

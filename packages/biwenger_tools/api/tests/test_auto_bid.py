@@ -335,7 +335,9 @@ def run_env():
         # Pin jitter to 0 so the run-level assertions can stay on exact euros.
         # The jitter behaviour itself is covered by the tier_bid-level tests.
         stack.enter_context(patch(_patches("_jitter"), return_value=0))
-        mock_send = stack.enter_context(patch(_patches("send_telegram_message")))
+        mock_send = stack.enter_context(
+            patch(_patches("send_telegram_message_or_raise"))
+        )
 
         mock_cfg.JP_AUTH_TOKEN = "tok"
         mock_cfg.JP_COMPETITION = 1
@@ -478,12 +480,14 @@ def test_run_auto_bid_skips_send_when_telegram_creds_missing(run_env):
     assert result["bid_count"] == 1
 
 
-def test_run_auto_bid_raises_when_telegram_send_returns_false(run_env):
-    """Regression for the 2026-05-24 silent fail: when Telegram refuses
-    the summary (4xx parse error → `send_telegram_message` returns False),
-    `run_auto_bid` must raise so the route returns 500 and the bot can
-    surface the failure to the user. Otherwise the "⏳ procesando…"
-    message hangs forever and the user is blind to the problem."""
+def test_run_auto_bid_raises_when_telegram_send_fails(run_env):
+    """Regression for the silent fail: when Telegram refuses the summary
+    (4xx parse error → `send_telegram_message_or_raise` raises
+    TelegramDeliveryError), `run_auto_bid` must let it propagate so the
+    route returns 500 and the bot can surface the failure to the user.
+    Otherwise "⏳ procesando…" hangs forever and the user is blind."""
+    from core.sdk.telegram import TelegramDeliveryError
+
     market = [_sale(1)]
     biwenger_players = {1: _bw(1, "Vinicius", 5_000_000)}
     jp_players = [_jp_with_sf("Vinicius", 910)]
@@ -493,12 +497,11 @@ def test_run_auto_bid_raises_when_telegram_send_returns_false(run_env):
         jp_players=jp_players,
         cash=30_000_000,
     )
-    # Pin the send to "failed" (False). Bids will have been placed by
-    # the time we hit the notify step — we keep the Firestore log as
-    # the audit trail.
-    mock_send.return_value = False
+    # Bids will have been placed by the time we hit the notify step —
+    # the Firestore log keeps the audit trail.
+    mock_send.side_effect = TelegramDeliveryError("delivery failed")
 
-    with pytest.raises(RuntimeError, match="Telegram summary delivery failed"):
+    with pytest.raises(TelegramDeliveryError):
         auto_bid.run_auto_bid()
 
     mock_send.assert_called_once()
