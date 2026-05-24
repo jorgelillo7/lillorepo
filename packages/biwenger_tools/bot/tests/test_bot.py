@@ -79,7 +79,7 @@ def test_wrong_chat_id_is_silently_ignored(client):
 
 def test_wrong_chat_callback_is_silently_ignored(client):
     with patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
-        resp = _post(client, _callback_update("999999", "menu:mercado"))
+        resp = _post(client, _callback_update("999999", "analizar:1"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
 
@@ -193,75 +193,82 @@ def test_analizar_text_command_handles_manager_fetch_failure(client):
     assert "No pude cargar la lista" in text
 
 
-# --- /menu sends the main keyboard ---
+# --- /menu attaches the persistent reply keyboard ---
 
 
-def test_menu_sends_inline_keyboard(client):
+def test_menu_sends_persistent_reply_keyboard(client):
+    """`/menu` (and `/start` via the alias) attach the persistent reply
+    keyboard. Buttons carry the label as their `text` — Telegram sends
+    that text back to the bot when tapped (no callback_query)."""
     with patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/menu"))
     assert resp.status_code == 200
     markup = mock_send.call_args.kwargs.get("reply_markup")
     assert markup is not None
+    assert markup.get("is_persistent") is True
+    assert markup.get("resize_keyboard") is True
     # 6 actions arranged in 2 columns → 3 rows
-    assert len(markup["inline_keyboard"]) == 3
-    flattened = [b["callback_data"] for row in markup["inline_keyboard"] for b in row]
-    assert "menu:analizar" in flattened
-    assert "menu:pujar" in flattened
-    assert "menu:scrapper" in flattened
-
-
-def test_menu_pujar_callback_dispatches_auto_bid(client):
-    """Tapping the "Pujar" button on the menu fires `/market/auto-bid`."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
-        resp = _post(client, _callback_update(_VALID_CHAT, "menu:pujar"))
-    assert resp.status_code == 200
-    mock_ack.assert_called_once()
-    mock_call.assert_called_once_with(
-        _API_URL, "/market/auto-bid", method="POST", params=None
-    )
+    assert len(markup["keyboard"]) == 3
+    flattened = [b["text"] for row in markup["keyboard"] for b in row]
+    assert "📊 Analizar" in flattened
+    assert "💸 Pujar" in flattened
+    assert "🧹 Scraper" in flattened
 
 
 def test_start_aliases_menu(client):
     with patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
         resp = _post(client, _update(_VALID_CHAT, "/start"))
     assert resp.status_code == 200
-    assert mock_send.call_args.kwargs.get("reply_markup") is not None
-
-
-# --- callback_query handling ---
-
-
-def test_menu_callback_dispatches_action(client):
-    """Tapping the "Mercado" button on the menu fires `/market`."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
-        resp = _post(client, _callback_update(_VALID_CHAT, "menu:mercado"))
-    assert resp.status_code == 200
-    mock_ack.assert_called_once()
-    mock_call.assert_called_once_with(_API_URL, "/market", method="GET", params=None)
-
-
-def test_menu_analizar_callback_opens_picker(client):
-    """Tapping "Analizar" in the menu opens the manager picker."""
-    fake_managers = [{"id": 1, "name": "Jorge", "is_me": True}]
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.list_managers",
-        return_value=fake_managers,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
-        resp = _post(client, _callback_update(_VALID_CHAT, "menu:analizar"))
-    assert resp.status_code == 200
     markup = mock_send.call_args.kwargs.get("reply_markup")
     assert markup is not None
-    flattened = [b["callback_data"] for row in markup["inline_keyboard"] for b in row]
-    assert "analizar:1" in flattened
-    assert "analizar:all" in flattened
+    assert markup.get("is_persistent") is True
+
+
+# --- Reply-keyboard label routing ---
+
+
+@pytest.mark.parametrize(
+    "label,path,method",
+    [
+        ("🛒 Mercado", "/market", "GET"),
+        ("📋 Alinear", "/lineups/auto-pick", "POST"),
+        ("💡 Recomendar", "/budget/recommendations", "GET"),
+        ("💸 Pujar", "/market/auto-bid", "POST"),
+        ("🧹 Scraper", "/scraper/trigger", "POST"),
+    ],
+)
+def test_reply_keyboard_label_dispatches_action(client, label, path, method):
+    """Tapping a button on the persistent keyboard sends the label as
+    plain text; the bot must route it to the matching api endpoint."""
+    with patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+        resp = _post(client, _update(_VALID_CHAT, label))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(_API_URL, path, method=method, params=None)
+
+
+def test_reply_keyboard_analizar_label_opens_picker(client):
+    """The '📊 Analizar' label opens the manager picker (no direct api
+    call), same as the `/analizar` slash command."""
+    fake_managers = [
+        {"id": 1, "name": "Jorge", "is_me": True},
+        {"id": 2, "name": "Pepe", "is_me": False},
+    ]
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.list_managers",
+        return_value=fake_managers,
+    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "📊 Analizar"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    markup = mock_send.call_args.kwargs.get("reply_markup")
+    assert markup is not None
+    # Manager picker is still INLINE (one-shot two-step flow).
+    assert "inline_keyboard" in markup
+
+
+# --- callback_query handling (inline keyboards — manager picker only) ---
 
 
 def test_analizar_id_callback_calls_teams_with_filter(client):

@@ -1,14 +1,14 @@
-"""Inline-keyboard builders for the bot's /menu UI.
+"""Keyboard builders for the bot UI.
 
-The webhook handler in ``app.py`` calls these to produce the dicts that
-Telegram's ``reply_markup`` expects. Keep them pure and stateless — the
-network round-trips happen there, not here.
+Two flavours of keyboard are used:
 
-`callback_data` strings are namespaced with a `"prefix:value"` form so
-the handler can dispatch on the prefix:
-
-- ``menu:<action>``     → main menu tap (analizar / mercado / …).
-- ``analizar:<id|all>`` → manager picker tap.
+- **Persistent reply keyboard** (`main_menu_reply_keyboard`) — sits
+  below the input field, always visible. The user taps a button and
+  the label text is sent as a regular message; the webhook handler
+  routes it via the label → action mapping. This is the primary UX.
+- **Inline keyboards** (`managers_keyboard`) — only used for the
+  manager picker, which is a one-shot two-step flow. `callback_data`
+  is `analizar:<id|all>` so the handler can dispatch on the prefix.
 """
 
 from typing import Iterable
@@ -23,19 +23,31 @@ MAIN_MENU_ACTIONS = [
     ("scrapper", "🧹 Scraper"),
 ]
 
+# Reverse map for the webhook handler: `"📊 Analizar"` → `"analizar"`.
+LABEL_TO_ACTION = {label: key for key, label in MAIN_MENU_ACTIONS}
 
-def main_menu_keyboard() -> dict:
-    """Two-column inline keyboard with every main-menu action."""
-    buttons = [
-        {"text": label, "callback_data": f"menu:{key}"}
-        for key, label in MAIN_MENU_ACTIONS
+
+def main_menu_reply_keyboard() -> dict:
+    """Two-column persistent reply keyboard with every main-menu action.
+
+    `is_persistent: true` keeps the keyboard visible across messages
+    until the bot sends a `ReplyKeyboardRemove`. Tapping a button posts
+    the label as a normal text message — the webhook routes it via
+    `LABEL_TO_ACTION`.
+    """
+    rows = [
+        [{"text": label} for _, label in MAIN_MENU_ACTIONS[i : i + 2]]
+        for i in range(0, len(MAIN_MENU_ACTIONS), 2)
     ]
-    rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-    return {"inline_keyboard": rows}
+    return {
+        "keyboard": rows,
+        "is_persistent": True,
+        "resize_keyboard": True,
+    }
 
 
 def managers_keyboard(managers: Iterable[dict]) -> dict:
-    """Vertical keyboard with one button per manager + a "TODOS" row.
+    """Inline keyboard with one button per manager + a "TODOS" row.
 
     Each manager dict needs `id`, `name`, `is_me`. "Mi equipo" sits at
     the top (the api already orders the list that way), then the rivals,

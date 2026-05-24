@@ -87,12 +87,18 @@ def _build_version_text() -> str:
 
 
 def _send_menu() -> None:
-    """Send the main inline-keyboard menu to the configured chat."""
+    """Attach the persistent reply keyboard to the chat.
+
+    Once Telegram receives this it pins the keyboard below the input
+    field (`is_persistent: true`); subsequent bot messages don't need
+    to re-attach it. Re-sending on demand (via `/menu` or `/start`) is
+    how the user re-pins it if it ever got dismissed.
+    """
     send_telegram_message(
         bot_token=config.TELEGRAM_BOT_TOKEN,
         chat_id=config.TELEGRAM_CHAT_ID,
         text="<b>¿Qué hacemos?</b>",
-        reply_markup=menu.main_menu_keyboard(),
+        reply_markup=menu.main_menu_reply_keyboard(),
     )
 
 
@@ -201,9 +207,9 @@ def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None
 def _handle_callback(cb: dict) -> None:
     """Dispatch on the callback_data prefix.
 
-    `menu:analizar` opens the manager picker (a second keyboard).
-    `menu:<other>` fires the matching api endpoint.
-    `analizar:<id|all>` runs `/teams` with the filter.
+    Only `analizar:<id|all>` taps come through inline keyboards now;
+    the main menu is a persistent reply keyboard that posts plain text
+    handled by the message router instead.
     """
     answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
     data = cb.get("data", "")
@@ -212,23 +218,29 @@ def _handle_callback(cb: dict) -> None:
         return
     prefix, value = data.split(":", 1)
 
-    if prefix == "menu":
-        if value == "analizar":
-            _send_manager_picker()
-            return
-        if value in _ACTION_ROUTES:
-            label = next(lbl for key, lbl in menu.MAIN_MENU_ACTIONS if key == value)
-            _dispatch_action(value, label)
-            return
-        logger.info("Webhook: unknown menu action", extra={"value": value})
-        return
-
     if prefix == "analizar":
         edit_into = (cb["chat_id"], cb["message_id"]) if cb.get("message_id") else None
         _run_analizar(value, edit_into)
         return
 
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
+
+
+def _try_dispatch_label(text: str) -> bool:
+    """Reply-keyboard taps arrive as plain text matching a button label.
+
+    Returns True if the text matched a menu label and the action fired,
+    False otherwise (so the caller can fall through to slash-command
+    handling).
+    """
+    action_key = menu.LABEL_TO_ACTION.get(text)
+    if action_key is None:
+        return False
+    if action_key == "analizar":
+        _send_manager_picker()
+    else:
+        _dispatch_action(action_key, text)
+    return True
 
 
 @app.route("/telegram/webhook", methods=["POST"])
@@ -261,6 +273,12 @@ def webhook():
             "Webhook: ignoring message from unknown chat",
             extra={"chat_id": chat_id},
         )
+        return "", 200
+
+    # Persistent-reply-keyboard taps arrive as plain text equal to one of
+    # the menu labels. Try the label router first; fall through to slash
+    # commands if nothing matched.
+    if _try_dispatch_label(text):
         return "", 200
 
     cmd = parse_command(text)
