@@ -49,8 +49,23 @@ for IMAGE in "${SIMPLE_IMAGES[@]}"; do
     while IFS= read -r DIGEST; do
         [ -z "$DIGEST" ] && continue
         echo "[ACTION] Deleting old digest: $IMAGE@$DIGEST"
-        run gcloud artifacts docker images delete "$REPO/$IMAGE@$DIGEST" \
-            --delete-tags --quiet
+        if [ "$DRY_RUN" = "1" ]; then
+            echo "[DRY_RUN] gcloud artifacts docker images delete $REPO/$IMAGE@$DIGEST --delete-tags --quiet"
+            continue
+        fi
+        # Tolerate the digest already being gone — happens when two concurrent
+        # cleanup runs target the same orphan (the GH Actions `concurrency`
+        # group should prevent this, but a CI race or a manual run in flight
+        # can still trigger it). Other gcloud errors stay fatal.
+        if ! out=$(gcloud artifacts docker images delete \
+                "$REPO/$IMAGE@$DIGEST" --delete-tags --quiet 2>&1); then
+            if echo "$out" | grep -qE 'NOT_FOUND|Requested entity was not found'; then
+                echo "[OK] $IMAGE@$DIGEST already gone — skipping."
+            else
+                echo "[ERROR] $out" >&2
+                exit 1
+            fi
+        fi
     done <<< "$DIGESTS_TO_DELETE"
     echo "[OK] $IMAGE cleaned."
 done
