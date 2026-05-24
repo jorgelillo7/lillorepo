@@ -218,7 +218,12 @@ def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
 
 
 def set_commands_menu_button(bot_token: str) -> None:
-    """Sets the bot's menu button to show the registered command list."""
+    """Sets the bot's menu button to show the registered command list.
+
+    Renders as a blue "Menú" pill on the left of the input. Mostly
+    superseded by `reset_menu_button_to_default` + a persistent reply
+    keyboard for a cleaner look (see `configure_bot_commands`).
+    """
     url = TELEGRAM_SET_MENU_BUTTON_URL.format(token=bot_token)
     try:
         response = requests.post(
@@ -228,6 +233,38 @@ def set_commands_menu_button(bot_token: str) -> None:
         logger.info("Menu button set to 'commands'.")
     except requests.RequestException as e:
         logger.error("Failed to set menu button.", extra={"error": str(e)})
+
+
+def reset_menu_button_to_default(bot_token: str) -> None:
+    """Resets the bot's menu button to Telegram's `default`.
+
+    Removes the blue "Menú" pill on the left of the input. The slash
+    autocomplete that pops up when the user types `/` is unaffected
+    — that comes from `register_bot_commands` (setMyCommands), not
+    from the menu button. Idempotent.
+    """
+    url = TELEGRAM_SET_MENU_BUTTON_URL.format(token=bot_token)
+    try:
+        response = requests.post(
+            url, json={"menu_button": {"type": "default"}}, timeout=15
+        )
+        response.raise_for_status()
+        logger.info("Menu button reset to 'default'.")
+    except requests.RequestException as e:
+        logger.error("Failed to reset menu button.", extra={"error": str(e)})
+
+
+def configure_bot_commands(bot_token: str, commands: list[dict]) -> None:
+    """Idiomatic post-deploy setup shared by every bot in this repo.
+
+    Registers `commands` for the slash autocomplete that Telegram pops
+    up when the user types `/`, and resets the left "Menú" pill to the
+    default — bots in this repo expose their main actions via a
+    persistent reply keyboard (`build_persistent_reply_keyboard`), so
+    a redundant pill on the left adds clutter without adding value.
+    """
+    register_bot_commands(bot_token, commands)
+    reset_menu_button_to_default(bot_token)
 
 
 def set_webhook(
