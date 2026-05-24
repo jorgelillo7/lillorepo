@@ -11,8 +11,6 @@ import time
 
 import requests
 
-from core.sdk.biwenger import BiwengerClient
-from core.sdk.jp import check_api_health, fetch_all_players
 from core.sdk.telegram import (
     send_telegram_message_or_raise,
     send_telegram_photo_or_raise,
@@ -24,7 +22,11 @@ from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
     pick_lineup,
 )
-from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+from packages.biwenger_tools.api.logic.orchestration import (
+    build_biwenger_session,
+    build_context,
+    require_telegram,
+)
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
 logger = get_logger(__name__)
@@ -84,39 +86,8 @@ def _names_by_position(rows: list[dict]) -> dict:
     return {str(k): v for k, v in by_pos.items()}
 
 
-def _prepare_context():
-    """Boilerplate shared by every action: JP health, JP index, Biwenger client.
-
-    Returns `(biwenger, biwenger_players, jp_index)`.
-    """
-    check_api_health(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_players = fetch_all_players(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_index = build_jp_index(jp_players)
-
-    biwenger = BiwengerClient(
-        config.BIWENGER_EMAIL,
-        config.BIWENGER_PASSWORD,
-        config.LOGIN_URL,
-        config.ACCOUNT_URL,
-        config.LEAGUE_ID,
-    )
-    biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-    return biwenger, biwenger_players, jp_index
-
-
-def _require_telegram() -> tuple[str, str] | None:
-    if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
-        logger.warning("Telegram credentials missing — skipping send.")
-        return None
-    return config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID
+# Shared setup helpers live in `orchestration` — `build_context()` for the
+# JP+Biwenger combo, `require_telegram()` for the credential gate.
 
 
 def run_teams(manager_id: int | None = None) -> dict:
@@ -128,8 +99,13 @@ def run_teams(manager_id: int | None = None) -> dict:
       Clausulable/Cláusula columns are included for rivals (not for
       yourself — you already know your own clauses).
     """
-    biwenger, biwenger_players, jp_index = _prepare_context()
-    telegram = _require_telegram()
+    ctx = build_context()
+    biwenger, biwenger_players, jp_index = (
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+    )
+    telegram = require_telegram()
     if telegram is None:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram
@@ -215,13 +191,7 @@ def list_managers() -> dict:
     effects — the bot uses the response to build an inline keyboard.
     Mine is flagged so the bot can present it as "🛡️ Mi equipo".
     """
-    biwenger = BiwengerClient(
-        config.BIWENGER_EMAIL,
-        config.BIWENGER_PASSWORD,
-        config.LOGIN_URL,
-        config.ACCOUNT_URL,
-        config.LEAGUE_ID,
-    )
+    biwenger = build_biwenger_session()
     managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
     items = [
         {"id": mgr_id, "name": name, "is_me": mgr_id == biwenger.user_id}
@@ -233,8 +203,13 @@ def list_managers() -> dict:
 
 def run_market() -> dict:
     """Send only the transfer market — used by /market (was /mercado)."""
-    biwenger, biwenger_players, jp_index = _prepare_context()
-    telegram = _require_telegram()
+    ctx = build_context()
+    biwenger, biwenger_players, jp_index = (
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+    )
+    telegram = require_telegram()
     if telegram is None:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram
@@ -253,8 +228,13 @@ def run_auto_pick_lineup(dry_run: bool = False) -> dict:
     skips the Biwenger PUT and sends the would-be lineup to Telegram as
     a preview — useful before a high-stakes matchday.
     """
-    biwenger, biwenger_players, jp_index = _prepare_context()
-    telegram = _require_telegram()
+    ctx = build_context()
+    biwenger, biwenger_players, jp_index = (
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+    )
+    telegram = require_telegram()
     if telegram is None:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram

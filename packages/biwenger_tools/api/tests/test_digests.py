@@ -6,37 +6,35 @@ its swallow-on-failure behaviour. The HTTP route is tested in
 """
 
 from contextlib import ExitStack
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 def _patches(target):
     return f"packages.biwenger_tools.api.logic.digests.{target}"
 
 
+def _build_ctx(biwenger):
+    """Wrap a Biwenger mock in an OrchestratorContext for `build_context` to
+    return. Pulled out so every test stays on the same wiring."""
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    return OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+
 def test_run_daily_skips_send_when_telegram_creds_missing():
+    biwenger = MagicMock()
+    biwenger.user_id = 1
     with patch(_patches("config")) as mock_cfg, patch(
-        _patches("check_api_health")
-    ), patch(_patches("fetch_all_players"), return_value=[]), patch(
-        _patches("build_jp_index"), return_value={"by_name": {}, "by_slug": {}}
-    ), patch(
-        _patches("BiwengerClient")
-    ) as mock_client, patch(
+        _patches("build_context"), return_value=_build_ctx(biwenger)
+    ), patch(_patches("require_telegram"), return_value=None) as mock_creds, patch(
         _patches("_send_image")
     ) as mock_send:
-        mock_cfg.JP_AUTH_TOKEN = "tok"
-        mock_cfg.JP_COMPETITION = 1
-        mock_cfg.JP_SCORE_TYPE = 2
-        mock_cfg.BIWENGER_EMAIL = "u"
-        mock_cfg.BIWENGER_PASSWORD = "p"
-        mock_cfg.LOGIN_URL = mock_cfg.ACCOUNT_URL = "x"
-        mock_cfg.LEAGUE_ID = "1"
-        mock_cfg.ALL_PLAYERS_DATA_URL = "x"
         mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
         mock_cfg.MARKET_URL = "x"
-        mock_cfg.TELEGRAM_BOT_TOKEN = ""
-        mock_cfg.TELEGRAM_CHAT_ID = ""
-        mock_client.return_value.user_id = 1
-        mock_client.return_value.get_all_players_data_map.return_value = {}
 
         from packages.biwenger_tools.api.logic import digests
 
@@ -44,22 +42,25 @@ def test_run_daily_skips_send_when_telegram_creds_missing():
     assert result["sent"] == 0
     assert result["reason"] == "telegram_credentials_missing"
     mock_send.assert_not_called()
+    mock_creds.assert_called_once()
 
 
 def _digest_env(*, auto_bid_result=None, auto_bid_raises=None):
-    """Helper: wire `run_daily`'s collaborators so only auto_bid varies.
-
-    Returns the entered ExitStack — the caller must close it. Designed
-    for the two tests below that pin the chaining behaviour.
-    """
+    """Helper: wire `run_daily`'s collaborators so only auto_bid varies."""
     stack = ExitStack()
     mock_cfg = stack.enter_context(patch(_patches("config")))
-    stack.enter_context(patch(_patches("check_api_health")))
-    stack.enter_context(patch(_patches("fetch_all_players"), return_value=[]))
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_manager_squad.return_value = []
+    biwenger.get_market_players.return_value = []
     stack.enter_context(
-        patch(_patches("build_jp_index"), return_value={"by_name": {}, "by_slug": {}})
+        patch(_patches("build_context"), return_value=_build_ctx(biwenger))
     )
-    mock_client = stack.enter_context(patch(_patches("BiwengerClient")))
+    # `require_telegram` reads orchestration.config — patch the helper itself
+    # to dodge the cross-module config indirection.
+    stack.enter_context(
+        patch(_patches("require_telegram"), return_value=("tok", "chat"))
+    )
     mock_send = stack.enter_context(patch(_patches("_send_image")))
     # `build_table_image` runs synchronously before `_send_image` — patching
     # the renderer avoids matplotlib choking on the empty-row stub data.
@@ -73,22 +74,8 @@ def _digest_env(*, auto_bid_result=None, auto_bid_raises=None):
             patch(_patches("auto_bid.run_auto_bid"), return_value=auto_bid_result or {})
         )
 
-    mock_cfg.JP_AUTH_TOKEN = "tok"
-    mock_cfg.JP_COMPETITION = 1
-    mock_cfg.JP_SCORE_TYPE = 2
-    mock_cfg.BIWENGER_EMAIL = "u"
-    mock_cfg.BIWENGER_PASSWORD = "p"
-    mock_cfg.LOGIN_URL = mock_cfg.ACCOUNT_URL = "x"
-    mock_cfg.LEAGUE_ID = "1"
-    mock_cfg.ALL_PLAYERS_DATA_URL = "x"
     mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
     mock_cfg.MARKET_URL = "x"
-    mock_cfg.TELEGRAM_BOT_TOKEN = "tok"
-    mock_cfg.TELEGRAM_CHAT_ID = "chat"
-    mock_client.return_value.user_id = 1
-    mock_client.return_value.get_all_players_data_map.return_value = {}
-    mock_client.return_value.get_manager_squad.return_value = []
-    mock_client.return_value.get_market_players.return_value = []
     return stack, mock_send, mock_auto_bid
 
 

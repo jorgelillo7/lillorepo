@@ -45,19 +45,12 @@ import requests
 
 from core.constants import MADRID_TZ
 from core.sdk import firestore
-from core.sdk.biwenger import BiwengerClient
-from core.sdk.jp import (
-    check_api_health,
-    fetch_all_players,
-    get_predict_rate,
-)
+from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic.player_matching import (
-    build_jp_index,
-    find_player_match,
-)
+from packages.biwenger_tools.api.logic.orchestration import build_context
+from packages.biwenger_tools.api.logic.player_matching import find_player_match
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
 logger = get_logger(__name__)
@@ -306,32 +299,13 @@ def run_auto_bid() -> dict:
     Biwenger session + N `POST /api/v2/offers`, Firestore writes per
     successful bid, one Telegram message.
     """
-    check_api_health(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_players = fetch_all_players(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_index = build_jp_index(jp_players)
+    ctx = build_context()
+    market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
+    candidates = _build_candidates(market_players, ctx.biwenger_players, ctx.jp_index)
 
-    biwenger = BiwengerClient(
-        config.BIWENGER_EMAIL,
-        config.BIWENGER_PASSWORD,
-        config.LOGIN_URL,
-        config.ACCOUNT_URL,
-        config.LEAGUE_ID,
-    )
-    biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-    market_players = biwenger.get_market_players(config.MARKET_URL)
-
-    candidates = _build_candidates(market_players, biwenger_players, jp_index)
-
-    account_state = biwenger.get_account_state()
+    account_state = ctx.biwenger.get_account_state()
     remaining_cash = int(account_state.get("cash") or 0)
+    biwenger = ctx.biwenger  # alias for the bid loop below
 
     day = _today_madrid()
     already_bid = _already_bid_ids(day)
