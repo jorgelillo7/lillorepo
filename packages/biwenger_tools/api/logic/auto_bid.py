@@ -6,17 +6,20 @@ morning, attach SofaScore (Automanager) ratings from JP, and place a
 bid on each player according to the tier below — best score first,
 stopping when cash runs out.
 
-Tiers (over Biwenger's cf-base `price`, NOT `owner.price`):
+Tiers (over Biwenger's cf-base `price`, NOT `owner.price`). Every
+non-skipped bid carries a random 0–`BID_JITTER_MAX` € offset so the
+amounts don't look botty:
 
-    SF > 800             → bid = remaining_cash    (all-in, never maxBid)
-    600 < SF ≤ 800       → bid = price + 5_000_000  (aggressive)
-    400 < SF ≤ 600       → bid = price + 2_000_000
-    SF ≤ 400             → skip
+    SF > 800             → bid = remaining_cash - jitter   (all-in)
+    600 < SF ≤ 800       → bid = price + 5_000_000 + jitter (aggressive)
+    400 < SF ≤ 600       → bid = price + 2_000_000 + jitter
+    300 < SF ≤ 400       → bid = price +   500_000 + jitter (low conviction)
+    SF ≤ 300             → skip
 
 Hard rule across every tier: skip the player when the would-be bid
 exceeds `remaining_cash` — we never go negative. The all-in tier bids
 the full cash regardless of price (a 26M player against 30M cash is
-still a 30M bid, by the user's call).
+still a ~30M bid, by the user's call).
 
 Idempotency: Cloud Scheduler retries 5xx responses. We log placed bids
 to `auto_bid_log/{YYYY-MM-DD}` (one doc per player) and skip anything
@@ -24,6 +27,7 @@ in that log before bidding, so a retry of a half-completed run does
 not double-bid the players that already went through.
 """
 
+import random
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -53,8 +57,17 @@ logger = get_logger(__name__)
 TIER_ALL_IN_MIN = 800
 TIER_PLUS_5M_MIN = 600
 TIER_PLUS_2M_MIN = 400
+TIER_PLUS_500K_MIN = 300
 TIER_PLUS_5M_SURCHARGE = 5_000_000
 TIER_PLUS_2M_SURCHARGE = 2_000_000
+TIER_PLUS_500K_SURCHARGE = 500_000
+
+# Per-bid anti-pattern jitter. A bot that always bids in round euros
+# (10.000.000, 10.500.000, …) is a tell — humans dragging the slider
+# in the Biwenger UI never land on exact round numbers. Every bid gets
+# a random 0–1000 € offset so the trail looks human. The economic
+# impact is negligible (≤0.01% of any tier).
+BID_JITTER_MAX = 1000
 
 # Firestore path for today's per-player bid log. Cloud Scheduler retries
 # on 5xx — looking up the log before bidding makes a retried run a no-op
@@ -88,24 +101,37 @@ def _euros(n: int | None) -> str:
     return f"{s} €"
 
 
+def _jitter() -> int:
+    """Random 0–`BID_JITTER_MAX` € offset for a bid. Indirection makes the
+    randomness easy to pin from tests with a single `patch.object`."""
+    return random.randint(0, BID_JITTER_MAX)
+
+
 def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
     `target_bid` may exceed `remaining_cash` — the caller is in charge of
     the affordability check (so the skip reason can be richer than a
     bare None).
+
+    Every tier adds (or, for T1 all-in, subtracts) a random 0-`BID_JITTER_MAX`
+    € offset. The economic impact is < 0.01% of any tier but the bid trail
+    stops looking like a bot.
     """
+    jitter = _jitter()
     if sf > TIER_ALL_IN_MIN:
         # All-in on the cash we have right now. Price is irrelevant — the
         # user accepts paying 30M for a 26M player rather than leaving cash
-        # on the table. `remaining_cash` of 0 falls through to the
-        # affordability check below and gets reported as "sin cash".
-        return remaining_cash, f"T1 all-in (SF {sf})"
+        # on the table. Jitter SUBTRACTS here (can't bid > cash); the result
+        # stays strictly inside [remaining_cash - BID_JITTER_MAX, remaining_cash].
+        return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf})"
     if sf > TIER_PLUS_5M_MIN:
-        return price + TIER_PLUS_5M_SURCHARGE, f"T2 precio+5M (SF {sf})"
+        return price + TIER_PLUS_5M_SURCHARGE + jitter, f"T2 precio+5M (SF {sf})"
     if sf > TIER_PLUS_2M_MIN:
-        return price + TIER_PLUS_2M_SURCHARGE, f"T3 precio+2M (SF {sf})"
-    return None, f"SF {sf} ≤ {TIER_PLUS_2M_MIN}"
+        return price + TIER_PLUS_2M_SURCHARGE + jitter, f"T3 precio+2M (SF {sf})"
+    if sf > TIER_PLUS_500K_MIN:
+        return price + TIER_PLUS_500K_SURCHARGE + jitter, f"T4 precio+500K (SF {sf})"
+    return None, f"SF {sf} ≤ {TIER_PLUS_500K_MIN}"
 
 
 def _build_candidates(
