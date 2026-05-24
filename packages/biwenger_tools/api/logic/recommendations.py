@@ -18,11 +18,14 @@ import time
 from typing import Optional
 
 from core.sdk.biwenger import BiwengerClient
-from core.sdk.jp import check_api_health, fetch_all_players, get_predict_rate
+from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+from packages.biwenger_tools.api.logic.orchestration import (
+    build_context,
+    require_telegram,
+)
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import POSITION_SHORT, SCORE_SF
 
@@ -236,34 +239,16 @@ def run_recommendations(
     caller passes an explicit value, that value wins (after clamping
     happens in the route handler).
     """
-    check_api_health(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_players = fetch_all_players(
-        config.JP_AUTH_TOKEN,
-        competition=config.JP_COMPETITION,
-        score_type=config.JP_SCORE_TYPE,
-    )
-    jp_index = build_jp_index(jp_players)
+    ctx = build_context()
 
-    biwenger = BiwengerClient(
-        config.BIWENGER_EMAIL,
-        config.BIWENGER_PASSWORD,
-        config.LOGIN_URL,
-        config.ACCOUNT_URL,
-        config.LEAGUE_ID,
+    # Fetch my squad once: needed for max_bid AND to mark my players as
+    # excluded from the rival pool.
+    my_squad = ctx.biwenger.get_manager_squad(
+        config.USER_SQUAD_URL, ctx.biwenger.user_id
     )
-    biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-
-    # Fetch my squad once: needed to compute max_bid AND to mark my players
-    # as excluded from the rival pool. We hit /user/{me}?fields=players(*)
-    # via the same paginated client method as the rest.
-    my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
     my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
 
-    account_state = biwenger.get_account_state(my_squad, biwenger_players)
+    account_state = ctx.biwenger.get_account_state(my_squad, ctx.biwenger_players)
     cash, max_bid = account_state["cash"], account_state["max_bid"]
 
     margin_source = "auto" if margin is None else "manual"
@@ -272,7 +257,7 @@ def run_recommendations(
     margin = max(0, margin)
     target = cash + margin
 
-    rivals = _gather_rivals(biwenger, biwenger_players, jp_index)
+    rivals = _gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = _filter_affordable(rivals, my_ids, target)
     recommendations = _pick_top_per_position(affordable, top)
 
@@ -299,14 +284,11 @@ def run_recommendations(
         },
     )
 
-    if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
-        logger.warning("Telegram credentials missing — skipping send.")
+    telegram = require_telegram()
+    if telegram is None:
         return {"sent": 0, **payload}
+    token, chat_id = telegram
 
     text = _format_telegram_text(payload)
-    send_telegram_message_or_raise(
-        bot_token=config.TELEGRAM_BOT_TOKEN,
-        chat_id=config.TELEGRAM_CHAT_ID,
-        text=text,
-    )
+    send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=text)
     return {"sent": 1, **payload}

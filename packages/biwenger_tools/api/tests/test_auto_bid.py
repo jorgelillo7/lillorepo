@@ -320,11 +320,21 @@ def run_env():
     ):
         stack = ExitStack()
         mock_cfg = stack.enter_context(patch(_patches("config")))
-        stack.enter_context(patch(_patches("check_api_health")))
-        stack.enter_context(
-            patch(_patches("fetch_all_players"), return_value=jp_players)
+        # `build_context()` returns the full orchestration context — patch
+        # it once and feed a mock-Biwenger through. Beats patching the four
+        # individual JP / Biwenger setup calls separately.
+        biwenger = MagicMock()
+        from packages.biwenger_tools.api.logic.orchestration import (
+            OrchestratorContext,
         )
-        mock_client_cls = stack.enter_context(patch(_patches("BiwengerClient")))
+        from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+
+        ctx = OrchestratorContext(
+            biwenger=biwenger,
+            biwenger_players=biwenger_players,
+            jp_index=build_jp_index(jp_players),
+        )
+        stack.enter_context(patch(_patches("build_context"), return_value=ctx))
         stack.enter_context(
             patch(
                 _patches("_already_bid_ids"),
@@ -339,20 +349,10 @@ def run_env():
             patch(_patches("send_telegram_message_or_raise"))
         )
 
-        mock_cfg.JP_AUTH_TOKEN = "tok"
-        mock_cfg.JP_COMPETITION = 1
-        mock_cfg.JP_SCORE_TYPE = 2
-        mock_cfg.BIWENGER_EMAIL = "u"
-        mock_cfg.BIWENGER_PASSWORD = "p"
-        mock_cfg.LOGIN_URL = mock_cfg.ACCOUNT_URL = "x"
-        mock_cfg.LEAGUE_ID = "1"
-        mock_cfg.ALL_PLAYERS_DATA_URL = "x"
         mock_cfg.MARKET_URL = "x"
         mock_cfg.TELEGRAM_BOT_TOKEN = "tok" if telegram else ""
         mock_cfg.TELEGRAM_CHAT_ID = "chat" if telegram else ""
 
-        biwenger = mock_client_cls.return_value
-        biwenger.get_all_players_data_map.return_value = biwenger_players
         biwenger.get_market_players.return_value = market_players
         biwenger.get_account_state.return_value = {"cash": cash, "max_bid": cash}
         if bid_side_effect is not None:
