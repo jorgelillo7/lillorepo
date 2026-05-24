@@ -158,10 +158,10 @@ def fetch_all_players(
 
 
 def get_predict_rate(player: dict, score_type: int = 2) -> Optional[int]:
-    """Extrae el rate de predicción para el sistema de puntuación dado.
+    """Return the prediction rate for the requested scoring system.
 
-    Devuelve None si el jugador no tiene partido (predict vacío) o el tipo
-    pedido no aparece.
+    Returns None when the player has no scheduled match (empty `predict`)
+    or the requested score_type is not present.
     """
     for entry in player.get("predict") or []:
         if entry.get("type") == score_type:

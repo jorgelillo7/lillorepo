@@ -1,8 +1,8 @@
 from unidecode import unidecode
 
-# Mapeo manual Biwenger -> JP para casos en los que ninguna estrategia
-# automática funciona (nombres completamente distintos, apodos, alias).
-# Las claves están normalizadas (lowercase + sin acentos).
+# Hand-maintained Biwenger → JP name overrides for the cases where no
+# automatic strategy matches (completely different spellings, nicknames,
+# aliases). Keys are normalised (lowercase, accents stripped).
 PLAYER_NAME_MAPPINGS = {
     # Vinicius en Biwenger ↔ "Vini Jr" en JP
     "vinicius jr": "vini jr",
@@ -18,16 +18,16 @@ PLAYER_NAME_MAPPINGS = {
 
 
 def normalize_name(name: str) -> str:
-    """Normaliza nombres: minúsculas, sin acentos, recortado."""
+    """Normalise a name: lowercase, accent-stripped, trimmed."""
     return unidecode(name.lower().strip())
 
 
 def build_jp_index(jp_players: list[dict]) -> dict:
-    """Construye índices del listado JP para acelerar el matching.
+    """Build lookup indexes over a JP player list to speed up matching.
 
-    Devuelve dict con dos claves:
-      - 'by_name': nombre normalizado -> jugador JP
-      - 'by_slug': slug normalizado -> jugador JP (fallback)
+    Returns a dict with two keys:
+      - 'by_name': normalised name → JP player
+      - 'by_slug': normalised slug → JP player (fallback)
     """
     by_name: dict[str, dict] = {}
     by_slug: dict[str, dict] = {}
@@ -42,16 +42,16 @@ def build_jp_index(jp_players: list[dict]) -> dict:
 
 
 def find_player_match(biwenger_name: str, jp_index: dict) -> dict | None:
-    """Busca el jugador JP que corresponde al nombre Biwenger dado.
+    """Find the JP player that matches the given Biwenger name.
 
-    Prueba en orden:
-      1. Coincidencia directa por nombre normalizado
-      2. Mapeo manual de excepciones (PLAYER_NAME_MAPPINGS)
-      3. Coincidencia por slug
-      4. Transformaciones automáticas (apellido, nombre, "i. apellido")
-      5. Subconjunto de tokens
+    Tries in order:
+      1. Exact match on the normalised name.
+      2. Manual override (PLAYER_NAME_MAPPINGS).
+      3. Match by slug.
+      4. Automatic transformations (last name, first name, "i. last").
+      5. Token-subset match.
 
-    Devuelve el dict del jugador JP o None si no hay coincidencia.
+    Returns the JP player dict, or None if nothing matches.
     """
     by_name = jp_index["by_name"]
     by_slug = jp_index["by_slug"]
@@ -68,7 +68,7 @@ def find_player_match(biwenger_name: str, jp_index: dict) -> dict | None:
     if norm in by_slug:
         return by_slug[norm]
 
-    # Slug suele ser sin espacios; probar también la variante sin espacios
+    # Slugs typically have no spaces; try the no-space variant too.
     no_spaces = norm.replace(" ", "")
     if no_spaces in by_slug:
         return by_slug[no_spaces]
