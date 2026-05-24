@@ -63,6 +63,12 @@ Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
 3. `pip-compile requirements.in -o requirements_lock.txt`
 4. Add the dep in the module's `BUILD.bazel` (`@pypi//library_name`)
 
+**Never bundle dependency bumps with a feature PR.** Dep upgrades change the runtime
+behaviour of the whole image; mixing them with feature code makes regressions
+harder to bisect. Ship dep bumps in their own short-lived PR (one bump per PR if
+practical) so the deploy that introduces them is reversible without losing the
+feature.
+
 ## Secrets
 
 - **Local:** `.env` files in each module (do not commit)
