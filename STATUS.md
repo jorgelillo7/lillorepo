@@ -3,10 +3,13 @@
 Living maturity report for `lillorepo`. Updated as items from `PENDING.md` ship.
 For a feature-by-feature timeline, read `packages/biwenger_tools/release-notes.md`.
 
-**Current score: 8.7 / 10** (post bot reply-keyboard + Telegram-fail propagation across all callers).
-**Projected score after the PENDING follow-ups: ~9.45 / 10.**
+**Current score: 9.4 / 10** (every PENDING follow-up shipped: orchestration
+refactor, retry helper, Telegram-fail propagation, test_api split, language
+standardisation, SLO doc, memory audit, reply keyboard, bot setup unification).
+**Cap under current constraints: ~9.5 / 10.**
 
-The remaining 0.55 is a deliberate cap (see _Accepted gaps_ below).
+The remaining 0.1 is a deliberate cap (see _Accepted gaps_ below) — closing
+it would require leaving the €0/month free tier.
 
 ---
 
