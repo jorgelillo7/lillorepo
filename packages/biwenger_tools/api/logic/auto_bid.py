@@ -28,7 +28,7 @@ above it the cap wins.
 Hard rule across every tier: skip the player when the would-be bid
 exceeds `remaining_cash` — we never go negative. The all-in tier bids
 the full cash regardless of price (a 26M player against 30M cash is
-still a ~30M bid, by the user's call).
+still a ~30M bid).
 
 Idempotency: Cloud Scheduler retries 5xx responses. We log placed bids
 to `auto_bid_log/{YYYY-MM-DD}` (one doc per player) and skip anything
@@ -246,9 +246,8 @@ def _format_telegram_text(
     Every dynamic value flowing in (player names, tier labels, skip
     reasons) is HTML-escaped because Telegram's HTML parser is strict:
     a stray `<`/`>`/`&` in the body triggers a 400 Bad Request and the
-    whole message is dropped. The skip reason `"bid 1.000.000 € > cash
-    500.000 €"` exposed this on 2026-05-24 — `>` was read as the start
-    of a tag and the run failed silently.
+    whole message is dropped. The skip reason
+    `"bid 1.000.000 € > cash 500.000 €"` is the canonical trigger.
     """
     esc = lambda s: html.escape(str(s), quote=False)  # noqa: E731
 
@@ -285,9 +284,8 @@ def _maybe_notify(text: str) -> int:
 
     Raises ``RuntimeError`` if Telegram refuses the message (4xx parse
     error, 5xx, timeout). The route handler converts that into a 500
-    so the bot can tell the user something went wrong instead of
-    leaving the chat with a "⏳ procesando…" message that never
-    resolves (regression spotted 2026-05-24, fixed in this commit).
+    so the bot can post a fallback error message instead of leaving
+    the chat with an unresolved "⏳ procesando…".
     """
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
         logger.warning("Telegram credentials missing — skipping send.")

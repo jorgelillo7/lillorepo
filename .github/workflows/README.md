@@ -28,14 +28,13 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 | Secret | Description |
 |--------|-------------|
 | `GCP_SA_KEY` | JSON key of the `biwenger-tools-sa` service account |
-| `GDRIVE_FOLDER_ID` | Google Drive folder ID for CSV storage |
 | `SECRET_KEY` | Flask session secret key |
 | `ADMIN_PASSWORD` | Admin panel password |
 | `LIGAS_ESPECIALES_SHEET_ID_25_26` | Google Sheets ID (ligas especiales 25-26) |
 | `LIGAS_ESPECIALES_SHEET_ID_24_25` | Google Sheets ID (ligas especiales 24-25) |
 | `TROFEOS_SHEET_ID_25_26` | Google Sheets ID (trofeos 25-26) |
 
-> The legacy `COMUNICADOS_CSV_URL`, `PALMARES_CSV_URL`, and `PARTICIPACION_CSV_URL` secrets were deleted on 2026-05-04 when the web stopped fetching CSVs via public URLs and started using the Drive SA directly. Other credentials (Biwenger login, Telegram bot tokens, JP token) live in Secret Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
+Other credentials (Biwenger login, Telegram bot tokens, JP token) live in Secret Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
 
 ## Service account permissions
 

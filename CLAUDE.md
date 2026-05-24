@@ -10,7 +10,7 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
   biwenger_tools/
     api/            Flask service exposing the Biwenger business logic over HTTP
     bot/            Telegram bot service — webhooks → calls api
-    scraper_job/    League message scraper → CSV → Google Drive
+    scraper_job/    League message scraper → Firestore
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
 /docs           Documentation (operations.md = command reference, setup/linter.md = lint/format)
