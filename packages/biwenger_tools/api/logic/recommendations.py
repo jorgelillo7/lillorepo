@@ -19,7 +19,7 @@ from typing import Optional
 
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players, get_predict_rate
-from core.sdk.telegram import send_telegram_message
+from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.player_matching import build_jp_index
@@ -304,7 +304,7 @@ def run_recommendations(
         return {"sent": 0, **payload}
 
     text = _format_telegram_text(payload)
-    send_telegram_message(
+    send_telegram_message_or_raise(
         bot_token=config.TELEGRAM_BOT_TOKEN,
         chat_id=config.TELEGRAM_CHAT_ID,
         text=text,

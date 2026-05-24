@@ -13,7 +13,10 @@ import requests
 
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
-from core.sdk.telegram import send_telegram_message, send_telegram_photo
+from core.sdk.telegram import (
+    send_telegram_message_or_raise,
+    send_telegram_photo_or_raise,
+)
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
@@ -28,8 +31,11 @@ logger = get_logger(__name__)
 
 
 def _send_image(token: str, chat_id: str, image: bytes, caption: str) -> None:
-    """sendPhoto + a small pause to stay under Telegram's send-rate cap."""
-    send_telegram_photo(token, chat_id, image, caption)
+    """sendPhoto + a small pause to stay under Telegram's send-rate cap.
+
+    Raises `TelegramDeliveryError` if Telegram rejects the photo; the
+    route handler surfaces it as a 500."""
+    send_telegram_photo_or_raise(token, chat_id, image, caption)
     time.sleep(0.5)
 
 
@@ -133,7 +139,7 @@ def run_teams(manager_id: int | None = None) -> dict:
     if manager_id is not None:
         # Single-manager mode: one image, no market.
         if manager_id not in managers:
-            send_telegram_message(
+            send_telegram_message_or_raise(
                 bot_token=token,
                 chat_id=chat_id,
                 text=(
@@ -272,7 +278,7 @@ def run_auto_pick_lineup(dry_run: bool = False) -> dict:
                 "names_by_position": _names_by_position(my_team),
             },
         )
-        send_telegram_message(
+        send_telegram_message_or_raise(
             bot_token=token,
             chat_id=chat_id,
             text="No se pudo calcular la alineacion (jugadores insuficientes).",
@@ -283,7 +289,7 @@ def run_auto_pick_lineup(dry_run: bool = False) -> dict:
         preview = format_lineup_message(result).replace(
             "✅ Alineación aplicada", "👀 <b>Preview</b> — no aplicada"
         )
-        send_telegram_message(bot_token=token, chat_id=chat_id, text=preview)
+        send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=preview)
         logger.info(
             "Dry-run lineup preview sent.",
             extra={"formation": result["formation"], "total_sf": result["total_sf"]},
@@ -322,7 +328,7 @@ def run_auto_pick_lineup(dry_run: bool = False) -> dict:
         # Biwenger PUT retries internally on transient failures. If we land
         # here the retries also failed (or a 4xx like invalid captain).
         logger.error("set_lineup failed after retries.", extra={"error": str(exc)})
-        send_telegram_message(
+        send_telegram_message_or_raise(
             bot_token=token,
             chat_id=chat_id,
             text=(
@@ -334,7 +340,7 @@ def run_auto_pick_lineup(dry_run: bool = False) -> dict:
         )
         return {"sent": 1, "applied": False, "reason": "biwenger_put_failed"}
 
-    send_telegram_message(
+    send_telegram_message_or_raise(
         bot_token=token, chat_id=chat_id, text=format_lineup_message(result)
     )
     logger.info(

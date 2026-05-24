@@ -51,7 +51,7 @@ from core.sdk.jp import (
     fetch_all_players,
     get_predict_rate,
 )
-from core.sdk.telegram import send_telegram_message
+from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.player_matching import (
@@ -282,24 +282,20 @@ def _format_telegram_text(
 def _maybe_notify(text: str) -> int:
     """Send the summary to Telegram if creds are configured. Returns sent count.
 
-    Raises ``RuntimeError`` if Telegram refuses the message (4xx parse
-    error, 5xx, timeout). The route handler converts that into a 500
-    so the bot can post a fallback error message instead of leaving
-    the chat with an unresolved "⏳ procesando…".
+    Lets `TelegramDeliveryError` propagate when Telegram refuses the
+    message (4xx parse error, 5xx, timeout). The route handler turns
+    it into a 500 so the bot can post a fallback plaintext error to
+    the user instead of leaving the chat with an unresolved
+    "⏳ procesando…".
     """
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
         logger.warning("Telegram credentials missing — skipping send.")
         return 0
-    sent = send_telegram_message(
+    send_telegram_message_or_raise(
         bot_token=config.TELEGRAM_BOT_TOKEN,
         chat_id=config.TELEGRAM_CHAT_ID,
         text=text,
     )
-    if not sent:
-        raise RuntimeError(
-            "Telegram summary delivery failed — bids already placed "
-            "(see Firestore `auto_bid_log` + Cloud Logging)."
-        )
     return 1
 
 
