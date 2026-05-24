@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 def categorize_title(title):
-    """Clasifica un mensaje según su título."""
+    """Classify a board message by its title prefix."""
     if not title:
         return "comunicado"
     normalized_title = unidecode.unidecode(title.strip().upper())
@@ -91,10 +91,10 @@ def _parse_clause_item(item: dict, fecha: str, players_map: dict) -> Clausulazo:
 
 
 def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
-    """Transforma la respuesta cruda de la API en una lista de Clausulazo.
+    """Transform the raw API response into a list of `Clausulazo` models.
 
-    Cada entry puede contener varios clausulazos en su campo `content`. Una
-    entry malformada se ignora y se loguea — el resto de entries sí se procesan.
+    Each entry can contain several clausulazos in its `content` field. A
+    malformed entry is logged and skipped — the rest still get processed.
     """
     entries = raw_data.get("data", [])
     if isinstance(entries, dict):
@@ -126,7 +126,7 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
 
 
 def build_tabla_justicia(clausulazos: list) -> list:
-    """Construye el resumen de ataques realizados y recibidos por cada equipo.
+    """Build the per-team summary of clausulazos given and received.
 
     Returns list[JusticeEntry] sorted by total_hechos descending.
     """

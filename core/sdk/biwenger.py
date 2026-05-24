@@ -16,8 +16,8 @@ logger = get_logger(__name__)
 # right move is to retry rather than fail the whole `/alinear` flow.
 _LINEUP_RETRY_BACKOFFS = (2, 5, 10)
 
-# --- URLs públicas del API de Biwenger ---
-# Cualquier paquete puede importar estas constantes en lugar de redefinirlas.
+# --- Public Biwenger API URLs ---
+# Any package can import these constants instead of redefining them.
 BIWENGER_API_BASE = "https://biwenger.as.com/api/v2"
 BIWENGER_CF_BASE = "https://cf.biwenger.com/api/v2"
 
