@@ -13,8 +13,14 @@ python_service(
         "GCP_PROJECT_ID": "biwenger-tools",
         "CLOUD_RUN_JOB_NAME": "biwenger-scraper-data",
         "CLOUD_RUN_REGION": "europe-southwest1",
-        "LIGAS_ESPECIALES_SHEET_ID_25_26": "1ZaFZtKLFc0K4Ku099x3iV20OBkLZz9BEvojZpyOP0es",
-        "TROFEOS_SHEET_ID_25_26": "1-ahWDHUby8KRXUZPdJqI302gnNEQTBcr1MQgqJOlk5Y",
+        # Sheets IDs (LIGAS_ESPECIALES_*, TROFEOS_*) are injected at
+        # runtime — never hardcoded here:
+        #   - Production: `deploy.yml` passes them via `--set-env-vars`
+        #     from GH Actions secrets.
+        #   - Local: `.env` in this module (load_dotenv reads it).
+        # Keeping them out of BUILD.bazel avoids leaking the values
+        # into the source tree and the Docker image layers.
+        #
         # GOOGLE_APPLICATION_CREDENTIALS intentionally NOT set:
         # the Sheets client gets its SA file path explicitly via
         # `SERVICE_ACCOUNT_PATH` (mounted at /gdrive_sa from Secret

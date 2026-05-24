@@ -18,12 +18,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   (Sheets API still authenticates through that mount for `ligas_especiales` /
   `trofeos`).
 
-## biwenger_tools/web
-
-- **Move Drive/Sheets IDs out of BUILD.bazel** — Sheets IDs (`LIGAS_ESPECIALES_*`,
-  `TROFEOS_*`) are still hardcoded in `packages/biwenger_tools/web/BUILD.bazel`.
-  Env-var them when convenient. Low priority.
-
 ## my_photos
 
 - **Photo-recognition project** — tracked in `packages/my_photos/README.md`, not here.
