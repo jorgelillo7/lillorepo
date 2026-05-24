@@ -14,41 +14,58 @@ import requests
 from packages.biwenger_tools.api.logic import auto_bid
 
 # --- tier_bid -------------------------------------------------------------
+#
+# Every tier carries a random 0-BID_JITTER_MAX € offset (anti-pattern), so
+# expected bid values are checked as RANGES, not exact equalities. The few
+# tests that need determinism patch `auto_bid._jitter` to a fixed return.
 
 
 def test_tier_all_in_uses_remaining_cash_regardless_of_price():
-    """SF > 800 must bid `remaining_cash`, NOT price+anything. A 26M player
-    against 30M cash → 30M bid (the user's call: never leave cash on the
-    table, never go negative on `maxBid`)."""
+    """SF > 800 must bid ~`remaining_cash` (minus jitter), NOT price+anything.
+    A 26M player against 30M cash → ~30M bid (never leave cash on the table,
+    never go negative on `maxBid`)."""
     bid, label = auto_bid.tier_bid(sf=910, price=26_000_000, remaining_cash=30_000_000)
-    assert bid == 30_000_000
+    assert 30_000_000 - auto_bid.BID_JITTER_MAX <= bid <= 30_000_000
     assert "T1" in label and "all-in" in label
 
 
 def test_tier_all_in_when_cash_is_zero_returns_zero_so_caller_skips():
-    """remaining_cash=0 still returns 0 (not None); the caller's
-    affordability check turns that into a skip with a "no cash" reason."""
+    """remaining_cash=0 still returns 0 (not negative — jitter is clamped at
+    0); the caller's affordability check turns that into a skip with a
+    "no cash" reason."""
     bid, _ = auto_bid.tier_bid(sf=850, price=10_000_000, remaining_cash=0)
     assert bid == 0
 
 
 def test_tier_plus_5m_band():
     bid, label = auto_bid.tier_bid(sf=720, price=8_000_000, remaining_cash=50_000_000)
-    assert bid == 13_000_000  # 8M + 5M
+    # 8M + 5M + jitter ∈ [13_000_000, 13_001_000]
+    assert 13_000_000 <= bid <= 13_000_000 + auto_bid.BID_JITTER_MAX
     assert "T2" in label
 
 
 def test_tier_plus_2m_band():
     bid, label = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
-    assert bid == 5_000_000  # 3M + 2M
+    # 3M + 2M + jitter ∈ [5_000_000, 5_001_000]
+    assert 5_000_000 <= bid <= 5_000_000 + auto_bid.BID_JITTER_MAX
     assert "T3" in label
 
 
+def test_tier_plus_500k_band():
+    """T4: 300 < SF ≤ 400 → price + 500K + jitter. Covers the visual-green-
+    but-low-conviction band (PNG paints green at SF ≥ 300, this tier bids
+    a token amount on those instead of skipping them outright)."""
+    bid, label = auto_bid.tier_bid(sf=350, price=1_000_000, remaining_cash=50_000_000)
+    # 1M + 500K + jitter ∈ [1_500_000, 1_501_000]
+    assert 1_500_000 <= bid <= 1_500_000 + auto_bid.BID_JITTER_MAX
+    assert "T4" in label and "500K" in label
+
+
 def test_tier_below_floor_returns_none():
-    """SF ≤ 400 → skip (the user does not want low-rated noise)."""
-    bid, reason = auto_bid.tier_bid(sf=400, price=1_000_000, remaining_cash=50_000_000)
+    """SF ≤ 300 → skip (T4 floor; T3 boundary stayed at 400)."""
+    bid, reason = auto_bid.tier_bid(sf=300, price=1_000_000, remaining_cash=50_000_000)
     assert bid is None
-    assert "400" in reason
+    assert "300" in reason
 
 
 @pytest.mark.parametrize(
@@ -57,9 +74,11 @@ def test_tier_below_floor_returns_none():
         (801, "T1"),  # boundary just above all-in
         (800, "T2"),  # boundary: 800 is NOT all-in
         (601, "T2"),
-        (600, "T3"),  # boundary: 600 falls to T3 band
+        (600, "T3"),  # 600 falls to T3 band
         (401, "T3"),
-        (400, None),  # boundary: 400 skipped
+        (400, "T4"),  # NEW: 400 now lands in T4 (was skipped pre-T4)
+        (301, "T4"),
+        (300, None),  # boundary: 300 skipped (T4 floor strict `>`)
     ],
 )
 def test_tier_boundaries(sf, expected_band):
@@ -69,6 +88,30 @@ def test_tier_boundaries(sf, expected_band):
         assert bid is None
     else:
         assert expected_band in label
+
+
+def test_tier_jitter_is_within_advertised_range():
+    """Sample the jitter empirically over many runs; it must never escape
+    [0, BID_JITTER_MAX]. Without this guard a future widening (e.g.
+    BID_JITTER_MAX → 10_000) could nudge tier-bid values past the affordability
+    cap unnoticed."""
+    seen = set()
+    for _ in range(500):
+        bid, _ = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
+        seen.add(bid - 5_000_000)
+    assert all(0 <= delta <= auto_bid.BID_JITTER_MAX for delta in seen)
+    # At least a couple of distinct values out of 500 — proof randomness is on.
+    assert len(seen) > 10
+
+
+def test_tier_jitter_subtracted_for_all_in():
+    """For T1 the jitter SUBTRACTS from cash so the bid never exceeds it.
+    Crucial — a bid > maxBid would be rejected by Biwenger."""
+    cash = 30_000_000
+    for _ in range(50):
+        bid, _ = auto_bid.tier_bid(sf=910, price=26_000_000, remaining_cash=cash)
+        assert bid <= cash
+        assert cash - auto_bid.BID_JITTER_MAX <= bid
 
 
 # --- _build_candidates ----------------------------------------------------
@@ -209,6 +252,9 @@ def run_env():
             )
         )
         stack.enter_context(patch(_patches("_log_bid")))
+        # Pin jitter to 0 so the run-level assertions can stay on exact euros.
+        # The jitter behaviour itself is covered by the tier_bid-level tests.
+        stack.enter_context(patch(_patches("_jitter"), return_value=0))
         mock_send = stack.enter_context(patch(_patches("send_telegram_message")))
 
         mock_cfg.JP_AUTH_TOKEN = "tok"
