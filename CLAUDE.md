@@ -120,6 +120,27 @@ Long-running follow-ups live in `PENDING.md` at the repo root. That file is
 never deleted; lines get pruned as items ship. For "what has shipped", read
 `packages/biwenger_tools/release-notes.md`.
 
+## Service-level objectives
+
+Single SLO covers the user-facing surface of the project:
+
+- **Daily 09:00 Madrid digest end-to-end ≤ 5 min.** The Cloud Scheduler tick
+  fires `/digests/daily`, which chains: JP fetch + Biwenger session + market
+  read + N bids + Firestore log writes + 2 Telegram photos + 1 Telegram
+  summary. Each component has its own timeouts; the SLO is the wall-clock
+  total observed end-to-end. Burns: any run that exceeds 5 min, or any
+  morning where the summary fails to arrive, counts against the budget.
+
+What this implies in practice:
+- Cloud Run min-instances=0 cold start is part of the budget — currently
+  ~5-10 s thanks to the pre-compiled `python-base` image. Drift here is
+  worth investigating.
+- Biwenger flake / JP cache miss budget is ~30 s combined; the rest of the
+  5 min is comfort headroom.
+- There is no automated alerting (deliberate, see `STATUS.md` "Accepted
+  gaps"). The SLO is enforced by the user checking whether the morning
+  message arrived; missed mornings get diagnosed manually in Cloud Logging.
+
 ## Memory
 
 Claude Code persistent memory for this project lives at:
