@@ -361,3 +361,40 @@ def test_get_account_state_unknown_league_returns_zeros(
         m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
         state = client.get_account_state()
     assert state == {"cash": 0, "max_bid": 0}
+
+
+def test_get_report_rows_parses_columns_and_rows(biwenger_client_authenticated):
+    """report/* endpoints return {columns, rows}; the SDK zips them into dicts
+    keyed by column name so callers can pull values by the label the UI uses."""
+    url = "https://biwenger.as.com/api/v2/league/340703/report/rounds?mode=total"
+    payload = {
+        "status": 200,
+        "data": {
+            "columns": [
+                {"name": "Usuario", "type": "user"},
+                {"name": "Jornadas ganadas", "type": "number"},
+                {"name": "Posición media", "type": "ordinal"},
+            ],
+            "rows": [
+                [{"id": 7728610, "name": "Rayo Entrebirras"}, "11", 2.8],
+                [{"id": 1372802, "name": "Farolillo Oracle United"}, "3", 3.8],
+            ],
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.get(url, json=payload, status_code=200)
+        rows = biwenger_client_authenticated.get_report_rows(url)
+    assert len(rows) == 2
+    assert rows[0]["Usuario"]["id"] == 7728610
+    assert rows[0]["Jornadas ganadas"] == "11"
+    assert rows[0]["Posición media"] == 2.8
+    assert rows[1]["Usuario"]["name"] == "Farolillo Oracle United"
+
+
+def test_get_report_rows_empty_payload(biwenger_client_authenticated):
+    """Missing columns/rows → empty list, no exception."""
+    url = "https://biwenger.as.com/api/v2/league/340703/report/roundPoints?mode=total"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200, "data": {}}, status_code=200)
+        rows = biwenger_client_authenticated.get_report_rows(url)
+    assert rows == []

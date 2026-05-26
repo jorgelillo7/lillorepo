@@ -355,6 +355,63 @@ class JusticeEntry:
 
 
 @dataclass
+class SeasonStanding:
+    """End-of-season per-user row.
+
+    Captured at season close. ``team_name`` is the Biwenger team name at
+    capture time (it can drift later if the user renames). ``real_name``
+    is resolved via ``LEAGUE_MEMBERS`` from the stable numeric ``user_id``,
+    so it survives renames.
+
+    For accounts deleted mid-season the user_id is no longer resolvable
+    via Biwenger — emit ``user_id=0`` and fill ``real_name`` and ``note``
+    explicitly (e.g. ``note="abandono"``).
+    """
+
+    position: int
+    user_id: int
+    team_name: str
+    real_name: str
+    points: int = 0
+    best_round: int = 0
+    worst_round: int = 0
+    rounds_won: int = 0
+    avg_position: float = 0.0
+    note: str = ""
+
+    FIRESTORE_FIELDS: ClassVar[Tuple[str, ...]] = (
+        "position",
+        "user_id",
+        "team_name",
+        "real_name",
+        "points",
+        "best_round",
+        "worst_round",
+        "rounds_won",
+        "avg_position",
+        "note",
+    )
+
+    @classmethod
+    def from_firestore(cls, data: dict) -> "SeasonStanding":
+        return cls(
+            position=int(data.get("position", 0) or 0),
+            user_id=int(data.get("user_id", 0) or 0),
+            team_name=data.get("team_name", ""),
+            real_name=data.get("real_name", ""),
+            points=int(data.get("points", 0) or 0),
+            best_round=int(data.get("best_round", 0) or 0),
+            worst_round=int(data.get("worst_round", 0) or 0),
+            rounds_won=int(data.get("rounds_won", 0) or 0),
+            avg_position=float(data.get("avg_position", 0.0) or 0.0),
+            note=data.get("note", ""),
+        )
+
+    def to_firestore(self) -> dict:
+        return {f: getattr(self, f) for f in self.FIRESTORE_FIELDS}
+
+
+@dataclass
 class Palmares:
     """Historical honours for a single season.
 
@@ -362,34 +419,42 @@ class Palmares:
     per honour, so a season spans several rows; ``multa`` in particular
     appears more than once. This model collapses a season into one document
     — the shape Firestore stores under ``palmares/{temporada}``.
+
+    From 26-27 onwards we also capture ``standings_table`` — one
+    ``SeasonStanding`` per league member — so the palmarés page can show
+    a full per-user breakdown instead of the bare podium. Older seasons
+    leave it empty and the template falls back to the legacy podium view.
     """
 
     temporada: str
     campeon: str = ""
     subcampeon: str = ""
     tercero: str = ""
-    farolillo: str = ""
     multas: list = field(default_factory=list)
+    neutros: list = field(default_factory=list)
     puntuacion: str = ""
     record_puntos: str = ""
     jornadas_ganadas: str = ""
+    clausulazos_total: str = ""
+    standings_table: list = field(default_factory=list)
 
     FIRESTORE_FIELDS: ClassVar[Tuple[str, ...]] = (
         "campeon",
         "subcampeon",
         "tercero",
-        "farolillo",
         "puntuacion",
         "record_puntos",
         "jornadas_ganadas",
+        "clausulazos_total",
     )
 
     @classmethod
     def from_csv_rows(cls, rows: list) -> list["Palmares"]:
         """Collapse the flat ``temporada,categoria,valor`` CSV into one
-        ``Palmares`` per season. Unknown categories are ignored by the
-        caller's discretion — log them at the call site if needed."""
+        ``Palmares`` per season. Legacy ``farolillo`` rows are appended to
+        ``multas`` (the farolillo is now just the last entry of multas)."""
         by_season: dict[str, "Palmares"] = {}
+        legacy_farolillos: dict[str, str] = {}
         for row in rows:
             temporada = (row.get("temporada") or "").strip()
             categoria = (row.get("categoria") or "").strip()
@@ -399,20 +464,46 @@ class Palmares:
             entry = by_season.setdefault(temporada, cls(temporada=temporada))
             if categoria == "multa":
                 entry.multas.append(valor)
+            elif categoria == "farolillo":
+                legacy_farolillos[temporada] = valor
             elif categoria in cls.FIRESTORE_FIELDS:
                 setattr(entry, categoria, valor)
+        for temporada, farolillo in legacy_farolillos.items():
+            entry = by_season[temporada]
+            if farolillo and farolillo not in entry.multas:
+                entry.multas.append(farolillo)
         return list(by_season.values())
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Palmares":
-        """Build from a Firestore doc. The doc id is the `temporada`."""
-        entry = cls(temporada=doc_id, multas=list(data.get("multas", [])))
+        """Build from a Firestore doc. The doc id is the `temporada`.
+
+        Legacy 24-25 / 23-24 docs persist a separate ``farolillo`` string
+        field next to ``multas``. Reading merges it into ``multas`` (at the
+        end) so callers see a single ordered list — the last entry is the
+        farolillo, visually marked at render time. The legacy field stays
+        in Firestore until those docs are re-written.
+        """
+        entry = cls(
+            temporada=doc_id,
+            multas=list(data.get("multas", [])),
+            neutros=list(data.get("neutros", [])),
+        )
         for f in cls.FIRESTORE_FIELDS:
             setattr(entry, f, data.get(f, ""))
+        legacy_farolillo = (data.get("farolillo") or "").strip()
+        if legacy_farolillo and legacy_farolillo not in entry.multas:
+            entry.multas.append(legacy_farolillo)
+        entry.standings_table = [
+            SeasonStanding.from_firestore(row)
+            for row in (data.get("standings_table") or [])
+        ]
         return entry
 
     def to_firestore(self) -> dict:
         """Document fields. The `temporada` is the doc id, not a field."""
         doc = {f: getattr(self, f) for f in self.FIRESTORE_FIELDS}
         doc["multas"] = self.multas
+        doc["neutros"] = self.neutros
+        doc["standings_table"] = [s.to_firestore() for s in self.standings_table]
         return doc

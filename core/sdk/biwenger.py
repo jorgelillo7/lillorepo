@@ -44,6 +44,18 @@ def manager_squad_url(manager_id: Union[str, int]) -> str:
     return f"{BIWENGER_API_BASE}/user/{manager_id}?fields=players(id,owner(*))"
 
 
+def league_round_report_url(league_id: Union[str, int], mode: str = "total") -> str:
+    """Per-user "Jornadas ganadas" + "Posición media"."""
+    return f"{league_url(league_id)}/report/rounds?mode={mode}"
+
+
+def league_round_points_report_url(
+    league_id: Union[str, int], mode: str = "total"
+) -> str:
+    """Per-user "Puntos" + "Mejor jornada" + "Peor jornada"."""
+    return f"{league_url(league_id)}/report/roundPoints?mode={mode}"
+
+
 class BiwengerClient:
     """
     Client for the Biwenger API.
@@ -181,6 +193,35 @@ class BiwengerClient:
         standings = response.json().get("data", {}).get("standings", [])
         logger.info("Standings fetched.", extra={"count": len(standings)})
         return standings
+
+    def get_report_rows(self, report_url: str) -> list[dict]:
+        """Fetch a Biwenger `report/*` endpoint and parse `columns + rows`
+        into a list of dicts keyed by column name.
+
+        Biwenger report responses share the shape:
+            {"data": {"columns": [{"name": ...}, ...],
+                       "rows": [[...], ...]}}
+
+        Row order matches column order. The first column ("Usuario") is
+        a user object (`{id, name, icon}`); the rest are scalars whose
+        types depend on the report. We keep the raw column names so the
+        caller can pull by the same label that the UI uses.
+        """
+        response = self.session.get(report_url)
+        response.raise_for_status()
+        payload = response.json().get("data", {}) or {}
+        columns = payload.get("columns", []) or []
+        rows = payload.get("rows", []) or []
+        col_names = [c.get("name", "") for c in columns]
+        parsed = [
+            {col_names[i]: row[i] for i in range(min(len(col_names), len(row)))}
+            for row in rows
+        ]
+        logger.info(
+            "Report rows fetched.",
+            extra={"url": report_url, "count": len(parsed)},
+        )
+        return parsed
 
     def get_board_messages(self, board_messages_url: str) -> dict:
         """Returns a single page of board messages."""

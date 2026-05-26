@@ -12,6 +12,23 @@ logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
 
 
+def _display_season(season: str) -> str:
+    """Expand ``25-26`` → ``2025-2026`` for the palmares heading.
+
+    Legacy docs already store the long form (``2024-2025``) — those pass
+    through untouched. Only the short ``YY-YY`` Firestore doc ids written
+    by the season-rollover skill get expanded.
+    """
+    if (
+        len(season) == 5
+        and season[2] == "-"
+        and season[:2].isdigit()
+        and season[3:].isdigit()
+    ):
+        return f"20{season[:2]}-20{season[3:]}"
+    return season
+
+
 @bp.route("/version")
 def version() -> Response:
     """Return the deployed git commit SHA."""
@@ -44,20 +61,58 @@ def palmares() -> str:
     sorted_seasons: list = []
     try:
         for p in repository.get_palmares():
-            otros = [{"tipo": "multa", "valor": m} for m in p.multas]
-            if p.farolillo:
-                otros.append({"tipo": "farolillo", "valor": p.farolillo})
+            n = len(p.standings_table)
+            winners_count = n // 2
+            neutros_count = n % 2
+            annotated_rows = []
+            for s in p.standings_table:
+                if s.note:
+                    tier = "loser"
+                elif s.position <= winners_count:
+                    tier = "winner"
+                elif s.position > winners_count + neutros_count:
+                    tier = "loser"
+                else:
+                    tier = "neutro"
+                annotated_rows.append(
+                    {
+                        "position": s.position,
+                        "real_name": s.real_name,
+                        "team_name": s.team_name,
+                        "points": s.points,
+                        "best_round": s.best_round,
+                        "worst_round": s.worst_round,
+                        "rounds_won": s.rounds_won,
+                        "avg_position": s.avg_position,
+                        "note": s.note,
+                        "tier": tier,
+                    }
+                )
+            farolillo_name = p.multas[-1] if p.multas else ""
+            farolillo_note = next(
+                (
+                    s.note
+                    for s in p.standings_table
+                    if s.real_name == farolillo_name and s.note
+                ),
+                "",
+            )
             sorted_seasons.append(
                 (
                     p.temporada,
                     {
+                        "display_season": _display_season(p.temporada),
                         "campeon": p.campeon,
                         "subcampeon": p.subcampeon,
                         "tercero": p.tercero,
                         "puntuacion": p.puntuacion,
                         "record_puntos": p.record_puntos,
                         "jornadas_ganadas": p.jornadas_ganadas,
-                        "otros": otros,
+                        "clausulazos_total": p.clausulazos_total,
+                        "standings_table": annotated_rows,
+                        "multas": p.multas,
+                        "farolillo_note": farolillo_note,
+                        "neutros": p.neutros,
                     },
                 )
             )
