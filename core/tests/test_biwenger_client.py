@@ -306,6 +306,69 @@ def test_place_market_bid_posts_offer_with_expected_body(
     }
 
 
+def test_place_clausulazo_posts_offer_with_expected_body(
+    biwenger_client_authenticated,
+):
+    """Clausulazo body shape: same `/offers` endpoint as bids, but
+    `to=<seller_user_id>` (the current owner) and `type="clause"`.
+
+    Response shape mirrors `place_market_bid` (data block has `fromID`,
+    `toID`, `amount`, `type`, `status`, `id`).
+    """
+    client = biwenger_client_authenticated
+    captured_response = {
+        "status": 200,
+        "data": {
+            "fromID": 1372802,
+            "type": "clause",
+            "amount": 1_420_004,
+            "created": 1779822946,
+            "modified": 1779822946,
+            "status": "processed",
+            "toID": 12449616,
+            "id": 1505330715,
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.post(TEST_OFFERS_URL, json=captured_response, status_code=200)
+        data = client.place_clausulazo(
+            player_id=99999,
+            amount=1_420_004,
+            seller_user_id=12449616,
+            offers_url=TEST_OFFERS_URL,
+        )
+
+    assert data["id"] == 1505330715
+    assert data["status"] == "processed"
+    assert data["type"] == "clause"
+    assert m.last_request.json() == {
+        "to": 12449616,
+        "type": "clause",
+        "amount": 1_420_004,
+        "requestedPlayers": [99999],
+    }
+
+
+def test_place_clausulazo_coerces_numeric_args_to_int(biwenger_client_authenticated):
+    """Coerce any numeric input to plain int — Biwenger 400s on floats."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_OFFERS_URL, json={"data": {}}, status_code=200)
+        client.place_clausulazo(
+            player_id="99999",  # type: ignore[arg-type]
+            amount=1_420_004.0,  # type: ignore[arg-type]
+            seller_user_id="12449616",  # type: ignore[arg-type]
+            offers_url=TEST_OFFERS_URL,
+        )
+    body = m.last_request.json()
+    assert body == {
+        "to": 12449616,
+        "type": "clause",
+        "amount": 1_420_004,
+        "requestedPlayers": [99999],
+    }
+
+
 def test_place_market_bid_coerces_numeric_args_to_int(biwenger_client_authenticated):
     """Callers may pass numpy ints, floats from intermediate maths, etc.; the
     payload must always serialise as plain ints (Biwenger 400s on floats)."""
