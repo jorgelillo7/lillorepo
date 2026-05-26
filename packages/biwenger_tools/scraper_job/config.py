@@ -15,7 +15,7 @@ load_dotenv()
 # --- CONFIGURACIÓN DE TEMPORADA ---
 # Para cambiar de temporada: actualizar TEMPORADA_ACTUAL en deploy.yml (env global)
 # o via: gcloud run jobs update ... --update-env-vars TEMPORADA_ACTUAL=26-27
-TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
+TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "26-27")
 
 # --- BIWENGER CREDENTIALS ---
 # Prod: BIWENGER_CREDENTIALS_JSON in Secret Manager.

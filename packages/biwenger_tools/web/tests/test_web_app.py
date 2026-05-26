@@ -230,11 +230,13 @@ def test_palmares_renders_multas_with_farolillo_marker(mock_get, client):
 @patch("packages.biwenger_tools.web.routes.season.get_sheets_data")
 def test_api_lloros_ligas_returns_sheets_data(mock_get_sheets, client):
     """The endpoint forwards the sheets_data result for the active season."""
+    from packages.biwenger_tools.web import config
+
     payload = [{"nombre": "Liga A", "headers": ["Pos", "Equipo"], "rows": [["1", "X"]]}]
     mock_get_sheets.return_value = payload
     with patch(
         "packages.biwenger_tools.web.routes.season.config.LIGAS_ESPECIALES_SHEETS",
-        {"25-26": "sheet-id-test"},
+        {config.TEMPORADA_ACTUAL: "sheet-id-test"},
     ):
         response = client.get("/api/lloros-awards/ligas")
     assert response.status_code == 200
@@ -255,11 +257,13 @@ def test_api_lloros_ligas_returns_empty_when_no_sheet_configured(client):
 
 @patch("packages.biwenger_tools.web.routes.season.get_sheets_data")
 def test_api_lloros_trofeos_returns_sheets_data(mock_get_sheets, client):
+    from packages.biwenger_tools.web import config
+
     payload = [{"nombre": "Pichichi", "headers": ["Goleador"], "rows": [["X"]]}]
     mock_get_sheets.return_value = payload
     with patch(
         "packages.biwenger_tools.web.routes.season.config.TROFEOS_SHEETS",
-        {"25-26": "sheet-id-test"},
+        {config.TEMPORADA_ACTUAL: "sheet-id-test"},
     ):
         response = client.get("/api/lloros-awards/trofeos")
     assert response.status_code == 200
