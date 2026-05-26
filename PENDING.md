@@ -17,6 +17,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   drop the `biwenger-tools-sa-regional` secret or repoint it to a Sheets-only SA
   (Sheets API still authenticates through that mount for `ligas_especiales` /
   `trofeos`).
+- **Drop the in-code CSV layer** — once the Drive CSVs are gone (item above),
+  remove the legacy CSV serialization paths now that Firestore is the only source
+  of truth: `from_csv_rows` / `to_csv_row` / `CSV_FIELDS` across `core/domain/models.py`
+  (`Palmares`, `Participation`, `Clausulazo`, `JusticeEntry`, `LeagueMessage`), the
+  one-shot `scripts/backfill_firestore.py` recovery tool, and the related tests in
+  `core/tests/test_domain_models.py`. Update `docs/firestore.md` to drop the
+  "Backfill (one-shot)" row.
 
 ## my_photos
 

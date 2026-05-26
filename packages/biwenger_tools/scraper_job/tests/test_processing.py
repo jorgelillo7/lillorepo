@@ -30,6 +30,13 @@ def test_categorize_title():
     assert categorize_title("") == "comunicado"
     assert categorize_title("  noticia sin categoria ") == "comunicado"
     assert categorize_title("Crónica - con acento") == "cronica"
+    # Lenient cronica: bare "CRÓNICA" and "CRÓNICA <something>" without dash.
+    assert categorize_title("CRÓNICA") == "cronica"
+    assert categorize_title("CRÓNICA FINAL") == "cronica"
+    assert categorize_title("Crónica jornada 10") == "cronica"
+    assert categorize_title("CRÓNICAS Jornada 10") == "cronica"
+    # Should NOT match words that merely *start* with the substring.
+    assert categorize_title("Cronicado el partido") == "comunicado"
 
 
 def test_process_participation():

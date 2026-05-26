@@ -11,13 +11,22 @@ logger = get_logger(__name__)
 
 
 def categorize_title(title):
-    """Classify a board message by its title prefix."""
+    """Classify a board message by its title prefix.
+
+    The cronica rule is intentionally lenient: ``CRONICA`` alone,
+    ``CRONICAS`` (plural, with or without suffix), or ``CRONICA <anything>``
+    (``- X``, ``FINAL``, ``Jornada N``…) all count as cronica. The "space
+    after" requirement avoids accidentally matching words that just start
+    with the substring (``Cronicado…``).
+    """
     if not title:
         return "comunicado"
     normalized_title = unidecode.unidecode(title.strip().upper())
 
-    if normalized_title.startswith("CRONICA -") or normalized_title.startswith(
-        "CRONICAS"
+    if (
+        normalized_title == "CRONICA"
+        or normalized_title.startswith("CRONICA ")
+        or normalized_title.startswith("CRONICAS")
     ):
         return "cronica"
     if normalized_title.startswith("DATO -") or normalized_title.startswith("DATOS -"):

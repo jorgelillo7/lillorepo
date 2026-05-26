@@ -189,15 +189,15 @@ def test_participacion_renders_calculated_counts(mock_get, client):
 
 
 @patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
-def test_palmares_groups_otros_categories(mock_get, client):
-    """multa/farolillo become entries in the `otros` block; podium keys stay direct."""
+def test_palmares_renders_multas_with_farolillo_marker(mock_get, client):
+    """All losers (including the farolillo) live in `multas`; the template
+    marks the LAST entry as the farolillo. Podium keys stay direct."""
     mock_get.return_value = [
         Palmares(
             temporada="24-25",
             campeon="Jorge",
             subcampeon="",
             tercero="",
-            farolillo="",
             puntuacion="",
             record_puntos="",
             jornadas_ganadas="",
@@ -208,11 +208,10 @@ def test_palmares_groups_otros_categories(mock_get, client):
             campeon="Dani",
             subcampeon="",
             tercero="",
-            farolillo="Pepe",
             puntuacion="",
             record_puntos="",
             jornadas_ganadas="",
-            multas=["20"],
+            multas=["20", "Pepe"],
         ),
     ]
     response = client.get("/palmares")
@@ -221,9 +220,8 @@ def test_palmares_groups_otros_categories(mock_get, client):
 
     assert "Jorge" in body  # 24-25 campeon
     assert "Dani" in body  # 23-24 campeon
-    # `otros` block (multa + farolillo) for 23-24
     assert "20" in body
-    assert "Pepe" in body
+    assert "Pepe" in body  # last in multas → farolillo
 
 
 # --- API endpoint tests ---

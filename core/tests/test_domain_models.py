@@ -9,6 +9,7 @@ from core.domain.models import (
     LeagueMessage,
     Palmares,
     Participation,
+    SeasonStanding,
     _parse_fecha,
 )
 
@@ -200,7 +201,8 @@ def test_justice_entry_firestore_roundtrip():
 
 def test_palmares_from_csv_rows_collapses_seasons():
     """The flat temporada/categoria/valor CSV collapses to one model per
-    season; `multa` appears twice and lands in the `multas` array."""
+    season. Legacy `farolillo` rows are appended to `multas` (the farolillo
+    is just the last entry — same shape used by new writes)."""
     rows = [
         {"temporada": "2024-2025", "categoria": "campeon", "valor": "Fabio"},
         {"temporada": "2024-2025", "categoria": "subcampeon", "valor": "Jorge"},
@@ -216,8 +218,7 @@ def test_palmares_from_csv_rows_collapses_seasons():
     assert p.temporada == "2024-2025"
     assert p.campeon == "Fabio"
     assert p.subcampeon == "Jorge"
-    assert p.farolillo == "Rubén"
-    assert p.multas == ["Alberto", "Lucen"]
+    assert p.multas == ["Alberto", "Lucen", "Rubén"]
     assert p.record_puntos == "112 @fabio"
 
 
@@ -227,14 +228,93 @@ def test_palmares_firestore_roundtrip():
         campeon="Jorge",
         subcampeon="Fabio",
         tercero="Albert",
-        farolillo="Javi",
-        multas=["Rubén", "Lucen"],
+        multas=["Rubén", "Lucen", "Javi"],
         puntuacion="sofascore",
         record_puntos="101 @fabio",
         jornadas_ganadas="18 @jorge",
     )
     doc = p.to_firestore()
     assert "temporada" not in doc
-    assert doc["multas"] == ["Rubén", "Lucen"]
+    assert "farolillo" not in doc
+    assert doc["multas"] == ["Rubén", "Lucen", "Javi"]
+    assert doc["standings_table"] == []
     parsed = Palmares.from_firestore("2023-2024", doc)
+    assert parsed == p
+
+
+def test_palmares_legacy_firestore_doc_merges_farolillo_into_multas():
+    """Pre-existing 24-25 / 23-24 Firestore docs persist `farolillo` as a
+    separate string field. On read it gets appended to `multas` so callers
+    see one ordered list — the legacy field is harmless until those docs
+    are re-written."""
+    legacy_doc = {
+        "campeon": "Fabio",
+        "subcampeon": "Jorge",
+        "tercero": "Albert",
+        "farolillo": "Rubén",
+        "multas": ["Alberto", "Lucen"],
+        "puntuacion": "sofascore",
+    }
+    p = Palmares.from_firestore("2024-2025", legacy_doc)
+    assert p.multas == ["Alberto", "Lucen", "Rubén"]
+
+
+def test_season_standing_firestore_roundtrip():
+    s = SeasonStanding(
+        position=1,
+        user_id=7728610,
+        team_name="Rayo Entrebirras",
+        real_name="Fabio",
+        points=2872,
+        best_round=120,
+        worst_round=44,
+        rounds_won=11,
+        avg_position=2.8,
+    )
+    doc = s.to_firestore()
+    assert SeasonStanding.from_firestore(doc) == s
+
+
+def test_palmares_with_standings_table_roundtrip():
+    """Palmares carries the per-user table for seasons captured from 26-27 on.
+    Legacy seasons leave it empty and the from/to roundtrip still works."""
+    p = Palmares(
+        temporada="2025-2026",
+        campeon="Fabio",
+        subcampeon="Lucena",
+        tercero="Pablo",
+        multas=["Javi", "Ruben", "Alberto"],
+        neutros=["Jorge"],
+        puntuacion="personalizada",
+        record_puntos="120 @fabio",
+        jornadas_ganadas="11 @fabio",
+        clausulazos_total="109",
+        standings_table=[
+            SeasonStanding(
+                position=1,
+                user_id=7728610,
+                team_name="Rayo Entrebirras",
+                real_name="Fabio",
+                points=2872,
+                best_round=120,
+                rounds_won=11,
+                avg_position=2.8,
+            ),
+            SeasonStanding(
+                position=7,
+                user_id=0,
+                team_name="—",
+                real_name="Alberto",
+                note="abandono",
+            ),
+        ],
+    )
+    doc = p.to_firestore()
+    assert doc["clausulazos_total"] == "109"
+    assert doc["multas"] == ["Javi", "Ruben", "Alberto"]
+    assert doc["neutros"] == ["Jorge"]
+    assert "farolillo" not in doc
+    assert len(doc["standings_table"]) == 2
+    assert doc["standings_table"][1]["note"] == "abandono"
+    parsed = Palmares.from_firestore("2025-2026", doc)
     assert parsed == p
