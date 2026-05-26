@@ -153,7 +153,7 @@ Commands for running each component.
           gcloud run jobs update biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 \
-              --update-env-vars TEMPORADA_ACTUAL=25-26
+              --update-env-vars TEMPORADA_ACTUAL=26-27
         ```
       * **Execute the Job manually:**
         ```bash

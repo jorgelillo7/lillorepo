@@ -47,7 +47,7 @@ env:
   REGION: europe-southwest1
   PROJECT_ID: biwenger-tools
   REGISTRY: europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
-  TEMPORADA_ACTUAL: "25-26"
+  TEMPORADA_ACTUAL: "26-27"
 
 jobs:
   # -------------------------------------------------------

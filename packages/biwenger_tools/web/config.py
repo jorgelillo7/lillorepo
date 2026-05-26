@@ -16,9 +16,9 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 # --- Season configuration ---
 # To roll over a season: bump TEMPORADA_ACTUAL in deploy.yml (global env)
 # or via: gcloud run services update ... --update-env-vars TEMPORADA_ACTUAL=26-27
-TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "25-26")
+TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "26-27")
 # Prepend the new season at the start of each year (see docs/operations.md).
-TEMPORADAS_DISPONIBLES = ["24-25", "25-26"]
+TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
 
 # Per-season Sheet IDs for the Lloros Awards pages. Hand-edited in Sheets
 # by the user, never moved to Firestore.
