@@ -113,15 +113,23 @@ def main() -> None:
         LeagueMessage.from_firestore(snap.id, snap.to_dict() or {})
         for snap in messages_coll.stream()
     ]
-    authors = sorted(
-        {m.autor for m in all_messages if m.autor and m.autor != "Autor Desconocido"}
+    # Roster = every team_name in palmares.standings_table when available
+    # (authoritative, includes members who never posted), plus any author
+    # we still see in messages but isn't in the palmares (e.g. when the
+    # palmares doc hasn't been written yet for an in-flight season).
+    roster: set[str] = set()
+    palmares_doc = (
+        client.collection("palmares").document(args.season).get().to_dict() or {}
     )
-    synthetic_user_map = {i: name for i, name in enumerate(authors)}
-    participaciones = [
-        p
-        for p in process_participation(all_messages, synthetic_user_map)
-        if p.total > 0
-    ]
+    for row in palmares_doc.get("standings_table") or []:
+        team_name = (row.get("team_name") or "").strip()
+        if team_name and team_name != "—":
+            roster.add(team_name)
+    roster.update(
+        m.autor for m in all_messages if m.autor and m.autor != "Autor Desconocido"
+    )
+    synthetic_user_map = {i: name for i, name in enumerate(sorted(roster))}
+    participaciones = list(process_participation(all_messages, synthetic_user_map))
 
     print(f"\nNew participacion totals ({len(participaciones)} authors):")
     for p in sorted(participaciones, key=lambda p: -p.total):
