@@ -358,21 +358,40 @@ class BiwengerClient:
     ) -> dict:
         """POST a clausulazo offer (release-clause buyout of another user's player).
 
-        Body shape (inferred from the response captured on 2026-05-26 and
-        the symmetric ``place_market_bid`` body — verify the first time
-        this is exercised against Biwenger by inspecting the DevTools
-        "Payload" tab):
+        Body shape (captured live against Biwenger 2026-05-26):
 
             {"to": <seller_user_id>, "type": "clause",
              "amount": <eur>, "requestedPlayers": [<player_id>]}
 
         ``to`` carries the current owner's user id (the seller); the
         ``fromID`` in Biwenger's response is the authenticated buyer.
-        ``amount`` must be at least the player's current release clause
-        — Biwenger rejects lower amounts with 4xx.
 
-        Returns Biwenger's ``data`` dict (includes ``id``, ``status``,
-        ``created`` and the echoed ``fromID``/``toID``/``amount``/``type``).
+        Biwenger validates `amount` server-side. To get a 200 the caller
+        must (a) pass `amount >= player.clauseValue` and (b) the player's
+        clause must be currently unlocked (Biwenger imposes a clause-lock
+        window after a fresh purchase). Errors observed in the wild:
+
+        +-----+---------------------------+----------------------------+
+        | http| message                   | when                       |
+        +-----+---------------------------+----------------------------+
+        | 400 | Invalid amount            | amount outside             |
+        |     |                           | [price, clauseValue]       |
+        | 403 | Invalid clause: X < Y     | price <= amount <          |
+        |     |                           | clauseValue (would be a    |
+        |     |                           | regular offer, not a       |
+        |     |                           | clausulazo)                |
+        | 403 | Clause locked             | amount >= clauseValue but  |
+        |     |                           | the player's clause is in  |
+        |     |                           | the lock window            |
+        | 200 | (data.status=processed)   | amount >= clauseValue,     |
+        |     |                           | unlocked, player switches  |
+        |     |                           | owner immediately          |
+        +-----+---------------------------+----------------------------+
+
+        Returns Biwenger's ``data`` dict on 200 (includes ``id``,
+        ``status``, ``created`` and the echoed ``fromID``/``toID``/
+        ``amount``/``type``). Raises ``HTTPError`` on any 4xx — the
+        caller can inspect ``response.text`` for the human userMessage.
         """
         payload = {
             "to": int(seller_user_id),
