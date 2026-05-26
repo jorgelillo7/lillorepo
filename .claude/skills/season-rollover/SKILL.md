@@ -40,60 +40,75 @@ list unless a future grep finds new references.
 
 Extract the current season value from `deploy.yml`. If the new season matches the current one, warn the user and stop.
 
-# Step 2b — Generate palmares rows for the ending season
+# Step 2b — Generate the palmares Firestore doc for the ending season
 
-Before changing any files, fetch end-of-season data from the Biwenger API and produce the
-CSV rows the user needs to paste into `palmares.csv` in Google Drive
-(filename is `config.PALMARES_FILENAME` — currently `palmares.csv`).
+Before changing any files, fetch end-of-season data from the Biwenger API and write
+the Firestore document at `palmares/<season>` with the full per-user standings table.
+Firestore is the only destination — the web reads from there directly.
 
 ## Precondition check
 
-Look for `BIWENGER_EMAIL`, `BIWENGER_PASSWORD`, and `LEAGUE_ID` in the environment or in
-`packages/biwenger_tools/web/.env`. If any are missing, skip the auto-fetch entirely and
-tell the user they will need to fill in the palmares rows manually.
+Look for `BIWENGER_EMAIL` and `BIWENGER_PASSWORD` in the environment or in
+`packages/biwenger_tools/scraper_job/.env` (the api module's .env works too —
+they share the same Biwenger credentials). `LEAGUE_ID` defaults to
+`core.constants.LEAGUE_ID` if not set in the environment. If the Biwenger
+credentials are missing, skip the auto-fetch entirely and tell the user
+they will need to write the palmares doc manually in the Firestore console.
+
+For `--write-firestore` the script needs ADC: a local `gcloud auth
+application-default login` against the project that hosts the palmares
+Firestore (the same one the web reads from).
+
+## Ask about abandoned accounts
+
+Before running the fetch, ask the user if anyone deleted their Biwenger account during
+the season — those accounts disappear from the standings/report APIs, so they need to be
+injected manually. Collect a list of `NAME=TEAM=REASON` triples — the team is the
+Biwenger team name the abandoned account had (so the palmarés card still shows it);
+leave the team slot empty if unknown.
 
 ## Auto-fetch
 
-If credentials are available, run the fetch script:
+If credentials are available, source the env file and run the fetch script. Pass each
+abandoned account with one `--abandoned-user` flag. First run without
+`--write-firestore` so the user can review the JSON preview, then re-run with the
+flag to push:
 
 ```bash
-cd <repo_root>
-BIWENGER_EMAIL=<email> BIWENGER_PASSWORD=<password> LEAGUE_ID=<id> \
-  python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season>
+set -a && source packages/biwenger_tools/scraper_job/.env && set +a
+
+# Preview (no Firestore write)
+python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
+  --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono"
+
+# Push to Firestore once the preview looks right
+python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
+  --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono" \
+  --write-firestore
 ```
 
-Or, if `.env` files are present, source them first:
+The script combines three Biwenger endpoints (standings, report/rounds,
+report/roundPoints) and outputs two blocks:
 
-```bash
-set -a && source packages/biwenger_tools/web/.env && set +a
-python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season>
-```
+1. **Firestore doc preview** — the full document at `palmares/<season>` with the
+   per-user standings table (points, best/worst round, rounds won, average position).
+2. **Per-user table** — terminal-friendly summary.
 
-The script outputs ready-to-paste CSV rows for:
-- `campeon`, `subcampeon`, `tercero`, `farolillo`, `puntuacion` — from standings API
-- `clausulazos_total` — count of all release-clause transfers this season
-- Placeholder rows for `record_puntos`, `jornadas_ganadas`, `multa`, `sancion` (manual)
+If the script fails (auth error, network issue), continue with the rollover anyway
+and tell the user to write the doc manually in the Firestore console under
+`palmares/<season>`. The required field shape is documented in `core.domain.models`
+(`Palmares.to_firestore()` / `SeasonStanding.to_firestore()`).
 
-If the script fails (auth error, network issue), continue with the rollover anyway.
-Warn the user and print a blank template they can fill in manually:
-
-```
-<season>,campeon,RELLENAR
-<season>,subcampeon,RELLENAR
-<season>,tercero,RELLENAR
-<season>,puntuacion,RELLENAR
-<season>,farolillo,RELLENAR
-<season>,clausulazos_total,RELLENAR
-<season>,record_puntos,"RELLENAR — Jugador — X puntos (JY)"
-<season>,jornadas_ganadas,"RELLENAR — Jugador — N jornadas"
-<season>,multa,RELLENAR_O_BORRAR
-<season>,sancion,RELLENAR_O_BORRAR
-```
+If `palmares/<season>` already exists, `--write-firestore` refuses to overwrite
+and exits non-zero with a clear message. Add `--force` if a deliberate rewrite
+is needed (e.g. you corrected an `--abandoned-user` typo and want to push the
+fix). Default behaviour is "write once, never clobber".
 
 ## Output
 
-Present the rows to the user in the response. They paste them manually at the end of
-`palmares.csv` in Google Drive. Do not upload or modify Drive files automatically.
+Show the user the Firestore doc preview and the per-user table. If `--write-firestore`
+landed, mention the doc has been written; otherwise tell them to either re-run with
+the flag or paste the JSON in the Firestore console manually.
 
 # Step 3 — Create a branch
 
@@ -166,9 +181,9 @@ Automated changes prepared by the `season-rollover` skill.
 ### Not included (local only, gitignored)
 - `web/.env` and `scraper_job/.env` — updated locally, not committed
 
-### Palmares rows (paste manually into Drive)
-The CSV rows for the ending season were generated by `fetch_palmares.py` and are printed
-above. Paste them at the end of `palmares.csv` in Google Drive before or after merging.
+### Palmares
+The Firestore doc `palmares/<current>` was written by `fetch_palmares.py` (or printed
+above for manual paste into the Firestore console if `--write-firestore` was skipped).
 
 ### After merging
 CI will deploy both services automatically with `TEMPORADA_ACTUAL=<new>`.
