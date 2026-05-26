@@ -2,42 +2,26 @@
 Domain models for Biwenger Tools.
 
 These dataclasses define the data contracts that flow between services
-(scraper_job → store → web). Two serialization formats are supported:
-
-- **CSV** — the legacy Google Drive format. ``CSV_FIELDS`` is the canonical
-  column order; ``from_csv_row``/``to_csv_row`` handle fields encoded as
-  joined strings or JSON.
-- **Firestore** — ``from_firestore``/``to_firestore`` map a model to a
-  Firestore document. Native types are used where the CSV had to encode
-  (arrays instead of ``;``-joined strings, nested maps instead of JSON
-  strings, real timestamps instead of ``dd-MM-YYYY`` text).
-
-The dataclass field types are the contract callers rely on; both formats
-(de)serialize to the *same* in-memory shape. In particular ``fecha`` is
-always a display string on the model — Firestore stores it as a native
-timestamp, but ``from_firestore`` renders it back to a string so templates
-and sorting code keep working unchanged.
+(scraper_job → Firestore → web). ``from_firestore``/``to_firestore`` map
+each model to a Firestore document; ``fecha`` is rendered to a display
+string on the model so templates and sorting code don't need to know
+about native timestamps.
 """
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import ClassVar, Optional, Tuple
 
 from core.constants import MADRID_TZ
 
-# Date formats seen across the legacy CSVs, most specific first.
-# comunicados uses seconds; clausulazos does not.
+# Date formats accepted by `_parse_fecha`, most specific first.
+# Comunicados timestamps carry seconds; clausulazos do not.
 _FECHA_FORMATS: Tuple[str, ...] = (
     "%d-%m-%Y %H:%M:%S",
     "%d-%m-%Y %H:%M",
     "%d/%m/%Y",
     "%Y-%m-%d",
 )
-
-
-def _split_ids(raw: str) -> list:
-    return raw.split(";") if raw else []
 
 
 def _parse_fecha(raw) -> Optional[datetime]:
@@ -90,30 +74,8 @@ class LeagueMessage:
     contenido: str
     categoria: str  # "comunicado" | "dato" | "cronica" | "cesion"
 
-    CSV_FIELDS: ClassVar[Tuple[str, ...]] = (
-        "id_hash",
-        "fecha",
-        "autor",
-        "titulo",
-        "contenido",
-        "categoria",
-    )
     # Display format for `fecha` when read back from a Firestore timestamp.
     _FECHA_FMT: ClassVar[str] = "%d-%m-%Y %H:%M:%S"
-
-    @classmethod
-    def from_csv_row(cls, row: dict) -> "LeagueMessage":
-        return cls(**{k: row.get(k, "") for k in cls.CSV_FIELDS})
-
-    def to_csv_row(self) -> dict:
-        return {
-            "id_hash": self.id_hash,
-            "fecha": self.fecha,
-            "autor": self.autor,
-            "titulo": self.titulo,
-            "contenido": self.contenido,
-            "categoria": self.categoria,
-        }
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "LeagueMessage":
@@ -147,33 +109,6 @@ class Participation:
     datos: list = field(default_factory=list)
     cesiones: list = field(default_factory=list)
     cronicas: list = field(default_factory=list)
-
-    CSV_FIELDS: ClassVar[Tuple[str, ...]] = (
-        "autor",
-        "comunicados",
-        "datos",
-        "cesiones",
-        "cronicas",
-    )
-
-    @classmethod
-    def from_csv_row(cls, row: dict) -> "Participation":
-        return cls(
-            autor=row.get("autor", ""),
-            comunicados=_split_ids(row.get("comunicados", "")),
-            datos=_split_ids(row.get("datos", "")),
-            cesiones=_split_ids(row.get("cesiones", "")),
-            cronicas=_split_ids(row.get("cronicas", "")),
-        )
-
-    def to_csv_row(self) -> dict:
-        return {
-            "autor": self.autor,
-            "comunicados": ";".join(self.comunicados),
-            "datos": ";".join(self.datos),
-            "cesiones": ";".join(self.cesiones),
-            "cronicas": ";".join(self.cronicas),
-        }
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Participation":
@@ -219,34 +154,8 @@ class Clausulazo:
     equipo_comprador: str
     precio: int
 
-    CSV_FIELDS: ClassVar[Tuple[str, ...]] = (
-        "fecha",
-        "jugador",
-        "equipo_vendedor",
-        "equipo_comprador",
-        "precio",
-    )
     # clausulazos timestamps carry no seconds.
     _FECHA_FMT: ClassVar[str] = "%d-%m-%Y %H:%M"
-
-    @classmethod
-    def from_csv_row(cls, row: dict) -> "Clausulazo":
-        return cls(
-            fecha=row.get("fecha", ""),
-            jugador=row.get("jugador", ""),
-            equipo_vendedor=row.get("equipo_vendedor", ""),
-            equipo_comprador=row.get("equipo_comprador", ""),
-            precio=int(row.get("precio", 0) or 0),
-        )
-
-    def to_csv_row(self) -> dict:
-        return {
-            "fecha": self.fecha,
-            "jugador": self.jugador,
-            "equipo_vendedor": self.equipo_vendedor,
-            "equipo_comprador": self.equipo_comprador,
-            "precio": self.precio,
-        }
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Clausulazo":
@@ -279,43 +188,9 @@ class JusticeEntry:
     total_recibidos: int
     punto_de_mira: str  # team that buys from this team the most
     mayor_agresor: str  # team that sells to this team the most
-    # Lists of (team, count) tuples, sorted descending by count. Lists rather
-    # than dicts because order matters in the UI and CSV serialization.
+    # Lists of (team, count) tuples, sorted descending by count.
     hechos: list = field(default_factory=list)
     recibidos: list = field(default_factory=list)
-
-    CSV_FIELDS: ClassVar[Tuple[str, ...]] = (
-        "equipo",
-        "total_hechos",
-        "total_recibidos",
-        "punto_de_mira",
-        "mayor_agresor",
-        "hechos",
-        "recibidos",
-    )
-
-    @classmethod
-    def from_csv_row(cls, row: dict) -> "JusticeEntry":
-        return cls(
-            equipo=row.get("equipo", ""),
-            total_hechos=int(row.get("total_hechos", 0) or 0),
-            total_recibidos=int(row.get("total_recibidos", 0) or 0),
-            punto_de_mira=row.get("punto_de_mira", "—"),
-            mayor_agresor=row.get("mayor_agresor", "—"),
-            hechos=json.loads(row.get("hechos", "[]") or "[]"),
-            recibidos=json.loads(row.get("recibidos", "[]") or "[]"),
-        )
-
-    def to_csv_row(self) -> dict:
-        return {
-            "equipo": self.equipo,
-            "total_hechos": self.total_hechos,
-            "total_recibidos": self.total_recibidos,
-            "punto_de_mira": self.punto_de_mira,
-            "mayor_agresor": self.mayor_agresor,
-            "hechos": json.dumps(self.hechos, ensure_ascii=False),
-            "recibidos": json.dumps(self.recibidos, ensure_ascii=False),
-        }
 
     @staticmethod
     def _pairs_to_maps(pairs: list) -> list:
@@ -341,9 +216,8 @@ class JusticeEntry:
         )
 
     def to_firestore(self) -> dict:
-        """Document fields — `hechos`/`recibidos` as native arrays of maps
-        instead of the JSON-stringified mess the CSV needed. The `equipo`
-        is the doc id, not a field."""
+        """Document fields — `hechos`/`recibidos` as native arrays of maps.
+        The `equipo` is the doc id, not a field."""
         return {
             "total_hechos": self.total_hechos,
             "total_recibidos": self.total_recibidos,
@@ -415,10 +289,10 @@ class SeasonStanding:
 class Palmares:
     """Historical honours for a single season.
 
-    The legacy ``palmares.csv`` stores one ``temporada,categoria,valor`` row
-    per honour, so a season spans several rows; ``multa`` in particular
-    appears more than once. This model collapses a season into one document
-    — the shape Firestore stores under ``palmares/{temporada}``.
+    One document per season under ``palmares/{temporada}``. ``multa`` is a
+    list (multiple losers can pay), as is ``neutros``; the farolillo lives
+    at the tail of ``multas`` and is rendered with a distinct icon at
+    template level rather than being a separate field.
 
     From 26-27 onwards we also capture ``standings_table`` — one
     ``SeasonStanding`` per league member — so the palmarés page can show
@@ -447,32 +321,6 @@ class Palmares:
         "jornadas_ganadas",
         "clausulazos_total",
     )
-
-    @classmethod
-    def from_csv_rows(cls, rows: list) -> list["Palmares"]:
-        """Collapse the flat ``temporada,categoria,valor`` CSV into one
-        ``Palmares`` per season. Legacy ``farolillo`` rows are appended to
-        ``multas`` (the farolillo is now just the last entry of multas)."""
-        by_season: dict[str, "Palmares"] = {}
-        legacy_farolillos: dict[str, str] = {}
-        for row in rows:
-            temporada = (row.get("temporada") or "").strip()
-            categoria = (row.get("categoria") or "").strip()
-            valor = (row.get("valor") or "").strip()
-            if not temporada or not categoria:
-                continue
-            entry = by_season.setdefault(temporada, cls(temporada=temporada))
-            if categoria == "multa":
-                entry.multas.append(valor)
-            elif categoria == "farolillo":
-                legacy_farolillos[temporada] = valor
-            elif categoria in cls.FIRESTORE_FIELDS:
-                setattr(entry, categoria, valor)
-        for temporada, farolillo in legacy_farolillos.items():
-            entry = by_season[temporada]
-            if farolillo and farolillo not in entry.multas:
-                entry.multas.append(farolillo)
-        return list(by_season.values())
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Palmares":

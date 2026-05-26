@@ -94,12 +94,9 @@ def _process_new_messages(
 
 
 def _clausulazo_doc_id(c: Clausulazo) -> str:
-    """Deterministic Firestore doc id for a clausulazo — content hash.
-
-    Must match `scripts/backfill_firestore.py::_clausulazo_id` so the
-    scraper and the one-shot backfill produce identical doc ids for the
-    same transfer (re-running the scraper rewrites the same document).
-    """
+    """Deterministic Firestore doc id for a clausulazo — content hash so
+    re-running the scraper rewrites the same document instead of creating
+    duplicates."""
     raw = "|".join(
         str(v)
         for v in (c.fecha, c.jugador, c.equipo_vendedor, c.equipo_comprador, c.precio)

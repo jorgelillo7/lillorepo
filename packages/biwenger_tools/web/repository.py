@@ -1,14 +1,6 @@
 """Firestore-backed reads for the web app.
 
-This module holds only the ``firestore`` branch of the ``DATA_BACKEND``
-feature flag. The legacy CSV/Drive reads stay inline in the route modules
-(``routes/season.py``, ``routes/main.py``) until the flag is removed — that
-keeps the existing CSV code, and the tests that patch it, untouched during
-the migration.
-
-Every function returns the same domain models the CSV path produces, so the
-routes are backend-agnostic once they have the data. Collections mirror the
-layout written by ``scripts/backfill_firestore.py`` and the scraper:
+Collections, written by the scraper and the season-rollover skill:
 
     comunicados/{season}/messages/{id_hash}
     participacion/{season}/authors/{autor}

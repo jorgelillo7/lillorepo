@@ -81,9 +81,8 @@ Player transfers executed via release clause.
 | `precio`            | int        | Euros (`6475000` = 6.4M); same as Biwenger's API |
 
 **Doc id:** SHA-256[:20] of `fecha|jugador|equipo_vendedor|equipo_comprador|precio`
-(`scraper_job/main.py::_clausulazo_doc_id` and
-`scripts/backfill_firestore.py::_clausulazo_id`). Deterministic — the
-scraper and the backfill must agree so rewrites are no-ops.
+(`scraper_job/main.py::_clausulazo_doc_id`). Deterministic so re-scrapes
+are no-ops.
 
 ### `tabla_justicia/{season}/teams/{equipo}` — `JusticeEntry`
 
@@ -242,7 +241,6 @@ timestamp automatically.
 | Web reads | `packages/biwenger_tools/web/repository.py` | One query per function, inline — no generic abstraction |
 | Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, other collections wipe+bulk-write so upstream deletions propagate |
 | Writes (auto-bid) | `packages/biwenger_tools/api/logic/auto_bid.py` | One doc per placed bid under `auto_bid_log/{date}/bids/{player_id}` (TTL 90d) |
-| Backfill (one-shot) | `scripts/backfill_firestore.py` | Wipe + bulk-write from existing CSVs (kept as recovery tool) |
 | SDK | `core/sdk/firestore.py` | Generic helpers only: `get_client`, `list_documents`, `set_document`, `query`, `count`, `batch_write`, `delete_collection` |
 
 ---
