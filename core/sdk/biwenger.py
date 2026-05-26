@@ -348,6 +348,62 @@ class BiwengerClient:
         )
         return data
 
+    def place_clausulazo(
+        self,
+        *,
+        player_id: int,
+        amount: int,
+        seller_user_id: int,
+        offers_url: str = OFFERS_URL,
+    ) -> dict:
+        """POST a clausulazo offer (release-clause buyout of another user's player).
+
+        Body shape (inferred from the response captured on 2026-05-26 and
+        the symmetric ``place_market_bid`` body — verify the first time
+        this is exercised against Biwenger by inspecting the DevTools
+        "Payload" tab):
+
+            {"to": <seller_user_id>, "type": "clause",
+             "amount": <eur>, "requestedPlayers": [<player_id>]}
+
+        ``to`` carries the current owner's user id (the seller); the
+        ``fromID`` in Biwenger's response is the authenticated buyer.
+        ``amount`` must be at least the player's current release clause
+        — Biwenger rejects lower amounts with 4xx.
+
+        Returns Biwenger's ``data`` dict (includes ``id``, ``status``,
+        ``created`` and the echoed ``fromID``/``toID``/``amount``/``type``).
+        """
+        payload = {
+            "to": int(seller_user_id),
+            "type": "clause",
+            "amount": int(amount),
+            "requestedPlayers": [int(player_id)],
+        }
+        logger.info(
+            "Placing clausulazo.",
+            extra={
+                "player_id": player_id,
+                "amount": amount,
+                "seller_user_id": seller_user_id,
+            },
+        )
+        response = retry_http_request(
+            lambda: self.session.post(offers_url, json=payload, timeout=30),
+            label="clausulazo POST",
+        )
+        data = response.json().get("data", {}) or {}
+        logger.info(
+            "Clausulazo accepted.",
+            extra={
+                "player_id": player_id,
+                "amount": amount,
+                "offer_id": data.get("id"),
+                "status": data.get("status"),
+            },
+        )
+        return data
+
     def get_clausulazos(self, clausulazos_url: str) -> dict:
         """Returns a single page of release-clause transfer entries."""
         response = self.session.get(clausulazos_url)
