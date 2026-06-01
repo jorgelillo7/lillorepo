@@ -21,6 +21,7 @@ from flask import Flask, request
 
 from core.sdk.telegram import (
     answer_callback_query,
+    edit_message_reply_markup,
     edit_message_text,
     extract_webhook_callback,
     extract_webhook_update,
@@ -225,15 +226,23 @@ def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> 
         )
         return
 
-    status_text = "⏳ <b>Emergencia</b> — ejecutando clausulazo…"
+    # Strip the buttons off the preview so it can't be re-confirmed,
+    # but keep the preview text intact for the chat history. The
+    # "ejecutando…" / success messages arrive as fresh sends so the
+    # original preview stays visible above them.
     if edit_into is not None:
         chat_id, message_id = edit_into
-        edit_message_text(
+        edit_message_reply_markup(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=chat_id,
             message_id=message_id,
-            text=status_text,
+            reply_markup={"inline_keyboard": []},
         )
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="⏳ <b>Emergencia</b> — ejecutando clausulazo…",
+    )
 
     try:
         api_client.call_api(

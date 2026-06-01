@@ -12,6 +12,9 @@ TELEGRAM_SET_COMMANDS_URL = "https://api.telegram.org/bot{token}/setMyCommands"
 TELEGRAM_SET_MENU_BUTTON_URL = "https://api.telegram.org/bot{token}/setChatMenuButton"
 TELEGRAM_ANSWER_CALLBACK_URL = "https://api.telegram.org/bot{token}/answerCallbackQuery"
 TELEGRAM_EDIT_MESSAGE_URL = "https://api.telegram.org/bot{token}/editMessageText"
+TELEGRAM_EDIT_REPLY_MARKUP_URL = (
+    "https://api.telegram.org/bot{token}/editMessageReplyMarkup"
+)
 
 # Hard limit on Bot API sendMessage; anything longer is truncated server-side.
 TELEGRAM_MAX_MESSAGE_LENGTH = 4096
@@ -111,6 +114,30 @@ def edit_message_text(
         response.raise_for_status()
     except requests.RequestException as e:
         logger.error("Failed to edit Telegram message.", extra={"error": str(e)})
+
+
+def edit_message_reply_markup(
+    bot_token: str,
+    chat_id: str,
+    message_id: int,
+    reply_markup: Optional[dict] = None,
+) -> None:
+    """Replace ONLY the inline keyboard on an existing message.
+
+    Pass `reply_markup={"inline_keyboard": []}` (or `None`) to strip the
+    buttons while leaving the text untouched. Used after a confirmation
+    tap when we want the preview text to stay readable but the buttons
+    to no longer be clickable (preventing accidental re-confirms).
+    """
+    url = TELEGRAM_EDIT_REPLY_MARKUP_URL.format(token=bot_token)
+    payload: dict[str, Any] = {"chat_id": chat_id, "message_id": message_id}
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error("Failed to edit Telegram reply markup.", extra={"error": str(e)})
 
 
 def send_telegram_photo(
