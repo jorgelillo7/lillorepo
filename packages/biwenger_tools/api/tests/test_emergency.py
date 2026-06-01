@@ -1,20 +1,29 @@
 """Unit tests for `api/logic/emergency.py`.
 
 Covers:
-- `_recent_lost_players` — board parsing, 24h window, id vs name match.
-- `_unique_positions` — outfield positions a loss list implies.
-- `_weakest_outfield_position` — counts + DEF > MID > FWD tie-break.
-- `_pick_target` — in-position first, fallback to top SF overall.
+- `recent_lost_players` — board parsing, 24h window, id vs name match.
+- `unique_outfield_positions` — outfield positions a loss list implies.
+- `weakest_outfield_position` — counts + DEF > MID > FWD tie-break.
+- `pick_top_in_position` — in-position first, fallback to top SF overall.
 - `preview_clausulazo` end-to-end (0/1/multi-loss + selector cases +
   force_position / force_weakest entry points).
 - `execute_clausulazo` notifies on success and on Biwenger 4xx.
+
+Detection helpers live in `clausulazo_detection`; candidate scoring in
+`clausulazo_candidates`. We import from the canonical home and patch the
+re-imported names *inside* `emergency` when stubbing `preview_clausulazo`'s
+collaborators, since that's where the lookup happens at runtime.
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from packages.biwenger_tools.api.logic import emergency
+from packages.biwenger_tools.api.logic import (
+    clausulazo_candidates,
+    clausulazo_detection,
+    emergency,
+)
 
 # --- _recent_lost_players -----------------------------------------------
 
@@ -48,7 +57,7 @@ def test_recent_lost_players_matches_by_user_id():
         "data": [_board_entry(1000, from_id=99, player_id=42)]
     }
     players = {42: _bw_player(42, "Ana", position=2)}
-    losses = emergency._recent_lost_players(
+    losses = clausulazo_detection.recent_lost_players(
         biwenger, players, my_manager_name="anyone", now_epoch=1500
     )
     assert [(loss["name"], loss["position_id"]) for loss in losses] == [("Ana", 2)]
@@ -61,7 +70,7 @@ def test_recent_lost_players_matches_by_name_when_id_missing():
         "data": [_board_entry(1000, from_name="Lillo", player_id=42)]
     }
     players = {42: _bw_player(42, "Ana", position=2)}
-    losses = emergency._recent_lost_players(
+    losses = clausulazo_detection.recent_lost_players(
         biwenger, players, my_manager_name="Lillo", now_epoch=1500
     )
     assert len(losses) == 1 and losses[0]["position_id"] == 2
@@ -73,8 +82,8 @@ def test_recent_lost_players_ignores_entries_older_than_24h():
         "data": [_board_entry(date_epoch=10, from_id=99, player_id=42)]
     }
     players = {42: _bw_player(42, "Ana", position=2)}
-    now = 10 + emergency.RECENT_CLAUSULAZO_WINDOW_SECONDS + 1
-    losses = emergency._recent_lost_players(
+    now = 10 + clausulazo_detection.RECENT_CLAUSULAZO_WINDOW_SECONDS + 1
+    losses = clausulazo_detection.recent_lost_players(
         biwenger, players, my_manager_name="x", now_epoch=now
     )
     assert losses == []
@@ -107,7 +116,7 @@ def test_recent_lost_players_returns_all_matches_including_multi_pos():
         42: _bw_player(42, "MultiGuy", position=2, alt=[3]),
         43: _bw_player(43, "SimpleGuy", position=4),
     }
-    losses = emergency._recent_lost_players(
+    losses = clausulazo_detection.recent_lost_players(
         biwenger, players, my_manager_name="x", now_epoch=1500
     )
     assert [loss["name"] for loss in losses] == ["MultiGuy", "SimpleGuy"]
@@ -120,7 +129,7 @@ def test_recent_lost_players_ignores_other_managers_losses():
         "data": [_board_entry(1000, from_id=42, from_name="Otro", player_id=42)]
     }
     players = {42: _bw_player(42, "X", position=2)}
-    losses = emergency._recent_lost_players(
+    losses = clausulazo_detection.recent_lost_players(
         biwenger, players, my_manager_name="Lillo", now_epoch=1500
     )
     assert losses == []
@@ -145,7 +154,7 @@ def test_weakest_outfield_position_picks_minimum_count():
     }
     # 3 DEF / 2 MID / 1 FWD → weakest is FWD.
     assert (
-        emergency._weakest_outfield_position(
+        clausulazo_detection.weakest_outfield_position(
             _squad(10, 11, 12, 13, 14, 15, 16), players
         )
         == 4
@@ -159,14 +168,19 @@ def test_weakest_outfield_position_ties_prefer_def_then_mid():
         13: _bw_player(13, "F1", position=4),
     }
     # 1 of each → DEF wins on tie-break.
-    assert emergency._weakest_outfield_position(_squad(11, 12, 13), players) == 2
+    assert (
+        clausulazo_detection.weakest_outfield_position(_squad(11, 12, 13), players) == 2
+    )
 
 
 def test_weakest_outfield_position_full_squad_picks_def():
     """Full squad (all positions equal at the maximum) — DEF still wins
     because of the tie-break order; in practice this branch is rare."""
     players = {i: _bw_player(i, f"P{i}", position=(2 + (i % 3))) for i in range(0, 12)}
-    assert emergency._weakest_outfield_position(_squad(*range(0, 12)), players) == 2
+    assert (
+        clausulazo_detection.weakest_outfield_position(_squad(*range(0, 12)), players)
+        == 2
+    )
 
 
 # --- _pick_target --------------------------------------------------------
@@ -190,9 +204,11 @@ def test_pick_target_returns_top_sf_in_preferred_position():
         _cand(2, position=2, sf=500),
         _cand(3, position=4, sf=900),  # higher SF but wrong position
     ]
-    target, note = emergency._pick_target(candidates, preferred_position=2)
+    target, in_preferred = clausulazo_candidates.pick_top_in_position(
+        candidates, preferred_position=2
+    )
     assert target["bw_id"] == 2
-    assert note == ""
+    assert in_preferred is True
 
 
 def test_pick_target_falls_back_to_top_sf_when_position_empty():
@@ -200,15 +216,19 @@ def test_pick_target_falls_back_to_top_sf_when_position_empty():
         _cand(1, position=3, sf=400),
         _cand(2, position=4, sf=900),
     ]
-    target, note = emergency._pick_target(candidates, preferred_position=2)
+    target, in_preferred = clausulazo_candidates.pick_top_in_position(
+        candidates, preferred_position=2
+    )
     assert target["bw_id"] == 2
-    assert "Defensa" in note  # note mentions the position we couldn't fill
+    assert in_preferred is False  # caller will build the "no DEF afford" note
 
 
 def test_pick_target_returns_none_when_no_candidates():
-    target, note = emergency._pick_target([], preferred_position=2)
+    target, in_preferred = clausulazo_candidates.pick_top_in_position(
+        [], preferred_position=2
+    )
     assert target is None
-    assert note == ""
+    assert in_preferred is False
 
 
 # --- preview_clausulazo (end-to-end with mocks) --------------------------
@@ -248,8 +268,12 @@ def preview_env():
             biwenger=biwenger, biwenger_players=biwenger_players, jp_index={}
         )
         stack.enter_context(patch(_patches("build_context"), return_value=ctx))
+        # The emergency module imports these names by short name from
+        # their canonical homes (clausulazo_detection / candidates), so
+        # patching the re-imported attribute on `emergency` is what
+        # affects the lookup `preview_clausulazo` actually performs.
         stack.enter_context(
-            patch(_patches("_recent_lost_players"), return_value=losses or [])
+            patch(_patches("recent_lost_players"), return_value=losses or [])
         )
         stack.enter_context(patch(_patches("gather_rivals"), return_value=rivals))
         stack.enter_context(

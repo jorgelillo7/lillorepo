@@ -47,7 +47,7 @@ from core.constants import MADRID_TZ
 from core.sdk import firestore
 from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
-from core.utils import get_logger
+from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.player_matching import find_player_match
@@ -99,14 +99,6 @@ def _today_madrid() -> str:
 def _log_collection_path(day: str) -> str:
     """`auto_bid_log/{day}/bids` — odd-segment subcollection for Firestore."""
     return f"{AUTO_BID_LOG_PATH}/{day}/bids"
-
-
-def _euros(n: int | None) -> str:
-    """Spanish-style thousands separator: 12.345.678 €."""
-    if n is None:
-        return "—"
-    s = f"{int(n):,}".replace(",", ".")
-    return f"{s} €"
 
 
 def _jitter() -> int:
@@ -248,8 +240,8 @@ def _format_skip_line(entry: dict, esc) -> str:
         return (
             f"💸 Sin pasta para <b>{name}</b> · "
             f"{esc(entry['tier_label'])} · "
-            f"puja {esc(_euros(entry['bid']))} &gt; "
-            f"cash {esc(_euros(entry['cash']))}"
+            f"puja {esc(format_euros(entry['bid']))} &gt; "
+            f"cash {esc(format_euros(entry['cash']))}"
         )
     if kind == "already_bid":
         return f"🔁 Ya pujado <b>{name}</b>"
@@ -281,7 +273,7 @@ def _format_telegram_text(
 
     for entry in placed:
         lines.append(
-            f"✅ Pujado <b>{esc(_euros(entry['bid']))}</b> por "
+            f"✅ Pujado <b>{esc(format_euros(entry['bid']))}</b> por "
             f"<b>{esc(entry['name'])}</b> ({esc(entry['tier_label'])})"
         )
 
@@ -293,8 +285,8 @@ def _format_telegram_text(
 
     lines.append("")
     lines.append(
-        f"Total pujado: <b>{esc(_euros(total_bid))}</b> · "
-        f"Cash restante: <b>{esc(_euros(remaining_cash))}</b>"
+        f"Total pujado: <b>{esc(format_euros(total_bid))}</b> · "
+        f"Cash restante: <b>{esc(format_euros(remaining_cash))}</b>"
     )
     if not placed:
         lines.append(f"<i>Log: auto_bid_log/{esc(day)}</i>")

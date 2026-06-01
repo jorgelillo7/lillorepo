@@ -16,19 +16,19 @@ formats that as a `[multi: MED]` badge.
 
 from typing import Optional
 
-from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
-from core.utils import get_logger
+from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.clausulazo_candidates import (
     filter_affordable,
     gather_rivals,
+    sf_of,
 )
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
 )
-from packages.biwenger_tools.api.player_formatting import POSITION_SHORT, SCORE_SF
+from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 
 logger = get_logger(__name__)
 
@@ -70,25 +70,6 @@ _POSITION_LABELS_ES = {
 }
 
 
-def _euros(n: int | None) -> str:
-    """Format an integer as Spanish-style euros: 12.972.212 €.
-
-    `None` and 0 are surfaced explicitly so the user can tell the difference
-    between "Biwenger returned 0" and "Biwenger didn't return this field".
-    """
-    if n is None:
-        return "—"
-    s = f"{int(n):,}".replace(",", ".")
-    return f"{s} €"
-
-
-def _sf_of(row: dict) -> int:
-    jp = row.get("jp_player")
-    if not jp:
-        return 0
-    return get_predict_rate(jp, SCORE_SF) or 0
-
-
 def _short_position_es(position_id: int) -> str:
     """Spanish short label (POR/DEF/MED/DEL) for multi-pos badge."""
     return POSITION_SHORT.get(position_id, "?")
@@ -103,7 +84,7 @@ def _serialise_row(row: dict) -> dict:
         "name": row.get("name"),
         "owner": row.get("owner", ""),
         "clause": row.get("clause_value", 0),
-        "sf": _sf_of(row),
+        "sf": sf_of(row),
         "multi": [_short_position_es(a) for a in alts],
     }
 
@@ -123,7 +104,7 @@ def _pick_top_per_position(candidates: list[dict], top: int) -> dict[str, list[d
         grouped[key].append(row)
 
     for key in grouped:
-        grouped[key].sort(key=_sf_of, reverse=True)
+        grouped[key].sort(key=sf_of, reverse=True)
         grouped[key] = [_serialise_row(r) for r in grouped[key][:top]]
 
     return grouped
@@ -132,11 +113,11 @@ def _pick_top_per_position(candidates: list[dict], top: int) -> dict[str, list[d
 def _format_telegram_text(payload: dict) -> str:
     """Render the JSON payload as the Telegram message the bot would send."""
     budget = payload["budget"]
-    cash = _euros(budget["cash"])
-    target = _euros(budget["target"])
+    cash = format_euros(budget["cash"])
+    target = format_euros(budget["target"])
     max_bid_value = budget.get("max_bid")
-    max_bid_str = _euros(max_bid_value) if max_bid_value else "—"
-    margin = _euros(budget["margin"])
+    max_bid_str = format_euros(max_bid_value) if max_bid_value else "—"
+    margin = format_euros(budget["margin"])
     margin_source = budget.get("margin_source", "auto")
     margin_label = "auto" if margin_source == "auto" else "fijo"
 
@@ -158,7 +139,7 @@ def _format_telegram_text(payload: dict) -> str:
             badge = f"  <i>[multi: {'/'.join(r['multi'])}]</i>" if r["multi"] else ""
             lines.append(
                 f"  · {r['name']} ({r['owner']}) — "
-                f"cláusula {_euros(r['clause'])} · SF {r['sf']}{badge}"
+                f"cláusula {format_euros(r['clause'])} · SF {r['sf']}{badge}"
             )
     return "\n".join(lines)
 
