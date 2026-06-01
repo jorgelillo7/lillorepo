@@ -222,7 +222,14 @@ def test_format_telegram_text_renders_placed_skipped_and_totals():
         },
     ]
     skipped = [
-        {"name": "Bellingham", "reason": "bid 14.000.000 € > cash 3.000.000 €"},
+        {
+            "name": "Bellingham",
+            "kind": "no_cash",
+            "sf": 750,
+            "tier_label": "T2 (SF 750)",
+            "bid": 14_000_000,
+            "cash": 3_000_000,
+        },
     ]
     text = auto_bid._format_telegram_text(
         day="2026-05-23",
@@ -237,6 +244,55 @@ def test_format_telegram_text_renders_placed_skipped_and_totals():
     assert "Bellingham" in text
     assert "Total pujado: <b>43.000.000 €</b>" in text
     assert "Cash restante: <b>3.000.000 €</b>" in text
+
+
+def test_format_telegram_text_no_cash_skip_shows_sf_and_tier():
+    """The whole point of `kind=no_cash`: the user can tell what a richer
+    wallet would have grabbed. Tier label + SF live in the skip line,
+    and the icon is 💸 (not ⏭️) so it's visually distinct from a
+    tier_low skip in the same message."""
+    skipped = [
+        {
+            "name": "Bellingham",
+            "kind": "no_cash",
+            "sf": 750,
+            "tier_label": "T2 (SF 750)",
+            "bid": 14_000_000,
+            "cash": 3_000_000,
+        }
+    ]
+    text = auto_bid._format_telegram_text(
+        day="2026-05-23",
+        placed=[],
+        skipped=skipped,
+        total_bid=0,
+        remaining_cash=3_000_000,
+    )
+    assert "💸 Sin pasta para <b>Bellingham</b>" in text
+    assert "T2 (SF 750)" in text
+    # `>` gets HTML-escaped to `&gt;` so Telegram's HTML parser doesn't
+    # read it as a tag start (this is the 2026-05-24 regression).
+    assert "puja 14.000.000 € &gt; cash 3.000.000 €" in text
+
+
+def test_format_telegram_text_renders_each_skip_kind_with_own_icon():
+    """Every kind branch renders a distinct icon. tier_low keeps the
+    legacy ⏭️ + bare reason so a SF 280 skip still looks unchanged."""
+    skipped = [
+        {"name": "AlreadyBid", "kind": "already_bid"},
+        {"name": "Reject", "kind": "biwenger_reject"},
+        {"name": "LowTier", "kind": "tier_low", "sf": 280, "reason": "SF 280 < 300"},
+    ]
+    text = auto_bid._format_telegram_text(
+        day="2026-05-23",
+        placed=[],
+        skipped=skipped,
+        total_bid=0,
+        remaining_cash=1_000_000,
+    )
+    assert "🔁 Ya pujado <b>AlreadyBid</b>" in text
+    assert "⚠️ Biwenger rechazó <b>Reject</b>" in text
+    assert "⏭️ Saltado <b>LowTier</b> (SF 280 &lt; 300)" in text
 
 
 def test_format_telegram_text_html_escapes_user_content():
@@ -256,8 +312,13 @@ def test_format_telegram_text_html_escapes_user_content():
     skipped = [
         {
             "name": "Bellingham",
-            # The actual reason format from run_auto_bid — has literal `>`.
-            "reason": "bid 14.000.000 € > cash 3.000.000 €",
+            "kind": "no_cash",
+            "sf": 750,
+            # Tier label is rendered as-is; if it ever carries `<` or `&`
+            # the escape must catch it.
+            "tier_label": "T2 (SF 750)",
+            "bid": 14_000_000,
+            "cash": 3_000_000,
         }
     ]
     text = auto_bid._format_telegram_text(
@@ -270,13 +331,10 @@ def test_format_telegram_text_html_escapes_user_content():
     # Raw user-controlled `<`, `>`, `&` must NOT appear anywhere outside
     # of our intentional `<b>...</b>` wrappers.
     assert "&lt;Player &amp; Co&gt;" in text
-    assert "bid 14.000.000 € &gt; cash 3.000.000 €" in text
-    # The two literal `<` characters in our template must be exactly the
-    # ones we emitted (4 <b> open + 4 </b> close + 1 <b> in skipped + 1
-    # </b> in skipped + 2 in totals + 0 footer = 12 angle-bracket pairs).
+    # `>` inside the no_cash line is the literal "bid > cash" separator.
+    assert "puja 14.000.000 € &gt; cash 3.000.000 €" in text
     assert text.count("<b>") == text.count("</b>")  # balanced template tags
-    # No unescaped `>` in the skipped-line reason payload.
-    assert "> cash" not in text
+    assert "> cash" not in text  # no unescaped `>` left in the payload
 
 
 def test_format_telegram_text_handles_no_candidates():
@@ -406,6 +464,52 @@ def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
     assert result["skipped_count"] == 2  # Lewa + Pedri don't fit
     assert result["sent"] == 1
     mock_send.assert_called_once()
+
+
+def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
+    """Edge case the user asked about: 3 candidates by SF desc, the
+    most expensive is unaffordable but the next one fits — the loop
+    must keep going and bid the second one. Without the `continue` on
+    `target_bid > remaining_cash`, the whole batch would be aborted.
+
+    Setup:
+    - cash = 5M.
+    - P1 (SF 750, price 8M) → T2 bid 13M → no_cash skip (13M > 5M cash).
+    - P2 (SF 720, price 2M) → T2 bid 3.4M → placed.
+    - P3 (SF 280) → tier_low skip (below SF 300 floor, but >200 so it
+      lands in the summary).
+    """
+    market = [_sale(1), _sale(2), _sale(3)]
+    biwenger_players = {
+        1: _bw(1, "Expensive", 8_000_000),
+        2: _bw(2, "Cheaper", 2_000_000),
+        3: _bw(3, "LowSf", 500_000),
+    }
+    jp_players = [
+        _jp_with_sf("Expensive", 750),
+        _jp_with_sf("Cheaper", 720),
+        _jp_with_sf("LowSf", 280),
+    ]
+    biwenger, mock_send = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=5_000_000,
+    )
+    result = auto_bid.run_auto_bid()
+
+    # Only the cheaper player gets a bid. The expensive one is skipped
+    # by budget; the low-SF one is skipped by tier floor.
+    biwenger.place_market_bid.assert_called_once_with(player_id=2, amount=3_400_000)
+    assert result["bid_count"] == 1
+    assert result["skipped_count"] == 2
+
+    # Telegram message must visually distinguish the two skips: 💸 for
+    # the budget skip (with SF + tier), ⏭️ for the irrelevant skip.
+    text = mock_send.call_args.kwargs["text"]
+    assert "💸 Sin pasta para <b>Expensive</b>" in text
+    assert "T2 (SF 750)" in text
+    assert "⏭️ Saltado <b>LowSf</b>" in text
 
 
 def test_run_auto_bid_skips_already_bid_today(run_env):

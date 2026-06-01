@@ -227,6 +227,38 @@ def _log_bid(day: str, candidate: dict, bid_amount: int, offer: dict) -> None:
     )
 
 
+def _format_skip_line(entry: dict, esc) -> str:
+    """Render one skipped entry. Dispatches on `kind`:
+
+    - `no_cash`     → 💸 with SF + tier label so we can see what we missed.
+    - `already_bid` → 🔁 (idempotency replay).
+    - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
+    - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
+
+    The `no_cash` branch is the user-visible payoff: it stops looking
+    like a generic "skip" so a SF 700 / T2 player blocked purely by
+    budget is visually distinct from a SF 280 / no-tier player.
+    """
+    kind = entry.get("kind")
+    name = esc(entry["name"])
+    if kind == "no_cash":
+        # The literal `>` between bid and cash must be pre-escaped as
+        # `&gt;` because Telegram's HTML parser reads a bare `>` after
+        # whitespace as the end of a tag and rejects the whole message.
+        return (
+            f"💸 Sin pasta para <b>{name}</b> · "
+            f"{esc(entry['tier_label'])} · "
+            f"puja {esc(_euros(entry['bid']))} &gt; "
+            f"cash {esc(_euros(entry['cash']))}"
+        )
+    if kind == "already_bid":
+        return f"🔁 Ya pujado <b>{name}</b>"
+    if kind == "biwenger_reject":
+        return f"⚠️ Biwenger rechazó <b>{name}</b>"
+    reason = esc(entry.get("reason") or "saltado")
+    return f"⏭️ Saltado <b>{name}</b> ({reason})"
+
+
 def _format_telegram_text(
     day: str,
     placed: list[dict],
@@ -253,11 +285,8 @@ def _format_telegram_text(
             f"<b>{esc(entry['name'])}</b> ({esc(entry['tier_label'])})"
         )
 
-    if skipped:
-        for entry in skipped:
-            lines.append(
-                f"⏭️ Saltado <b>{esc(entry['name'])}</b> ({esc(entry['reason'])})"
-            )
+    for entry in skipped:
+        lines.append(_format_skip_line(entry, esc))
 
     if not placed and not skipped:
         lines.append("Sin candidatos en el mercado diario.")
@@ -318,7 +347,7 @@ def run_auto_bid() -> dict:
                 {
                     "player_id": candidate["player_id"],
                     "name": candidate["name"],
-                    "reason": "ya pujado hoy",
+                    "kind": "already_bid",
                 }
             )
             continue
@@ -334,18 +363,25 @@ def run_auto_bid() -> dict:
                     {
                         "player_id": candidate["player_id"],
                         "name": candidate["name"],
+                        "kind": "tier_low",
+                        "sf": candidate["sf"],
                         "reason": label,
                     }
                 )
             continue
         if target_bid <= 0 or target_bid > remaining_cash:
+            # Out-of-budget skip carries the SF + tier label so the summary
+            # shows what a richer wallet would have grabbed (and so this skip
+            # is visually distinct from a tier_low "irrelevant" skip).
             skipped.append(
                 {
                     "player_id": candidate["player_id"],
                     "name": candidate["name"],
-                    "reason": (
-                        f"bid {_euros(target_bid)} > cash {_euros(remaining_cash)}"
-                    ),
+                    "kind": "no_cash",
+                    "sf": candidate["sf"],
+                    "tier_label": label,
+                    "bid": target_bid,
+                    "cash": remaining_cash,
                 }
             )
             continue
@@ -368,7 +404,7 @@ def run_auto_bid() -> dict:
                 {
                     "player_id": candidate["player_id"],
                     "name": candidate["name"],
-                    "reason": "Biwenger rechazó la puja",
+                    "kind": "biwenger_reject",
                 }
             )
             continue
