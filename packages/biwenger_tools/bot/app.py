@@ -283,12 +283,57 @@ def _run_emergencia_cancel(edit_into: tuple[str, int] | None) -> None:
     )
 
 
+def _run_emergencia_refine(params: dict, edit_into: tuple[str, int] | None) -> None:
+    """Re-trigger /emergencia preview with a forced position/weakest flag.
+
+    Fired by the selector buttons in the multi-clausulazo case
+    (`e:p:<position>` and `e:m`). Strips the selector keyboard so it
+    can't be re-tapped, then calls the preview endpoint with the user's
+    choice — the api posts a fresh confirmation preview with Sí/No.
+    """
+    if edit_into is not None:
+        chat_id, message_id = edit_into
+        edit_message_reply_markup(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup={"inline_keyboard": []},
+        )
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="⏳ <b>Emergencia</b> — buscando objetivo…",
+    )
+    try:
+        api_client.call_api(
+            config.BIWENGER_API_URL,
+            "/emergency/clausulazo/preview",
+            method="POST",
+            params=params,
+        )
+    except Exception as exc:
+        logger.error(
+            "Webhook: emergency refine failed",
+            extra={"params": params, "error": str(exc)},
+        )
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=(
+                f"❌ Error al ejecutar <b>Emergencia</b>: "
+                f"<code>{html.escape(str(exc))}</code>"
+            ),
+        )
+
+
 def _handle_callback(cb: dict) -> None:
     """Dispatch on the callback_data prefix.
 
     Inline-keyboard taps in scope:
     - `analizar:<id|all>` — manager picker for /analizar.
     - `e:c:<player_id>:<owner_id>:<amount>` — confirm /emergencia.
+    - `e:p:<position_id>` — selector "reinforce this position".
+    - `e:m` — selector "weakest line" fallback.
     - `e:n` — cancel /emergencia.
     """
     answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
@@ -306,6 +351,12 @@ def _handle_callback(cb: dict) -> None:
     if prefix == "e":
         if value == "n":
             _run_emergencia_cancel(edit_into)
+        elif value == "m":
+            _run_emergencia_refine({"force_weakest": "1"}, edit_into)
+        elif value.startswith("p:"):
+            _run_emergencia_refine(
+                {"force_position": value.split(":", 1)[1]}, edit_into
+            )
         else:
             _run_emergencia_confirm(value, edit_into)
         return
