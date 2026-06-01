@@ -35,6 +35,8 @@ LINEUP_URL = biwenger_sdk.LINEUP_URL
 ALL_PLAYERS_DATA_URL = biwenger_sdk.ALL_PLAYERS_DATA_URL
 LEAGUE_DATA_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
 USER_SQUAD_URL = biwenger_sdk.manager_squad_url("{manager_id}")
+CLAUSULAZOS_URL = biwenger_sdk.clausulazos_url(LEAGUE_ID)
+OFFERS_URL = biwenger_sdk.OFFERS_URL
 
 # --- JORNADA PERFECTA (private API) ---
 # Token sourced from BIWENGER_CREDENTIALS_JSON.jp_auth_token — it belongs to

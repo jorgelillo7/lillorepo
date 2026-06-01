@@ -96,6 +96,7 @@ def test_wrong_chat_callback_is_silently_ignored(client):
         ("/recomendar", "/budget/recommendations", "GET", None),
         ("/pujar", "/market/auto-bid", "POST", None),
         ("/scrapper", "/scraper/trigger", "POST", None),
+        ("/emergencia", "/emergency/clausulazo/preview", "POST", None),
     ],
 )
 def test_text_command_calls_api(client, command, path, method, params):
@@ -294,6 +295,49 @@ def test_analizar_all_callback_calls_teams_without_filter(client):
         resp = _post(client, _callback_update(_VALID_CHAT, "analizar:all"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(_API_URL, "/teams", method="GET", params=None)
+
+
+def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
+    """`e:c:<player>:<owner>:<amount>` → POST /emergency/clausulazo/execute
+    with the same three ids the user saw and approved in the preview."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ) as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:c:42:7:5000000"))
+    assert resp.status_code == 200
+    mock_edit.assert_called_once()  # picker → "ejecutando…"
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/emergency/clausulazo/execute",
+        method="POST",
+        params={"player_id": "42", "owner_id": "7", "amount": "5000000"},
+    )
+
+
+def test_emergencia_cancel_callback_edits_message_and_does_not_call_api(client):
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ) as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:n"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    text = mock_edit.call_args.kwargs.get("text", "")
+    assert "cancelada" in text.lower()
+
+
+def test_emergencia_confirm_with_malformed_payload_is_ignored(client):
+    """A malformed `e:c:not_a_number` callback must not POST to /execute
+    (Biwenger would 400 with no useful context). Drop on the floor."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:c:notanint:7:5000000"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
 
 
 def test_unknown_callback_prefix_is_ignored(client):

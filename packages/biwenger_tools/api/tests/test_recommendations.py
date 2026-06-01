@@ -1,12 +1,14 @@
 """Unit tests for `api/logic/recommendations.py`.
 
-Covers `compute_dynamic_margin`, `_filter_affordable`, `_gather_rivals`
-(house GK rule), `_pick_top_per_position` and `_format_telegram_text`.
-The HTTP-level wiring is in `test_routes.py`.
+Covers `compute_dynamic_margin`, `_pick_top_per_position` and
+`_format_telegram_text`. The candidate-pool helpers (`gather_rivals`,
+`filter_affordable`) live in `clausulazo_candidates` and are tested
+in `test_clausulazo_candidates.py`. HTTP wiring is in `test_routes.py`.
 """
 
 from unittest.mock import MagicMock
 
+from packages.biwenger_tools.api.logic import clausulazo_candidates as cands
 from packages.biwenger_tools.api.logic import recommendations as recs
 
 
@@ -50,7 +52,7 @@ def test_compute_dynamic_margin_scales_with_cash():
     assert recs.compute_dynamic_margin(100_000_000) == 10_000_000  # cap
 
 
-# --- _filter_affordable ---
+# --- filter_affordable ---
 
 
 def test_filter_affordable_excludes_my_players_and_locked_and_too_expensive():
@@ -62,7 +64,7 @@ def test_filter_affordable_excludes_my_players_and_locked_and_too_expensive():
         _row(4, "Cheap", pos=2, clause=20_000_000),  # included
         _row(5, "NoSF", pos=2, sf=0, clause=15_000_000),  # excluded: SF 0
     ]
-    out = recs._filter_affordable(rows, my_ids, target=50_000_000)
+    out = cands.filter_affordable(rows, my_ids, target=50_000_000)
     assert [r["bw_id"] for r in out] == [4]
 
 
@@ -79,17 +81,18 @@ def test_filter_affordable_excludes_rival_only_gk_house_rule():
         # The rule must not bleed into outfield: sole striker stays included.
         _row(102, "SoleFwd", pos=4, owner_gk_count=1, clause=10_000_000, sf=400),
     ]
-    out = recs._filter_affordable(rows, my_ids=set(), target=50_000_000)
+    out = cands.filter_affordable(rows, my_ids=set(), target=50_000_000)
     assert [r["bw_id"] for r in out] == [101, 102]
 
 
-# --- _gather_rivals ---
+# --- gather_rivals ---
 
 
-def test_gather_rivals_annotates_owner_gk_count(monkeypatch):
-    """`_gather_rivals` must tag every rival row with the owner's GK count
-    so the affordability filter can apply the house rule. Two managers,
-    one with 1 GK, one with 2."""
+def test_gather_rivals_annotates_owner_gk_count_and_user_id(monkeypatch):
+    """`gather_rivals` must tag every rival row with the owner's GK count
+    (for the house rule) and the owner_user_id (needed by emergency to
+    fill `place_clausulazo`'s `to=<seller>` field). Two managers, one
+    with 1 GK, one with 2."""
     biwenger = MagicMock()
     biwenger.user_id = 0
     biwenger.get_league_users.return_value = {1: "Ana", 2: "Beto"}
@@ -134,14 +137,16 @@ def test_gather_rivals_annotates_owner_gk_count(monkeypatch):
             "altPositions": [],
         },
     }
-    monkeypatch.setattr(recs, "time", MagicMock())  # skip sleep
+    monkeypatch.setattr(cands, "time", MagicMock())  # skip sleep
 
-    rivals = recs._gather_rivals(
+    rivals = cands.gather_rivals(
         biwenger, biwenger_players, jp_index={"by_name": {}, "by_slug": {}}
     )
 
-    by_owner = {r["bw_id"]: r["owner_gk_count"] for r in rivals}
-    assert by_owner == {11: 1, 12: 1, 21: 2, 22: 2, 23: 2}
+    by_gk = {r["bw_id"]: r["owner_gk_count"] for r in rivals}
+    assert by_gk == {11: 1, 12: 1, 21: 2, 22: 2, 23: 2}
+    by_owner_id = {r["bw_id"]: r["owner_user_id"] for r in rivals}
+    assert by_owner_id == {11: 1, 12: 1, 21: 2, 22: 2, 23: 2}
 
 
 # --- _pick_top_per_position ---
