@@ -325,6 +325,44 @@ def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
     )
 
 
+def test_emergencia_selector_position_callback_refines_with_force_position(client):
+    """`e:p:<position>` → POST /preview?force_position=<position>.
+    Strips the selector keyboard so it can't be re-tapped."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:p:3"))
+    assert resp.status_code == 200
+    mock_strip.assert_called_once()
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/emergency/clausulazo/preview",
+        method="POST",
+        params={"force_position": "3"},
+    )
+
+
+def test_emergencia_selector_weakest_callback_refines_with_force_weakest(client):
+    """`e:m` → POST /preview?force_weakest=1."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message"), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:m"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/emergency/clausulazo/preview",
+        method="POST",
+        params={"force_weakest": "1"},
+    )
+
+
 def test_emergencia_cancel_callback_edits_message_and_does_not_call_api(client):
     with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
         "packages.biwenger_tools.bot.app.edit_message_text"

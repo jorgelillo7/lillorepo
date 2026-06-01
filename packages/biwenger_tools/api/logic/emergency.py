@@ -64,18 +64,20 @@ def _is_multi_position(bw_player: dict) -> bool:
     return bool(bw_player.get("altPositions") or [])
 
 
-def _recent_lost_position(
+def _recent_lost_players(
     biwenger: BiwengerClient,
     biwenger_players: dict,
     my_manager_name: str,
     now_epoch: float,
-) -> tuple[Optional[int], Optional[str]]:
-    """Scan the transfer board for clausulazos against me in the last 24h.
+) -> list[dict]:
+    """Every clausulazo against me in the last 24h, resolved against the
+    cf-base players map.
 
-    Returns `(position_id, player_name)` of the most-recent lost player
-    if found AND the player is single-position, else `(None, None)`.
-    Multi-position losses are intentionally suppressed (ambiguous which
-    line to reinforce — fall back to weakest-line).
+    Returns a list of `{player_id, name, position_id, alt_positions, date}`
+    in board order (which Biwenger does NOT guarantee to be chronological:
+    multiple clausulazos that arrive in the same batch share the entry's
+    `date`, so we can't order them reliably by that field — the caller
+    is the one that decides what to do when there's more than one).
 
     Detection compares `from.id == biwenger.user_id` first; some board
     payload variants only expose `from.name`, so we fall back to a name
@@ -87,7 +89,7 @@ def _recent_lost_position(
         entries = list(entries.values())
 
     cutoff = now_epoch - RECENT_CLAUSULAZO_WINDOW_SECONDS
-    matches: list[tuple[float, dict]] = []
+    losses: list[dict] = []
     for entry in entries:
         entry_date = entry.get("date", 0) or 0
         if entry_date < cutoff:
@@ -101,22 +103,40 @@ def _recent_lost_position(
             is_me = (from_id is not None and int(from_id) == int(biwenger.user_id)) or (
                 from_name and my_manager_name and from_name == my_manager_name
             )
-            if is_me:
-                matches.append((entry_date, item))
+            if not is_me:
+                continue
+            player_ref = item.get("player")
+            player_id = (
+                player_ref.get("id") if isinstance(player_ref, dict) else player_ref
+            )
+            bw_player = biwenger_players.get(player_id)
+            if not bw_player:
+                continue
+            losses.append(
+                {
+                    "player_id": player_id,
+                    "name": bw_player.get("name"),
+                    "position_id": bw_player.get("position"),
+                    "alt_positions": bw_player.get("altPositions") or [],
+                    "date": entry_date,
+                }
+            )
+    return losses
 
-    if not matches:
-        return None, None
 
-    matches.sort(key=lambda pair: pair[0], reverse=True)
-    item = matches[0][1]
-    player_ref = item.get("player")
-    player_id = player_ref.get("id") if isinstance(player_ref, dict) else player_ref
-    bw_player = biwenger_players.get(player_id)
-    if not bw_player:
-        return None, None
-    if _is_multi_position(bw_player):
-        return None, bw_player.get("name")
-    return bw_player.get("position"), bw_player.get("name")
+def _unique_positions(losses: list[dict]) -> list[int]:
+    """Outfield positions a loss touches (primary + alts), DEF/MID/FWD order.
+
+    Used to build the selector buttons: one per distinct outfield
+    position the recent losses imply. GK is excluded — we never
+    clausulazo a GK on emergency.
+    """
+    found: set[int] = set()
+    for loss in losses:
+        for pos in (loss["position_id"], *loss["alt_positions"]):
+            if pos in _OUTFIELD_POSITION_IDS:
+                found.add(pos)
+    return [p for p in _OUTFIELD_POSITION_IDS if p in found]
 
 
 def _weakest_outfield_position(my_squad: list, biwenger_players: dict) -> int:
@@ -181,6 +201,51 @@ def _confirmation_keyboard(player_id: int, owner_id: int, amount: int) -> dict:
     }
 
 
+def _selector_keyboard(positions: list[int]) -> dict:
+    """One button per outfield position in `positions`, plus weakest-line.
+
+    `e:p:<pid>` taps trigger a refined preview locked to that position;
+    `e:m` triggers the weakest-line fallback (lets the user override the
+    auto-detected positions when they prefer to plug a different gap).
+    """
+    rows = [
+        [
+            {
+                "text": f"✅ Reforzar {_POSITION_LABELS_ES[pos]}",
+                "callback_data": f"e:p:{pos}",
+            }
+        ]
+        for pos in positions
+    ]
+    rows.append([{"text": "🌍 Línea más mermada", "callback_data": "e:m"}])
+    rows.append([{"text": "❌ Cancelar", "callback_data": "e:n"}])
+    return {"inline_keyboard": rows}
+
+
+def _format_selector_text(losses: list[dict], cash: int) -> str:
+    """Render the multi-loss selector message.
+
+    Lists every recent loss with its position(s) so the user can see
+    what happened, then asks which line to reinforce. Multi-position
+    players show both positions (e.g. `DEF/MED`).
+    """
+    lines = [
+        "🚨 <b>Emergencia — varias pérdidas recientes</b>",
+        "",
+        "Tu cash: <b>" + _euros(cash) + "</b>",
+        "",
+        "Te han clausulado (últimas 24h):",
+    ]
+    for loss in losses:
+        primary = POSITION_SHORT.get(loss["position_id"], "?")
+        alts = [POSITION_SHORT.get(p, "?") for p in loss["alt_positions"]]
+        pos_str = "/".join([primary, *alts]) if alts else primary
+        lines.append(f"  · <b>{_escape(loss['name'])}</b> ({pos_str})")
+    lines.append("")
+    lines.append("<i>¿Qué línea quieres reforzar?</i>")
+    return "\n".join(lines)
+
+
 def _format_preview_text(
     target: dict,
     reason: str,
@@ -204,13 +269,23 @@ def _format_preview_text(
     )
 
 
-def preview_clausulazo() -> dict:
+def preview_clausulazo(
+    force_position: Optional[int] = None, force_weakest: bool = False
+) -> dict:
     """Compute the target + reason and post the confirmation message.
 
-    Side effect: one Telegram message with an inline keyboard. The
-    returned dict is what the route handler echoes to the bot as JSON
-    (used only for diagnostics — the user-visible artefact is the
-    Telegram message).
+    Behaviour depends on the recent clausulazos against me:
+    - 0 losses → reinforce weakest outfield line.
+    - 1 single-position loss → target that position directly.
+    - Otherwise (>1 loss, or 1 multi-position loss) → post a selector
+      message with one button per outfield position involved + a
+      "weakest line" fallback. The user's tap re-enters this function
+      with `force_position` or `force_weakest`, which short-circuits
+      the detection and goes straight to the Sí/No preview.
+
+    Side effect: one Telegram message (selector OR confirmation). The
+    returned dict is for diagnostics only — the user-visible artefact
+    is the Telegram message.
     """
     ctx = build_context()
     biwenger = ctx.biwenger
@@ -222,28 +297,56 @@ def preview_clausulazo() -> dict:
     league_users = biwenger.get_league_users(config.LEAGUE_DATA_URL)
     my_manager_name = league_users.get(int(biwenger.user_id), "")
 
-    lost_position, lost_name = _recent_lost_position(
+    losses = _recent_lost_players(
         biwenger, ctx.biwenger_players, my_manager_name, now_epoch=time.time()
     )
 
-    if lost_position is not None:
-        preferred_position = lost_position
+    # --- Decide preferred_position + reason --------------------------------
+    if force_weakest:
+        preferred_position = _weakest_outfield_position(my_squad, ctx.biwenger_players)
+        reason = "refuerza la línea más mermada (elegido)"
+    elif force_position is not None:
+        preferred_position = force_position
         reason = (
-            f"acaban de clausularte un {_POSITION_LABELS_ES[lost_position].lower()} "
-            f"({lost_name}) en las últimas 24h — refuerza esa línea"
+            f"refuerza la línea de "
+            f"{_POSITION_LABELS_ES[force_position].lower()}s (elegido)"
         )
     else:
-        preferred_position = _weakest_outfield_position(my_squad, ctx.biwenger_players)
-        if lost_name:
+        # Auto-detect from recent losses. Two ambiguous cases trigger the
+        # selector: more than one loss, or a single loss that's
+        # multi-position. The selector lets the user disambiguate
+        # because the board batches transfers under a shared date and
+        # we can't reliably tell which is the most recent within the batch.
+        unique_positions = _unique_positions(losses)
+        needs_selector = len(losses) > 1 or (
+            len(losses) == 1 and len(losses[0]["alt_positions"]) > 0
+        )
+        if needs_selector and unique_positions:
+            text = _format_selector_text(losses, cash)
+            _send(text, reply_markup=_selector_keyboard(unique_positions))
+            return {
+                "cash": cash,
+                "losses": losses,
+                "selector": True,
+            }
+
+        if len(losses) == 1:
+            loss = losses[0]
+            preferred_position = loss["position_id"]
             reason = (
-                f"clausulazo reciente de un multiposición ({lost_name}) — "
-                "ambiguo, voy a la línea más mermada"
+                f"acaban de clausularte un "
+                f"{_POSITION_LABELS_ES[preferred_position].lower()} "
+                f"({loss['name']}) en las últimas 24h — refuerza esa línea"
             )
         else:
+            preferred_position = _weakest_outfield_position(
+                my_squad, ctx.biwenger_players
+            )
             reason = (
-                "sin clausulazos recientes contra ti — refuerza la línea más mermada"
+                "sin clausulazos recientes contra ti — " "refuerza la línea más mermada"
             )
 
+    # --- Pick target + send confirmation ----------------------------------
     rivals = gather_rivals(biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = filter_affordable(rivals, my_ids, target=cash)
     target, fallback_note = _pick_target(affordable, preferred_position)
@@ -251,8 +354,7 @@ def preview_clausulazo() -> dict:
     payload = {
         "cash": cash,
         "preferred_position": preferred_position,
-        "lost_player_name": lost_name,
-        "lost_position": lost_position,
+        "losses": losses,
     }
 
     if target is None:

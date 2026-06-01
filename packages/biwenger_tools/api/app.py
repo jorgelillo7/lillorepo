@@ -153,11 +153,33 @@ def scraper_trigger():
 def emergency_clausulazo_preview():
     """Compute the emergency target + post confirmation message — bot's /emergencia.
 
-    Side effect: one Telegram message with an inline keyboard (Sí/No).
-    The bot does not read the JSON response — the confirmation flow
-    rides on the inline-keyboard callback the user taps.
+    Query params (set by the bot when the user taps a selector button
+    after a multi-clausulazo run):
+      - `force_position=<2|3|4>` — skip detection, lock target to that
+        outfield position.
+      - `force_weakest=1` — skip detection, target the weakest line.
+
+    Side effect: one Telegram message (selector OR confirmation). The
+    bot does not read the JSON response — the flow rides on the
+    inline-keyboard callbacks the user taps.
     """
-    return _run_action("emergency.preview", emergency.preview_clausulazo)
+    force_position_raw = (request.args.get("force_position") or "").strip()
+    force_weakest_raw = (request.args.get("force_weakest") or "").strip().lower()
+    force_weakest = force_weakest_raw in ("1", "true", "yes")
+    force_position: int | None
+    if force_position_raw:
+        try:
+            force_position = int(force_position_raw)
+        except ValueError:
+            force_position = None
+    else:
+        force_position = None
+    return _run_action(
+        "emergency.preview",
+        lambda: emergency.preview_clausulazo(
+            force_position=force_position, force_weakest=force_weakest
+        ),
+    )
 
 
 @app.route("/emergency/clausulazo/execute", methods=["POST"])
