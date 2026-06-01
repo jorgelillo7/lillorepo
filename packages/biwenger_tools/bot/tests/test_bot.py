@@ -299,15 +299,24 @@ def test_analizar_all_callback_calls_teams_without_filter(client):
 
 def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
     """`e:c:<player>:<owner>:<amount>` → POST /emergency/clausulazo/execute
-    with the same three ids the user saw and approved in the preview."""
+    with the same three ids the user saw and approved in the preview.
+    The preview text stays intact (only its inline keyboard is stripped)
+    and the "ejecutando…" status arrives as a fresh send."""
     with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send, patch(
         "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call:
         resp = _post(client, _callback_update(_VALID_CHAT, "e:c:42:7:5000000"))
     assert resp.status_code == 200
-    mock_edit.assert_called_once()  # picker → "ejecutando…"
+    # Preview keyboard removed (no text edit so the preview stays readable).
+    mock_strip.assert_called_once()
+    assert mock_strip.call_args.kwargs["reply_markup"] == {"inline_keyboard": []}
+    # New "ejecutando…" message goes as a fresh send.
+    mock_send.assert_called_once()
+    assert "ejecutando" in mock_send.call_args.kwargs["text"].lower()
     mock_call.assert_called_once_with(
         _API_URL,
         "/emergency/clausulazo/execute",
