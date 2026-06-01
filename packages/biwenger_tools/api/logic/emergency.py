@@ -314,11 +314,19 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
         _send(f"❌ <b>Clausulazo rechazado</b> — <code>{_escape(str(exc))}</code>")
         raise
 
+    # Resolve the player name for the success message. The execute
+    # endpoint only receives ids (callback_data is capped at 64 bytes),
+    # so the preview's player name doesn't survive the round-trip; we
+    # look it up against the cf-base players map.
+    players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
+    player_name = (players.get(int(player_id)) or {}).get(
+        "name"
+    ) or f"jugador {player_id}"
     cash_after = int(biwenger.get_account_state().get("cash") or 0)
     _send(
         f"🚨 <b>Clausulazo ejecutado</b>\n"
         f"\n"
-        f"Pagado <b>{_euros(amount)}</b> por jugador <code>{player_id}</code>.\n"
+        f"Pagado <b>{_euros(amount)}</b> por <b>{_escape(player_name)}</b>.\n"
         f"Cash restante: <b>{_euros(cash_after)}</b>"
     )
     return {
