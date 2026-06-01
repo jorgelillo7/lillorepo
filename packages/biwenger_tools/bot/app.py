@@ -44,6 +44,7 @@ _HELP_TEXT = (
     "/preview — Previsualiza la alineación sin aplicarla\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
+    "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje"
@@ -60,6 +61,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "recomendar": ("/budget/recommendations", "GET", None),
     "pujar": ("/market/auto-bid", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
+    "emergencia": ("/emergency/clausulazo/preview", "POST", None),
 }
 
 
@@ -204,12 +206,81 @@ def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None
         )
 
 
+def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> None:
+    """Tap on the "✅ Sí, clausular" button — fire `/emergency/execute`.
+
+    `payload` is `c:<player_id>:<owner_id>:<amount>` (the `e:` prefix
+    was already stripped). Validates the three ids parse to ints before
+    calling the api so a malformed callback can't trigger a 400-loop.
+    """
+    parts = payload.split(":")
+    if len(parts) != 4 or parts[0] != "c":
+        logger.info("Webhook: malformed emergencia payload", extra={"payload": payload})
+        return
+    try:
+        player_id, owner_id, amount = int(parts[1]), int(parts[2]), int(parts[3])
+    except ValueError:
+        logger.info(
+            "Webhook: non-int in emergencia payload", extra={"payload": payload}
+        )
+        return
+
+    status_text = "⏳ <b>Emergencia</b> — ejecutando clausulazo…"
+    if edit_into is not None:
+        chat_id, message_id = edit_into
+        edit_message_text(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            text=status_text,
+        )
+
+    try:
+        api_client.call_api(
+            config.BIWENGER_API_URL,
+            "/emergency/clausulazo/execute",
+            method="POST",
+            params={
+                "player_id": str(player_id),
+                "owner_id": str(owner_id),
+                "amount": str(amount),
+            },
+        )
+    except Exception as exc:
+        logger.error(
+            "Webhook: emergency execute failed",
+            extra={"player_id": player_id, "error": str(exc)},
+        )
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=(
+                f"❌ Error al ejecutar <b>Emergencia</b>: "
+                f"<code>{html.escape(str(exc))}</code>"
+            ),
+        )
+
+
+def _run_emergencia_cancel(edit_into: tuple[str, int] | None) -> None:
+    """Tap on the "❌ No, cancelar" button — edit the preview to cancelled."""
+    if edit_into is None:
+        return
+    chat_id, message_id = edit_into
+    edit_message_text(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id,
+        message_id=message_id,
+        text="🚫 <b>Emergencia cancelada.</b>",
+    )
+
+
 def _handle_callback(cb: dict) -> None:
     """Dispatch on the callback_data prefix.
 
-    Only `analizar:<id|all>` taps come through inline keyboards now;
-    the main menu is a persistent reply keyboard that posts plain text
-    handled by the message router instead.
+    Inline-keyboard taps in scope:
+    - `analizar:<id|all>` — manager picker for /analizar.
+    - `e:c:<player_id>:<owner_id>:<amount>` — confirm /emergencia.
+    - `e:n` — cancel /emergencia.
     """
     answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
     data = cb.get("data", "")
@@ -217,10 +288,17 @@ def _handle_callback(cb: dict) -> None:
         logger.info("Webhook: unknown callback_data", extra={"data": data})
         return
     prefix, value = data.split(":", 1)
+    edit_into = (cb["chat_id"], cb["message_id"]) if cb.get("message_id") else None
 
     if prefix == "analizar":
-        edit_into = (cb["chat_id"], cb["message_id"]) if cb.get("message_id") else None
         _run_analizar(value, edit_into)
+        return
+
+    if prefix == "e":
+        if value == "n":
+            _run_emergencia_cancel(edit_into)
+        else:
+            _run_emergencia_confirm(value, edit_into)
         return
 
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
@@ -301,6 +379,8 @@ def webhook():
         _dispatch_action("pujar", "💸 Pujar")
     elif cmd == "/scrapper":
         _dispatch_action("scrapper", "🧹 Scraper")
+    elif cmd == "/emergencia":
+        _dispatch_action("emergencia", "🚨 Emergencia")
     elif cmd == "/help":
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,

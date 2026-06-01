@@ -14,19 +14,20 @@ primary position — with a `multi` list of secondary positions. The bot
 formats that as a `[multi: MED]` badge.
 """
 
-import time
 from typing import Optional
 
-from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic.clausulazo_candidates import (
+    filter_affordable,
+    gather_rivals,
+)
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
 )
-from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import POSITION_SHORT, SCORE_SF
 
 logger = get_logger(__name__)
@@ -162,67 +163,6 @@ def _format_telegram_text(payload: dict) -> str:
     return "\n".join(lines)
 
 
-GK_POSITION_ID = 1
-
-
-def _gather_rivals(
-    biwenger: BiwengerClient,
-    biwenger_players: dict,
-    jp_index: dict,
-) -> list[dict]:
-    """Build the rival_rows list, tagged with `owner = manager_name`.
-
-    Skips the logged-in user's own squad. My own squad is fetched separately
-    in `run_recommendations` so we can compute Biwenger's max_bid from it.
-
-    Each row also carries `owner_gk_count` — used by the house rule that
-    forbids taking a rival's only goalkeeper (see `_filter_affordable`).
-    """
-    managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
-    rivals: list[dict] = []
-    for manager_id, manager_name in managers.items():
-        if manager_id == biwenger.user_id:
-            continue
-        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
-        rows = build_squad_rows(squad, biwenger_players, jp_index, include_clause=True)
-        gk_count = sum(1 for r in rows if r.get("position_id") == GK_POSITION_ID)
-        for r in rows:
-            r["owner"] = manager_name
-            r["owner_gk_count"] = gk_count
-            rivals.append(r)
-        time.sleep(0.3)
-    return rivals
-
-
-def _filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list[dict]:
-    """Keep candidates I can actually afford (clause ≤ target) and skip mine.
-
-    Also enforces the house rule that we never clauselazo a rival's only
-    goalkeeper — Biwenger would technically allow it but the league agreed
-    leaving someone with zero GKs is unsportsmanlike. The same rule does
-    not apply to outfield positions (rivals are expected to rebuild).
-    """
-    out: list[dict] = []
-    for row in candidates:
-        if row.get("bw_id") in my_ids:
-            continue
-        if not row.get("clausulable_now", False):
-            continue
-        clause = row.get("clause_value") or 0
-        if clause <= 0 or clause > target:
-            continue
-        if _sf_of(row) <= 0:
-            continue
-        if (
-            row.get("position_id") == GK_POSITION_ID
-            and (row.get("owner_gk_count") or 0) <= 1
-        ):
-            # Owner only has this GK — house rule forbids taking it.
-            continue
-        out.append(row)
-    return out
-
-
 def run_recommendations(
     top: int = DEFAULT_TOP_N,
     margin: Optional[int] = None,
@@ -257,8 +197,8 @@ def run_recommendations(
     margin = max(0, margin)
     target = cash + margin
 
-    rivals = _gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
-    affordable = _filter_affordable(rivals, my_ids, target)
+    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+    affordable = filter_affordable(rivals, my_ids, target)
     recommendations = _pick_top_per_position(affordable, top)
 
     payload = {

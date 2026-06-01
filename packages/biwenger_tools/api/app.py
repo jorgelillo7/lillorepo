@@ -16,6 +16,7 @@ from packages.biwenger_tools.api.logic import (
     actions,
     auto_bid,
     digests,
+    emergency,
     recommendations,
     scraper,
 )
@@ -146,6 +147,48 @@ def budget_recommendations():
 def scraper_trigger():
     """Queue an execution of the scraper Cloud Run Job — bot's /scrapper."""
     return _run_action("scraper.trigger", scraper.run_trigger_scraper)
+
+
+@app.route("/emergency/clausulazo/preview", methods=["POST"])
+def emergency_clausulazo_preview():
+    """Compute the emergency target + post confirmation message — bot's /emergencia.
+
+    Side effect: one Telegram message with an inline keyboard (Sí/No).
+    The bot does not read the JSON response — the confirmation flow
+    rides on the inline-keyboard callback the user taps.
+    """
+    return _run_action("emergency.preview", emergency.preview_clausulazo)
+
+
+@app.route("/emergency/clausulazo/execute", methods=["POST"])
+def emergency_clausulazo_execute():
+    """Fire the approved clausulazo.
+
+    Query params (passed by the bot from the inline-keyboard payload):
+      - `player_id` — Biwenger player id to clause.
+      - `owner_id` — current owner's user id (becomes `to` in the POST).
+      - `amount` — euros (must be ≥ clause_value or Biwenger 4xxes).
+    """
+    try:
+        player_id = int(request.args["player_id"])
+        owner_id = int(request.args["owner_id"])
+        amount = int(request.args["amount"])
+    except (KeyError, TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "error": "player_id, owner_id, amount required (int)",
+                }
+            ),
+            400,
+        )
+    return _run_action(
+        "emergency.execute",
+        lambda: emergency.execute_clausulazo(
+            player_id=player_id, owner_user_id=owner_id, amount=amount
+        ),
+    )
 
 
 # --- Scheduler-triggered endpoints -----------------------------------------
