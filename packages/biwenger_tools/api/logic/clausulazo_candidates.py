@@ -88,3 +88,24 @@ def filter_affordable(candidates: list[dict], my_ids: set, target: int) -> list[
             continue
         out.append(row)
     return out
+
+
+def pick_top_in_position(
+    candidates: list[dict], preferred_position: int
+) -> tuple[dict | None, bool]:
+    """Top SF in `preferred_position`; fall back to top SF overall.
+
+    Returns `(candidate, in_preferred_position)`. When `in_preferred_position`
+    is False the candidate is the best-SF rival overall — used by callers
+    that want to surface "no DEF afford(able), going for the best SF
+    instead" without owning the in-position filtering logic themselves.
+    `(None, False)` when there are no candidates at all.
+    """
+    in_position = [c for c in candidates if c.get("position_id") == preferred_position]
+    if in_position:
+        in_position.sort(key=sf_of, reverse=True)
+        return in_position[0], True
+    if not candidates:
+        return None, False
+    candidates_sorted = sorted(candidates, key=sf_of, reverse=True)
+    return candidates_sorted[0], False

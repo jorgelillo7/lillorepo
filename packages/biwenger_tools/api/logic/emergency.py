@@ -1,38 +1,48 @@
 """Emergency clausulazo — `POST /emergency/clausulazo/{preview,execute}`.
 
-Manual, on-demand operation triggered from the Telegram bot via
-`/emergencia`. Two phases:
+Two-phase flow:
 
-1. **Preview** — read my cash, decide which position needs reinforcing
-   (the line I just lost to a recent clausulazo, or the weakest outfield
-   line if none), pick the best affordable rival in that position, and
-   post a confirmation message with inline-keyboard buttons.
-2. **Execute** — fired by the bot when the user taps "Sí" on the inline
-   keyboard. Calls `place_clausulazo` against the exact `player_id` /
-   `owner_user_id` / `amount` the user approved, and notifies the
-   result.
+1. **Preview** — read recent losses + cash, decide which position to
+   reinforce, and post a confirmation message. When the losses don't
+   uniquely identify a position (>1 loss in the last 24h, or 1
+   multi-position loss), the preview posts a *selector* message and
+   the user picks a position; the bot's tap re-enters this function
+   via `force_position` / `force_weakest`, which goes straight to the
+   confirmation message.
+
+2. **Execute** — fired by the bot when the user taps "Sí". POSTs the
+   clausulazo with the exact `player_id`/`owner_user_id`/`amount` the
+   user approved and notifies the result.
 
 Hard rules:
 
 - Cash is **justo** — `target = cash` (no dynamic margin, unlike
-  `/recomendar`). The op must never push me into the red.
-- `amount = clause_value` exactly — minimum valid clausulazo, no inflation.
-- Multi-position players lost are NOT used to pick a target position
-  (their loss is ambiguous → fall back to the weakest-line rule).
-- Never clause a rival's only GK (shared `filter_affordable` house rule).
+  `/recomendar`). The op must never push the user into the red.
+- `amount = clause_value` exactly — minimum valid clausulazo, no
+  inflation.
+- Detection lives in `clausulazo_detection.py`; rival candidate
+  selection in `clausulazo_candidates.py`. This module is just the
+  flow + UX.
 """
 
+import html
 import time
 from typing import Optional
 
-from core.sdk.biwenger import BiwengerClient
 from core.sdk.telegram import send_telegram_message_or_raise
-from core.utils import get_logger
+from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.clausulazo_candidates import (
     filter_affordable,
     gather_rivals,
+    pick_top_in_position,
     sf_of,
+)
+from packages.biwenger_tools.api.logic.clausulazo_detection import (
+    OUTFIELD_POSITION_IDS,
+    recent_lost_players,
+    unique_outfield_positions,
+    weakest_outfield_position,
 )
 from packages.biwenger_tools.api.logic.orchestration import (
     build_biwenger_session,
@@ -43,142 +53,10 @@ from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 
 logger = get_logger(__name__)
 
-RECENT_CLAUSULAZO_WINDOW_SECONDS = 24 * 60 * 60
-
-# Position-pick order when reinforcing the weakest line. GK is out of
-# scope (we don't clausulazo a GK on emergency). DEF goes first on
-# ties, then MID, then FWD — the lower-cost positions cover faster.
-_OUTFIELD_POSITION_IDS = (2, 3, 4)
 _POSITION_LABELS_ES = {1: "Portero", 2: "Defensa", 3: "Centrocampista", 4: "Delantero"}
 
 
-def _euros(n: int | None) -> str:
-    if n is None:
-        return "—"
-    s = f"{int(n):,}".replace(",", ".")
-    return f"{s} €"
-
-
-def _is_multi_position(bw_player: dict) -> bool:
-    """A multi-position player has at least one `altPositions` entry."""
-    return bool(bw_player.get("altPositions") or [])
-
-
-def _recent_lost_players(
-    biwenger: BiwengerClient,
-    biwenger_players: dict,
-    my_manager_name: str,
-    now_epoch: float,
-) -> list[dict]:
-    """Every clausulazo against me in the last 24h, resolved against the
-    cf-base players map.
-
-    Returns a list of `{player_id, name, position_id, alt_positions, date}`
-    in board order (which Biwenger does NOT guarantee to be chronological:
-    multiple clausulazos that arrive in the same batch share the entry's
-    `date`, so we can't order them reliably by that field — the caller
-    is the one that decides what to do when there's more than one).
-
-    Detection compares `from.id == biwenger.user_id` first; some board
-    payload variants only expose `from.name`, so we fall back to a name
-    match. Either is sufficient — we own both sides of the lookup.
-    """
-    raw = biwenger.get_all_clausulazos(config.CLAUSULAZOS_URL)
-    entries = raw.get("data", []) or []
-    if isinstance(entries, dict):
-        entries = list(entries.values())
-
-    cutoff = now_epoch - RECENT_CLAUSULAZO_WINDOW_SECONDS
-    losses: list[dict] = []
-    for entry in entries:
-        entry_date = entry.get("date", 0) or 0
-        if entry_date < cutoff:
-            continue
-        for item in entry.get("content") or []:
-            if item.get("type") != "clause":
-                continue
-            from_obj = item.get("from") or {}
-            from_id = from_obj.get("id")
-            from_name = from_obj.get("name")
-            is_me = (from_id is not None and int(from_id) == int(biwenger.user_id)) or (
-                from_name and my_manager_name and from_name == my_manager_name
-            )
-            if not is_me:
-                continue
-            player_ref = item.get("player")
-            player_id = (
-                player_ref.get("id") if isinstance(player_ref, dict) else player_ref
-            )
-            bw_player = biwenger_players.get(player_id)
-            if not bw_player:
-                continue
-            losses.append(
-                {
-                    "player_id": player_id,
-                    "name": bw_player.get("name"),
-                    "position_id": bw_player.get("position"),
-                    "alt_positions": bw_player.get("altPositions") or [],
-                    "date": entry_date,
-                }
-            )
-    return losses
-
-
-def _unique_positions(losses: list[dict]) -> list[int]:
-    """Outfield positions a loss touches (primary + alts), DEF/MID/FWD order.
-
-    Used to build the selector buttons: one per distinct outfield
-    position the recent losses imply. GK is excluded — we never
-    clausulazo a GK on emergency.
-    """
-    found: set[int] = set()
-    for loss in losses:
-        for pos in (loss["position_id"], *loss["alt_positions"]):
-            if pos in _OUTFIELD_POSITION_IDS:
-                found.add(pos)
-    return [p for p in _OUTFIELD_POSITION_IDS if p in found]
-
-
-def _weakest_outfield_position(my_squad: list, biwenger_players: dict) -> int:
-    """Position id with the fewest players among DEF/MID/FWD.
-
-    Ties break in DEF > MID > FWD order — lower-tier positions get
-    filled first because affordable replacements are easier to find.
-    """
-    counts = {pos: 0 for pos in _OUTFIELD_POSITION_IDS}
-    for entry in my_squad:
-        bw_player = biwenger_players.get(entry.get("id"))
-        if not bw_player:
-            continue
-        pos = bw_player.get("position")
-        if pos in counts:
-            counts[pos] += 1
-    # Tie-break order: iterate _OUTFIELD_POSITION_IDS so DEF (2) wins
-    # over MID (3) over FWD (4) when counts are equal.
-    return min(_OUTFIELD_POSITION_IDS, key=lambda pos: (counts[pos], pos))
-
-
-def _pick_target(
-    candidates: list[dict], preferred_position: int
-) -> tuple[Optional[dict], str]:
-    """Top SF in `preferred_position`; fall back to top SF overall.
-
-    Returns `(candidate, fallback_note)`. `fallback_note` is empty if a
-    candidate in the preferred position was found, non-empty otherwise
-    so the message can say "no DEF afford(able), going for the best
-    SF instead".
-    """
-    in_position = [c for c in candidates if c.get("position_id") == preferred_position]
-    if in_position:
-        in_position.sort(key=sf_of, reverse=True)
-        return in_position[0], ""
-    if not candidates:
-        return None, ""
-    candidates_sorted = sorted(candidates, key=sf_of, reverse=True)
-    return candidates_sorted[0], (
-        f"sin candidatos en {_POSITION_LABELS_ES[preferred_position]}, "
-        "voy al mejor SF disponible"
-    )
+# --- Keyboards -----------------------------------------------------------
 
 
 def _confirmation_keyboard(player_id: int, owner_id: int, amount: int) -> dict:
@@ -205,8 +83,9 @@ def _selector_keyboard(positions: list[int]) -> dict:
     """One button per outfield position in `positions`, plus weakest-line.
 
     `e:p:<pid>` taps trigger a refined preview locked to that position;
-    `e:m` triggers the weakest-line fallback (lets the user override the
-    auto-detected positions when they prefer to plug a different gap).
+    `e:m` triggers the weakest-line fallback (so the user can override
+    the auto-detected positions when they prefer to plug a different
+    gap). `e:n` cancels the flow.
     """
     rows = [
         [
@@ -222,6 +101,9 @@ def _selector_keyboard(positions: list[int]) -> dict:
     return {"inline_keyboard": rows}
 
 
+# --- Message formatters --------------------------------------------------
+
+
 def _format_selector_text(losses: list[dict], cash: int) -> str:
     """Render the multi-loss selector message.
 
@@ -232,7 +114,7 @@ def _format_selector_text(losses: list[dict], cash: int) -> str:
     lines = [
         "🚨 <b>Emergencia — varias pérdidas recientes</b>",
         "",
-        "Tu cash: <b>" + _euros(cash) + "</b>",
+        f"Tu cash: <b>{format_euros(cash)}</b>",
         "",
         "Te han clausulado (últimas 24h):",
     ]
@@ -261,31 +143,85 @@ def _format_preview_text(
         f"\n"
         f"Objetivo: <b>{target['name']}</b> ({pos_short}) "
         f"de <b>{target['owner']}</b>\n"
-        f"Cláusula: <b>{_euros(target['clause_value'])}</b> · "
+        f"Cláusula: <b>{format_euros(target['clause_value'])}</b> · "
         f"SF {sf_of(target)}\n"
-        f"Tu cash: <b>{_euros(cash)}</b>\n"
+        f"Tu cash: <b>{format_euros(cash)}</b>\n"
         f"\n"
         f"<i>Esta operación es irreversible.</i>"
     )
 
 
+def _format_no_target_text(reason: str, cash: int) -> str:
+    return (
+        f"🚨 <b>Emergencia</b>\n"
+        f"\n"
+        f"Sin candidatos asequibles. Tu cash: <b>{format_euros(cash)}</b>. "
+        f"Motivo: <i>{reason}</i>."
+    )
+
+
+def _format_executed_text(amount: int, player_name: str, cash_after: int) -> str:
+    return (
+        f"🚨 <b>Clausulazo ejecutado</b>\n"
+        f"\n"
+        f"Pagado <b>{format_euros(amount)}</b> por "
+        f"<b>{_escape(player_name)}</b>.\n"
+        f"Cash restante: <b>{format_euros(cash_after)}</b>"
+    )
+
+
+# --- Reason strings ------------------------------------------------------
+
+
+def _reason_force_weakest() -> str:
+    return "refuerza la línea más mermada (elegido)"
+
+
+def _reason_force_position(position_id: int) -> str:
+    return (
+        f"refuerza la línea de "
+        f"{_POSITION_LABELS_ES[position_id].lower()}s (elegido)"
+    )
+
+
+def _reason_single_loss(loss: dict) -> str:
+    return (
+        f"acaban de clausularte un "
+        f"{_POSITION_LABELS_ES[loss['position_id']].lower()} "
+        f"({loss['name']}) en las últimas 24h — refuerza esa línea"
+    )
+
+
+def _reason_no_losses() -> str:
+    return "sin clausulazos recientes contra ti — refuerza la línea más mermada"
+
+
+def _fallback_note(preferred_position: int, in_preferred: bool) -> str:
+    if in_preferred:
+        return ""
+    return (
+        f"sin candidatos en {_POSITION_LABELS_ES[preferred_position]}, "
+        "voy al mejor SF disponible"
+    )
+
+
+# --- Flow ----------------------------------------------------------------
+
+
 def preview_clausulazo(
     force_position: Optional[int] = None, force_weakest: bool = False
 ) -> dict:
-    """Compute the target + reason and post the confirmation message.
+    """Compute the target + reason and post the corresponding message.
 
-    Behaviour depends on the recent clausulazos against me:
-    - 0 losses → reinforce weakest outfield line.
-    - 1 single-position loss → target that position directly.
-    - Otherwise (>1 loss, or 1 multi-position loss) → post a selector
-      message with one button per outfield position involved + a
-      "weakest line" fallback. The user's tap re-enters this function
-      with `force_position` or `force_weakest`, which short-circuits
-      the detection and goes straight to the Sí/No preview.
+    Cases:
+    - 0 losses (and no force) → reinforce weakest outfield line.
+    - 1 single-position loss (and no force) → target that position.
+    - Otherwise (multi-loss, multi-pos loss) → post a selector with one
+      button per affected outfield position + weakest-line fallback.
+      The user's tap re-enters with `force_position` / `force_weakest`.
 
-    Side effect: one Telegram message (selector OR confirmation). The
-    returned dict is for diagnostics only — the user-visible artefact
-    is the Telegram message.
+    Returns a diagnostics dict; the user-visible artefact is the
+    Telegram message.
     """
     ctx = build_context()
     biwenger = ctx.biwenger
@@ -297,59 +233,24 @@ def preview_clausulazo(
     league_users = biwenger.get_league_users(config.LEAGUE_DATA_URL)
     my_manager_name = league_users.get(int(biwenger.user_id), "")
 
-    losses = _recent_lost_players(
+    losses = recent_lost_players(
         biwenger, ctx.biwenger_players, my_manager_name, now_epoch=time.time()
     )
 
-    # --- Decide preferred_position + reason --------------------------------
-    if force_weakest:
-        preferred_position = _weakest_outfield_position(my_squad, ctx.biwenger_players)
-        reason = "refuerza la línea más mermada (elegido)"
-    elif force_position is not None:
-        preferred_position = force_position
-        reason = (
-            f"refuerza la línea de "
-            f"{_POSITION_LABELS_ES[force_position].lower()}s (elegido)"
-        )
-    else:
-        # Auto-detect from recent losses. Two ambiguous cases trigger the
-        # selector: more than one loss, or a single loss that's
-        # multi-position. The selector lets the user disambiguate
-        # because the board batches transfers under a shared date and
-        # we can't reliably tell which is the most recent within the batch.
-        unique_positions = _unique_positions(losses)
-        needs_selector = len(losses) > 1 or (
-            len(losses) == 1 and len(losses[0]["alt_positions"]) > 0
-        )
-        if needs_selector and unique_positions:
-            text = _format_selector_text(losses, cash)
-            _send(text, reply_markup=_selector_keyboard(unique_positions))
-            return {
-                "cash": cash,
-                "losses": losses,
-                "selector": True,
-            }
+    preferred_position, reason, selector_payload = _resolve_intent(
+        losses=losses,
+        my_squad=my_squad,
+        biwenger_players=ctx.biwenger_players,
+        cash=cash,
+        force_position=force_position,
+        force_weakest=force_weakest,
+    )
+    if selector_payload is not None:
+        return selector_payload
 
-        if len(losses) == 1:
-            loss = losses[0]
-            preferred_position = loss["position_id"]
-            reason = (
-                f"acaban de clausularte un "
-                f"{_POSITION_LABELS_ES[preferred_position].lower()} "
-                f"({loss['name']}) en las últimas 24h — refuerza esa línea"
-            )
-        else:
-            preferred_position = _weakest_outfield_position(
-                my_squad, ctx.biwenger_players
-            )
-            reason = (
-                "sin clausulazos recientes contra ti — " "refuerza la línea más mermada"
-            )
-
-    # --- Pick target + send confirmation ----------------------------------
     rivals = gather_rivals(biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = filter_affordable(rivals, my_ids, target=cash)
-    target, fallback_note = _pick_target(affordable, preferred_position)
+    target, in_preferred = pick_top_in_position(affordable, preferred_position)
 
     payload = {
         "cash": cash,
@@ -358,16 +259,12 @@ def preview_clausulazo(
     }
 
     if target is None:
-        text = (
-            f"🚨 <b>Emergencia</b>\n"
-            f"\n"
-            f"Sin candidatos asequibles. Tu cash: <b>{_euros(cash)}</b>. "
-            f"Motivo: <i>{reason}</i>."
-        )
-        _send(text)
+        _send(_format_no_target_text(reason, cash))
         return {**payload, "target": None, "reason": reason}
 
-    text = _format_preview_text(target, reason, fallback_note, cash)
+    text = _format_preview_text(
+        target, reason, _fallback_note(preferred_position, in_preferred), cash
+    )
     _send(
         text,
         reply_markup=_confirmation_keyboard(
@@ -391,14 +288,59 @@ def preview_clausulazo(
     }
 
 
+def _resolve_intent(
+    *,
+    losses: list[dict],
+    my_squad: list,
+    biwenger_players: dict,
+    cash: int,
+    force_position: Optional[int],
+    force_weakest: bool,
+) -> tuple[int, str, Optional[dict]]:
+    """Decide `(preferred_position, reason, selector_payload)`.
+
+    When `selector_payload` is not None, the caller should post the
+    selector and return that payload as-is — there is no target yet,
+    the user has to pick. Otherwise the caller proceeds to candidate
+    selection with the returned `preferred_position` and `reason`.
+    """
+    if force_weakest:
+        return (
+            weakest_outfield_position(my_squad, biwenger_players),
+            _reason_force_weakest(),
+            None,
+        )
+    if force_position is not None:
+        return force_position, _reason_force_position(force_position), None
+
+    needs_selector = len(losses) > 1 or (
+        len(losses) == 1 and len(losses[0]["alt_positions"]) > 0
+    )
+    if needs_selector:
+        positions = unique_outfield_positions(losses)
+        if positions:
+            _send(
+                _format_selector_text(losses, cash),
+                reply_markup=_selector_keyboard(positions),
+            )
+            return 0, "", {"cash": cash, "losses": losses, "selector": True}
+
+    if len(losses) == 1:
+        return losses[0]["position_id"], _reason_single_loss(losses[0]), None
+    return (
+        weakest_outfield_position(my_squad, biwenger_players),
+        _reason_no_losses(),
+        None,
+    )
+
+
 def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
     """Place the approved clausulazo and notify Telegram with the result.
 
-    `player_id`, `owner_user_id` and `amount` come from the inline
-    keyboard payload the bot forwards — i.e. the exact values the user
-    saw and approved in the preview. We do NOT recompute candidates
-    here; if cash dropped between preview and confirm Biwenger will
-    reject and we surface the error.
+    `player_id`/`owner_user_id`/`amount` are the values the user saw and
+    approved in the preview. We do NOT recompute candidates here; if
+    cash dropped between preview and confirm Biwenger rejects and we
+    surface the error.
     """
     biwenger = build_biwenger_session()
     try:
@@ -416,21 +358,15 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
         _send(f"❌ <b>Clausulazo rechazado</b> — <code>{_escape(str(exc))}</code>")
         raise
 
-    # Resolve the player name for the success message. The execute
-    # endpoint only receives ids (callback_data is capped at 64 bytes),
-    # so the preview's player name doesn't survive the round-trip; we
-    # look it up against the cf-base players map.
+    # Resolve the player name for the success message — the callback
+    # only carries the id and we want the chat to read "Pagado X € por
+    # Iago Aspas" not "por jugador 1523".
     players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
     player_name = (players.get(int(player_id)) or {}).get(
         "name"
     ) or f"jugador {player_id}"
     cash_after = int(biwenger.get_account_state().get("cash") or 0)
-    _send(
-        f"🚨 <b>Clausulazo ejecutado</b>\n"
-        f"\n"
-        f"Pagado <b>{_euros(amount)}</b> por <b>{_escape(player_name)}</b>.\n"
-        f"Cash restante: <b>{_euros(cash_after)}</b>"
-    )
+    _send(_format_executed_text(int(amount), player_name, cash_after))
     return {
         "player_id": int(player_id),
         "amount": int(amount),
@@ -440,10 +376,11 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
     }
 
 
+# --- Side-effect helpers -------------------------------------------------
+
+
 def _escape(text: str) -> str:
     """HTML-escape for Telegram parse_mode=HTML."""
-    import html
-
     return html.escape(text, quote=False)
 
 
@@ -456,3 +393,13 @@ def _send(text: str, reply_markup: Optional[dict] = None) -> None:
     send_telegram_message_or_raise(
         bot_token=token, chat_id=chat_id, text=text, reply_markup=reply_markup
     )
+
+
+# Re-export the outfield set so callers that need the canonical tuple
+# (e.g. the recommendations message) don't have to know which module
+# owns it. Keeps the dependency arrow pointing into `clausulazo_detection`.
+__all__ = [
+    "preview_clausulazo",
+    "execute_clausulazo",
+    "OUTFIELD_POSITION_IDS",
+]

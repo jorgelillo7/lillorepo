@@ -49,6 +49,17 @@ env:
   REGISTRY: europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker
   TEMPORADA_ACTUAL: "26-27"
 
+# Serialize master deploys. Without this, two PRs merged seconds apart
+# trigger two parallel runs that both `docker push` and `gcloud run
+# deploy` the same service — the slower image-build wins and the newer
+# code can be silently overwritten. Observed on the 2026-06-01
+# PR#124+#125 stack (api ended up at PR#124's commit even though #125
+# merged after). `cancel-in-progress: false` queues runs so no merge
+# loses its deploy.
+concurrency:
+  group: deploy-master
+  cancel-in-progress: false
+
 jobs:
   # -------------------------------------------------------
   # 0. Lint Python code (flake8 + black --check) via the Bazel toolchain

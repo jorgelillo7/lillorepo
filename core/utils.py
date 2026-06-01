@@ -46,3 +46,15 @@ def load_json_secret(env_var: str) -> dict:
         return json.loads(raw)
     except json.JSONDecodeError:
         return {}
+
+
+def format_euros(n: int | None) -> str:
+    """Spanish-style euro formatting: `12.345.678 €`.
+
+    `None` returns `"—"` so callers can tell "Biwenger returned 0" apart
+    from "field not present" without an extra branch at every call site.
+    """
+    if n is None:
+        return "—"
+    s = f"{int(n):,}".replace(",", ".")
+    return f"{s} €"
