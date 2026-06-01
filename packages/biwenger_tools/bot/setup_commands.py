@@ -38,6 +38,10 @@ COMMANDS = [
         "description": "Lanza el auto-bid del mercado diario por tiers",
     },
     {
+        "command": "emergencia",
+        "description": "Clausulazo de emergencia con confirmación (irreversible)",
+    },
+    {
         "command": "scrapper",
         "description": "Lanza el scraper a demanda (te avisa al acabar)",
     },
