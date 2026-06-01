@@ -373,6 +373,9 @@ def test_execute_clausulazo_calls_sdk_and_notifies():
     biwenger = MagicMock()
     biwenger.place_clausulazo.return_value = {"id": 777, "status": "processed"}
     biwenger.get_account_state.return_value = {"cash": 1_000_000}
+    # The players map is consulted to resolve the name for the success
+    # message — the callback only carries the player id.
+    biwenger.get_all_players_data_map.return_value = {42: {"name": "Iago Aspas"}}
     with patch(_patches("build_biwenger_session"), return_value=biwenger), patch(
         _patches("_send")
     ) as mock_send:
@@ -390,6 +393,21 @@ def test_execute_clausulazo_calls_sdk_and_notifies():
     assert result["cash_after"] == 1_000_000
     text = mock_send.call_args.args[0]
     assert "ejecutado" in text
+    assert "Iago Aspas" in text
+
+
+def test_execute_clausulazo_falls_back_to_id_when_player_missing_from_map():
+    """Defensive: if the players map doesn't have the id (cache miss,
+    new player, etc.), the message still goes out — just with the id."""
+    biwenger = MagicMock()
+    biwenger.place_clausulazo.return_value = {"id": 777, "status": "processed"}
+    biwenger.get_account_state.return_value = {"cash": 1_000_000}
+    biwenger.get_all_players_data_map.return_value = {}
+    with patch(_patches("build_biwenger_session"), return_value=biwenger), patch(
+        _patches("_send")
+    ) as mock_send:
+        emergency.execute_clausulazo(player_id=42, owner_user_id=7, amount=5_000_000)
+    assert "jugador 42" in mock_send.call_args.args[0]
 
 
 def test_execute_clausulazo_notifies_and_raises_on_failure():
