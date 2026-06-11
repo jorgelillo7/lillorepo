@@ -19,13 +19,15 @@ LEAGUE_ID = "340703"
 # lets users rename their team at will, so the team `name` field drifts;
 # the numeric `id` is stable, so this is the source of truth when
 # attributing a row to a real person (palmares, post-rollover reports).
+# Per-season team names live in `palmares/{season}/standings_table` — don't
+# duplicate them as comments here, they drift on every rollover.
 LEAGUE_MEMBERS: dict[int, str] = {
-    7728610: "Fabio",  # Rayo Entrebirras
-    1376351: "Lucena",  # La Luceneta
-    12449616: "Pablo",  # Los caídos de la jornada
-    1372802: "Jorge",  # Farolillo Oracle United
-    7728598: "Javi",  # Kairat FC
-    7727371: "Ruben",  # Ferraz fc
+    7728610: "Fabio",
+    1376351: "Lucena",
+    12449616: "Pablo",
+    1372802: "Jorge",
+    7728598: "Javi",
+    7727371: "Ruben",
 }
 
 # A dynamic Drive file is considered stale if it hasn't been touched in

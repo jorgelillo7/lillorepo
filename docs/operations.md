@@ -507,6 +507,22 @@ El cambio de temporada es **manual e intencional** — ocurre cuando se resetea 
 
 ---
 
+## 🛠️ Firestore maintenance scripts
+
+One-off surgical edits live under `scripts/`. All default to dry-run; pass `--apply` to write. They use ADC (`gcloud auth application-default login` once) and respect `FIRESTORE_PROJECT` / `GOOGLE_CLOUD_PROJECT`.
+
+- **`biwenger_firestore_surgery.py`** — recovery toolkit for scraper mishaps (e.g. a `/scrapper` run against the wrong season). Three subcommands:
+  - `list-messages <SEASON> [--author X] [--limit N]` — inspect `comunicados/{SEASON}/messages` and find a `doc-id`.
+  - `move-message <FROM> <TO> --doc-id <ID> [--rename-author <NAME>]` — copy one message across seasons (same id_hash), optionally rewriting `autor`, and rebuild `participacion/{TO}/authors/{autor}` accordingly.
+  - `wipe-season <SEASON>` — delete every doc under `comunicados`, `participacion`, `clausulazos`, `tabla_justicia` for that season.
+- **`biwenger_rename_team.py`** — rename a team across `clausulazos/{season}/transfers` and rebuild `tabla_justicia/{season}/teams` from the corrected data.
+- **`biwenger_recategorise.py`** — recompute `categoria` for every message and rebuild `participacion/{season}/authors`; supports `--autor-alias OLD=NEW`.
+- **`biwenger_check_categorias.py`** — read-only audit of `categoria` mismatches.
+
+Usage pattern is the same everywhere: run without `--apply` first, review, then re-run with `--apply`.
+
+---
+
 ## ⚠️ Important Notes
 
   * **Do not commit** the credentials file `biwenger-tools-sa.json`.
