@@ -47,6 +47,23 @@ _CAPTAIN_MAX_PRICE = 3_000_000
 # leaving a hole and losing the -4 "empty slot" penalty Biwenger applies.
 _UNCALLED_SF = 1
 
+# Per-slot branching cap inside `_try_fill`. The exhaustive backtracking
+# blows up exponentially when many multi-position players are eligible for
+# the same slot (a 20-player squad with several DEF/MID/FWD versatiles
+# pushed the search past 30 s and tripped gunicorn). Capping candidates per
+# slot to the top-K by SF bounds branching to K^slots while keeping the
+# optimal assignment for realistic Biwenger squads: no formation needs more
+# than 6 of a single position, and the chance the optimal picks a sub-top-K
+# (by SF) player at any given slot is negligible.
+_CANDIDATES_PER_SLOT = 4
+
+# Global pool cap per position before `_try_fill`. Trims the search at the
+# entry point: only the top-N players by SF eligible for each position make
+# it into the candidate pool (multi-position players are kept if they rank
+# top-N for any of their positions). N=8 leaves comfortable headroom over
+# the max 6 slots any formation uses for one position.
+_POOL_PER_POSITION = 8
+
 
 # ---------------------------------------------------------------------------
 # Public entry point
@@ -71,6 +88,7 @@ def pick_lineup(squad_rows: list) -> dict | None:
     """
     available = [r for r in squad_rows if _is_available(r)]
     available.sort(key=_sf, reverse=True)
+    available = _trim_pool_by_position(available)
 
     best: dict | None = None
     # Lexicographic (sum_sf, back_bias). Same tiebreaker as `_try_fill`, so
@@ -246,6 +264,24 @@ def _is_available(row: dict) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _trim_pool_by_position(players: list) -> list:
+    """Keep each player who ranks in the top-N by SF for any position they
+    can play. Drops obviously-unpickable depth (e.g. the 9th DEF when only
+    5 are needed) before `_try_fill` so the search space stays bounded for
+    20+ player squads. `players` must already be sorted by SF desc.
+    """
+    keep_ids: set = set()
+    for pos in (GK, DEF, MID, FWD):
+        seen = 0
+        for p in players:
+            if pos in _positions(p):
+                keep_ids.add(p["bw_id"])
+                seen += 1
+                if seen >= _POOL_PER_POSITION:
+                    break
+    return [p for p in players if p["bw_id"] in keep_ids]
+
+
 def _try_fill(players: list, slots: dict) -> list | None:
     """Pick the assignment of `players` to `slots` that maximises (SF, back-bias).
 
@@ -318,7 +354,7 @@ def _try_fill(players: list, slots: dict) -> list | None:
             (pid for pid in player_ids if pos_to_fill in _positions(lookup[pid])),
             key=lambda pid: _sf(lookup[pid]),
             reverse=True,
-        )
+        )[:_CANDIDATES_PER_SLOT]
 
         best: tuple | None = None
         best_score = (-1, -(10**9))
