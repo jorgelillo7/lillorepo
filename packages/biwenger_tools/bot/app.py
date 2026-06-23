@@ -9,13 +9,17 @@ Two kinds of updates land on the webhook:
    answer with the manager picker. `analizar:<id|all>` taps run the
    teams endpoint with the selected filter.
 
-Heavy work always runs synchronously against biwenger-api; the bot only
-acknowledges the tap, edits the picker into a "processing…" message and
-lets the api post the results.
+The bot acknowledges every tap, edits the picker into a "procesando…"
+message, then spawns a daemon thread to call biwenger-api so the webhook
+returns 200 to Telegram immediately. Without that fire-and-forget pattern
+a slow api call (e.g. /alinear on a 20+ player squad) blocks the gunicorn
+worker past its 30 s timeout — Telegram retries the webhook and the user
+sees the same "procesando…" line repeated 5-10 times.
 """
 
 import html
 import os
+import threading
 
 from flask import Flask, request
 
@@ -131,14 +135,30 @@ def _send_manager_picker() -> None:
     )
 
 
-def _dispatch_action(action_key: str, label: str) -> None:
-    """Send "procesando…" and fire the matching api endpoint."""
-    path, method, params = _ACTION_ROUTES[action_key]
-    send_telegram_message(
-        bot_token=config.TELEGRAM_BOT_TOKEN,
-        chat_id=config.TELEGRAM_CHAT_ID,
-        text=f"⏳ <b>{label}</b> — procesando…",
-    )
+def _run_in_background(fn, *args, **kwargs) -> None:
+    """Spawn `fn` in a daemon thread so the webhook returns 200 immediately.
+
+    Long-running api calls (notably /alinear with a 20+ player squad) used
+    to block the gunicorn worker past its 30 s timeout — Telegram then
+    retried the webhook and the user saw "procesando…" 5-10 times.
+    Tests patch this helper to run sync so assertions stay deterministic.
+    """
+    threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
+
+
+def _call_api_and_report(
+    action_key: str,
+    label: str,
+    path: str,
+    method: str,
+    params: dict | None,
+) -> None:
+    """Call biwenger-api and post an HTML-escaped error on failure.
+
+    Defensive HTML escape on `exc` — request body fragments and gcloud-style
+    messages can contain `<`/`>`/`&` which would otherwise trigger a second
+    Telegram 400 and leave the user with no feedback at all.
+    """
     try:
         api_client.call_api(config.BIWENGER_API_URL, path, method=method, params=params)
     except Exception as exc:
@@ -146,10 +166,6 @@ def _dispatch_action(action_key: str, label: str) -> None:
             "Webhook: api call failed",
             extra={"action": action_key, "error": str(exc)},
         )
-        # Defensive HTML escape on `exc` — request body fragments and
-        # gcloud-style messages can contain `<`/`>`/`&` which would
-        # otherwise trigger a second Telegram 400 and leave the user
-        # with no feedback at all.
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
@@ -158,6 +174,17 @@ def _dispatch_action(action_key: str, label: str) -> None:
                 f"<code>{html.escape(str(exc))}</code>"
             ),
         )
+
+
+def _dispatch_action(action_key: str, label: str) -> None:
+    """Send "procesando…" and fire the matching api endpoint in the background."""
+    path, method, params = _ACTION_ROUTES[action_key]
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=f"⏳ <b>{label}</b> — procesando…",
+    )
+    _run_in_background(_call_api_and_report, action_key, label, path, method, params)
 
 
 def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None:
@@ -191,20 +218,23 @@ def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None
             text=status_text,
         )
 
-    try:
-        api_client.call_api(
-            config.BIWENGER_API_URL, "/teams", method="GET", params=params
-        )
-    except Exception as exc:
-        logger.error(
-            "Webhook: /teams call failed",
-            extra={"manager": manager_value, "error": str(exc)},
-        )
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
-        )
+    def _call_teams() -> None:
+        try:
+            api_client.call_api(
+                config.BIWENGER_API_URL, "/teams", method="GET", params=params
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: /teams call failed",
+                extra={"manager": manager_value, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=config.TELEGRAM_CHAT_ID,
+                text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
+            )
+
+    _run_in_background(_call_teams)
 
 
 def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> None:
@@ -244,30 +274,33 @@ def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> 
         text="⏳ <b>Emergencia</b> — ejecutando clausulazo…",
     )
 
-    try:
-        api_client.call_api(
-            config.BIWENGER_API_URL,
-            "/emergency/clausulazo/execute",
-            method="POST",
-            params={
-                "player_id": str(player_id),
-                "owner_id": str(owner_id),
-                "amount": str(amount),
-            },
-        )
-    except Exception as exc:
-        logger.error(
-            "Webhook: emergency execute failed",
-            extra={"player_id": player_id, "error": str(exc)},
-        )
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=(
-                f"❌ Error al ejecutar <b>Emergencia</b>: "
-                f"<code>{html.escape(str(exc))}</code>"
-            ),
-        )
+    def _call_execute() -> None:
+        try:
+            api_client.call_api(
+                config.BIWENGER_API_URL,
+                "/emergency/clausulazo/execute",
+                method="POST",
+                params={
+                    "player_id": str(player_id),
+                    "owner_id": str(owner_id),
+                    "amount": str(amount),
+                },
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: emergency execute failed",
+                extra={"player_id": player_id, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=config.TELEGRAM_CHAT_ID,
+                text=(
+                    f"❌ Error al ejecutar <b>Emergencia</b>: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+
+    _run_in_background(_call_execute)
 
 
 def _run_emergencia_cancel(edit_into: tuple[str, int] | None) -> None:
@@ -304,26 +337,30 @@ def _run_emergencia_refine(params: dict, edit_into: tuple[str, int] | None) -> N
         chat_id=config.TELEGRAM_CHAT_ID,
         text="⏳ <b>Emergencia</b> — buscando objetivo…",
     )
-    try:
-        api_client.call_api(
-            config.BIWENGER_API_URL,
-            "/emergency/clausulazo/preview",
-            method="POST",
-            params=params,
-        )
-    except Exception as exc:
-        logger.error(
-            "Webhook: emergency refine failed",
-            extra={"params": params, "error": str(exc)},
-        )
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=(
-                f"❌ Error al ejecutar <b>Emergencia</b>: "
-                f"<code>{html.escape(str(exc))}</code>"
-            ),
-        )
+
+    def _call_refine() -> None:
+        try:
+            api_client.call_api(
+                config.BIWENGER_API_URL,
+                "/emergency/clausulazo/preview",
+                method="POST",
+                params=params,
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: emergency refine failed",
+                extra={"params": params, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=config.TELEGRAM_CHAT_ID,
+                text=(
+                    f"❌ Error al ejecutar <b>Emergencia</b>: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+
+    _run_in_background(_call_refine)
 
 
 def _handle_callback(cb: dict) -> None:

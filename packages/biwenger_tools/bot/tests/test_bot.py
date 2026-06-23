@@ -22,6 +22,18 @@ def patch_config():
     yield
 
 
+@pytest.fixture(autouse=True)
+def run_background_sync():
+    """Force `_run_in_background` to run sync so the test thread sees the
+    mocked api call before asserting. Production keeps the daemon-thread
+    behaviour."""
+    with patch(
+        "packages.biwenger_tools.bot.app._run_in_background",
+        side_effect=lambda fn, *a, **kw: fn(*a, **kw),
+    ):
+        yield
+
+
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
