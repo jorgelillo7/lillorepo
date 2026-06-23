@@ -31,7 +31,7 @@ def test_run_daily_skips_send_when_telegram_creds_missing():
     with patch(_patches("config")) as mock_cfg, patch(
         _patches("build_context"), return_value=_build_ctx(biwenger)
     ), patch(_patches("require_telegram"), return_value=None) as mock_creds, patch(
-        _patches("_send_image_or_text_fallback")
+        _patches("send_image_or_text_fallback")
     ) as mock_send:
         mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
         mock_cfg.MARKET_URL = "x"
@@ -62,7 +62,7 @@ def _digest_env(*, auto_bid_result=None, auto_bid_raises=None):
         patch(_patches("require_telegram"), return_value=("tok", "chat"))
     )
     mock_send = stack.enter_context(
-        patch(_patches("_send_image_or_text_fallback"), return_value=True)
+        patch(_patches("send_image_or_text_fallback"), return_value=True)
     )
     # `build_table_image` runs synchronously before `_send_image` — patching
     # the renderer avoids matplotlib choking on the empty-row stub data.
@@ -149,15 +149,16 @@ def test_send_image_or_text_fallback_sends_text_on_telegram_delivery_error():
     """When `sendPhoto` raises, the helper must post a text fallback so the
     user still sees the section landed even if Telegram refused the image."""
     from core.sdk.telegram import TelegramDeliveryError
-    from packages.biwenger_tools.api.logic import digests
+    from packages.biwenger_tools.api.logic import orchestration
 
+    orch = "packages.biwenger_tools.api.logic.orchestration."
     with patch(
-        _patches("send_telegram_photo_or_raise"),
+        orch + "send_telegram_photo_or_raise",
         side_effect=TelegramDeliveryError("boom"),
-    ), patch(_patches("send_telegram_message")) as mock_text, patch(
-        _patches("time.sleep")
-    ):
-        ok = digests._send_image_or_text_fallback("tok", "chat", b"img", "Mi equipo")
+    ), patch(orch + "send_telegram_message") as mock_text, patch(orch + "time.sleep"):
+        ok = orchestration.send_image_or_text_fallback(
+            "tok", "chat", b"img", "Mi equipo"
+        )
 
     assert ok is False
     mock_text.assert_called_once()

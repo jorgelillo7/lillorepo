@@ -26,6 +26,7 @@ from packages.biwenger_tools.api.logic.orchestration import (
     build_biwenger_session,
     build_context,
     require_telegram,
+    send_image_or_text_fallback,
 )
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
@@ -141,6 +142,10 @@ def run_teams(manager_id: int | None = None) -> dict:
         return {"sent": 1, "manager": manager_name, "size": len(rows)}
 
     # All-managers mode (original /analizar): every squad + market.
+    # Uses `send_image_or_text_fallback` so a single Telegram refusal
+    # doesn't kill the rest of the run — with 10+ sequential photo
+    # uploads, compounding flakiness used to leave the user with a
+    # partial output and a generic "❌ Error" from the bot.
     my_team: list[dict] = []
     rivals: dict[str, list[dict]] = {}
 
@@ -158,27 +163,35 @@ def run_teams(manager_id: int | None = None) -> dict:
             )
         time.sleep(0.5)
 
-    _send_image(
+    sent_count = 0
+    if send_image_or_text_fallback(
         token, chat_id, build_table_image(my_team, "🛡️ Mi equipo"), "🛡️ Mi equipo"
-    )
+    ):
+        sent_count += 1
     for manager_name, rows in rivals.items():
         img = build_table_image(
             rows, f"👤 {manager_name}", extra_cols=["Clausulable", "Cláusula"]
         )
-        _send_image(token, chat_id, img, f"👤 {manager_name}")
+        if send_image_or_text_fallback(token, chat_id, img, f"👤 {manager_name}"):
+            sent_count += 1
 
     market_players = biwenger.get_market_players(config.MARKET_URL)
     market_rows = build_market_rows(market_players, biwenger_players, jp_index)
-    _send_image(
+    if send_image_or_text_fallback(
         token, chat_id, build_table_image(market_rows, "🛒 Mercado"), "🛒 Mercado"
-    )
+    ):
+        sent_count += 1
 
     logger.info(
         "All-teams analysis sent.",
-        extra={"teams": 1 + len(rivals), "market": len(market_rows)},
+        extra={
+            "teams": 1 + len(rivals),
+            "market": len(market_rows),
+            "images_sent": sent_count,
+        },
     )
     return {
-        "sent": 2 + len(rivals),
+        "sent": sent_count,
         "teams": 1 + len(rivals),
         "market": len(market_rows),
     }
