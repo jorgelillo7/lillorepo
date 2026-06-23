@@ -6,13 +6,7 @@ gives the user a coherent morning message (squad → market → bids) in
 guaranteed order, instead of two independent Scheduler jobs racing.
 """
 
-import time
-
-from core.sdk.telegram import (
-    TelegramDeliveryError,
-    send_telegram_message,
-    send_telegram_photo_or_raise,
-)
+from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import auto_bid
@@ -20,42 +14,11 @@ from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
+    send_image_or_text_fallback,
 )
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
 logger = get_logger(__name__)
-
-
-def _send_image_or_text_fallback(
-    token: str, chat_id: str, image: bytes, caption: str
-) -> bool:
-    """sendPhoto + a small pause to stay under Telegram's send-rate cap.
-
-    Returns True on success. On photo failure (Telegram refusal, network
-    blip), sends a short text fallback instead and returns False. The
-    digest must NOT raise here — a single broken photo would otherwise
-    skip every later step (mercado, auto-bid). The user gets nothing.
-    The text fallback at least flags that something rendered but couldn't
-    be delivered as image so the auto-bid still runs.
-    """
-    try:
-        send_telegram_photo_or_raise(token, chat_id, image, caption)
-        time.sleep(0.5)
-        return True
-    except TelegramDeliveryError as exc:
-        logger.error(
-            "Digest: photo delivery failed, sending text fallback.",
-            extra={"caption": caption, "error": str(exc)},
-        )
-        send_telegram_message(
-            bot_token=token,
-            chat_id=chat_id,
-            text=(
-                f"⚠️ <b>{caption}</b> — la foto no salió "
-                "(Telegram rechazó el envío). Continúo con el resto del digest."
-            ),
-        )
-        return False
 
 
 def _safe_run_auto_bid() -> dict:
@@ -119,13 +82,13 @@ def _run_daily_inner() -> dict:
         config.USER_SQUAD_URL, ctx.biwenger.user_id
     )
     my_team = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
-    team_sent = _send_image_or_text_fallback(
+    team_sent = send_image_or_text_fallback(
         token, chat_id, build_table_image(my_team, "Mi equipo"), "Mi equipo"
     )
 
     market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
     market_rows = build_market_rows(market_players, ctx.biwenger_players, ctx.jp_index)
-    market_sent = _send_image_or_text_fallback(
+    market_sent = send_image_or_text_fallback(
         token, chat_id, build_table_image(market_rows, "Mercado"), "Mercado"
     )
 
