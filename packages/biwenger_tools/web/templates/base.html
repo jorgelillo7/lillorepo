@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Tablón Biwenger{% endblock %}</title>
+
+    <!-- iOS home-screen integration. Without these, iOS uses a screenshot
+         of the page and the first letter of the current page title — so
+         /comunicados landed as a "C" instead of "Lloros League Web". -->
+    <link rel="apple-touch-icon" sizes="180x180"
+          href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="180x180"
+          href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <meta name="apple-mobile-web-app-title" content="Lloros League Web">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#38a169">
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
