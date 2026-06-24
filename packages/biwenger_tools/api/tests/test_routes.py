@@ -377,3 +377,62 @@ def test_budget_recommendations_clamps_query_params(client):
     assert [c.kwargs["top"] for c in calls] == [10, 1, 3]
     # margin: 99999999999 → 50M, -1 → 0, garbage → None (fall back to dynamic)
     assert [c.kwargs["margin"] for c in calls] == [50_000_000, 0, None]
+
+
+# --- /offers/inbox and /offers/decide -------------------------------------
+
+
+def test_offers_inbox_calls_run_offers_inbox(client):
+    fake = {"sent": 2, "offers": 2}
+    with patch(
+        "packages.biwenger_tools.api.app.offers.run_offers_inbox",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/offers/inbox")
+    mock_run.assert_called_once_with()
+    assert resp.status_code == 200
+    assert resp.get_json()["sent"] == 2
+
+
+def test_offers_inbox_rejects_get(client):
+    resp = client.get("/offers/inbox")
+    assert resp.status_code == 405
+
+
+def test_offers_decide_accepts(client):
+    fake = {
+        "sent": 1,
+        "offer_id": 42,
+        "decision": "accepted",
+        "final_status": "processed",
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.offers.run_offer_decision",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/offers/decide?offer_id=42&decision=accepted")
+    mock_run.assert_called_once_with(offer_id=42, decision="accepted")
+    assert resp.status_code == 200
+    assert resp.get_json()["final_status"] == "processed"
+
+
+def test_offers_decide_rejects_missing_offer_id(client):
+    resp = client.post("/offers/decide?decision=accepted")
+    assert resp.status_code == 400
+    assert "offer_id" in resp.get_json()["error"]
+
+
+def test_offers_decide_rejects_non_int_offer_id(client):
+    resp = client.post("/offers/decide?offer_id=abc&decision=accepted")
+    assert resp.status_code == 400
+
+
+def test_offers_decide_rejects_invalid_decision(client):
+    resp = client.post("/offers/decide?offer_id=1&decision=maybe")
+    assert resp.status_code == 400
+    assert "decision" in resp.get_json()["error"]
+
+
+def test_offers_decide_rejects_get(client):
+    resp = client.get("/offers/decide?offer_id=1&decision=accepted")
+    assert resp.status_code == 405

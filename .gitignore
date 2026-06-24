@@ -23,3 +23,5 @@ Thumbs.db
 
 #bazel
 bazel-*
+# Session-scoped Claude plans (see CLAUDE.md → ## Plans)
+.claude/plans/

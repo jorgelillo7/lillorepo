@@ -45,8 +45,14 @@ def test_run_daily_skips_send_when_telegram_creds_missing():
     mock_creds.assert_called_once()
 
 
-def _digest_env(*, auto_bid_result=None, auto_bid_raises=None):
-    """Helper: wire `run_daily`'s collaborators so only auto_bid varies."""
+def _digest_env(
+    *,
+    auto_bid_result=None,
+    auto_bid_raises=None,
+    offers_result=None,
+    offers_raises=None,
+):
+    """Helper: wire `run_daily`'s collaborators so only the varying step changes."""
     stack = ExitStack()
     mock_cfg = stack.enter_context(patch(_patches("config")))
     biwenger = MagicMock()
@@ -76,16 +82,29 @@ def _digest_env(*, auto_bid_result=None, auto_bid_raises=None):
             patch(_patches("auto_bid.run_auto_bid"), return_value=auto_bid_result or {})
         )
 
+    # The offers inbox step. Default: silent (empty inbox).
+    if offers_raises is not None:
+        mock_offers = stack.enter_context(
+            patch(_patches("offers.run_offers_inbox"), side_effect=offers_raises)
+        )
+    else:
+        mock_offers = stack.enter_context(
+            patch(
+                _patches("offers.run_offers_inbox"),
+                return_value=offers_result or {"sent": 0, "offers": 0},
+            )
+        )
+
     mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
     mock_cfg.MARKET_URL = "x"
-    return stack, mock_send, mock_auto_bid
+    return stack, mock_send, mock_auto_bid, mock_offers
 
 
 def test_run_daily_chains_auto_bid_after_sending_images():
     """`run_daily` must call `auto_bid.run_auto_bid()` exactly once, after
     both PNGs have been sent — that's what gives the chat a clean
     squad → market → bids ordering."""
-    stack, mock_send, mock_auto_bid = _digest_env(
+    stack, mock_send, mock_auto_bid, _ = _digest_env(
         auto_bid_result={"bid_count": 2, "skipped_count": 3, "total_bid_eur": 4_000_000}
     )
     try:
@@ -105,7 +124,7 @@ def test_run_daily_chains_auto_bid_after_sending_images():
 def test_run_daily_swallows_auto_bid_failure_and_still_returns_digest_summary():
     """A broken auto-bid run must not lose the digest we already sent. The
     summary surfaces the error, but the route stays 200 OK."""
-    stack, mock_send, mock_auto_bid = _digest_env(
+    stack, mock_send, mock_auto_bid, _ = _digest_env(
         auto_bid_raises=RuntimeError("biwenger 503")
     )
     try:
@@ -128,7 +147,7 @@ def test_run_daily_continues_to_auto_bid_when_first_photo_fails():
     never ran. The fix: photo failure is now caught per-image, replaced
     by a text fallback, and the rest of the digest (mercado + auto-bid)
     continues to run."""
-    stack, mock_send, mock_auto_bid = _digest_env(
+    stack, mock_send, mock_auto_bid, _ = _digest_env(
         auto_bid_result={"bid_count": 1, "skipped_count": 0, "total_bid_eur": 1_000_000}
     )
     mock_send.return_value = False  # both photos fail
@@ -187,3 +206,43 @@ def test_run_daily_notifies_telegram_when_inner_raises():
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Digest diario falló" in text
     assert "biwenger 503" in text
+
+
+# --- offers inbox chained at the end --------------------------------------
+
+
+def test_run_daily_chains_offers_inbox_after_auto_bid():
+    """The offers step runs after auto-bid and its result is surfaced in
+    the returned summary."""
+    stack, _, mock_auto_bid, mock_offers = _digest_env(
+        offers_result={"sent": 2, "offers": 2}
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_auto_bid.assert_called_once()
+    mock_offers.assert_called_once()
+    assert result["offers"] == {"sent": 2, "offers": 2}
+
+
+def test_run_daily_swallows_offers_inbox_failure():
+    """A blown offers step must not break the digest — the auto-bid summary
+    is already delivered."""
+    stack, _, mock_auto_bid, mock_offers = _digest_env(
+        offers_raises=RuntimeError("offers boom")
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_auto_bid.assert_called_once()
+    mock_offers.assert_called_once()
+    assert "error" in result["offers"]
+    assert "offers boom" in result["offers"]["error"]

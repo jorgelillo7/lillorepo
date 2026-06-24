@@ -17,6 +17,7 @@ from packages.biwenger_tools.api.logic import (
     auto_bid,
     digests,
     emergency,
+    offers,
     recommendations,
     scraper,
 )
@@ -210,6 +211,46 @@ def emergency_clausulazo_execute():
         lambda: emergency.execute_clausulazo(
             player_id=player_id, owner_user_id=owner_id, amount=amount
         ),
+    )
+
+
+@app.route("/offers/inbox", methods=["POST"])
+def offers_inbox():
+    """List + score received offers, post one Telegram message per offer."""
+    return _run_action("offers.inbox", offers.run_offers_inbox)
+
+
+@app.route("/offers/decide", methods=["POST"])
+def offers_decide():
+    """Accept or reject a received offer.
+
+    Query params:
+      - `offer_id` (int, required)
+      - `decision` (string, required; must be `accepted` or `rejected`)
+    """
+    try:
+        offer_id = int(request.args["offer_id"])
+    except (KeyError, TypeError, ValueError):
+        return (
+            jsonify({"status": "error", "error": "offer_id required (int)"}),
+            400,
+        )
+    decision = (request.args.get("decision") or "").strip().lower()
+    if decision not in offers.VALID_DECISIONS:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "error": (
+                        "decision must be one of " f"{list(offers.VALID_DECISIONS)}"
+                    ),
+                }
+            ),
+            400,
+        )
+    return _run_action(
+        "offers.decide",
+        lambda: offers.run_offer_decision(offer_id=offer_id, decision=decision),
     )
 
 

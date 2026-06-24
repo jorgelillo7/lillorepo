@@ -109,6 +109,7 @@ def test_wrong_chat_callback_is_silently_ignored(client):
         ("/pujar", "/market/auto-bid", "POST", None),
         ("/scrapper", "/scraper/trigger", "POST", None),
         ("/emergencia", "/emergency/clausulazo/preview", "POST", None),
+        ("/ofertas", "/offers/inbox", "POST", None),
     ],
 )
 def test_text_command_calls_api(client, command, path, method, params):
@@ -220,12 +221,14 @@ def test_menu_sends_persistent_reply_keyboard(client):
     assert markup is not None
     assert markup.get("is_persistent") is True
     assert markup.get("resize_keyboard") is True
-    # 6 actions arranged in 2 columns → 3 rows
-    assert len(markup["keyboard"]) == 3
+    # 8 actions arranged in 2 columns → 4 rows
+    assert len(markup["keyboard"]) == 4
     flattened = [b["text"] for row in markup["keyboard"] for b in row]
     assert "📊 Analizar" in flattened
     assert "💸 Pujar" in flattened
     assert "🧹 Scraper" in flattened
+    assert "📥 Ofertas" in flattened
+    assert "🚨 Emergencia" in flattened
 
 
 def test_start_aliases_menu(client):
@@ -248,6 +251,8 @@ def test_start_aliases_menu(client):
         ("💡 Recomendar", "/budget/recommendations", "GET"),
         ("💸 Pujar", "/market/auto-bid", "POST"),
         ("🧹 Scraper", "/scraper/trigger", "POST"),
+        ("📥 Ofertas", "/offers/inbox", "POST"),
+        ("🚨 Emergencia", "/emergency/clausulazo/preview", "POST"),
     ],
 )
 def test_reply_keyboard_label_dispatches_action(client, label, path, method):
@@ -404,6 +409,78 @@ def test_unknown_callback_prefix_is_ignored(client):
         "packages.biwenger_tools.bot.app.api_client.call_api"
     ) as mock_call:
         resp = _post(client, _callback_update(_VALID_CHAT, "bogus:value"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+
+
+# --- /ofertas callback (o:a|r|i:<id>) handling ----------------------------
+
+
+def test_ofertas_accept_callback_posts_decide_accepted(client):
+    """`o:a:<id>` → POST /offers/decide?decision=accepted; keyboard stripped."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "o:a:12345"))
+    assert resp.status_code == 200
+    mock_strip.assert_called_once()
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/offers/decide",
+        method="POST",
+        params={"offer_id": "12345", "decision": "accepted"},
+    )
+
+
+def test_ofertas_reject_callback_posts_decide_rejected(client):
+    """`o:r:<id>` → POST /offers/decide?decision=rejected."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "o:r:12345"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/offers/decide",
+        method="POST",
+        params={"offer_id": "12345", "decision": "rejected"},
+    )
+
+
+def test_ofertas_ignore_callback_edits_message_and_does_not_call_api(client):
+    """`o:i:<id>` strips the keyboard, edits the message text to "ignorada",
+    and never hits the api."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "o:i:12345"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    text = mock_edit.call_args.kwargs.get("text", "")
+    assert "ignorada" in text.lower()
+    assert "12345" in text
+
+
+def test_ofertas_malformed_callback_is_ignored(client):
+    """Garbage in the `o:` payload must not hit the api."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "o:x:999"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+
+
+def test_ofertas_non_int_offer_id_is_ignored(client):
+    """`o:a:notanint` must NOT POST (would 400 server-side with no context)."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "o:a:notanint"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
 
