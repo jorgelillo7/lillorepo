@@ -1,15 +1,18 @@
-"""Daily digest logic — sends "my team + market + auto-bid summary" to Telegram.
+"""Daily digest logic — sends "my team + market + auto-bid + offers inbox" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
-auto-bid step is chained at the end on purpose: a single daily cron
-gives the user a coherent morning message (squad → market → bids) in
-guaranteed order, instead of two independent Scheduler jobs racing.
+chain (squad → market → bids → offers) is fired in this order so the user
+gets a coherent morning briefing in guaranteed sequence, instead of
+multiple independent Scheduler jobs racing.
+
+Each downstream step (auto-bid, offers inbox) is wrapped in a swallow-on-
+failure helper so one failing step doesn't lose the rest of the digest.
 """
 
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import auto_bid
+from packages.biwenger_tools.api.logic import auto_bid, offers
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
@@ -27,6 +30,16 @@ def _safe_run_auto_bid() -> dict:
         return auto_bid.run_auto_bid()
     except Exception as exc:
         logger.exception("Auto-bid step failed inside daily digest.")
+        return {"error": str(exc)}
+
+
+def _safe_run_offers_inbox(ctx) -> dict:
+    """Run the offers inbox step but never raise. Reuses the digest's ctx
+    so we don't pay a second JP+Biwenger round-trip."""
+    try:
+        return offers.run_offers_inbox(ctx)
+    except Exception as exc:
+        logger.exception("Offers inbox step failed inside daily digest.")
         return {"error": str(exc)}
 
 
@@ -93,6 +106,7 @@ def _run_daily_inner() -> dict:
     )
 
     auto_bid_result = _safe_run_auto_bid()
+    offers_result = _safe_run_offers_inbox(ctx)
 
     sent_count = int(team_sent) + int(market_sent)
     logger.info(
@@ -103,6 +117,8 @@ def _run_daily_inner() -> dict:
             "images_sent": sent_count,
             "auto_bid_placed": auto_bid_result.get("bid_count"),
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
+            "offers_inbox": offers_result.get("offers"),
+            "offers_sent": offers_result.get("sent"),
         },
     )
     return {
@@ -110,4 +126,5 @@ def _run_daily_inner() -> dict:
         "my_team": len(my_team),
         "market": len(market_rows),
         "auto_bid": auto_bid_result,
+        "offers": offers_result,
     }

@@ -38,6 +38,10 @@ COMMANDS = [
         "description": "Lanza el auto-bid del mercado diario por tiers",
     },
     {
+        "command": "ofertas",
+        "description": "Ofertas entrantes con recomendación + botones",
+    },
+    {
         "command": "emergencia",
         "description": "Clausulazo de emergencia con confirmación (irreversible)",
     },

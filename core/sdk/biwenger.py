@@ -20,6 +20,7 @@ LOGIN_URL = f"{BIWENGER_API_BASE}/auth/login"
 ACCOUNT_URL = f"{BIWENGER_API_BASE}/account"
 MARKET_URL = f"{BIWENGER_API_BASE}/market"
 OFFERS_URL = f"{BIWENGER_API_BASE}/offers"
+USER_OFFERS_URL = f"{BIWENGER_API_BASE}/user?fields=offers(*,from(*),to(*))"
 LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
@@ -419,6 +420,89 @@ class BiwengerClient:
                 "amount": amount,
                 "offer_id": data.get("id"),
                 "status": data.get("status"),
+            },
+        )
+        return data
+
+    def get_received_offers(self, user_offers_url: str = USER_OFFERS_URL) -> list:
+        """Return the user's pending received offers (status="waiting").
+
+        Hits `/api/v2/user?fields=offers(*,from(*),to(*))` — the inbox
+        endpoint that the Biwenger app reads. The plain `/offers` returns
+        only historical (expired/processed) entries; the inbox lives here.
+
+        Filter applied: `to.id == self.user_id` (offers TO me) and
+        `status == "waiting"`. `from` is left to the caller to interpret:
+
+        - ``from is None`` (or ``{}`` with no id) → MERCADO PÚBLICO (Biwenger
+          auto-generates these when you put a player on sale).
+        - ``from = {"id": X, "name": ...}`` → rival manager X is offering.
+
+        Each entry shape (after `fields=offers(*,from(*),to(*))`):
+
+            {
+              id: int,
+              type: "purchase",
+              amount: int (euros),
+              status: "waiting",
+              created: unix_ts,
+              until:   unix_ts,
+              from: {id, name, icon} | null,
+              to:   {id, name, icon},
+              requestedPlayers: [int],
+            }
+        """
+        response = self.session.get(user_offers_url, timeout=30)
+        response.raise_for_status()
+        offers = (response.json().get("data") or {}).get("offers") or []
+        inbox = [
+            o
+            for o in offers
+            if o.get("status") == "waiting"
+            and ((o.get("to") or {}).get("id") == self.user_id)
+        ]
+        logger.info(
+            "Received offers fetched.",
+            extra={"total": len(offers), "inbox": len(inbox)},
+        )
+        return inbox
+
+    def decide_offer(
+        self, offer_id: int, decision: str, offers_url: str = OFFERS_URL
+    ) -> dict:
+        """Accept or reject a received offer.
+
+        Captured live against Biwenger 2026-06-24:
+            PUT /api/v2/offers/{id}
+            Body: {"status": "accepted"|"rejected"}
+            Response: {"status": 200, "data": {<echoed offer>, status: ...}}
+
+        After a successful accept the response `data.status` flips to
+        "processed" (Biwenger has executed the transaction). After a reject
+        it remains "rejected". Caller can inspect the returned dict to
+        confirm the outcome and post a Telegram confirmation.
+
+        Raises HTTPError on 4xx/5xx so the caller can surface the error.
+        """
+        if decision not in ("accepted", "rejected"):
+            raise ValueError(
+                f"decision must be 'accepted' or 'rejected', got {decision}"
+            )
+        url = f"{offers_url}/{int(offer_id)}"
+        payload = {"status": decision}
+        logger.info(
+            "Deciding offer.",
+            extra={"offer_id": offer_id, "decision": decision},
+        )
+        response = self.session.put(url, json=payload, timeout=30)
+        response.raise_for_status()
+        data = (response.json() or {}).get("data") or {}
+        logger.info(
+            "Offer decision accepted by Biwenger.",
+            extra={
+                "offer_id": offer_id,
+                "requested": decision,
+                "final_status": data.get("status"),
             },
         )
         return data

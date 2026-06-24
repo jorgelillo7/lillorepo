@@ -16,12 +16,17 @@ from typing import Iterable
 from core.sdk.telegram import build_persistent_reply_keyboard
 
 # Main-menu actions. Order matters — the rows in the keyboard mirror this.
+# Layout (2 columns):
+#   Lectura/análisis  ·  Decisiones tácticas
+#   Acciones mercado  ·  Operación crítica / utilidad
 MAIN_MENU_ACTIONS = [
     ("analizar", "📊 Analizar"),
     ("mercado", "🛒 Mercado"),
     ("alinear", "📋 Alinear"),
     ("recomendar", "💡 Recomendar"),
+    ("ofertas", "📥 Ofertas"),
     ("pujar", "💸 Pujar"),
+    ("emergencia", "🚨 Emergencia"),
     ("scrapper", "🧹 Scraper"),
 ]
 

@@ -49,10 +49,13 @@ _HELP_TEXT = (
     "/preview — Previsualiza la alineación sin aplicarla\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
+    "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
-    "/help — Muestra este mensaje"
+    "/help — Muestra este mensaje\n\n"
+    "<i>Desktop:</i> si no ves el menú visual, pulsa el icono de "
+    "teclado junto al input para desplegarlo."
 )
 
 # Map main-menu action key → (api path, http method, query params).
@@ -67,6 +70,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "pujar": ("/market/auto-bid", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
     "emergencia": ("/emergency/clausulazo/preview", "POST", None),
+    "ofertas": ("/offers/inbox", "POST", None),
 }
 
 
@@ -363,6 +367,72 @@ def _run_emergencia_refine(params: dict, edit_into: tuple[str, int] | None) -> N
     _run_in_background(_call_refine)
 
 
+def _run_offer_decision(decision_char: str, offer_id_str: str, edit_into) -> None:
+    """Handle a tap on the ✅/❌/⏰ buttons under an `/ofertas` message.
+
+    `decision_char` is the single-letter callback marker:
+    - `a` → accept (PUT to api with decision="accepted")
+    - `r` → reject (PUT with decision="rejected")
+    - `i` → ignore (bot-side only: strip buttons, edit message text)
+
+    `edit_into` is `(chat_id, message_id)` of the offer message so we
+    can drop the keyboard once tapped — no double-confirm possible.
+    """
+    try:
+        offer_id = int(offer_id_str)
+    except ValueError:
+        logger.info("Webhook: bad offer_id in callback", extra={"raw": offer_id_str})
+        return
+
+    if edit_into is not None:
+        chat_id, message_id = edit_into
+        edit_message_reply_markup(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup={"inline_keyboard": []},
+        )
+
+    if decision_char == "i":
+        if edit_into is not None:
+            chat_id, message_id = edit_into
+            edit_message_text(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                message_id=message_id,
+                text=f"⏰ <b>Oferta ignorada</b> · id <code>{offer_id}</code>",
+            )
+        return
+
+    decision = "accepted" if decision_char == "a" else "rejected"
+    label = "Aceptar" if decision_char == "a" else "Rechazar"
+
+    def _call_decide() -> None:
+        try:
+            api_client.call_api(
+                config.BIWENGER_API_URL,
+                "/offers/decide",
+                method="POST",
+                params={"offer_id": str(offer_id), "decision": decision},
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: offer decision failed",
+                extra={"offer_id": offer_id, "decision": decision, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=config.TELEGRAM_CHAT_ID,
+                text=(
+                    f"❌ Error al {label.lower()} oferta "
+                    f"<code>{offer_id}</code>: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+
+    _run_in_background(_call_decide)
+
+
 def _handle_callback(cb: dict) -> None:
     """Dispatch on the callback_data prefix.
 
@@ -372,6 +442,8 @@ def _handle_callback(cb: dict) -> None:
     - `e:p:<position_id>` — selector "reinforce this position".
     - `e:m` — selector "weakest line" fallback.
     - `e:n` — cancel /emergencia.
+    - `o:a:<offer_id>` / `o:r:<offer_id>` / `o:i:<offer_id>` — accept /
+      reject / ignore a received offer (the inbox flow).
     """
     answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
     data = cb.get("data", "")
@@ -396,6 +468,15 @@ def _handle_callback(cb: dict) -> None:
             )
         else:
             _run_emergencia_confirm(value, edit_into)
+        return
+
+    if prefix == "o":
+        # Expected shape: `o:a:<id>` / `o:r:<id>` / `o:i:<id>`.
+        parts = value.split(":", 1)
+        if len(parts) != 2 or parts[0] not in ("a", "r", "i"):
+            logger.info("Webhook: malformed offer callback", extra={"value": value})
+            return
+        _run_offer_decision(parts[0], parts[1], edit_into)
         return
 
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
@@ -478,6 +559,8 @@ def webhook():
         _dispatch_action("scrapper", "🧹 Scraper")
     elif cmd == "/emergencia":
         _dispatch_action("emergencia", "🚨 Emergencia")
+    elif cmd == "/ofertas":
+        _dispatch_action("ofertas", "📥 Ofertas")
     elif cmd == "/help":
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,

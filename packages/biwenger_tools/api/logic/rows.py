@@ -73,13 +73,16 @@ def build_squad_rows(
         row = build_row(bw_player, jp_index)
         # `row["price"]` MUST stay as the cf.biwenger.com base price (not
         # `owner.price`). Biwenger's server validates the 3M captain MV cap
-        # against cf-base; using owner.price (per-league live MV) silently
-        # passes the client check then gets rejected with
-        # "Captain over max MV". The maxBid math in `core/sdk/biwenger.py`
-        # also reads cf-base. `owner.price` is only used for the clause
-        # block below.
+        # against cf-base; using owner.price client-side passes then gets
+        # rejected with "Captain over max MV". The maxBid math also reads
+        # cf-base. `owner.price` is what YOU paid for the player (acquisition
+        # price), surfaced as `acq_price` for the /ofertas algorithm.
+        owner = player_data.get("owner") or {}
+        row["acq_price"] = int(owner.get("price") or 0)
+        row["acq_date"] = owner.get("date")
+        last_clause = owner.get("lastClause") or {}
+        row["acq_from"] = (last_clause.get("user") or {}).get("name")
         if include_clause:
-            owner = player_data.get("owner") or {}
             locked_until = owner.get("clauseLockedUntil")
             clause_raw = owner.get("clause")
             # Formatted strings — consumed by the PNG renderer.
