@@ -126,7 +126,8 @@ def _ctx_with_offers(returned_offers):
     )
 
 
-def test_run_offers_inbox_silent_when_empty():
+def test_run_offers_inbox_silent_when_empty_default():
+    """Default (digest mode): empty inbox → no Telegram send."""
     ctx = _ctx_with_offers([])
     with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
         _p("send_telegram_message")
@@ -134,6 +135,20 @@ def test_run_offers_inbox_silent_when_empty():
         result = offers.run_offers_inbox(ctx)
     mock_send.assert_not_called()
     assert result == {"sent": 0, "offers": 0}
+
+
+def test_run_offers_inbox_notifies_when_empty_and_requested():
+    """On-demand mode (notify_empty=True): empty inbox → "📭 Sin ofertas
+    pendientes" so the user gets a reply instead of staring at "procesando…"."""
+    ctx = _ctx_with_offers([])
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("send_telegram_message")
+    ) as mock_send:
+        result = offers.run_offers_inbox(ctx, notify_empty=True)
+    mock_send.assert_called_once()
+    text = mock_send.call_args.kwargs.get("text", "")
+    assert "Sin ofertas" in text
+    assert result == {"sent": 1, "offers": 0}
 
 
 def test_run_offers_inbox_sends_one_message_per_offer():

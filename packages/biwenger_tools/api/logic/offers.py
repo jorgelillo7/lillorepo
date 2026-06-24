@@ -64,15 +64,23 @@ STAR_OVERRIDE_OVER_MARKET_PCT = 25.0
 # ---------------------------------------------------------------------------
 
 
-def run_offers_inbox(ctx: Optional[OrchestratorContext] = None) -> dict:
+def run_offers_inbox(
+    ctx: Optional[OrchestratorContext] = None,
+    *,
+    notify_empty: bool = False,
+) -> dict:
     """Fetch + score the inbox, post one Telegram message per offer.
 
     `ctx` is optional so the digest can pass the already-built context
     instead of paying a second JP+Biwenger round-trip. When None we build
     one ourselves (manual `/ofertas` from the bot).
 
-    Silent when the inbox is empty — no spam in the daily digest if the
-    user has no pending offers.
+    `notify_empty` controls the empty-inbox UX:
+      - `False` (default) — digest mode: stay silent so a morning with no
+        pending offers doesn't add noise to the briefing.
+      - `True` — on-demand `/ofertas` from the bot: send a "📭 Sin ofertas
+        pendientes" message so the user gets a clear answer instead of
+        staring at the "procesando…" line forever.
     """
     ctx = ctx or build_context()
     telegram = require_telegram()
@@ -83,6 +91,13 @@ def run_offers_inbox(ctx: Optional[OrchestratorContext] = None) -> dict:
     inbox = ctx.biwenger.get_received_offers()
     if not inbox:
         logger.info("Offers inbox empty — skipping send.")
+        if notify_empty:
+            send_telegram_message(
+                bot_token=token,
+                chat_id=chat_id,
+                text="📭 <b>Sin ofertas pendientes.</b>",
+            )
+            return {"sent": 1, "offers": 0}
         return {"sent": 0, "offers": 0}
 
     # One squad fetch + lineup pick to drive the is-in-current-11 signal.

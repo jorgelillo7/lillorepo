@@ -382,14 +382,17 @@ def test_budget_recommendations_clamps_query_params(client):
 # --- /offers/inbox and /offers/decide -------------------------------------
 
 
-def test_offers_inbox_calls_run_offers_inbox(client):
+def test_offers_inbox_calls_run_offers_inbox_with_notify_empty(client):
+    """On-demand `/offers/inbox` must pass `notify_empty=True` so an
+    empty inbox lands a "📭 Sin ofertas" reply in the chat. The digest's
+    own call (in `digests.py`) keeps the default silent mode."""
     fake = {"sent": 2, "offers": 2}
     with patch(
         "packages.biwenger_tools.api.app.offers.run_offers_inbox",
         return_value=fake,
     ) as mock_run:
         resp = client.post("/offers/inbox")
-    mock_run.assert_called_once_with()
+    mock_run.assert_called_once_with(notify_empty=True)
     assert resp.status_code == 200
     assert resp.get_json()["sent"] == 2
 
