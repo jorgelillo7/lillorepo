@@ -216,8 +216,19 @@ def emergency_clausulazo_execute():
 
 @app.route("/offers/inbox", methods=["POST"])
 def offers_inbox():
-    """List + score received offers, post one Telegram message per offer."""
-    return _run_action("offers.inbox", offers.run_offers_inbox)
+    """List + score received offers, post one Telegram message per offer.
+
+    `notify_empty=True` so an on-demand `/ofertas` always lands a reply in
+    the chat — without it the user is stuck staring at the bot's
+    "procesando…" line when the inbox happens to be empty. The digest
+    path (`digests.run_daily`) calls the function directly with the
+    default `notify_empty=False` so the morning briefing stays silent
+    on no-offers days.
+    """
+    return _run_action(
+        "offers.inbox",
+        lambda: offers.run_offers_inbox(notify_empty=True),
+    )
 
 
 @app.route("/offers/decide", methods=["POST"])
