@@ -12,7 +12,9 @@
           href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="180x180"
           href="{{ url_for('static', filename='apple-touch-icon.png') }}">
-    <meta name="apple-mobile-web-app-title" content="Lloros League Web">
+    <!-- Title kept under ~12 chars; iOS strips spaces when a longer string
+         doesn't fit under the icon ("Lloros League Web" → "LlorosLeagueWeb"). -->
+    <meta name="apple-mobile-web-app-title" content="Lloros League">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#38a169">
