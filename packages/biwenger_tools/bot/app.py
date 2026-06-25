@@ -445,13 +445,25 @@ def _handle_callback(cb: dict) -> None:
     - `o:a:<offer_id>` / `o:r:<offer_id>` / `o:i:<offer_id>` — accept /
       reject / ignore a received offer (the inbox flow).
     """
-    answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
     data = cb.get("data", "")
     if ":" not in data:
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"])
         logger.info("Webhook: unknown callback_data", extra={"data": data})
         return
     prefix, value = data.split(":", 1)
     edit_into = (cb["chat_id"], cb["message_id"]) if cb.get("message_id") else None
+
+    # Ack with a per-action toast where it adds UX value, otherwise plain.
+    # The toast is the only feedback the user has between the tap and the
+    # final confirmation message (which sits behind a cold-start of the
+    # api + a Biwenger round-trip, ~8 s in the worst case).
+    cb_id = cb["id"]
+    if prefix == "o" and ":" in value and value.split(":", 1)[0] in ("a", "r"):
+        marker = value.split(":", 1)[0]
+        toast = "⏳ Aceptando…" if marker == "a" else "⏳ Rechazando…"
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id, text=toast)
+    else:
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
 
     if prefix == "analizar":
         _run_analizar(value, edit_into)

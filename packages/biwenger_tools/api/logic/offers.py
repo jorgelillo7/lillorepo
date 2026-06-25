@@ -58,6 +58,14 @@ ACCEPT_OVER_MARKET_PCT = 15.0
 REJECT_UNDER_MARKET_PCT = -10.0
 STAR_OVERRIDE_OVER_MARKET_PCT = 25.0
 
+# Loss-aversion threshold. A T3+ player with this much paper loss is a
+# clear REJECT (you paid X, they offer < X * (1 - LOSS_THRESHOLD)). User
+# feedback 25/06: T2 titular paid 14M, offered 7M (-50% ROI) was scored
+# DUDOSO. Algorithm previously needed is_starter=True for T2 to reject,
+# and is_starter is flaky because pick_lineup excludes players JP has no
+# SF for. This rule kicks in regardless of the starter signal.
+REJECT_LOSS_PCT = -25.0
+
 
 # ---------------------------------------------------------------------------
 # Public entry points
@@ -290,11 +298,16 @@ def _recommend(
 
     Returns ``(recommendation, reasons)`` where ``recommendation`` is
     one of ``REC_ACCEPT``, ``REC_REJECT``, ``REC_DOUBTFUL``.
+
+    `is_starter` is a soft signal surfaced in the message but no longer
+    gates the T2+ "titular fijo" rule — `pick_lineup` can drop a real
+    starter when JP has no SF for the current matchday, which used to
+    falsely demote T2 players to DUDOSO (user feedback 25/06).
     """
     reasons: list[str] = []
 
-    # 1. Estrella o titular fijo en el 11 → RECHAZAR salvo oferta indecente.
-    if sf >= ab.TIER_ALL_IN_MIN or (sf >= ab.TIER_T2_MIN and is_starter):
+    # 1. Estrella o titular fijo (T2+) → RECHAZAR salvo oferta indecente.
+    if sf >= ab.TIER_T2_MIN:
         if vs_market_pct is not None and vs_market_pct >= STAR_OVERRIDE_OVER_MARKET_PCT:
             reasons.append(
                 f"Titular fuerte (SF {sf}) pero oferta "
@@ -306,31 +319,45 @@ def _recommend(
         )
         return REC_REJECT, reasons
 
-    # 2. Descarte o fondo de armario con plusvalía → ACEPTAR.
+    # 2. Útil (T3+) con pérdida fuerte → RECHAZAR (loss aversion).
+    # Excepción: si el mercado paga claramente sobre cf-base, compensa.
+    if sf >= ab.TIER_T3_MIN and roi_pct is not None and roi_pct <= REJECT_LOSS_PCT:
+        if vs_market_pct is not None and vs_market_pct >= ACCEPT_OVER_MARKET_PCT:
+            reasons.append(
+                f"Pierdes {roi_pct:+.0f}% sobre compra, pero oferta "
+                f"{vs_market_pct:+.0f}% sobre cf-base — compensa"
+            )
+            return REC_ACCEPT, reasons
+        reasons.append(
+            f"Jugador útil (SF {sf}); pérdida {roi_pct:+.0f}% sobre compra es excesiva"
+        )
+        return REC_REJECT, reasons
+
+    # 3. Descarte o fondo de armario con plusvalía → ACEPTAR.
     if sf < ab.TIER_T3_MIN and roi_pct is not None and roi_pct > 0:
         reasons.append(
             f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"
         )
         return REC_ACCEPT, reasons
 
-    # 3. Oferta claramente por encima del valor cf-base → ACEPTAR.
+    # 4. Oferta claramente por encima del valor cf-base → ACEPTAR.
     if vs_market_pct is not None and vs_market_pct >= ACCEPT_OVER_MARKET_PCT:
         reasons.append(f"Oferta {vs_market_pct:+.0f}% sobre cf-base — buen momento")
         return REC_ACCEPT, reasons
 
-    # 4. Oferta claramente baja → RECHAZAR.
+    # 5. Oferta claramente baja → RECHAZAR.
     if vs_market_pct is not None and vs_market_pct <= REJECT_UNDER_MARKET_PCT:
         reasons.append(
             f"Oferta {vs_market_pct:+.0f}% bajo cf-base; aguanta o lánzalo al mercado"
         )
         return REC_REJECT, reasons
 
-    # 5. Rotación con oferta razonable → DUDOSO.
+    # 6. Rotación (T3) con oferta razonable → DUDOSO.
     if ab.TIER_T3_MIN <= sf < ab.TIER_T2_MIN:
         reasons.append(f"Rotación (SF {sf}); decide según tu necesidad de cash")
         return REC_DOUBTFUL, reasons
 
-    # 6. Catch-all.
+    # 7. Catch-all.
     reasons.append("Caso límite — decide tú")
     return REC_DOUBTFUL, reasons
 

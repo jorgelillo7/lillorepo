@@ -25,11 +25,49 @@ def test_recommend_rejects_star_player():
 
 
 def test_recommend_rejects_t2_starter():
-    """T2 + is_starter → still RECHAZAR (titular fijo)."""
+    """T2 + is_starter → RECHAZAR (titular fijo)."""
     rec, _ = offers._recommend(
         sf=ab.TIER_T2_MIN + 10, roi_pct=10.0, vs_market_pct=5.0, is_starter=True
     )
     assert rec == offers.REC_REJECT
+
+
+def test_recommend_rejects_t2_even_when_not_marked_as_starter():
+    """User feedback 25/06: T2 jugador titular fijo, ofrecen 7M tras pagar 14M
+    (-50% ROI, vs_market 0%), is_starter=False porque pick_lineup le excluyó
+    al no tener SF para esta jornada. Antes caía en DUDOSO; ahora RECHAZA
+    igualmente porque T2 ya es señal suficiente."""
+    rec, _ = offers._recommend(
+        sf=ab.TIER_T2_MIN + 10, roi_pct=-50.0, vs_market_pct=0.0, is_starter=False
+    )
+    assert rec == offers.REC_REJECT
+
+
+def test_recommend_rejects_useful_player_with_heavy_loss():
+    """T3 (rotación) con pérdida >= 25% sobre lo pagado → RECHAZAR.
+    Loss-aversion rule: no aceptes pérdidas grandes en jugadores útiles."""
+    rec, reasons = offers._recommend(
+        sf=ab.TIER_T3_MIN + 50,
+        roi_pct=offers.REJECT_LOSS_PCT - 5,  # peor que -25%
+        vs_market_pct=-5.0,
+        is_starter=False,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("pérdida" in r.lower() for r in reasons)
+
+
+def test_recommend_loss_aversion_overridden_by_strong_market_premium():
+    """Excepción a la loss-aversion: si el mercado paga sobre cf-base
+    aunque tú pierdas mucho vs compra, ACEPTAR (al menos recuperas lo
+    que el mercado dice que vale + extra)."""
+    rec, reasons = offers._recommend(
+        sf=ab.TIER_T3_MIN + 50,
+        roi_pct=-40.0,
+        vs_market_pct=offers.ACCEPT_OVER_MARKET_PCT + 5,  # +20% sobre cf-base
+        is_starter=False,
+    )
+    assert rec == offers.REC_ACCEPT
+    assert any("compensa" in r.lower() for r in reasons)
 
 
 def test_recommend_star_with_indecent_offer_becomes_doubtful():
