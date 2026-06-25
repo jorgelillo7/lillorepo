@@ -23,7 +23,6 @@ from core.sdk.telegram import send_telegram_message
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import auto_bid as ab
-from packages.biwenger_tools.api.logic.lineup import pick_lineup
 from packages.biwenger_tools.api.logic.orchestration import (
     OrchestratorContext,
     build_biwenger_session,
@@ -187,23 +186,25 @@ def run_offer_decision(offer_id: int, decision: str) -> dict:
 
 
 def _starter_ids(ctx: OrchestratorContext) -> set:
-    """Resolve the bw_ids that pick_lineup would put in the starting 11.
+    """Resolve the bw_ids currently in the user's Biwenger starting 11.
 
-    Best-effort: any failure returns an empty set (the recommendation
-    then treats every offer as non-starter, which is the conservative
-    default — losing the "they are a starter, don't sell" guard).
+    Reads the actual lineup Biwenger has stored (whatever the user set
+    last) — NOT what `pick_lineup` thinks is optimal. Two reasons:
+
+    1. The user's perception of "está en mi 11" is "está alineado en
+       Biwenger ahora mismo", not "el algoritmo lo metería".
+    2. `pick_lineup` returns None when a valid 11 can't be formed (a
+       squad with 1 player + 10 empty slots, for example), and that
+       silently flips every player's is_starter to False — a real-world
+       case reported 25/06 where a fixed starter showed as "En tu 11: NO".
+
+    Best-effort: any failure returns an empty set so the recommendation
+    still works without this signal.
     """
     try:
-        my_squad = ctx.biwenger.get_manager_squad(
-            config.USER_SQUAD_URL, ctx.biwenger.user_id
-        )
-        rows = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
-        result = pick_lineup(rows)
-        if not result:
-            return set()
-        return {row["bw_id"] for row, _ in result["starters"]}
+        return ctx.biwenger.get_current_lineup_player_ids()
     except Exception:
-        logger.exception("Failed to compute starter set — treating as unknown.")
+        logger.exception("Failed to fetch current lineup — treating as unknown.")
         return set()
 
 

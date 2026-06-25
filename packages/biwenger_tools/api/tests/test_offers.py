@@ -245,6 +245,46 @@ def test_run_offer_decision_invalid_raises():
         offers.run_offer_decision(offer_id=1, decision="bogus")
 
 
+def test_starter_ids_pulls_from_biwenger_lineup_not_pick_lineup():
+    """`_starter_ids` MUST hit `BiwengerClient.get_current_lineup_player_ids()`
+    (the real lineup the user has saved on Biwenger) instead of computing
+    pick_lineup's optimal 11. Regression for 25/06: user only had 1 valid
+    player + 10 empty slots in his lineup; pick_lineup returned None, and
+    is_starter went False for everyone — including the real starter."""
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_current_lineup_player_ids.return_value = {42, 99}
+
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+    assert offers._starter_ids(ctx) == {42, 99}
+    biwenger.get_current_lineup_player_ids.assert_called_once()
+
+
+def test_starter_ids_swallows_sdk_failure():
+    """If the lineup fetch blows up the recommendation must still work,
+    just without the is_starter signal."""
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_current_lineup_player_ids.side_effect = RuntimeError("boom")
+
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+    assert offers._starter_ids(ctx) == set()
+
+
 def test_run_offer_decision_forwards_to_sdk_and_notifies():
     biwenger = MagicMock()
     biwenger.decide_offer.return_value = {"id": 1, "status": "processed"}
