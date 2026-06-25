@@ -25,11 +25,49 @@ def test_recommend_rejects_star_player():
 
 
 def test_recommend_rejects_t2_starter():
-    """T2 + is_starter → still RECHAZAR (titular fijo)."""
+    """T2 + is_starter → RECHAZAR (titular fijo)."""
     rec, _ = offers._recommend(
         sf=ab.TIER_T2_MIN + 10, roi_pct=10.0, vs_market_pct=5.0, is_starter=True
     )
     assert rec == offers.REC_REJECT
+
+
+def test_recommend_rejects_t2_even_when_not_marked_as_starter():
+    """User feedback 25/06: T2 jugador titular fijo, ofrecen 7M tras pagar 14M
+    (-50% ROI, vs_market 0%), is_starter=False porque pick_lineup le excluyó
+    al no tener SF para esta jornada. Antes caía en DUDOSO; ahora RECHAZA
+    igualmente porque T2 ya es señal suficiente."""
+    rec, _ = offers._recommend(
+        sf=ab.TIER_T2_MIN + 10, roi_pct=-50.0, vs_market_pct=0.0, is_starter=False
+    )
+    assert rec == offers.REC_REJECT
+
+
+def test_recommend_rejects_useful_player_with_heavy_loss():
+    """T3 (rotación) con pérdida >= 25% sobre lo pagado → RECHAZAR.
+    Loss-aversion rule: no aceptes pérdidas grandes en jugadores útiles."""
+    rec, reasons = offers._recommend(
+        sf=ab.TIER_T3_MIN + 50,
+        roi_pct=offers.REJECT_LOSS_PCT - 5,  # peor que -25%
+        vs_market_pct=-5.0,
+        is_starter=False,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("pérdida" in r.lower() for r in reasons)
+
+
+def test_recommend_loss_aversion_overridden_by_strong_market_premium():
+    """Excepción a la loss-aversion: si el mercado paga sobre cf-base
+    aunque tú pierdas mucho vs compra, ACEPTAR (al menos recuperas lo
+    que el mercado dice que vale + extra)."""
+    rec, reasons = offers._recommend(
+        sf=ab.TIER_T3_MIN + 50,
+        roi_pct=-40.0,
+        vs_market_pct=offers.ACCEPT_OVER_MARKET_PCT + 5,  # +20% sobre cf-base
+        is_starter=False,
+    )
+    assert rec == offers.REC_ACCEPT
+    assert any("compensa" in r.lower() for r in reasons)
 
 
 def test_recommend_star_with_indecent_offer_becomes_doubtful():
@@ -205,6 +243,46 @@ def test_run_offer_decision_invalid_raises():
 
     with pytest.raises(ValueError):
         offers.run_offer_decision(offer_id=1, decision="bogus")
+
+
+def test_starter_ids_pulls_from_biwenger_lineup_not_pick_lineup():
+    """`_starter_ids` MUST hit `BiwengerClient.get_current_lineup_player_ids()`
+    (the real lineup the user has saved on Biwenger) instead of computing
+    pick_lineup's optimal 11. Regression for 25/06: user only had 1 valid
+    player + 10 empty slots in his lineup; pick_lineup returned None, and
+    is_starter went False for everyone — including the real starter."""
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_current_lineup_player_ids.return_value = {42, 99}
+
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+    assert offers._starter_ids(ctx) == {42, 99}
+    biwenger.get_current_lineup_player_ids.assert_called_once()
+
+
+def test_starter_ids_swallows_sdk_failure():
+    """If the lineup fetch blows up the recommendation must still work,
+    just without the is_starter signal."""
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_current_lineup_player_ids.side_effect = RuntimeError("boom")
+
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+    assert offers._starter_ids(ctx) == set()
 
 
 def test_run_offer_decision_forwards_to_sdk_and_notifies():

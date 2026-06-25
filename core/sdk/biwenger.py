@@ -22,6 +22,7 @@ MARKET_URL = f"{BIWENGER_API_BASE}/market"
 OFFERS_URL = f"{BIWENGER_API_BASE}/offers"
 USER_OFFERS_URL = f"{BIWENGER_API_BASE}/user?fields=offers(*,from(*),to(*))"
 LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
+USER_LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=lineup(date,formation,players)"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
 
@@ -466,6 +467,32 @@ class BiwengerClient:
             extra={"total": len(offers), "inbox": len(inbox)},
         )
         return inbox
+
+    def get_current_lineup_player_ids(
+        self, user_lineup_url: str = USER_LINEUP_URL
+    ) -> set[int]:
+        """Return the set of `player_id` currently in the user's starting 11.
+
+        Reads `?fields=lineup(date,formation,players)` and pulls the
+        non-null entries from `data.lineup.players` (the array has slots
+        for the chosen formation; empty slots come as `null`).
+
+        Use this — NOT `pick_lineup` — when you need to know "is this
+        player in the current Biwenger lineup" (e.g. /ofertas
+        recommendation context). `pick_lineup` computes the OPTIMAL 11 and
+        returns None if a valid one can't be formed (1 player + 10 huecos),
+        which then silently flips every player's is_starter flag to False.
+        """
+        response = self.session.get(user_lineup_url, timeout=30)
+        response.raise_for_status()
+        lineup = ((response.json().get("data") or {}).get("lineup")) or {}
+        players = lineup.get("players") or []
+        ids = {p["id"] for p in players if isinstance(p, dict) and p.get("id")}
+        logger.info(
+            "Current lineup fetched.",
+            extra={"formation": lineup.get("formation"), "filled_slots": len(ids)},
+        )
+        return ids
 
     def decide_offer(
         self, offer_id: int, decision: str, offers_url: str = OFFERS_URL

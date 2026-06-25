@@ -417,8 +417,12 @@ def test_unknown_callback_prefix_is_ignored(client):
 
 
 def test_ofertas_accept_callback_posts_decide_accepted(client):
-    """`o:a:<id>` → POST /offers/decide?decision=accepted; keyboard stripped."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+    """`o:a:<id>` → POST /offers/decide?decision=accepted; keyboard stripped.
+    Also: the callback ack carries a "⏳ Aceptando…" toast so the user gets
+    instant feedback while the cold-start api PUT runs in background."""
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
         "packages.biwenger_tools.bot.app.edit_message_reply_markup"
     ) as mock_strip, patch(
         "packages.biwenger_tools.bot.app.api_client.call_api"
@@ -426,6 +430,12 @@ def test_ofertas_accept_callback_posts_decide_accepted(client):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:a:12345"))
     assert resp.status_code == 200
     mock_strip.assert_called_once()
+    # answer_callback_query was called with the "⏳ Aceptando…" toast.
+    ack_args = mock_ack.call_args
+    assert ack_args.kwargs.get("text", "") or ack_args.args[-1:] == ()
+    # The toast text is the third positional arg (token, cb_id, text=) — assert
+    # via kwargs since the call uses keyword form.
+    assert "Aceptando" in mock_ack.call_args.kwargs.get("text", "")
     mock_call.assert_called_once_with(
         _API_URL,
         "/offers/decide",
@@ -435,12 +445,17 @@ def test_ofertas_accept_callback_posts_decide_accepted(client):
 
 
 def test_ofertas_reject_callback_posts_decide_rejected(client):
-    """`o:r:<id>` → POST /offers/decide?decision=rejected."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+    """`o:r:<id>` → POST /offers/decide?decision=rejected + "⏳ Rechazando…" toast."""
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
         "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+    ), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
         resp = _post(client, _callback_update(_VALID_CHAT, "o:r:12345"))
     assert resp.status_code == 200
+    assert "Rechazando" in mock_ack.call_args.kwargs.get("text", "")
     mock_call.assert_called_once_with(
         _API_URL,
         "/offers/decide",
