@@ -36,6 +36,14 @@ adds a replica per region you use, counting as extra versions. Using
 `--replication-policy=user-managed --locations=europe-southwest1` keeps each secret
 at exactly 1 active version.
 
+**Disabled versions still bill** — only *destroyed* ones don't. Adding a new
+secret version and disabling the old one keeps paying $0.06/month for it.
+This produced the project's first-ever charge (July 2026: 5 stale disabled
+versions from the initial setup → 9 billable versions > 6 free). After
+verifying a new version works, destroy the old one:
+`gcloud secrets versions destroy <v> --secret=<name>`.
+`scripts/check-gcp-costs.sh` counts billable versions and flags disabled ones.
+
 ### JSON secrets — one secret, multiple values
 Consolidating related credentials into a single JSON secret (e.g., `biwenger-credentials-regional`
 instead of separate `biwenger-email`, `biwenger-password`, `gdrive-folder-id`) reduces
@@ -101,9 +109,25 @@ passes without merges, run it manually.
 Serverless — no VM management, no always-on cost. Free tier: 2M requests/month,
 360k vCPU-seconds, 180k GiB-seconds (shared across all services and jobs).
 
-### europe-southwest1 (Madrid)
+### europe-southwest1 (Madrid) — single-region policy
 Chosen for latency to users (all Spanish), not for cost. Pricing is equivalent to
-other European regions.
+other European regions. Everything that *can* live in Madrid *does*:
+
+| Resource | Region |
+|---|---|
+| Cloud Run services + job | `europe-southwest1` |
+| Firestore (default) | `europe-southwest1` |
+| Artifact Registry (`biwenger-docker`) | `europe-southwest1` |
+| Secrets (user-managed replication) | `europe-southwest1` |
+| Cloud Scheduler (both triggers) | `europe-west1` — **deliberate, see below** |
+
+**Cloud Scheduler is not offered in `europe-southwest1`** (check
+`gcloud scheduler locations list`), so the two cron triggers live in
+`europe-west1` (Belgium), the closest supported region. Impact is nil: a
+scheduler job stores no data (just cron config + target URL), pricing is
+per-job regardless of region (3 free per billing account), and the
+cross-region HTTPS tick adds ~10 ms to a 5-minute SLO. Do not try to
+migrate them to Madrid — the API will reject the location.
 
 ## Cost monitoring
 

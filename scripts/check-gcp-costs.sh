@@ -12,6 +12,9 @@
 
 PROJECT="${PROJECT:-biwenger-tools}"
 REGION="${REGION:-europe-southwest1}"
+# Cloud Scheduler is not offered in europe-southwest1 (Madrid); jobs live in
+# the closest supported region instead (see docs/gcp.md).
+SCHEDULER_REGION="${SCHEDULER_REGION:-europe-west1}"
 
 # Parse optional --project=X flag
 for arg in "$@"; do
@@ -137,19 +140,35 @@ echo
 # Secret Manager
 # ---------------------------
 echo "🔑 Secret Manager"
-SECRET_COUNT=$(gcloud secrets list --project "$PROJECT" --format="value(name)" 2>/dev/null | wc -l | tr -d ' ')
-if [ -z "$SECRET_COUNT" ] || [ "$SECRET_COUNT" = "0" ]; then
+SECRETS=$(gcloud secrets list --project "$PROJECT" --format="value(name)" 2>/dev/null)
+if [ -z "$SECRETS" ]; then
     warn
     SUM_SECRETS="$STATUS_WARN — sin datos"
 else
-    echo "  Secrets activos: $SECRET_COUNT"
-    echo "  Free tier: $FREE_SECRETS versiones activas gratis / mes"
-    echo "  Límite duro del proyecto: 1000 secrets (cap de GCP, no es coste)"
-    if [ "$SECRET_COUNT" -gt 8 ] 2>/dev/null; then
-        echo "  💡 Más de 8 secrets — considera consolidar en JSON por dominio"
-        SUM_SECRETS="$STATUS_WARN — $SECRET_COUNT secrets (>8, considera consolidar)"
+    SECRET_COUNT=$(echo "$SECRETS" | wc -l | tr -d ' ')
+    # Billing counts every non-destroyed version — disabled versions still
+    # bill. The free tier is 6 *versions*, not 6 secrets.
+    TOTAL_VERSIONS=0
+    DISABLED_VERSIONS=0
+    while IFS= read -r secret; do
+        STATES=$(gcloud secrets versions list "$secret" --project "$PROJECT" \
+            --format="value(state)" 2>/dev/null)
+        BILLABLE=$(echo "$STATES" | grep -ciE 'enabled|disabled')
+        DISABLED=$(echo "$STATES" | grep -ci 'disabled')
+        TOTAL_VERSIONS=$((TOTAL_VERSIONS + BILLABLE))
+        DISABLED_VERSIONS=$((DISABLED_VERSIONS + DISABLED))
+        echo "    - $secret: $BILLABLE versiones facturables"
+    done <<< "$SECRETS"
+    echo "  Secrets: $SECRET_COUNT — versiones facturables: $TOTAL_VERSIONS"
+    echo "  Free tier: $FREE_SECRETS versiones (enabled + disabled) gratis / mes"
+    if [ "$DISABLED_VERSIONS" -gt 0 ] 2>/dev/null; then
+        echo "  💡 $DISABLED_VERSIONS versiones disabled — siguen facturando;"
+        echo "     destrúyelas: gcloud secrets versions destroy <v> --secret=<name>"
+    fi
+    if [ "$TOTAL_VERSIONS" -gt "$FREE_SECRETS" ] 2>/dev/null; then
+        SUM_SECRETS="$STATUS_OVER — $TOTAL_VERSIONS versiones (>${FREE_SECRETS} free)"
     else
-        SUM_SECRETS="$STATUS_OK — $SECRET_COUNT secrets"
+        SUM_SECRETS="$STATUS_OK — $TOTAL_VERSIONS versiones en $SECRET_COUNT secrets"
     fi
 fi
 echo
@@ -157,18 +176,15 @@ echo
 # ---------------------------
 # Cloud Scheduler
 # ---------------------------
-echo "🕐 Cloud Scheduler"
-SCHED_COUNT=$(gcloud scheduler jobs list --project "$PROJECT" --location "$REGION" \
-    --format="value(name)" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SCHED_COUNT" = "0" ]; then
-    # Try listing all locations in case region differs
-    SCHED_COUNT=$(gcloud scheduler jobs list --project "$PROJECT" \
-        --format="value(name)" 2>/dev/null | wc -l | tr -d ' ')
-fi
-if [ -z "$SCHED_COUNT" ] || [ "$SCHED_COUNT" = "0" ]; then
+echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
+SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
+    --format="value(name.basename(),state)" 2>/dev/null)
+if [ -z "$SCHED_JOBS" ]; then
     warn
     SUM_SCHEDULER="$STATUS_WARN — sin datos"
 else
+    SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
+    echo "$SCHED_JOBS" | sed 's/^/    - /'
     echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER / mes)"
     if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
         SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"

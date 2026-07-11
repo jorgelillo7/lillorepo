@@ -17,11 +17,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   drop the `biwenger-tools-sa-regional` secret or repoint it to a Sheets-only SA
   (Sheets API still authenticates through that mount for `ligas_especiales` /
   `trofeos`).
-- **Resume the weekly scraper scheduler when 26-27 starts** — paused on 2026-05-26
-  with `gcloud scheduler jobs pause biwenger-scraper-data-scheduler-trigger`
-  (Cloud Scheduler, europe-west1, project `biwenger-tools`). Once Biwenger
-  resets data for the new La Liga season, resume with the equivalent
-  `... resume ...` command so the Sunday 22:00 Madrid scrape fires again.
+- **Resume the weekly scraper scheduler on 2026-07-14** (Biwenger league restart) —
+  paused on 2026-05-26 with
+  `gcloud scheduler jobs pause biwenger-scraper-data-scheduler-trigger`
+  (Cloud Scheduler, europe-west1, project `biwenger-tools`). Resume with:
+  `gcloud scheduler jobs resume biwenger-scraper-data-scheduler-trigger --location=europe-west1 --project=biwenger-tools`
+  so the Sunday 22:00 Madrid scrape fires again. Note: Cloud Scheduler is not
+  offered in europe-southwest1, so europe-west1 is deliberate — do not try to
+  "fix" the region.
 
 ## my_photos
 
