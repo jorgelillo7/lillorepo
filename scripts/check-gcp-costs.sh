@@ -12,6 +12,9 @@
 
 PROJECT="${PROJECT:-biwenger-tools}"
 REGION="${REGION:-europe-southwest1}"
+# Cloud Scheduler is not offered in europe-southwest1 (Madrid); jobs live in
+# the closest supported region instead (see docs/gcp.md).
+SCHEDULER_REGION="${SCHEDULER_REGION:-europe-west1}"
 
 # Parse optional --project=X flag
 for arg in "$@"; do
@@ -173,18 +176,15 @@ echo
 # ---------------------------
 # Cloud Scheduler
 # ---------------------------
-echo "🕐 Cloud Scheduler"
-SCHED_COUNT=$(gcloud scheduler jobs list --project "$PROJECT" --location "$REGION" \
-    --format="value(name)" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SCHED_COUNT" = "0" ]; then
-    # Try listing all locations in case region differs
-    SCHED_COUNT=$(gcloud scheduler jobs list --project "$PROJECT" \
-        --format="value(name)" 2>/dev/null | wc -l | tr -d ' ')
-fi
-if [ -z "$SCHED_COUNT" ] || [ "$SCHED_COUNT" = "0" ]; then
+echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
+SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
+    --format="value(name.basename(),state)" 2>/dev/null)
+if [ -z "$SCHED_JOBS" ]; then
     warn
     SUM_SCHEDULER="$STATUS_WARN — sin datos"
 else
+    SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
+    echo "$SCHED_JOBS" | sed 's/^/    - /'
     echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER / mes)"
     if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
         SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"
