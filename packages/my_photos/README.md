@@ -106,6 +106,11 @@ iPhone Mujer ─┴─→ iCloud (fototeca compartida) ─→ app Fotos en Mac
   scripts finos (wrapper de `icloudpd`, hashing, clustering por fecha EXIF) y
   un skill `/photos-sync` que orquesta la sesión. Claude decide lo que
   requiere ojos; el humano solo confirma nombres de evento.
+- "Cowork" = **Claude Code o la app de escritorio de Claude, indiferente**.
+  Primaria: Claude Code (el skill vive en este repo, ejecuta los CLI en
+  terminal y también lee imágenes). La app de escritorio vale como
+  alternativa para sesiones puramente visuales. Los CLI de `lillophotos`
+  son agnósticos: cualquier agente (o un humano) puede invocarlos.
 
 ### Automatización
 - **Trigger manual**: Mac encendido + disco enchufado + sesión de Claude Code.
