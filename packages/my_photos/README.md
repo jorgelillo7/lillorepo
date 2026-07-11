@@ -1,8 +1,7 @@
 # 📸 my_photos — brainstorming + plan
 
-> **Estado**: brainstorming validado con datos reales. Plan v1 pendiente de
-> confirmar. No hay código todavía.
-> **Última sesión**: 2026-05-17.
+> **Estado**: plan v2 validado. No hay código todavía.
+> **Última sesión**: 2026-07-11.
 
 ## 1. Contexto
 
@@ -14,13 +13,17 @@ Objetivo doble:
 1. Cerrar el backlog actual (one-off).
 2. Tener herramientas para que el día a día no se vuelva a romper.
 
+Criterio de diseño transversal: **pereza**. Cada pieza del plan se evalúa por
+cuántas decisiones y pasos manuales le quita al usuario, no por lo completa
+que sea.
+
 ## 2. Inventario (con datos reales)
 
 ### Hardware
 
 | Equipo | Notas |
 |---|---|
-| Mac M1 | **No encendido 24/7** — descarta cualquier "demonio local always-on" |
+| Mac M1 | **No encendido 24/7**, y solo **19 GB libres** de 228 GB — descarta demonios always-on y cualquier staging local de la fototeca |
 | iPhone 14 (Jorge) | iCloud Photos activo |
 | iPhone 12 mini (mujer) | Fototeca compartida iCloud |
 | iPad Pro | Lectura |
@@ -31,13 +34,10 @@ Objetivo doble:
 
 | Servicio | Coste | Plan | Uso real | Decisión |
 |---|---|---|---|---|
-| **Google One** | ~20 €/mes | **5 TB familiar** | 9.91 GB total (6.21 Fotos · 2.68 Drive · 1.02 Gmail) | **CANCELAR** (user lo va a hacer; reemplaza Gemini por Claude) |
+| **Google One** | ~20 €/mes | **5 TB familiar** | 9.91 GB total (6.21 Fotos · 2.68 Drive · 1.02 Gmail) | **MANTENER** — ahora incluye YouTube Premium Lite al mismo precio y Gemini es de uso diario. Los 5 TB ociosos pasan a ser tercer backup opcional (ver §4) |
 | iCloud+ | 2-3 €/mes | 200 GB | **26.89 GB** (3 933 fotos + 598 vídeos) — 13 % del plan | Mantener. **No hace falta subir cuota** |
 | Amazon Prime | 50 €/año | Fotos ilimitadas (NO vídeos) | Backup secundario | Mantener |
-| Claude Pro | 20 €/mes | — | IA general | Mantener |
-
-**Coste neto tras cancelar Google One**: −20 €/mes / **−240 €/año**. Sin
-contraparte: con 26.89 GB de fototeca real, los 200 GB de iCloud sobran.
+| Claude Pro | 20 €/mes | — | IA general + **Cowork para organizar la fototeca** | Mantener |
 
 ### Flujo actual (manual hoy)
 
@@ -55,19 +55,25 @@ iPhone Mujer ─┴─→ iCloud (fototeca compartida) ─→ app Fotos en Mac
 
 ## 3. Hallazgos clave
 
-1. **Google Photos no es la fuente principal**: solo 6.21 GB. Lo que sobreviva
-   ahí es lo de los antiguos álbumes compartidos. Trivial de migrar antes de
-   cancelar Google One.
-2. **iCloud es la fuente real** de la fototeca actual: **26.89 GB** (3 933
+1. **iCloud es la fuente real** de la fototeca actual: **26.89 GB** (3 933
    fotos + 598 vídeos). Bien dentro del plan de 200 GB; sin upgrade necesario.
-3. **Vídeos**: el user acepta que vivan solo en iCloud + disco duro (sin
-   Amazon). Simplifica el backup secundario.
-4. **Mac no 24/7** + "trigger manual cuando estemos" → **no necesitamos cron
-   ni Cloud Run permanente**. Todo puede ser **CLI local + bot Telegram que
-   pollee solo cuando el Mac está encendido**. Cero coste cloud para esto.
-5. **"Cowork"** = **Claude Code / Claude desktop**, no Immich. Por tanto la
-   herramienta principal de gestión va a ser **Claude Code + scripts CLI en
-   este monorepo**, no un visor self-hosted aparte.
+2. **Google Photos es legacy**: solo 6.21 GB de los antiguos álbumes
+   compartidos. Con Google One quedándose, el dump a disco pierde toda
+   urgencia — es un "un día que me aburra".
+3. **Vídeos**: Amazon Prime no los cubre. Viven en iCloud + disco duro, y
+   opcionalmente en Google Photos como segunda copia cloud (ver §4).
+4. **Mac no 24/7 + 19 GB libres** → no hay cron, no hay Cloud Run, y el
+   staging de descargas va **directo al disco externo**, nunca al Mac. La app
+   Fotos del Mac sigue en "Optimizar almacenamiento".
+5. **Amazon Photos no tiene CLI y no la habrá**: Amazon cerró la API de Drive
+   en 2023 y `rclone` no funciona contra Amazon Photos. La única vía
+   automatizada es la app de escritorio con auto-upload vigilando una carpeta.
+   Casualmente es también la opción más perezosa.
+6. **El cuello de botella nunca fue descargar — es nombrar y limpiar.** Un
+   script agrupa por fechas, pero no sabe si el 5 de julio fue "Playa" o
+   "Cumple de la abuela", ni cuál de las 8 fotos de una ráfaga conservar.
+   **Claude Cowork sí**: puede mirar las imágenes, proponer el nombre del
+   evento y resolver los near-duplicados visualmente.
 
 ## 4. Decisión por decisión
 
@@ -75,95 +81,122 @@ iPhone Mujer ─┴─→ iCloud (fototeca compartida) ─→ app Fotos en Mac
 - **iCloud Photos** (Apple ecosystem, fototeca compartida ya configurada).
 - **Plan 200 GB se mantiene**: 26.89 GB / 200 GB = 13 % de uso. Sin upgrade.
 
-### Nube secundaria (backup)
-- **Amazon Photos** para fotos (gratis con Prime que ya tiene).
-- **Vídeos solo en iCloud + disco**, sin tercer backup.
-
 ### Backup local "fuente de verdad fría"
 - **Disco duro nuevo de 5 TB** (vacío).
-- Mantener convención `YYYY-MM-DD nombre evento/`.
+- Convención `YYYY-MM-DD nombre evento/`. El disco es el único sitio donde la
+  fototeca está *organizada*; las nubes son copias, no se curan.
+
+### Nube secundaria (backup de fotos)
+- **Amazon Photos** vía su app de escritorio con auto-upload apuntando a la
+  carpeta del disco. Cero comandos: sube sola cuando el disco está montado y
+  el Mac encendido.
+
+### Nube terciaria (opcional, cubre los vídeos)
+- **Google Photos** vía Google Drive for Desktop, que permite backup de
+  carpetas locales a Google Photos. Apuntado a la misma carpeta del disco da
+  una segunda copia cloud **que sí incluye vídeos**, aprovechando los 5 TB
+  de Google One que ya se pagan por otros motivos.
 
 ### Visor / gestor
 - Apple Photos en iPhone/iPad/Mac. **No Immich** — añade superficie de error
   para cero ganancia neta ahora.
 
+### Organización y dedupe
+- **Claude Cowork es el organizador**, no un script ciego. El paquete aporta
+  scripts finos (wrapper de `icloudpd`, hashing, clustering por fecha EXIF) y
+  un skill `/photos-sync` que orquesta la sesión. Claude decide lo que
+  requiere ojos; el humano solo confirma nombres de evento.
+
 ### Automatización
-- **Trigger manual**. No cron, no scheduled jobs.
-- **Bot Telegram que corre en el Mac cuando está encendido** (polling, no
-  webhook). Para ambos (Jorge + mujer).
-- Ejecución del trabajo pesado: **scripts CLI locales** que Claude Code puede
-  ejecutar directamente, o el bot Telegram puede disparar.
+- **Trigger manual**: Mac encendido + disco enchufado + sesión de Claude Code.
+- **Sin bot de Telegram** (descartado; en v1 estaba). Era la pieza con más
+  código del plan y su única razón era el trigger remoto — pero el trabajo
+  exige Mac + disco físicamente presentes, así que no ahorraba nada. Con que
+  Jorge lo lance cuando toque, la fototeca compartida de iCloud ya cubre el
+  día a día de ambos.
+- **Sin GCP**: el trabajo es local (disco físico, Mac intermitente). Que el
+  monorepo despliegue fácil a Cloud Run no es razón para subir algo que no
+  puede tocar el disco.
 
-### Cancelación de Google One
-- **Antes** de cancelar: dump completo de Google Photos (6.21 GB, rápido).
-- **Después** del dump y verificación: cancelar el plan, borrar fotos
-  remanentes de Google Photos.
-- Calendario sugerido: una sola tarde, no se hace en piezas.
+## 5. Flujo final (edición pereza)
 
-## 5. Plan v1 — sprint 1 (limpieza one-off)
+```
+iPhones (Jorge + mujer) ──→ iCloud fototeca compartida      (automático)
 
-> Objetivo: dejar el disco duro nuevo como **fuente de verdad fría** unificada,
-> con todo el histórico volcado y organizado por `YYYY-MM-DD evento/`, antes
-> de cancelar nada.
+── Cuando toque (mensual-ish): Mac encendido + disco enchufado ──
+
+Sesión Claude Cowork (/photos-sync):
+  1. icloudpd baja solo lo nuevo → staging/ EN EL DISCO EXTERNO
+  2. dedupe exacto (hash) + near-dupes (ráfagas, HEIC/JPEG);
+     Claude mira las dudosas y decide cuál conservar
+  3. clustering por huecos de fecha EXIF; Claude propone
+     "2026-07-05 Playa" mirando contenido + GPS; el humano confirma
+  4. mueve a /YYYY-MM-DD evento/ en el disco 5 TB
+
+Apps de escritorio vigilando la carpeta del disco (suben solas):
+  → Amazon Photos app          (fotos, ilimitado con Prime)
+  → Google Drive for Desktop   (opcional: a Google Photos, INCLUYE vídeos)
+```
+
+Intervención humana total: enchufar el disco, abrir Claude Code, confirmar
+3-4 nombres de evento.
+
+## 6. Plan — sprint 1 (limpieza one-off)
+
+> Objetivo: dejar el disco nuevo como **fuente de verdad fría** unificada,
+> con todo el histórico volcado y organizado por `YYYY-MM-DD evento/`.
 
 | Paso | Acción | Herramienta |
 |---|---|---|
-| 1 | Inventario inicial: medir tamaño real iCloud, fototeca local en Mac, Google Photos, Amazon Photos, disco viejo, disco nuevo | `du -sh`, app Fotos, Google One UI |
-| 2 | Copiar **disco viejo → disco nuevo** tal cual (rsync con verificación) | `rsync -av --progress` |
-| 3 | Volcar **Google Photos → disco nuevo** preservando álbumes | `gphotos-sync` |
-| 4 | Volcar **iCloud → disco nuevo** (lo que aún no esté). `icloudpd` con `--until-found` baja sólo lo nuevo. Confirmado que la biblioteca local del Mac está en "Optimizar almacenamiento", así que no sirve `osxphotos` para esto | `icloudpd` |
-| 5 | Detectar duplicados y normalizar convención `YYYY-MM-DD evento/` | `exiftool` + script de organización (parte de este paquete) |
-| 6 | Subir lo nuevo (lo que no estaba) a **Amazon Photos** | Cliente Amazon Photos Mac o `rclone` |
-| 7 | Verificar que todo está en disco nuevo + Amazon | Script de checksum + comparación |
-| 8 | **Cancelar Google One**; borrar fotos remanentes de Google Photos | manual |
+| 1 | Inventario inicial: tamaño real iCloud, Google Photos, Amazon, disco viejo, disco nuevo | `scripts/inventory.sh` |
+| 2 | Copiar **disco viejo → disco nuevo** tal cual, con verificación | `rsync -av --progress` |
+| 3 | Volcar **iCloud → disco nuevo** (staging en el disco, no en el Mac). La biblioteca local del Mac está en "Optimizar almacenamiento", así que no sirve `osxphotos` | `icloudpd` |
+| 4 | Dedupe + organizar en `YYYY-MM-DD evento/` | `exiftool` + hashing + **Claude Cowork** |
+| 5 | Instalar Amazon Photos app (y opcionalmente Google Drive for Desktop) apuntando a la carpeta del disco | apps de escritorio |
+| 6 | Verificar: checksums disco + spot-check de que las apps han subido | script de verificación |
+| — | (sin prisa) dump de los 6.21 GB legacy de Google Photos al disco | `gphotos-sync` o Takeout |
 
-## 6. Plan v1 — sprint 2 (herramientas día a día)
+## 7. Plan — sprint 2 (herramientas día a día)
 
-> Objetivo: que el flujo mensual sea "enciendo el Mac, le doy a `/photos-sync`
-> en Telegram, espera 10 min, recibo confirmación".
+> Objetivo: que el flujo mensual sea "enchufo disco, abro Claude Code,
+> `/photos-sync`, confirmo nombres, listo".
 
 | Pieza | Descripción |
 |---|---|
-| **CLI `lillophotos sync`** | Wrapper sobre `icloudpd` que descarga lo nuevo de iCloud al disco nuevo, lo organiza con exiftool en `YYYY-MM-DD/` |
-| **CLI `lillophotos organize <dir>`** | Renombra una carpeta nueva siguiendo la convención y mueve los archivos |
-| **CLI `lillophotos backup-amazon`** | Sube al cliente de Amazon Photos lo nuevo (o, si no hay CLI oficial, recordatorio + abre la app) |
-| **CLI `lillophotos status`** | Muestra: último sync · tamaño de cada destino · fotos sin organizar |
-| **Bot Telegram `photos_bot`** | Endpoints `/photos-sync`, `/photos-status`, `/photos-organize <carpeta>`. Single-tenant (lista de `chat_id` de Jorge + mujer). **Polling, no webhook** — corre en el Mac cuando está encendido. Comparte código con `core/sdk/telegram.py` |
+| **CLI `lillophotos sync`** | Wrapper sobre `icloudpd`: baja lo nuevo de iCloud al staging del disco |
+| **CLI `lillophotos organize`** | Hashing (dupes exactos), perceptual hash (near-dupes), clustering por fecha EXIF; emite propuesta de carpetas para que Claude/humano la refine |
+| **CLI `lillophotos status`** | Último sync · tamaño de cada destino · fotos en staging sin organizar |
+| **Skill `/photos-sync`** | Orquesta la sesión Cowork: corre sync + organize, revisa near-dupes con ojos, propone nombres de evento, mueve a definitivo |
 
 **No** vamos a:
-- Desplegar en Cloud Run (sin sentido para trigger manual).
+- Desplegar en Cloud Run ni usar GCP (trigger manual, disco local).
 - Programar cron (queremos trigger manual).
+- Montar bot de Telegram (descartado en v2; el trigger es la sesión local).
 - Self-hostear Immich/PhotoPrism (cero ganancia con Apple Photos como visor).
 - Tocar la sincronización cloud (iCloud lo hace solo).
 
-## 7. Open questions
+## 8. Open questions
 
-1. ~~**Modo de la fototeca en el Mac**~~ — **resuelto**: tanto el iPhone como
-   el Mac están en "Optimizar almacenamiento". La biblioteca local no contiene
-   todos los originales. Por tanto el volcado one-off va con **`icloudpd`**
-   contra los servidores de iCloud, no con `osxphotos` contra la biblioteca
-   local.
-2. ~~**Mujer y disco duro**~~ — **resuelto** (2026-05-17): misma casa, mismo
-   acceso al disco. El bot puede asumir que cualquiera de los dos puede
-   disparar `/photos-sync`, no hace falta lógica de "esperar al dueño".
-3. **App Amazon Photos desde CLI**: que yo sepa **no hay CLI oficial**.
-   Alternativas: dejar el cliente desktop corriendo (auto-upload de la carpeta
-   del disco), o usar `rclone` con WebDAV si Amazon lo expone (no creo).
-   Investigaremos en el sprint 2.
+1. ~~**Modo de la fototeca en el Mac**~~ — **resuelto**: Mac e iPhone en
+   "Optimizar almacenamiento" → el volcado va con `icloudpd` contra los
+   servidores de iCloud, no con `osxphotos` contra la biblioteca local.
+2. ~~**Mujer y disco duro**~~ — **resuelto**: misma casa, mismo acceso al
+   disco; con que Jorge dispare el sync es suficiente.
+3. ~~**Amazon Photos desde CLI**~~ — **resuelto**: no existe ni existirá
+   (API cerrada en 2023, `rclone` no funciona). Vía única: app de escritorio
+   con auto-upload sobre la carpeta del disco. Es además la opción con menos
+   fricción.
+4. **Google Drive for Desktop → Google Photos con disco externo**: confirmar
+   que el backup de carpeta a Google Photos funciona bien cuando la carpeta
+   vive en un disco que se monta/desmonta. Verificar en sprint 1 paso 5.
 
-## 8. Próximo paso
+## 9. Próximo paso
 
-Si te suena bien este plan, doy luz verde a:
-1. Commitear este README + abrir PR (sin código todavía).
-2. Empezar **paso 1 del sprint 1** (inventario de tamaños) — yo escribo un
-   script `scripts/inventory.sh` que mide todo. Lo corres tú y me pegas los
-   números.
+1. Merge de este README actualizado.
+2. **Paso 1 del sprint 1**: escribir `scripts/inventory.sh` (mide iCloud,
+   discos, Google, Amazon), correrlo y calibrar el resto con números reales.
 
-A partir de esos números calibramos el resto: si iCloud está en 80 GB, no hay
-upgrade ni urgencia. Si está en 180 GB, sprint 1 se acelera para no quedarse
-sin espacio.
-
-## 9. Lo que NO hace este paquete (acotado para no perderse el alcance)
+## 10. Lo que NO hace este paquete (acotado para no perderse el alcance)
 
 - No es un visor de fotos (Apple Photos lo hace).
 - No es una nube (iCloud lo hace).
@@ -171,9 +204,10 @@ sin espacio.
 - No corre 24/7.
 - No edita fotos.
 
-Es solo: **descargar, organizar, hacer backup secundario, dar visibilidad**.
+Es solo: **descargar, organizar (con Cowork), hacer backup secundario, dar
+visibilidad**.
 
-## 10. Fuentes consultadas
+## 11. Fuentes consultadas
 
 - [Apple Community — Photo library management best practices 2026](https://ask.metafilter.com/389706/Photo-library-management-best-practices-in-2026)
 - [Photo Backup Strategy 2026 — Alex Smale](https://www.alexsmale.co.uk/photo-backup-strategy-2026-icloud-google-photos-nas-or-both/)
