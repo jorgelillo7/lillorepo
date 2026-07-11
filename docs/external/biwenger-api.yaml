@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: Biwenger API (unofficial)
+  version: "0.1.0"
+  summary: Reverse-engineered spec of the Biwenger backend used by this monorepo.
+  description: |
+    **⚠️ UNOFFICIAL — this is NOT documented by Biwenger.**
+
+    Everything here was discovered by inspecting Biwenger's mobile and web
+    clients, then verified by sending real requests and recording the
+    responses. It can change without notice. Use at your own risk and only
+    against your own Biwenger account.
+
+    Source of truth in this repo: `core/sdk/biwenger.py`. Any time a
+    payload disagrees with this spec, the SDK wins — please update the
+    spec to match.
+
+    Each endpoint below carries a `x-verified-at` extension with the date
+    of the last live capture against a real account.
+
+    **Auth model in one line:** `POST /auth/login` with form-encoded
+    `email`/`password` returns a token; every other call sends
+    `Authorization: Bearer <token>` plus `X-League`, `X-User`, `X-Lang`,
+    `X-Version` (see `SessionHeaders` security scheme).
+
+  contact:
+    name: Internal owner
+    url: https://github.com/jorgelillo7/lillorepo
+  license:
+    name: For personal use only
+    url: https://biwenger.as.com/terms
+
+servers:
+  - url: https://biwenger.as.com/api/v2
+    description: Main Biwenger API host (everything except the players DB).
+  - url: https://cf.biwenger.com/api/v2
+    description: Competition data host (player-level static data, cf-base).
+
+tags:
+  - name: auth
+    description: Session bootstrap.
+  - name: account
+    description: User-level data (balance, leagues, notifications).
+  - name: user
+    description: Endpoints scoped to the authenticated user (lineup, offers, squad).
+  - name: market
+    description: Daily market read + bidding.
+  - name: offers
+    description: Offer creation, listing and accept/reject decisions.
+  - name: league
+    description: League standings, reports, board (messages + transfers).
+  - name: competition
+    description: Public competition-level player data (cf-base host).
+
+security:
+  - SessionHeaders: []
+
+# ---------------------------------------------------------------------------
+paths:
+# ---------------------------------------------------------------------------
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in and obtain a session token.
+      description: |
+        Form-encoded (NOT JSON). The returned `token` must be sent on every
+        subsequent call as `Authorization: Bearer <token>`.
+      security: []  # this is the only unauthenticated endpoint
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Token issued.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+      x-verified-at: "2026-06-25"
+
+  /account:
+    get:
+      tags: [account]
+      summary: Authenticated user's account, leagues and notifications.
+      description: |
+        After auth this is the entry point — the SDK reads `data.leagues[*]`
+        to find the active league and pull `user.balance` (cash).
+      responses:
+        "200":
+          description: Account payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              examples:
+                top-level-keys:
+                  summary: Observed top-level keys
+                  value:
+                    status: 200
+                    data:
+                      account: {id: 1166324, name: "", email: "x@y.com", locale: "es", status: "valid"}
+                      leagues:
+                        - id: 340703
+                          name: "Mochileros"
+                          user: {id: 1372802, balance: 45083740, name: "Farolillo AI United ⭐️"}
+                      notifications: []
+                      location: {}
+                      version: 628
+      x-verified-at: "2026-06-25"
+
+  /market:
+    get:
+      tags: [market]
+      summary: Daily market — players currently on sale (computer-owned + user-listed).
+      description: |
+        `data.sales[*].user is None` marks a computer-owned daily-market
+        entry (the auto-bid loop only acts on these). Anything with a
+        `user` is a user-listed sale.
+      responses:
+        "200":
+          description: Market snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer}
+                  data:
+                    type: object
+                    properties:
+                      sales:
+                        type: array
+                        items: {$ref: '#/components/schemas/MarketSale'}
+      x-verified-at: "2026-06-25"
+
+  /offers:
+    get:
+      tags: [offers]
+      summary: HISTORICAL offers (expired/processed only) — NOT the live inbox.
+      description: |
+        Important gotcha: this endpoint returns dead offers (status
+        `expired` or `processed`). Live waiting offers do NOT appear here.
+        For the actual inbox use `GET /user?fields=offers(*,from(*),to(*))`
+        below.
+      responses:
+        "200":
+          description: List of historical offers.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer}
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Offer'}
+      x-verified-at: "2026-06-23"
+
+    post:
+      tags: [offers]
+      summary: Place a bid (daily-market purchase OR clausulazo).
+      description: |
+        Two body shapes share this endpoint:
+
+        - **Market purchase** (`to: null`, `type: "purchase"`) — bid on a
+          computer-owned daily-market player.
+        - **Clausulazo** (`to: <seller_user_id>`, `type: "clause"`) — pay
+          the release clause to take a player from another manager.
+
+        Biwenger validates `amount` server-side. For clausulazos the
+        amount must be ≥ `player.clauseValue` AND the clause must be
+        currently unlocked (post-purchase lock window).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/MarketBidBody'
+                - $ref: '#/components/schemas/ClausulazoBody'
+      responses:
+        "200":
+          description: Offer accepted by server.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer, example: 200}
+                  data: {$ref: '#/components/schemas/Offer'}
+        "400":
+          description: Invalid amount.
+        "403":
+          description: Invalid clause / clause locked / captain over max MV.
+      x-verified-at: "2026-06-25"
+
+  /offers/{id}:
+    put:
+      tags: [offers]
+      summary: Accept or reject a received offer.
+      description: |
+        Discovered live 24/06/2026 via Biwenger web DevTools. On accept the
+        server flips `status` to `processed` (the transaction is executed
+        and the player changes hands). On reject the status stays
+        `rejected`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+      responses:
+        "200":
+          description: Decision applied.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer, example: 200}
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Offer'
+                      - type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [processed, rejected]
+      x-verified-at: "2026-06-24"
+
+  /user:
+    get:
+      tags: [user]
+      summary: Authenticated user — flexible field selector.
+      description: |
+        Biwenger expands sub-resources through the `?fields=` query
+        parameter. Verified variants this project uses:
+
+        | `fields=` value | Returns |
+        |---|---|
+        | `offers(*,from(*),to(*))` | The live inbox (sent + received, all statuses, with manager names). Used by `/ofertas`. |
+        | `lineup(date,formation,players)` | Current saved lineup (11-slot array, `null` for empty slots). Used to compute `is_starter` in `/ofertas`. |
+        | `*,lineup(date)` | Lineup metadata only (used as PUT target — see PUT below). |
+      parameters:
+        - name: fields
+          in: query
+          required: true
+          schema: {type: string}
+          examples:
+            inbox:
+              value: "offers(*,from(*),to(*))"
+            lineup:
+              value: "lineup(date,formation,players)"
+      responses:
+        "200":
+          description: Payload depends on `fields`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+              examples:
+                lineup-with-empty-slots:
+                  summary: Lineup with 1 starter + 10 empty slots
+                  value:
+                    status: 200
+                    data:
+                      lineup:
+                        date: 1782245619
+                        formation: "4-4-2"
+                        players:
+                          - null
+                          - {id: 26566, name: "Carlos Romero", position: 2}
+                          - null
+                          - null
+                          - null
+                          - null
+                          - null
+                          - null
+                          - null
+                          - null
+                          - null
+                inbox-mixed-offers:
+                  summary: Inbox with 1 outgoing purchase + 2 incoming from market
+                  value:
+                    status: 200
+                    data:
+                      offers:
+                        - id: 1165670907
+                          type: "purchase"
+                          status: "waiting"
+                          amount: 7170066
+                          created: 1782284417
+                          until: 1782363600
+                          from: {id: 1372802, name: "Farolillo AI United ⭐️"}
+                          to: null
+                          requestedPlayers: [30789]
+                        - id: 1721541297
+                          type: "purchase"
+                          status: "waiting"
+                          amount: 6866300
+                          created: 1782277545
+                          until: 1782450000
+                          from: null
+                          to: {id: 1372802, name: "Farolillo AI United ⭐️"}
+                          requestedPlayers: [26566]
+      x-verified-at: "2026-06-24"
+
+    put:
+      tags: [user]
+      summary: Set the user's lineup for the next matchday.
+      description: |
+        Body wraps the lineup under a `lineup` key. `playersID` is the
+        ordered list of 11 starter ids (the order matches the formation
+        positions); `reservesID` is up to 4 bench ids; `captain` is the
+        bw_id of the captain or `0` for "no captain" (Biwenger accepts
+        this when no starter clears the 3 M MV cap).
+
+        The SDK uses `?fields=*,lineup(date)` as the URL so the response
+        echoes back the saved lineup date for confirmation.
+      parameters:
+        - name: fields
+          in: query
+          required: false
+          schema: {type: string, example: "*,lineup(date)"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lineup]
+              properties:
+                lineup:
+                  type: object
+                  required: [type, playersID, reservesID, captain]
+                  properties:
+                    type:
+                      type: string
+                      example: "4-4-2"
+                      description: Formation label.
+                    playersID:
+                      type: array
+                      items: {type: integer}
+                      minItems: 11
+                      maxItems: 11
+                    reservesID:
+                      type: array
+                      items: {type: integer}
+                      maxItems: 4
+                    captain:
+                      type: integer
+                      description: bw_id of the captain, or 0 for none.
+      responses:
+        "200":
+          description: Lineup saved.
+        "403":
+          description: |
+            Captain over max MV — Biwenger rejects when the captain's
+            cf-base price is ≥ 3 M. Example body:
+            `Captain over max MV: 3160000 > 3000000`.
+      x-verified-at: "2026-05-20"
+
+  /user/{managerID}:
+    get:
+      tags: [user]
+      summary: A manager's squad (or other selected fields).
+      description: |
+        With `fields=players(id,owner(*))` you get every player the manager
+        owns plus their `owner` block (acquisition price, clause, last
+        clausulazo). This is the canonical "what does X have" endpoint —
+        every other manager's roster as well as your own.
+
+        ⚠️ `owner.price` is the price the user PAID for the player, NOT
+        the live market value. See `Owner` schema below.
+      parameters:
+        - name: managerID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: fields
+          in: query
+          required: false
+          schema: {type: string, example: "players(id,owner(*))"}
+      responses:
+        "200":
+          description: Squad payload.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer}
+                  data:
+                    type: object
+                    properties:
+                      players:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: {type: integer}
+                            owner: {$ref: '#/components/schemas/Owner'}
+      x-verified-at: "2026-06-24"
+
+  /league/{leagueID}:
+    get:
+      tags: [league]
+      summary: League details (standings, etc).
+      description: |
+        Use `?fields=standings` for the ranking. Each entry includes the
+        user id + name + season points + position.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: fields
+          in: query
+          required: false
+          schema: {type: string, example: "standings"}
+      responses:
+        "200":
+          description: League data.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: {type: integer}
+                  data:
+                    type: object
+                    properties:
+                      standings:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: {type: integer}
+                            name: {type: string}
+                            position: {type: integer}
+                            points: {type: integer}
+      x-verified-at: "2026-05-15"
+
+  /league/{leagueID}/board:
+    get:
+      tags: [league]
+      summary: League board entries (messages + transfers).
+      description: |
+        Polymorphic by `type`:
+
+        - `text` — chat-style messages posted by managers (the comunicados
+          our scraper ingests).
+        - `transfer&fields=*,content(*,player(*))` — release-clause
+          purchases (clausulazos) including the player they targeted.
+
+        Both modes are paginated via `limit` / `offset` query params.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [text, transfer]
+        - name: fields
+          in: query
+          required: false
+          schema: {type: string, example: "*,content(*,player(*))"}
+        - name: limit
+          in: query
+          schema: {type: integer, default: 200}
+        - name: offset
+          in: query
+          schema: {type: integer, default: 0}
+      responses:
+        "200":
+          description: Board page.
+      x-verified-at: "2026-05-25"
+
+  /league/{leagueID}/report/rounds:
+    get:
+      tags: [league]
+      summary: Per-user "Jornadas ganadas" + "Posición media" report.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [total]
+            default: total
+      responses:
+        "200":
+          description: Report payload with `columns` + `rows`.
+      x-verified-at: "2026-05-15"
+
+  /league/{leagueID}/report/roundPoints:
+    get:
+      tags: [league]
+      summary: Per-user "Puntos" + "Mejor jornada" + "Peor jornada" report.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [total]
+            default: total
+      responses:
+        "200":
+          description: Report payload with `columns` + `rows`.
+      x-verified-at: "2026-05-15"
+
+  # -------------------------------------------------------------------------
+  # cf.biwenger.com host (note: this hangs off the SECOND server block)
+  # -------------------------------------------------------------------------
+
+  /competitions/la-liga/data:
+    servers:
+      - url: https://cf.biwenger.com/api/v2
+    get:
+      tags: [competition]
+      summary: Full LaLiga player database (cf-base prices, positions, alt-positions).
+      description: |
+        The "single source of truth" for competition-level player data.
+        `players` is a dict keyed by player id. `data.players[<id>].price`
+        is the cf-base price the server uses for caps (3 M captain MV,
+        max bid math).
+      security: []
+      parameters:
+        - name: lang
+          in: query
+          schema: {type: string, example: "es"}
+        - name: score
+          in: query
+          schema: {type: integer, example: 100}
+      responses:
+        "200":
+          description: Player database.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      players:
+                        type: object
+                        additionalProperties: {$ref: '#/components/schemas/CompetitionPlayer'}
+      x-verified-at: "2026-06-24"
+
+# ---------------------------------------------------------------------------
+components:
+# ---------------------------------------------------------------------------
+
+  securitySchemes:
+    SessionHeaders:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        `Authorization: Bearer <token>` returned by `POST /auth/login`.
+
+        Additional headers expected on every request after login (set by
+        the SDK automatically; documenting here for completeness):
+
+        - `X-Lang: es`
+        - `X-Version: 628`
+        - `X-League: <league_id>`
+        - `X-User: <user_id>`
+        - `User-Agent: <mobile or desktop browser UA>`
+
+  schemas:
+
+    Envelope:
+      type: object
+      description: Standard wrapper Biwenger uses on every JSON response.
+      properties:
+        status: {type: integer, example: 200}
+        data:
+          oneOf:
+            - type: object
+            - type: array
+
+    Offer:
+      type: object
+      description: An offer (purchase or clause), regardless of direction or status.
+      properties:
+        id: {type: integer, example: 1721541297}
+        type:
+          type: string
+          enum: [purchase, clause]
+        amount:
+          type: integer
+          description: Euros (NOT cents).
+          example: 6866300
+        status:
+          type: string
+          enum: [waiting, processed, rejected, expired]
+          description: |
+            `waiting` is the only "actionable" state for the inbox.
+            `processed` after accept (transaction executed).
+            `rejected` after reject. `expired` if the offer aged out.
+        created:
+          type: integer
+          format: int64
+          description: Unix timestamp.
+        until:
+          type: integer
+          format: int64
+          description: Expiration unix timestamp (only on live offers).
+        modified:
+          type: integer
+          format: int64
+        from:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+          description: |
+            `null` means MERCADO PÚBLICO — Biwenger auto-generates these
+            offers when you put a player up for sale. `{id, name, icon}`
+            when a real rival manager is the offerer.
+        to:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+          description: |
+            `null` when YOU are bidding on the daily market (your own
+            outgoing market bid). `{id, name, icon}` when a manager is
+            the recipient.
+        requestedPlayers:
+          type: array
+          description: |
+            Player ids the offer is for. Item shape depends on the query
+            expansion: plain ints when fetched via `fields=offers(*)`,
+            `{id: ...}` dicts in some other contexts.
+          items:
+            oneOf:
+              - type: integer
+              - type: object
+                properties:
+                  id: {type: integer}
+
+    UserRef:
+      type: object
+      properties:
+        id: {type: integer, example: 1372802}
+        name: {type: string, example: "Farolillo AI United ⭐️"}
+        icon: {type: string, example: "i/u/1372802.png?v=82"}
+
+    Owner:
+      type: object
+      description: |
+        Owner block of a squad player. **Critical:** `price` is the
+        ACQUISITION price (what you paid), NOT the live market value.
+      properties:
+        date:
+          type: integer
+          format: int64
+          description: Unix timestamp when you acquired the player.
+          example: 1782044192
+        price:
+          type: integer
+          description: |
+            Euros you paid for the player. Used by `/ofertas` to compute
+            ROI. Different from cf-base (`competitions/...players[id].price`).
+          example: 13215000
+        clause:
+          type: integer
+          description: Current release-clause value in euros.
+          example: 16518750
+        clauseLockedUntil:
+          oneOf:
+            - type: integer
+              format: int64
+            - type: 'null'
+          description: |
+            Unix ts when the clause becomes available to be paid by
+            others. `null` (or past timestamp) means it can be paid now.
+        lastClause:
+          oneOf:
+            - $ref: '#/components/schemas/LastClause'
+            - type: 'null'
+          description: |
+            Set when the player arrived via clausulazo. Tells you whom
+            you bought it from.
+
+    LastClause:
+      type: object
+      properties:
+        user: {$ref: '#/components/schemas/UserRef'}
+        date: {type: integer, format: int64}
+        amount: {type: integer}
+
+    MarketSale:
+      type: object
+      description: One entry of the daily-market list.
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/UserRef'
+            - type: 'null'
+          description: '`null` = computer-owned daily-market entry. Set = user listing.'
+        date:
+          type: integer
+          format: int64
+        price:
+          type: integer
+        player:
+          type: object
+          properties:
+            id: {type: integer}
+
+    MarketBidBody:
+      type: object
+      description: Body shape for a daily-market purchase via POST /offers.
+      required: [to, type, amount, requestedPlayers]
+      properties:
+        to:
+          type: 'null'
+          description: Must be null for market bids.
+        type:
+          type: string
+          enum: [purchase]
+        amount: {type: integer, example: 7170066}
+        requestedPlayers:
+          type: array
+          items: {type: integer}
+          minItems: 1
+
+    ClausulazoBody:
+      type: object
+      description: Body shape for a clausulazo via POST /offers.
+      required: [to, type, amount, requestedPlayers]
+      properties:
+        to:
+          type: integer
+          description: Current owner's user id (the seller).
+          example: 12449616
+        type:
+          type: string
+          enum: [clause]
+        amount:
+          type: integer
+          description: Must be ≥ player.clauseValue.
+          example: 16518750
+        requestedPlayers:
+          type: array
+          items: {type: integer}
+          minItems: 1
+          maxItems: 1
+
+    CompetitionPlayer:
+      type: object
+      description: One entry of the cf-base player database.
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        slug: {type: string}
+        position:
+          type: integer
+          description: '1=POR, 2=DEF, 3=MED, 4=DEL'
+        altPositions:
+          type: array
+          items: {type: integer}
+        price:
+          type: integer
+          description: cf-base price (server uses this for caps).
+        team:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+            slug: {type: string}
