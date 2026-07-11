@@ -206,6 +206,25 @@ Sesión mensual típica (6-8 eventos): ~50k tokens. Claude nunca ve las 40
 fotos de la boda — ve 3-4 representativas en miniatura, y muchos grupos se
 nombran solo con metadatos (fecha + hora + lugar) sin mirar ninguna imagen.
 
+### Corner cases de capacidad — orden de sacrificio
+
+Números a ritmo actual (~18 GB/año, subirá con más vídeo):
+
+| Límite | ¿Cuándo llega? | Qué se hace |
+|---|---|---|
+| iCloud 200 GB | ~5-9 años | **Purga rodante, no reset a cero**: la sesión de sync propone borrar los años más viejos ya verificados en disco+Amazon+Google; en el móvil quedan siempre los últimos ~2 años. Alternativa perezosa: subir a 2 TB (~10 €/mes) |
+| Disco 5 TB | Por espacio, décadas (~3.3 TB libres). **Muere de viejo antes que de lleno** | Reemplazo por edad cada ~6-8 años: disco nuevo, **copiar todo** (no partir por rangos de fechas — fragmentaría el árbol único que vigilan Amazon/rclone). El viejo queda como copia fría extra con pegatina "completa hasta YYYY" |
+| Google 5 TB (solo vídeos) | Matemáticamente nunca (~10 GB de vídeo/año contra 5 TB) | Si algún día se baja el plan de Google One: borrar lo viejo ahí sin duelo — es la copia sacrificable, el archivo completo de vídeos vive en el disco |
+| Amazon (fotos ∞) | Nunca | Nada. Supuesto a vigilar: depende de mantener Prime |
+
+Orden de sacrificio si hay que borrar en algún sitio: **iCloud primero,
+Google después, el disco jamás** (el disco se reemplaza, no se poda).
+
+Propiedad de resiliencia del diseño: si el disco muere mañana no se pierde
+nada — fotos completas en Amazon, vídeos completos en Google (el backfill
+de rclone sube también el histórico). El disco es la única copia
+*organizada*, pero no es punto único de fallo.
+
 ## 6. Plan — sprint 0 (baile de discos) + sprint 1 (limpieza one-off)
 
 ### Sprint 0 — discos (en el PC Windows)
