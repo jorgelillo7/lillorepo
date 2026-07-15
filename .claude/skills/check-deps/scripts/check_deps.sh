@@ -49,6 +49,6 @@ for pkg in "${CRITICAL_LIBS[@]}"; do
 done
 echo
 
-bold "Tooling pinned in CI"
-grep -hE 'flake8==|black==' .github/workflows/deploy.yml \
-    | sed -E 's/^[[:space:]]*/  /' | sort -u
+# Lint tooling (flake8/black) is covered by CRITICAL_LIBS above: CI runs it
+# hermetically through Bazel from the same lockfile, nothing extra is pinned
+# in the workflows.
