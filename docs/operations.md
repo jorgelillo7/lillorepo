@@ -199,6 +199,16 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/digests/daily` | Cron — my team + market images, then auto-bid summary (chained, Scheduler only) |
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
+    The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
+    default in `api/config.py`): while today (Madrid) is before that date the
+    digest posts a pause note instead of bidding. `/market/auto-bid` (bot's
+    `/pujar`) ignores the pause. Override without a deploy:
+
+    ```bash
+    gcloud run services update biwenger-api --region europe-southwest1 \
+      --update-env-vars AUTO_BID_PAUSED_UNTIL=2026-09-01
+    ```
+
   * **Smoke test:**
 
     ```bash

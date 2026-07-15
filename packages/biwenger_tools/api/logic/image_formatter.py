@@ -160,32 +160,46 @@ def build_table_image(
     total = sum(col_widths)
     col_widths = [w / total for w in col_widths]
 
-    table = ax.table(
-        cellText=cell_data,
-        colLabels=headers,
-        cellColours=cell_colors,
-        cellLoc="left",
-        loc="center",
-        bbox=[0, 0, 1, 0.88],
-    )
+    if not cell_data:
+        # matplotlib's ax.table raises IndexError on an empty cellText, so
+        # an empty squad/market renders a placeholder instead of a table.
+        ax.text(
+            0.5,
+            0.45,
+            "Sin jugadores",
+            transform=ax.transAxes,
+            fontsize=12,
+            ha="center",
+            va="center",
+            color="#555555",
+        )
+    else:
+        table = ax.table(
+            cellText=cell_data,
+            colLabels=headers,
+            cellColours=cell_colors,
+            cellLoc="left",
+            loc="center",
+            bbox=[0, 0, 1, 0.88],
+        )
 
-    for j in range(n_cols):
-        cell = table[0, j]
-        cell.set_facecolor(_HEADER_BG)
-        cell.get_text().set_color(_HEADER_FG)
-        cell.get_text().set_fontweight("bold")
-        cell.get_text().set_fontsize(10)
-        cell.set_edgecolor(_EDGE)
-
-    for i in range(1, n_rows + 1):
         for j in range(n_cols):
-            cell = table[i, j]
-            cell.get_text().set_fontsize(9.5)
+            cell = table[0, j]
+            cell.set_facecolor(_HEADER_BG)
+            cell.get_text().set_color(_HEADER_FG)
+            cell.get_text().set_fontweight("bold")
+            cell.get_text().set_fontsize(10)
             cell.set_edgecolor(_EDGE)
 
-    for j, width in enumerate(col_widths):
-        for i in range(n_rows + 1):
-            table[i, j].set_width(width)
+        for i in range(1, n_rows + 1):
+            for j in range(n_cols):
+                cell = table[i, j]
+                cell.get_text().set_fontsize(9.5)
+                cell.set_edgecolor(_EDGE)
+
+        for j, width in enumerate(col_widths):
+            for i in range(n_rows + 1):
+                table[i, j].set_width(width)
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
