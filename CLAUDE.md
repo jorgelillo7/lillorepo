@@ -86,11 +86,15 @@ feature.
 This repo deploys to production on every push to `master` (see `.github/workflows/deploy.yml`).
 **Always work on a feature branch and open a PR** — never commit directly to master.
 
-**No silent exceptions.** Even for changes that look risk-free (docs, comments,
-CLAUDE.md edits, README typos), do NOT commit directly to master unless the
-user has *explicitly* authorised it in the current turn ("commitealo en master
-como excepción" or equivalent). "Looks harmless" is not consent — ask, or open
-a PR. Authorisation given once does not carry over to later changes.
+**No exceptions.** Every change — docs, comments, CLAUDE.md edits, README
+typos, urgent hotfixes — goes through branch + PR + green checks + merge.
+There is no "commit directly to master" authorisation, from anyone, ever.
+If it's urgent, the fast path is the same path: branch, PR, wait for `Lint`
+and `Test`, merge.
+
+This is enforced, not just policy: `master` has branch protection (required
+status checks `Lint` + `Test` from `ci.yml`, `enforce_admins` on, no
+force-pushes). A direct push is rejected by GitHub regardless of intent.
 
 ```bash
 git checkout -b feat/my-feature
@@ -104,7 +108,7 @@ Rationale:
 - GitHub Actions is free for public repos, so cost is not the concern; correctness is.
 - PRs give a natural review checkpoint and keep master always deployable.
 
-For quick fixes or documentation-only changes, a short-lived branch + immediate PR merge is still preferred over committing directly.
+For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
 
 ## Plans (`.claude/plans/`)
 
