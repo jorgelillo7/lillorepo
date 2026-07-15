@@ -12,11 +12,11 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## infra
 
-- **Drive folder cleanup** (USER-OWNED, week of 2026-05-26) — when the league ends:
-  delete the Drive folder contents (the old CSVs the scraper used to upload), then
-  drop the `biwenger-tools-sa-regional` secret or repoint it to a Sheets-only SA
-  (Sheets API still authenticates through that mount for `ligas_especiales` /
-  `trofeos`).
+- **Drive folder cleanup** (USER-OWNED, actionable since the 2026-07-14 league
+  restart) — delete the Drive folder contents (the old CSVs the scraper used to
+  upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
+  NOT drop it, the web still authenticates Sheets through that mount for
+  `ligas_especiales` / `trofeos`.
 - **Keyless deploy via Workload Identity Federation** (audit 2026-07-11) — replace
   the long-lived `GCP_SA_KEY` JSON in GitHub Secrets with WIF/OIDC:
   create the pool+provider once, switch the five `google-github-actions/auth@v3`
@@ -28,6 +28,20 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   package, `docs/README.md` index, dependabot for actions, typed SDK exceptions,
   ruff migration, coverage in CI.
 
+## biwenger_tools
+
+- **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
+  only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
+  Trofeos spreadsheets and shares the IDs: add the `*_26_27` GitHub secrets,
+  wire them in `deploy.yml`, and extend the season→sheet maps in
+  `web/config.py`. No rush — nothing to show until the league has data.
+
 ## my_photos
 
-- **Photo-recognition project** — tracked in `packages/my_photos/README.md`, not here.
+- **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
+  Blocked on USER: run the migration script and free up the disks.
+
+## be_water
+
+- **Parked** until the user shapes the idea — README-only package, no code yet.
+  Do not start work here without an explicit go.
