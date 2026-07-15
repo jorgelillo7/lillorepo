@@ -79,7 +79,7 @@ jobs:
     name: Lint Python
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
@@ -103,7 +103,7 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       chucknorris_bot: ${{ steps.filter.outputs.chucknorris_bot }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: dorny/paths-filter@v4
         id: filter
@@ -148,7 +148,7 @@ jobs:
     needs: [detect-changes, lint]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
@@ -178,7 +178,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy_web)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -233,7 +233,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy_scraper)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -278,7 +278,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy_bot)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -362,7 +362,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy_api)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -414,7 +414,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.deploy_chucknorris_bot)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -485,7 +485,7 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
