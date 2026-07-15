@@ -26,11 +26,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   today they are plain `--set-env-vars` in the web deploy (visible in the revision
   spec). Consolidate into a `flask-web-config` JSON secret following the
   `telegram-bot-config` pattern.
-- **Documentation sweep** (audit 2026-07-11) — fix in one PR: CLAUDE.md says
-  Python 3.12 (toolchain is 3.13); `docs/operations.md` still documents the
-  removed Teams Analyzer; `.github/workflows/README.md` lists the unused
-  `LIGAS_ESPECIALES_SHEET_ID_24_25` secret; `pytest.ini` points at pre-monorepo
-  paths (recommendation: delete it, Bazel is the only runner).
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
   Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the

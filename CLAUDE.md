@@ -22,7 +22,7 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
 ## Stack
 
 - **Build:** Bazel (bazelisk)
-- **Language:** Python 3.12
+- **Language:** Python 3.13
 - **Cloud:** GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry
 - **Other:** Flask, Docker
 - **CI:** GitHub Actions runs flake8 + `black --check` before tests; tests gate the deploy.
