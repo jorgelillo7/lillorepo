@@ -2,7 +2,37 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
-### **v7.2 - El botón rojo (2 June 2026)**
+### **v8.0 - The League Reboots, the Repo Grows Up (16 July 2026)**
+
+Biwenger reset the league on 14 July. The daily digest met an empty squad, crashed inside matplotlib, and took the market analysis down with it — the exact single-point-of-failure this release kills. Around that incident, an audit-driven hardening spree: CI on every PR, real branch protection, keyless deploys, zero plaintext secrets. The league starts from scratch; the repo has never been more grown-up.
+
+* **🔄 Season 26-27 survival (the headline)**: Empty squads crashed `build_table_image` and the whole digest with it. Fixed twice over: the renderer now draws a placeholder for empty tables, and each digest section runs isolated — a dead section posts a one-line note and the rest still arrives. Verified live (`my_team: 0, market: 15`). New league member Manu joins `LEAGUE_MEMBERS`.
+* **⏸️ Auto-bids paused until September**: New `AUTO_BID_PAUSED_UNTIL` (default `2026-09-01`, env-overridable). The digest skips bidding and posts a pause note instead; `/pujar` stays manual; it re-enables itself on the date. A malformed date fails open.
+* **🛂 CI on PRs + branch protection**: `ci.yml` gates every PR with lint + the full test suite; `master` requires green checks, `enforce_admins` on, direct pushes bounce (tested live). The documented "master exception" is gone — rules are for everyone, urgent takes the same path.
+* **🔐 Keyless deploys (WIF)**: All six auth blocks swap the long-lived `GCP_SA_KEY` for GitHub OIDC → 1-hour SA tokens. GitHub secret deleted, exportable key disabled. Verified with a full 5-module deploy; timings unchanged.
+* **🤫 Flask secrets out of plaintext**: `SECRET_KEY`/`ADMIN_PASSWORD` move from the visible revision spec into `flask-web-config-regional`. GitHub secret list down to 3, all in active use.
+* **⚖️ MIT LICENSE + 📜 OpenAPI spec**: The public repo is now legally reusable, and the reverse-engineered Biwenger API we consume is documented in `docs/external/biwenger-api.yaml`.
+* **💰 First-ever charge, killed**: July's cents came from 5 stale *disabled* secret versions (disabled still bills; destroyed doesn't). Destroyed, cost checker hardened. €0.00 expected from August.
+* **🧹 Sweep**: Python 3.13 in CLAUDE.md, Teams Analyzer out of the ops index, fossil `pytest.ini` deleted, `PENDING.md` refreshed with owner-tagged follow-ups.
+
+---
+
+### **v7.3 - The Lost Episodes (25 June 2026)**
+
+Written in hindsight: between The Red Button and the season reset, a steady stream of work shipped without ever getting its release notes. This entry is the paper trail catching up.
+
+* **🗓️ Season 26-27 rollover, the code half (26 May)**: `TEMPORADA_ACTUAL=26-27` across configs and CI, the 25-26 **palmarés auto-built into Firestore** by the new `fetch_palmares` script, and `LEAGUE_MEMBERS` born in core as the stable user_id → real-name map.
+* **🎯 Auto-bid tier engine v2 (24 May)**: New T4 tier (SF 300-400 → price+500K), every non-T1 bid now `min(price × multiplier, price + cap)`, inclusive lower boundaries, a 0-1000 € anti-bot jitter, and a 90-day TTL on the Firestore bid log.
+* **📬 `/ofertas` — offers inbox (24-25 June)**: Received offers scored (price vs cf-base value, SF, starter status) with inline ✅/❌ buttons. Opinionated: a T2 score alone is a REJECT (loss aversion), and `is_starter` reads Biwenger's real saved lineup.
+* **🚑 Digest timeout hardening (23 June)**: The 22-23/06 silent-failure incidents got per-photo text fallbacks and a top-level failure notification. Silent failures became loud ones.
+* **⌨️ Persistent reply keyboard (24 May)**: The bot's main menu becomes an always-visible keyboard pill instead of the inline `/menu`.
+* **📱 iOS home-screen icon (24 June)**: Proper icon + app title when the web is added to the home screen. Small thing, feels native.
+* **📊 STATUS.md + the single SLO (24 May)**: A living maturity report and one measurable promise: the 09:00 digest lands end-to-end in ≤ 5 minutes.
+* **🧹 Data-layer last rites (26 May + 11 June)**: The CSV serialization layer deleted for good; `firestore-surgery` joins `scripts/` for scraper recovery.
+
+---
+
+### **v7.2 - The Red Button (2 June 2026)**
 
 Getting clausulated wrecks your planning. Now there's a red button: `/emergencia` looks at your cash, your squad and what was just taken from you, proposes who to clause in return, and waits for an explicit Yes before touching Biwenger. Cash-justo (no margin), the right position, irreversible — with a confirmation step on top.
 
@@ -18,37 +48,37 @@ Getting clausulated wrecks your planning. Now there's a red button: `/emergencia
 
 ---
 
-### **v7.1 - Auto-bid al Amanecer (24 May 2026)**
+### **v7.1 - Auto-bid at Dawn (24 May 2026)**
 
-Wake up, brew coffee, open Telegram: 🛡️ Mi equipo, 🛒 Mercado, 💸 Pujas automáticas — in that order, every morning at 09:00 Madrid, all triggered by a single Cloud Scheduler tick. The new auto-bid walks the daily free-agent market, scores every candidate against SofaScore via Jornada Perfecta, and bids by tier until cash runs out. Cero clicks. Just bids.
+Wake up, brew coffee, open Telegram: 🛡️ Mi equipo, 🛒 Mercado, 💸 Pujas automáticas — in that order, every morning at 09:00 Madrid, all triggered by a single Cloud Scheduler tick. The new auto-bid walks the daily free-agent market, scores every candidate against SofaScore via Jornada Perfecta, and bids by tier until cash runs out. Zero clicks. Just bids.
 
-* **💸 Auto-bid por tiers (the headline)**: New `logic/auto_bid.py` + `POST /market/auto-bid` endpoint. Tier table over Biwenger's cf-base `price`:
+* **💸 Tiered auto-bid (the headline)**: New `logic/auto_bid.py` + `POST /market/auto-bid` endpoint. Tier table over Biwenger's cf-base `price`:
   - **SF > 800** → all-in (`remaining_cash`, price-agnostic — never leave cash on the table)
   - **600 < SF ≤ 800** → `price + 5M` (aggressive)
   - **400 < SF ≤ 600** → `price + 2M`
   - **SF ≤ 400** → skip
   Walks candidates SF-DESC, skips when target_bid > remaining_cash (no downsizing), continues past per-bid 4xx so a single rejected offer doesn't abort the loop.
-* **🔗 Encadenado en el digest diario**: Single cron, single process. `digests.run_daily` calls `auto_bid.run_auto_bid()` after sending the two PNGs — guarantees the chat reads squad → market → bids in that order. Wrapped in a broad try/except: a broken auto-bid run must not invalidate the digest already sent.
-* **🔁 Idempotencia con Firestore**: Each placed bid writes to `auto_bid_log/{YYYY-MM-DD}/bids/{player_id}`. The run reads today's log up-front and skips any player already bid — so when Cloud Scheduler retries a transient 5xx, we don't double-bid the players that already went through.
-* **🤖 Disparador manual `/pujar`**: New bot command + 💸 Pujar button in the inline menu. Dispatches the same `/market/auto-bid` endpoint for ad-hoc runs (useful for testing without waiting for the cron, or re-running after a manual cash injection).
+* **🔗 Chained into the daily digest**: Single cron, single process. `digests.run_daily` calls `auto_bid.run_auto_bid()` after sending the two PNGs — guarantees the chat reads squad → market → bids in that order. Wrapped in a broad try/except: a broken auto-bid run must not invalidate the digest already sent.
+* **🔁 Idempotency via Firestore**: Each placed bid writes to `auto_bid_log/{YYYY-MM-DD}/bids/{player_id}`. The run reads today's log up-front and skips any player already bid — so when Cloud Scheduler retries a transient 5xx, we don't double-bid the players that already went through.
+* **🤖 Manual trigger `/pujar`**: New bot command + 💸 Pujar button in the inline menu. Dispatches the same `/market/auto-bid` endpoint for ad-hoc runs (useful for testing without waiting for the cron, or re-running after a manual cash injection).
 * **🆕 SDK `place_market_bid`**: `BiwengerClient.place_market_bid(player_id, amount)` → `POST /api/v2/offers` with `{to: null, type: "purchase"}`. The `to: null` marker is the differentiator for computer-owned daily-market players; user listings (`to=<seller_id>`) are explicitly out of scope.
-* **🛡️ JP cache fingerprint endurecida**: The freshness probe used to read `updated_at` of a single player. JP writes the league in a batch over a few minutes, so each player has its own timestamp inside the batch window — sampling just one was brittle when the top-priceIncrement player happened to be a no-op in the latest refresh. Now probes 5 and takes `max(updated_at)`. Cost: ~1 KB vs ~200 B, the false-negative rate drops to vanishing.
-* **📊 Scraper notify ahora cuenta clausulazos**: The post-run Telegram ping went from "🧹 Scraper OK · 1 mensajes nuevos · 15s" to "🧹 Scraper OK · 1 mensaje nuevo · 104 clausulazos · 15s". Visibility into a number that previously required opening the web to find out.
+* **🛡️ JP cache fingerprint hardened**: The freshness probe used to read `updated_at` of a single player. JP writes the league in a batch over a few minutes, so each player has its own timestamp inside the batch window — sampling just one was brittle when the top-priceIncrement player happened to be a no-op in the latest refresh. Now probes 5 and takes `max(updated_at)`. Cost: ~1 KB vs ~200 B, the false-negative rate drops to vanishing.
+* **📊 Scraper notify now counts clausulazos**: The post-run Telegram ping went from "🧹 Scraper OK · 1 mensajes nuevos · 15s" to "🧹 Scraper OK · 1 mensaje nuevo · 104 clausulazos · 15s". Visibility into a number that previously required opening the web to find out.
 * **🩹 CI fix**: bot setup-commands step installs `python-json-logger` so it can import `core.utils.get_logger`. Silent failure pre-fix; loud success post-fix.
 
 ---
 
 ### **v7.0 - Welcome, Mrs. Firestore (21 May 2026)**
 
-The data layer grows up. Two years of CSVs on Google Drive — funky `.csv` files downloaded and parsed on every page load, mounted SA keys, the occasional silent stale read — are gone. Firestore is now the only data backend: scraper writes, web reads, with server-side queries, composite indexes, and ADC (no SA key file). The web layer feels instant. The scraper is dual-write no more. Cost stays at €0/mes (free tier covers our league traffic by orders of magnitude).
+The data layer grows up. Two years of CSVs on Google Drive — funky `.csv` files downloaded and parsed on every page load, mounted SA keys, the occasional silent stale read — are gone. Firestore is now the only data backend: scraper writes, web reads, with server-side queries, composite indexes, and ADC (no SA key file). The web layer feels instant. The scraper is dual-write no more. Cost stays at €0/month (free tier covers our league traffic by orders of magnitude).
 
-* **🔥 Firestore SDK + dominio**: New `core.sdk.firestore` wraps the `google-cloud-firestore` client (get / set / list / query / count / batch_write / delete_collection). Domain models gain `from_firestore()` / `to_firestore()` symmetric with the CSV helpers; new `Palmares` model joins the family. Schemas, indexes and read-cost reference live in `docs/firestore.md` — one place to check.
-* **📥 Scraper escribe solo a Firestore**: `comunicados/{season}/messages` keyed by SHA-256 of (date + content) — deterministic and idempotent. `participacion`, `clausulazos`, `tabla_justicia` get the wipe+bulk-write treatment so deletions upstream propagate cleanly. Drive uploads retired.
-* **🌐 Web lee de Firestore con queries server-side**: `repository.py` runs typed Firestore queries directly, including a composite index for `messages` (filter by category + order by date desc) so pagination doesn't pull the world. Palmares is sorted client-side because `__name__ DESC` is not auto-indexed.
-* **🔐 ADC en lugar de SA key**: Cloud Run compute SA gets Firestore access at project level — no key file mounts, no `GOOGLE_APPLICATION_CREDENTIALS` env var. The web image used to set GAC pointing at the Drive SA; flipping that on for Firestore was a silent regression we hit and fixed. Drive SA (`biwenger-tools-sa-regional`) still mounts because Sheets API needs it for ligas especiales / palmares — to be repointed when the Drive folder is purged.
+* **🔥 Firestore SDK + domain**: New `core.sdk.firestore` wraps the `google-cloud-firestore` client (get / set / list / query / count / batch_write / delete_collection). Domain models gain `from_firestore()` / `to_firestore()` symmetric with the CSV helpers; new `Palmares` model joins the family. Schemas, indexes and read-cost reference live in `docs/firestore.md` — one place to check.
+* **📥 Scraper writes only to Firestore**: `comunicados/{season}/messages` keyed by SHA-256 of (date + content) — deterministic and idempotent. `participacion`, `clausulazos`, `tabla_justicia` get the wipe+bulk-write treatment so deletions upstream propagate cleanly. Drive uploads retired.
+* **🌐 Web reads Firestore with server-side queries**: `repository.py` runs typed Firestore queries directly, including a composite index for `messages` (filter by category + order by date desc) so pagination doesn't pull the world. Palmares is sorted client-side because `__name__ DESC` is not auto-indexed.
+* **🔐 ADC instead of an SA key**: Cloud Run compute SA gets Firestore access at project level — no key file mounts, no `GOOGLE_APPLICATION_CREDENTIALS` env var. The web image used to set GAC pointing at the Drive SA; flipping that on for Firestore was a silent regression we hit and fixed. Drive SA (`biwenger-tools-sa-regional`) still mounts because Sheets API needs it for ligas especiales / palmares — to be repointed when the Drive folder is purged.
 * **🔁 Backfill script**: `scripts/backfill_firestore.py` seeds Firestore from the existing CSVs. Re-runnable (wipe + write). Kept post-migration as a recovery tool in case the DB ever needs a rebuild.
 * **🐍 `python-base` image rebuilt**: `google-cloud-firestore` + `grpcio` baked in. Matplotlib restored on the api side (the rebuild had dropped it).
-* **📋 `/menu` con keyboard inline**: `/menu` (and `/start`) now post a clickable inline keyboard with the main actions instead of forcing the user to remember the slash commands. Tapping a button fires the same dispatcher as the text command. `/analizar` opens a manager picker as a second keyboard.
+* **📋 `/menu` with inline keyboard**: `/menu` (and `/start`) now post a clickable inline keyboard with the main actions instead of forcing the user to remember the slash commands. Tapping a button fires the same dispatcher as the text command. `/analizar` opens a manager picker as a second keyboard.
 * **📣 Scraper notify + `/scrapper` bot command**: The scraper Cloud Run Job now pings Telegram when it finishes (success or error), and the bot exposes `/scrapper` to queue an execution on demand.
 * **🛡️ `/alinear` hardening**: Captain MV cap is checked against the **cf-base price**, not `owner.price` (the per-league live MV) — Biwenger's server validates against cf-base, so picking a 3M-cf player at 1.6M owner.price was getting rejected silently. Fixed at the row builder level.
 * **💰 `/recomendar` polish**: `maxBid` computed client-side (`cash + 25% of squad MV` — verified against the Biwenger UI to the euro). Dynamic margin proportional to cash (40% rounded to nearest 500k, clamped to [2M, 10M]). Spanish-style euro format and a sharper cash+margin affordability filter.
@@ -93,7 +123,7 @@ After v5.0 wired up `/alinear`, real-world use surfaced rough edges: a multi-pos
 
 ---
 
-### **v5.1 - El Regreso de Chuck (10 May 2026)**
+### **v5.1 - The Return of Chuck (10 May 2026)**
 
 A bot that first went live on 6 October 2015 — commit message: *"appbot example"* — is back. It spent a decade dormant in a public GitHub repo, originally built to experiment with Node.js, Heroku, and the Telegram Bot API. It now lives in this monorepo, rewritten in Python, deployed on Cloud Run, and sharing the same Bazel infrastructure as everything else. Same jokes. Different everything else.
 
@@ -104,7 +134,7 @@ A bot that first went live on 6 October 2015 — commit message: *"appbot exampl
 
 ---
 
-### **v5.0 - Bot Interactivo & Alineación Automática (10 May 2026)**
+### **v5.0 - Interactive Bot & Automatic Lineup (10 May 2026)**
 
 The analyzer grows a brain and a mouth. A dedicated Telegram bot service wires up five commands, and the new `/alinear` engine picks the best eleven for you — backtracking across every formation, respecting positions, injury statuses, and a captain price cap the Biwenger API actually enforces. Teams are now delivered as pixel-perfect PNG tables instead of plain text.
 
