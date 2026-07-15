@@ -51,6 +51,7 @@ def _digest_env(
     auto_bid_raises=None,
     offers_result=None,
     offers_raises=None,
+    paused_until="",
 ):
     """Helper: wire `run_daily`'s collaborators so only the varying step changes."""
     stack = ExitStack()
@@ -97,6 +98,7 @@ def _digest_env(
 
     mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
     mock_cfg.MARKET_URL = "x"
+    mock_cfg.AUTO_BID_PAUSED_UNTIL = paused_until
     return stack, mock_send, mock_auto_bid, mock_offers
 
 
@@ -206,6 +208,97 @@ def test_run_daily_notifies_telegram_when_inner_raises():
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Digest diario falló" in text
     assert "biwenger 503" in text
+
+
+# --- section resilience -----------------------------------------------------
+
+
+def test_run_daily_market_survives_team_section_failure():
+    """A broken "Mi equipo" section (fetch, rows or render) must not kill
+    the market image nor the auto-bid step — the chat gets a short
+    failure note for the dead section and the digest continues."""
+
+    def _boom_on_team(rows, title, extra_cols=None):
+        if title == "Mi equipo":
+            raise RuntimeError("render boom")
+        return b""
+
+    stack, mock_send, mock_auto_bid, _ = _digest_env(
+        auto_bid_result={"bid_count": 0, "skipped_count": 0}
+    )
+    stack.enter_context(patch(_patches("build_table_image"), side_effect=_boom_on_team))
+    mock_text = stack.enter_context(patch(_patches("send_telegram_message")))
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    # Only the market image went out; the team section degraded to a note.
+    assert mock_send.call_count == 1
+    assert mock_send.call_args.args[3] == "Mercado"
+    mock_auto_bid.assert_called_once()
+    assert result["sent"] == 1
+    note = mock_text.call_args.kwargs.get("text", "")
+    assert "Mi equipo" in note
+
+
+# --- auto-bid pause ----------------------------------------------------------
+
+
+def test_run_daily_skips_auto_bid_while_paused():
+    """While today < AUTO_BID_PAUSED_UNTIL the digest must not bid; it posts
+    a pause note instead and the summary carries the resume date."""
+    stack, mock_send, mock_auto_bid, mock_offers = _digest_env(
+        paused_until="2999-01-01"
+    )
+    mock_text = stack.enter_context(patch(_patches("send_telegram_message")))
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_auto_bid.assert_not_called()
+    mock_offers.assert_called_once()  # offers analysis stays active
+    assert mock_send.call_count == 2  # team + market images still sent
+    assert result["auto_bid"] == {"paused_until": "2999-01-01"}
+    note = mock_text.call_args.kwargs.get("text", "")
+    assert "pausadas" in note
+    assert "/pujar" in note
+
+
+def test_run_daily_runs_auto_bid_once_pause_expired():
+    """A past AUTO_BID_PAUSED_UNTIL re-enables bidding with no deploy."""
+    stack, _, mock_auto_bid, _ = _digest_env(
+        paused_until="2000-01-01", auto_bid_result={"bid_count": 1}
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_auto_bid.assert_called_once()
+    assert result["auto_bid"]["bid_count"] == 1
+
+
+def test_run_daily_ignores_malformed_pause_date():
+    """A typo in AUTO_BID_PAUSED_UNTIL must never disable bidding."""
+    stack, _, mock_auto_bid, _ = _digest_env(
+        paused_until="septiembre", auto_bid_result={"bid_count": 0}
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_auto_bid.assert_called_once()
 
 
 # --- offers inbox chained at the end --------------------------------------

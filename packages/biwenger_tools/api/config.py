@@ -45,6 +45,13 @@ JP_AUTH_TOKEN = _BIWENGER_CFG.get("jp_auth_token") or os.getenv("JP_AUTH_TOKEN",
 JP_COMPETITION = 1  # LaLiga
 JP_SCORE_TYPE = 2  # SofaScore (Automanager system)
 
+# --- AUTO-BID PAUSE (daily digest only) ---
+# While today (Madrid) is before this ISO date, the daily digest skips the
+# auto-bid step. The manual `POST /market/auto-bid` (bot's /pujar) always
+# works. Empty string = never paused. Override via env without a deploy:
+#   gcloud run services update biwenger-api --update-env-vars AUTO_BID_PAUSED_UNTIL=...
+AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
+
 # --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")

@@ -28,6 +28,7 @@ LEAGUE_MEMBERS: dict[int, str] = {
     1372802: "Jorge",
     7728598: "Javi",
     7727371: "Ruben",
+    13753285: "Manu",
 }
 
 # A dynamic Drive file is considered stale if it hasn't been touched in
