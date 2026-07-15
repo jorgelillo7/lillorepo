@@ -31,7 +31,6 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 | `SECRET_KEY` | Flask session secret key |
 | `ADMIN_PASSWORD` | Admin panel password |
 | `LIGAS_ESPECIALES_SHEET_ID_25_26` | Google Sheets ID (ligas especiales 25-26) |
-| `LIGAS_ESPECIALES_SHEET_ID_24_25` | Google Sheets ID (ligas especiales 24-25) |
 | `TROFEOS_SHEET_ID_25_26` | Google Sheets ID (trofeos 25-26) |
 
 Other credentials (Biwenger login, Telegram bot tokens, JP token) live in Secret Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
