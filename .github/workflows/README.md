@@ -27,13 +27,17 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 
 | Secret | Description |
 |--------|-------------|
-| `GCP_SA_KEY` | JSON key of the `biwenger-tools-sa` service account |
 | `LIGAS_ESPECIALES_SHEET_ID_25_26` | Google Sheets ID (ligas especiales 25-26) |
 | `TROFEOS_SHEET_ID_25_26` | Google Sheets ID (trofeos 25-26) |
 
 Other credentials (Biwenger login, Telegram bot tokens, JP token, Flask
 `secret_key`/`admin_password` via `flask-web-config-regional`) live in Secret
 Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
+
+GCP auth is keyless: the workflow exchanges its GitHub OIDC token for
+short-lived `biwenger-tools-sa` credentials via Workload Identity Federation
+(pool `github`, provider `github-oidc`, restricted to this repository). There
+is no service-account key to rotate or leak.
 
 ## Service account permissions
 

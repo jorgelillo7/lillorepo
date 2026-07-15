@@ -17,11 +17,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
   NOT drop it, the web still authenticates Sheets through that mount for
   `ligas_especiales` / `trofeos`.
-- **Keyless deploy via Workload Identity Federation** (audit 2026-07-11) — replace
-  the long-lived `GCP_SA_KEY` JSON in GitHub Secrets with WIF/OIDC:
-  create the pool+provider once, switch the five `google-github-actions/auth@v3`
-  blocks in `deploy.yml` to `workload_identity_provider` + `service_account`,
-  then delete the secret.
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
   Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the
