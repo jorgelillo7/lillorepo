@@ -28,12 +28,12 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 | Secret | Description |
 |--------|-------------|
 | `GCP_SA_KEY` | JSON key of the `biwenger-tools-sa` service account |
-| `SECRET_KEY` | Flask session secret key |
-| `ADMIN_PASSWORD` | Admin panel password |
 | `LIGAS_ESPECIALES_SHEET_ID_25_26` | Google Sheets ID (ligas especiales 25-26) |
 | `TROFEOS_SHEET_ID_25_26` | Google Sheets ID (trofeos 25-26) |
 
-Other credentials (Biwenger login, Telegram bot tokens, JP token) live in Secret Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
+Other credentials (Biwenger login, Telegram bot tokens, JP token, Flask
+`secret_key`/`admin_password` via `flask-web-config-regional`) live in Secret
+Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
 
 ## Service account permissions
 

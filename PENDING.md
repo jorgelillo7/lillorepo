@@ -22,10 +22,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   create the pool+provider once, switch the five `google-github-actions/auth@v3`
   blocks in `deploy.yml` to `workload_identity_provider` + `service_account`,
   then delete the secret.
-- **Move `SECRET_KEY` / `ADMIN_PASSWORD` to Secret Manager** (audit 2026-07-11) —
-  today they are plain `--set-env-vars` in the web deploy (visible in the revision
-  spec). Consolidate into a `flask-web-config` JSON secret following the
-  `telegram-bot-config` pattern.
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
   Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the

@@ -203,14 +203,12 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
-            --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest \
+            --update-secrets="/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest,FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
           CLOUD_RUN_JOB_NAME=biwenger-scraper-data,\
           CLOUD_RUN_REGION=${{ env.REGION }},\
-          SECRET_KEY=${{ secrets.SECRET_KEY }},\
-          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }},\
           LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
