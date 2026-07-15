@@ -1,0 +1,53 @@
+# CI gate for pull requests: lint + full test suite, no deploys.
+# Deploys stay exclusively in deploy.yml (push to master). Branch
+# protection on master requires the "Lint" and "Test" checks below, so a
+# red PR cannot be merged.
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+
+# A new push to the PR obsoletes the previous run — cancel it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Lint
+        run: bash scripts/lint.sh
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Run all tests
+        run: |
+          bazel test \
+            //core:core_tests \
+            //packages/biwenger_tools/web:web_tests \
+            //packages/biwenger_tools/scraper_job:scraper_job_tests \
+            //packages/biwenger_tools/bot:bot_tests \
+            //packages/biwenger_tools/api:api_tests \
+            //packages/chucknorris_bot/bot:bot_tests \
+            --test_output=streamed --test_arg=-v

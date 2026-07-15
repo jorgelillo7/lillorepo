@@ -17,14 +17,25 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   drop the `biwenger-tools-sa-regional` secret or repoint it to a Sheets-only SA
   (Sheets API still authenticates through that mount for `ligas_especiales` /
   `trofeos`).
-- **Resume the weekly scraper scheduler on 2026-07-14** (Biwenger league restart) —
-  paused on 2026-05-26 with
-  `gcloud scheduler jobs pause biwenger-scraper-data-scheduler-trigger`
-  (Cloud Scheduler, europe-west1, project `biwenger-tools`). Resume with:
-  `gcloud scheduler jobs resume biwenger-scraper-data-scheduler-trigger --location=europe-west1 --project=biwenger-tools`
-  so the Sunday 22:00 Madrid scrape fires again. Note: Cloud Scheduler is not
-  offered in europe-southwest1, so europe-west1 is deliberate — do not try to
-  "fix" the region.
+- **Keyless deploy via Workload Identity Federation** (audit 2026-07-11) — replace
+  the long-lived `GCP_SA_KEY` JSON in GitHub Secrets with WIF/OIDC:
+  create the pool+provider once, switch the five `google-github-actions/auth@v3`
+  blocks in `deploy.yml` to `workload_identity_provider` + `service_account`,
+  then delete the secret.
+- **Move `SECRET_KEY` / `ADMIN_PASSWORD` to Secret Manager** (audit 2026-07-11) —
+  today they are plain `--set-env-vars` in the web deploy (visible in the revision
+  spec). Consolidate into a `flask-web-config` JSON secret following the
+  `telegram-bot-config` pattern.
+- **Documentation sweep** (audit 2026-07-11) — fix in one PR: CLAUDE.md says
+  Python 3.12 (toolchain is 3.13); `docs/operations.md` still documents the
+  removed Teams Analyzer; `.github/workflows/README.md` lists the unused
+  `LIGAS_ESPECIALES_SHEET_ID_24_25` secret; `pytest.ini` points at pre-monorepo
+  paths (recommendation: delete it, Bazel is the only runner).
+- **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
+  deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
+  Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the
+  package, `docs/README.md` index, dependabot for actions, typed SDK exceptions,
+  ruff migration, coverage in CI.
 
 ## my_photos
 
