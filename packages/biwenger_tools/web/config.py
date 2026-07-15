@@ -3,6 +3,8 @@ import sys
 
 from dotenv import load_dotenv
 
+from core.utils import load_json_secret
+
 # Pulls vars from a local .env when present (used for local dev).
 load_dotenv()
 
@@ -38,10 +40,14 @@ CLOUD_RUN_JOB_NAME = os.getenv("CLOUD_RUN_JOB_NAME")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
 
 # --- Application secrets ---
+# Prod: FLASK_WEB_CONFIG_JSON bound from Secret Manager in deploy.yml.
+# Local dev: SECRET_KEY / ADMIN_PASSWORD env vars (via .env).
+_FLASK_CFG = load_json_secret("FLASK_WEB_CONFIG_JSON")
+
 # Refuse to start without a SECRET_KEY in production. A predictable default
 # (the old "default-dev-key") makes Flask session cookies trivially forgeable,
 # so we never want it to silently leak into a real deploy.
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = _FLASK_CFG.get("secret_key") or os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     if "pytest" in sys.modules:
         # Test suites set their own value on app.config after import; allow
@@ -52,7 +58,7 @@ if not SECRET_KEY:
             "SECRET_KEY env var is required; refusing to start with a default."
         )
 
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+ADMIN_PASSWORD = _FLASK_CFG.get("admin_password") or os.getenv("ADMIN_PASSWORD")
 
 # --- Deployed version metadata (short SHA, 7 chars) ---
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
