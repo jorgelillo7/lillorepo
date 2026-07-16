@@ -1,43 +1,57 @@
 # 💧 be_water — brainstorming + plan
 
-> **Estado**: brainstorming inicial (2026-06-02). Plan v1 pendiente de
-> confirmar. No hay código todavía.
+> **Estado**: plan v2 (2026-07-17) tras análisis de competencia. Decisión de
+> arquitectura tomada: **repositorio propio, fuera del monorepo** (ver §4).
+> No hay código todavía; este README se muda al repo nuevo cuando se cree.
 > **Brand sugerida (display)**: "Be Water" o "Be Water, My Friend".
-> **Directorio**: `packages/be_water/` (snake_case por convención del monorepo).
-> **Cloud Run service**: `be-water`.
 
-## 1. Contexto
+## 1. Contexto — el problema real
 
-El usuario quiere una web sencilla para **comparar aguas minerales** y tener
-una **lista de favoritas por persona**, con tres casos de uso bien definidos:
+El problema que dispara el proyecto es personal y concreto: **fuera de casa,
+si no están las aguas de siempre (Lanjarón, Solán de Cabras), la elección es
+al tuntún** — y a veces sale Bezoya, que es justo lo contrario de lo que
+busca el paladar en cuestión (27 mg/L de residuo seco vs los ~261 de Solán).
 
-1. **Saber qué tipo de agua le gusta**: en una tienda con seis marcas
-   delante, decidir cuál se parece más a la que ya bebe (p. ej. Solán de
-   Cabras) y cuál se aleja (p. ej. Bezoya).
-2. **Encontrar una agua similar en otra región**: viajas a Asturias y
-   quieres saber qué local se acerca a tu agua de cabecera.
-3. **Ampliar el catálogo entre amigos**: cualquiera con el link puede subir
-   una foto + ficha de una agua que ha visto y enriquecer la base.
+Casos de uso, por orden de importancia:
 
-No es un proyecto serio en cuanto a auth ni roles. Es **multijugador entre
-colegas**, con "login" mínimo por nickname.
+1. **Recomendador por ubicación** (la feature estrella): "estoy en
+   Tarragona" → dime qué aguas de esa zona tienen composición similar a
+   mis favoritas. Combina el lugar de procedencia del catálogo con el
+   perfil mineral del usuario.
+2. **Decidir en el lineal**: en una tienda con seis marcas delante, saber
+   cuál se parece más a la que ya bebo y cuál se aleja.
+3. **Lista personal**: user/login sencillo, cada uno marca sus favoritas
+   sobre el catálogo y de ahí sale su perfil.
+4. **Catálogo colaborativo**: cualquiera con el link sube foto + ficha de
+   un agua nueva y enriquece la base.
 
-## 2. Investigación previa
+Objetivo de coste: **€0**. No es un producto serio en cuanto a auth ni
+roles — multijugador entre colegas.
 
-### ¿La idea existe?
+## 2. Competencia — qué existe y qué no
 
-**Sí, parcialmente.** Hay dos referencias serias:
+| Quién | Qué hace | Qué NO hace (nuestro hueco) |
+|---|---|---|
+| **[Abar App](https://abar.app/)** | App móvil cerrada: catálogo + comparativa + filtros + reviews. Demuestra demanda. | No es web, no es abierta, sin recomendador geográfico. |
+| **[FineWaters](https://www.finewaters.com/)** | Comunidad de catadores desde 2002; ~100 marcas con composición y "terroir"; mapa mundial. | Contenido editorial premium, no herramienta. España apenas cubierta. |
+| **[mineralwaters.org](https://mineralwaters.org/)** | Base comunitaria internacional (cientos de aguas) con composición; admite contribuciones. | En inglés, foco internacional, sin perfil de usuario ni recomendador; España floja. |
+| **[Comparador OCU](https://www.ocu.org/alimentacion/agua/comparar-agua-mineral)** | Comparativa de composición + precio de aguas del súper español. | De pago (socios), responde "cuál es mejor", no "cuál se parece a la tuya"; sin ubicación. |
 
-- **[Abar App](https://abar.app/en/blogs/how-to-read-water-bottle-labels-sodium-fluoride-and-other-minerals-explained)** —
-  app móvil cerrada que hace catálogo + comparativa + filtros + reviews.
-  Demuestra que la demanda existe. No es web y no es transparente; no
-  resuelve el caso de "veo una botella en el súper y decido".
-- **[FineWaters](https://www.finewaters.com/)** — comunidad de catadores de
-  agua desde 2002, guía/libro/academy, ~100 marcas catalogadas con
-  composición y "terroir". Es contenido editorial, no herramienta.
+**Conclusión**: nadie hace *"tu perfil mineral + dónde estás → recomendación
+local"*, ni en España ni en abierto. Ese cruce (similitud × procedencia) es
+la apuesta diferencial y es barato de construir (§5).
 
-**Hueco real**: una web ligera, abierta, multilenguaje, **enfocada al
-mercado español primero**, con foto y ficha mineral a un tap.
+### Fuentes de datos para el seed (no competencia: materia prima)
+
+- **[Lista oficial AESAN](https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm)**
+  de aguas minerales naturales reconocidas en España: denominación
+  comercial + **manantial + lugar de explotación**. Es exactamente el campo
+  "procedencia" que necesita el recomendador, con bendición oficial.
+- **[IGME — Aguas minerales y termales](https://aguasmineralesytermales.igme.es/introduccion/aguas-minerales-reconocidas)**:
+  inventario geológico con ~1.000 captaciones y visor geográfico.
+- **Etiquetas reales** (fotos nuestras + Gemini, §4): la composición viene
+  de la botella, que es la fuente legal y siempre actualizada.
+- **mineralwaters.org** como cross-check de composiciones dudosas.
 
 ### ¿La composición está estandarizada?
 
@@ -83,22 +97,45 @@ mineral es para afinar.
 3. **"Login" simple por nickname** es suficiente. Sin password, sin email.
    Cualquiera escoge un nickname al entrar; si el nickname ya existe,
    asumimos que es el mismo (riesgo aceptable: amigos, no producto serio).
-4. **El monorepo ya tiene todo lo que necesita**: Cloud Run + Flask (reuso
-   patrón `biwenger_tools/web`), Firestore (ya en `core/sdk/firestore.py`),
-   Bazel macro `python_service` listo para usarse.
+4. **Los patrones del monorepo se reusan; el código no** (ver decisión de
+   repo separado en §4). Flask + Firestore + Cloud Run + Secret Manager es
+   un camino ya recorrido dos veces — se replica, no se importa.
 5. **Coste real estimado**: <€0.50/mes con 5 usuarios y 200 aguas. Firestore
    y Cloud Run free-tier cubren con creces.
 
 ## 4. Decisión por decisión
 
+### Proyecto separado (decisión 2026-07-17)
+
+be_water vive en **su propio repositorio** (`be-water`) y su propio
+proyecto GCP, no en el monorepo. Razones:
+
+- **La lección de chuckbot**: entró al monorepo por comodidad y funciona,
+  pero es un bot que nunca escalará más allá de sí mismo. be_water tiene
+  vocación de crecer (catálogo colaborativo, quizá usuarios externos) —
+  atarlo al ciclo de deploy/CI de biwenger es deuda desde el día 1.
+- **Proyecto GCP propio** (`be-water`): free tier de Firestore
+  independiente (el de `biwenger-tools` ya trabaja para la liga), coste
+  atribuible por proyecto, y cero riesgo de que un pico de be_water toque
+  la SLO del digest.
+- **Sin Bazel**: el monorepo lo justifica; un servicio solo no. Repo
+  plano con `pip` + `requirements.txt` + `Dockerfile` + GitHub Actions
+  (lint + test + deploy a Cloud Run). Menos maquinaria, misma disciplina
+  (branch + PR + checks, misma política que lillorepo).
+- **Se replican los patrones, no el código**: el wrapper de Firestore, el
+  `python-json-logger`, el esquema de secrets JSON y el deploy.sh son
+  copy-adapt de ~100 líneas, no una dependencia entre repos.
+
+Este README se muda al repo nuevo cuando se cree; en lillorepo quedará
+solo un puntero.
+
 ### Stack
 
-- **Backend**: Python 3.12 + Flask (reuso patrón `biwenger_tools/web`).
-- **Build**: Bazel + `tools/bazel/python_service.bzl`.
-- **Deploy**: Cloud Run en `europe-southwest1` (mismo project + región que
-  el resto).
-- **Datos**: Firestore (`core/sdk/firestore.py` ya empaqueta el cliente).
-- **Fotos**: Cloud Storage bucket nuevo `be-water-photos`.
+- **Backend**: Python 3.13 + Flask (patrón `biwenger_tools/web`, replicado).
+- **Build/deploy**: Dockerfile + GitHub Actions → Cloud Run en
+  `europe-southwest1`, proyecto GCP `be-water` propio.
+- **Datos**: Firestore (wrapper copiado/adaptado de `core/sdk/firestore.py`).
+- **Fotos**: Cloud Storage bucket `be-water-photos`.
 - **Frontend**: server-side rendered HTML + Tailwind via CDN
   (sin SPA framework — UX rápida, cero build pipeline, mismo enfoque que
   `biwenger_tools/web`). HTMX para los pequeños AJAX (toggle favorita,
@@ -223,6 +260,21 @@ campos × 8 bytes = 880 KB). Sin Vespa, sin Pinecone, sin nada.
 **Cache**: pre-cómputo de la matriz de distancias al arrancar el proceso.
 Re-cálculo on-demand al añadir agua nueva (invalida cache).
 
+**Recomendador por ubicación** (la feature estrella, mismo motor):
+
+```
+recomendar(user, lugar) =
+    centroide = media log-scale de las favoritas del user
+    candidatas = aguas cuyo lugar de procedencia ∈ lugar
+    → top-N candidatas por distancia al centroide
+```
+
+Ejemplo: favoritas = {Lanjarón, Solán de Cabras} → centroide de
+mineralización débil-media; lugar = "Tarragona" → candidatas de esa zona
+ordenadas por cercanía al centroide (y aviso si la más cercana sigue
+estando lejos: "por aquí no hay nada como lo tuyo, la menos mala es X").
+El campo procedencia sale de la lista oficial AESAN (§2), no de texto libre.
+
 ## 6. Plan v1 — sprint 1 (MVP entregable)
 
 > **Objetivo**: web funcional con catálogo, favoritas, similitud, subida
@@ -237,10 +289,11 @@ Re-cálculo on-demand al añadir agua nueva (invalida cache).
 | 3 | Endpoints: `GET /` (catálogo), `GET /water/<id>`, `POST /water` (nueva, manual), `POST /favorite/<id>`, `GET /similar/<id>`, `POST /login` | |
 | 4 | UI: lista con cards (foto + nombre + TDS + region), buscador en cliente, tag por mineralización (muy débil / débil / fuerte / muy fuerte) | Tailwind CDN |
 | 5 | Ficha de agua: foto grande, tabla minerales, botón ❤️ favorita, sección "aguas similares" (top 3 por k-NN) | |
-| 6 | Formulario manual "añadir agua": campos del vector mineral + foto desde móvil + validación inline | Sin OCR todavía |
-| 7 | `be-water-photos` bucket en GCP + IAM (Cloud Run SA con `storage.objectAdmin`) | Manual |
-| 8 | Deploy a Cloud Run con `deploy.sh` (patrón `biwenger_tools/web`) + entry en `.github/workflows/deploy.yml` | Bajo `concurrency: deploy-master` ya en sitio |
-| 9 | Seed: 10-15 aguas españolas conocidas (Bezoya, Solán, Lanjarón, Mondariz, Vichy Catalán, Aquabona, Aquarel, Font Vella, Veri, Fontecabras) con datos reales de etiqueta | |
+| 6 | **Recomendador por ubicación**: `GET /recommend?place=<region>` — filtra por procedencia + ordena por distancia al centroide de tus favoritas. UI: un select de "¿dónde estás?" en la home | La feature estrella entra en el MVP |
+| 7 | Formulario manual "añadir agua": campos del vector mineral + foto desde móvil + validación inline | Sin OCR todavía |
+| 8 | `be-water-photos` bucket en GCP + IAM (Cloud Run SA con `storage.objectAdmin`) | Manual |
+| 9 | Deploy a Cloud Run vía GitHub Actions del repo nuevo | Proyecto GCP `be-water` propio |
+| 10 | Seed: 15-20 aguas españolas con datos reales de etiqueta (Bezoya, Solán, Lanjarón, Mondariz, Vichy Catalán, Font Vella, Veri…), procedencia cruzada con la lista oficial AESAN | |
 
 ### Sprint 1.B — OCR vía Gemini
 
@@ -290,23 +343,30 @@ Re-cálculo on-demand al añadir agua nueva (invalida cache).
   SEO serio.
 - **No reemplaza a Abar / FineWaters / Etiquetalo** para usuarios externos.
   Es para nosotros.
-- **No hace OCR en v1**. Subida manual de campos. v2 si la fricción duele.
+- **No hace OCR en el sprint 1.A**. El alta manual llega primero; Gemini
+  entra en el sprint 1.B sobre un flujo que ya funciona.
 - **No tiene moderación pre-publicación**. v2 si hay spam.
 
 ## 10. Próximo paso
 
-Si te suena bien este brainstorming, doy luz verde a:
+Con luz verde del usuario:
 
-1. Commitear este README + abrir PR (sin código todavía).
-2. Empezar **paso 1 del sprint 1**: esqueleto `packages/be_water/web/` con
-   Flask + BUILD.bazel funcional + un `GET /` que devuelve "hello water"
-   y se despliega a Cloud Run. Eso valida el camino de deploy antes de
-   meter lógica de negocio.
+1. Crear el repo `be-water` en GitHub (+ branch protection desde el día 1,
+   lección aprendida en lillorepo) y el proyecto GCP `be-water` con budget
+   alert de €1.
+2. Mudar este README al repo nuevo; en lillorepo queda un puntero.
+3. **Paso 1 del sprint 1**: esqueleto Flask + Dockerfile + GH Actions con
+   un `GET /` "hello water" desplegado a Cloud Run — validar el camino de
+   deploy antes de meter lógica.
 
 A partir de ahí, paso a paso por la tabla del sprint 1.
 
 ## 11. Fuentes consultadas
 
+- [Lista oficial AESAN de aguas minerales naturales reconocidas](https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm) (+ [PDF](https://www.aesan.gob.es/AECOSAN/docs/documentos/seguridad_alimentaria/gestion_riesgos/lista_espanola.pdf))
+- [IGME — Aguas minerales reconocidas en España](https://aguasmineralesytermales.igme.es/introduccion/aguas-minerales-reconocidas)
+- [mineralwaters.org — base comunitaria internacional](https://mineralwaters.org/)
+- [Comparador de aguas OCU](https://www.ocu.org/alimentacion/agua/comparar-agua-mineral)
 - [Abar App — Water Bottle Labels Explained: Sodium & Minerals](https://abar.app/en/blogs/how-to-read-water-bottle-labels-sodium-fluoride-and-other-minerals-explained)
 - [FineWaters — TDS / Minerality concept](https://finewaters.com/the-story-of-fine-water/key-concepts/minerality-tds)
 - [FineWaters — Bottled Waters of the World Map](https://finewaters.com/bottled-waters-of-the-world)
