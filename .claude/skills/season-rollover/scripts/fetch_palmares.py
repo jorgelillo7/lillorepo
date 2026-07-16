@@ -38,7 +38,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../"))
 
 from core.constants import LEAGUE_ID as DEFAULT_LEAGUE_ID  # noqa: E402
-from core.constants import LEAGUE_MEMBERS  # noqa: E402
+from core.constants import LEAGUE_MEMBERS, NON_PLAYING_MEMBER_IDS  # noqa: E402
 from core.domain.models import Palmares, SeasonStanding  # noqa: E402
 from core.sdk.biwenger import (  # noqa: E402
     ACCOUNT_URL,
@@ -337,6 +337,13 @@ def main() -> None:
     except Exception as exc:
         print(f"ERROR: standings fetch failed: {exc}", file=sys.stderr)
         sys.exit(1)
+    # Non-playing accounts (the cronista) never enter the palmares — their
+    # rigged negative points are noise, not a season result.
+    standings = [
+        row
+        for row in standings
+        if int(row.get("id") or 0) not in NON_PLAYING_MEMBER_IDS
+    ]
 
     try:
         rounds_rows = client.get_report_rows(league_round_report_url(league_id))

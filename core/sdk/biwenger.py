@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import requests
 
+from core.constants import NON_PLAYING_MEMBER_IDS
 from core.sdk.http import retry_http_request
 from core.utils import get_logger
 
@@ -171,8 +172,17 @@ class BiwengerClient:
             return {"cash": cash, "max_bid": max_bid}
         return {"cash": 0, "max_bid": 0}
 
-    def get_league_users(self, league_users_url: str) -> dict:
-        """Returns a mapping of user ID → name for the league."""
+    def get_league_users(
+        self, league_users_url: str, include_non_playing: bool = False
+    ) -> dict:
+        """Returns a mapping of user ID → name for the league.
+
+        Playing members only by default — `NON_PLAYING_MEMBER_IDS` (the
+        cronista) are filtered out so squad iteration, manager pickers and
+        clausulazo candidates never see them. The scraper passes
+        `include_non_playing=True`: board-message author resolution and
+        participación must still count the cronista.
+        """
         logger.info("Fetching league users...")
         response = self.session.get(league_users_url)
         response.raise_for_status()
@@ -180,7 +190,10 @@ class BiwengerClient:
         if not standings:
             return {}
         user_map = {
-            int(user["id"]): user["name"] for user in standings if user.get("id")
+            int(user["id"]): user["name"]
+            for user in standings
+            if user.get("id")
+            and (include_non_playing or int(user["id"]) not in NON_PLAYING_MEMBER_IDS)
         }
         logger.info("User map built.", extra={"count": len(user_map)})
         return user_map

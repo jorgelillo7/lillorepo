@@ -47,13 +47,23 @@ def test_process_participation():
         _msg("Autor1", "dato", "id3"),
         _msg("Autor1", "comunicado", "id1"),  # duplicate
         _msg("Autor3", "cronica", "id4"),
+        _msg("Reportajes Lloriquin", "cronica", "id5"),
     ]
-    user_map = {1: "Autor1", 2: "Autor2", 3: "Autor3", 4: "Autor4"}
+    # The scraper passes the include_non_playing map, so the cronista is a
+    # first-class author here even though he never competes.
+    user_map = {
+        1: "Autor1",
+        2: "Autor2",
+        3: "Autor3",
+        4: "Autor4",
+        13945871: "Reportajes Lloriquin",
+    }
 
     result = process_participation(messages, user_map)
     by_author = {p.autor: p for p in result}
 
-    assert len(result) == 4
+    assert len(result) == 5
+    assert by_author["Reportajes Lloriquin"].cronicas == ["id5"]
     assert by_author["Autor1"].comunicados == ["id1"]
     assert by_author["Autor1"].datos == ["id3"]
     assert by_author["Autor2"].comunicados == []

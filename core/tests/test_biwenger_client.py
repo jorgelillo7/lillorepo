@@ -31,7 +31,8 @@ def test_authentication_success(biwenger_client_authenticated):
 
 
 def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
-    """Verifica que get_league_users parsea correctamente la respuesta de la API."""
+    """Parses the standings into id→name and drops NON_PLAYING_MEMBER_IDS —
+    the fixture includes the cronista (13945871), which must not appear."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m:
         # Carga la respuesta de usuarios desde el archivo JSON
@@ -45,7 +46,24 @@ def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
             3: "#NOALOSCLAUSULAZOS",
         }
         assert user_map == expected_map
-        assert len(user_map) == 3
+        assert 13945871 not in user_map
+
+
+def test_get_league_users_include_non_playing(
+    biwenger_client_authenticated, load_json_fixture
+):
+    """The scraper needs the full map — author resolution and participación
+    must still see the cronista."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        mock_response = load_json_fixture("league_users.json")
+        m.get(TEST_LEAGUE_USERS_URL, json=mock_response, status_code=200)
+
+        user_map = client.get_league_users(
+            TEST_LEAGUE_USERS_URL, include_non_playing=True
+        )
+        assert user_map[13945871] == "Reportajes Lloriquin"
+        assert len(user_map) == 4
 
 
 def test_authentication_raises_when_login_returns_no_token():
