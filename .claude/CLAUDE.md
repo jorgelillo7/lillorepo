@@ -46,3 +46,11 @@ over-verbose comments). Do not make it a third.
 
 If the comment would not survive the next refactor without becoming a lie,
 it does not belong in the source. Put it in the PR description.
+
+## Working style
+
+When the user green-lights a task, implement it end-to-end without asking for
+confirmation at each step — they prefer reviewing a finished diff over
+approving increments. The checkpoint is git: do not commit or push until the
+user has seen the result or explicitly asked for the full branch → PR → merge
+flow in the current conversation.

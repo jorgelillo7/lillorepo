@@ -89,3 +89,19 @@ gcloud projects get-iam-policy biwenger-tools \
 gcloud iam service-accounts get-iam-policy 319945089838-compute@developer.gserviceaccount.com \
   --format="table(bindings.role, bindings.members)"
 ```
+
+## Branch protection on `master`
+
+Configured via `gh api` (not visible in any repo file): required status checks
+`Lint` + `Test` (from `ci.yml`), `enforce_admins` enabled, force-pushes and
+branch deletion blocked. A direct push to `master` is rejected by GitHub for
+everyone, admins included — every change goes branch → PR → green checks → merge.
+
+Emergency escape hatch (CI outage blocking an urgent merge): temporarily lift
+admin enforcement, merge, then re-enable —
+
+```bash
+gh api -X DELETE repos/jorgelillo7/lillorepo/branches/master/protection/enforce_admins
+# ...merge...
+gh api -X POST repos/jorgelillo7/lillorepo/branches/master/protection/enforce_admins
+```

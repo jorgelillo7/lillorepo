@@ -25,8 +25,28 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | `telegram-bot-config-regional` | `{"bot_token", "chat_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
 | `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (`ligas_especiales`, `trofeos`). Pending repoint to a Sheets-only SA once Drive folder is purged — see `PENDING.md`. |
+| `flask-web-config-regional` | `{"secret_key", "admin_password"}` — bound to `web` as `FLASK_WEB_CONFIG_JSON` |
 
 All secrets are regional (`europe-southwest1`). See "Cost decisions" below.
+
+### Credential paths in the web image — do NOT set `GOOGLE_APPLICATION_CREDENTIALS`
+
+The web's LOCAL image bakes `biwenger-tools-sa.json` under
+`/app/packages/biwenger_tools/web/` (via the `secrets` attr of `python_service`),
+but the GCP image does not carry that file — in Cloud Run the Sheets SA is
+mounted from Secret Manager at `/gdrive_sa/biwenger-tools-sa.json`.
+
+The Sheets client is unaffected because `web/config.py` passes
+`SERVICE_ACCOUNT_PATH` explicitly. The Firestore client, however, honours
+`GOOGLE_APPLICATION_CREDENTIALS` automatically: if that env var points at a
+path that doesn't exist in prod, every Firestore read crashes with
+`FileNotFoundError`. Rules:
+
+- Firestore in the web runs on ADC (the Cloud Run compute SA has project-level
+  access) — no env var, no key file.
+- Any other Google client gets its credential path explicitly in its
+  constructor, never via a global `GOOGLE_APPLICATION_CREDENTIALS` in
+  `BUILD.bazel` / deploy env.
 
 ## Cost decisions
 
