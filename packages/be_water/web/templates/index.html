@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Be Water — encuentra tu agua{% endblock %}
+
+{% block content %}
+<header class="text-center mb-8 sm:mb-10">
+    <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900">
+        Encuentra <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-cyan-400">tu agua</span>
+    </h1>
+    <p class="mt-3 text-slate-500 max-w-xl mx-auto text-sm sm:text-base">
+        Composición y procedencia de las aguas minerales de España.
+        Marca tus favoritas y te diremos cuál pedir estés donde estés.
+    </p>
+    <div class="mt-6 max-w-md mx-auto">
+        <label for="search" class="sr-only">Buscar agua</label>
+        <input id="search" type="search" placeholder="Busca por nombre, marca o provincia…"
+               class="w-full px-5 py-3 rounded-2xl border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-400 text-sm">
+    </div>
+    <div class="mt-4 flex flex-wrap justify-center gap-2 text-xs" id="chips">
+        <button data-filter="" class="chip px-3 py-1.5 rounded-full font-semibold bg-slate-900 text-white">Todas</button>
+        <button data-filter="muy débil" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Muy débil</button>
+        <button data-filter="débil" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Débil</button>
+        <button data-filter="fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Fuerte</button>
+        <button data-filter="muy fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Muy fuerte</button>
+    </div>
+</header>
+
+<section aria-label="Catálogo de aguas">
+    <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for w in waters %}
+            {% include "_water_card.html" %}
+        {% endfor %}
+    </div>
+    <p id="empty" class="hidden text-center text-slate-400 py-16">No hay aguas que encajen con la búsqueda 🌵</p>
+    {% if not waters %}
+        <p class="text-center text-slate-400 py-16">El catálogo está vacío — ejecuta el seed o añade la primera agua.</p>
+    {% endif %}
+</section>
+
+<script>
+    const search = document.getElementById('search');
+    const chips = document.querySelectorAll('.chip');
+    let activeFilter = '';
+
+    function apply() {
+        const q = search.value.toLowerCase().trim();
+        let visible = 0;
+        document.querySelectorAll('.water-card').forEach(card => {
+            const matchQ = !q || card.dataset.name.includes(q);
+            const matchF = !activeFilter || card.dataset.min === activeFilter;
+            const show = matchQ && matchF;
+            card.classList.toggle('hidden', !show);
+            if (show) visible++;
+        });
+        document.getElementById('empty').classList.toggle('hidden', visible > 0);
+    }
+
+    search.addEventListener('input', apply);
+    chips.forEach(chip => chip.addEventListener('click', () => {
+        activeFilter = chip.dataset.filter;
+        chips.forEach(c => {
+            c.classList.remove('bg-slate-900', 'text-white');
+            c.classList.add('bg-white', 'ring-1', 'ring-slate-200', 'text-slate-600');
+        });
+        chip.classList.add('bg-slate-900', 'text-white');
+        chip.classList.remove('bg-white', 'ring-1', 'ring-slate-200', 'text-slate-600');
+        apply();
+    }));
+</script>
+{% endblock %}

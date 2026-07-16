@@ -165,6 +165,7 @@ jobs:
             //packages/biwenger_tools/bot:bot_tests \
             //packages/biwenger_tools/api:api_tests \
             //packages/chucknorris_bot/bot:bot_tests \
+            //packages/be_water/web:web_tests \
             --test_output=streamed --test_arg=-v
 
   # -------------------------------------------------------

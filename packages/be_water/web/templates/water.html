@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ water.name }} · Be Water{% endblock %}
+
+{% block content %}
+{% set tone = 'sky' if water.mineralization == 'muy débil'
+   else 'teal' if water.mineralization == 'débil'
+   else 'amber' if water.mineralization == 'fuerte'
+   else 'rose' if water.mineralization == 'muy fuerte' else 'slate' %}
+
+<nav class="text-sm text-slate-400 mb-4" aria-label="breadcrumb">
+    <a href="{{ url_for('index') }}" class="hover:text-sky-600">Catálogo</a>
+    <span class="mx-1">/</span>
+    <span class="text-slate-600">{{ water.name }}</span>
+</nav>
+
+<article class="grid md:grid-cols-5 gap-6">
+    <!-- Cabecera / identidad -->
+    <section class="md:col-span-2">
+        <div class="bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl p-8 text-center ring-1 ring-{{ tone }}-200/60">
+            <div class="text-7xl mb-4">{{ '🫧' if water.sparkling else '💧' }}</div>
+            <h1 class="text-2xl font-extrabold text-slate-900">{{ water.name }}</h1>
+            <p class="text-slate-500 text-sm mt-1">{{ water.spring }}</p>
+            <p class="text-slate-600 text-sm mt-2 font-medium">📍 {{ water.province }} · {{ water.community }}</p>
+            <div class="mt-5 inline-flex flex-col items-center">
+                <span class="text-5xl font-extrabold text-{{ tone }}-700">{{ water.tds if water.tds is not none else '—' }}</span>
+                <span class="text-[11px] uppercase tracking-wider text-{{ tone }}-600/80 font-semibold mt-1">mg/L residuo seco</span>
+                <span class="mt-2 px-3 py-1 rounded-full text-xs font-bold bg-{{ tone }}-200/70 text-{{ tone }}-800">
+                    mineralización {{ water.mineralization }}
+                </span>
+            </div>
+            {% if nickname %}
+            <form method="post" action="{{ url_for('favorite', water_id=water.id) }}" class="mt-6">
+                {% if water.id in favorite_ids %}
+                    <button class="px-5 py-2.5 rounded-full bg-rose-100 text-rose-600 font-bold text-sm hover:bg-rose-200 transition">❤️ Favorita — quitar</button>
+                {% else %}
+                    <button class="px-5 py-2.5 rounded-full bg-white ring-1 ring-slate-300 text-slate-700 font-bold text-sm hover:ring-rose-300 hover:text-rose-600 transition">🤍 Marcar favorita</button>
+                {% endif %}
+            </form>
+            {% else %}
+            <p class="mt-6 text-xs text-slate-400">Entra con tu nick para marcarla como favorita</p>
+            {% endif %}
+            {% if not water.verified %}
+            <p class="mt-4 text-[11px] text-slate-400">⚠️ datos de etiqueta sin verificar</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Composición -->
+    <section class="md:col-span-3">
+        <div class="bg-white rounded-3xl ring-1 ring-slate-200 p-6">
+            <h2 class="font-bold text-lg text-slate-900 mb-4">Composición <span class="text-slate-400 font-normal text-sm">(mg/L)</span></h2>
+            {% set max_val = 400 %}
+            <dl class="space-y-3">
+                {% for field in mineral_fields if water.minerals.get(field) is not none %}
+                {% set val = water.minerals[field] %}
+                <div class="grid grid-cols-[7.5rem_1fr_4rem] items-center gap-3 text-sm">
+                    <dt class="text-slate-500">{{ mineral_labels[field] }}</dt>
+                    <dd>
+                        {% if field != 'ph' %}
+                        <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-400"
+                                 style="width: {{ [100, (val / max_val * 100) | round(1)] | min }}%"></div>
+                        </div>
+                        {% endif %}
+                    </dd>
+                    <dd class="text-right font-semibold text-slate-800 tabular-nums">{{ val }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+        </div>
+
+        <!-- Similares -->
+        <div class="mt-6">
+            <h2 class="font-bold text-lg text-slate-900 mb-3">Si no la encuentras, prueba…</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {% for w, dist in similar %}
+                    {% include "_water_card.html" %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</article>
+{% endblock %}
