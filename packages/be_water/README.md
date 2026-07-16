@@ -110,32 +110,41 @@ mineral es para afinar.
 
 ## 4. Decisión por decisión
 
-### Package del monorepo (decisión 2026-07-17)
+### Package del monorepo + proyecto GCP propio (decisión 2026-07-17)
 
-be_water es un **package de lillorepo** (`packages/be_water/web/`), como
-manda la filosofía del repo: packages autocontenidos, cada uno con su
-servicio Cloud Run, compartiendo Bazel, `core/`, la imagen `python-base`,
-el CI y la disciplina de PRs. Un repo separado duplicaría toda esa infra
-para no ganar nada a esta escala.
+Dos decisiones ortogonales, una por eje:
 
-Salvaguardas (por ser el primer package "social" junto a biwenger):
+**Código: package de lillorepo** (`packages/be_water/web/`), como manda la
+filosofía del repo — packages autocontenidos compartiendo Bazel, `core/`,
+la imagen `python-base`, el CI y la disciplina de PRs. Un repo separado
+duplicaría toda esa infra para no ganar nada.
 
-- **Firestore compartido pero con colecciones propias** (`waters/`,
-  `users/`): el free tier del proyecto (50k reads/día) da órdenes de
-  magnitud de margen para ambos; si algún día be_water lo amenazara, la
-  migración a proyecto GCP propio es un cambio de config, no de código.
-- **Deploy independiente**: entry propio en `deploy.yml` con paths-filter
-  (`packages/be_water/**`) — un cambio en be_water jamás redespliega
-  biwenger, y viceversa. La SLO del digest ni se entera.
+**Runtime: proyecto GCP propio (`be-water`)**, separado de `biwenger-tools`:
+
+- **Free tier de Firestore independiente** — el de biwenger ya trabaja
+  para la liga; be_water (colaborativo, quizá más tráfico) no compite
+  por la misma cuota.
+- **Coste atribuible**: budget alert de €1 propio; `check-gcp-costs.sh`
+  acepta `--project=be-water` para auditarlo.
+- **Aislamiento total**: nada de lo que haga be_water puede rozar la SLO
+  del digest, ni sus datos mezclarse con los de la liga.
+
+Implicaciones para el deploy (one-off, todo por CLI): crear proyecto +
+billing + APIs, dar a `biwenger-tools-sa` (la SA que ya usa WIF) permisos
+`run.admin`/`artifactregistry` en el proyecto nuevo, y el entry de
+`deploy.yml` pasa `--project be-water` con paths-filter
+`packages/be_water/**` — mismo workflow, destino distinto. Un cambio en
+be_water jamás redespliega biwenger, y viceversa.
 
 ### Stack
 
 - **Backend**: Python 3.13 + Flask (reuso patrón `biwenger_tools/web`).
 - **Build**: Bazel + `tools/bazel/python_service.bzl`.
-- **Deploy**: Cloud Run en `europe-southwest1` (mismo project + región que
-  el resto), servicio `be-water`.
-- **Datos**: Firestore (`core/sdk/firestore.py` ya empaqueta el cliente).
-- **Fotos**: Cloud Storage bucket `be-water-photos`.
+- **Deploy**: Cloud Run en `europe-southwest1`, **proyecto `be-water`**,
+  servicio `be-water`.
+- **Datos**: Firestore del proyecto `be-water`
+  (`core/sdk/firestore.py` ya acepta project explícito).
+- **Fotos**: Cloud Storage bucket `be-water-photos` (proyecto `be-water`).
 - **Frontend**: server-side rendered HTML + Tailwind via CDN
   (sin SPA framework — UX rápida, cero build pipeline, mismo enfoque que
   `biwenger_tools/web`). HTMX para los pequeños AJAX (toggle favorita,
@@ -349,10 +358,16 @@ El campo procedencia sale de la lista oficial AESAN (§2), no de texto libre.
 
 ## 10. Próximo paso
 
-Con luz verde del usuario, **paso 1 del sprint 1**: esqueleto
-`packages/be_water/web/` (Flask + `BUILD.bazel` con `python_service`) con un
-`GET /` "hello water", entry en `deploy.yml` con su paths-filter, y deploy a
-Cloud Run — validar el camino completo antes de meter lógica de negocio.
+Con luz verde del usuario:
+
+1. **Setup GCP one-off** (CLI): proyecto `be-water` + billing + APIs
+   (run, firestore, artifactregistry, secretmanager) + budget alert €1 +
+   permisos de deploy para `biwenger-tools-sa`.
+2. **Paso 1 del sprint 1**: esqueleto `packages/be_water/web/` (Flask +
+   `BUILD.bazel` con `python_service`, `FIRESTORE_PROJECT=be-water`) con un
+   `GET /` "hello water", entry en `deploy.yml` (`--project be-water`,
+   paths-filter propio), y deploy a Cloud Run — validar el camino completo
+   antes de meter lógica de negocio.
 
 A partir de ahí, paso a paso por la tabla del sprint 1.
 
