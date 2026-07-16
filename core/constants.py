@@ -29,7 +29,14 @@ LEAGUE_MEMBERS: dict[int, str] = {
     7728598: "Javi",
     7727371: "Ruben",
     13753285: "Manu",
+    13945871: "Alberto",
 }
+
+# League accounts that do not compete (e.g. the cronista, who only posts
+# board messages): excluded from squad iteration, manager pickers, clausulazo
+# candidates and the end-of-season palmares. Their board messages still flow
+# into comunicados/participacion via the scraper.
+NON_PLAYING_MEMBER_IDS: frozenset[int] = frozenset({13945871})
 
 # A dynamic Drive file is considered stale if it hasn't been touched in
 # this long. Surfaced as a red "is_stale" badge in the admin panel.

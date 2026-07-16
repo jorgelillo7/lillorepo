@@ -191,7 +191,11 @@ def main() -> None:
 
         board_messages = biwenger.get_all_board_messages(config.BOARD_MESSAGES_URL)
         logger.info("Board messages downloaded.", extra={"count": len(board_messages)})
-        user_map = biwenger.get_league_users(config.LEAGUE_USERS_URL)
+        # include_non_playing: the cronista's messages must resolve an author
+        # and count in participación, even though they never compete.
+        user_map = biwenger.get_league_users(
+            config.LEAGUE_USERS_URL, include_non_playing=True
+        )
 
         new_messages = _process_new_messages(
             board_messages, _existing_message_ids(season), user_map
