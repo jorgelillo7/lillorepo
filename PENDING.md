@@ -38,8 +38,19 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## be_water
 
-- **Plan v2.2 ready** (2026-07-17, competition analysis done) — monorepo
-  package deploying to its OWN GCP project `be-water` (isolated Firestore
-  free tier + billing); geo-recommender as the headline feature. See
-  `packages/be_water/README.md`. Next step is USER-GATED: green light for
-  the one-off GCP setup + sprint 1 (package skeleton).
+- **Sprint 1 shipped locally** (2026-07-17): catalog + favorites + similarity
+  + geo-recommender running against the `be-water-app` project (created, with
+  Firestore in europe-southwest1, billing and a €1 budget alert). Roadmap:
+  1. **USER: validate the local UI** (`bazel run //packages/be_water/web:web_local`
+     → localhost:8080) and merge PR #158.
+  2. **Deploy to Cloud Run**: `be-water-docker` Artifact Registry repo in
+     `be-water-app` (or cross-project pull), deploy-SA permissions, entry in
+     `deploy.yml` with `--project be-water-app` + its paths-filter, smoke test.
+  3. **Data verification pass** (USER-assisted): check the 15 seeded
+     compositions bottle-in-hand, flip `verified: true` as they pass.
+  4. **Sprint 1.B**: photo upload (GCS bucket `be-water-photos`) + Gemini OCR
+     pre-fill (`core/sdk/gemini.py`, secret `GEMINI_API_KEY` — key comes from
+     the user's AI Studio).
+  5. **Before going public** (LinkedIn/Twitter): CSRF on the POST forms
+     (generalise `biwenger_tools/web/csrf.py` into `core/`), and a pass on
+     abuse basics (rate limiting, input caps).
