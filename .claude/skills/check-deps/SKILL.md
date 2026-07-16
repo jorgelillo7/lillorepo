@@ -45,10 +45,10 @@ Canonical sources (use these — do not guess):
 |------|-----|
 | Bazel | `https://github.com/bazelbuild/bazel/releases/latest` |
 | Python | `https://www.python.org/downloads/` |
-| `rules_python` | `https://github.com/bazelbuild/rules_python/releases/latest` |
-| `rules_oci` | `https://github.com/bazel-contrib/rules_oci/releases/latest` |
-| `rules_pkg` | `https://github.com/bazelbuild/rules_pkg/releases/latest` |
-| `platforms` | `https://github.com/bazelbuild/platforms/releases/latest` |
+| `rules_python` | `https://bcr.bazel.build/modules/rules_python/metadata.json` |
+| `rules_oci` | `https://bcr.bazel.build/modules/rules_oci/metadata.json` |
+| `rules_pkg` | `https://bcr.bazel.build/modules/rules_pkg/metadata.json` |
+| `platforms` | `https://bcr.bazel.build/modules/platforms/metadata.json` |
 | `actions/checkout`, `actions/setup-python`, etc. | `https://github.com/<owner>/<repo>/releases/latest` |
 | `bazel-contrib/setup-bazel` | `https://github.com/bazel-contrib/setup-bazel/releases/latest` |
 | `dorny/paths-filter` | `https://github.com/dorny/paths-filter/releases/latest` |
@@ -58,6 +58,12 @@ Canonical sources (use these — do not guess):
 Be efficient: fetch in parallel where possible. For **GitHub Actions versions
 that pin to a major like `v4`**, the relevant comparison is whether a `v5`
 exists — if `v4` is still the latest major, treat it as up-to-date.
+
+For **Bazel modules** (`bazel_dep` in MODULE.bazel) the installable version is
+whatever the Bazel Central Registry lists (the `versions` field of
+`metadata.json` above), NOT the latest GitHub release — bzlmod resolves against
+the BCR and maintainers publish there with lag. A GitHub tag missing from the
+BCR fails module resolution with "not found in registries".
 
 # Step 3 — Classify each item
 
