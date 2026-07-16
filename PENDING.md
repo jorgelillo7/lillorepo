@@ -38,7 +38,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## be_water
 
-- **Plan v2 ready** (2026-07-17, competition analysis done) — decision: own
-  repo + own GCP project, geo-recommender as the headline feature. See
-  `packages/be_water/README.md`. Next step is USER-GATED: green light to
-  create the `be-water` repo and start sprint 1.
+- **Plan v2.1 ready** (2026-07-17, competition analysis done) — monorepo
+  package with its own Cloud Run service (the repo's whole point);
+  geo-recommender as the headline feature. See `packages/be_water/README.md`.
+  Next step is USER-GATED: green light to start sprint 1 (package skeleton).

@@ -1,9 +1,12 @@
 # 💧 be_water — brainstorming + plan
 
-> **Estado**: plan v2 (2026-07-17) tras análisis de competencia. Decisión de
-> arquitectura tomada: **repositorio propio, fuera del monorepo** (ver §4).
-> No hay código todavía; este README se muda al repo nuevo cuando se cree.
+> **Estado**: plan v2.1 (2026-07-17) tras análisis de competencia.
+> Arquitectura: **package del monorepo** (`packages/be_water/`) con su propio
+> servicio Cloud Run — la razón de ser de lillorepo es exactamente esta:
+> cada package es un proyecto con despliegue propio sobre infra compartida.
+> No hay código todavía.
 > **Brand sugerida (display)**: "Be Water" o "Be Water, My Friend".
+> **Cloud Run service**: `be-water`.
 
 ## 1. Contexto — el problema real
 
@@ -97,44 +100,41 @@ mineral es para afinar.
 3. **"Login" simple por nickname** es suficiente. Sin password, sin email.
    Cualquiera escoge un nickname al entrar; si el nickname ya existe,
    asumimos que es el mismo (riesgo aceptable: amigos, no producto serio).
-4. **Los patrones del monorepo se reusan; el código no** (ver decisión de
-   repo separado en §4). Flask + Firestore + Cloud Run + Secret Manager es
-   un camino ya recorrido dos veces — se replica, no se importa.
+4. **El monorepo ya tiene todo lo que necesita**: Cloud Run + Flask (patrón
+   `biwenger_tools/web`), Firestore (`core/sdk/firestore.py`), la macro
+   Bazel `python_service`, el CI con paths-filter por módulo y la imagen
+   `python-base` compartida. Añadir el package es replicar estructura, no
+   construir infra.
 5. **Coste real estimado**: <€0.50/mes con 5 usuarios y 200 aguas. Firestore
    y Cloud Run free-tier cubren con creces.
 
 ## 4. Decisión por decisión
 
-### Proyecto separado (decisión 2026-07-17)
+### Package del monorepo (decisión 2026-07-17)
 
-be_water vive en **su propio repositorio** (`be-water`) y su propio
-proyecto GCP, no en el monorepo. Razones:
+be_water es un **package de lillorepo** (`packages/be_water/web/`), como
+manda la filosofía del repo: packages autocontenidos, cada uno con su
+servicio Cloud Run, compartiendo Bazel, `core/`, la imagen `python-base`,
+el CI y la disciplina de PRs. Un repo separado duplicaría toda esa infra
+para no ganar nada a esta escala.
 
-- **La lección de chuckbot**: entró al monorepo por comodidad y funciona,
-  pero es un bot que nunca escalará más allá de sí mismo. be_water tiene
-  vocación de crecer (catálogo colaborativo, quizá usuarios externos) —
-  atarlo al ciclo de deploy/CI de biwenger es deuda desde el día 1.
-- **Proyecto GCP propio** (`be-water`): free tier de Firestore
-  independiente (el de `biwenger-tools` ya trabaja para la liga), coste
-  atribuible por proyecto, y cero riesgo de que un pico de be_water toque
-  la SLO del digest.
-- **Sin Bazel**: el monorepo lo justifica; un servicio solo no. Repo
-  plano con `pip` + `requirements.txt` + `Dockerfile` + GitHub Actions
-  (lint + test + deploy a Cloud Run). Menos maquinaria, misma disciplina
-  (branch + PR + checks, misma política que lillorepo).
-- **Se replican los patrones, no el código**: el wrapper de Firestore, el
-  `python-json-logger`, el esquema de secrets JSON y el deploy.sh son
-  copy-adapt de ~100 líneas, no una dependencia entre repos.
+Salvaguardas (por ser el primer package "social" junto a biwenger):
 
-Este README se muda al repo nuevo cuando se cree; en lillorepo quedará
-solo un puntero.
+- **Firestore compartido pero con colecciones propias** (`waters/`,
+  `users/`): el free tier del proyecto (50k reads/día) da órdenes de
+  magnitud de margen para ambos; si algún día be_water lo amenazara, la
+  migración a proyecto GCP propio es un cambio de config, no de código.
+- **Deploy independiente**: entry propio en `deploy.yml` con paths-filter
+  (`packages/be_water/**`) — un cambio en be_water jamás redespliega
+  biwenger, y viceversa. La SLO del digest ni se entera.
 
 ### Stack
 
-- **Backend**: Python 3.13 + Flask (patrón `biwenger_tools/web`, replicado).
-- **Build/deploy**: Dockerfile + GitHub Actions → Cloud Run en
-  `europe-southwest1`, proyecto GCP `be-water` propio.
-- **Datos**: Firestore (wrapper copiado/adaptado de `core/sdk/firestore.py`).
+- **Backend**: Python 3.13 + Flask (reuso patrón `biwenger_tools/web`).
+- **Build**: Bazel + `tools/bazel/python_service.bzl`.
+- **Deploy**: Cloud Run en `europe-southwest1` (mismo project + región que
+  el resto), servicio `be-water`.
+- **Datos**: Firestore (`core/sdk/firestore.py` ya empaqueta el cliente).
 - **Fotos**: Cloud Storage bucket `be-water-photos`.
 - **Frontend**: server-side rendered HTML + Tailwind via CDN
   (sin SPA framework — UX rápida, cero build pipeline, mismo enfoque que
@@ -292,7 +292,7 @@ El campo procedencia sale de la lista oficial AESAN (§2), no de texto libre.
 | 6 | **Recomendador por ubicación**: `GET /recommend?place=<region>` — filtra por procedencia + ordena por distancia al centroide de tus favoritas. UI: un select de "¿dónde estás?" en la home | La feature estrella entra en el MVP |
 | 7 | Formulario manual "añadir agua": campos del vector mineral + foto desde móvil + validación inline | Sin OCR todavía |
 | 8 | `be-water-photos` bucket en GCP + IAM (Cloud Run SA con `storage.objectAdmin`) | Manual |
-| 9 | Deploy a Cloud Run vía GitHub Actions del repo nuevo | Proyecto GCP `be-water` propio |
+| 9 | Deploy a Cloud Run: entry en `deploy.yml` con paths-filter `packages/be_water/**` | Bajo `concurrency: deploy-master` ya en sitio |
 | 10 | Seed: 15-20 aguas españolas con datos reales de etiqueta (Bezoya, Solán, Lanjarón, Mondariz, Vichy Catalán, Font Vella, Veri…), procedencia cruzada con la lista oficial AESAN | |
 
 ### Sprint 1.B — OCR vía Gemini
@@ -349,15 +349,10 @@ El campo procedencia sale de la lista oficial AESAN (§2), no de texto libre.
 
 ## 10. Próximo paso
 
-Con luz verde del usuario:
-
-1. Crear el repo `be-water` en GitHub (+ branch protection desde el día 1,
-   lección aprendida en lillorepo) y el proyecto GCP `be-water` con budget
-   alert de €1.
-2. Mudar este README al repo nuevo; en lillorepo queda un puntero.
-3. **Paso 1 del sprint 1**: esqueleto Flask + Dockerfile + GH Actions con
-   un `GET /` "hello water" desplegado a Cloud Run — validar el camino de
-   deploy antes de meter lógica.
+Con luz verde del usuario, **paso 1 del sprint 1**: esqueleto
+`packages/be_water/web/` (Flask + `BUILD.bazel` con `python_service`) con un
+`GET /` "hello water", entry en `deploy.yml` con su paths-filter, y deploy a
+Cloud Run — validar el camino completo antes de meter lógica de negocio.
 
 A partir de ahí, paso a paso por la tabla del sprint 1.
 
