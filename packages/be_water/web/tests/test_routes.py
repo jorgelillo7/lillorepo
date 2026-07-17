@@ -108,15 +108,24 @@ def test_recommend_with_favorites(client):
     assert "Bezoya" in resp.get_data(as_text=True)
 
 
+_APP = "packages.be_water.web.app"
+
+
+def _login(client):
+    with patch(f"{_REPO}.ensure_user", return_value={"favorites": []}):
+        client.post("/login", data={"nickname": "jorge"})
+
+
 def test_add_water_requires_login(client):
     resp = client.get("/anadir")
     assert resp.status_code == 302
 
 
 def test_add_water_saves_and_redirects(client):
-    with patch(f"{_REPO}.ensure_user", return_value={"favorites": []}):
-        client.post("/login", data={"nickname": "jorge"})
-    with patch(f"{_REPO}.save_water") as mock_save:
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -132,6 +141,77 @@ def test_add_water_saves_and_redirects(client):
     assert water.minerals["tds"] == 310.0
     assert water.minerals["calcium"] == 80.5  # comma decimal accepted
     assert water.added_by == "jorge"
+
+
+def test_add_water_refuses_duplicates(client):
+    """An existing (possibly verified) water must never be clobbered."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=_catalog()[1]
+    ):
+        resp = client.post("/anadir", data={"name": "Bezoya"})
+    mock_save.assert_not_called()
+    assert resp.status_code == 200
+    assert "ya existe" in resp.get_data(as_text=True)
+
+
+def test_photo_flow_prefills_form_from_gemini(client):
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label",
+        return_value={"name": "Font Nova", "tds": 180, "spring": None},
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert 'value="Font Nova"' in body
+    assert 'value="180"' in body
+    assert 'name="photo_tmp"' in body
+    assert "revisa los valores" in body
+    mock_upload.assert_called_once()
+
+
+def test_photo_flow_survives_gemini_failure(client):
+    """OCR down ≠ photo lost: empty form, photo kept, honest banner."""
+    from core.sdk.gemini import GeminiError
+
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("boom")):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert 'name="photo_tmp"' in body
+    assert "rellena a mano" in body
+
+
+def test_add_with_photo_tmp_promotes_and_stores_url(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(
+        f"{_APP}.photos.promote_photo",
+        return_value="https://storage.googleapis.com/be-water-photos/font-nova.jpg",
+    ) as mock_promote:
+        resp = client.post(
+            "/anadir",
+            data={"name": "Font Nova", "photo_tmp": "uploads/abc.jpg"},
+        )
+    assert resp.status_code == 302
+    mock_promote.assert_called_once_with("uploads/abc.jpg", "font-nova.jpg")
+    water = mock_save.call_args.args[0]
+    assert water.photo_url.endswith("font-nova.jpg")
 
 
 def test_seo_plumbing(client):

@@ -29,6 +29,11 @@ if not SECRET_KEY:
     else:
         SECRET_KEY = "dev-only-secret-key"
 
+# --- Photos + Gemini OCR ---
+PHOTOS_BUCKET = os.getenv("PHOTOS_BUCKET", "be-water-photos")
+GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+
 # --- Deployed version metadata (short SHA, 7 chars) ---
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

@@ -62,3 +62,5 @@ python-dotenv
 Flask
 gunicorn
 python-dotenv
+Pillow
+google-auth

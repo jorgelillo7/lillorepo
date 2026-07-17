@@ -88,6 +88,16 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "gemini",
+    srcs = ["sdk/gemini.py"],
+    deps = [
+        ":_init",
+        "@pypi//requests",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # ------------------------------------------------------------------
 # Umbrella target — backward compat for existing //core references
 # ------------------------------------------------------------------
@@ -97,6 +107,7 @@ py_library(
         ":biwenger",
         ":firestore",
         ":gcp",
+        ":gemini",
         ":http",
         ":jp",
         ":telegram",
