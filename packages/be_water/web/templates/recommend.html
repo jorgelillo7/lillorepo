@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Estoy de viaje · Be Water{% endblock %}
+
+{% block content %}
+<header class="text-center mb-8">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">📍 ¿Dónde estás?</h1>
+    <p class="mt-3 text-slate-500 max-w-lg mx-auto text-sm sm:text-base">
+        Te recomendamos aguas de la zona parecidas a tus favoritas —
+        se acabó elegir al tuntún en la gasolinera.
+    </p>
+</header>
+
+<form method="get" class="max-w-md mx-auto flex gap-2 mb-10">
+    <label for="lugar" class="sr-only">Lugar</label>
+    <select id="lugar" name="lugar" required
+            class="flex-1 px-4 py-3 rounded-2xl border border-slate-300 bg-white shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+        <option value="" {% if not place %}selected{% endif %} disabled>Elige provincia o comunidad…</option>
+        {% for p in places %}
+        <option value="{{ p }}" {% if p == place %}selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+    </select>
+    <button class="px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm transition">Buscar</button>
+</form>
+
+{% if not nickname %}
+    <div class="max-w-md mx-auto text-center bg-white rounded-2xl ring-1 ring-slate-200 p-8">
+        <p class="text-4xl mb-3">🤍</p>
+        <p class="text-slate-600 font-medium">Entra con tu nick (arriba) y marca tus aguas favoritas —
+        de ahí sale tu perfil mineral.</p>
+    </div>
+{% elif not favorites %}
+    <div class="max-w-md mx-auto text-center bg-white rounded-2xl ring-1 ring-slate-200 p-8">
+        <p class="text-4xl mb-3">💧</p>
+        <p class="text-slate-600 font-medium">Aún no tienes favoritas.
+            <a href="{{ url_for('index') }}" class="text-sky-600 hover:underline">Ve al catálogo</a>
+            y marca las aguas que te gustan.</p>
+    </div>
+{% elif place and not results %}
+    <p class="text-center text-slate-400 py-10">No conocemos aguas de <strong>{{ place }}</strong> todavía —
+        <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">¿añades tú la primera?</a></p>
+{% elif results %}
+    <section>
+        <h2 class="text-center text-sm text-slate-500 mb-5">
+            Según tus favoritas ({{ favorites | map(attribute='name') | join(', ') }}), en <strong>{{ place }}</strong> pide:
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {% for w, dist in results %}
+                {% include "_water_card.html" %}
+            {% endfor %}
+        </div>
+    </section>
+{% endif %}
+{% endblock %}

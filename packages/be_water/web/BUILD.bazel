@@ -1,0 +1,25 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//tools/bazel:python_service.bzl", "python_service")
+
+# One-shot Firestore seeder (local, uses ADC).
+py_binary(
+    name = "seed_local",
+    main = "seed.py",
+    srcs = ["seed.py"],
+    deps = [":web_lib"],
+)
+
+python_service(
+    name = "web",
+    package = "be_water",
+    main = "app.py",
+    repository = "europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web",
+    secrets = [".env"],
+    extra_env = {
+        "PORT": "8080",
+        "PYTHONPATH": "/app",
+        # be_water runs against its own GCP project; core.sdk.firestore
+        # honours FIRESTORE_PROJECT over ADC's default project.
+        "FIRESTORE_PROJECT": "be-water-app",
+    },
+)

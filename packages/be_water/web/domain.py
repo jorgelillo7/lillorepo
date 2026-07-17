@@ -1,0 +1,102 @@
+"""Domain model for be_water: a bottled water and its mineral vector."""
+
+from dataclasses import dataclass, field
+from typing import Optional
+
+# Mineral fields, in display order. Every value is mg/L except ph.
+MINERAL_FIELDS = [
+    "tds",
+    "bicarbonates",
+    "chlorides",
+    "sulfates",
+    "calcium",
+    "magnesium",
+    "sodium",
+    "potassium",
+    "silica",
+    "nitrates",
+    "ph",
+]
+
+MINERAL_LABELS = {
+    "tds": "Residuo seco",
+    "bicarbonates": "Bicarbonatos",
+    "chlorides": "Cloruros",
+    "sulfates": "Sulfatos",
+    "calcium": "Calcio",
+    "magnesium": "Magnesio",
+    "sodium": "Sodio",
+    "potassium": "Potasio",
+    "silica": "Sílice",
+    "nitrates": "Nitratos",
+    "ph": "pH",
+}
+
+
+def mineralization_label(tds: Optional[float]) -> str:
+    """EU classification by dry residue — the primary one-number summary."""
+    if tds is None:
+        return "desconocida"
+    if tds < 50:
+        return "muy débil"
+    if tds < 500:
+        return "débil"
+    if tds < 1500:
+        return "fuerte"
+    return "muy fuerte"
+
+
+@dataclass
+class Water:
+    id: str
+    name: str
+    brand: str
+    spring: str
+    province: str
+    community: str
+    country: str = "ES"
+    sparkling: bool = False
+    minerals: dict = field(default_factory=dict)
+    photo_url: Optional[str] = None
+    added_by: str = ""
+    verified: bool = False
+
+    @property
+    def tds(self) -> Optional[float]:
+        return self.minerals.get("tds")
+
+    @property
+    def mineralization(self) -> str:
+        return mineralization_label(self.tds)
+
+    @classmethod
+    def from_firestore(cls, doc_id: str, data: dict) -> "Water":
+        return cls(
+            id=doc_id,
+            name=data.get("name", ""),
+            brand=data.get("brand", ""),
+            spring=data.get("spring", ""),
+            province=data.get("province", ""),
+            community=data.get("community", ""),
+            country=data.get("country", "ES"),
+            sparkling=bool(data.get("sparkling", False)),
+            minerals=data.get("minerals", {}) or {},
+            photo_url=data.get("photo_url"),
+            added_by=data.get("added_by", ""),
+            verified=bool(data.get("verified", False)),
+        )
+
+    def to_firestore(self) -> dict:
+        return {
+            "name": self.name,
+            "brand": self.brand,
+            "spring": self.spring,
+            "province": self.province,
+            "community": self.community,
+            "country": self.country,
+            "sparkling": self.sparkling,
+            "minerals": self.minerals,
+            "photo_url": self.photo_url,
+            "added_by": self.added_by,
+            "verified": self.verified,
+        }

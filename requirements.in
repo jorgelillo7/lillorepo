@@ -57,3 +57,8 @@ python-dateutil
 Flask
 gunicorn
 python-dotenv
+
+# From: packages/be_water/web/requirements.txt
+Flask
+gunicorn
+python-dotenv
