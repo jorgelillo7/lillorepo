@@ -16,6 +16,10 @@ python_service(
     main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web",
     secrets = [".env"],
+    deps = [
+        "@pypi//google_auth",
+        "@pypi//pillow",
+    ],
     extra_env = {
         "PORT": "8080",
         "PYTHONPATH": "/app",
