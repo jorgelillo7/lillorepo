@@ -43,11 +43,16 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   Firestore in europe-southwest1, billing and a €1 budget alert). Roadmap:
   1. **USER: validate the local UI** (`bazel run //packages/be_water/web:web_local`
      → localhost:8080) and merge PR #158.
-  2. **Deploy to Cloud Run**: `be-water-docker` Artifact Registry repo in
-     `be-water-app` (or cross-project pull), deploy-SA permissions, entry in
-     `deploy.yml` with `--project be-water-app` + its paths-filter, smoke test.
-  3. **Data verification pass** (USER-assisted): check the 15 seeded
+  2. **Monthly catalog sync as a scheduled job** — `catalog_sync` is already
+     idempotent (merge-upsert, preserves verified/photos) with optional
+     Telegram notify. Missing: run it as a Cloud Run Job + monthly Cloud
+     Scheduler tick, decide which bot/chat announces updates, and ideally
+     diff against the AESAN official list to flag newly recognised waters.
+  3. **Data verification pass** (USER-assisted): check the ~25 seeded
      compositions bottle-in-hand, flip `verified: true` as they pass.
+  3b. **Artifact Registry cleanup for be-water-docker** — the cleanup job
+     only prunes the biwenger registry; extend `clean-images-artifact.sh`
+     (or a twin) before old `web` digests pile up in `be-water-app`.
   4. **Sprint 1.B**: photo upload (GCS bucket `be-water-photos`) + Gemini OCR
      pre-fill (`core/sdk/gemini.py`, secret `GEMINI_API_KEY` — key comes from
      the user's AI Studio).

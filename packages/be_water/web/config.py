@@ -3,6 +3,8 @@ import sys
 
 from dotenv import load_dotenv
 
+from core.utils import load_json_secret
+
 # Pulls vars from a local .env when present (used for local dev).
 load_dotenv()
 
@@ -11,8 +13,12 @@ load_dotenv()
 os.environ.setdefault("FIRESTORE_PROJECT", "be-water-app")
 
 # --- Application secrets ---
+# Prod: FLASK_WEB_CONFIG_JSON bound from Secret Manager (be-water-app).
+# Local dev: SECRET_KEY env var (via .env) or the dev default below.
+_FLASK_CFG = load_json_secret("FLASK_WEB_CONFIG_JSON")
+
 # Refuse to start without a SECRET_KEY in production (session cookie signing).
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = _FLASK_CFG.get("secret_key") or os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     if "pytest" in sys.modules:
         SECRET_KEY = "pytest-secret-key-not-for-prod"

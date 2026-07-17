@@ -18,6 +18,7 @@ on:
       - "packages/biwenger_tools/bot/**"
       - "packages/biwenger_tools/api/**"
       - "packages/chucknorris_bot/**"
+      - "packages/be_water/**"
       - "tools/**"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
@@ -40,6 +41,10 @@ on:
         default: true
       deploy_chucknorris_bot:
         description: "Deploy Chuck Norris bot"
+        type: boolean
+        default: true
+      deploy_be_water:
+        description: "Deploy Be Water web"
         type: boolean
         default: true
 
@@ -102,6 +107,7 @@ jobs:
       bot: ${{ steps.filter.outputs.bot }}
       api: ${{ steps.filter.outputs.api }}
       chucknorris_bot: ${{ steps.filter.outputs.chucknorris_bot }}
+      be_water: ${{ steps.filter.outputs.be_water }}
     steps:
       - uses: actions/checkout@v7
 
@@ -139,6 +145,12 @@ jobs:
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/chucknorris_bot/**'
+            be_water:
+              - 'core/**'
+              - 'tools/**'
+              - 'docker/**'
+              - 'MODULE.bazel'
+              - 'packages/be_water/**'
 
   # -------------------------------------------------------
   # 1. Run all tests before any deployment
@@ -468,6 +480,61 @@ jobs:
           PYTHONPATH=. \
             TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             python3 packages/chucknorris_bot/bot/setup_commands.py
+
+  # -------------------------------------------------------
+  # 2f. Build and deploy Be Water web (own GCP project)
+  # -------------------------------------------------------
+  deploy-be-water:
+    name: Deploy Be Water web
+    needs: [detect-changes, test]
+    if: |
+      (github.event_name == 'push' && needs.detect-changes.outputs.be_water == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_be_water)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/319945089838/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+
+      - name: Build and push Be Water image
+        run: |
+          bazel run //packages/be_water/web:push_image_to_gcp \
+            --platforms=//platforms:linux_amd64
+
+      - name: Deploy Be Water to Cloud Run
+        # Own GCP project: the shared deploy SA has run.admin +
+        # artifactregistry.writer + actAs on be-water-app.
+        run: |
+          gcloud run deploy be-water \
+            --image europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --project be-water-app \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --update-secrets="FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
+            --set-env-vars="\
+          FIRESTORE_PROJECT=be-water-app,\
+          GIT_COMMIT=${GITHUB_SHA::7},\
+          DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
   # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds

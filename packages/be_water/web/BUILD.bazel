@@ -1,11 +1,12 @@
 load("@rules_python//python:defs.bzl", "py_binary")
 load("//tools/bazel:python_service.bzl", "python_service")
 
-# One-shot Firestore seeder (local, uses ADC).
+# Idempotent catalog sync (local, uses ADC). Safe to re-run: merges the
+# in-repo dataset without clobbering verified waters or user photos.
 py_binary(
-    name = "seed_local",
-    main = "seed.py",
-    srcs = ["seed.py"],
+    name = "sync_local",
+    main = "catalog_sync.py",
+    srcs = ["catalog_sync.py"],
     deps = [":web_lib"],
 )
 
