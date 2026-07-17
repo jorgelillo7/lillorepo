@@ -1,6 +1,6 @@
 ---
 name: release-notes
-description: Generates a new release notes entry for a package based on recent git commits and prepends it to the package's RELEASE-NOTES.md.
+description: Generates a new release notes entry for a package based on recent git commits and prepends it to the package's release-notes.md.
 model-invocable: false
 allowed-tools:
   - Read
@@ -14,14 +14,14 @@ allowed-tools:
 
 # Goal
 
-Generate a new release notes entry for a package in this monorepo, based on recent git commits, and prepend it to `packages/<package>/RELEASE-NOTES.md`.
+Generate a new release notes entry for a package in this monorepo, based on recent git commits, and prepend it to `packages/<package>/release-notes.md` (lowercase filename).
 
 # Step 1 — Identify the target package
 
-List all directories under `packages/` that have a `RELEASE-NOTES.md` file:
+List all directories under `packages/` that have a `release-notes.md` file:
 
 ```bash
-find packages -name "RELEASE-NOTES.md" | sort
+find packages -iname "release-notes.md" | sort
 ```
 
 If there is only one package with release notes, use it directly without asking.
@@ -29,7 +29,7 @@ If there are multiple, use `AskUserQuestion` to ask the user which package to up
 
 # Step 2 — Read the existing release notes
 
-Read `packages/<package>/RELEASE-NOTES.md` to understand:
+Read `packages/<package>/release-notes.md` to understand:
 - The version numbering scheme used (e.g. `v4.0`, `v3.2`)
 - The date format used (e.g. `30 September 2025`)
 - The section title style (e.g. `### **v4.0 - Title (date)**`)
@@ -78,7 +78,7 @@ Write a new release notes entry following the exact style of the existing ones:
 
 # Step 6 — Update the file
 
-Prepend the new entry at the top of `packages/<package>/RELEASE-NOTES.md`, after the `# Project Release Notes` header and before the first existing entry.
+Prepend the new entry at the top of `packages/<package>/release-notes.md`, after the `# Project Release Notes` header and before the first existing entry.
 
 Leave one blank line between the header and the new entry, and one blank line between the new entry and the previous first entry.
 
