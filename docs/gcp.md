@@ -2,6 +2,10 @@
 
 Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
+> **Cross-project inventory** (all projects, all regions, at a glance):
+> [`INFRA.md`](../INFRA.md) at the repo root. This document keeps the
+> biwenger-specific detail and the *rationale* behind each choice.
+
 ## Services in use
 
 | Service | Resource | Purpose |
