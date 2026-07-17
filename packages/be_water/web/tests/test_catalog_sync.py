@@ -80,6 +80,23 @@ def test_rerun_is_a_noop(monkeypatch):
     assert summary["unchanged"] == 2
 
 
+def test_dataset_verified_flag_promotes_existing_entry():
+    """A label-verified dataset entry upgrades an unverified Firestore doc,
+    carrying the verified flag with it."""
+    dataset = [dict(_DATASET[1], verified=True)]  # bezoya, label-checked
+    existing = {"bezoya": {"name": "Bezoya", "minerals": {"tds": 99}}}
+    written: dict = {}
+    with patch(f"{_MOD}.SEED_WATERS", dataset), patch(
+        f"{_MOD}.firestore.list_documents", return_value=list(existing.items())
+    ), patch(
+        f"{_MOD}.firestore.set_document",
+        side_effect=lambda col, doc_id, data: written.__setitem__(doc_id, data),
+    ):
+        catalog_sync.sync_catalog()
+    assert written["bezoya"]["verified"] is True
+    assert written["bezoya"]["minerals"]["tds"] == 27
+
+
 def test_notify_skipped_without_creds(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
