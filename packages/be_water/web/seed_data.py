@@ -189,6 +189,7 @@ SEED_WATERS = [
         "community": "Castilla-La Mancha",
         # Label-verified 2026-07-18 (bottle photo).
         "verified": True,
+        "photo_url": "https://storage.googleapis.com/be-water-photos/aquadeus.jpg",
         "minerals": {
             "tds": 307,
             "bicarbonates": 336,
@@ -447,6 +448,7 @@ SEED_WATERS = [
         "community": "Castilla-La Mancha",
         # Label-verified 2026-07-18 (bottle photo). Minero-medicinal, BOE 1972.
         "verified": True,
+        "photo_url": "https://storage.googleapis.com/be-water-photos/valtorre.jpg",
         "minerals": {
             "tds": 235,
             "bicarbonates": 151.8,

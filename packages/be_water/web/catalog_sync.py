@@ -36,6 +36,7 @@ def _dataset_water(raw: dict) -> Water:
         community=raw.get("community", ""),
         sparkling=raw.get("sparkling", False),
         minerals=raw.get("minerals", {}),
+        photo_url=raw.get("photo_url"),
         added_by="seed",
         # Dataset entries backed by a bottle-label photo carry verified=True.
         verified=raw.get("verified", False),
@@ -54,7 +55,15 @@ def sync_catalog() -> dict:
             created.append(water.name)
             continue
         if current.get("verified"):
-            kept_verified.append(water.name)
+            # Verified docs are data-frozen, but a dataset photo may still
+            # fill an empty photo_url (enrichment, never replacement).
+            if water.photo_url and not current.get("photo_url"):
+                enriched = dict(current)
+                enriched["photo_url"] = water.photo_url
+                firestore.set_document(WATERS, water.id, enriched)
+                updated.append(water.name)
+            else:
+                kept_verified.append(water.name)
             continue
         merged = water.to_firestore()
         merged["photo_url"] = current.get("photo_url") or merged["photo_url"]
