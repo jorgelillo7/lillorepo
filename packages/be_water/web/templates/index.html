@@ -11,6 +11,11 @@
         Composición y procedencia de las aguas minerales de España.
         Marca tus favoritas y te diremos cuál pedir estés donde estés.
     </p>
+    <p class="mt-3 text-xs font-semibold text-slate-400 tracking-wide">
+        💧 <span class="text-sky-600">{{ waters | length }}</span> aguas ·
+        📍 <span class="text-sky-600">{{ waters | map(attribute='province') | unique | list | length }}</span> provincias ·
+        ✅ <span class="text-sky-600">{{ waters | selectattr('verified') | list | length }}</span> verificadas
+    </p>
     <div class="mt-6 max-w-md mx-auto">
         <label for="search" class="sr-only">Buscar agua</label>
         <input id="search" type="search" placeholder="Busca por nombre, marca o provincia…"

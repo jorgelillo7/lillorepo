@@ -50,6 +50,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      diff against the AESAN official list to flag newly recognised waters.
   3. **Data verification pass** (USER-assisted): check the ~25 seeded
      compositions bottle-in-hand, flip `verified: true` as they pass.
+  2b. **Recommender: nearby-province fallback** — places with no local
+     waters (Madrid is the canonical case: no big bottled AMN brand) should
+     fall back to bordering provinces ("nada de Madrid; lo más cerca:
+     Bezoya, Segovia"). Needs a province-adjacency map in the repo.
   3b. **Artifact Registry cleanup for be-water-docker** — the cleanup job
      only prunes the biwenger registry; extend `clean-images-artifact.sh`
      (or a twin) before old `web` digests pile up in `be-water-app`.

@@ -37,7 +37,8 @@ def _dataset_water(raw: dict) -> Water:
         sparkling=raw.get("sparkling", False),
         minerals=raw.get("minerals", {}),
         added_by="seed",
-        verified=False,
+        # Dataset entries backed by a bottle-label photo carry verified=True.
+        verified=raw.get("verified", False),
     )
 
 
