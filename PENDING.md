@@ -50,7 +50,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      separate GCP project riding the generic monorepo machinery:
      - `scripts/check-gcp-costs.sh`: audits `biwenger-tools` only; make it
        cover both projects (be-water-app: €1 budget, be-water-docker
-       registry, Firestore, 2 secrets, Cloud Run minScale=0, no scheduler).
+       registry, Firestore, 1 consolidated secret, Cloud Run minScale=0,
+       no scheduler). Include the `be-water-photos` bucket size with a
+       size threshold: Cloud Storage's 5 GB always-free tier is
+       **US-regions only**, so the Madrid bucket bills from byte one
+       (sub-cent at photo scale, but it must stay watched). Also flag
+       total Secret Manager versions across the billing account vs the
+       6-version free tier (learned 2026-07-18: the quota is per billing
+       account, not per project — fix `docs/gcp.md` accordingly).
      - `scripts/clean-images-artifact.sh`: extend to `be-water-docker`
        before old `web` digests pile up.
      - Skills sweep: `add-python-dep` already lists be_water reqs ✓;
