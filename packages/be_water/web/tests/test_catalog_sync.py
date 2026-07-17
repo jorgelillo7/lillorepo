@@ -97,6 +97,29 @@ def test_dataset_verified_flag_promotes_existing_entry():
     assert written["bezoya"]["minerals"]["tds"] == 27
 
 
+def test_verified_doc_gets_photo_enrichment_only():
+    """A verified doc is data-frozen, but an empty photo_url may be filled
+    from the dataset — minerals must stay exactly as bottle-checked."""
+    dataset = [dict(_DATASET[1], verified=True, photo_url="https://x/bezoya.jpg")]
+    existing = {
+        "bezoya": {
+            "name": "Bezoya",
+            "minerals": {"tds": 26.5},  # bottle-checked, dataset says 27
+            "verified": True,
+        }
+    }
+    written: dict = {}
+    with patch(f"{_MOD}.SEED_WATERS", dataset), patch(
+        f"{_MOD}.firestore.list_documents", return_value=list(existing.items())
+    ), patch(
+        f"{_MOD}.firestore.set_document",
+        side_effect=lambda col, doc_id, data: written.__setitem__(doc_id, data),
+    ):
+        catalog_sync.sync_catalog()
+    assert written["bezoya"]["photo_url"] == "https://x/bezoya.jpg"
+    assert written["bezoya"]["minerals"]["tds"] == 26.5  # untouched
+
+
 def test_notify_skipped_without_creds(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
