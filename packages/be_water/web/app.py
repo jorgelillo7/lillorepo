@@ -122,6 +122,17 @@ def recommend():
     )
 
 
+@app.route("/acerca")
+def about():
+    return render_template(
+        "about.html",
+        meta_description=(
+            "Qué es Be Water, de dónde salen los datos del catálogo y cómo "
+            "se verifican las composiciones."
+        ),
+    )
+
+
 @app.route("/perfil")
 def profile():
     """Your water identity: what your favorites say about your taste."""
@@ -201,6 +212,8 @@ def add_water():
                 )
             except requests.RequestException:
                 label_photo_url = photos.public_url(label_tmp)
+        ocr_fields = (request.form.get("ocr_fields") or "").split(",")
+        verified_fields = sorted(f for f in ocr_fields if f in minerals)
         water = Water(
             id=water_id,
             name=name,
@@ -212,6 +225,7 @@ def add_water():
             minerals=minerals,
             photo_url=photo_url,
             label_photo_url=label_photo_url,
+            verified_fields=verified_fields,
             added_by=session["nickname"],
         )
         repository.save_water(water)
@@ -264,23 +278,33 @@ def add_water_photo():
             error="No pude leer la etiqueta automáticamente — rellena a mano.",
         )
     prefill = {k: v for k, v in extracted.items() if v is not None}
+    # Mineral fields the label actually declared — they become
+    # verified_fields on save (human-reviewed label data).
+    ocr_fields = [f for f in MINERAL_FIELDS if prefill.get(f) is not None]
     return _render_add_form(
         prefill=prefill,
         photo_tmp=photo_tmp,
         label_tmp=label_tmp,
+        ocr_fields=",".join(ocr_fields),
         notice="He leído la etiqueta — revisa los valores antes de guardar."
         + studio_note,
     )
 
 
 def _render_add_form(
-    prefill=None, photo_tmp=None, label_tmp=None, error=None, notice=None
+    prefill=None,
+    photo_tmp=None,
+    label_tmp=None,
+    ocr_fields=None,
+    error=None,
+    notice=None,
 ):
     return render_template(
         "add.html",
         prefill=prefill or {},
         photo_tmp=photo_tmp,
         label_tmp=label_tmp,
+        ocr_fields=ocr_fields,
         photo_tmp_url=photos.public_url(photo_tmp) if photo_tmp else None,
         error=error,
         notice=notice,

@@ -24,7 +24,9 @@ MAX_SIDE = 1200
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # refuse absurd uploads before Pillow
 
 STUDIO_SIZE = 1080  # square, timeline-friendly
-WATERMARK = "💧 Be Water · Jorge Lillo"
+# No emoji here: PIL's default font has no emoji glyphs (the 💧 silently
+# vanished from the first studio photo) — the droplet is drawn as a vector.
+WATERMARK = "Be Water · Jorge Lillo"
 _STUDIO_PROMPT = (
     "Aísla la botella de agua de esta foto y colócala perfectamente vertical, "
     "centrada, sobre un fondo blanco puro uniforme, estilo fotografía de "
@@ -68,23 +70,41 @@ def studio_photo(raw_photo: bytes) -> bytes:
     canvas = Image.new("RGB", (STUDIO_SIZE, STUDIO_SIZE), "white")
     canvas.paste(img, ((STUDIO_SIZE - img.width) // 2, (STUDIO_SIZE - img.height) // 2))
 
+    _stamp_watermark(canvas)
+
+    out = io.BytesIO()
+    canvas.save(out, "JPEG", quality=88, optimize=True)
+    return out.getvalue()
+
+
+def _stamp_watermark(canvas: Image.Image) -> None:
+    """Bottom-right brand mark: vector droplet + text (no emoji fonts)."""
     draw = ImageDraw.Draw(canvas, "RGBA")
     try:
         font = ImageFont.load_default(size=28)
     except TypeError:  # pragma: no cover — Pillow < 10.1 fallback
         font = ImageFont.load_default()
-    text = WATERMARK
-    box = draw.textbbox((0, 0), text, font=font)
-    draw.text(
-        (STUDIO_SIZE - (box[2] - box[0]) - 28, STUDIO_SIZE - (box[3] - box[1]) - 24),
-        text,
-        font=font,
-        fill=(100, 116, 139, 160),  # slate-500 semi-transparent
-    )
+    box = draw.textbbox((0, 0), WATERMARK, font=font)
+    text_w, text_h = box[2] - box[0], box[3] - box[1]
 
-    out = io.BytesIO()
-    canvas.save(out, "JPEG", quality=88, optimize=True)
-    return out.getvalue()
+    drop_h = int(text_h * 1.25)
+    drop_w = int(drop_h * 0.72)
+    gap = 10
+    x_text = canvas.width - text_w - 28
+    y_text = canvas.height - text_h - 24
+    cx = x_text - gap - drop_w // 2
+    cy = y_text + text_h // 2
+
+    # Teardrop: a triangle apex melting into a circle, sky-blue.
+    sky = (14, 165, 233, 170)
+    r = drop_w // 2
+    apex = (cx, cy - drop_h // 2)
+    draw.ellipse((cx - r, cy - r // 3, cx + r, cy + drop_h // 2), fill=sky)
+    draw.polygon(
+        [apex, (cx - int(r * 0.85), cy + r // 4), (cx + int(r * 0.85), cy + r // 4)],
+        fill=sky,
+    )
+    draw.text((x_text, y_text), WATERMARK, font=font, fill=(100, 116, 139, 160))
 
 
 def _auth_header() -> dict:

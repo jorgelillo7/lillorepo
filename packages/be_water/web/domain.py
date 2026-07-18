@@ -59,6 +59,10 @@ class Water:
     minerals: dict = field(default_factory=dict)
     photo_url: Optional[str] = None
     label_photo_url: Optional[str] = None  # raw label shot — verification proof
+    # Mineral fields individually confirmed against a bottle label. A fully
+    # `verified` water implies every declared field; this list covers the
+    # mixed case (Lanjarón: 4 label values + approximations for the rest).
+    verified_fields: list = field(default_factory=list)
     added_by: str = ""
     verified: bool = False
 
@@ -69,6 +73,10 @@ class Water:
     @property
     def mineralization(self) -> str:
         return mineralization_label(self.tds)
+
+    def is_field_verified(self, field_name: str) -> bool:
+        """True when this mineral value comes from a bottle label."""
+        return self.verified or field_name in self.verified_fields
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Water":
@@ -84,6 +92,7 @@ class Water:
             minerals=data.get("minerals", {}) or {},
             photo_url=data.get("photo_url"),
             label_photo_url=data.get("label_photo_url"),
+            verified_fields=list(data.get("verified_fields", []) or []),
             added_by=data.get("added_by", ""),
             verified=bool(data.get("verified", False)),
         )
@@ -100,6 +109,7 @@ class Water:
             "minerals": self.minerals,
             "photo_url": self.photo_url,
             "label_photo_url": self.label_photo_url,
+            "verified_fields": self.verified_fields,
             "added_by": self.added_by,
             "verified": self.verified,
         }

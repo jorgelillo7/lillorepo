@@ -241,6 +241,35 @@ fi
 echo
 
 # ---------------------------
+# Gemini API prepaid credits (be_water studio photos)
+# The prepaid balance has NO public API — this section verifies what is
+# scriptable (billing link + dedicated budget on the AI Studio project)
+# and points at the only place the balance is visible.
+# ---------------------------
+echo "🍌 Gemini API (créditos prepago — estudio de fotos be_water)"
+GEMINI_PROJECT="gen-lang-client-0059905191"  # AI Studio project "Be Water"
+GEMINI_BILLING=$(gcloud billing projects describe "$GEMINI_PROJECT" \
+    --format="value(billingEnabled)" 2>/dev/null)
+if [ "$GEMINI_BILLING" = "True" ]; then
+    echo "  Billing vinculado: sí ✅ (proyecto ${GEMINI_PROJECT})"
+    SUM_GEMINI="$STATUS_OK — billing ok; saldo: revisar manualmente"
+else
+    echo "  🚨 Billing NO vinculado — el estudio de fotos fallará con 429"
+    SUM_GEMINI="$STATUS_WARN — sin billing en ${GEMINI_PROJECT}"
+fi
+GEMINI_BUDGET=$(gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" \
+    --filter='displayName:gemini' --format="value(displayName)" 2>/dev/null | head -1)
+if [ -n "$GEMINI_BUDGET" ]; then
+    echo "  Budget dedicado: '${GEMINI_BUDGET}' ✅"
+else
+    echo "  ⚠️  Sin budget dedicado para el proyecto Gemini"
+fi
+echo "  Saldo prepago (sin API — revisar a mano): https://aistudio.google.com/billing"
+echo "  Modelo: prepago = tope duro (0 créditos → 429, imposible sobregastar)"
+echo "  Coste por foto de estudio ≈ \$0.04 (gemini-2.5-flash-image)"
+echo
+
+# ---------------------------
 # Log retention (decision: 7 days, see docs/gcp.md)
 # ---------------------------
 echo "📦 Log retention"
@@ -305,6 +334,7 @@ printf "  %-22s %s\n" "Secret Manager"    "$(status_icon "${SUM_SECRETS%% *}") �
 printf "  %-22s %s\n" "Cloud Scheduler"   "$(status_icon "${SUM_SCHEDULER%% *}") — ${SUM_SCHEDULER#* — }"
 printf "  %-22s %s\n" "Logging"           "$(status_icon "${SUM_LOGGING%% *}") — ${SUM_LOGGING#* — }"
 printf "  %-22s %s\n" "Budget alerts"     "$(status_icon "${SUM_BUDGET%% *}") — ${SUM_BUDGET#* — }"
+printf "  %-22s %s\n" "Gemini prepago"    "$(status_icon "${SUM_GEMINI%% *}") — ${SUM_GEMINI#* — }"
 printf "  %-22s %s\n" "Log retention"     "$(status_icon "${SUM_RETENTION%% *}") — ${SUM_RETENTION#* — }"
 printf "  %-22s %s\n" "Cloud Run config"  "$(status_icon "${SUM_RUN_CONFIG%% *}") — ${SUM_RUN_CONFIG#* — }"
 echo
