@@ -308,6 +308,35 @@ def test_profile_without_favorites_nudges(client):
     assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
 
 
+def test_about_page_renders(client):
+    resp = client.get("/acerca")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "AESAN" in body
+    assert "No es consejo médico" in body
+
+
+def test_add_marks_ocr_fields_as_verified(client):
+    """Fields the label declared (and survived review) become verified_fields;
+    hand-typed extras don't."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ):
+        client.post(
+            "/anadir",
+            data={
+                "name": "Font Nova",
+                "tds": "180",
+                "calcium": "40",
+                "sodium": "9",  # typed by hand, not from the label
+                "ocr_fields": "tds,calcium,magnesium",  # mg was cleared by user
+            },
+        )
+    water = mock_save.call_args.args[0]
+    assert water.verified_fields == ["calcium", "tds"]
+
+
 def test_seo_plumbing(client):
     with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         robots = client.get("/robots.txt")

@@ -58,7 +58,10 @@
 
 <footer class="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
     <p>Be Water, my friend 🥋 · catálogo colaborativo de aguas minerales</p>
-    <p class="mt-1">datos de etiquetas — pueden contener errores · <span class="font-mono">{{ git_commit }}</span></p>
+    <p class="mt-1">
+        <a href="{{ url_for('about') }}" class="underline hover:text-sky-600">acerca del proyecto y sus datos</a>
+        · <span class="font-mono">{{ git_commit }}</span>
+    </p>
 </footer>
 
 </body>

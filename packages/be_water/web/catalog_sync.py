@@ -37,6 +37,8 @@ def _dataset_water(raw: dict) -> Water:
         sparkling=raw.get("sparkling", False),
         minerals=raw.get("minerals", {}),
         photo_url=raw.get("photo_url"),
+        label_photo_url=raw.get("label_photo_url"),
+        verified_fields=list(raw.get("verified_fields", [])),
         added_by="seed",
         # Dataset entries backed by a bottle-label photo carry verified=True.
         verified=raw.get("verified", False),
@@ -55,11 +57,16 @@ def sync_catalog() -> dict:
             created.append(water.name)
             continue
         if current.get("verified"):
-            # Verified docs are data-frozen, but a dataset photo may still
-            # fill an empty photo_url (enrichment, never replacement).
-            if water.photo_url and not current.get("photo_url"):
-                enriched = dict(current)
-                enriched["photo_url"] = water.photo_url
+            # Verified docs are data-frozen, but dataset photos may still
+            # fill empty photo slots (enrichment, never replacement).
+            enriched = dict(current)
+            changed = False
+            for photo_field in ("photo_url", "label_photo_url"):
+                dataset_value = getattr(water, photo_field)
+                if dataset_value and not current.get(photo_field):
+                    enriched[photo_field] = dataset_value
+                    changed = True
+            if changed:
                 firestore.set_document(WATERS, water.id, enriched)
                 updated.append(water.name)
             else:
@@ -69,6 +76,10 @@ def sync_catalog() -> dict:
         merged["photo_url"] = current.get("photo_url") or merged["photo_url"]
         merged["label_photo_url"] = (
             current.get("label_photo_url") or merged["label_photo_url"]
+        )
+        merged["verified_fields"] = sorted(
+            set(merged.get("verified_fields", []))
+            | set(current.get("verified_fields", []) or [])
         )
         merged["added_by"] = current.get("added_by") or merged["added_by"]
         if merged == current:

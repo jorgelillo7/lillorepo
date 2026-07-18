@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Acerca de · Be Water{% endblock %}
+
+{% block content %}
+<article class="max-w-2xl mx-auto space-y-6">
+    <header class="text-center">
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">💧 Acerca de Be Water</h1>
+    </header>
+
+    <section class="bg-white rounded-3xl ring-1 ring-slate-200 p-6 sm:p-8">
+        <h2 class="font-bold text-lg text-slate-900 mb-3">La historia</h2>
+        <p class="text-sm text-slate-600 leading-relaxed">
+            Todo empezó con un problema muy tonto y muy real: estás fuera de casa,
+            en la estantería no están tus aguas de siempre, y acabas eligiendo al
+            tuntún — a veces bien, a veces… Bezoya. Be Water es un catálogo abierto
+            de aguas minerales españolas que conoce tu gusto (tus favoritas dibujan
+            tu perfil mineral) y te dice qué pedir estés donde estés.
+        </p>
+        <p class="text-sm text-slate-600 leading-relaxed mt-3">
+            Es un proyecto personal y colaborativo, sin ánimo comercial, construido
+            sobre software libre y con la manía de costar cero euros al mes.
+        </p>
+    </section>
+
+    <section class="bg-white rounded-3xl ring-1 ring-slate-200 p-6 sm:p-8">
+        <h2 class="font-bold text-lg text-slate-900 mb-3">De dónde salen los datos</h2>
+        <ul class="text-sm text-slate-600 leading-relaxed space-y-3">
+            <li>
+                <span class="text-teal-500 font-bold">✓ Fotos de etiquetas reales</span> —
+                la fuente primaria. Cuando un valor lleva el check
+                <span class="text-teal-500">✓</span>, alguien fotografió la botella y
+                la composición se leyó de la etiqueta (con ayuda de IA y revisión
+                humana). La foto original de cada etiqueta se conserva como prueba
+                y puede verse desde la ficha del agua.
+            </li>
+            <li>
+                <span class="font-semibold text-slate-700">Datos publicados por fabricantes</span> —
+                para las aguas que aún nadie ha fotografiado, la composición proviene
+                de la información publicada por las propias marcas. Son valores
+                aproximados (las analíticas cambian entre lotes y años) y están
+                pendientes de verificación botella en mano.
+            </li>
+            <li>
+                <span class="font-semibold text-slate-700">Lista oficial AESAN</span> —
+                las procedencias (manantial, municipio, provincia) se contrastan con la
+                <a href="https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm"
+                   target="_blank" rel="noopener" class="text-sky-600 underline hover:text-sky-700">lista
+                de aguas minerales naturales reconocidas en España</a>.
+            </li>
+        </ul>
+    </section>
+
+    <section class="bg-white rounded-3xl ring-1 ring-slate-200 p-6 sm:p-8">
+        <h2 class="font-bold text-lg text-slate-900 mb-3">Lo que Be Water no es</h2>
+        <p class="text-sm text-slate-600 leading-relaxed">
+            No es consejo médico ni nutricional. Si tu médico te ha pautado aguas con
+            determinada composición (dietas bajas en sodio, litiasis, etc.), la
+            referencia válida es siempre la etiqueta física de la botella y tu
+            profesional sanitario — no este catálogo.
+        </p>
+    </section>
+
+    <p class="text-center text-xs text-slate-400">
+        ¿Ves un dato mal? Haz una foto a la etiqueta y
+        <a href="{{ url_for('add_water') }}" class="text-sky-600 underline hover:text-sky-700">súbela</a> —
+        así se corrige esto.
+    </p>
+</article>
+{% endblock %}

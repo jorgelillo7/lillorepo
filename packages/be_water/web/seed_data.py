@@ -37,6 +37,9 @@ SEED_WATERS = [
         # the label prints nothing else, so the rest stays approximate and
         # the water remains unverified.
         "photo_url": "https://storage.googleapis.com/be-water-photos/lanjaron.jpg",
+        "label_photo_url": "https://storage.googleapis.com/be-water-photos"
+        "/originals/lanjaron.jpg",
+        "verified_fields": ["bicarbonates", "calcium", "magnesium", "sodium"],
         "minerals": {
             "tds": 205,
             "bicarbonates": 105.0,
@@ -194,6 +197,8 @@ SEED_WATERS = [
         # Label-verified 2026-07-18 (bottle photo).
         "verified": True,
         "photo_url": "https://storage.googleapis.com/be-water-photos/aquadeus.jpg",
+        "label_photo_url": "https://storage.googleapis.com/be-water-photos"
+        "/originals/aquadeus.jpg",
         "minerals": {
             "tds": 307,
             "bicarbonates": 336,
@@ -453,6 +458,8 @@ SEED_WATERS = [
         # Label-verified 2026-07-18 (bottle photo). Minero-medicinal, BOE 1972.
         "verified": True,
         "photo_url": "https://storage.googleapis.com/be-water-photos/valtorre.jpg",
+        "label_photo_url": "https://storage.googleapis.com/be-water-photos"
+        "/originals/valtorre.jpg",
         "minerals": {
             "tds": 235,
             "bicarbonates": 151.8,
