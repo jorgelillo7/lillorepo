@@ -60,13 +60,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      Original label shot kept under `originals/` as verification proof;
      failure falls back to the raw photo. Check the image model's daily
      free-tier cap (smaller than text flash; our add-volume is tiny).
-  1c. **Studio activation — USER DECISION on the first real money**: the
-     image model has no API free tier (~4 cts/photo). Options: (a) enable
-     billing on the AI Studio project + admin-only gate (studio fires only
-     for the owner's nickname; bounded spend, €1 budget alert), (b) rembg
-     self-hosted at €0 (own container — too heavy for the shared base
-     image — cuts background but doesn't straighten bottles), (c) stay
-     dormant. Shipped code degrades gracefully either way.
+  1c. **Studio DECIDED: admin-gated** (2026-07-18) — billing enabled on
+     the AI Studio project with its own €1 budget alert; studio fires only
+     for `BEWATER_ADMINS` nicknames (env, comma-separated — extend without
+     code changes), everyone else keeps the free OCR + raw photo. ~4 cts
+     per admin photo. Future option if it should reach everyone at €0:
+     rembg in its own container (too heavy for the shared base image;
+     cuts background but doesn't straighten bottles).
   1d. **Release notes v1.1** bundling 1.B + the studio template, once the
      user has validated from the phone (deliberately held back — the v1.0
      entry already teases "Gemini takes the job in v1.1").

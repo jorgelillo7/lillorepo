@@ -35,6 +35,16 @@ GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY",
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
+# Nicknames whose uploads go through the paid studio treatment (image
+# generation has no free tier). Everyone else keeps the free OCR prefill
+# and their raw photo. Comma-separated env so admins can be added without
+# a code change.
+ADMIN_NICKNAMES = {
+    n.strip().lower()
+    for n in os.getenv("BEWATER_ADMINS", "jorgelillo").split(",")
+    if n.strip()
+}
+
 # --- Deployed version metadata (short SHA, 7 chars) ---
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

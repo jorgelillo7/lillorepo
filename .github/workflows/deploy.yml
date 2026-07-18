@@ -533,6 +533,7 @@ jobs:
             --update-secrets="FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
             --set-env-vars="\
           FIRESTORE_PROJECT=be-water-app,\
+          BEWATER_ADMINS=jorgelillo,\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
