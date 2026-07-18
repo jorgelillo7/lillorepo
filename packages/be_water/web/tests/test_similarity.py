@@ -78,3 +78,37 @@ def test_recommend_without_favorites_is_empty():
 def test_centroid_averages_fields():
     centroid = favorites_centroid([SOLAN, LIVIANA])
     assert centroid["tds"] == (261 + 285) / 2
+
+
+def test_sparse_waters_are_not_comparable():
+    """Two waters sharing fewer than MIN_SHARED_FIELDS fields must never
+    look 'similar' just because their missing fields match as zeros."""
+    import math
+
+    sparse_a = {"tds": 200}
+    sparse_b = {"tds": 201, "sodium": 5}
+    assert distance(sparse_a, sparse_b) == math.inf
+
+
+def test_similar_waters_excludes_incomparable_entries():
+    sparse = Water(
+        id="misteriosa",
+        name="Misteriosa",
+        brand="?",
+        spring="",
+        province="Lugo",
+        community="Galicia",
+        minerals={"tds": 260},  # single field → incomparable with everyone
+    )
+    catalog = [SOLAN, LIVIANA, BEZOYA, sparse]
+    ids = [w.id for w, _ in similar_waters(SOLAN, catalog, top_n=3)]
+    assert "misteriosa" not in ids
+
+
+def test_distance_normalizes_by_shared_coverage():
+    """A missing field must not make an otherwise-identical water look
+    farther than a genuinely different one."""
+    full = {"tds": 261, "sodium": 5, "calcium": 59, "magnesium": 25}
+    same_minus_one = {"tds": 261, "sodium": 5, "calcium": 59}  # mg unknown
+    different = {"tds": 900, "sodium": 200, "calcium": 10, "magnesium": 2}
+    assert distance(full, same_minus_one) < distance(full, different)

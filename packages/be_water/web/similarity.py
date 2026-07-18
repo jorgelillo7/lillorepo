@@ -20,15 +20,28 @@ _VECTOR_FIELDS = [
     ("sodium", 1.5),
 ]
 
-
-def _vector(minerals: dict) -> list[float]:
-    return [math.log10((minerals.get(f) or 0) + 1) * w for f, w in _VECTOR_FIELDS]
+# Below this many shared fields two waters are simply not comparable.
+# Guards against sparse labels (Lanjarón prints 4 values) clustering with
+# other sparse labels just because their missing fields "match" as zeros.
+MIN_SHARED_FIELDS = 3
 
 
 def distance(a: dict, b: dict) -> float:
-    """Weighted log-scale euclidean distance between two mineral dicts."""
-    va, vb = _vector(a), _vector(b)
-    return math.sqrt(sum((x - y) ** 2 for x, y in zip(va, vb)))
+    """Weighted log-scale distance over the fields BOTH waters declare.
+
+    Normalized by the number of shared fields so pairs with different
+    coverage stay comparable; `inf` when the overlap is too small to
+    mean anything.
+    """
+    diffs = []
+    for field, weight in _VECTOR_FIELDS:
+        va, vb = a.get(field), b.get(field)
+        if va is None or vb is None:
+            continue
+        diffs.append(((math.log10(va + 1) - math.log10(vb + 1)) * weight) ** 2)
+    if len(diffs) < MIN_SHARED_FIELDS:
+        return math.inf
+    return math.sqrt(sum(diffs) / len(diffs))
 
 
 def similar_waters(
@@ -38,6 +51,7 @@ def similar_waters(
     scored = [
         (w, distance(target.minerals, w.minerals)) for w in catalog if w.id != target.id
     ]
+    scored = [(w, d) for w, d in scored if math.isfinite(d)]
     scored.sort(key=lambda t: t[1])
     return scored[:top_n]
 
@@ -75,5 +89,6 @@ def recommend(
         and place_lower in (w.province.lower(), w.community.lower())
     ]
     scored = [(w, distance(centroid, w.minerals)) for w in candidates]
+    scored = [(w, d) for w, d in scored if math.isfinite(d)]
     scored.sort(key=lambda t: t[1])
     return scored[:top_n]

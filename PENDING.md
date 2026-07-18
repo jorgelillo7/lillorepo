@@ -60,7 +60,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      Original label shot kept under `originals/` as verification proof;
      failure falls back to the raw photo. Check the image model's daily
      free-tier cap (smaller than text flash; our add-volume is tiny).
-  1c. **Release notes v1.1** bundling 1.B + the studio template, once the
+  1c. **Studio activation — USER DECISION on the first real money**: the
+     image model has no API free tier (~4 cts/photo). Options: (a) enable
+     billing on the AI Studio project + admin-only gate (studio fires only
+     for the owner's nickname; bounded spend, €1 budget alert), (b) rembg
+     self-hosted at €0 (own container — too heavy for the shared base
+     image — cuts background but doesn't straighten bottles), (c) stay
+     dormant. Shipped code degrades gracefully either way.
+  1d. **Release notes v1.1** bundling 1.B + the studio template, once the
      user has validated from the phone (deliberately held back — the v1.0
      entry already teases "Gemini takes the job in v1.1").
   2. **Regularization review** — validate that be_water is a properly
