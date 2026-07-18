@@ -73,4 +73,20 @@
         y suma — quedan {{ '' }}muchas aguas sin verificar.
     </p>
 {% endif %}
+
+<!-- Vitrina de logros: lo que hay por conseguir -->
+<section class="max-w-2xl mx-auto mt-12">
+    <h2 class="text-center font-bold text-lg text-slate-900 mb-4">Los logros</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {% for a in achievements %}
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-4 flex items-center gap-3">
+            <span class="text-2xl">{{ a.emoji }}</span>
+            <div>
+                <p class="font-bold text-slate-800 text-sm">{{ a.name }}</p>
+                <p class="text-xs text-slate-500">{{ a.description }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
 {% endblock %}

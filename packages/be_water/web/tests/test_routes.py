@@ -312,6 +312,25 @@ def test_profile_without_favorites_nudges(client):
     assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
 
 
+def test_sparkling_waters_wear_the_badge(client):
+    catalog = _catalog()
+    catalog[1].sparkling = True
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        home = client.get("/").get_data(as_text=True)
+        detail = client.get("/agua/bezoya").get_data(as_text=True)
+    assert 'data-gas="1"' in home
+    assert home.count("con gas") >= 2  # badge + filter chip
+    assert "con gas" in detail
+
+
+def test_community_shows_achievements_showcase(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/comunidad")
+    body = resp.get_data(as_text=True)
+    assert "Los logros" in body
+    assert "Manantial andante" in body  # even unearned ones are listed
+
+
 def test_community_page_ranks_contributors(client):
     catalog = _catalog()
     catalog[0].added_by = "jorgelillo"

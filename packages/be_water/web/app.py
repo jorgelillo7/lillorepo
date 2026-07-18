@@ -145,6 +145,10 @@ def community_page():
         "community.html",
         ranking=ranking,
         period=period,
+        achievements=[
+            {"emoji": emoji, "name": name, "description": description}
+            for emoji, name, description, _ in community.ACHIEVEMENTS
+        ],
         meta_description=(
             "La comunidad de Be Water: quién añade y verifica las aguas "
             "del catálogo."
