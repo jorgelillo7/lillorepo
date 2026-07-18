@@ -51,3 +51,44 @@ def test_generate_json_raises_on_malformed_body():
         m.post(_URL, json={"candidates": []})
         with pytest.raises(gemini.GeminiError, match="Unparseable"):
             gemini.generate_json("key", "prompt")
+
+
+_IMG_URL = (
+    f"{gemini.GEMINI_API_BASE}/models/{gemini.DEFAULT_IMAGE_MODEL}:generateContent"
+)
+
+
+def test_generate_image_decodes_inline_data():
+    fake_png = b"\x89PNG-fake"
+    body = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "here you go"},
+                        {
+                            "inlineData": {
+                                "mimeType": "image/png",
+                                "data": base64.b64encode(fake_png).decode(),
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    }
+    with requests_mock.Mocker() as m:
+        m.post(_IMG_URL, json=body)
+        result = gemini.generate_image("key", "isolate", b"src")
+        sent = m.last_request.json()
+    assert result == fake_png
+    assert sent["generationConfig"]["responseModalities"] == ["IMAGE"]
+
+
+def test_generate_image_raises_without_image_part():
+    with requests_mock.Mocker() as m:
+        m.post(
+            _IMG_URL, json={"candidates": [{"content": {"parts": [{"text": "no"}]}}]}
+        )
+        with pytest.raises(gemini.GeminiError, match="Unparseable"):
+            gemini.generate_image("key", "isolate", b"src")
