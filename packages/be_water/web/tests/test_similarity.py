@@ -4,6 +4,7 @@ from packages.be_water.web.domain import Water, mineralization_label
 from packages.be_water.web.similarity import (
     distance,
     favorites_centroid,
+    profile_traits,
     recommend,
     similar_waters,
 )
@@ -103,6 +104,29 @@ def test_similar_waters_excludes_incomparable_entries():
     catalog = [SOLAN, LIVIANA, BEZOYA, sparse]
     ids = [w.id for w, _ in similar_waters(SOLAN, catalog, top_n=3)]
     assert "misteriosa" not in ids
+
+
+def test_profile_traits_words_the_strong_deviations():
+    """A calcium-heavy, sodium-light centroid must be described as such —
+    and near-median fields must stay unmentioned."""
+    catalog = [
+        _water(f"w{i}", tds=200 + i, na=20, province="X", community="Y")
+        for i in range(6)
+    ]
+    for w in catalog:
+        w.minerals.update({"calcium": 40, "magnesium": 10})
+    centroid = {"tds": 210, "calcium": 90, "sodium": 4, "magnesium": 10.5}
+    traits = profile_traits(centroid, catalog)
+    assert "rica en calcio" in traits
+    assert "muy baja en sodio" in traits
+    assert all("magnesio" not in t for t in traits)  # ~median → silent
+
+
+def test_profile_traits_needs_enough_catalog_coverage():
+    """Fields observed in <5 waters can't define a median — no trait."""
+    catalog = [_water("a", 200), _water("b", 220)]
+    traits = profile_traits({"tds": 210, "calcium": 90}, catalog)
+    assert traits == []
 
 
 def test_distance_normalizes_by_shared_coverage():

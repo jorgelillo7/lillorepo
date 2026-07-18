@@ -122,6 +122,43 @@ def recommend():
     )
 
 
+@app.route("/perfil")
+def profile():
+    """Your water identity: what your favorites say about your taste."""
+    nickname = session.get("nickname")
+    catalog = repository.get_all_waters()
+    favorites = repository.get_favorites(nickname, catalog) if nickname else []
+    centroid = similarity.favorites_centroid(favorites)
+    traits = similarity.profile_traits(centroid, catalog) if centroid else []
+    matches = []
+    if centroid:
+        fav_ids = {w.id for w in favorites}
+        scored = [
+            (w, similarity.distance(centroid, w.minerals))
+            for w in catalog
+            if w.id not in fav_ids
+        ]
+        scored = [(w, d) for w, d in scored if d != float("inf")]
+        scored.sort(key=lambda t: t[1])
+        matches = scored[:6]
+    from packages.be_water.web.domain import mineralization_label
+
+    return render_template(
+        "profile.html",
+        favorites=favorites,
+        favorite_ids={w.id for w in favorites},
+        traits=traits,
+        mineralization=(
+            mineralization_label(centroid.get("tds")) if centroid else None
+        ),
+        matches=matches,
+        meta_description=(
+            "Tu perfil de agua: qué composición te gusta y qué aguas encajan "
+            "contigo."
+        ),
+    )
+
+
 @app.route("/anadir", methods=["GET", "POST"])
 def add_water():
     if not session.get("nickname"):

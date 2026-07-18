@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Mi perfil de agua · Be Water{% endblock %}
+
+{% block content %}
+<header class="text-center mb-8">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">👤 Mi perfil de agua</h1>
+    <p class="mt-3 text-slate-500 max-w-lg mx-auto text-sm sm:text-base">
+        Tus favoritas dicen mucho de ti. Esto es lo que cuentan.
+    </p>
+</header>
+
+{% if not nickname %}
+    <div class="max-w-md mx-auto text-center bg-white rounded-2xl ring-1 ring-slate-200 p-8">
+        <p class="text-4xl mb-3">🤍</p>
+        <p class="text-slate-600 font-medium">Entra con tu nick (arriba) para tener perfil.</p>
+    </div>
+{% elif favorites | length < 1 %}
+    <div class="max-w-md mx-auto text-center bg-white rounded-2xl ring-1 ring-slate-200 p-8">
+        <p class="text-4xl mb-3">💧</p>
+        <p class="text-slate-600 font-medium">Marca 2-3 aguas favoritas en el
+            <a href="{{ url_for('index') }}" class="text-sky-600 hover:underline">catálogo</a>
+            y aquí aparecerá tu perfil mineral.</p>
+    </div>
+{% else %}
+    {% set tone = 'sky' if mineralization == 'muy débil'
+       else 'teal' if mineralization == 'débil'
+       else 'amber' if mineralization == 'fuerte'
+       else 'rose' if mineralization == 'muy fuerte' else 'slate' %}
+
+    <!-- La tarjeta de identidad -->
+    <section class="max-w-2xl mx-auto bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl ring-1 ring-{{ tone }}-200/60 p-8 text-center mb-8">
+        <p class="text-xs uppercase tracking-widest font-semibold text-{{ tone }}-600/70 mb-2">tu agua ideal es de</p>
+        <p class="text-3xl sm:text-4xl font-extrabold text-{{ tone }}-800">mineralización {{ mineralization }}</p>
+        {% if traits %}
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+            {% for trait in traits %}
+            <span class="px-3 py-1.5 rounded-full bg-white/80 backdrop-blur-sm text-sm font-semibold text-slate-700 ring-1 ring-{{ tone }}-200">{{ trait }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        <p class="mt-5 text-xs text-slate-500">
+            según tus favoritas:
+            {% for w in favorites %}<a href="{{ url_for('water_detail', water_id=w.id) }}" class="font-semibold text-slate-600 hover:text-sky-700">{{ w.name }}</a>{{ " · " if not loop.last }}{% endfor %}
+        </p>
+        {% if favorites | length < 2 %}
+        <p class="mt-2 text-[11px] text-slate-400">con 2-3 favoritas el perfil afina más 😉</p>
+        {% endif %}
+    </section>
+
+    <!-- Aguas que encajan -->
+    {% if matches %}
+    <section>
+        <h2 class="text-center font-bold text-lg text-slate-900 mb-4">Aguas que encajan contigo</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for w, dist in matches %}
+                {% include "_water_card.html" %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <p class="text-center mt-8 text-sm text-slate-500">
+        ¿De viaje? <a href="{{ url_for('recommend') }}" class="text-sky-600 hover:underline font-semibold">📍 Busca tu agua por zona</a>
+    </p>
+{% endif %}
+{% endblock %}
