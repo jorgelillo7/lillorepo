@@ -155,6 +155,17 @@ def test_add_water_refuses_duplicates(client):
     assert "ya existe" in resp.get_data(as_text=True)
 
 
+def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
+    """Regression: «Lanjarón» slugged to 'lanjar-n' and dodged the duplicate
+    guard against the existing 'lanjaron' doc."""
+    _login(client)
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=None
+    ) as mock_get:
+        client.post("/anadir", data={"name": "Lanjarón"})
+    mock_get.assert_called_once_with("lanjaron")
+
+
 def test_photo_flow_prefills_form_from_gemini(client):
     _login(client)
     with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
