@@ -17,6 +17,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
   NOT drop it, the web still authenticates Sheets through that mount for
   `ligas_especiales` / `trofeos`.
+- **Watchdog for lost GitHub push events** — GitHub dropped two push
+  events on 2026-07-18 alone (the PR #72 syndrome): merges landed on
+  master with no deploy run, plus one dispatch that snapshotted a stale
+  master sha. The workflow can't guard itself (no event → no run).
+  Options: a scheduled job comparing master HEAD vs the latest deploy
+  run's sha (dispatch on drift), or a required check in the merging
+  session. Until then: after every merge, verify a run exists for the
+  merge sha and `/version` matches after deploy.
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
   Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the
@@ -39,13 +47,22 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 ## be_water
 
 - **Live in production** (2026-07-18): 25 waters (2 label-verified), public
-  URL, deploy pipeline, idempotent catalog sync with Telegram notify.
+  URL, deploy pipeline, idempotent catalog sync with Telegram notify, and
+  sprint 1.B shipped: photo upload from mobile + Gemini label OCR
+  (`gemini-flash-latest` via `core/sdk/gemini.py`, zero new deps).
   Roadmap, in order:
-  1. **Sprint 1.B — photo upload + Gemini OCR**: GCS bucket
-     `be-water-photos`, `core/sdk/gemini.py` (new dep `google-genai` via
-     the add-python-dep skill), secret `GEMINI_API_KEY`. Reuse the user's
-     existing AI Studio key (project `gen-lang-client-0434934257`, the one
-     renamed "lillorepo" during the GCP cleanup) — no new project.
+  1. **USER: validate 1.B from the phone** (photo → prefilled form → save,
+     `/anadir` on the public URL), then:
+  1b. **"Studio photo" template** — second Gemini call to
+     `gemini-2.5-flash-image` (nano banana, available on our key): isolate
+     the bottle onto a pure white background, then Pillow composites it on
+     the branded template (subtle "💧 Be Water · Jorge Lillo" watermark).
+     Original label shot kept under `originals/` as verification proof;
+     failure falls back to the raw photo. Check the image model's daily
+     free-tier cap (smaller than text flash; our add-volume is tiny).
+  1c. **Release notes v1.1** bundling 1.B + the studio template, once the
+     user has validated from the phone (deliberately held back — the v1.0
+     entry already teases "Gemini takes the job in v1.1").
   2. **Regularization review** — validate that be_water is a properly
      separate GCP project riding the generic monorepo machinery:
      - `scripts/check-gcp-costs.sh`: audits `biwenger-tools` only; make it
