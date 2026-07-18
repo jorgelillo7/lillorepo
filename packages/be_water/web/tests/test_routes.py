@@ -166,11 +166,11 @@ def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
     mock_get.assert_called_once_with("lanjaron")
 
 
-def test_photo_flow_prefills_form_from_gemini(client):
+def test_photo_flow_prefills_form_and_runs_studio(client):
     _login(client)
     with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as mock_upload, patch(
+        f"{_APP}.photos.studio_photo", return_value=b"studio"
+    ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label",
         return_value={"name": "Font Nova", "tds": 180, "spring": None},
     ):
@@ -184,8 +184,35 @@ def test_photo_flow_prefills_form_from_gemini(client):
     assert 'value="Font Nova"' in body
     assert 'value="180"' in body
     assert 'name="photo_tmp"' in body
+    assert 'name="label_tmp"' in body
     assert "revisa los valores" in body
-    mock_upload.assert_called_once()
+    assert "estudio" in body
+    # Two uploads: originals/{uid}.jpg (raw proof) + uploads/{uid}.jpg (studio).
+    assert mock_upload.call_count == 2
+    names = [c.args[0] for c in mock_upload.call_args_list]
+    assert names[0].startswith("originals/")
+    assert names[1].startswith("uploads/")
+    assert mock_upload.call_args_list[1].args[1] == b"studio"
+
+
+def test_photo_flow_studio_failure_falls_back_to_raw(client):
+    from core.sdk.gemini import GeminiError
+
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")
+    ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    # Display upload falls back to the processed raw photo.
+    assert mock_upload.call_args_list[1].args[1] == b"jpg"
+    assert "estudio" not in resp.get_data(as_text=True)
 
 
 def test_photo_flow_survives_gemini_failure(client):
@@ -194,8 +221,10 @@ def test_photo_flow_survives_gemini_failure(client):
 
     _login(client)
     with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("boom")):
+        f"{_APP}.photos.studio_photo", return_value=b"studio"
+    ), patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("boom")
+    ):
         resp = client.post(
             "/anadir/foto",
             data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
@@ -204,25 +233,33 @@ def test_photo_flow_survives_gemini_failure(client):
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
     assert 'name="photo_tmp"' in body
+    assert 'name="label_tmp"' in body
     assert "rellena a mano" in body
 
 
-def test_add_with_photo_tmp_promotes_and_stores_url(client):
+def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     _login(client)
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=None
     ), patch(
         f"{_APP}.photos.promote_photo",
-        return_value="https://storage.googleapis.com/be-water-photos/font-nova.jpg",
+        side_effect=lambda tmp, final: f"https://x/{final}",
     ) as mock_promote:
         resp = client.post(
             "/anadir",
-            data={"name": "Font Nova", "photo_tmp": "uploads/abc.jpg"},
+            data={
+                "name": "Font Nova",
+                "photo_tmp": "uploads/abc.jpg",
+                "label_tmp": "originals/abc.jpg",
+            },
         )
     assert resp.status_code == 302
-    mock_promote.assert_called_once_with("uploads/abc.jpg", "font-nova.jpg")
+    calls = [c.args for c in mock_promote.call_args_list]
+    assert ("uploads/abc.jpg", "font-nova.jpg") in calls
+    assert ("originals/abc.jpg", "originals/font-nova.jpg") in calls
     water = mock_save.call_args.args[0]
     assert water.photo_url.endswith("font-nova.jpg")
+    assert water.label_photo_url.endswith("originals/font-nova.jpg")
 
 
 def test_seo_plumbing(client):

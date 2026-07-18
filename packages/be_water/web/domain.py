@@ -58,6 +58,7 @@ class Water:
     sparkling: bool = False
     minerals: dict = field(default_factory=dict)
     photo_url: Optional[str] = None
+    label_photo_url: Optional[str] = None  # raw label shot — verification proof
     added_by: str = ""
     verified: bool = False
 
@@ -82,6 +83,7 @@ class Water:
             sparkling=bool(data.get("sparkling", False)),
             minerals=data.get("minerals", {}) or {},
             photo_url=data.get("photo_url"),
+            label_photo_url=data.get("label_photo_url"),
             added_by=data.get("added_by", ""),
             verified=bool(data.get("verified", False)),
         )
@@ -97,6 +99,7 @@ class Water:
             "sparkling": self.sparkling,
             "minerals": self.minerals,
             "photo_url": self.photo_url,
+            "label_photo_url": self.label_photo_url,
             "added_by": self.added_by,
             "verified": self.verified,
         }

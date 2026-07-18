@@ -149,12 +149,21 @@ def add_water():
                 except ValueError:
                     pass
         photo_url = None
+        label_photo_url = None
         photo_tmp = (request.form.get("photo_tmp") or "").strip()
+        label_tmp = (request.form.get("label_tmp") or "").strip()
         if photo_tmp:
             try:
                 photo_url = photos.promote_photo(photo_tmp, f"{water_id}.jpg")
             except requests.RequestException:
                 photo_url = photos.public_url(photo_tmp)  # keep tmp as fallback
+        if label_tmp:
+            try:
+                label_photo_url = photos.promote_photo(
+                    label_tmp, f"originals/{water_id}.jpg"
+                )
+            except requests.RequestException:
+                label_photo_url = photos.public_url(label_tmp)
         water = Water(
             id=water_id,
             name=name,
@@ -165,6 +174,7 @@ def add_water():
             sparkling=request.form.get("sparkling") == "on",
             minerals=minerals,
             photo_url=photo_url,
+            label_photo_url=label_photo_url,
             added_by=session["nickname"],
         )
         repository.save_water(water)
@@ -185,8 +195,23 @@ def add_water_photo():
         return _render_add_form(error="La foto es demasiado grande (máx. 15 MB).")
 
     processed = photos.process_image(raw)
-    tmp_name = f"uploads/{uuid.uuid4().hex}.jpg"
-    photos.upload_photo(tmp_name, processed)
+    uid = uuid.uuid4().hex
+    # The raw label shot is the verification proof — always kept.
+    label_tmp = f"originals/{uid}.jpg"
+    photos.upload_photo(label_tmp, processed)
+
+    # Studio version for display; a kitchen background is a fine fallback.
+    try:
+        display = photos.studio_photo(processed)
+        studio_note = " La foto ha pasado por el estudio 📸"
+    except (GeminiError, requests.RequestException) as exc:
+        logger.warning(
+            "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
+        )
+        display = processed
+        studio_note = ""
+    photo_tmp = f"uploads/{uid}.jpg"
+    photos.upload_photo(photo_tmp, display)
 
     try:
         extracted = label_ocr.extract_label(processed)
@@ -194,22 +219,28 @@ def add_water_photo():
         logger.warning("Label OCR failed.", extra={"error": str(exc)[:300]})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
         return _render_add_form(
-            photo_tmp=tmp_name,
+            photo_tmp=photo_tmp,
+            label_tmp=label_tmp,
             error="No pude leer la etiqueta automáticamente — rellena a mano.",
         )
     prefill = {k: v for k, v in extracted.items() if v is not None}
     return _render_add_form(
         prefill=prefill,
-        photo_tmp=tmp_name,
-        notice="He leído la etiqueta — revisa los valores antes de guardar.",
+        photo_tmp=photo_tmp,
+        label_tmp=label_tmp,
+        notice="He leído la etiqueta — revisa los valores antes de guardar."
+        + studio_note,
     )
 
 
-def _render_add_form(prefill=None, photo_tmp=None, error=None, notice=None):
+def _render_add_form(
+    prefill=None, photo_tmp=None, label_tmp=None, error=None, notice=None
+):
     return render_template(
         "add.html",
         prefill=prefill or {},
         photo_tmp=photo_tmp,
+        label_tmp=label_tmp,
         photo_tmp_url=photos.public_url(photo_tmp) if photo_tmp else None,
         error=error,
         notice=notice,

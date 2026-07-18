@@ -67,6 +67,9 @@ def sync_catalog() -> dict:
             continue
         merged = water.to_firestore()
         merged["photo_url"] = current.get("photo_url") or merged["photo_url"]
+        merged["label_photo_url"] = (
+            current.get("label_photo_url") or merged["label_photo_url"]
+        )
         merged["added_by"] = current.get("added_by") or merged["added_by"]
         if merged == current:
             unchanged.append(water.name)
