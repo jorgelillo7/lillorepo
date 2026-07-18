@@ -2,7 +2,18 @@
 
 Every drop of progress, documented. 💧
 
-### **v1.0 - Be Water, My Friend (18 July 2026)**
+### **v1.1 - The Camera Update (18 July 2026)**
+
+v1.0 teased it; v1.1 delivers it. The phone camera is now the front door of the catalog: photograph a label anywhere and the app reads it, files it, and — if you're one of the chosen four — turns your supermarket snapshot into a studio product shot. Validated the honest way: the owner added Lanjarón from a checkout queue, and the bugs he found are all fixed in this same release.
+
+* **📸 Photo-first adds (the headline)**: "Leer etiqueta con IA" on `/anadir` — take a label photo from the phone, Gemini extracts the full mineral vector into the form (structured output, comma decimals handled), you review and save. The Aquadeus label came back **13/13 fields correct**. OCR rides the free text tier; failures degrade to the empty form with your photo kept.
+* **🍌 Studio photos (admin-gated, the first real money)**: nano banana isolates the bottle upright on pure white and Pillow stamps the brand template — vector droplet + "Be Water · Jorge Lillo" (vector because PIL's fonts silently ate the 💧 emoji, true story). Gated to `BEWATER_ADMINS` since image generation bills prepaid credits (~4 cts/photo, €10 pack ≈ 250 photos, hard-capped by design — 0 credits → 429, overspending is physically impossible). All three photographed bottles went through the studio; every raw label shot is preserved under `originals/` as verification proof.
+* **✓ Per-value provenance**: minerals confirmed from a bottle label wear a subtle teal check in the composition table; the legend explains the rest comes from manufacturer data pending verification. Lanjarón shows its mixed truth honestly — 4 label values ✓, five approximations without. "📄 ver etiqueta original" links the proof on every photographed water.
+* **👤 Mi perfil de agua**: mark 2-3 favorites and the app words your taste — "tu agua ideal es de mineralización débil · rica en calcio · muy baja en sodio" — computed against the catalog median with a ±30% significance floor, plus the six waters that best match you. The geo-recommender stays as the on-the-road variant.
+* **🧭 /acerca**: the project story, the data-source hierarchy (label photos > manufacturer data > AESAN provenance list) and the health disclaimer, linked from the footer and every composition table.
+* **🔧 Similarity, de-randomized**: missing label fields counted as zeros and made sparse waters cluster together; distance now runs only over shared fields (min. 3 to compare at all). The "si no la encuentras, prueba…" suggestions stopped feeling like a lottery.
+* **🐛 First user-found bug, fixed**: «Lanjarón» slugged to `lanjar-n` (accents!) and dodged the duplicate guard, twinning an existing water. `unidecode` now normalizes slugs; the twin was merged (its photo and label values won) and deleted.
+* **💰 Cost telemetry**: `check-gcp-costs.sh` gained a 🍌 section — Gemini billing link + dedicated €1 budget verified, prepaid balance linked (UI-only by Google's design). Session damage: **12 cents**.
 
 Born from a real problem: away from home, if Lanjarón or Solán de Cabras aren't on the shelf, you pick blind — and sometimes Bezoya happens. From a June README to a public URL in 48 hours: an open catalog of Spanish mineral waters that knows which local water matches your taste, wherever you are.
 

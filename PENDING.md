@@ -70,9 +70,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      per admin photo. Future option if it should reach everyone at €0:
      rembg in its own container (too heavy for the shared base image;
      cuts background but doesn't straighten bottles).
-  1d. **Release notes v1.1** bundling 1.B + the studio template, once the
-     user has validated from the phone (deliberately held back — the v1.0
-     entry already teases "Gemini takes the job in v1.1").
   2. **Regularization review** — validate that be_water is a properly
      separate GCP project riding the generic monorepo machinery:
      - `scripts/check-gcp-costs.sh`: audits `biwenger-tools` only; make it
