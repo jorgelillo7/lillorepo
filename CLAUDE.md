@@ -80,11 +80,16 @@ feature.
 - Formatter: Black (format on save in VS Code)
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
 - Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
-- **Commit scopes name the package** — with multiple packages, a bare
-  `feat(web):` is ambiguous. Use the package as scope: `feat(be_water):`,
-  `fix(biwenger):` (or module-qualified when it helps: `fix(biwenger/api):`),
-  `feat(chuck):`. Cross-cutting scopes stay as-is: `(core)`, `(ci)`,
-  `(deps)`, plain `docs:`/`chore:` for repo-wide changes.
+- **Commit scopes use the exact package directory name** — with multiple
+  packages, a bare `feat(web):` is ambiguous, and abbreviations drift.
+  The scope is the directory under `/packages/`: `feat(be_water):`,
+  `fix(biwenger_tools):` (module-qualified when it helps:
+  `fix(biwenger_tools/api):`), `feat(chucknorris_bot):`. Cross-cutting
+  scopes stay as-is: `(core)`, `(ci)`, `(deps)`, plain `docs:`/`chore:`
+  for repo-wide changes.
+- **PRs merge via squash only** (enforced in repo settings): one commit
+  per PR, commit title = PR title, body = the branch's commit messages.
+  Keeps `git log --oneline` reading as the project history.
 
 ## Branch and PR Workflow
 
