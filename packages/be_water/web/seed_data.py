@@ -9,6 +9,13 @@ with the AESAN recognised-waters list.
 SEED_WATERS = [
     {
         "id": "solan-de-cabras",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Muy buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Solán de Cabras",
         "brand": "Solán de Cabras",
         "spring": "Solán de Cabras (Beteta)",
@@ -73,6 +80,13 @@ SEED_WATERS = [
     },
     {
         "id": "font-vella",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Muy buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Font Vella",
         "brand": "Font Vella",
         "spring": "Sant Hilari Sacalm",
@@ -153,6 +167,13 @@ SEED_WATERS = [
     },
     {
         "id": "veri",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Excelente",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Veri",
         "brand": "Veri",
         "spring": "Veri (Pirineo de Huesca)",
@@ -171,6 +192,13 @@ SEED_WATERS = [
     },
     {
         "id": "agua-de-cuevas",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Agua de Cuevas",
         "brand": "Agua de Cuevas",
         "spring": "Cuevas (Felechosa)",
@@ -189,6 +217,13 @@ SEED_WATERS = [
     },
     {
         "id": "aquadeus",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Excelente",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Aquadeus",
         "brand": "Aquadeus",
         "spring": "Fuente Arquillo (Masegoso)",
@@ -231,6 +266,13 @@ SEED_WATERS = [
     },
     {
         "id": "fuente-liviana",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Excelente",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Fuente Liviana",
         "brand": "Fuente Liviana",
         "spring": "Fuente Liviana (Serranía de Cuenca)",
@@ -473,6 +515,13 @@ SEED_WATERS = [
     },
     {
         "id": "font-del-regas",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Font del Regàs",
         "brand": "Font del Regàs",
         "spring": "Font del Regàs (Arbúcies, Montseny)",
@@ -492,6 +541,13 @@ SEED_WATERS = [
     },
     {
         "id": "aquabona",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Aquabona",
         "brand": "Aquabona (Coca-Cola)",
         "spring": "Fuen Mayor",
@@ -509,6 +565,13 @@ SEED_WATERS = [
     },
     {
         "id": "carrefour-sierra-de-segura",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Muy buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Carrefour Sierra de Segura",
         "brand": "Carrefour",
         "spring": "Fuenteblanca (Sierra de Segura)",
@@ -526,6 +589,13 @@ SEED_WATERS = [
     },
     {
         "id": "naturis-lidl",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Buena",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "Naturis (Lidl)",
         "brand": "Lidl",
         "spring": "Fuente Arquillo (Masegoso)",
@@ -547,6 +617,13 @@ SEED_WATERS = [
     },
     {
         "id": "la-majuela",
+        "mentions": [
+            {
+                "source": "OCU",
+                "label": "Compra maestra",
+                "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
+            }
+        ],
         "name": "La Majuela (Dia)",
         "brand": "Dia",
         "spring": "La Majuela (Cariñena)",
