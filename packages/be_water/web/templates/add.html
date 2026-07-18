@@ -24,7 +24,8 @@
     <p class="text-4xl mb-2">📸</p>
     <label for="photo" class="block font-bold text-slate-800 mb-1">Foto de la etiqueta</label>
     <p class="text-xs text-slate-500 mb-4">Que se lea la composición química — la IA hace el resto</p>
-    <input id="photo" name="photo" type="file" accept="image/*" capture="environment" required
+    <!-- No `capture`: it forces the camera on mobile and hides the gallery. -->
+    <input id="photo" name="photo" type="file" accept="image/*" required
            class="block w-full text-sm text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-sky-500 file:text-white file:font-semibold hover:file:bg-sky-600 file:transition mb-4">
     <button class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition"
             onclick="this.disabled=true; this.textContent='🔮 Leyendo etiqueta…'; this.form.submit();">

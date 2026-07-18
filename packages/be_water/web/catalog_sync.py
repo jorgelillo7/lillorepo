@@ -90,11 +90,22 @@ def sync_catalog() -> dict:
             firestore.set_document(WATERS, water.id, merged)
             updated.append(water.name)
 
+    # Firestore docs the dataset knows nothing about: genuinely new waters
+    # worth adding to the dataset — or a typo'd name that slugged into a
+    # near-duplicate doc. Either way a human should look at them.
+    dataset_ids = {raw["id"] for raw in SEED_WATERS}
+    user_only = sorted(
+        f"{doc.get('name', doc_id)} ({doc.get('added_by', '?')})"
+        for doc_id, doc in existing.items()
+        if doc_id not in dataset_ids
+    )
+
     summary = {
         "created": created,
         "updated": updated,
         "unchanged": len(unchanged),
         "kept_verified": kept_verified,
+        "user_only": user_only,
         "dataset_size": len(SEED_WATERS),
     }
     # "created" is a reserved LogRecord attribute — prefix the extra keys.
@@ -110,7 +121,7 @@ def _maybe_notify(summary: dict) -> None:
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     if not (token and chat_id):
         return
-    if not (summary["created"] or summary["updated"]):
+    if not (summary["created"] or summary["updated"] or summary["user_only"]):
         return
     lines = ["💧 <b>Catálogo Be Water sincronizado</b>"]
     if summary["created"]:
@@ -124,6 +135,11 @@ def _maybe_notify(summary: dict) -> None:
         )
     if summary["kept_verified"]:
         lines.append(f"🔒 Verificadas intactas: {len(summary['kept_verified'])}")
+    if summary["user_only"]:
+        lines.append(
+            f"👀 Solo de usuarios, no en el dataset "
+            f"({len(summary['user_only'])}): " + ", ".join(summary["user_only"])
+        )
     send_telegram_message(bot_token=token, chat_id=chat_id, text="\n".join(lines))
 
 
@@ -133,7 +149,8 @@ def main() -> None:
         f"Sync done: +{len(summary['created'])} nuevas, "
         f"{len(summary['updated'])} actualizadas, "
         f"{summary['unchanged']} sin cambios, "
-        f"{len(summary['kept_verified'])} verificadas intactas."
+        f"{len(summary['kept_verified'])} verificadas intactas, "
+        f"{len(summary['user_only'])} solo de usuarios."
     )
 
 

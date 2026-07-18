@@ -88,6 +88,15 @@ Long-running follow-ups that don't yet warrant a plan or PR.
        workflows README → document the cross-project deploy grants.
      - Folder hygiene: anything generic worth hoisting to `core/`/`tools/`
        (candidate: csrf.py; `core/sdk/gemini.py` lands shared by design).
+     - Billing observation (2026-07-19, screenshots reviewed): July 1–18
+       totals €0.64 across the billing account — €0.13 Be Water Gemini
+       image generation (expected, admin-gated, €1 budget alert in place),
+       €0.03 Cloud Run, rest in the unspecific bucket. The one spike:
+       Artifact Registry "Internet Egress Europe to Europe" +€0.35 (+286%)
+       on biwenger-tools — GH Actions runners pulling `python-base` on the
+       Jul 17–18 deploy burst (be_water PRs build FROM the biwenger
+       registry, so the egress bills there). Sub-euro, no action; the
+       cost script extension above should track both projects.
   3. **Monthly catalog sync as a scheduled job** — run `catalog_sync` as a
      Cloud Run Job + monthly Scheduler tick (Telegram creds via secret,
      already stored); ideally diff against the AESAN list to flag newly
@@ -97,6 +106,17 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   5. **Recommender: nearby-province fallback** — Madrid is the canonical
      case (no big bottled AMN brand): fall back to bordering provinces.
      Needs a province-adjacency map in the repo.
+  5b. **Country field — yes, but staged** (analysis 2026-07-19): add
+     `country` to `Water` defaulting to "España" (backward compatible,
+     one-line migration in `catalog_sync`). Unlocks: international
+     waters people actually find in Spanish supermarkets (Evian,
+     Perrier, San Pellegrino…), a 🌍 achievement tier, and country
+     chips on the home. Hold the international seed batch until the
+     Spanish catalog verification pass (item 4) is done — the
+     recommender's place selector and province-based achievements
+     assume Spanish geography and need a small rethink first
+     (skip international waters in province counts, or bucket them
+     under their country).
   6. **Before going public** (LinkedIn/Twitter): Google Sign-In, CSRF on
      POST forms (generalise `biwenger_tools/web/csrf.py` into `core/`),
      abuse basics (rate limiting, input caps), and optionally a domain

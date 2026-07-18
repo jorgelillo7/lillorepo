@@ -283,8 +283,10 @@ def add_water_photo():
 
     processed = photos.process_image(raw)
     uid = uuid.uuid4().hex
-    # The raw label shot is the verification proof — always kept.
-    label_tmp = f"originals/{uid}.jpg"
+    # Both tmps live under uploads/ so the bucket lifecycle rule reclaims
+    # abandoned forms; on save the label shot is promoted to originals/
+    # as the permanent verification proof.
+    label_tmp = f"uploads/{uid}-label.jpg"
     photos.upload_photo(label_tmp, processed)
 
     # Studio version for display — admin-only: image generation is the one
