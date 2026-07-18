@@ -3,7 +3,9 @@
 Merge semantics (safe to re-run monthly as the dataset grows):
 - Water not in Firestore      → created.
 - Exists and NOT verified     → dataset wins, but user-owned fields
-                                (photo_url, added_by, verified) are preserved.
+                                (photo_url, added_by, verified) and
+                                label-backed minerals (verified_fields)
+                                are preserved.
 - Exists and verified=True    → untouched (a checked bottle beats the dataset);
                                 counted so the summary shows drift.
 
@@ -82,6 +84,14 @@ def sync_catalog() -> dict:
             set(merged.get("verified_fields", []))
             | set(current.get("verified_fields", []) or [])
         )
+        # Label-backed values beat the dataset: a mineral someone verified
+        # against a bottle keeps its current value even though unverified
+        # docs otherwise take the dataset's numbers.
+        current_minerals = current.get("minerals") or {}
+        merged["minerals"] = dict(merged["minerals"])
+        for label_field in current.get("verified_fields", []) or []:
+            if label_field in current_minerals:
+                merged["minerals"][label_field] = current_minerals[label_field]
         merged["added_by"] = current.get("added_by") or merged["added_by"]
         merged["added_at"] = current.get("added_at") or merged["added_at"]
         if merged == current:

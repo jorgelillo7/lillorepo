@@ -215,12 +215,16 @@ def add_water():
         # unidecode first: "Lanjarón" must slug to "lanjaron", not "lanjar-n",
         # or the duplicate guard misses the existing doc (real bug, 2nd day live).
         water_id = _SLUG_RE.sub("-", unidecode(name).lower()).strip("-")
-        if repository.get_water(water_id) is not None:
-            # Never clobber an existing (possibly verified) water from the form.
+        existing = repository.get_water(water_id)
+        if existing is not None and existing.verified:
+            # A verified water is bottle-checked and data-frozen.
             return _render_add_form(
                 prefill=dict(request.form),
                 photo_tmp=request.form.get("photo_tmp") or None,
-                error=f"«{name}» ya existe en el catálogo — edítala desde su ficha.",
+                error=(
+                    f"«{name}» ya está en el catálogo y verificada — "
+                    "no se puede sobrescribir."
+                ),
             )
         minerals = {}
         for field in MINERAL_FIELDS:
@@ -263,6 +267,27 @@ def add_water():
             added_by=session["nickname"],
             added_at=datetime.now(timezone.utc).isoformat(),
         )
+        if existing is not None:
+            # Label-backed update of an unverified water: the reviewed form
+            # wins, everything it can't carry survives from the current doc.
+            water.minerals = {**existing.minerals, **water.minerals}
+            water.sparkling = water.sparkling or existing.sparkling
+            water.spring = water.spring or existing.spring
+            water.province = water.province or existing.province
+            water.community = water.community or existing.community
+            if not (request.form.get("brand") or "").strip():
+                water.brand = existing.brand or water.brand
+            water.photo_url = water.photo_url or existing.photo_url
+            water.label_photo_url = water.label_photo_url or existing.label_photo_url
+            water.mentions = existing.mentions
+            water.verified_fields = sorted(
+                set(water.verified_fields) | set(existing.verified_fields)
+            )
+            # Seeded waters get adopted by whoever backs them with a label;
+            # a real user's water keeps its original author.
+            if existing.added_by and existing.added_by != "seed":
+                water.added_by = existing.added_by
+                water.added_at = existing.added_at
         repository.save_water(water)
         repository.touch_user(session["nickname"])
         return redirect(url_for("water_detail", water_id=water_id))
@@ -271,7 +296,8 @@ def add_water():
 
 @app.route("/anadir/foto", methods=["POST"])
 def add_water_photo():
-    """Photo-first flow: upload the label shot, let Gemini pre-fill the form."""
+    """Photo-first flow: the composition shot feeds the OCR and stays as
+    verification proof; an optional front shot becomes the display photo."""
     if not session.get("nickname"):
         return redirect(url_for("index"))
     upload = request.files.get("photo")
@@ -289,14 +315,26 @@ def add_water_photo():
     label_tmp = f"uploads/{uid}-label.jpg"
     photos.upload_photo(label_tmp, processed)
 
+    # The display photo prefers the optional front shot — a composition
+    # label is usually the ugly side of the bottle.
+    display_src = processed
+    beauty = request.files.get("beauty")
+    if beauty is not None and beauty.filename:
+        beauty_raw = beauty.read(photos.MAX_UPLOAD_BYTES + 1)
+        if len(beauty_raw) > photos.MAX_UPLOAD_BYTES:
+            return _render_add_form(
+                error="La foto de la ficha es demasiado grande (máx. 15 MB)."
+            )
+        display_src = photos.process_image(beauty_raw)
+
     # Studio version for display — admin-only: image generation is the one
     # paid call in the project, so it fires only for trusted nicknames.
     # Everyone else keeps the (free) OCR prefill and their raw photo.
-    display = processed
+    display = display_src
     studio_note = ""
     if session["nickname"] in config.ADMIN_NICKNAMES:
         try:
-            display = photos.studio_photo(processed)
+            display = photos.studio_photo(display_src)
             studio_note = " La foto ha pasado por el estudio 📸"
         except (GeminiError, requests.RequestException) as exc:
             logger.warning(
