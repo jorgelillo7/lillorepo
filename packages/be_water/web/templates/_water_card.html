@@ -28,7 +28,10 @@
     <div class="p-4">
         <div class="flex items-start justify-between gap-2">
             <h3 class="font-bold text-slate-900 group-hover:text-sky-700 transition leading-tight">{{ w.name }}</h3>
-            {% if w.id in favorite_ids %}<span title="favorita">❤️</span>{% endif %}
+            <span class="shrink-0">
+                {% if w.mentions %}<span title="Destacada por {{ w.mentions[0].source }}">🏅</span>{% endif %}
+                {% if w.id in favorite_ids %}<span title="favorita">❤️</span>{% endif %}
+            </span>
         </div>
         <p class="text-sm text-slate-500 mt-0.5">📍 {{ w.province }}{% if w.community and w.community != w.province %} · {{ w.community }}{% endif %}</p>
         <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-{{ tone }}-100 text-{{ tone }}-700">

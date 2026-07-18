@@ -39,6 +39,7 @@ def _dataset_water(raw: dict) -> Water:
         photo_url=raw.get("photo_url"),
         label_photo_url=raw.get("label_photo_url"),
         verified_fields=list(raw.get("verified_fields", [])),
+        mentions=list(raw.get("mentions", [])),
         added_by="seed",
         # Dataset entries backed by a bottle-label photo carry verified=True.
         verified=raw.get("verified", False),
@@ -61,10 +62,10 @@ def sync_catalog() -> dict:
             # fill empty photo slots (enrichment, never replacement).
             enriched = dict(current)
             changed = False
-            for photo_field in ("photo_url", "label_photo_url"):
-                dataset_value = getattr(water, photo_field)
-                if dataset_value and not current.get(photo_field):
-                    enriched[photo_field] = dataset_value
+            for extra_field in ("photo_url", "label_photo_url", "mentions"):
+                dataset_value = getattr(water, extra_field)
+                if dataset_value and not current.get(extra_field):
+                    enriched[extra_field] = dataset_value
                     changed = True
             if changed:
                 firestore.set_document(WATERS, water.id, enriched)

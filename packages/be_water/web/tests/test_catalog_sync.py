@@ -120,6 +120,25 @@ def test_verified_doc_gets_photo_enrichment_only():
     assert written["bezoya"]["minerals"]["tds"] == 26.5  # untouched
 
 
+def test_verified_doc_gets_mentions_enrichment():
+    """External recognitions may land on verified docs without touching data."""
+    mention = [{"source": "OCU", "label": "Excelente", "url": "https://x"}]
+    dataset = [dict(_DATASET[1], verified=True, mentions=mention)]
+    existing = {
+        "bezoya": {"name": "Bezoya", "minerals": {"tds": 26.5}, "verified": True}
+    }
+    written: dict = {}
+    with patch(f"{_MOD}.SEED_WATERS", dataset), patch(
+        f"{_MOD}.firestore.list_documents", return_value=list(existing.items())
+    ), patch(
+        f"{_MOD}.firestore.set_document",
+        side_effect=lambda col, doc_id, data: written.__setitem__(doc_id, data),
+    ):
+        catalog_sync.sync_catalog()
+    assert written["bezoya"]["mentions"] == mention
+    assert written["bezoya"]["minerals"]["tds"] == 26.5  # still frozen
+
+
 def test_notify_skipped_without_creds(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)

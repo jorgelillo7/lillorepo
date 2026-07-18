@@ -63,6 +63,10 @@ class Water:
     # `verified` water implies every declared field; this list covers the
     # mixed case (Lanjarón: 4 label values + approximations for the rest).
     verified_fields: list = field(default_factory=list)
+    # External recognitions, e.g. {"source": "OCU", "label": "Excelente",
+    # "url": ...}. Mention-and-link only — never reproduce third-party
+    # scores wholesale.
+    mentions: list = field(default_factory=list)
     added_by: str = ""
     verified: bool = False
 
@@ -93,6 +97,7 @@ class Water:
             photo_url=data.get("photo_url"),
             label_photo_url=data.get("label_photo_url"),
             verified_fields=list(data.get("verified_fields", []) or []),
+            mentions=list(data.get("mentions", []) or []),
             added_by=data.get("added_by", ""),
             verified=bool(data.get("verified", False)),
         )
@@ -110,6 +115,7 @@ class Water:
             "photo_url": self.photo_url,
             "label_photo_url": self.label_photo_url,
             "verified_fields": self.verified_fields,
+            "mentions": self.mentions,
             "added_by": self.added_by,
             "verified": self.verified,
         }
