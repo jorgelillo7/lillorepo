@@ -51,8 +51,11 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   sprint 1.B shipped: photo upload from mobile + Gemini label OCR
   (`gemini-flash-latest` via `core/sdk/gemini.py`, zero new deps).
   Roadmap, in order:
-  1. **USER: validate 1.B from the phone** (photo → prefilled form → save,
-     `/anadir` on the public URL), then:
+  1. **USER: buy the minimum AI-credit pack in AI Studio** (project
+     "Be Water", `gen-lang-client-0059905191`) if the studio should go
+     live — the Gemini API bills image generation via prepaid credits
+     (~4 cts/photo; a 5€ pack ≈ 125 studio photos). Until then the
+     admin-gated studio stays dormant and uploads keep the raw photo.
   1b. **"Studio photo" template** — second Gemini call to
      `gemini-2.5-flash-image` (nano banana, available on our key): isolate
      the bottle onto a pure white background, then Pillow composites it on
