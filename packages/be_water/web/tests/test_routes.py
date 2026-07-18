@@ -145,16 +145,59 @@ def test_add_water_saves_and_redirects(client):
     assert water.added_by == "jorge"
 
 
-def test_add_water_refuses_duplicates(client):
-    """An existing (possibly verified) water must never be clobbered."""
+def test_add_water_refuses_verified_duplicates(client):
+    """A verified water is bottle-checked and data-frozen — never clobbered."""
     _login(client)
+    verified = _catalog()[1]
+    verified.verified = True
     with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=_catalog()[1]
+        f"{_REPO}.get_water", return_value=verified
     ):
         resp = client.post("/anadir", data={"name": "Bezoya"})
     mock_save.assert_not_called()
     assert resp.status_code == 200
-    assert "ya existe" in resp.get_data(as_text=True)
+    assert "verificada" in resp.get_data(as_text=True)
+
+
+def test_add_water_merges_into_unverified_duplicate(client):
+    """Saving over an unverified water updates it instead of dead-ending:
+    submitted values win, existing photos/minerals/mentions survive."""
+    _login(client)
+    existing = _catalog()[1]  # bezoya, unverified
+    existing.photo_url = "https://x/bezoya.jpg"
+    existing.mentions = [{"source": "OCU", "label": "Excelente", "url": "https://x"}]
+    existing.verified_fields = ["calcium"]
+    existing.added_by = "seed"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"):
+        resp = client.post(
+            "/anadir",
+            data={"name": "Bezoya", "tds": "26.5", "ocr_fields": "tds"},
+        )
+    assert resp.status_code == 302
+    saved = mock_save.call_args.args[0]
+    assert saved.minerals["tds"] == 26.5  # submitted value wins
+    assert saved.minerals["calcium"] == 2.4  # existing extra survives
+    assert saved.photo_url == "https://x/bezoya.jpg"
+    assert saved.mentions == existing.mentions
+    assert saved.verified_fields == ["calcium", "tds"]
+    assert saved.added_by == "jorge"  # seeded water adopted by the verifier
+
+
+def test_merge_keeps_original_author_for_user_waters(client):
+    """Enriching another user's water must not steal their attribution."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.added_by = "maria"
+    existing.added_at = "2026-07-01T00:00:00+00:00"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"):
+        client.post("/anadir", data={"name": "Bezoya", "tds": "26.5"})
+    saved = mock_save.call_args.args[0]
+    assert saved.added_by == "maria"
+    assert saved.added_at == "2026-07-01T00:00:00+00:00"
 
 
 def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
@@ -200,6 +243,36 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
     assert names[1].startswith("uploads/")
     assert not names[1].endswith("-label.jpg")
     assert mock_upload.call_args_list[1].args[1] == b"studio"
+
+
+def test_beauty_photo_becomes_the_display_shot(client):
+    """The optional front shot feeds the ficha photo; OCR still reads the
+    composition shot."""
+    _login(client)
+    import io
+
+    with patch(f"{_APP}.photos.process_image", side_effect=[b"label", b"front"]), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
+    ) as mock_ocr:
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "photo": (io.BytesIO(b"raw-label"), "label.jpg"),
+                "beauty": (io.BytesIO(b"raw-front"), "front.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    assert mock_upload.call_count == 2
+    label_call, display_call = mock_upload.call_args_list
+    assert label_call.args[0].endswith("-label.jpg")
+    assert label_call.args[1] == b"label"
+    assert display_call.args[1] == b"front"
+    mock_ocr.assert_called_once_with(b"label")
+    # The processing overlay ships with the form for the next visitor.
+    assert 'id="processing"' in resp.get_data(as_text=True)
 
 
 def test_non_admin_upload_skips_studio_but_keeps_ocr(client):

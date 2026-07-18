@@ -139,6 +139,22 @@ def test_verified_doc_gets_mentions_enrichment():
     assert written["bezoya"]["minerals"]["tds"] == 26.5  # still frozen
 
 
+def test_label_backed_minerals_survive_dataset_merge():
+    """A mineral verified against a bottle keeps its value when the dataset
+    updates an unverified doc — label beats dataset, field by field."""
+    existing = {
+        "bezoya": {
+            "name": "Bezoya",
+            "minerals": {"tds": 26.5},  # label says 26.5, dataset says 27
+            "verified_fields": ["tds"],
+            "verified": False,
+        }
+    }
+    summary, written = _run(existing)
+    assert written["bezoya"]["minerals"]["tds"] == 26.5
+    assert "tds" in written["bezoya"]["verified_fields"]
+
+
 def test_user_only_waters_are_reported_not_touched():
     """A doc the dataset doesn't know (new water or typo'd name) is surfaced
     in the summary so a human reviews it, and never written to."""
