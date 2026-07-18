@@ -107,3 +107,8 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      POST forms (generalise `biwenger_tools/web/csrf.py` into `core/`),
      abuse basics (rate limiting, input caps), and optionally a domain
      (~10 €/año, bought outside GCP).
+  6b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
+     users table (last_seen/created_at already tracked), contributions,
+     block/ban and promote-to-admin. Deliberately NOT built on
+     nickname-auth: banning a passwordless nickname is theatre. The
+     public /comunidad ranking + achievements shipped separately.

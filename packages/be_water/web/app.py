@@ -17,9 +17,18 @@ from flask import (
     url_for,
 )
 
+from datetime import datetime, timezone
+
 from core.sdk.gemini import GeminiError
 from core.utils import get_logger
-from packages.be_water.web import config, label_ocr, photos, repository, similarity
+from packages.be_water.web import (
+    community,
+    config,
+    label_ocr,
+    photos,
+    repository,
+    similarity,
+)
 from packages.be_water.web.domain import MINERAL_FIELDS, MINERAL_LABELS, Water
 
 logger = get_logger(__name__)
@@ -118,6 +127,27 @@ def recommend():
         meta_description=(
             "Dinos dónde estás y te recomendamos aguas de la zona parecidas "
             "a tus favoritas."
+        ),
+    )
+
+
+@app.route("/comunidad")
+def community_page():
+    """Public contributor ranking + achievements."""
+    catalog = repository.get_all_waters()
+    period = request.args.get("periodo", "siempre")
+    month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+    ranking = community.build_community_stats(catalog, month_prefix)
+    if period == "mes":
+        ranking = [s for s in ranking if s["month_score"] > 0]
+        ranking.sort(key=lambda s: (-s["month_score"], s["nickname"]))
+    return render_template(
+        "community.html",
+        ranking=ranking,
+        period=period,
+        meta_description=(
+            "La comunidad de Be Water: quién añade y verifica las aguas "
+            "del catálogo."
         ),
     )
 
@@ -227,8 +257,10 @@ def add_water():
             label_photo_url=label_photo_url,
             verified_fields=verified_fields,
             added_by=session["nickname"],
+            added_at=datetime.now(timezone.utc).isoformat(),
         )
         repository.save_water(water)
+        repository.touch_user(session["nickname"])
         return redirect(url_for("water_detail", water_id=water_id))
     return _render_add_form()
 
@@ -320,7 +352,7 @@ def login():
     nickname = (request.form.get("nickname") or "").strip().lower()
     if not _NICKNAME_RE.match(nickname):
         return redirect(request.referrer or url_for("index"))
-    repository.ensure_user(nickname)
+    repository.touch_user(nickname)
     session["nickname"] = nickname
     return redirect(request.referrer or url_for("index"))
 
@@ -336,6 +368,7 @@ def favorite(water_id: str):
     nickname = session.get("nickname")
     if nickname:
         repository.toggle_favorite(nickname, water_id)
+        repository.touch_user(nickname)
     return redirect(request.referrer or url_for("water_detail", water_id=water_id))
 
 

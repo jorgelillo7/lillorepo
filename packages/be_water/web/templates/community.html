@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Comunidad · Be Water{% endblock %}
+
+{% block content %}
+<header class="text-center mb-8">
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">🏆 La comunidad</h1>
+    <p class="mt-3 text-slate-500 max-w-lg mx-auto text-sm sm:text-base">
+        Quien fotografía etiquetas, hace historia. Añadir un agua vale un punto —
+        cada valor verificado, otro.
+    </p>
+    <div class="mt-5 inline-flex rounded-full bg-white ring-1 ring-slate-200 p-1 text-sm font-semibold">
+        <a href="{{ url_for('community_page', periodo='siempre') }}"
+           class="px-4 py-1.5 rounded-full {{ 'bg-slate-900 text-white' if period != 'mes' else 'text-slate-600' }}">Histórico</a>
+        <a href="{{ url_for('community_page', periodo='mes') }}"
+           class="px-4 py-1.5 rounded-full {{ 'bg-slate-900 text-white' if period == 'mes' else 'text-slate-600' }}">Este mes</a>
+    </div>
+</header>
+
+{% if not ranking %}
+    <div class="max-w-md mx-auto text-center bg-white rounded-2xl ring-1 ring-slate-200 p-8">
+        <p class="text-4xl mb-3">🥇</p>
+        <p class="text-slate-600 font-medium">El podio está vacío{{ ' este mes' if period == 'mes' }} —
+            <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">añade un agua</a>
+            y estrénalo.</p>
+    </div>
+{% else %}
+    {% set score_key = 'month_score' if period == 'mes' else 'score' %}
+    <!-- Podio -->
+    <section class="flex items-end justify-center gap-3 sm:gap-6 mb-10">
+        {% set medals = ['🥇', '🥈', '🥉'] %}
+        {% set heights = ['h-36', 'h-28', 'h-24'] %}
+        {% set order = [1, 0, 2] %}
+        {% for pos in order %}
+            {% if ranking | length > pos %}
+            {% set s = ranking[pos] %}
+            <div class="flex flex-col items-center gap-2 w-28 sm:w-36">
+                <span class="text-3xl">{{ medals[pos] }}</span>
+                <span class="font-extrabold text-slate-900 truncate max-w-full">{{ s.nickname }}</span>
+                <div class="{{ heights[pos] }} w-full bg-gradient-to-t from-sky-100 to-cyan-50 rounded-t-2xl ring-1 ring-sky-200/60 flex flex-col items-center justify-center">
+                    <span class="text-2xl font-extrabold text-sky-700">{{ s[score_key] }}</span>
+                    <span class="text-[10px] uppercase tracking-wider text-sky-600/70 font-semibold">puntos</span>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </section>
+
+    <!-- Tabla completa con logros -->
+    <section class="max-w-2xl mx-auto space-y-3">
+        {% for s in ranking %}
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-4 flex flex-wrap items-center gap-3">
+            <span class="font-bold text-slate-400 w-6">{{ loop.index }}</span>
+            <span class="font-bold text-slate-900 flex-1">{{ s.nickname }}</span>
+            <span class="text-sm text-slate-500">
+                💧 {{ s.month_waters if period == 'mes' else s.waters_added }} aguas ·
+                ✓ {{ s.month_fields if period == 'mes' else s.fields_verified }} verificados
+            </span>
+            {% if s.badges %}
+            <div class="w-full flex flex-wrap gap-1.5 pl-9">
+                {% for b in s.badges %}
+                <span class="px-2 py-0.5 rounded-full bg-slate-50 ring-1 ring-slate-200 text-[11px] font-semibold text-slate-600"
+                      title="{{ b.description }}">{{ b.emoji }} {{ b.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+
+    <p class="text-center mt-8 text-sm text-slate-500">
+        📸 <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline font-semibold">Fotografía una etiqueta</a>
+        y suma — quedan {{ '' }}muchas aguas sin verificar.
+    </p>
+{% endif %}
+{% endblock %}
