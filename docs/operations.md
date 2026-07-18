@@ -266,6 +266,45 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
           --project biwenger-tools
     ```
 
+### 5\. Be Water Web (`be_water`)
+
+Runs against its **own GCP project** (`be-water-app`) — see `INFRA.md` for the
+inventory and `.github/workflows/README.md` for the cross-project deploy grants.
+
+  * **🏠 Run locally (development server):**
+
+    ```bash
+      bazel run //packages/be_water/web:web_local
+    ```
+  * **🧪 Tests:**
+    ```
+      bazel test //packages/be_water/web:web_tests --test_output=streamed --test_arg=-v
+    ```
+
+  * **🔄 Catalog sync (idempotent, merges the in-repo dataset into Firestore):**
+
+    ```bash
+      bazel run //packages/be_water/web:sync_local
+    ```
+
+    > Safe to re-run: verified waters are never clobbered, user photos survive.
+    > With `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` set it notifies changes
+    > and waters the dataset doesn't know about (typos or novelties).
+
+  * **☁️ Deploy to production:**
+
+    Normally via CI (`deploy-be-water` job on merge to master). Manual fallback:
+
+    ```bash
+      bazel run //packages/be_water/web:push_image_to_gcp --platforms=//platforms:linux_amd64
+      gcloud run deploy be-water \
+          --image europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web \
+          --region europe-southwest1 \
+          --project be-water-app
+    ```
+
+    URL: https://be-water-lzqhg7kcoa-no.a.run.app
+
 ### Extra\. Core
 
   * **Tests:**
@@ -473,6 +512,8 @@ calls are cached.
     ```
 
     > This script deletes all old images, keeping only the one tagged `latest`.
+    > Covers both registries: `biwenger-docker` (biwenger-tools) and
+    > `be-water-docker` (be-water-app).
 
   * **Review costs (script):**
 
@@ -481,7 +522,9 @@ calls are cached.
     ./check-gcp-costs.sh
     ```
 
-    > This script compares **Artifact Registry** and **Cloud Run** usage against the GCP *Free Tier*.
+    > Audits **both projects** (`biwenger-tools` + `be-water-app`) against the
+    > GCP *Free Tier*, plus the billing-account-wide Secret Manager version
+    > count. Pass `--project=X` to audit a single project.
 
     * **Clean local Docker containers:**
     ```

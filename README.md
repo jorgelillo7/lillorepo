@@ -2,7 +2,7 @@
 
 Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
 
-> Current maturity: **8.5 / 10**. See [`STATUS.md`](STATUS.md) for the audit, the full capability inventory, and the path to 9.45.
+> Current maturity: **9.4 / 10** (biwenger platform, 2026-05-24 audit; cap ~9.5 under the side-project constraints). See [`STATUS.md`](STATUS.md) for the audit, the full capability inventory and the July 2026 multi-product update.
 
 ## Architecture
 

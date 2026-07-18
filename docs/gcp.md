@@ -55,10 +55,13 @@ path that doesn't exist in prod, every Firestore read crashes with
 ## Cost decisions
 
 ### Regional secrets, not global
-Secret Manager charges per active version (first 6 free/month). Global replication
-adds a replica per region you use, counting as extra versions. Using
-`--replication-policy=user-managed --locations=europe-southwest1` keeps each secret
-at exactly 1 active version.
+Secret Manager charges per active version — the first 6 free/month are counted
+**per billing account, not per project** (learned 2026-07-18: biwenger's 5 +
+be-water's 1 leave the account at exactly 6/6). Global replication adds a
+replica per region you use, counting as extra versions. Using
+`--replication-policy=user-managed --locations=europe-southwest1` keeps each
+secret at exactly 1 active version. Before creating a 7th version anywhere on
+the account, consolidate (see the JSON-secret pattern below).
 
 **Disabled versions still bill** — only *destroyed* ones don't. Adding a new
 secret version and disabling the old one keeps paying $0.06/month for it.
@@ -153,12 +156,30 @@ per-job regardless of region (3 free per billing account), and the
 cross-region HTTPS tick adds ~10 ms to a 5-minute SLO. Do not try to
 migrate them to Madrid — the API will reject the location.
 
+## Cross-project deploys (`be-water-app`)
+
+be_water lives in its own GCP project but deploys from this repo's single CI
+pipeline using the shared WIF service account
+(`biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`). Grants on
+`be-water-app`:
+
+| Grant | Scope | Why |
+|---|---|---|
+| `roles/run.admin` | project | `gcloud run deploy be-water` |
+| `roles/artifactregistry.writer` | project | push the `web` image to `be-water-docker` |
+| `roles/artifactregistry.repoAdmin` | repo `be-water-docker` | the CI cleanup job deletes old digests (writer can push but not delete) |
+| `roles/iam.serviceAccountUser` | runtime compute SA | `actAs` required by `gcloud run deploy` |
+
 ## Cost monitoring
 
 ```bash
-bash scripts/check-gcp-costs.sh
+bash scripts/check-gcp-costs.sh                       # both projects + account-wide secrets
+bash scripts/check-gcp-costs.sh --project=be-water-app  # single project
 ```
 
-Covers: Cloud Storage, Artifact Registry, Cloud Run services/jobs, Secret Manager,
-Cloud Scheduler, Cloud Logging. Shows free-tier usage % and OK/WARN/OVER status.
+Covers: Cloud Storage (with per-bucket free-tier eligibility — the always-free
+5 GB only exists in US regions), Artifact Registry, Cloud Run services/jobs,
+Firestore, Secret Manager (per-project detail + billing-account total),
+Cloud Scheduler, Cloud Logging, budgets, log retention and Cloud Run config
+drift. Shows free-tier usage % and OK/WARN/OVER status.
 For Cloud Build and Monitoring billing, check Cloud Console > Billing.

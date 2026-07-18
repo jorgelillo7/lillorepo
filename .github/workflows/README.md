@@ -9,7 +9,8 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
                                             ├→ Deploy scraper ────────┤
                                             ├→ Deploy api ────────────┼→ Clean up old images
                                             ├→ Deploy bot ────────────┤
-                                            └→ Deploy chucknorris_bot ┘
+                                            ├→ Deploy chucknorris_bot ┤
+                                            └→ Deploy be_water ───────┘
 ```
 
 1. **Lint** — flake8 + `black --check`.
@@ -21,7 +22,8 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
    - **api** → `biwenger-api` Cloud Run Service (`--no-allow-unauthenticated`)
    - **bot** → `biwenger-bot` Cloud Run Service
    - **chucknorris_bot** → `chucknorris-bot` Cloud Run Service
-5. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale digests from Artifact Registry.
+   - **be_water/web** → `be-water` Cloud Run Service on the `be-water-app` project (cross-project, see below)
+5. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale digests from both Artifact Registry repos (`biwenger-docker` + `be-water-docker`).
 
 ## Required GitHub secrets
 
@@ -56,6 +58,17 @@ Service account: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`
 | Resource | Role | Why |
 |----------|------|-----|
 | `319945089838-compute@developer.gserviceaccount.com` | `roles/iam.serviceAccountUser` | Allow the deploy SA to act as the Cloud Run runtime SA (`actAs` permission required by `gcloud run deploy`) |
+
+### Cross-project grants on `be-water-app`
+
+The same SA deploys Be Water to its own project:
+
+| Scope | Role | Why |
+|-------|------|-----|
+| project `be-water-app` | `roles/run.admin` | Deploy the `be-water` service |
+| project `be-water-app` | `roles/artifactregistry.writer` | Push the `web` image to `be-water-docker` |
+| repo `be-water-docker` | `roles/artifactregistry.repoAdmin` | Cleanup job deletes old digests (writer cannot delete) |
+| runtime compute SA of `be-water-app` | `roles/iam.serviceAccountUser` | `actAs` for `gcloud run deploy` |
 
 ### How to reproduce from scratch
 

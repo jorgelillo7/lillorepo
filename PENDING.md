@@ -49,79 +49,33 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 - **Live in production** (2026-07-18): 40 waters (top-11 OCU included),
   photo/OCR adds, admin-gated studio (credits bought, ~9.8€ left),
   water profile, /comunidad ranking + achievements, per-value
-  provenance, /acerca. Roadmap, in order:
-  1b. **"Studio photo" template** — second Gemini call to
-     `gemini-2.5-flash-image` (nano banana, available on our key): isolate
-     the bottle onto a pure white background, then Pillow composites it on
-     the branded template (subtle "💧 Be Water · Jorge Lillo" watermark).
-     Original label shot kept under `originals/` as verification proof;
-     failure falls back to the raw photo. Check the image model's daily
-     free-tier cap (smaller than text flash; our add-volume is tiny).
-  1c. **Studio DECIDED: admin-gated** (2026-07-18) — billing enabled on
-     the AI Studio project with its own €1 budget alert; studio fires only
-     for `BEWATER_ADMINS` nicknames (env, comma-separated — extend without
-     code changes), everyone else keeps the free OCR + raw photo. ~4 cts
-     per admin photo. Future option if it should reach everyone at €0:
-     rembg in its own container (too heavy for the shared base image;
-     cuts background but doesn't straighten bottles).
-  2. **Regularization review** — validate that be_water is a properly
-     separate GCP project riding the generic monorepo machinery:
-     - `scripts/check-gcp-costs.sh`: audits `biwenger-tools` only; make it
-       cover both projects (be-water-app: €1 budget, be-water-docker
-       registry, Firestore, 1 consolidated secret, Cloud Run minScale=0,
-       no scheduler). Include the `be-water-photos` bucket size with a
-       size threshold: Cloud Storage's 5 GB always-free tier is
-       **US-regions only**, so the Madrid bucket bills from byte one
-       (sub-cent at photo scale, but it must stay watched). Also flag
-       total Secret Manager versions across the billing account vs the
-       6-version free tier (learned 2026-07-18: the quota is per billing
-       account, not per project — fix `docs/gcp.md` accordingly).
-     - `scripts/clean-images-artifact.sh`: extend to `be-water-docker`
-       before old `web` digests pile up.
-     - Skills sweep: `add-python-dep` already lists be_water reqs ✓;
-       `check-deps` is project-agnostic ✓; decide when be_water gets its
-       own `release-notes.md` (the skill supports multiple packages).
-     - Docs sweep: `docs/gcp.md` is biwenger-only → add be-water-app
-       (secrets, cross-project deploy IAM, budget); `docs/operations.md`
-       → be_water module section (targets, sync_local, deploy, URL);
-       root README packages table → be_water no longer "in planning";
-       workflows README → document the cross-project deploy grants.
-     - Folder hygiene: anything generic worth hoisting to `core/`/`tools/`
-       (candidate: csrf.py; `core/sdk/gemini.py` lands shared by design).
-     - Billing observation (2026-07-19, screenshots reviewed): July 1–18
-       totals €0.64 across the billing account — €0.13 Be Water Gemini
-       image generation (expected, admin-gated, €1 budget alert in place),
-       €0.03 Cloud Run, rest in the unspecific bucket. The one spike:
-       Artifact Registry "Internet Egress Europe to Europe" +€0.35 (+286%)
-       on biwenger-tools — GH Actions runners pulling `python-base` on the
-       Jul 17–18 deploy burst (be_water PRs build FROM the biwenger
-       registry, so the egress bills there). Sub-euro, no action; the
-       cost script extension above should track both projects.
-  3. **Monthly catalog sync as a scheduled job** — run `catalog_sync` as a
+  provenance, /acerca. Regularization done 2026-07-19 (cost script
+  covers both projects, cleanup covers both registries, docs swept).
+  Roadmap, in order:
+  1. **Monthly catalog sync as a scheduled job** — run `catalog_sync` as a
      Cloud Run Job + monthly Scheduler tick (Telegram creds via secret,
      already stored); ideally diff against the AESAN list to flag newly
-     recognised waters.
-  4. **Data verification pass** (USER-assisted): bottle-in-hand check of
+     recognised waters. Note: Scheduler API is deliberately disabled on
+     `be-water-app` — enabling it is part of this item (3 free jobs per
+     billing account, 2 in use).
+  2. **Data verification pass** (USER-assisted): bottle-in-hand check of
      the ~25 seeded compositions; photos of labels to me work great.
-  5. **Recommender: nearby-province fallback** — Madrid is the canonical
+  3. **Recommender: nearby-province fallback** — Madrid is the canonical
      case (no big bottled AMN brand): fall back to bordering provinces.
      Needs a province-adjacency map in the repo.
-  5b. **Country field — yes, but staged** (analysis 2026-07-19): add
-     `country` to `Water` defaulting to "España" (backward compatible,
-     one-line migration in `catalog_sync`). Unlocks: international
-     waters people actually find in Spanish supermarkets (Evian,
-     Perrier, San Pellegrino…), a 🌍 achievement tier, and country
-     chips on the home. Hold the international seed batch until the
-     Spanish catalog verification pass (item 4) is done — the
-     recommender's place selector and province-based achievements
-     assume Spanish geography and need a small rethink first
-     (skip international waters in province counts, or bucket them
-     under their country).
-  6. **Before going public** (LinkedIn/Twitter): Google Sign-In, CSRF on
+  4. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
+     add `country` to `Water` defaulting to "España" (backward compatible,
+     one-line migration in `catalog_sync`). Unlocks international waters
+     people actually find in Spanish supermarkets (Evian, Perrier,
+     San Pellegrino…), a 🌍 achievement tier and country chips on the
+     home. Revisit after the verification pass (item 2) — recommender
+     places and province achievements assume Spanish geography and need
+     a small rethink first.
+  5. **Before going public** (LinkedIn/Twitter): Google Sign-In, CSRF on
      POST forms (generalise `biwenger_tools/web/csrf.py` into `core/`),
      abuse basics (rate limiting, input caps), and optionally a domain
      (~10 €/año, bought outside GCP).
-  6b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
+  5b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
      users table (last_seen/created_at already tracked), contributions,
      block/ban and promote-to-admin. Deliberately NOT built on
      nickname-auth: banning a passwordless nickname is theatre. The
