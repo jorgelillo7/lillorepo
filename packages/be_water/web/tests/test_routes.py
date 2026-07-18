@@ -67,19 +67,21 @@ def test_water_detail_404(client):
 
 
 def test_login_sets_session_and_favorite_toggles(client):
-    with patch(f"{_REPO}.ensure_user", return_value={"favorites": []}):
+    with patch(f"{_REPO}.touch_user"):
         resp = client.post("/login", data={"nickname": "jorge"})
     assert resp.status_code == 302
-    with patch(f"{_REPO}.toggle_favorite", return_value=True) as mock_toggle:
+    with patch(f"{_REPO}.toggle_favorite", return_value=True) as mock_toggle, patch(
+        f"{_REPO}.touch_user"
+    ):
         resp = client.post("/favorito/bezoya")
     assert resp.status_code == 302
     mock_toggle.assert_called_once_with("jorge", "bezoya")
 
 
 def test_login_rejects_bad_nickname(client):
-    with patch(f"{_REPO}.ensure_user") as mock_ensure:
+    with patch(f"{_REPO}.touch_user") as mock_touch:
         client.post("/login", data={"nickname": "x y!"})
-    mock_ensure.assert_not_called()
+    mock_touch.assert_not_called()
 
 
 def test_favorite_without_login_is_noop(client):
@@ -98,7 +100,7 @@ def test_recommend_needs_place_and_favorites(client):
 
 def test_recommend_with_favorites(client):
     catalog = _catalog()
-    with patch(f"{_REPO}.ensure_user", return_value={"favorites": []}):
+    with patch(f"{_REPO}.touch_user"):
         client.post("/login", data={"nickname": "jorge"})
     with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
         f"{_REPO}.get_favorites", return_value=[catalog[0]]
@@ -112,7 +114,7 @@ _APP = "packages.be_water.web.app"
 
 
 def _login(client):
-    with patch(f"{_REPO}.ensure_user", return_value={"favorites": []}):
+    with patch(f"{_REPO}.touch_user"):
         client.post("/login", data={"nickname": "jorge"})
 
 
@@ -125,7 +127,7 @@ def test_add_water_saves_and_redirects(client):
     _login(client)
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=None
-    ):
+    ), patch(f"{_REPO}.touch_user"):
         resp = client.post(
             "/anadir",
             data={
@@ -161,7 +163,7 @@ def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
     _login(client)
     with patch(f"{_REPO}.save_water"), patch(
         f"{_REPO}.get_water", return_value=None
-    ) as mock_get:
+    ) as mock_get, patch(f"{_REPO}.touch_user"):
         client.post("/anadir", data={"name": "Lanjarón"})
     mock_get.assert_called_once_with("lanjaron")
 
@@ -267,7 +269,9 @@ def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     ), patch(
         f"{_APP}.photos.promote_photo",
         side_effect=lambda tmp, final: f"https://x/{final}",
-    ) as mock_promote:
+    ) as mock_promote, patch(
+        f"{_REPO}.touch_user"
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -308,6 +312,24 @@ def test_profile_without_favorites_nudges(client):
     assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
 
 
+def test_community_page_ranks_contributors(client):
+    catalog = _catalog()
+    catalog[0].added_by = "jorgelillo"
+    catalog[0].verified_fields = ["tds"]
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        resp = client.get("/comunidad")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "jorgelillo" in body
+    assert "Primera gota" in body
+
+
+def test_login_touches_last_seen(client):
+    with patch(f"{_REPO}.touch_user") as mock_touch:
+        client.post("/login", data={"nickname": "jorge"})
+    mock_touch.assert_called_once_with("jorge")
+
+
 def test_about_page_renders(client):
     resp = client.get("/acerca")
     assert resp.status_code == 200
@@ -322,7 +344,7 @@ def test_add_marks_ocr_fields_as_verified(client):
     _login(client)
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=None
-    ):
+    ), patch(f"{_REPO}.touch_user"):
         client.post(
             "/anadir",
             data={

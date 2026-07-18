@@ -83,6 +83,7 @@ def sync_catalog() -> dict:
             | set(current.get("verified_fields", []) or [])
         )
         merged["added_by"] = current.get("added_by") or merged["added_by"]
+        merged["added_at"] = current.get("added_at") or merged["added_at"]
         if merged == current:
             unchanged.append(water.name)
         else:

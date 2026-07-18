@@ -68,6 +68,7 @@ class Water:
     # scores wholesale.
     mentions: list = field(default_factory=list)
     added_by: str = ""
+    added_at: Optional[str] = None  # ISO timestamp; None for seeded waters
     verified: bool = False
 
     @property
@@ -99,6 +100,7 @@ class Water:
             verified_fields=list(data.get("verified_fields", []) or []),
             mentions=list(data.get("mentions", []) or []),
             added_by=data.get("added_by", ""),
+            added_at=data.get("added_at"),
             verified=bool(data.get("verified", False)),
         )
 
@@ -117,5 +119,6 @@ class Water:
             "verified_fields": self.verified_fields,
             "mentions": self.mentions,
             "added_by": self.added_by,
+            "added_at": self.added_at,
             "verified": self.verified,
         }

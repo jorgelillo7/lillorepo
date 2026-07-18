@@ -29,6 +29,8 @@
         <div class="flex items-center gap-2 sm:gap-4 text-sm">
             <a href="{{ url_for('recommend') }}"
                class="font-medium text-slate-600 hover:text-sky-600 transition">📍 <span class="hidden sm:inline">Estoy de viaje</span></a>
+            <a href="{{ url_for('community_page') }}"
+               class="font-medium text-slate-600 hover:text-sky-600 transition">🏆 <span class="hidden sm:inline">Comunidad</span></a>
             {% if nickname %}
                 <a href="{{ url_for('profile') }}"
                    class="font-medium text-slate-600 hover:text-sky-600 transition">👤 <span class="hidden sm:inline">Mi perfil</span></a>

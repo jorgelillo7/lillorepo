@@ -5,6 +5,8 @@ Collections (project `be-water-app`):
     users/{nickname}   — {"favorites": [water_id, ...]}
 """
 
+from datetime import datetime, timezone
+
 from core.sdk import firestore
 from core.utils import get_logger
 from packages.be_water.web.domain import Water
@@ -13,6 +15,10 @@ logger = get_logger(__name__)
 
 WATERS = "waters"
 USERS = "users"
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def get_all_waters() -> list[Water]:
@@ -36,13 +42,24 @@ def get_user(nickname: str) -> dict | None:
     return firestore.get_document(USERS, nickname)
 
 
+def get_all_users() -> dict[str, dict]:
+    return dict(firestore.list_documents(USERS))
+
+
 def ensure_user(nickname: str) -> dict:
     user = get_user(nickname)
     if user is None:
-        user = {"favorites": []}
+        user = {"favorites": [], "created_at": _now_iso()}
         firestore.set_document(USERS, nickname, user)
         logger.info("User created.", extra={"nickname": nickname})
     return user
+
+
+def touch_user(nickname: str) -> None:
+    """Record activity (last_seen) — called on login and contributions."""
+    user = ensure_user(nickname)
+    user["last_seen"] = _now_iso()
+    firestore.set_document(USERS, nickname, user)
 
 
 def toggle_favorite(nickname: str, water_id: str) -> bool:
