@@ -200,16 +200,19 @@ def add_water_photo():
     label_tmp = f"originals/{uid}.jpg"
     photos.upload_photo(label_tmp, processed)
 
-    # Studio version for display; a kitchen background is a fine fallback.
-    try:
-        display = photos.studio_photo(processed)
-        studio_note = " La foto ha pasado por el estudio 📸"
-    except (GeminiError, requests.RequestException) as exc:
-        logger.warning(
-            "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
-        )
-        display = processed
-        studio_note = ""
+    # Studio version for display — admin-only: image generation is the one
+    # paid call in the project, so it fires only for trusted nicknames.
+    # Everyone else keeps the (free) OCR prefill and their raw photo.
+    display = processed
+    studio_note = ""
+    if session["nickname"] in config.ADMIN_NICKNAMES:
+        try:
+            display = photos.studio_photo(processed)
+            studio_note = " La foto ha pasado por el estudio 📸"
+        except (GeminiError, requests.RequestException) as exc:
+            logger.warning(
+                "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
+            )
     photo_tmp = f"uploads/{uid}.jpg"
     photos.upload_photo(photo_tmp, display)
 

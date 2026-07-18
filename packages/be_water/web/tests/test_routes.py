@@ -168,7 +168,9 @@ def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
 
 def test_photo_flow_prefills_form_and_runs_studio(client):
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+    with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
+        f"{_APP}.photos.process_image", return_value=b"jpg"
+    ), patch(
         f"{_APP}.photos.studio_photo", return_value=b"studio"
     ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label",
@@ -195,11 +197,32 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
     assert mock_upload.call_args_list[1].args[1] == b"studio"
 
 
+def test_non_admin_upload_skips_studio_but_keeps_ocr(client):
+    """Everyone gets the free OCR prefill; only admins pay for the studio."""
+    _login(client)  # "jorge" is not in the default admin set
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.studio_photo"
+    ) as mock_studio, patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    mock_studio.assert_not_called()
+    assert 'value="Font Nova"' in resp.get_data(as_text=True)  # OCR still on
+    assert mock_upload.call_args_list[1].args[1] == b"jpg"  # raw photo kept
+
+
 def test_photo_flow_studio_failure_falls_back_to_raw(client):
     from core.sdk.gemini import GeminiError
 
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+    with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
+        f"{_APP}.photos.process_image", return_value=b"jpg"
+    ), patch(
         f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")
     ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}
