@@ -170,9 +170,9 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
     _login(client)
     with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
         f"{_APP}.photos.process_image", return_value=b"jpg"
-    ), patch(
-        f"{_APP}.photos.studio_photo", return_value=b"studio"
-    ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
+    ), patch(f"{_APP}.photos.studio_photo", return_value=b"studio"), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label",
         return_value={"name": "Font Nova", "tds": 180, "spring": None},
     ):
@@ -222,9 +222,9 @@ def test_photo_flow_studio_failure_falls_back_to_raw(client):
     _login(client)
     with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
         f"{_APP}.photos.process_image", return_value=b"jpg"
-    ), patch(
-        f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")
-    ), patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
+    ), patch(f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}
     ):
         resp = client.post(
