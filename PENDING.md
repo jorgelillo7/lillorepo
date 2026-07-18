@@ -46,16 +46,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## be_water
 
-- **Live in production** (2026-07-18): 25 waters (2 label-verified), public
-  URL, deploy pipeline, idempotent catalog sync with Telegram notify, and
-  sprint 1.B shipped: photo upload from mobile + Gemini label OCR
-  (`gemini-flash-latest` via `core/sdk/gemini.py`, zero new deps).
-  Roadmap, in order:
-  1. **USER: buy the minimum AI-credit pack in AI Studio** (project
-     "Be Water", `gen-lang-client-0059905191`) if the studio should go
-     live — the Gemini API bills image generation via prepaid credits
-     (~4 cts/photo; a 5€ pack ≈ 125 studio photos). Until then the
-     admin-gated studio stays dormant and uploads keep the raw photo.
+- **Live in production** (2026-07-18): 40 waters (top-11 OCU included),
+  photo/OCR adds, admin-gated studio (credits bought, ~9.8€ left),
+  water profile, /comunidad ranking + achievements, per-value
+  provenance, /acerca. Roadmap, in order:
   1b. **"Studio photo" template** — second Gemini call to
      `gemini-2.5-flash-image` (nano banana, available on our key): isolate
      the bottle onto a pure white background, then Pillow composites it on
