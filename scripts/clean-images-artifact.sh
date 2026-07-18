@@ -2,9 +2,10 @@
 # Garbage-collect Artifact Registry to stay inside the free tier.
 #
 # Two strategies:
-#   - SIMPLE_IMAGES (web, scraper_job, bot, api, chucknorris_bot): single-arch
-#     images pushed via rules_oci's oci_push. Keep only the most recent digest,
-#     drop the rest.
+#   - SIMPLE_IMAGES (biwenger web/scraper_job/bot/api, chucknorris_bot and
+#     the be-water web): single-arch images pushed via rules_oci's oci_push.
+#     Keep only the most recent digest, drop the rest. Spans two projects —
+#     the deploy SA holds repoAdmin on be-water-docker for the deletes.
 #   - MULTI_ARCH_IMAGES (python-base): multi-arch images pushed via docker
 #     buildx. The tagged "latest" is a manifest list referencing per-arch
 #     children that are themselves untagged — never delete recent untagged
@@ -14,9 +15,17 @@
 
 set -euo pipefail
 
-REPO="europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker"
-SIMPLE_IMAGES=("web" "scraper_job" "bot" "api" "chucknorris_bot")
-MULTI_ARCH_IMAGES=("python-base")
+BIWENGER_REPO="europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker"
+BE_WATER_REPO="europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker"
+SIMPLE_IMAGES=(
+    "$BIWENGER_REPO/web"
+    "$BIWENGER_REPO/scraper_job"
+    "$BIWENGER_REPO/bot"
+    "$BIWENGER_REPO/api"
+    "$BIWENGER_REPO/chucknorris_bot"
+    "$BE_WATER_REPO/web"
+)
+MULTI_ARCH_IMAGES=("$BIWENGER_REPO/python-base")
 UNTAGGED_MIN_AGE_HOURS="${UNTAGGED_MIN_AGE_HOURS:-24}"
 DRY_RUN="${DRY_RUN:-0}"
 
@@ -36,7 +45,7 @@ for IMAGE in "${SIMPLE_IMAGES[@]}"; do
     # Note: the resource field is `version` (sha256:...), not `digest`. The
     # `DIGEST` column in `gcloud artifacts docker images list` output is
     # cosmetic — using --format="get(digest)" returns empty.
-    DIGESTS_TO_DELETE=$(gcloud artifacts docker images list "$REPO/$IMAGE" \
+    DIGESTS_TO_DELETE=$(gcloud artifacts docker images list "$IMAGE" \
         --sort-by=~CREATE_TIME \
         --format="value(version)" \
         --quiet 2>/dev/null | tail -n +2 || true)
@@ -50,7 +59,7 @@ for IMAGE in "${SIMPLE_IMAGES[@]}"; do
         [ -z "$DIGEST" ] && continue
         echo "[ACTION] Deleting old digest: $IMAGE@$DIGEST"
         if [ "$DRY_RUN" = "1" ]; then
-            echo "[DRY_RUN] gcloud artifacts docker images delete $REPO/$IMAGE@$DIGEST --delete-tags --quiet"
+            echo "[DRY_RUN] gcloud artifacts docker images delete $IMAGE@$DIGEST --delete-tags --quiet"
             continue
         fi
         # Tolerate the digest already being gone — happens when two concurrent
@@ -58,7 +67,7 @@ for IMAGE in "${SIMPLE_IMAGES[@]}"; do
         # group should prevent this, but a CI race or a manual run in flight
         # can still trigger it). Other gcloud errors stay fatal.
         if ! out=$(gcloud artifacts docker images delete \
-                "$REPO/$IMAGE@$DIGEST" --delete-tags --quiet 2>&1); then
+                "$IMAGE@$DIGEST" --delete-tags --quiet 2>&1); then
             if echo "$out" | grep -qE 'NOT_FOUND|Requested entity was not found'; then
                 echo "[OK] $IMAGE@$DIGEST already gone — skipping."
             else
@@ -91,7 +100,7 @@ for IMAGE in "${MULTI_ARCH_IMAGES[@]}"; do
     # twice and tolerate "referenced by parent" errors on the first pass —
     # the second pass mops up whatever was blocked.
     for PASS in 1 2; do
-        UNTAGGED_DIGESTS=$(gcloud artifacts docker images list "$REPO/$IMAGE" \
+        UNTAGGED_DIGESTS=$(gcloud artifacts docker images list "$IMAGE" \
             --filter="-tags:* AND createTime<\"$CUTOFF\"" \
             --format="value(version)" \
             --quiet 2>/dev/null || true)
@@ -105,10 +114,10 @@ for IMAGE in "${MULTI_ARCH_IMAGES[@]}"; do
             [ -z "$DIGEST" ] && continue
             echo "[ACTION] Deleting orphan (pass $PASS): $IMAGE@$DIGEST"
             if [ "$DRY_RUN" = "1" ]; then
-                echo "[DRY_RUN] gcloud artifacts docker images delete $REPO/$IMAGE@$DIGEST --quiet"
+                echo "[DRY_RUN] gcloud artifacts docker images delete $IMAGE@$DIGEST --quiet"
             else
                 gcloud artifacts docker images delete \
-                    "$REPO/$IMAGE@$DIGEST" --quiet 2>&1 \
+                    "$IMAGE@$DIGEST" --quiet 2>&1 \
                     | grep -vE 'manifest has referenced parents|failed precondition' \
                     || true
             fi

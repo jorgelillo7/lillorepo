@@ -1,22 +1,28 @@
 #!/bin/bash
-# GCP cost + quota checker for biwenger-tools.
+# GCP cost + quota checker for the whole billing account.
 # Covers all dimensions that have a cost or a free-tier cap.
 # Robust: each section catches errors and continues.
 # Compatible with bash 3 (macOS default).
 #
-# Drift detection: also surfaces the decisions captured in docs/gcp.md
-# (budget amount, log retention, Cloud Run cpu/concurrency/minScale).
+# Without flags it audits every project in sequence (biwenger-tools,
+# be-water-app) and closes with the billing-account-wide Secret Manager
+# check — the 6-version free tier is per BILLING ACCOUNT, not per project.
+# Pass --project=X to audit a single project.
+#
+# Drift detection: also surfaces the decisions captured in docs/gcp.md and
+# INFRA.md (budget amount, log retention, Cloud Run cpu/concurrency/minScale).
 # Catches things like Cloud Run silently resetting `--cpu` to 1 when an
 # `--image` update is issued without re-passing the flag — happened on
 # 2026-05-16 with both bots after a python-base rebuild.
 
-PROJECT="${PROJECT:-biwenger-tools}"
+ALL_PROJECTS="biwenger-tools be-water-app"
 REGION="${REGION:-europe-southwest1}"
 # Cloud Scheduler is not offered in europe-southwest1 (Madrid); jobs live in
 # the closest supported region instead (see docs/gcp.md).
 SCHEDULER_REGION="${SCHEDULER_REGION:-europe-west1}"
 
 # Parse optional --project=X flag
+PROJECT="${PROJECT:-}"
 for arg in "$@"; do
     case $arg in
         --project=*) PROJECT="${arg#*=}" ;;
@@ -24,9 +30,9 @@ for arg in "$@"; do
     esac
 done
 
-FREE_STORAGE=5          # GB / month
+FREE_STORAGE=5          # GB / month — always-free ONLY in us-east1/us-west1/us-central1
 FREE_ARTIFACT=0.5       # GB / month
-FREE_SECRETS=6          # active versions / month
+FREE_SECRETS=6          # active versions / month — per BILLING ACCOUNT
 FREE_SCHEDULER=3        # jobs
 
 # Decisions captured in docs/gcp.md — alert if drifted from these.
@@ -37,13 +43,6 @@ STATUS_OK="OK"
 STATUS_WARN="WARN"
 STATUS_OVER="OVER"
 
-# Summary variables (no associative arrays — bash 3 compat)
-SUM_STORAGE="" SUM_ARTIFACT="" SUM_RUN_SERVICES="" SUM_RUN_JOBS=""
-SUM_SECRETS="" SUM_SCHEDULER="" SUM_LOGGING=""
-SUM_BUDGET="" SUM_RETENTION="" SUM_RUN_CONFIG=""
-
-warn() { echo "  ⚠️  No disponible (revisa permisos / API habilitada)"; }
-
 status_icon() {
     case "$1" in
         OK)   echo "✅ OK"   ;;
@@ -53,6 +52,62 @@ status_icon() {
     esac
 }
 
+count_billable_versions() {
+    # Billing counts every non-destroyed version — disabled versions still
+    # bill. Prints "<billable> <disabled>" for the given project.
+    local project="$1" total=0 disabled=0 secret states
+    while IFS= read -r secret; do
+        [ -z "$secret" ] && continue
+        states=$(gcloud secrets versions list "$secret" --project "$project" \
+            --format="value(state)" 2>/dev/null)
+        total=$((total + $(echo "$states" | grep -ciE 'enabled|disabled')))
+        disabled=$((disabled + $(echo "$states" | grep -ci 'disabled')))
+    done <<< "$(gcloud secrets list --project "$project" --format="value(name)" 2>/dev/null)"
+    echo "$total $disabled"
+}
+
+# ---------------------------------------------------------------------------
+# Multi-project mode: recurse per project, then the account-wide checks.
+# ---------------------------------------------------------------------------
+if [ -z "$PROJECT" ]; then
+    for p in $ALL_PROJECTS; do
+        bash "$0" --project="$p" --region="$REGION"
+        echo
+    done
+
+    echo "=== Billing account — Secret Manager total ==="
+    echo "  (free tier: ${FREE_SECRETS} versiones por CUENTA, no por proyecto)"
+    ACCOUNT_VERSIONS=0
+    for p in $ALL_PROJECTS; do
+        set -- $(count_billable_versions "$p")
+        echo "    - $p: $1 versiones facturables ($2 disabled)"
+        ACCOUNT_VERSIONS=$((ACCOUNT_VERSIONS + $1))
+    done
+    if [ "$ACCOUNT_VERSIONS" -gt "$FREE_SECRETS" ]; then
+        echo "  🚨 OVER — $ACCOUNT_VERSIONS versiones en la cuenta (>${FREE_SECRETS} free)"
+    else
+        echo "  ✅ OK — $ACCOUNT_VERSIONS/${FREE_SECRETS} versiones en la cuenta"
+    fi
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Single-project audit. Expectations differ per project (see INFRA.md):
+# be-water-app has no scheduler (API deliberately disabled), no jobs, and
+# owns the Gemini prepaid-credit check (be_water studio photos).
+# ---------------------------------------------------------------------------
+case "$PROJECT" in
+    be-water-app) EXPECT_SCHEDULER=0; EXPECT_JOBS=0; HAS_GEMINI=1 ;;
+    *)            EXPECT_SCHEDULER=1; EXPECT_JOBS=1; HAS_GEMINI=0 ;;
+esac
+
+# Summary variables (no associative arrays — bash 3 compat)
+SUM_STORAGE="" SUM_ARTIFACT="" SUM_RUN_SERVICES="" SUM_RUN_JOBS=""
+SUM_SECRETS="" SUM_SCHEDULER="" SUM_LOGGING="" SUM_FIRESTORE=""
+SUM_BUDGET="" SUM_RETENTION="" SUM_RUN_CONFIG="" SUM_GEMINI=""
+
+warn() { echo "  ⚠️  No disponible (revisa permisos / API habilitada)"; }
+
 echo "=== GCP cost check — project: $PROJECT ==="
 echo
 
@@ -60,17 +115,38 @@ echo
 # Cloud Storage
 # ---------------------------
 echo "💾 Cloud Storage"
-STORAGE_USED=$(gcloud storage buckets list --project "$PROJECT" --format="get(sizeGb)" 2>/dev/null \
-    | awk '{sum+=$1} END {print sum+0}')
-STORAGE_USED="${STORAGE_USED:-0}"
-STORAGE_PCT=$(awk "BEGIN {printf \"%.0f\", ($STORAGE_USED/$FREE_STORAGE)*100}")
-echo "  Uso: ${STORAGE_USED} GB  (free tier: ${FREE_STORAGE} GB/mes — ${STORAGE_PCT}%)"
-if [ "$STORAGE_PCT" -gt 100 ] 2>/dev/null; then
-    SUM_STORAGE="$STATUS_OVER — ${STORAGE_USED} GB (>${FREE_STORAGE} GB)"
-elif [ "$STORAGE_PCT" -gt 80 ] 2>/dev/null; then
-    SUM_STORAGE="$STATUS_WARN — ${STORAGE_USED} GB (${STORAGE_PCT}% del free tier)"
+BUCKETS=$(gcloud storage buckets list --project "$PROJECT" \
+    --format="value(name,location)" 2>/dev/null)
+if [ -z "$BUCKETS" ]; then
+    echo "  Sin buckets."
+    SUM_STORAGE="$STATUS_OK — sin buckets"
 else
-    SUM_STORAGE="$STATUS_OK — ${STORAGE_USED} GB"
+    TOTAL_BYTES=0
+    NON_US=0
+    while IFS=$'\t' read -r bucket location; do
+        [ -z "$bucket" ] && continue
+        BYTES=$(gcloud storage du -s "gs://$bucket" 2>/dev/null | awk '{print $1+0}')
+        BYTES="${BYTES:-0}"
+        TOTAL_BYTES=$((TOTAL_BYTES + BYTES))
+        BUCKET_GB=$(awk "BEGIN {printf \"%.3f\", $BYTES/1024/1024/1024}")
+        case "$location" in
+            US-EAST1|US-WEST1|US-CENTRAL1)
+                echo "    - $bucket ($location): ${BUCKET_GB} GB — dentro del always-free US" ;;
+            *)
+                echo "    - $bucket ($location): ${BUCKET_GB} GB — ⚠️  SIN free tier (solo regiones US)"
+                NON_US=1 ;;
+        esac
+    done <<< "$BUCKETS"
+    STORAGE_GB=$(awk "BEGIN {printf \"%.3f\", $TOTAL_BYTES/1024/1024/1024}")
+    STORAGE_PCT=$(awk "BEGIN {printf \"%.0f\", ($STORAGE_GB/$FREE_STORAGE)*100}")
+    echo "  Total: ${STORAGE_GB} GB  (always-free US: ${FREE_STORAGE} GB/mes — ${STORAGE_PCT}%)"
+    if [ "$NON_US" -eq 1 ]; then
+        SUM_STORAGE="$STATUS_WARN — ${STORAGE_GB} GB con bucket(s) fuera del free tier"
+    elif [ "$STORAGE_PCT" -gt 80 ] 2>/dev/null; then
+        SUM_STORAGE="$STATUS_WARN — ${STORAGE_GB} GB (${STORAGE_PCT}% del free tier)"
+    else
+        SUM_STORAGE="$STATUS_OK — ${STORAGE_GB} GB"
+    fi
 fi
 echo
 
@@ -120,8 +196,13 @@ echo
 echo "⚙️  Cloud Run Jobs"
 RUN_JOBS=$(gcloud run jobs list --project "$PROJECT" --format="value(metadata.name)" 2>/dev/null)
 if [ -z "$RUN_JOBS" ]; then
-    warn
-    SUM_RUN_JOBS="$STATUS_WARN — sin datos"
+    if [ "$EXPECT_JOBS" -eq 0 ]; then
+        echo "  Sin jobs (esperado en este proyecto)."
+        SUM_RUN_JOBS="$STATUS_OK — 0 jobs (esperado)"
+    else
+        warn
+        SUM_RUN_JOBS="$STATUS_WARN — sin datos"
+    fi
 else
     JOB_COUNT=$(echo "$RUN_JOBS" | wc -l | tr -d ' ')
     echo "  Jobs desplegados ($JOB_COUNT):"
@@ -137,6 +218,23 @@ fi
 echo
 
 # ---------------------------
+# Firestore
+# ---------------------------
+echo "🔥 Firestore"
+FS_DBS=$(gcloud firestore databases list --project "$PROJECT" \
+    --format="value(name,locationId)" 2>/dev/null)
+if [ -z "$FS_DBS" ]; then
+    warn
+    SUM_FIRESTORE="$STATUS_WARN — sin datos"
+else
+    FS_COUNT=$(echo "$FS_DBS" | wc -l | tr -d ' ')
+    echo "$FS_DBS" | sed 's/^/    - /'
+    echo "  Free tier (por proyecto): 1 GiB storage, 50k reads / 20k writes al día"
+    SUM_FIRESTORE="$STATUS_OK — $FS_COUNT database(s)"
+fi
+echo
+
+# ---------------------------
 # Secret Manager
 # ---------------------------
 echo "🔑 Secret Manager"
@@ -146,50 +244,43 @@ if [ -z "$SECRETS" ]; then
     SUM_SECRETS="$STATUS_WARN — sin datos"
 else
     SECRET_COUNT=$(echo "$SECRETS" | wc -l | tr -d ' ')
-    # Billing counts every non-destroyed version — disabled versions still
-    # bill. The free tier is 6 *versions*, not 6 secrets.
-    TOTAL_VERSIONS=0
-    DISABLED_VERSIONS=0
-    while IFS= read -r secret; do
-        STATES=$(gcloud secrets versions list "$secret" --project "$PROJECT" \
-            --format="value(state)" 2>/dev/null)
-        BILLABLE=$(echo "$STATES" | grep -ciE 'enabled|disabled')
-        DISABLED=$(echo "$STATES" | grep -ci 'disabled')
-        TOTAL_VERSIONS=$((TOTAL_VERSIONS + BILLABLE))
-        DISABLED_VERSIONS=$((DISABLED_VERSIONS + DISABLED))
-        echo "    - $secret: $BILLABLE versiones facturables"
-    done <<< "$SECRETS"
+    set -- $(count_billable_versions "$PROJECT")
+    TOTAL_VERSIONS=$1
+    DISABLED_VERSIONS=$2
+    echo "$SECRETS" | sed 's/^/    - /'
     echo "  Secrets: $SECRET_COUNT — versiones facturables: $TOTAL_VERSIONS"
-    echo "  Free tier: $FREE_SECRETS versiones (enabled + disabled) gratis / mes"
+    echo "  Free tier: $FREE_SECRETS versiones (enabled + disabled) / mes POR CUENTA"
+    echo "  ℹ️  El total de la cuenta se comprueba al final (modo sin --project)"
     if [ "$DISABLED_VERSIONS" -gt 0 ] 2>/dev/null; then
         echo "  💡 $DISABLED_VERSIONS versiones disabled — siguen facturando;"
         echo "     destrúyelas: gcloud secrets versions destroy <v> --secret=<name>"
     fi
-    if [ "$TOTAL_VERSIONS" -gt "$FREE_SECRETS" ] 2>/dev/null; then
-        SUM_SECRETS="$STATUS_OVER — $TOTAL_VERSIONS versiones (>${FREE_SECRETS} free)"
-    else
-        SUM_SECRETS="$STATUS_OK — $TOTAL_VERSIONS versiones en $SECRET_COUNT secrets"
-    fi
+    SUM_SECRETS="$STATUS_OK — $TOTAL_VERSIONS versiones en $SECRET_COUNT secrets"
 fi
 echo
 
 # ---------------------------
 # Cloud Scheduler
 # ---------------------------
-echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
-SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
-    --format="value(name.basename(),state)" 2>/dev/null)
-if [ -z "$SCHED_JOBS" ]; then
-    warn
-    SUM_SCHEDULER="$STATUS_WARN — sin datos"
+if [ "$EXPECT_SCHEDULER" -eq 0 ]; then
+    echo "🕐 Cloud Scheduler — no usado en este proyecto (API deshabilitada a propósito)"
+    SUM_SCHEDULER="$STATUS_OK — sin scheduler (esperado)"
 else
-    SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
-    echo "$SCHED_JOBS" | sed 's/^/    - /'
-    echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER / mes)"
-    if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
-        SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"
+    echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
+    SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
+        --format="value(name.basename(),state)" 2>/dev/null)
+    if [ -z "$SCHED_JOBS" ]; then
+        warn
+        SUM_SCHEDULER="$STATUS_WARN — sin datos"
     else
-        SUM_SCHEDULER="$STATUS_OK — $SCHED_COUNT jobs"
+        SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
+        echo "$SCHED_JOBS" | sed 's/^/    - /'
+        echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER por cuenta)"
+        if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
+            SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"
+        else
+            SUM_SCHEDULER="$STATUS_OK — $SCHED_COUNT jobs"
+        fi
     fi
 fi
 echo
@@ -211,24 +302,33 @@ echo
 
 # ---------------------------
 # Budget alerts (skill recommendation: every project has an active budget)
+# Budgets live on the billing account; match this project's number in the
+# budget filter, falling back to an account-wide budget (no filter).
 # ---------------------------
 echo "💰 Budget alerts"
 BILLING_ACCOUNT=$(gcloud billing projects describe "$PROJECT" \
     --format="value(billingAccountName)" 2>/dev/null | sed 's|billingAccounts/||')
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" \
+    --format="value(projectNumber)" 2>/dev/null)
 if [ -z "$BILLING_ACCOUNT" ]; then
     warn
     SUM_BUDGET="$STATUS_WARN — sin billing account"
 else
-    BUDGET_INFO=$(gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" \
-        --format="value(amount.specifiedAmount.units,amount.specifiedAmount.currencyCode,displayName)" \
-        2>/dev/null | head -1)
+    BUDGETS=$(gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" \
+        --format="value(displayName,amount.specifiedAmount.units,amount.specifiedAmount.currencyCode,budgetFilter.projects)" \
+        2>/dev/null)
+    BUDGET_INFO=$(echo "$BUDGETS" | grep "projects/$PROJECT_NUMBER" | head -1)
     if [ -z "$BUDGET_INFO" ]; then
-        echo "  🚨 NO hay budget configurado en la billing account"
+        # No project-scoped budget — an account-wide one (empty filter) counts.
+        BUDGET_INFO=$(echo "$BUDGETS" | awk -F'\t' '$4 == "" {print; exit}')
+    fi
+    if [ -z "$BUDGET_INFO" ]; then
+        echo "  🚨 NO hay budget que cubra este proyecto"
         SUM_BUDGET="$STATUS_OVER — sin budget configurado"
     else
-        BUDGET_AMOUNT=$(echo "$BUDGET_INFO" | awk '{print $1}')
-        BUDGET_CURRENCY=$(echo "$BUDGET_INFO" | awk '{print $2}')
-        BUDGET_NAME=$(echo "$BUDGET_INFO" | cut -d$'\t' -f3-)
+        BUDGET_NAME=$(echo "$BUDGET_INFO" | awk -F'\t' '{print $1}')
+        BUDGET_AMOUNT=$(echo "$BUDGET_INFO" | awk -F'\t' '{print $2}')
+        BUDGET_CURRENCY=$(echo "$BUDGET_INFO" | awk -F'\t' '{print $3}')
         echo "  Budget: ${BUDGET_AMOUNT} ${BUDGET_CURRENCY} — '${BUDGET_NAME}'"
         echo "  Esperado: ${EXPECTED_BUDGET_EUR} EUR (ver docs/gcp.md)"
         if [ "$BUDGET_AMOUNT" = "$EXPECTED_BUDGET_EUR" ] && [ "$BUDGET_CURRENCY" = "EUR" ]; then
@@ -246,28 +346,30 @@ echo
 # scriptable (billing link + dedicated budget on the AI Studio project)
 # and points at the only place the balance is visible.
 # ---------------------------
-echo "🍌 Gemini API (créditos prepago — estudio de fotos be_water)"
-GEMINI_PROJECT="gen-lang-client-0059905191"  # AI Studio project "Be Water"
-GEMINI_BILLING=$(gcloud billing projects describe "$GEMINI_PROJECT" \
-    --format="value(billingEnabled)" 2>/dev/null)
-if [ "$GEMINI_BILLING" = "True" ]; then
-    echo "  Billing vinculado: sí ✅ (proyecto ${GEMINI_PROJECT})"
-    SUM_GEMINI="$STATUS_OK — billing ok; saldo: revisar manualmente"
-else
-    echo "  🚨 Billing NO vinculado — el estudio de fotos fallará con 429"
-    SUM_GEMINI="$STATUS_WARN — sin billing en ${GEMINI_PROJECT}"
+if [ "$HAS_GEMINI" -eq 1 ]; then
+    echo "🍌 Gemini API (créditos prepago — estudio de fotos be_water)"
+    GEMINI_PROJECT="gen-lang-client-0059905191"  # AI Studio project "Be Water"
+    GEMINI_BILLING=$(gcloud billing projects describe "$GEMINI_PROJECT" \
+        --format="value(billingEnabled)" 2>/dev/null)
+    if [ "$GEMINI_BILLING" = "True" ]; then
+        echo "  Billing vinculado: sí ✅ (proyecto ${GEMINI_PROJECT})"
+        SUM_GEMINI="$STATUS_OK — billing ok; saldo: revisar manualmente"
+    else
+        echo "  🚨 Billing NO vinculado — el estudio de fotos fallará con 429"
+        SUM_GEMINI="$STATUS_WARN — sin billing en ${GEMINI_PROJECT}"
+    fi
+    GEMINI_BUDGET=$(gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" \
+        --filter='displayName:gemini' --format="value(displayName)" 2>/dev/null | head -1)
+    if [ -n "$GEMINI_BUDGET" ]; then
+        echo "  Budget dedicado: '${GEMINI_BUDGET}' ✅"
+    else
+        echo "  ⚠️  Sin budget dedicado para el proyecto Gemini"
+    fi
+    echo "  Saldo prepago (sin API — revisar a mano): https://aistudio.google.com/billing"
+    echo "  Modelo: prepago = tope duro (0 créditos → 429, imposible sobregastar)"
+    echo "  Coste por foto de estudio ≈ \$0.04 (gemini-2.5-flash-image)"
+    echo
 fi
-GEMINI_BUDGET=$(gcloud billing budgets list --billing-account "$BILLING_ACCOUNT" \
-    --filter='displayName:gemini' --format="value(displayName)" 2>/dev/null | head -1)
-if [ -n "$GEMINI_BUDGET" ]; then
-    echo "  Budget dedicado: '${GEMINI_BUDGET}' ✅"
-else
-    echo "  ⚠️  Sin budget dedicado para el proyecto Gemini"
-fi
-echo "  Saldo prepago (sin API — revisar a mano): https://aistudio.google.com/billing"
-echo "  Modelo: prepago = tope duro (0 créditos → 429, imposible sobregastar)"
-echo "  Coste por foto de estudio ≈ \$0.04 (gemini-2.5-flash-image)"
-echo
 
 # ---------------------------
 # Log retention (decision: 7 days, see docs/gcp.md)
@@ -324,17 +426,20 @@ echo
 # Resumen final
 # ---------------------------
 echo "=========================================="
-echo "  RESUMEN"
+echo "  RESUMEN — $PROJECT"
 echo "=========================================="
 printf "  %-22s %s\n" "Cloud Storage"     "$(status_icon "${SUM_STORAGE%% *}") — ${SUM_STORAGE#* — }"
 printf "  %-22s %s\n" "Artifact Registry" "$(status_icon "${SUM_ARTIFACT%% *}") — ${SUM_ARTIFACT#* — }"
 printf "  %-22s %s\n" "Cloud Run Services" "$(status_icon "${SUM_RUN_SERVICES%% *}") — ${SUM_RUN_SERVICES#* — }"
 printf "  %-22s %s\n" "Cloud Run Jobs"    "$(status_icon "${SUM_RUN_JOBS%% *}") — ${SUM_RUN_JOBS#* — }"
+printf "  %-22s %s\n" "Firestore"         "$(status_icon "${SUM_FIRESTORE%% *}") — ${SUM_FIRESTORE#* — }"
 printf "  %-22s %s\n" "Secret Manager"    "$(status_icon "${SUM_SECRETS%% *}") — ${SUM_SECRETS#* — }"
 printf "  %-22s %s\n" "Cloud Scheduler"   "$(status_icon "${SUM_SCHEDULER%% *}") — ${SUM_SCHEDULER#* — }"
 printf "  %-22s %s\n" "Logging"           "$(status_icon "${SUM_LOGGING%% *}") — ${SUM_LOGGING#* — }"
 printf "  %-22s %s\n" "Budget alerts"     "$(status_icon "${SUM_BUDGET%% *}") — ${SUM_BUDGET#* — }"
+if [ "$HAS_GEMINI" -eq 1 ]; then
 printf "  %-22s %s\n" "Gemini prepago"    "$(status_icon "${SUM_GEMINI%% *}") — ${SUM_GEMINI#* — }"
+fi
 printf "  %-22s %s\n" "Log retention"     "$(status_icon "${SUM_RETENTION%% *}") — ${SUM_RETENTION#* — }"
 printf "  %-22s %s\n" "Cloud Run config"  "$(status_icon "${SUM_RUN_CONFIG%% *}") — ${SUM_RUN_CONFIG#* — }"
 echo

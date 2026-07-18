@@ -519,7 +519,8 @@ jobs:
 
       - name: Deploy Be Water to Cloud Run
         # Own GCP project: the shared deploy SA has run.admin +
-        # artifactregistry.writer + actAs on be-water-app.
+        # artifactregistry.writer + actAs on be-water-app, plus repoAdmin
+        # on the be-water-docker repo so the cleanup job can delete digests.
         run: |
           gcloud run deploy be-water \
             --image europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web \
@@ -542,8 +543,8 @@ jobs:
   # -------------------------------------------------------
   cleanup:
     name: Clean up old images
-    needs: [deploy-web, deploy-scraper, deploy-bot, deploy-api, deploy-chucknorris-bot]
-    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-bot.result == 'success' || needs.deploy-api.result == 'success' || needs.deploy-chucknorris-bot.result == 'success')
+    needs: [deploy-web, deploy-scraper, deploy-bot, deploy-api, deploy-chucknorris-bot, deploy-be-water]
+    if: always() && (needs.deploy-web.result == 'success' || needs.deploy-scraper.result == 'success' || needs.deploy-bot.result == 'success' || needs.deploy-api.result == 'success' || needs.deploy-chucknorris-bot.result == 'success' || needs.deploy-be-water.result == 'success')
     # Serialize cleanups across concurrent deploys. Without this, two cleanup
     # runs racing on the same orphan digest would both call `gcloud images
     # delete` — the loser hits NOT_FOUND and fails the job (observed on the

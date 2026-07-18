@@ -40,7 +40,8 @@ The Be Water catalog (package `be_water`).
 
 Deploys to this project run from the shared WIF service account
 (`biwenger-tools-sa`), granted `run.admin` + `artifactregistry.writer` +
-actAs here.
+actAs here, plus `artifactregistry.repoAdmin` on the `be-water-docker`
+repo so the CI cleanup job can delete old digests.
 
 ## Outside GCP (but part of the picture)
 
@@ -57,4 +58,5 @@ actAs here.
   (quota is per billing account, not per project — consolidate before
   creating a 7th), and photo storage rides the US always-free tier.
 - One €1 budget alert per project; `scripts/check-gcp-costs.sh` is the
-  auditor (be-water coverage pending — see `PENDING.md` regularization).
+  auditor — run without flags it sweeps both projects and closes with the
+  account-wide Secret Manager version count.
