@@ -5,6 +5,7 @@ import re
 import uuid
 
 import requests
+from unidecode import unidecode
 from flask import (
     Flask,
     Response,
@@ -129,7 +130,9 @@ def add_water():
         name = (request.form.get("name") or "").strip()
         if not name:
             abort(400)
-        water_id = _SLUG_RE.sub("-", name.lower()).strip("-")
+        # unidecode first: "Lanjarón" must slug to "lanjaron", not "lanjar-n",
+        # or the duplicate guard misses the existing doc (real bug, 2nd day live).
+        water_id = _SLUG_RE.sub("-", unidecode(name).lower()).strip("-")
         if repository.get_water(water_id) is not None:
             # Never clobber an existing (possibly verified) water from the form.
             return _render_add_form(

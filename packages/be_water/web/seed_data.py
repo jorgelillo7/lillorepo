@@ -30,17 +30,21 @@ SEED_WATERS = [
         "id": "lanjaron",
         "name": "Lanjarón",
         "brand": "Lanjarón",
-        "spring": "Fuente Salud",
+        "spring": "Manantial Salud",
         "province": "Granada",
         "community": "Andalucía",
+        # HCO3/Ca/Mg/Na confirmed from a bottle label (CNTA 2023 analysis);
+        # the label prints nothing else, so the rest stays approximate and
+        # the water remains unverified.
+        "photo_url": "https://storage.googleapis.com/be-water-photos/lanjaron.jpg",
         "minerals": {
             "tds": 205,
-            "bicarbonates": 111,
+            "bicarbonates": 105.0,
             "chlorides": 10.1,
             "sulfates": 39.1,
-            "calcium": 32.2,
-            "magnesium": 11.6,
-            "sodium": 8.5,
+            "calcium": 25.9,
+            "magnesium": 9.0,
+            "sodium": 5.2,
             "potassium": 1.2,
             "ph": 7.6,
         },
