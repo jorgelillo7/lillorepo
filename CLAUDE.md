@@ -80,6 +80,11 @@ feature.
 - Formatter: Black (format on save in VS Code)
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
 - Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
+- **Commit scopes name the package** — with multiple packages, a bare
+  `feat(web):` is ambiguous. Use the package as scope: `feat(be_water):`,
+  `fix(biwenger):` (or module-qualified when it helps: `fix(biwenger/api):`),
+  `feat(chuck):`. Cross-cutting scopes stay as-is: `(core)`, `(ci)`,
+  `(deps)`, plain `docs:`/`chore:` for repo-wide changes.
 
 ## Branch and PR Workflow
 
