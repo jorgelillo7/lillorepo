@@ -145,6 +145,10 @@ def community_page():
         "community.html",
         ranking=ranking,
         period=period,
+        achievements=[
+            {"emoji": emoji, "name": name, "description": description}
+            for emoji, name, description, _ in community.ACHIEVEMENTS
+        ],
         meta_description=(
             "La comunidad de Be Water: quién añade y verifica las aguas "
             "del catálogo."
@@ -279,8 +283,10 @@ def add_water_photo():
 
     processed = photos.process_image(raw)
     uid = uuid.uuid4().hex
-    # The raw label shot is the verification proof — always kept.
-    label_tmp = f"originals/{uid}.jpg"
+    # Both tmps live under uploads/ so the bucket lifecycle rule reclaims
+    # abandoned forms; on save the label shot is promoted to originals/
+    # as the permanent verification proof.
+    label_tmp = f"uploads/{uid}-label.jpg"
     photos.upload_photo(label_tmp, processed)
 
     # Studio version for display — admin-only: image generation is the one

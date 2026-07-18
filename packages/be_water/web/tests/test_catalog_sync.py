@@ -139,6 +139,29 @@ def test_verified_doc_gets_mentions_enrichment():
     assert written["bezoya"]["minerals"]["tds"] == 26.5  # still frozen
 
 
+def test_user_only_waters_are_reported_not_touched():
+    """A doc the dataset doesn't know (new water or typo'd name) is surfaced
+    in the summary so a human reviews it, and never written to."""
+    existing = {
+        "font-noba": {"name": "Font Noba", "added_by": "maria", "verified": False}
+    }
+    summary, written = _run(existing)
+    assert summary["user_only"] == ["Font Noba (maria)"]
+    assert "font-noba" not in written
+
+
+def test_user_only_alone_triggers_notification(monkeypatch):
+    """Even with zero dataset changes, unknown docs are worth a Telegram ping."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "chat")
+    _, synced = _run(existing={})  # dataset fully synced
+    synced["font-noba"] = {"name": "Font Noba", "added_by": "maria"}
+    with patch(f"{_MOD}.send_telegram_message") as mock_send:
+        _run(existing=synced)
+    mock_send.assert_called_once()
+    assert "Font Noba (maria)" in mock_send.call_args.kwargs["text"]
+
+
 def test_notify_skipped_without_creds(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)

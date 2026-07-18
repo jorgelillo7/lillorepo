@@ -7,7 +7,8 @@
 <a href="{{ url_for('water_detail', water_id=w.id) }}"
    class="water-card group block bg-white rounded-2xl ring-1 ring-slate-200 hover:ring-sky-300 hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden"
    data-name="{{ w.name | lower }} {{ w.brand | lower }} {{ w.province | lower }} {{ w.community | lower }}"
-   data-min="{{ w.mineralization }}">
+   data-min="{{ w.mineralization }}"
+   data-gas="{{ '1' if w.sparkling else '0' }}">
     {% if w.photo_url %}
     <div class="h-24 bg-cover bg-center flex items-center justify-end px-4"
          style="background-image: url('{{ w.photo_url }}')">
@@ -37,5 +38,10 @@
         <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-{{ tone }}-100 text-{{ tone }}-700">
             mineralización {{ w.mineralization }}
         </span>
+        {% if w.sparkling %}
+        <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-100 text-sky-700 ring-1 ring-sky-200">
+            🫧 con gas
+        </span>
+        {% endif %}
     </div>
 </a>

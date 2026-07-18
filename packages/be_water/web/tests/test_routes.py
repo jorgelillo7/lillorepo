@@ -191,11 +191,14 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
     assert 'name="label_tmp"' in body
     assert "revisa los valores" in body
     assert "estudio" in body
-    # Two uploads: originals/{uid}.jpg (raw proof) + uploads/{uid}.jpg (studio).
+    # Two uploads, both under uploads/ so the lifecycle rule reclaims
+    # abandoned forms: {uid}-label.jpg (raw proof) + {uid}.jpg (studio).
     assert mock_upload.call_count == 2
     names = [c.args[0] for c in mock_upload.call_args_list]
-    assert names[0].startswith("originals/")
+    assert names[0].startswith("uploads/")
+    assert names[0].endswith("-label.jpg")
     assert names[1].startswith("uploads/")
+    assert not names[1].endswith("-label.jpg")
     assert mock_upload.call_args_list[1].args[1] == b"studio"
 
 
@@ -310,6 +313,25 @@ def test_profile_without_favorites_nudges(client):
     ):
         resp = client.get("/perfil")
     assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
+
+
+def test_sparkling_waters_wear_the_badge(client):
+    catalog = _catalog()
+    catalog[1].sparkling = True
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        home = client.get("/").get_data(as_text=True)
+        detail = client.get("/agua/bezoya").get_data(as_text=True)
+    assert 'data-gas="1"' in home
+    assert home.lower().count("con gas") >= 2  # card badge + filter chip
+    assert "con gas" in detail
+
+
+def test_community_shows_achievements_showcase(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/comunidad")
+    body = resp.get_data(as_text=True)
+    assert "Los logros" in body
+    assert "Manantial andante" in body  # even unearned ones are listed
 
 
 def test_community_page_ranks_contributors(client):

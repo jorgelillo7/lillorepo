@@ -1,6 +1,6 @@
 # lillorepo
 
-Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
+Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
 
 > Current maturity: **8.5 / 10**. See [`STATUS.md`](STATUS.md) for the audit, the full capability inventory, and the path to 9.45.
 
@@ -20,6 +20,9 @@ graph TD
     SCH[Cloud Scheduler] -->|daily digest + auto-bid| API
     USR -->|/random /science ...| CBOT[chucknorris_bot<br/>Cloud Run Service]
     CN[chucknorris.io] --> CBOT
+    USR -->|browse + add waters| BW[be_water/web<br/>Cloud Run Service]
+    BW --> BWFS[(Firestore + GCS<br/>be-water-app project)]
+    GEM[Gemini API] -->|label OCR + studio| BW
     GS[Google Sheets] -->|ligas especiales, trofeos| WEB
     USR -->|browse| WEB
 ```
@@ -33,6 +36,7 @@ graph TD
 | `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, `/managers`, etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
 | `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/recomendar`, `/scrapper`, `/help` plus inline-keyboard callbacks — calls the api with an ID token | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
+| `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 
 ## Repository Structure
 
@@ -106,4 +110,5 @@ CI/CD runs on every push to `master`. Per-service `paths-filter` only deploys wh
    - **api** → `biwenger-api` Cloud Run Service
    - **bot** → `biwenger-bot` Cloud Run Service
    - **chucknorris_bot** → `chucknorris-bot` Cloud Run Service
+   - **be_water/web** → `be-water` Cloud Run Service (cross-project deploy to `be-water-app`)
 4. **Cleanup** — removes old images from Artifact Registry (keeps the digest currently tagged `latest` for each repo)

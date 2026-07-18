@@ -27,6 +27,7 @@
         <button data-filter="débil" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Débil</button>
         <button data-filter="fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Fuerte</button>
         <button data-filter="muy fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Muy fuerte</button>
+        <button id="gas-toggle" class="px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">🫧 Con gas</button>
     </div>
 </header>
 
@@ -45,15 +46,21 @@
 <script>
     const search = document.getElementById('search');
     const chips = document.querySelectorAll('.chip');
+    const gasToggle = document.getElementById('gas-toggle');
     let activeFilter = '';
+    let gasOnly = false;
+
+    // Accent-insensitive: "lanjaron" must find "Lanjarón".
+    const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     function apply() {
-        const q = search.value.toLowerCase().trim();
+        const q = fold(search.value.toLowerCase().trim());
         let visible = 0;
         document.querySelectorAll('.water-card').forEach(card => {
-            const matchQ = !q || card.dataset.name.includes(q);
+            const matchQ = !q || fold(card.dataset.name).includes(q);
             const matchF = !activeFilter || card.dataset.min === activeFilter;
-            const show = matchQ && matchF;
+            const matchG = !gasOnly || card.dataset.gas === '1';
+            const show = matchQ && matchF && matchG;
             card.classList.toggle('hidden', !show);
             if (show) visible++;
         });
@@ -61,6 +68,14 @@
     }
 
     search.addEventListener('input', apply);
+    gasToggle.addEventListener('click', () => {
+        gasOnly = !gasOnly;
+        gasToggle.classList.toggle('bg-sky-500', gasOnly);
+        gasToggle.classList.toggle('text-white', gasOnly);
+        gasToggle.classList.toggle('bg-white', !gasOnly);
+        gasToggle.classList.toggle('text-slate-600', !gasOnly);
+        apply();
+    });
     chips.forEach(chip => chip.addEventListener('click', () => {
         activeFilter = chip.dataset.filter;
         chips.forEach(c => {

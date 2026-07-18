@@ -33,6 +33,11 @@
                 <span class="mt-2 px-3 py-1 rounded-full text-xs font-bold bg-{{ tone }}-200/70 text-{{ tone }}-800">
                     mineralización {{ water.mineralization }}
                 </span>
+                {% if water.sparkling %}
+                <span class="mt-2 px-3 py-1 rounded-full text-xs font-bold bg-sky-200/70 text-sky-800">
+                    🫧 con gas
+                </span>
+                {% endif %}
             </div>
             {% if nickname %}
             <form method="post" action="{{ url_for('favorite', water_id=water.id) }}" class="mt-6">
