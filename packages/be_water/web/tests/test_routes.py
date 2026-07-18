@@ -285,6 +285,29 @@ def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     assert water.label_photo_url.endswith("originals/font-nova.jpg")
 
 
+def test_profile_shows_traits_and_matches(client):
+    catalog = _catalog()
+    _login(client)
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.get_favorites", return_value=[catalog[0]]
+    ):
+        resp = client.get("/perfil")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "mineralización débil" in body  # Solán centroid
+    assert "Solán de Cabras" in body  # favorites listed
+    assert "Bezoya" in body  # only candidate → suggested match
+
+
+def test_profile_without_favorites_nudges(client):
+    _login(client)
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
+        f"{_REPO}.get_favorites", return_value=[]
+    ):
+        resp = client.get("/perfil")
+    assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
+
+
 def test_seo_plumbing(client):
     with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         robots = client.get("/robots.txt")

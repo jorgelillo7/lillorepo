@@ -69,6 +69,42 @@ def favorites_centroid(favorites: list[Water]) -> Optional[dict]:
     return centroid
 
 
+_TRAIT_LABELS = {
+    "bicarbonates": ("rica en bicarbonatos", "baja en bicarbonatos"),
+    "chlorides": ("con carácter salino", "casi sin cloruros"),
+    "sulfates": ("rica en sulfatos", "baja en sulfatos"),
+    "calcium": ("rica en calcio", "baja en calcio"),
+    "magnesium": ("rica en magnesio", "baja en magnesio"),
+    "sodium": ("alta en sodio", "muy baja en sodio"),
+}
+
+
+def profile_traits(centroid: dict, catalog: list[Water], top_n: int = 3) -> list[str]:
+    """Describe what stands out in the user's taste vs the catalog.
+
+    Compares the favorites centroid against the catalog median per mineral
+    (log-scale, declared values only) and words the strongest deviations.
+    TDS is excluded — the mineralization class already headlines it.
+    """
+    deviations = []
+    for field, labels in _TRAIT_LABELS.items():
+        value = centroid.get(field)
+        if value is None:
+            continue
+        observed = sorted(
+            w.minerals[field] for w in catalog if w.minerals.get(field) is not None
+        )
+        if len(observed) < 5:
+            continue
+        median = observed[len(observed) // 2]
+        ratio = math.log10(value + 1) - math.log10(median + 1)
+        if abs(ratio) < 0.12:  # ~±30% — not distinctive enough to mention
+            continue
+        deviations.append((abs(ratio), labels[0] if ratio > 0 else labels[1]))
+    deviations.sort(reverse=True)
+    return [label for _, label in deviations[:top_n]]
+
+
 def recommend(
     favorites: list[Water],
     catalog: list[Water],

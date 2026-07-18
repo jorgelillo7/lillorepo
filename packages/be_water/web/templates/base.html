@@ -30,6 +30,10 @@
             <a href="{{ url_for('recommend') }}"
                class="font-medium text-slate-600 hover:text-sky-600 transition">📍 <span class="hidden sm:inline">Estoy de viaje</span></a>
             {% if nickname %}
+                <a href="{{ url_for('profile') }}"
+                   class="font-medium text-slate-600 hover:text-sky-600 transition">👤 <span class="hidden sm:inline">Mi perfil</span></a>
+            {% endif %}
+            {% if nickname %}
                 <a href="{{ url_for('add_water') }}"
                    class="font-medium text-slate-600 hover:text-sky-600 transition">＋ <span class="hidden sm:inline">Añadir agua</span></a>
                 <form method="post" action="{{ url_for('logout') }}" class="flex items-center gap-2">
