@@ -38,6 +38,12 @@
                     🫧 con gas
                 </span>
                 {% endif %}
+                {% if water.retailer %}
+                <span class="mt-2 px-3 py-1 rounded-full text-xs font-bold bg-slate-200/70 text-slate-700"
+                      title="Marca blanca de {{ water.retailer }}">
+                    🛒 marca blanca de {{ water.retailer }}
+                </span>
+                {% endif %}
             </div>
             {% if nickname %}
             <form method="post" action="{{ url_for('favorite', water_id=water.id) }}" class="mt-6">

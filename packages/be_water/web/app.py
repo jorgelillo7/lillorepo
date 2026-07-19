@@ -3,6 +3,7 @@
 import os
 import re
 import uuid
+from typing import Optional
 
 import requests
 from unidecode import unidecode
@@ -76,6 +77,22 @@ def _client_ip() -> str:
 def _form_field(name: str) -> str:
     """Trimmed form value, length-capped — nobody's manantial needs 80+ chars."""
     return (request.form.get(name) or "").strip()[:_MAX_FIELD_LEN]
+
+
+def _similar_water(name: str, catalog: list[Water]) -> Optional[Water]:
+    """Fuzzy duplicate guard: token-subset match on normalized names, so
+    "Naturis" flags «Naturis (Lidl) — Albacete». Exact slugs are handled
+    upstream; near-misses come back for the user to decide — white labels
+    bottled from several springs are legitimately several waters."""
+    tokens = set(_SLUG_RE.sub(" ", unidecode(name).lower()).split())
+    if not tokens:
+        return None
+    for water in catalog:
+        for candidate in (water.name, water.brand):
+            cand = set(_SLUG_RE.sub(" ", unidecode(candidate).lower()).split())
+            if cand and (tokens <= cand or cand <= tokens):
+                return water
+    return None
 
 
 def _places(catalog: list[Water]) -> list[str]:
@@ -257,6 +274,23 @@ def add_water():
         # or the duplicate guard misses the existing doc (real bug, 2nd day live).
         water_id = _SLUG_RE.sub("-", unidecode(name).lower()).strip("-")
         existing = repository.get_water(water_id)
+        merge_into = (request.form.get("merge_into") or "").strip()
+        if existing is None and merge_into:
+            # The user confirmed the fuzzy match: update that water instead.
+            existing = repository.get_water(merge_into)
+            if existing is None:
+                abort(400)
+            water_id = merge_into
+        elif existing is None and not request.form.get("force_new"):
+            similar = _similar_water(name, repository.get_all_waters())
+            if similar is not None:
+                return _render_add_form(
+                    prefill=dict(request.form),
+                    photo_tmp=request.form.get("photo_tmp") or None,
+                    label_tmp=request.form.get("label_tmp") or None,
+                    ocr_fields=request.form.get("ocr_fields") or None,
+                    similar=similar,
+                )
         if existing is not None and existing.verified:
             # A verified water is bottle-checked and data-frozen.
             return _render_add_form(
@@ -313,6 +347,10 @@ def add_water():
         if existing is not None:
             # Label-backed update of an unverified water: the reviewed form
             # wins, everything it can't carry survives from the current doc.
+            if merge_into:
+                # Confirmed fuzzy match: the canonical display name stays.
+                water.name = existing.name
+                water.retailer = existing.retailer
             water.minerals = {**existing.minerals, **water.minerals}
             water.sparkling = water.sparkling or existing.sparkling
             water.spring = water.spring or existing.spring
@@ -434,6 +472,7 @@ def _render_add_form(
     ocr_fields=None,
     error=None,
     notice=None,
+    similar=None,
 ):
     return render_template(
         "add.html",
@@ -444,6 +483,7 @@ def _render_add_form(
         photo_tmp_url=photos.public_url(photo_tmp) if photo_tmp else None,
         error=error,
         notice=notice,
+        similar=similar,
         meta_description="Añade una nueva agua al catálogo con su etiqueta.",
     )
 

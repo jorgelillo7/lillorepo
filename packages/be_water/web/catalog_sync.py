@@ -42,6 +42,7 @@ def _dataset_water(raw: dict) -> Water:
         province=raw.get("province", ""),
         community=raw.get("community", ""),
         sparkling=raw.get("sparkling", False),
+        retailer=raw.get("retailer"),
         minerals=raw.get("minerals", {}),
         photo_url=raw.get("photo_url"),
         label_photo_url=raw.get("label_photo_url"),

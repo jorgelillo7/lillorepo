@@ -36,9 +36,12 @@ _CSRF = "test-csrf-token"
 
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
     from packages.be_water.web import app as app_module
 
+    # Default: empty catalog for the fuzzy-duplicate guard; tests that need
+    # one patch repository.get_all_waters themselves (their patch wins).
+    monkeypatch.setattr(app_module.repository, "get_all_waters", lambda: [])
     for limiter in (
         app_module._LOGIN_LIMITER,
         app_module._SAVE_LIMITER,
@@ -302,6 +305,67 @@ def test_merge_keeps_original_author_for_user_waters(client):
     saved = mock_save.call_args.args[0]
     assert saved.added_by == "maria"
     assert saved.added_at == "2026-07-01T00:00:00+00:00"
+
+
+def _naturis_catalog():
+    catalog = _catalog()
+    catalog[1].name = "Naturis (Lidl) — Albacete"
+    catalog[1].brand = "Lidl"
+    catalog[1].retailer = "Lidl"
+    return catalog
+
+
+def test_similar_name_prompts_instead_of_creating(client):
+    """«Naturis» vs existing «Naturis (Lidl) — Albacete»: the app asks."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.get_all_waters", return_value=_naturis_catalog()):
+        resp = client.post("/anadir", data={"name": "Naturis"})
+    mock_save.assert_not_called()
+    body = resp.get_data(as_text=True)
+    assert "Se parece a" in body
+    assert "Es la misma — actualizarla" in body
+    assert "Es otra — crear nueva" in body
+
+
+def test_force_new_creates_despite_similarity(client):
+    """White labels bottle from several springs — creating anyway is valid."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"):
+        resp = client.post("/anadir", data={"name": "Naturis", "force_new": "1"})
+    assert resp.status_code == 302
+    assert mock_save.call_args.args[0].id == "naturis"
+
+
+def test_merge_into_updates_the_confirmed_match(client):
+    """Confirming the fuzzy match updates the existing doc, keeping its
+    canonical name and retailer."""
+    _login(client)
+    existing = _naturis_catalog()[1]
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water",
+        side_effect=lambda wid: existing if wid == "bezoya" else None,
+    ), patch(f"{_REPO}.touch_user"):
+        resp = client.post(
+            "/anadir",
+            data={"name": "Naturis", "merge_into": "bezoya", "tds": "24"},
+        )
+    assert resp.status_code == 302
+    saved = mock_save.call_args.args[0]
+    assert saved.id == "bezoya"
+    assert saved.name == "Naturis (Lidl) — Albacete"  # canonical name kept
+    assert saved.retailer == "Lidl"
+    assert saved.minerals["tds"] == 24.0  # form value wins
+    assert saved.minerals["calcium"] == 2.4  # existing extra survives
+
+
+def test_retailer_badge_renders_on_cards(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_naturis_catalog()):
+        resp = client.get("/")
+    assert "🛒 Lidl" in resp.get_data(as_text=True)
 
 
 def test_slug_strips_accents_so_dedup_catches_lanjaron(client):

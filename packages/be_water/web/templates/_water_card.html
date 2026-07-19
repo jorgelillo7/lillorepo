@@ -43,5 +43,11 @@
             🫧 con gas
         </span>
         {% endif %}
+        {% if w.retailer %}
+        <span class="inline-block mt-2 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 ring-1 ring-slate-200"
+              title="Marca blanca de {{ w.retailer }}">
+            🛒 {{ w.retailer }}
+        </span>
+        {% endif %}
     </div>
 </a>
