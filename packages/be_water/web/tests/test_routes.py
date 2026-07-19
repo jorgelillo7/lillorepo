@@ -230,6 +230,17 @@ def test_add_water_requires_login(client):
     assert resp.status_code == 302
 
 
+def test_add_form_shows_sections_and_gas_toggle(client):
+    _login(client)
+    body = client.get("/anadir").get_data(as_text=True)
+    assert "Identidad" in body
+    assert "Composición de la etiqueta" in body
+    assert "Otros valores" in body  # optional section
+    assert "Es agua con gas" in body
+    for field in ["tds", "sodium", "ph", "silica"]:  # both sections render
+        assert f'name="{field}"' in body
+
+
 def test_add_water_saves_and_redirects(client):
     _login(client)
     with patch(f"{_REPO}.save_water") as mock_save, patch(

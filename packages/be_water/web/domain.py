@@ -18,6 +18,11 @@ MINERAL_FIELDS = [
     "ph",
 ]
 
+# Form grouping: the seven values almost every label declares, then the
+# ones only some labels carry (rendered as an optional section).
+MINERAL_FIELDS_MAIN = MINERAL_FIELDS[:7]
+MINERAL_FIELDS_EXTRA = MINERAL_FIELDS[7:]
+
 MINERAL_LABELS = {
     "tds": "Residuo seco",
     "bicarbonates": "Bicarbonatos",
