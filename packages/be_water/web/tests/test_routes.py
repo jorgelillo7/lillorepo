@@ -365,6 +365,60 @@ def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     assert water.label_photo_url.endswith("originals/font-nova.jpg")
 
 
+def test_full_label_coverage_auto_promotes_to_verified(client):
+    """Label proof on file + every declared mineral backed by it → verified."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(
+        f"{_APP}.photos.promote_photo",
+        side_effect=lambda tmp, final: f"https://x/{final}",
+    ), patch(
+        f"{_REPO}.touch_user"
+    ):
+        client.post(
+            "/anadir",
+            data={
+                "name": "Font Nova",
+                "tds": "180",
+                "calcium": "40",
+                "ocr_fields": "tds,calcium",
+                "photo_tmp": "uploads/abc.jpg",
+                "label_tmp": "uploads/abc-label.jpg",
+            },
+        )
+    water = mock_save.call_args.args[0]
+    assert water.verified is True
+    assert water.verified_fields == ["calcium", "tds"]
+
+
+def test_hand_typed_extra_mineral_blocks_auto_promotion(client):
+    """A value the label didn't declare keeps the ficha in the mixed state."""
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(
+        f"{_APP}.photos.promote_photo",
+        side_effect=lambda tmp, final: f"https://x/{final}",
+    ), patch(
+        f"{_REPO}.touch_user"
+    ):
+        client.post(
+            "/anadir",
+            data={
+                "name": "Font Nova",
+                "tds": "180",
+                "silica": "12",  # typed by hand, not in ocr_fields
+                "ocr_fields": "tds",
+                "photo_tmp": "uploads/abc.jpg",
+                "label_tmp": "uploads/abc-label.jpg",
+            },
+        )
+    water = mock_save.call_args.args[0]
+    assert water.verified is False
+    assert water.verified_fields == ["tds"]
+
+
 def test_profile_shows_traits_and_matches(client):
     catalog = _catalog()
     _login(client)

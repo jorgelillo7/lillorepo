@@ -288,6 +288,15 @@ def add_water():
             if existing.added_by and existing.added_by != "seed":
                 water.added_by = existing.added_by
                 water.added_at = existing.added_at
+        # Auto-promotion: label proof on file and every declared mineral
+        # backed by it → the whole ficha is verified (and data-frozen
+        # against the monthly dataset sync).
+        if (
+            water.label_photo_url
+            and water.minerals
+            and set(water.minerals) <= set(water.verified_fields)
+        ):
+            water.verified = True
         repository.save_water(water)
         repository.touch_user(session["nickname"])
         return redirect(url_for("water_detail", water_id=water_id))
