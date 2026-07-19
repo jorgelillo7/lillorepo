@@ -36,6 +36,22 @@
             <a href="{{ url_for('index') }}" class="text-sky-600 hover:underline">Ve al catálogo</a>
             y marca las aguas que te gustan.</p>
     </div>
+{% elif place and not results and nearby %}
+    <section>
+        <h2 class="text-center text-sm text-slate-500 mb-5">
+            En <strong>{{ place }}</strong> no conocemos aguas todavía —
+            de las provincias vecinas, pide:
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {% for w, dist in nearby %}
+                {% include "_water_card.html" %}
+            {% endfor %}
+        </div>
+        <p class="text-center text-xs text-slate-400 mt-6">
+            ¿Conoces un agua de {{ place }}?
+            <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">Añádela al catálogo</a>
+        </p>
+    </section>
 {% elif place and not results %}
     <p class="text-center text-slate-400 py-10">No conocemos aguas de <strong>{{ place }}</strong> todavía —
         <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">¿añades tú la primera?</a></p>

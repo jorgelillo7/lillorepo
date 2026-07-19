@@ -8,6 +8,9 @@ TDS weighs double — it is the one-number summary of a water's character.
 import math
 from typing import Optional
 
+from unidecode import unidecode
+
+from packages.be_water.web import geo
 from packages.be_water.web.domain import Water
 
 _VECTOR_FIELDS = [
@@ -123,6 +126,33 @@ def recommend(
         for w in catalog
         if w.id not in fav_ids
         and place_lower in (w.province.lower(), w.community.lower())
+    ]
+    scored = [(w, distance(centroid, w.minerals)) for w in candidates]
+    scored = [(w, d) for w, d in scored if math.isfinite(d)]
+    scored.sort(key=lambda t: t[1])
+    return scored[:top_n]
+
+
+def recommend_nearby(
+    favorites: list[Water],
+    catalog: list[Water],
+    place: str,
+    top_n: int = 5,
+) -> list[tuple[Water, float]]:
+    """Fallback when `place` itself has no catalog waters: same scoring over
+    candidates from bordering provinces (Madrid is the canonical case — no
+    big bottled brand of its own)."""
+    centroid = favorites_centroid(favorites)
+    if centroid is None:
+        return []
+    neighbor_keys = {unidecode(n).lower() for n in geo.adjacent_provinces(place)}
+    if not neighbor_keys:
+        return []
+    fav_ids = {w.id for w in favorites}
+    candidates = [
+        w
+        for w in catalog
+        if w.id not in fav_ids and unidecode(w.province).lower() in neighbor_keys
     ]
     scored = [(w, distance(centroid, w.minerals)) for w in candidates]
     scored = [(w, d) for w, d in scored if math.isfinite(d)]
