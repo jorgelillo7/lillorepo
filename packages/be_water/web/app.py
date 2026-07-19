@@ -26,6 +26,7 @@ from core.web.csrf import get_csrf_token, verify_csrf_token
 from core.web.ratelimit import RateLimiter
 from packages.be_water.web import (
     aesan,
+    auth,
     community,
     config,
     geo,
@@ -65,10 +66,22 @@ app.config.update(
 )
 
 
+def _is_admin() -> bool:
+    return (session.get("google_email") or "") in config.ADMIN_EMAILS
+
+
+def _nickname_blocked() -> bool:
+    user = repository.get_user(session.get("nickname", ""))
+    return bool(user and user.get("blocked"))
+
+
 @app.context_processor
 def inject_globals() -> dict:
     return {
         "nickname": session.get("nickname"),
+        "google_email": session.get("google_email"),
+        "google_client_id": config.GOOGLE_CLIENT_ID,
+        "is_admin": _is_admin(),
         "git_commit": config.GIT_COMMIT,
         "mineral_labels": MINERAL_LABELS,
         "mineral_fields": MINERAL_FIELDS,
@@ -280,6 +293,8 @@ def add_water():
     if not session.get("nickname"):
         return redirect(url_for("index"))
     if request.method == "POST":
+        if _nickname_blocked():
+            return redirect(url_for("index"))
         if not verify_csrf_token():
             return _render_add_form(
                 prefill=dict(request.form),
@@ -436,7 +451,7 @@ def add_water():
 def add_water_photo():
     """Photo-first flow: the composition shot feeds the OCR and stays as
     verification proof; an optional front shot becomes the display photo."""
-    if not session.get("nickname"):
+    if not session.get("nickname") or _nickname_blocked():
         return redirect(url_for("index"))
     if not verify_csrf_token():
         return _render_add_form(
@@ -574,16 +589,103 @@ def login():
     nickname = (request.form.get("nickname") or "").strip().lower()
     if not _NICKNAME_RE.match(nickname):
         return redirect(request.referrer or url_for("index"))
+    user = repository.get_user(nickname)
+    if user and user.get("blocked"):
+        return redirect(request.referrer or url_for("index"))
     repository.touch_user(nickname)
     session["nickname"] = nickname
     return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/auth/google", methods=["POST"])
+def google_login():
+    """GIS login_uri target: Google's double-submit cookie replaces our
+    session CSRF here (the POST is minted by the GIS script, which has no
+    access to our form token)."""
+    if not config.GOOGLE_CLIENT_ID:
+        abort(404)
+    if not _LOGIN_LIMITER.allow(_client_ip()):
+        return redirect(url_for("index"))
+    body_token = request.form.get("g_csrf_token", "")
+    cookie_token = request.cookies.get("g_csrf_token", "")
+    if not body_token or body_token != cookie_token:
+        abort(403)
+    try:
+        identity = auth.verify_google_credential(request.form.get("credential", ""))
+    except auth.GoogleAuthError as exc:
+        logger.warning("Google Sign-In rejected.", extra={"error": str(exc)[:200]})
+        return redirect(url_for("index"))
+    session["google_email"] = identity["email"]
+    session["google_name"] = identity["name"]
+    # Google identity doubles as contributor identity: derive a nickname
+    # so signed-in users can favorite/add without the nick prompt.
+    if not session.get("nickname"):
+        derived = re.sub(r"[^a-z0-9_-]", "-", identity["email"].split("@")[0].lower())
+        derived = derived[:20].strip("-") or "user"
+        user = repository.get_user(derived)
+        if not (user and user.get("blocked")):
+            repository.touch_user(derived)
+            session["nickname"] = derived
+    return redirect(url_for("admin_page") if _is_admin() else url_for("index"))
 
 
 @app.route("/logout", methods=["POST"])
 def logout():
     if verify_csrf_token():
         session.pop("nickname", None)
+        session.pop("google_email", None)
+        session.pop("google_name", None)
     return redirect(url_for("index"))
+
+
+# --- Admin -------------------------------------------------------------------
+
+
+@app.route("/admin")
+def admin_page():
+    """Users table + moderation. Google-verified admin emails only; 404
+    while Sign-In is unconfigured so the surface simply doesn't exist."""
+    if not config.GOOGLE_CLIENT_ID:
+        abort(404)
+    if not _is_admin():
+        abort(403)
+    users = repository.get_all_users()
+    catalog = repository.get_all_waters()
+    contributions: dict = {}
+    for water in catalog:
+        contributor = (water.added_by or "").strip().lower()
+        if contributor and contributor != "seed":
+            contributions[contributor] = contributions.get(contributor, 0) + 1
+    rows = [
+        {
+            "nickname": nickname,
+            "created_at": (data.get("created_at") or "")[:10],
+            "last_seen": (data.get("last_seen") or "")[:10],
+            "favorites": len(data.get("favorites", [])),
+            "waters": contributions.get(nickname, 0),
+            "blocked": bool(data.get("blocked")),
+        }
+        for nickname, data in sorted(users.items())
+    ]
+    return render_template(
+        "admin.html",
+        rows=rows,
+        admin_emails=sorted(config.ADMIN_EMAILS),
+        meta_description="Administración de Be Water.",
+    )
+
+
+@app.route("/admin/bloquear/<nickname>", methods=["POST"])
+def admin_toggle_block(nickname: str):
+    if not config.GOOGLE_CLIENT_ID:
+        abort(404)
+    if not _is_admin() or not verify_csrf_token():
+        abort(403)
+    user = repository.get_user(nickname)
+    if user is None:
+        abort(404)
+    repository.set_user_blocked(nickname, not user.get("blocked"))
+    return redirect(url_for("admin_page"))
 
 
 @app.route("/favorito/<water_id>", methods=["POST"])

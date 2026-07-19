@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Admin · Be Water{% endblock %}
+
+{% block content %}
+<header class="text-center mb-8">
+    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">🛡️ Administración</h1>
+    <p class="mt-2 text-slate-500 text-sm">
+        Sesión verificada con Google: <span class="font-semibold">{{ google_email }}</span>
+    </p>
+</header>
+
+<section class="max-w-3xl mx-auto bg-white rounded-3xl ring-1 ring-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-left text-xs uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                    <th class="px-5 py-3">Usuario</th>
+                    <th class="px-3 py-3">Alta</th>
+                    <th class="px-3 py-3">Última visita</th>
+                    <th class="px-3 py-3 text-center">❤️</th>
+                    <th class="px-3 py-3 text-center">💧</th>
+                    <th class="px-5 py-3 text-right">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr class="border-b border-slate-50 {{ 'opacity-50' if row.blocked }}">
+                    <td class="px-5 py-3 font-semibold text-slate-800">
+                        {{ row.nickname }}
+                        {% if row.blocked %}<span class="ml-1 text-[10px] uppercase font-bold text-rose-500">bloqueado</span>{% endif %}
+                    </td>
+                    <td class="px-3 py-3 text-slate-500 tabular-nums">{{ row.created_at or '—' }}</td>
+                    <td class="px-3 py-3 text-slate-500 tabular-nums">{{ row.last_seen or '—' }}</td>
+                    <td class="px-3 py-3 text-center text-slate-600">{{ row.favorites }}</td>
+                    <td class="px-3 py-3 text-center text-slate-600">{{ row.waters }}</td>
+                    <td class="px-5 py-3 text-right">
+                        <form method="post" action="{{ url_for('admin_toggle_block', nickname=row.nickname) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            {% if row.blocked %}
+                            <button class="px-3 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700 ring-1 ring-teal-200 hover:bg-teal-100 transition">Desbloquear</button>
+                            {% else %}
+                            <button class="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100 transition">Bloquear</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not rows %}
+    <p class="text-center text-slate-400 py-10">Sin usuarios todavía.</p>
+    {% endif %}
+</section>
+
+<p class="max-w-3xl mx-auto mt-4 text-xs text-slate-400">
+    💧 = aguas aportadas · ❤️ = favoritas. Los bloqueados no pueden entrar ni
+    añadir. Admins actuales ({{ admin_emails | join(', ') }}) — para promover a
+    alguien, añade su email a <code>BEWATER_ADMIN_EMAILS</code> en deploy.yml.
+</p>
+{% endblock %}

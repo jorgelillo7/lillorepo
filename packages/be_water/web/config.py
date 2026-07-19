@@ -45,6 +45,19 @@ ADMIN_NICKNAMES = {
     if n.strip()
 }
 
+# --- Google Sign-In (admin + future public login) ---
+# Empty until the OAuth client exists (see docs/operations.md runbook):
+# the button hides and /admin returns 404, so shipping without it is safe.
+GOOGLE_CLIENT_ID = _FLASK_CFG.get("google_client_id") or os.getenv(
+    "GOOGLE_CLIENT_ID", ""
+)
+# Google-verified emails allowed into /admin (comma-separated env).
+ADMIN_EMAILS = {
+    e.strip().lower()
+    for e in os.getenv("BEWATER_ADMIN_EMAILS", "").split(",")
+    if e.strip()
+}
+
 # --- Telegram (catalog-sync notifications) ---
 TELEGRAM_BOT_TOKEN = _FLASK_CFG.get("telegram_bot_token", "")
 TELEGRAM_CHAT_ID = _FLASK_CFG.get("telegram_chat_id", "")

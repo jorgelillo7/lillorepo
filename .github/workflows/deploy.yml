@@ -537,6 +537,7 @@ jobs:
             --set-env-vars="\
           FIRESTORE_PROJECT=be-water-app,\
           BEWATER_ADMINS=jorgelillo,\
+          BEWATER_ADMIN_EMAILS=jorge.lillo9@gmail.com,\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 

@@ -315,6 +315,40 @@ inventory and `.github/workflows/README.md` for the cross-project deploy grants.
 
     URL: https://be-water-lzqhg7kcoa-no.a.run.app
 
+  * **🔐 Activar Google Sign-In + /admin (runbook — one manual step):**
+
+    All the code shipped 2026-07-19 and is dormant until `google_client_id`
+    exists. The button hides and `/admin` 404s meanwhile, so nothing breaks.
+    To activate:
+
+    1. Console → project **be-water-app** → *APIs & Services → OAuth consent
+       screen*: External · app name "Be Water" · support email
+       jorge.lillo9@gmail.com · no extra scopes · Publish (or keep Testing
+       and add your email as test user).
+    2. *Credentials → Create credentials → OAuth client ID → Web application*:
+       - Authorized JavaScript origins:
+         `https://be-water-lzqhg7kcoa-no.a.run.app` and `http://localhost:8080`
+       - Authorized redirect URIs:
+         `https://be-water-lzqhg7kcoa-no.a.run.app/auth/google`
+       Copy the client id (`xxxx.apps.googleusercontent.com`).
+    3. Add it to the consolidated secret (stays at 1 active version —
+       destroy the old one after verifying):
+
+       ```bash
+       gcloud secrets versions access latest --secret=flask-web-config-regional \
+           --project=be-water-app | \
+           python3 -c "import json,sys; d=json.load(sys.stdin); d['google_client_id']='PASTE_CLIENT_ID'; print(json.dumps(d))" | \
+           gcloud secrets versions add flask-web-config-regional \
+           --project=be-water-app --data-file=-
+       # after verifying login works:
+       gcloud secrets versions destroy 1 --secret=flask-web-config-regional --project=be-water-app
+       ```
+    4. Redeploy be-water (any merge, or Actions → Deploy → Run workflow) so
+       the new secret version binds.
+    5. Verify: the home shows the G button · sign in with
+       jorge.lillo9@gmail.com · 🛡️ Admin appears in the nav (admin emails
+       live in `BEWATER_ADMIN_EMAILS` in deploy.yml).
+
 ### Extra\. Core
 
   * **Tests:**

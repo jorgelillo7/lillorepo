@@ -62,6 +62,14 @@ def touch_user(nickname: str) -> None:
     firestore.set_document(USERS, nickname, user)
 
 
+def set_user_blocked(nickname: str, blocked: bool) -> None:
+    """Blocked users can't log in or contribute (enforced in the routes)."""
+    user = ensure_user(nickname)
+    user["blocked"] = blocked
+    firestore.set_document(USERS, nickname, user)
+    logger.info("User block toggled.", extra={"nickname": nickname, "blocked": blocked})
+
+
 def toggle_favorite(nickname: str, water_id: str) -> bool:
     """Add/remove a favorite. Returns True if it ended up as favorite."""
     user = ensure_user(nickname)
