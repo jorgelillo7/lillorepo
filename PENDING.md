@@ -59,10 +59,11 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      home. Revisit after the verification pass (item 2) — recommender
      places and province achievements assume Spanish geography and need
      a small rethink first.
-  5. **Before going public** (LinkedIn/Twitter): Google Sign-In, CSRF on
-     POST forms (generalise `biwenger_tools/web/csrf.py` into `core/`),
-     abuse basics (rate limiting, input caps), and optionally a domain
-     (~10 €/año, bought outside GCP).
+  5. **Before going public** (LinkedIn/Twitter): Google Sign-In is the
+     one remaining blocker — needs the OAuth consent screen (manual
+     Console step, USER-assisted). CSRF (now `core/web/csrf.py`), rate
+     limiting and input caps shipped 2026-07-19. Domain: PARKED (owner
+     call 2026-07-19, alongside the country field).
   5b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
      users table (last_seen/created_at already tracked), contributions,
      block/ban and promote-to-admin. Deliberately NOT built on

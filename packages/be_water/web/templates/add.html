@@ -28,6 +28,7 @@
      verificación; la frontal (opcional) es la que luce en la ficha. -->
 <form id="photo-form" method="post" action="{{ url_for('add_water_photo') }}" enctype="multipart/form-data"
       class="max-w-xl mx-auto mb-6 bg-gradient-to-br from-sky-50 to-cyan-50 rounded-3xl ring-1 ring-sky-200/60 p-6 text-center">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <p class="text-4xl mb-2">📸</p>
     <label for="photo" class="block font-bold text-slate-800 mb-1">Foto de la composición *</label>
     <p class="text-xs text-slate-500 mb-3">Que se lea la tabla de minerales (suele estar en el lateral o detrás) — la IA hace el resto</p>
@@ -56,6 +57,7 @@
 {% endif %}
 
 <form method="post" action="{{ url_for('add_water') }}" class="max-w-xl mx-auto bg-white rounded-3xl ring-1 ring-slate-200 p-6 sm:p-8 space-y-5">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% if photo_tmp %}<input type="hidden" name="photo_tmp" value="{{ photo_tmp }}">{% endif %}
     {% if label_tmp %}<input type="hidden" name="label_tmp" value="{{ label_tmp }}">{% endif %}
     {% if ocr_fields %}<input type="hidden" name="ocr_fields" value="{{ ocr_fields }}">{% endif %}

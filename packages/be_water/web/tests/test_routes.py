@@ -32,12 +32,34 @@ def _catalog():
     ]
 
 
+_CSRF = "test-csrf-token"
+
+
 @pytest.fixture()
 def client():
-    from packages.be_water.web.app import app
+    from packages.be_water.web import app as app_module
 
-    app.config["TESTING"] = True
-    with app.test_client() as client:
+    for limiter in (
+        app_module._LOGIN_LIMITER,
+        app_module._SAVE_LIMITER,
+        app_module._PHOTO_LIMITER,
+    ):
+        limiter.reset()
+    app_module.app.config["TESTING"] = True
+    with app_module.app.test_client() as client:
+        # Seed the session token and inject it into every POST so route
+        # tests exercise their real logic; CSRF rejection has its own tests.
+        with client.session_transaction() as sess:
+            sess["csrf_token"] = _CSRF
+        original_post = client.post
+
+        def post_with_csrf(*args, **kwargs):
+            data = kwargs.setdefault("data", {})
+            if isinstance(data, dict):
+                data.setdefault("csrf_token", _CSRF)
+            return original_post(*args, **kwargs)
+
+        client.post = post_with_csrf
         yield client
 
 
@@ -108,6 +130,68 @@ def test_recommend_with_favorites(client):
         resp = client.get("/recomendar?lugar=Segovia")
     assert resp.status_code == 200
     assert "Bezoya" in resp.get_data(as_text=True)
+
+
+def test_login_rejected_without_csrf(client):
+    with patch(f"{_REPO}.touch_user") as mock_touch:
+        client.post("/login", data={"nickname": "jorge", "csrf_token": "wrong"})
+    mock_touch.assert_not_called()
+
+
+def test_add_water_rejected_without_csrf(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save:
+        resp = client.post("/anadir", data={"name": "Font Nova", "csrf_token": "wrong"})
+    mock_save.assert_not_called()
+    assert "sesión ha caducado" in resp.get_data(as_text=True)
+
+
+def test_photo_uploads_are_rate_limited(client, monkeypatch):
+    from packages.be_water.web import app as app_module
+    from core.web.ratelimit import RateLimiter
+
+    monkeypatch.setattr(app_module, "_PHOTO_LIMITER", RateLimiter(1, 3600))
+    _login(client)
+    import io
+
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}):
+        first = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+        second = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "b.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert "revisa los valores" in first.get_data(as_text=True)
+    assert "Demasiadas fotos" in second.get_data(as_text=True)
+
+
+def test_form_fields_are_length_capped(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"):
+        client.post("/anadir", data={"name": "Agua " + "x" * 200})
+    saved = mock_save.call_args.args[0]
+    assert len(saved.name) == 80
+
+
+def test_absurd_mineral_values_are_dropped(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"):
+        client.post(
+            "/anadir",
+            data={"name": "Font Nova", "tds": "250", "sodium": "-3", "ph": "9999999"},
+        )
+    saved = mock_save.call_args.args[0]
+    assert saved.minerals == {"tds": 250.0}
 
 
 def test_recommend_falls_back_to_bordering_provinces(client):

@@ -6,7 +6,7 @@ import re
 from flask import Flask, g, request, session
 
 from packages.biwenger_tools.web import config, services
-from packages.biwenger_tools.web.csrf import get_csrf_token
+from core.web.csrf import get_csrf_token
 from packages.biwenger_tools.web.routes.admin import bp as admin_bp
 from packages.biwenger_tools.web.routes.main import bp as main_bp
 from packages.biwenger_tools.web.routes.season import bp as season_bp

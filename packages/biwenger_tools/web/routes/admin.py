@@ -16,7 +16,7 @@ from flask import (
 from core.sdk.gcp import trigger_cloud_run_job
 from core.utils import get_logger
 from packages.biwenger_tools.web import config
-from packages.biwenger_tools.web.csrf import verify_csrf_token
+from core.web.csrf import verify_csrf_token
 
 bp = Blueprint("admin", __name__)
 logger = get_logger(__name__)
