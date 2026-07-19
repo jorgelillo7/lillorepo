@@ -184,7 +184,7 @@ def test_aesan_coverage_is_accent_insensitive():
         {"name": "Solan de Cabras", "spring": "s", "place": "x", "province": "Cuenca"},
         {"name": "Agua de Quess", "spring": "q", "place": "x", "province": "Asturias"},
     ]
-    with patch(f"{_MOD}.AESAN_WATERS", aesan):
+    with patch("packages.be_water.web.aesan.AESAN_WATERS", aesan):
         summary, _ = _run(existing={})
     assert summary["aesan"]["covered"] == 2  # Bezoya + Solán (accent folded)
     assert summary["aesan"]["total"] == 3

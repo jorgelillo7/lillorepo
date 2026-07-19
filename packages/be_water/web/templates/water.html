@@ -2,6 +2,15 @@
 
 {% block title %}{{ water.name }} · Be Water{% endblock %}
 
+{% block og_extra %}
+{% if water.photo_url %}
+<meta property="og:image" content="{{ water.photo_url }}">
+<meta name="twitter:card" content="summary_large_image">
+{% else %}
+<meta name="twitter:card" content="summary">
+{% endif %}
+{% endblock %}
+
 {% block content %}
 {% set tone = 'sky' if water.mineralization == 'muy débil'
    else 'teal' if water.mineralization == 'débil'
