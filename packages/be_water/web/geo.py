@@ -118,9 +118,83 @@ PROVINCE_ADJACENCY = {
 
 ALL_PROVINCES = sorted(PROVINCE_ADJACENCY)
 
+_COMMUNITY_PROVINCES = {
+    "Andalucía": [
+        "Almería",
+        "Cádiz",
+        "Córdoba",
+        "Granada",
+        "Huelva",
+        "Jaén",
+        "Málaga",
+        "Sevilla",
+    ],
+    "Aragón": ["Huesca", "Teruel", "Zaragoza"],
+    "Asturias": ["Asturias"],
+    "Canarias": ["Las Palmas", "Santa Cruz de Tenerife"],
+    "Cantabria": ["Cantabria"],
+    "Castilla y León": [
+        "Ávila",
+        "Burgos",
+        "León",
+        "Palencia",
+        "Salamanca",
+        "Segovia",
+        "Soria",
+        "Valladolid",
+        "Zamora",
+    ],
+    "Castilla-La Mancha": [
+        "Albacete",
+        "Ciudad Real",
+        "Cuenca",
+        "Guadalajara",
+        "Toledo",
+    ],
+    "Cataluña": ["Barcelona", "Girona", "Lleida", "Tarragona"],
+    "Comunidad de Madrid": ["Madrid"],
+    "Comunidad Valenciana": ["Alicante", "Castellón", "Valencia"],
+    "Extremadura": ["Badajoz", "Cáceres"],
+    "Galicia": ["A Coruña", "Lugo", "Ourense", "Pontevedra"],
+    "Illes Balears": ["Illes Balears"],
+    "La Rioja": ["La Rioja"],
+    "Navarra": ["Navarra"],
+    "País Vasco": ["Álava", "Guipúzcoa", "Vizcaya"],
+    "Región de Murcia": ["Murcia"],
+}
+
+# Older sources (the AESAN PDF included) use pre-normalization spellings.
+_PROVINCE_ALIASES = {
+    "la coruna": "A Coruña",
+    "coruna": "A Coruña",
+    "gerona": "Girona",
+    "lerida": "Lleida",
+    "orense": "Ourense",
+    "baleares": "Illes Balears",
+    "islas baleares": "Illes Balears",
+    "gipuzkoa": "Guipúzcoa",
+    "bizkaia": "Vizcaya",
+    "araba": "Álava",
+}
+
 
 def _key(name: str) -> str:
     return unidecode(name).strip().lower()
+
+
+_PROVINCE_COMMUNITY = {
+    _key(province): community
+    for community, provinces in _COMMUNITY_PROVINCES.items()
+    for province in provinces
+}
+for _alias, _canonical in _PROVINCE_ALIASES.items():
+    _PROVINCE_COMMUNITY[_alias] = _PROVINCE_COMMUNITY[_key(_canonical)]
+
+
+def community_of(province: str) -> str:
+    """Autonomous community of a province, alias/accent tolerant; '' when
+    unknown."""
+    return _PROVINCE_COMMUNITY.get(_key(province), "")
 
 
 _INDEX = {_key(p): neighbors for p, neighbors in PROVINCE_ADJACENCY.items()}
