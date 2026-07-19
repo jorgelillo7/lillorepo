@@ -178,6 +178,26 @@ def test_user_only_alone_triggers_notification(monkeypatch):
     assert "Font Noba (maria)" in mock_send.call_args.kwargs["text"]
 
 
+def test_aesan_coverage_is_accent_insensitive():
+    aesan = [
+        {"name": "Bezoya", "spring": "Bezoya", "place": "x", "province": "Segovia"},
+        {"name": "Solan de Cabras", "spring": "s", "place": "x", "province": "Cuenca"},
+        {"name": "Agua de Quess", "spring": "q", "place": "x", "province": "Asturias"},
+    ]
+    with patch(f"{_MOD}.AESAN_WATERS", aesan):
+        summary, _ = _run(existing={})
+    assert summary["aesan"]["covered"] == 2  # Bezoya + Solán (accent folded)
+    assert summary["aesan"]["total"] == 3
+
+
+def test_notify_includes_aesan_line(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tok")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "chat")
+    with patch(f"{_MOD}.send_telegram_message") as mock_send:
+        _run(existing={})
+    assert "AESAN" in mock_send.call_args.kwargs["text"]
+
+
 def test_notify_skipped_without_creds(monkeypatch):
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)

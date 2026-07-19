@@ -19,10 +19,13 @@ consolidated Secret Manager JSON (the monthly Cloud Run Job); missing creds
 
 import os
 
+from unidecode import unidecode
+
 from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.be_water.web import config  # also sets FIRESTORE_PROJECT
+from packages.be_water.web.aesan_snapshot import AESAN_VERSION, AESAN_WATERS
 from packages.be_water.web.domain import Water
 from packages.be_water.web.repository import WATERS
 from packages.be_water.web.seed_data import SEED_WATERS
@@ -48,6 +51,27 @@ def _dataset_water(raw: dict) -> Water:
         # Dataset entries backed by a bottle-label photo carry verified=True.
         verified=raw.get("verified", False),
     )
+
+
+def _aesan_coverage() -> dict:
+    """How much of the official AESAN list the dataset already covers.
+
+    Name containment either way, accent-insensitive — good enough for a
+    stat; white labels won't match (they register under the producer).
+    """
+    aesan_names = {unidecode(e["name"]).strip().lower() for e in AESAN_WATERS}
+    dataset_names = {
+        unidecode(raw.get(field, "")).strip().lower()
+        for raw in SEED_WATERS
+        for field in ("name", "brand")
+        if raw.get(field)
+    }
+    covered = {a for a in aesan_names if any(a in d or d in a for d in dataset_names)}
+    return {
+        "version": AESAN_VERSION,
+        "total": len(aesan_names),
+        "covered": len(covered),
+    }
 
 
 def sync_catalog() -> dict:
@@ -119,6 +143,7 @@ def sync_catalog() -> dict:
         "kept_verified": kept_verified,
         "user_only": user_only,
         "dataset_size": len(SEED_WATERS),
+        "aesan": _aesan_coverage(),
     }
     # "created" is a reserved LogRecord attribute — prefix the extra keys.
     logger.info(
@@ -152,6 +177,11 @@ def _maybe_notify(summary: dict) -> None:
             f"👀 Solo de usuarios, no en el dataset "
             f"({len(summary['user_only'])}): " + ", ".join(summary["user_only"])
         )
+    aesan = summary["aesan"]
+    lines.append(
+        f"📋 AESAN {aesan['version']}: catálogo cubre "
+        f"{aesan['covered']} de {aesan['total']} reconocidas"
+    )
     send_telegram_message(bot_token=token, chat_id=chat_id, text="\n".join(lines))
 
 
@@ -162,7 +192,9 @@ def main() -> None:
         f"{len(summary['updated'])} actualizadas, "
         f"{summary['unchanged']} sin cambios, "
         f"{len(summary['kept_verified'])} verificadas intactas, "
-        f"{len(summary['user_only'])} solo de usuarios."
+        f"{len(summary['user_only'])} solo de usuarios. "
+        f"AESAN {summary['aesan']['version']}: "
+        f"{summary['aesan']['covered']}/{summary['aesan']['total']} cubiertas."
     )
 
 
