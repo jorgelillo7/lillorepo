@@ -573,7 +573,9 @@ El cambio de temporada es **manual e intencional** — ocurre cuando se resetea 
 
 ## 🛠️ Firestore maintenance scripts
 
-One-off surgical edits live under `scripts/`. All default to dry-run; pass `--apply` to write. They use ADC (`gcloud auth application-default login` once) and respect `FIRESTORE_PROJECT` / `GOOGLE_CLOUD_PROJECT`.
+One-off surgical edits live under `packages/biwenger_tools/scripts/`
+(run as `python3 packages/biwenger_tools/scripts/<script>.py` from the repo
+root). All default to dry-run; pass `--apply` to write. They use ADC (`gcloud auth application-default login` once) and respect `FIRESTORE_PROJECT` / `GOOGLE_CLOUD_PROJECT`.
 
 - **`biwenger_firestore_surgery.py`** — recovery toolkit for scraper mishaps (e.g. a `/scrapper` run against the wrong season). Three subcommands:
   - `list-messages <SEASON> [--author X] [--limit N]` — inspect `comunicados/{SEASON}/messages` and find a `doc-id`.

@@ -41,7 +41,7 @@ import argparse
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from core.domain.models import Participation  # noqa: E402
 from core.sdk.firestore import get_client  # noqa: E402
@@ -92,9 +92,8 @@ def _cmd_move_message(args) -> None:
     )
 
     client = get_client()
-    src_ref = (
-        client.collection(f"comunicados/{args.from_season}/messages")
-        .document(args.doc_id)
+    src_ref = client.collection(f"comunicados/{args.from_season}/messages").document(
+        args.doc_id
     )
     src_snap = src_ref.get()
     if not src_snap.exists:
@@ -127,10 +126,9 @@ def _cmd_move_message(args) -> None:
             file=sys.stderr,
         )
     else:
-        part_ref = (
-            client.collection(f"participacion/{args.to_season}/authors")
-            .document(new_autor)
-        )
+        part_ref = client.collection(
+            f"participacion/{args.to_season}/authors"
+        ).document(new_autor)
         part_snap = part_ref.get()
         if part_snap.exists:
             part_data = part_snap.to_dict() or {}
@@ -159,9 +157,8 @@ def _cmd_move_message(args) -> None:
         print("\n(dry-run) skipping writes.")
         return
 
-    target_ref = (
-        client.collection(f"comunicados/{args.to_season}/messages")
-        .document(args.doc_id)
+    target_ref = client.collection(f"comunicados/{args.to_season}/messages").document(
+        args.doc_id
     )
     target_ref.set(target_data)
     print(f"\nWrote comunicados/{args.to_season}/messages/{args.doc_id}.")
@@ -173,8 +170,10 @@ def _cmd_move_message(args) -> None:
             f"({bucket_name} bucket)."
         )
 
-    print("\nNote: source doc in {0} was NOT deleted. Use `wipe-season {0}` "
-          "or delete it manually if needed.".format(args.from_season))
+    print(
+        "\nNote: source doc in {0} was NOT deleted. Use `wipe-season {0}` "
+        "or delete it manually if needed.".format(args.from_season)
+    )
 
 
 def _cmd_wipe_season(args) -> None:
@@ -220,7 +219,9 @@ def main() -> None:
 
     p_move = sub.add_parser("move-message", help="Copy a message to another season.")
     p_move.add_argument("from_season", metavar="FROM", help="Source season, e.g. 26-27")
-    p_move.add_argument("to_season", metavar="TO", help="Destination season, e.g. 25-26")
+    p_move.add_argument(
+        "to_season", metavar="TO", help="Destination season, e.g. 25-26"
+    )
     p_move.add_argument("--doc-id", required=True, help="id_hash of the message.")
     p_move.add_argument(
         "--rename-author",
@@ -229,9 +230,7 @@ def main() -> None:
     p_move.add_argument("--apply", action="store_true", help="Actually write.")
     p_move.set_defaults(func=_cmd_move_message)
 
-    p_wipe = sub.add_parser(
-        "wipe-season", help="Delete all scraper data for a season."
-    )
+    p_wipe = sub.add_parser("wipe-season", help="Delete all scraper data for a season.")
     p_wipe.add_argument("season", help="Season key, e.g. 26-27")
     p_wipe.add_argument("--apply", action="store_true", help="Actually delete.")
     p_wipe.set_defaults(func=_cmd_wipe_season)
