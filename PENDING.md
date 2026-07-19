@@ -17,10 +17,22 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
   NOT drop it, the web still authenticates Sheets through that mount for
   `ligas_especiales` / `trofeos`.
-- **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
-  deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
-  Dockerfile.base generated from the lock, typed SDK exceptions,
-  ruff migration, coverage in CI.
+- **Parked by choice** (2026-07-19 review of the 2026-07-11 audit backlog;
+  shipped from it: dependabot, docs index, scripts move, typed
+  `BiwengerError`. Each survivor below waits for a trigger, not boredom):
+  - *Reusable deploy workflow* — deploy.yml is stable; refactoring it
+    risks prod for DRY aesthetics. Trigger: the next new service makes
+    the duplication actively painful.
+  - *Ruff migration* — lint already runs hermetically via Bazel
+    (black + flake8 from the lock, zero version drift, `scripts/lint.sh`).
+    Trigger: flake8 blocks something real; speed is a non-issue here.
+  - *Coverage in CI* — Bazel + pytest-cov plumbing (lock + every test
+    target) outweighs the visibility gain at 7 suites / 0.65 ratio.
+    Trigger: a shipped regression that coverage would have caught.
+  - *Gradual mypy* — start the day a type bug actually bites.
+  - *Parametrised `base_deps` / Dockerfile.base from the lock* —
+    build-system surgery guarded today by the add-python-dep skill.
+    Trigger: a package whose deps materially diverge from the base.
 
 ## biwenger_tools
 
