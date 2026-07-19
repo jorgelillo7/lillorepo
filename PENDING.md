@@ -43,27 +43,27 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   provenance, /acerca. Regularization done 2026-07-19 (cost script
   covers both projects, cleanup covers both registries, docs swept).
   Roadmap, in order:
-  1. **AESAN diff in catalog sync** (nice-to-have) — the monthly job
-     shipped 2026-07-19 (Cloud Run Job + Scheduler, Telegram notify);
-     what remains of the idea is diffing against the AESAN registry to
-     flag newly recognised springs/waters.
-  2. **Data verification pass** (USER-assisted): bottle-in-hand check of
+  1. **Data verification pass** (USER-assisted): bottle-in-hand check of
      the ~25 seeded compositions; photos of labels to me work great.
-     Full-label fichas now auto-promote to verified on save.
-  3. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
+     Full-label fichas now auto-promote to verified on save. The AESAN
+     snapshot shipped 2026-07-19 (`aesan_snapshot.py`, regenerate with
+     `scripts/refresh-aesan-snapshot.py` every few months — a git diff
+     there = newly recognised waters; note the official PDF is AMN/08
+     from 2018, so refreshes are about catching AESAN's next revision).
+  2. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
      add `country` to `Water` defaulting to "España" (backward compatible,
      one-line migration in `catalog_sync`). Unlocks international waters
      people actually find in Spanish supermarkets (Evian, Perrier,
      San Pellegrino…), a 🌍 achievement tier and country chips on the
-     home. Revisit after the verification pass (item 2) — recommender
+     home. Revisit after the verification pass (item 1) — recommender
      places and province achievements assume Spanish geography and need
      a small rethink first.
-  5. **Before going public** (LinkedIn/Twitter): Google Sign-In is the
+  3. **Before going public** (LinkedIn/Twitter): Google Sign-In is the
      one remaining blocker — needs the OAuth consent screen (manual
      Console step, USER-assisted). CSRF (now `core/web/csrf.py`), rate
      limiting and input caps shipped 2026-07-19. Domain: PARKED (owner
      call 2026-07-19, alongside the country field).
-  5b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
+  3b. **Admin page — gated on Google Sign-In** (owner decision 2026-07-18):
      users table (last_seen/created_at already tracked), contributions,
      block/ban and promote-to-admin. Deliberately NOT built on
      nickname-auth: banning a passwordless nickname is theatre. The
