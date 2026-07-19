@@ -45,6 +45,10 @@ ADMIN_NICKNAMES = {
     if n.strip()
 }
 
+# --- Telegram (catalog-sync notifications) ---
+TELEGRAM_BOT_TOKEN = _FLASK_CFG.get("telegram_bot_token", "")
+TELEGRAM_CHAT_ID = _FLASK_CFG.get("telegram_chat_id", "")
+
 # --- Deployed version metadata (short SHA, 7 chars) ---
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")

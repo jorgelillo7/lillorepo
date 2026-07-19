@@ -538,6 +538,17 @@ jobs:
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
+      - name: Update catalog sync job image
+        # The monthly sync job reuses the web image (its command override
+        # extracts core_srcs.tar before running catalog_sync, mirroring
+        # entrypoint.sh). Jobs pin the image digest at deploy time, so
+        # refresh it alongside the service.
+        run: |
+          gcloud run jobs update be-water-catalog-sync \
+            --image europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web \
+            --region ${{ env.REGION }} \
+            --project be-water-app
+
   # -------------------------------------------------------
   # 3. Clean up old images once any deploy succeeds
   # -------------------------------------------------------

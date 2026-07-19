@@ -9,8 +9,10 @@ Merge semantics (safe to re-run monthly as the dataset grows):
 - Exists and verified=True    → untouched (a checked bottle beats the dataset);
                                 counted so the summary shows drift.
 
-Optional Telegram notification when something changed: set
-TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (missing creds → silent skip).
+Optional Telegram notification when something changed: creds come from the
+TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID env vars (local runs) or from the
+consolidated Secret Manager JSON (the monthly Cloud Run Job); missing creds
+→ silent skip.
 
     bazel run //packages/be_water/web:sync_local
 """
@@ -20,7 +22,7 @@ import os
 from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
-from packages.be_water.web import config  # noqa: F401  (sets FIRESTORE_PROJECT)
+from packages.be_water.web import config  # also sets FIRESTORE_PROJECT
 from packages.be_water.web.domain import Water
 from packages.be_water.web.repository import WATERS
 from packages.be_water.web.seed_data import SEED_WATERS
@@ -127,8 +129,8 @@ def sync_catalog() -> dict:
 
 
 def _maybe_notify(summary: dict) -> None:
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or config.TELEGRAM_BOT_TOKEN
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip() or config.TELEGRAM_CHAT_ID
     if not (token and chat_id):
         return
     if not (summary["created"] or summary["updated"] or summary["user_only"]):

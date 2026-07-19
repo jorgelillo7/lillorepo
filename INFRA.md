@@ -32,6 +32,8 @@ The Be Water catalog (package `be_water`).
 | Product | In use | Notes |
 |---|---|---|
 | Cloud Run (services) | `be-water` | minScale=0, public |
+| Cloud Run (jobs) | `be-water-catalog-sync` | monthly via Scheduler; reuses the `web` image with a command override (extracts `core_srcs.tar`, runs `catalog_sync`) — CI refreshes its image on every be_water deploy |
+| Cloud Scheduler | `be-water-catalog-sync-monthly` — **`europe-west1`** | day 1, 09:00 Madrid |
 | Firestore | `(default)` — `europe-southwest1` | waters, users |
 | Cloud Storage | `be-water-photos` — **`us-central1`** | bottle photos, public read. Deliberately US: Storage's 5 GB always-free tier only exists in US regions; Madrid would bill from byte one |
 | Artifact Registry | `be-water-docker` | `web` image (base pulled from `biwenger-docker`) |
@@ -56,7 +58,9 @@ repo so the CI cleanup job can delete old digests.
 - Everything above fits the free tiers **except** sub-cent dust: Secret
   Manager sits at exactly **6/6 free versions across the billing account**
   (quota is per billing account, not per project — consolidate before
-  creating a 7th), and photo storage rides the US always-free tier.
+  creating a 7th), Cloud Scheduler at **3/3 free jobs** (same account-wide
+  quota — the next cron needs a paid job or a consolidation), and photo
+  storage rides the US always-free tier.
 - One €1 budget alert per project; `scripts/check-gcp-costs.sh` is the
   auditor — run without flags it sweeps both projects and closes with the
   account-wide Secret Manager version count.
