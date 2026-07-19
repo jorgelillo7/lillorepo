@@ -362,6 +362,55 @@ def test_merge_into_updates_the_confirmed_match(client):
     assert saved.minerals["calcium"] == 2.4  # existing extra survives
 
 
+def test_exact_name_different_spring_prompts(client):
+    """Font Vella case: same commercial name, another spring — ask, don't
+    silently merge two different waters."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.spring = "Font Vella Sacalm"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ):
+        resp = client.post(
+            "/anadir",
+            data={"name": "Bezoya", "spring": "Font Vella Sigüenza"},
+        )
+    mock_save.assert_not_called()
+    assert "Se parece a" in resp.get_data(as_text=True)
+
+
+def test_exact_name_different_spring_force_new_disambiguates_id(client):
+    _login(client)
+    existing = _catalog()[1]
+    existing.spring = "Sacalm"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water",
+        side_effect=lambda wid: existing if wid == "bezoya" else None,
+    ), patch(f"{_REPO}.touch_user"):
+        resp = client.post(
+            "/anadir",
+            data={"name": "Bezoya", "spring": "Sigüenza", "force_new": "1"},
+        )
+    assert resp.status_code == 302
+    assert mock_save.call_args.args[0].id == "bezoya-siguenza"
+
+
+def test_verified_water_with_other_spring_still_offers_create(client):
+    """A different-spring bottle must not dead-end on the verified error."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.spring = "Sacalm"
+    existing.verified = True
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ):
+        resp = client.post("/anadir", data={"name": "Bezoya", "spring": "Sigüenza"})
+    mock_save.assert_not_called()
+    body = resp.get_data(as_text=True)
+    assert "Se parece a" in body
+    assert "verificada" not in body or "Es otra" in body
+
+
 def test_retailer_badge_renders_on_cards(client):
     with patch(f"{_REPO}.get_all_waters", return_value=_naturis_catalog()):
         resp = client.get("/")

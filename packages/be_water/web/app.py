@@ -79,6 +79,14 @@ def _form_field(name: str) -> str:
     return (request.form.get(name) or "").strip()[:_MAX_FIELD_LEN]
 
 
+def _springs_differ(submitted: str, current: str) -> bool:
+    """True when both springs are declared and neither's token set contains
+    the other's — i.e. genuinely different sources, not spelling drift."""
+    a = set(_SLUG_RE.sub(" ", unidecode(submitted).lower()).split())
+    b = set(_SLUG_RE.sub(" ", unidecode(current).lower()).split())
+    return bool(a) and bool(b) and not (a <= b or b <= a)
+
+
 def _similar_water(name: str, catalog: list[Water]) -> Optional[Water]:
     """Fuzzy duplicate guard: token-subset match on normalized names, so
     "Naturis" flags «Naturis (Lidl) — Albacete». Exact slugs are handled
@@ -291,6 +299,31 @@ def add_water():
                     ocr_fields=request.form.get("ocr_fields") or None,
                     similar=similar,
                 )
+        if (
+            existing is not None
+            and not merge_into
+            and not request.form.get("force_new")
+            and _springs_differ(_form_field("spring"), existing.spring)
+        ):
+            # Exact commercial name, different spring — the Font Vella case
+            # (Sacalm vs Sigüenza): ask instead of silently merging.
+            return _render_add_form(
+                prefill=dict(request.form),
+                photo_tmp=request.form.get("photo_tmp") or None,
+                label_tmp=request.form.get("label_tmp") or None,
+                ocr_fields=request.form.get("ocr_fields") or None,
+                similar=existing,
+            )
+        if existing is not None and request.form.get("force_new"):
+            # A new water sharing the exact name: id disambiguated by the
+            # spring tokens the name doesn't already carry.
+            spring_tokens = _SLUG_RE.sub(
+                " ", unidecode(_form_field("spring")).lower()
+            ).split()
+            extra = [t for t in spring_tokens if t not in water_id]
+            if extra:
+                water_id = f"{water_id}-{'-'.join(extra)}"
+                existing = repository.get_water(water_id)
         if existing is not None and existing.verified:
             # A verified water is bottle-checked and data-frozen.
             return _render_add_form(
