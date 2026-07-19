@@ -35,6 +35,9 @@ def mock_services():
 @pytest.fixture
 def client():
     """Create a Flask test client."""
+    from packages.biwenger_tools.web.routes import admin as admin_routes
+
+    admin_routes._LOGIN_LIMITER.reset()
     app.config["TESTING"] = True
     app.config["SECRET_KEY"] = "test_key"
     with app.test_client() as client:
@@ -349,6 +352,22 @@ def test_admin_login_post_fail(client):
         "/admin", data={"password": "wrong_password", "csrf_token": token}
     )
     assert response.status_code == 200
+    with client.session_transaction() as sess:
+        assert "admin_logged_in" not in sess
+
+
+@patch("packages.biwenger_tools.web.app.config.ADMIN_PASSWORD", "test_password")
+def test_admin_login_rate_limited_after_burst(client):
+    """The 11th attempt in the window bounces even with the right password."""
+    token = _seed_csrf(client)
+    for _ in range(10):
+        client.post("/admin", data={"password": "nope", "csrf_token": token})
+    response = client.post(
+        "/admin",
+        data={"password": "test_password", "csrf_token": token},
+        follow_redirects=True,
+    )
+    assert "Demasiados intentos" in response.get_data(as_text=True)
     with client.session_transaction() as sess:
         assert "admin_logged_in" not in sess
 
