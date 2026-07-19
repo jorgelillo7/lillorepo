@@ -2,6 +2,19 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.3 - The Registry Update (19 July 2026)**
+
+Same day as v1.2, because the owner kept testing bottles and every bottle taught the app something. The official Spanish registry went from footnote to backbone, a Lidl bottle exposed that "one brand" can mean two different waters, and the groundwork for Google Sign-In shipped complete — dormant, waiting for one OAuth click.
+
+* **📋 The official registry, working for you (the headline)**: the AESAN list of 160 recognised natural mineral waters now lives in the repo (parsed from the official PDF, refresh script included — a git diff there means Spain recognised new waters). It powers three things: the **mission bar** on /comunidad ("41 de 160 fichadas — quedan 119"), live coverage numbers on /acerca, and **provenance autofill**: photograph a label and spring/province/community complete themselves from official data. The registry carries identity only, never compositions — those still come from labels.
+* **🫙 The Naturis lesson**: the owner photographed a Lidl Naturis and the app filed it next to the seeded one — investigation revealed they are *genuinely different waters* (Huerta del Arquillo, Badajoz, 24 mg/L vs Fuente Arquillo, Albacete, 307 mg/L). White labels bottle from several springs; AESAN's own model is one recognition per spring. Now the house convention too: one ficha per (brand, spring), both Naturis disambiguated, and Font Vella renamed «Font Vella — Sacalm» before its Sigüenza twin shows up.
+* **🤔 Duplicate guards that ask, not guess**: similar names («Naturis» vs «Naturis (Lidl)») and exact names with a different declared spring (the Font Vella trap) both stop the save and ask — *"¿Es la misma — actualizarla, o es otra — crear nueva?"*. Photo and OCR survive the round-trip; "create anyway" derives a spring-disambiguated id.
+* **🛒 White-label badges**: supermarket own brands (Lidl, Dia, Carrefour) wear a discreet cart badge. Investigated and resisted: Mercadona has no white-label water — it sells supplier brands, so Agua de Cortes awaits its own bottle photo.
+* **🧾 The form grew sections**: 🪪 Identidad (with the con-gas toggle finally visible), 🧪 Composición de la etiqueta, ➕ Otros valores (opcional) — so a label that declares 8 of 11 values reads as complete, not half-done. Verification semantics untouched.
+* **🛡️ Going-public armor**: CSRF tokens on every form (generalised into `core/web/`), per-IP rate limits (the photo one doubles as a Gemini spend cap), 80-char field caps and sane mineral bounds.
+* **🔑 Google Sign-In + admin, dormant**: the full flow shipped — GIS button, server-side JWT verification (zero new deps), /admin with users table, contributions and block/ban, admin emails via env. Hidden until `google_client_id` lands in the secret; activation is a 10-minute runbook in `docs/operations.md`. That flip will be **v2.0**.
+* **🔎 SEO round**: /comunidad and /acerca joined the sitemap, and shared water links now preview the studio photo (`og:image` + large card). The bottles finally show up on timelines.
+
 ### **v1.2 - The Community Update (19 July 2026)**
 
 The catalog grew from 25 to 40 waters, got itself a public leaderboard, and learned to run without supervision. Also: the owner tried to add Font Vella from his phone at 1:49 AM, hit three walls, and all three are gone.
