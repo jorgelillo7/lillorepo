@@ -1,0 +1,15 @@
+# GitHub Actions only. Python deps are deliberately excluded: the
+# three-level lock flow (requirements.txt → requirements.in → pip-compile
+# lock) plus the Bazel wiring and the python-base image rebuild cannot be
+# driven by a bot — use the add-python-dep skill instead.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      # One PR per month covering every action bump — each merge of
+      # deploy.yml triggers a full redeploy, so batching beats five PRs.
+      actions:
+        patterns: ["*"]
