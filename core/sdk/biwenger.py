@@ -12,6 +12,12 @@ from core.utils import get_logger
 
 logger = get_logger(__name__)
 
+
+class BiwengerError(Exception):
+    """Biwenger API returned a well-formed but unusable response (bad
+    login, missing league…). Transport errors stay requests exceptions."""
+
+
 # --- Public Biwenger API URLs ---
 # Any package can import these constants instead of redefining them.
 BIWENGER_API_BASE = "https://biwenger.as.com/api/v2"
@@ -105,7 +111,7 @@ class BiwengerClient:
         login_response.raise_for_status()
         token = login_response.json().get("token")
         if not token:
-            raise Exception("Login failed: no token received.")
+            raise BiwengerError("Login failed: no token received.")
         logger.info("Session token obtained.")
 
         self.session.headers.update(login_headers)
@@ -123,7 +129,7 @@ class BiwengerClient:
                 break
 
         if not self.user_id:
-            raise Exception(f"Could not find user ID for league {self.league_id}.")
+            raise BiwengerError(f"Could not find user ID for league {self.league_id}.")
         logger.info(
             "User ID obtained.",
             extra={"user_id": self.user_id, "league_id": self.league_id},
