@@ -17,14 +17,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
   NOT drop it, the web still authenticates Sheets through that mount for
   `ligas_especiales` / `trofeos`.
-- **Watchdog for lost GitHub push events** — GitHub dropped two push
-  events on 2026-07-18 alone (the PR #72 syndrome): merges landed on
-  master with no deploy run, plus one dispatch that snapshotted a stale
-  master sha. The workflow can't guard itself (no event → no run).
-  Options: a scheduled job comparing master HEAD vs the latest deploy
-  run's sha (dispatch on drift), or a required check in the merging
-  session. Until then: after every merge, verify a run exists for the
-  merge sha and `/version` matches after deploy.
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
   Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the

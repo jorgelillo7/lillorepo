@@ -20,6 +20,8 @@ on:
       - "packages/chucknorris_bot/**"
       - "packages/be_water/**"
       - "tools/**"
+      - "docker/**"
+      - "MODULE.bazel"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
     inputs:

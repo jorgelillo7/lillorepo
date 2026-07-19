@@ -25,6 +25,16 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
    - **be_water/web** → `be-water` Cloud Run Service on the `be-water-app` project (cross-project, see below)
 5. **Clean up old images** — runs `scripts/clean-images-artifact.sh` to prune stale digests from both Artifact Registry repos (`biwenger-docker` + `be-water-docker`).
 
+## deploy-watchdog.yml
+
+Daily scheduled guard against lost push events (the "PR #72 syndrome":
+GitHub occasionally drops the push event, so a merge lands on master with no
+deploy run and the workflow cannot guard itself). It compares master HEAD
+with the latest `deploy.yml` run's snapshot; when deployable paths changed
+without a run, it dispatches a full deploy. Docs-only merges (which
+legitimately trigger no run) are recognised and skipped. Its path filter
+must mirror `deploy.yml`'s `on.push.paths` — update both together.
+
 ## Required GitHub secrets
 
 | Secret | Description |
