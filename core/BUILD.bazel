@@ -98,6 +98,20 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "web",
+    srcs = [
+        "web/__init__.py",
+        "web/csrf.py",
+        "web/ratelimit.py",
+    ],
+    deps = [
+        ":_init",
+        "@pypi//flask",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # ------------------------------------------------------------------
 # Umbrella target — backward compat for existing //core references
 # ------------------------------------------------------------------
@@ -111,6 +125,7 @@ py_library(
         ":http",
         ":jp",
         ":telegram",
+        ":web",
     ],
     visibility = ["//visibility:public"],
 )

@@ -41,6 +41,7 @@
             </div>
             {% if nickname %}
             <form method="post" action="{{ url_for('favorite', water_id=water.id) }}" class="mt-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 {% if water.id in favorite_ids %}
                     <button class="px-5 py-2.5 rounded-full bg-rose-100 text-rose-600 font-bold text-sm hover:bg-rose-200 transition">❤️ Favorita — quitar</button>
                 {% else %}

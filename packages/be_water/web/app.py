@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 
 from core.sdk.gemini import GeminiError
 from core.utils import get_logger
+from core.web.csrf import get_csrf_token, verify_csrf_token
+from core.web.ratelimit import RateLimiter
 from packages.be_water.web import (
     community,
     config,
@@ -36,6 +38,14 @@ logger = get_logger(__name__)
 
 _NICKNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{2,20}$")
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+# Abuse basics for the public phase: per-instance sliding windows keyed by
+# client IP. The photo limit doubles as a spend cap on the Gemini calls.
+_LOGIN_LIMITER = RateLimiter(20, 300)
+_SAVE_LIMITER = RateLimiter(30, 3600)
+_PHOTO_LIMITER = RateLimiter(15, 3600)
+_MAX_FIELD_LEN = 80
+_MAX_MINERAL_VALUE = 100_000  # mg/L — beyond this it's not water
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 app = Flask(__name__, template_folder=template_dir)
@@ -54,7 +64,18 @@ def inject_globals() -> dict:
         "git_commit": config.GIT_COMMIT,
         "mineral_labels": MINERAL_LABELS,
         "mineral_fields": MINERAL_FIELDS,
+        "csrf_token": get_csrf_token,
     }
+
+
+def _client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return forwarded.split(",")[0].strip() or request.remote_addr or "?"
+
+
+def _form_field(name: str) -> str:
+    """Trimmed form value, length-capped — nobody's manantial needs 80+ chars."""
+    return (request.form.get(name) or "").strip()[:_MAX_FIELD_LEN]
 
 
 def _places(catalog: list[Water]) -> list[str]:
@@ -219,7 +240,17 @@ def add_water():
     if not session.get("nickname"):
         return redirect(url_for("index"))
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
+        if not verify_csrf_token():
+            return _render_add_form(
+                prefill=dict(request.form),
+                error="La sesión ha caducado — recarga la página e inténtalo de nuevo.",
+            )
+        if not _SAVE_LIMITER.allow(_client_ip()):
+            return _render_add_form(
+                prefill=dict(request.form),
+                error="Demasiadas aguas en poco tiempo — espera un rato.",
+            )
+        name = _form_field("name")
         if not name:
             abort(400)
         # unidecode first: "Lanjarón" must slug to "lanjaron", not "lanjar-n",
@@ -241,9 +272,11 @@ def add_water():
             raw = (request.form.get(field) or "").strip().replace(",", ".")
             if raw:
                 try:
-                    minerals[field] = float(raw)
+                    value = float(raw)
                 except ValueError:
-                    pass
+                    continue
+                if 0 <= value <= _MAX_MINERAL_VALUE:
+                    minerals[field] = value
         photo_url = None
         label_photo_url = None
         photo_tmp = (request.form.get("photo_tmp") or "").strip()
@@ -265,10 +298,10 @@ def add_water():
         water = Water(
             id=water_id,
             name=name,
-            brand=(request.form.get("brand") or name).strip(),
-            spring=(request.form.get("spring") or "").strip(),
-            province=(request.form.get("province") or "").strip(),
-            community=(request.form.get("community") or "").strip(),
+            brand=_form_field("brand") or name,
+            spring=_form_field("spring"),
+            province=_form_field("province"),
+            community=_form_field("community"),
             sparkling=request.form.get("sparkling") == "on",
             minerals=minerals,
             photo_url=photo_url,
@@ -285,7 +318,7 @@ def add_water():
             water.spring = water.spring or existing.spring
             water.province = water.province or existing.province
             water.community = water.community or existing.community
-            if not (request.form.get("brand") or "").strip():
+            if not _form_field("brand"):
                 water.brand = existing.brand or water.brand
             water.photo_url = water.photo_url or existing.photo_url
             water.label_photo_url = water.label_photo_url or existing.label_photo_url
@@ -319,6 +352,14 @@ def add_water_photo():
     verification proof; an optional front shot becomes the display photo."""
     if not session.get("nickname"):
         return redirect(url_for("index"))
+    if not verify_csrf_token():
+        return _render_add_form(
+            error="La sesión ha caducado — recarga la página e inténtalo de nuevo."
+        )
+    if not _PHOTO_LIMITER.allow(_client_ip()):
+        return _render_add_form(
+            error="Demasiadas fotos en poco tiempo — espera un rato."
+        )
     upload = request.files.get("photo")
     if upload is None or not upload.filename:
         return redirect(url_for("add_water"))
@@ -412,6 +453,8 @@ def _render_add_form(
 
 @app.route("/login", methods=["POST"])
 def login():
+    if not verify_csrf_token() or not _LOGIN_LIMITER.allow(_client_ip()):
+        return redirect(request.referrer or url_for("index"))
     nickname = (request.form.get("nickname") or "").strip().lower()
     if not _NICKNAME_RE.match(nickname):
         return redirect(request.referrer or url_for("index"))
@@ -422,12 +465,15 @@ def login():
 
 @app.route("/logout", methods=["POST"])
 def logout():
-    session.pop("nickname", None)
+    if verify_csrf_token():
+        session.pop("nickname", None)
     return redirect(url_for("index"))
 
 
 @app.route("/favorito/<water_id>", methods=["POST"])
 def favorite(water_id: str):
+    if not verify_csrf_token():
+        return redirect(request.referrer or url_for("water_detail", water_id=water_id))
     nickname = session.get("nickname")
     if nickname:
         repository.toggle_favorite(nickname, water_id)
