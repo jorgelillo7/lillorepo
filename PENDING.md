@@ -19,8 +19,8 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   `ligas_especiales` / `trofeos`.
 - **Deferred audit items** (audit 2026-07-11, revisit when bored): reusable
   deploy workflow, gradual mypy, parametrised `base_deps` in `python_service`,
-  Dockerfile.base generated from the lock, move `scripts/biwenger_*.py` into the
-  package, typed SDK exceptions, ruff migration, coverage in CI.
+  Dockerfile.base generated from the lock, typed SDK exceptions,
+  ruff migration, coverage in CI.
 
 ## biwenger_tools
 

@@ -14,7 +14,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from core.sdk.firestore import get_client  # noqa: E402
 from packages.biwenger_tools.scraper_job.logic.processing import (  # noqa: E402
