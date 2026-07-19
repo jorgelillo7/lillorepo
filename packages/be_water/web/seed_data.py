@@ -87,9 +87,11 @@ SEED_WATERS = [
                 "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
             }
         ],
-        "name": "Font Vella",
+        # AESAN registers two Font Vella springs (Sacalm + Sigüenza) with
+        # different profiles — the name carries the spring, Naturis-style.
+        "name": "Font Vella — Sacalm",
         "brand": "Font Vella",
-        "spring": "Sant Hilari Sacalm",
+        "spring": "Font Vella Sacalm (Sant Hilari Sacalm)",
         "province": "Girona",
         "community": "Cataluña",
         "minerals": {
