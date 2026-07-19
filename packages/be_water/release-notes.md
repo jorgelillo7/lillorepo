@@ -2,6 +2,20 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.2 - The Community Update (19 July 2026)**
+
+The catalog grew from 25 to 40 waters, got itself a public leaderboard, and learned to run without supervision. Also: the owner tried to add Font Vella from his phone at 1:49 AM, hit three walls, and all three are gone.
+
+* **🏆 /comunidad (the headline)**: public contributor ranking — score = waters added + label values verified — with all-time and monthly views, plus the full achievements showcase: from 🍼 *Primera gota* to 🗺️ *Manantial andante*, unearned ones included, because seeing what you're missing is half the incentive.
+* **🥇 The OCU top-11, complete**: every water from the OCU's quality podium is now in the catalog — white labels included (Hacendado and friends) — each wearing a mention-and-link badge. Strictly *mention and link*: the scores stay on OCU's site, where they belong.
+* **💧 40 waters, 20 provinces**: two catalog batches added fifteen waters and the home now says so — live counters for aguas · provincias · verificadas, plus 🫧 badges and a dedicated filter for the sparkling minority (2/40 and proud).
+* **📸 Two-photo adds**: the composition label (usually the ugly side of the bottle) feeds the OCR and stays as verification proof; an optional front shot becomes the ficha photo. With a proper full-screen "🔮 Leyendo la etiqueta…" overlay, and the mobile file picker finally offers the gallery (`capture` attribute, you are not missed).
+* **🤝 Contributions that land somewhere**: saving an existing unverified water now *updates* it instead of dead-ending — your reviewed values win, existing photos and mentions survive, and seeded waters get adopted by whoever backs them with a label. Font Vella is now `jorgelillo`'s, fair and square.
+* **✅ Auto-verified**: when every declared mineral is label-backed, the ficha promotes itself to fully verified and the dataset can never overwrite it. Mixed fichas (labels declare 4 of 10 values — looking at you, Lanjarón) keep their honest per-field checks, now protected field-by-field against the monthly sync.
+* **🤖 Monthly autopilot**: `catalog_sync` runs as a Cloud Run Job on a monthly Scheduler tick (day 1, 09:00 Madrid) — reusing the web image, no new infrastructure — and reports to Telegram, including waters the dataset doesn't know about: genuine discoveries or typo'd names, either way a human should look.
+* **🧭 Madrid, solved**: pick a province with no local waters and the recommender falls back to its bordering provinces — powered by a full 50-province adjacency map with test-enforced symmetry. Madrid finally gets answers (from Segovia, mostly, as nature intended).
+* **🔍 Accent-proof search**: "lanjaron" finds «Lanjarón» — the client-side sibling of v1.1's slug bug, now both extinct.
+
 ### **v1.1 - The Camera Update (18 July 2026)**
 
 v1.0 teased it; v1.1 delivers it. The phone camera is now the front door of the catalog: photograph a label anywhere and the app reads it, files it, and — if you're one of the chosen four — turns your supermarket snapshot into a studio product shot. Validated the honest way: the owner added Lanjarón from a checkout queue, and the bugs he found are all fixed in this same release.
