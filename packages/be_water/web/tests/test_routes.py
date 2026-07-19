@@ -39,9 +39,11 @@ _CSRF = "test-csrf-token"
 def client(monkeypatch):
     from packages.be_water.web import app as app_module
 
-    # Default: empty catalog for the fuzzy-duplicate guard; tests that need
-    # one patch repository.get_all_waters themselves (their patch wins).
+    # Defaults so route guards don't hit Firestore: empty catalog for the
+    # fuzzy-duplicate check, unknown user for the blocked check. Tests that
+    # need real values patch repository themselves (their patch wins).
     monkeypatch.setattr(app_module.repository, "get_all_waters", lambda: [])
+    monkeypatch.setattr(app_module.repository, "get_user", lambda nickname: None)
     for limiter in (
         app_module._LOGIN_LIMITER,
         app_module._SAVE_LIMITER,
@@ -228,6 +230,90 @@ def _login(client):
 def test_add_water_requires_login(client):
     resp = client.get("/anadir")
     assert resp.status_code == 302
+
+
+def _google_login(client, email="admin@x.com"):
+    client.set_cookie("g_csrf_token", "gtok")
+    with patch(
+        f"{_APP}.auth.verify_google_credential",
+        return_value={"email": email, "name": "Admin", "picture": ""},
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.get_user", return_value=None):
+        return client.post(
+            "/auth/google",
+            data={"credential": "jwt", "g_csrf_token": "gtok", "csrf_token": ""},
+        )
+
+
+def test_google_routes_hidden_until_configured(client):
+    assert client.post("/auth/google", data={}).status_code == 404
+    assert client.get("/admin").status_code == 404
+
+
+def test_google_login_sets_identity_and_derives_nickname(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"):
+        resp = _google_login(client, "maria.perez@gmail.com")
+    assert resp.status_code == 302
+    with client.session_transaction() as sess:
+        assert sess["google_email"] == "maria.perez@gmail.com"
+        assert sess["nickname"] == "maria-perez"
+
+
+def test_google_login_rejects_csrf_cookie_mismatch(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"):
+        client.set_cookie("g_csrf_token", "gtok")
+        resp = client.post(
+            "/auth/google", data={"credential": "jwt", "g_csrf_token": "OTRO"}
+        )
+    assert resp.status_code == 403
+
+
+def test_admin_page_requires_admin_email(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        assert client.get("/admin").status_code == 403  # signed out
+        _google_login(client, "otra@x.com")
+        assert client.get("/admin").status_code == 403  # signed in, not admin
+        _google_login(client, "admin@x.com")
+        with patch(
+            f"{_REPO}.get_all_users",
+            return_value={
+                "maria": {"favorites": ["a"], "created_at": "2026-07-01T00:00:00"}
+            },
+        ), patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+            resp = client.get("/admin")
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "maria" in body
+    assert "Bloquear" in body
+
+
+def test_admin_block_toggle_and_blocked_login(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(
+            f"{_REPO}.get_user", return_value={"favorites": [], "blocked": False}
+        ), patch(f"{_REPO}.set_user_blocked") as mock_block:
+            resp = client.post("/admin/bloquear/maria")
+    assert resp.status_code == 302
+    mock_block.assert_called_once_with("maria", True)
+
+
+def test_blocked_nickname_cannot_login_or_add(client):
+    with patch(f"{_REPO}.get_user", return_value={"blocked": True}), patch(
+        f"{_REPO}.touch_user"
+    ) as mock_touch:
+        client.post("/login", data={"nickname": "maria"})
+    mock_touch.assert_not_called()
+    _login(client)  # jorge logs in fine (get_user patched per-call below)
+    with patch(f"{_REPO}.get_user", return_value={"blocked": True}), patch(
+        f"{_REPO}.save_water"
+    ) as mock_save:
+        resp = client.post("/anadir", data={"name": "Font Nova"})
+    assert resp.status_code == 302
+    mock_save.assert_not_called()
 
 
 def test_community_shows_aesan_progress(client):
