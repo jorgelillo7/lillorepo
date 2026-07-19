@@ -61,43 +61,62 @@
     {% if photo_tmp %}<input type="hidden" name="photo_tmp" value="{{ photo_tmp }}">{% endif %}
     {% if label_tmp %}<input type="hidden" name="label_tmp" value="{{ label_tmp }}">{% endif %}
     {% if ocr_fields %}<input type="hidden" name="ocr_fields" value="{{ ocr_fields }}">{% endif %}
-    <div class="grid sm:grid-cols-2 gap-4">
-        <div class="sm:col-span-2">
-            <label class="block text-sm font-semibold text-slate-700 mb-1" for="name">Nombre *</label>
-            <input id="name" name="name" required placeholder="Agua de Benassal" value="{{ prefill.get('name', '') }}"
-                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+    <fieldset class="space-y-4">
+        <legend class="font-bold text-slate-800">🪪 Identidad</legend>
+        <div class="grid sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="name">Nombre *</label>
+                <input id="name" name="name" required placeholder="Agua de Benassal" value="{{ prefill.get('name', '') }}"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="spring">Manantial</label>
+                <input id="spring" name="spring" placeholder="Font d'en Segures" value="{{ prefill.get('spring', '') }}"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="brand">Marca</label>
+                <input id="brand" name="brand" placeholder="(si difiere del nombre)" value="{{ prefill.get('brand', '') }}"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="province">Provincia</label>
+                <input id="province" name="province" placeholder="Castellón" value="{{ prefill.get('province', '') }}"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="community">Comunidad</label>
+                <input id="community" name="community" placeholder="Comunidad Valenciana" value="{{ prefill.get('community', '') }}"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
         </div>
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1" for="spring">Manantial</label>
-            <input id="spring" name="spring" placeholder="Font d'en Segures" value="{{ prefill.get('spring', '') }}"
-                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
-        </div>
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1" for="brand">Marca</label>
-            <input id="brand" name="brand" placeholder="(si difiere del nombre)" value="{{ prefill.get('brand', '') }}"
-                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
-        </div>
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1" for="province">Provincia</label>
-            <input id="province" name="province" placeholder="Castellón" value="{{ prefill.get('province', '') }}"
-                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
-        </div>
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1" for="community">Comunidad</label>
-            <input id="community" name="community" placeholder="Comunidad Valenciana" value="{{ prefill.get('community', '') }}"
-                   class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
-        </div>
-    </div>
+        <label class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-sky-50 ring-1 ring-sky-200/70 text-sm font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" name="sparkling" {% if prefill.get('sparkling') %}checked{% endif %}
+                   class="rounded text-sky-500 focus:ring-sky-400 h-4 w-4">
+            🫧 Es agua con gas
+        </label>
+    </fieldset>
 
-    <label class="flex items-center gap-2 text-sm text-slate-600">
-        <input type="checkbox" name="sparkling" {% if prefill.get('sparkling') %}checked{% endif %}
-               class="rounded text-sky-500 focus:ring-sky-400"> 🫧 Con gas
-    </label>
-
-    <fieldset>
-        <legend class="text-sm font-semibold text-slate-700 mb-2">Composición (mg/L) — deja en blanco lo que no aparezca</legend>
+    <fieldset class="pt-2 border-t border-slate-100">
+        <legend class="font-bold text-slate-800 pt-4">🧪 Composición de la etiqueta <span class="text-slate-400 font-normal text-sm">(mg/L)</span></legend>
+        <p class="text-xs text-slate-500 mt-1 mb-3">Los que declara casi toda etiqueta. Deja en blanco lo que la tuya no traiga — la verificación cuenta solo lo declarado.</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {% for field in mineral_fields %}
+            {% for field in mineral_fields_main %}
+            <div>
+                <label class="block text-xs text-slate-500 mb-1" for="{{ field }}">{{ mineral_labels[field] }}</label>
+                <input id="{{ field }}" name="{{ field }}" inputmode="decimal" placeholder="—"
+                       value="{{ prefill.get(field, '') }}"
+                       class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400">
+            </div>
+            {% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset class="pt-2 border-t border-slate-100">
+        <legend class="font-bold text-slate-800 pt-4">➕ Otros valores <span class="text-slate-400 font-normal text-sm">(opcional)</span></legend>
+        <p class="text-xs text-slate-500 mt-1 mb-3">Solo algunas etiquetas los traen — en blanco no pasa nada.</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {% for field in mineral_fields_extra %}
             <div>
                 <label class="block text-xs text-slate-500 mb-1" for="{{ field }}">{{ mineral_labels[field] }}</label>
                 <input id="{{ field }}" name="{{ field }}" inputmode="decimal" placeholder="—"

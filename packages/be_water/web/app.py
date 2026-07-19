@@ -33,7 +33,13 @@ from packages.be_water.web import (
     repository,
     similarity,
 )
-from packages.be_water.web.domain import MINERAL_FIELDS, MINERAL_LABELS, Water
+from packages.be_water.web.domain import (
+    MINERAL_FIELDS,
+    MINERAL_FIELDS_EXTRA,
+    MINERAL_FIELDS_MAIN,
+    MINERAL_LABELS,
+    Water,
+)
 
 logger = get_logger(__name__)
 
@@ -65,6 +71,8 @@ def inject_globals() -> dict:
         "git_commit": config.GIT_COMMIT,
         "mineral_labels": MINERAL_LABELS,
         "mineral_fields": MINERAL_FIELDS,
+        "mineral_fields_main": MINERAL_FIELDS_MAIN,
+        "mineral_fields_extra": MINERAL_FIELDS_EXTRA,
         "csrf_token": get_csrf_token,
     }
 
