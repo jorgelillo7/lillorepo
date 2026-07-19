@@ -5,7 +5,7 @@ Do not edit by hand — regenerate with:
 A git diff here means AESAN recognised (or dropped) waters.
 """
 
-AESAN_VERSION = "AMN/08"
+AESAN_VERSION = "AMN/8"
 AESAN_DATE = "17/09/2018"
 
 AESAN_WATERS = [
@@ -206,6 +206,12 @@ AESAN_WATERS = [
         "spring": "Cogollos de Guadix",
         "place": "",
         "province": "Granada",
+    },
+    {
+        "name": "Babilafuente",
+        "spring": "Antigua Fuente del Caño",
+        "place": "Babilafuente",
+        "province": "Salamanca",
     },
     {"name": "Bastida", "spring": "Bastida", "place": "Alaró", "province": "Baleares"},
     {
@@ -433,6 +439,12 @@ AESAN_WATERS = [
     },
     {"name": "Fontarel", "spring": "El Pilar", "place": "Loja", "province": "Granada"},
     {
+        "name": "Fontboix",
+        "spring": "Font del Boix",
+        "place": "Barruera",
+        "province": "Lleida",
+    },
+    {
         "name": "Fontcristall",
         "spring": "Fontcristall",
         "place": "Ribes de Freser",
@@ -657,6 +669,7 @@ AESAN_WATERS = [
         "place": "Maçanet de Cabrenys",
         "province": "Girona",
     },
+    {"name": "Liviana", "spring": "Eliqua", "place": "Salem", "province": "Valencia"},
     {
         "name": "Los Riscos",
         "spring": "Los Riscos de la Higüela",
@@ -867,6 +880,12 @@ AESAN_WATERS = [
         "province": "León",
     },
     {
+        "name": "Soceo II",
+        "spring": "Soceo II",
+        "place": "LA RIBERA DE FOLGOSO",
+        "province": "León",
+    },
+    {
         "name": "Solares",
         "spring": "Fuencaliente de Solares",
         "place": "Solares",
@@ -896,30 +915,6 @@ AESAN_WATERS = [
         "spring": "Veri 5",
         "place": "El Run-Castejón de Sos",
         "province": "Huesca",
-    },
-    {
-        "name": "Versión AMN/8",
-        "spring": "17/09/2018 Babilafuente",
-        "place": "Antigua Fuente del Caño Babilafuente",
-        "province": "Salamanca",
-    },
-    {
-        "name": "Versión AMN/8",
-        "spring": "17/09/2018 Fontboix",
-        "place": "Font del Boix Barruera",
-        "province": "Lleida",
-    },
-    {
-        "name": "Versión AMN/8",
-        "spring": "17/09/2018 Liviana",
-        "place": "Eliqua Salem",
-        "province": "Valencia",
-    },
-    {
-        "name": "Versión AMN/8",
-        "spring": "17/09/2018 Soceo II",
-        "place": "Soceo II LA RIBERA DE FOLGOSO",
-        "province": "León",
     },
     {
         "name": "Vichy Catalán",

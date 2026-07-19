@@ -31,7 +31,7 @@ SNAPSHOT_PATH = Path("packages/be_water/web/aesan_snapshot.py")
 # Every entry's last column ends in "(Provincia)". Multi-line entries wrap
 # the place column, so lines are accumulated until that pattern closes.
 _ENTRY_END = re.compile(r"\(([^)]+)\)\s*$")
-_VERSION = re.compile(r"Versi[oò]n\s+(AMN/\d+)")
+_VERSION = re.compile(r"Versi.n\s+(AMN/\d+)")
 _DATE = re.compile(r"(\d{2}/\d{2}/\d{4})")
 _HEADER_NOISE = (
     "Lista de aguas",
