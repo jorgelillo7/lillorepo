@@ -230,6 +230,41 @@ def test_add_water_requires_login(client):
     assert resp.status_code == 302
 
 
+def test_community_shows_aesan_progress(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/comunidad")
+    body = resp.get_data(as_text=True)
+    assert "El registro oficial" in body
+    assert "por fichar" in body
+
+
+def test_about_shows_live_registry_numbers(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/acerca")
+    body = resp.get_data(as_text=True)
+    assert "reconoce oficialmente" in body
+    assert "autorellenan" in body
+
+
+def test_sitemap_covers_info_pages(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/sitemap.xml")
+    body = resp.get_data(as_text=True)
+    assert "/comunidad" in body
+    assert "/acerca" in body
+    assert "/agua/bezoya" in body
+
+
+def test_water_photo_becomes_og_image(client):
+    catalog = _catalog()
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        resp = client.get("/agua/bezoya")
+    body = resp.get_data(as_text=True)
+    assert '<meta property="og:image" content="https://x/bezoya.jpg">' in body
+    assert "summary_large_image" in body
+
+
 def test_add_form_shows_sections_and_gas_toggle(client):
     _login(client)
     body = client.get("/anadir").get_data(as_text=True)

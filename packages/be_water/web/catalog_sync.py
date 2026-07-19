@@ -19,13 +19,12 @@ consolidated Secret Manager JSON (the monthly Cloud Run Job); missing creds
 
 import os
 
-from unidecode import unidecode
-
 from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
+from packages.be_water.web import aesan
 from packages.be_water.web import config  # also sets FIRESTORE_PROJECT
-from packages.be_water.web.aesan_snapshot import AESAN_VERSION, AESAN_WATERS
+from packages.be_water.web.aesan_snapshot import AESAN_VERSION
 from packages.be_water.web.domain import Water
 from packages.be_water.web.repository import WATERS
 from packages.be_water.web.seed_data import SEED_WATERS
@@ -55,24 +54,9 @@ def _dataset_water(raw: dict) -> Water:
 
 
 def _aesan_coverage() -> dict:
-    """How much of the official AESAN list the dataset already covers.
-
-    Name containment either way, accent-insensitive — good enough for a
-    stat; white labels won't match (they register under the producer).
-    """
-    aesan_names = {unidecode(e["name"]).strip().lower() for e in AESAN_WATERS}
-    dataset_names = {
-        unidecode(raw.get(field, "")).strip().lower()
-        for raw in SEED_WATERS
-        for field in ("name", "brand")
-        if raw.get(field)
-    }
-    covered = {a for a in aesan_names if any(a in d or d in a for d in dataset_names)}
-    return {
-        "version": AESAN_VERSION,
-        "total": len(aesan_names),
-        "covered": len(covered),
-    }
+    """Dataset coverage of the official AESAN list."""
+    names = [raw.get(f) for raw in SEED_WATERS for f in ("name", "brand")]
+    return {"version": AESAN_VERSION, **aesan.coverage(names)}
 
 
 def sync_catalog() -> dict:

@@ -206,10 +206,12 @@ def community_page():
     if period == "mes":
         ranking = [s for s in ranking if s["month_score"] > 0]
         ranking.sort(key=lambda s: (-s["month_score"], s["nickname"]))
+    catalog_names = [w.name for w in catalog] + [w.brand for w in catalog]
     return render_template(
         "community.html",
         ranking=ranking,
         period=period,
+        aesan=aesan.coverage(catalog_names),
         achievements=[
             {"emoji": emoji, "name": name, "description": description}
             for emoji, name, description, _ in community.ACHIEVEMENTS
@@ -223,8 +225,12 @@ def community_page():
 
 @app.route("/acerca")
 def about():
+    catalog = repository.get_all_waters()
+    catalog_names = [w.name for w in catalog] + [w.brand for w in catalog]
     return render_template(
         "about.html",
+        catalog_size=len(catalog),
+        aesan=aesan.coverage(catalog_names),
         meta_description=(
             "Qué es Be Water, de dónde salen los datos del catálogo y cómo "
             "se verifican las composiciones."
@@ -616,7 +622,7 @@ def robots():
 @app.route("/sitemap.xml")
 def sitemap():
     base = config.BASE_URL or request.url_root.rstrip("/")
-    urls = [f"{base}/", f"{base}/recomendar"]
+    urls = [f"{base}/", f"{base}/recomendar", f"{base}/comunidad", f"{base}/acerca"]
     urls += [f"{base}/agua/{w.id}" for w in repository.get_all_waters()]
     body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     xml = (

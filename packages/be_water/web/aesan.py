@@ -25,3 +25,17 @@ def registry_matches(name: str) -> list[dict]:
         for entry in AESAN_WATERS
         if (t := _tokens(entry["name"])) and (tokens <= t or t <= tokens)
     ]
+
+
+def coverage(catalog_names) -> dict:
+    """How much of the registry the given names cover (containment either
+    way, accent-insensitive). White labels register under the producer's
+    name and rightly don't match."""
+
+    def _key(text):
+        return unidecode(text or "").strip().lower()
+
+    registry = {_key(e["name"]) for e in AESAN_WATERS}
+    names = {_key(n) for n in catalog_names if n}
+    covered = {r for r in registry if any(r in n or n in r for n in names)}
+    return {"total": len(registry), "covered": len(covered)}
