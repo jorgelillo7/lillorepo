@@ -503,6 +503,57 @@ def test_beauty_photo_becomes_the_display_shot(client):
     assert 'id="processing"' in resp.get_data(as_text=True)
 
 
+_AESAN_FAKE = [
+    {"name": "Font Nova", "spring": "Font Nova", "place": "X", "province": "Girona"},
+    {"name": "Doble", "spring": "Sondeo 1", "place": "A", "province": "Teruel"},
+    {"name": "Doble", "spring": "Sondeo 2", "place": "B", "province": "Teruel"},
+]
+
+
+def test_ocr_prefill_completes_provenance_from_aesan(client):
+    """The registry fills spring/province/community the label didn't declare."""
+    _login(client)
+    import io
+
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
+    ), patch(
+        f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "l.jpg")},
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert 'value="Font Nova"' in body  # spring filled from registry
+    assert 'value="Girona"' in body
+    assert 'value="Cataluña"' in body
+    assert "registro AESAN" in body
+
+
+def test_aesan_prefill_skips_disagreeing_fields_on_multi_spring(client):
+    """Two registry springs for the name → only agreeing fields fill."""
+    _login(client)
+    import io
+
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Doble"}), patch(
+        f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "l.jpg")},
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert 'value="Teruel"' in body  # both springs agree on the province
+    assert "Sondeo" not in body  # spring left empty — the label must decide
+
+
 def test_non_admin_upload_skips_studio_but_keeps_ocr(client):
     """Everyone gets the free OCR prefill; only admins pay for the studio."""
     _login(client)  # "jorge" is not in the default admin set

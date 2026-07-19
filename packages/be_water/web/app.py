@@ -25,6 +25,7 @@ from core.utils import get_logger
 from core.web.csrf import get_csrf_token, verify_csrf_token
 from core.web.ratelimit import RateLimiter
 from packages.be_water.web import (
+    aesan,
     community,
     config,
     geo,
@@ -493,6 +494,7 @@ def add_water_photo():
             error="No pude leer la etiqueta automáticamente — rellena a mano.",
         )
     prefill = {k: v for k, v in extracted.items() if v is not None}
+    aesan_note = _prefill_from_aesan(prefill)
     # Mineral fields the label actually declared — they become
     # verified_fields on save (human-reviewed label data).
     ocr_fields = [f for f in MINERAL_FIELDS if prefill.get(f) is not None]
@@ -502,8 +504,35 @@ def add_water_photo():
         label_tmp=label_tmp,
         ocr_fields=",".join(ocr_fields),
         notice="He leído la etiqueta — revisa los valores antes de guardar."
-        + studio_note,
+        + studio_note
+        + aesan_note,
     )
+
+
+def _prefill_from_aesan(prefill: dict) -> str:
+    """Fill spring/province/community gaps from the official registry.
+
+    The label always wins (only missing keys are filled); with several
+    registry springs for the name, only fields all candidates agree on
+    are used. Returns the notice suffix ('' when nothing matched)."""
+    matches = aesan.registry_matches(prefill.get("name") or "")
+    if not matches:
+        return ""
+    filled = False
+    springs = {m["spring"] for m in matches}
+    if len(springs) == 1 and not prefill.get("spring"):
+        prefill["spring"] = springs.pop()
+        filled = True
+    provinces = {m["province"] for m in matches}
+    if len(provinces) == 1:
+        province = provinces.pop()
+        if not prefill.get("province"):
+            prefill["province"] = province
+            filled = True
+        if not prefill.get("community") and geo.community_of(province):
+            prefill["community"] = geo.community_of(province)
+            filled = True
+    return " Procedencia completada del registro AESAN 📋" if filled else ""
 
 
 def _render_add_form(

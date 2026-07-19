@@ -34,3 +34,16 @@ def test_lookup_is_accent_insensitive():
 def test_unknown_and_island_places_have_no_neighbors():
     assert geo.adjacent_provinces("Comunidad Valenciana") == []
     assert geo.adjacent_provinces("Illes Balears") == []
+
+
+def test_every_province_has_a_community():
+    for province in geo.ALL_PROVINCES:
+        assert geo.community_of(province), f"sin comunidad: {province}"
+
+
+def test_community_lookup_handles_aliases_and_accents():
+    assert geo.community_of("Girona") == "Cataluña"
+    assert geo.community_of("gerona") == "Cataluña"  # pre-normalization name
+    assert geo.community_of("Baleares") == "Illes Balears"  # AESAN spelling
+    assert geo.community_of("albacete") == "Castilla-La Mancha"
+    assert geo.community_of("Marte") == ""
