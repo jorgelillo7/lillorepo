@@ -574,6 +574,7 @@ SEED_WATERS = [
         ],
         "name": "Carrefour Sierra de Segura",
         "brand": "Carrefour",
+        "retailer": "Carrefour",
         "spring": "Fuenteblanca (Sierra de Segura)",
         "province": "Jaén",
         "community": "Andalucía",
@@ -596,13 +597,15 @@ SEED_WATERS = [
                 "url": "https://www.ocu.org/alimentacion/agua/informe/aguas-minerales",
             }
         ],
-        "name": "Naturis (Lidl)",
+        "name": "Naturis (Lidl) — Albacete",
         "brand": "Lidl",
+        "retailer": "Lidl",
         "spring": "Fuente Arquillo (Masegoso)",
         "province": "Albacete",
         "community": "Castilla-La Mancha",
         # Same spring as Aquadeus — composition mirrors its label-verified
-        # values until someone photographs a Naturis bottle.
+        # values until someone photographs an Albacete-spring bottle. The
+        # Badajoz spring got its bottle photographed: see id "naturis".
         "minerals": {
             "tds": 307,
             "bicarbonates": 336,
@@ -616,6 +619,44 @@ SEED_WATERS = [
         },
     },
     {
+        "id": "naturis",
+        "name": "Naturis (Lidl) — Badajoz",
+        "brand": "Lidl",
+        "retailer": "Lidl",
+        "spring": "Huerta del Arquillo",
+        "province": "Badajoz",
+        "community": "Extremadura",
+        # Bottle-label values, photographed by the owner — full coverage,
+        # hence verified. Same brand as naturis-lidl, different spring:
+        # Lidl bottles Naturis from several sources with very different
+        # profiles (24 vs 307 mg/L dry residue).
+        "minerals": {
+            "tds": 24.0,
+            "bicarbonates": 1.2,
+            "chlorides": 4.7,
+            "sulfates": 1.4,
+            "calcium": 0.8,
+            "magnesium": 0.4,
+            "sodium": 3.0,
+            "silica": 8.8,
+        },
+        "verified_fields": [
+            "bicarbonates",
+            "calcium",
+            "chlorides",
+            "magnesium",
+            "silica",
+            "sodium",
+            "sulfates",
+            "tds",
+        ],
+        "verified": True,
+        "photo_url": "https://storage.googleapis.com/be-water-photos/naturis.jpg",
+        "label_photo_url": (
+            "https://storage.googleapis.com/be-water-photos/originals/naturis.jpg"
+        ),
+    },
+    {
         "id": "la-majuela",
         "mentions": [
             {
@@ -626,6 +667,7 @@ SEED_WATERS = [
         ],
         "name": "La Majuela (Dia)",
         "brand": "Dia",
+        "retailer": "Dia",
         "spring": "La Majuela (Cariñena)",
         "province": "Zaragoza",
         "community": "Aragón",

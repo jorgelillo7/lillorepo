@@ -55,6 +55,9 @@ class Water:
     province: str
     community: str
     country: str = "ES"
+    # Supermarket own-brand waters ("Naturis" → Lidl): the retailer whose
+    # shelves carry it. Often bottled from several springs, one entry each.
+    retailer: Optional[str] = None
     sparkling: bool = False
     minerals: dict = field(default_factory=dict)
     photo_url: Optional[str] = None
@@ -93,6 +96,7 @@ class Water:
             province=data.get("province", ""),
             community=data.get("community", ""),
             country=data.get("country", "ES"),
+            retailer=data.get("retailer"),
             sparkling=bool(data.get("sparkling", False)),
             minerals=data.get("minerals", {}) or {},
             photo_url=data.get("photo_url"),
@@ -112,6 +116,7 @@ class Water:
             "province": self.province,
             "community": self.community,
             "country": self.country,
+            "retailer": self.retailer,
             "sparkling": self.sparkling,
             "minerals": self.minerals,
             "photo_url": self.photo_url,

@@ -108,6 +108,24 @@
         </div>
     </fieldset>
 
+    {% if similar %}
+    <div class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm text-amber-800">
+        🤔 Se parece a <strong>{{ similar.name }}</strong> ({{ similar.province }}), que ya está en el catálogo.
+        Ojo: las marcas de súper embotellan desde varios manantiales — si el manantial de tu etiqueta
+        es otro, es un agua distinta.
+    </div>
+    <div class="grid sm:grid-cols-2 gap-3">
+        <button name="merge_into" value="{{ similar.id }}"
+                class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition">
+            Es la misma — actualizarla
+        </button>
+        <button name="force_new" value="1"
+                class="w-full py-3 rounded-2xl bg-white ring-1 ring-sky-300 text-sky-600 hover:bg-sky-50 font-bold transition">
+            Es otra — crear nueva
+        </button>
+    </div>
+    {% else %}
     <button class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition">Guardar agua</button>
+    {% endif %}
 </form>
 {% endblock %}
