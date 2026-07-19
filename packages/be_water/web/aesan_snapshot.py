@@ -1,6 +1,7 @@
 """AESAN recognised natural mineral waters — generated snapshot.
 
-Do not edit by hand: regenerate with scripts/refresh-aesan-snapshot.py.
+Do not edit by hand — regenerate with:
+    python3 packages/be_water/scripts/refresh_aesan_snapshot.py
 A git diff here means AESAN recognised (or dropped) waters.
 """
 

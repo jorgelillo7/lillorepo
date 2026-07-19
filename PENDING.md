@@ -59,7 +59,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      the ~25 seeded compositions; photos of labels to me work great.
      Full-label fichas now auto-promote to verified on save. The AESAN
      snapshot shipped 2026-07-19 (`aesan_snapshot.py`, regenerate with
-     `scripts/refresh-aesan-snapshot.py` every few months — a git diff
+     `packages/be_water/scripts/refresh_aesan_snapshot.py` every few months — a git diff
      there = newly recognised waters; note the official PDF is AMN/08
      from 2018, so refreshes are about catching AESAN's next revision).
   2. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
