@@ -6,7 +6,7 @@ por España" and rewrites packages/be_water/web/aesan_snapshot.py. Run it
 manually (or from a Claude session) every few months:
 
     pip3 install pypdf   # one-time, local only — not a Bazel dep
-    python3 scripts/refresh-aesan-snapshot.py
+    python3 packages/be_water/scripts/refresh_aesan_snapshot.py
 
 A non-empty `git diff` on the snapshot IS the news: waters AESAN has
 recognised (or dropped) since the last refresh.
@@ -100,7 +100,8 @@ def main() -> None:
     lines = [
         '"""AESAN recognised natural mineral waters — generated snapshot.',
         "",
-        "Do not edit by hand: regenerate with scripts/refresh-aesan-snapshot.py.",
+        "Do not edit by hand — regenerate with:",
+        "    python3 packages/be_water/scripts/refresh_aesan_snapshot.py",
         "A git diff here means AESAN recognised (or dropped) waters.",
         '"""',
         "",
