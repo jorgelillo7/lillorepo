@@ -2,7 +2,7 @@ import pytest
 import requests
 import requests_mock
 
-from core.sdk.biwenger import BiwengerClient
+from core.sdk.biwenger import BiwengerError, BiwengerClient
 
 from .constants import (
     TEST_ACCOUNT_URL,
@@ -71,7 +71,7 @@ def test_authentication_raises_when_login_returns_no_token():
     proceed with an unauthenticated session."""
     with requests_mock.Mocker() as m:
         m.post(TEST_LOGIN_URL, json={"foo": "bar"}, status_code=200)
-        with pytest.raises(Exception, match="no token received"):
+        with pytest.raises(BiwengerError, match="no token received"):
             BiwengerClient(
                 TEST_EMAIL,
                 TEST_PASSWORD,
@@ -93,7 +93,7 @@ def test_authentication_raises_when_user_not_in_league(load_json_fixture):
             json={"data": {"leagues": [{"id": "999999", "user": {"id": 1}}]}},
             status_code=200,
         )
-        with pytest.raises(Exception, match="Could not find user ID for league"):
+        with pytest.raises(BiwengerError, match="Could not find user ID for league"):
             BiwengerClient(
                 TEST_EMAIL,
                 TEST_PASSWORD,
