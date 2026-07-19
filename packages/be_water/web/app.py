@@ -24,6 +24,7 @@ from core.utils import get_logger
 from packages.be_water.web import (
     community,
     config,
+    geo,
     label_ocr,
     photos,
     repository,
@@ -57,8 +58,11 @@ def inject_globals() -> dict:
 
 
 def _places(catalog: list[Water]) -> list[str]:
-    """Distinct provinces + communities, for the '¿dónde estás?' selector."""
+    """Every province plus the catalog's communities, for the '¿dónde
+    estás?' selector — provinces without waters resolve via the
+    nearby-province fallback."""
     places = {w.province for w in catalog} | {w.community for w in catalog}
+    places |= set(geo.ALL_PROVINCES)
     return sorted(p for p in places if p)
 
 
@@ -117,12 +121,18 @@ def recommend():
     results = (
         similarity.recommend(favorites, catalog, place) if place and favorites else []
     )
+    nearby = (
+        similarity.recommend_nearby(favorites, catalog, place)
+        if place and favorites and not results
+        else []
+    )
     return render_template(
         "recommend.html",
         places=_places(catalog),
         place=place,
         favorites=favorites,
         results=results,
+        nearby=nearby,
         favorite_ids={w.id for w in favorites},
         meta_description=(
             "Dinos dónde estás y te recomendamos aguas de la zona parecidas "

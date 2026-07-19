@@ -110,6 +110,26 @@ def test_recommend_with_favorites(client):
     assert "Bezoya" in resp.get_data(as_text=True)
 
 
+def test_recommend_falls_back_to_bordering_provinces(client):
+    """Madrid has no catalog waters: neighbors' waters are offered instead."""
+    catalog = _catalog()  # Cuenca + Segovia — both border Madrid
+    with patch(f"{_REPO}.touch_user"):
+        client.post("/login", data={"nickname": "jorge"})
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.get_favorites", return_value=[catalog[0]]
+    ):
+        resp = client.get("/recomendar?lugar=Madrid")
+    body = resp.get_data(as_text=True)
+    assert "provincias vecinas" in body
+    assert "Bezoya" in body  # Segovia water, only non-favorite candidate
+
+
+def test_places_selector_offers_waterless_provinces(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        resp = client.get("/recomendar")
+    assert ">Madrid</option>" in resp.get_data(as_text=True)
+
+
 _APP = "packages.be_water.web.app"
 
 

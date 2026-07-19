@@ -51,10 +51,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   2. **Data verification pass** (USER-assisted): bottle-in-hand check of
      the ~25 seeded compositions; photos of labels to me work great.
      Full-label fichas now auto-promote to verified on save.
-  3. **Recommender: nearby-province fallback** — Madrid is the canonical
-     case (no big bottled AMN brand): fall back to bordering provinces.
-     Needs a province-adjacency map in the repo.
-  4. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
+  3. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
      add `country` to `Water` defaulting to "España" (backward compatible,
      one-line migration in `catalog_sync`). Unlocks international waters
      people actually find in Spanish supermarkets (Evian, Perrier,
