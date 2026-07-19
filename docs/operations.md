@@ -283,13 +283,23 @@ inventory and `.github/workflows/README.md` for the cross-project deploy grants.
 
   * **🔄 Catalog sync (idempotent, merges the in-repo dataset into Firestore):**
 
+    Runs monthly in production (Scheduler `be-water-catalog-sync-monthly`,
+    day 1 09:00 Madrid → Cloud Run Job `be-water-catalog-sync`). Manual runs:
+
     ```bash
+      # local, against prod Firestore via ADC
       bazel run //packages/be_water/web:sync_local
+
+      # or execute the production job
+      gcloud run jobs execute be-water-catalog-sync \
+          --region europe-southwest1 --project be-water-app
     ```
 
-    > Safe to re-run: verified waters are never clobbered, user photos survive.
-    > With `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` set it notifies changes
-    > and waters the dataset doesn't know about (typos or novelties).
+    > Safe to re-run: verified waters are never clobbered, label-backed
+    > minerals and user photos survive. It notifies Telegram (creds from the
+    > consolidated secret, or `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` env
+    > locally) about changes and about waters the dataset doesn't know
+    > (typos or novelties).
 
   * **☁️ Deploy to production:**
 

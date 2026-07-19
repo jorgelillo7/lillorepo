@@ -92,13 +92,13 @@ if [ -z "$PROJECT" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Single-project audit. Expectations differ per project (see INFRA.md):
-# be-water-app has no scheduler (API deliberately disabled), no jobs, and
-# owns the Gemini prepaid-credit check (be_water studio photos).
+# Single-project audit. Both projects run Cloud Run jobs + a Scheduler
+# trigger; be-water-app additionally owns the Gemini prepaid-credit check
+# (be_water studio photos).
 # ---------------------------------------------------------------------------
 case "$PROJECT" in
-    be-water-app) EXPECT_SCHEDULER=0; EXPECT_JOBS=0; HAS_GEMINI=1 ;;
-    *)            EXPECT_SCHEDULER=1; EXPECT_JOBS=1; HAS_GEMINI=0 ;;
+    be-water-app) HAS_GEMINI=1 ;;
+    *)            HAS_GEMINI=0 ;;
 esac
 
 # Summary variables (no associative arrays — bash 3 compat)
@@ -196,13 +196,8 @@ echo
 echo "⚙️  Cloud Run Jobs"
 RUN_JOBS=$(gcloud run jobs list --project "$PROJECT" --format="value(metadata.name)" 2>/dev/null)
 if [ -z "$RUN_JOBS" ]; then
-    if [ "$EXPECT_JOBS" -eq 0 ]; then
-        echo "  Sin jobs (esperado en este proyecto)."
-        SUM_RUN_JOBS="$STATUS_OK — 0 jobs (esperado)"
-    else
-        warn
-        SUM_RUN_JOBS="$STATUS_WARN — sin datos"
-    fi
+    warn
+    SUM_RUN_JOBS="$STATUS_WARN — sin datos"
 else
     JOB_COUNT=$(echo "$RUN_JOBS" | wc -l | tr -d ' ')
     echo "  Jobs desplegados ($JOB_COUNT):"
@@ -262,25 +257,20 @@ echo
 # ---------------------------
 # Cloud Scheduler
 # ---------------------------
-if [ "$EXPECT_SCHEDULER" -eq 0 ]; then
-    echo "🕐 Cloud Scheduler — no usado en este proyecto (API deshabilitada a propósito)"
-    SUM_SCHEDULER="$STATUS_OK — sin scheduler (esperado)"
+echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
+SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
+    --format="value(name.basename(),state)" 2>/dev/null)
+if [ -z "$SCHED_JOBS" ]; then
+    warn
+    SUM_SCHEDULER="$STATUS_WARN — sin datos"
 else
-    echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
-    SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
-        --format="value(name.basename(),state)" 2>/dev/null)
-    if [ -z "$SCHED_JOBS" ]; then
-        warn
-        SUM_SCHEDULER="$STATUS_WARN — sin datos"
+    SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
+    echo "$SCHED_JOBS" | sed 's/^/    - /'
+    echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER por cuenta)"
+    if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
+        SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"
     else
-        SCHED_COUNT=$(echo "$SCHED_JOBS" | wc -l | tr -d ' ')
-        echo "$SCHED_JOBS" | sed 's/^/    - /'
-        echo "  Jobs programados: $SCHED_COUNT  (free tier: $FREE_SCHEDULER por cuenta)"
-        if [ "$SCHED_COUNT" -gt "$FREE_SCHEDULER" ] 2>/dev/null; then
-            SUM_SCHEDULER="$STATUS_OVER — $SCHED_COUNT jobs (>${FREE_SCHEDULER} free)"
-        else
-            SUM_SCHEDULER="$STATUS_OK — $SCHED_COUNT jobs"
-        fi
+        SUM_SCHEDULER="$STATUS_OK — $SCHED_COUNT jobs"
     fi
 fi
 echo

@@ -52,14 +52,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   provenance, /acerca. Regularization done 2026-07-19 (cost script
   covers both projects, cleanup covers both registries, docs swept).
   Roadmap, in order:
-  1. **Monthly catalog sync as a scheduled job** — run `catalog_sync` as a
-     Cloud Run Job + monthly Scheduler tick (Telegram creds via secret,
-     already stored); ideally diff against the AESAN list to flag newly
-     recognised waters. Note: Scheduler API is deliberately disabled on
-     `be-water-app` — enabling it is part of this item (3 free jobs per
-     billing account, 2 in use).
+  1. **AESAN diff in catalog sync** (nice-to-have) — the monthly job
+     shipped 2026-07-19 (Cloud Run Job + Scheduler, Telegram notify);
+     what remains of the idea is diffing against the AESAN registry to
+     flag newly recognised springs/waters.
   2. **Data verification pass** (USER-assisted): bottle-in-hand check of
      the ~25 seeded compositions; photos of labels to me work great.
+     Full-label fichas now auto-promote to verified on save.
   3. **Recommender: nearby-province fallback** — Madrid is the canonical
      case (no big bottled AMN brand): fall back to bordering provinces.
      Needs a province-adjacency map in the repo.
