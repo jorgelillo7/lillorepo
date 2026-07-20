@@ -509,10 +509,17 @@ def add_water_photo():
     except (GeminiError, requests.RequestException) as exc:
         logger.warning("Label OCR failed.", extra={"error": str(exc)[:300]})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
+        overloaded = getattr(exc, "status_code", None) in (429, 503)
+        error = (
+            "El lector de etiquetas está saturado ahora mismo — "
+            "prueba de nuevo en unos minutos, o rellena a mano."
+            if overloaded
+            else "No pude leer la etiqueta automáticamente — rellena a mano."
+        )
         return _render_add_form(
             photo_tmp=photo_tmp,
             label_tmp=label_tmp,
-            error="No pude leer la etiqueta automáticamente — rellena a mano.",
+            error=error,
         )
     prefill = {k: v for k, v in extracted.items() if v is not None}
     aesan_note = _prefill_from_aesan(prefill)
