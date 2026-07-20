@@ -738,6 +738,28 @@ def test_photo_flow_survives_gemini_failure(client):
     assert "rellena a mano" in body
 
 
+def test_photo_flow_gemini_overload_gets_honest_copy(client):
+    """A 503/429 from Gemini gets a 'try again later' banner, not a generic one."""
+    from core.sdk.gemini import GeminiError
+
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.studio_photo", return_value=b"studio"
+    ), patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.label_ocr.extract_label",
+        side_effect=GeminiError("busy", status_code=503),
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "saturado" in body
+    assert "prueba de nuevo en unos minutos" in body
+
+
 def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     _login(client)
     with patch(f"{_REPO}.save_water") as mock_save, patch(

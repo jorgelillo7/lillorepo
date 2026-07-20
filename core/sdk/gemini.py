@@ -27,6 +27,10 @@ DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 class GeminiError(Exception):
     """API refusal, empty candidates or unparseable response."""
 
+    def __init__(self, message: str, status_code: int | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+
 
 def generate_json(
     api_key: str,
@@ -67,7 +71,10 @@ def generate_json(
         timeout=timeout,
     )
     if response.status_code != 200:
-        raise GeminiError(f"Gemini HTTP {response.status_code}: {response.text[:200]}")
+        raise GeminiError(
+            f"Gemini HTTP {response.status_code}: {response.text[:200]}",
+            status_code=response.status_code,
+        )
     try:
         text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
         return json.loads(text)
@@ -108,7 +115,10 @@ def generate_image(
         timeout=timeout,
     )
     if response.status_code != 200:
-        raise GeminiError(f"Gemini HTTP {response.status_code}: {response.text[:200]}")
+        raise GeminiError(
+            f"Gemini HTTP {response.status_code}: {response.text[:200]}",
+            status_code=response.status_code,
+        )
     try:
         parts = response.json()["candidates"][0]["content"]["parts"]
         for part in parts:
