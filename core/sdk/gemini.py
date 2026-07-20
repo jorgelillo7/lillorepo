@@ -8,6 +8,7 @@ parseable JSON back.
 
 import base64
 import json
+import time
 
 import requests
 
@@ -23,6 +24,9 @@ DEFAULT_MODEL = "gemini-flash-latest"
 # as degradable (and override via env when this one gets retired too).
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 
+_RETRYABLE_STATUS = {429, 503}
+_RETRY_BACKOFF_SECONDS = 2
+
 
 class GeminiError(Exception):
     """API refusal, empty candidates or unparseable response."""
@@ -30,6 +34,23 @@ class GeminiError(Exception):
     def __init__(self, message: str, status_code: int | None = None):
         super().__init__(message)
         self.status_code = status_code
+
+
+def _post_with_retry(
+    url: str, api_key: str, payload: dict, timeout: int, retries: int
+) -> requests.Response:
+    """POST, resending on a 429/503 (transient overload) up to `retries` times."""
+    response = requests.post(
+        url, params={"key": api_key}, json=payload, timeout=timeout
+    )
+    for _ in range(retries):
+        if response.status_code not in _RETRYABLE_STATUS:
+            break
+        time.sleep(_RETRY_BACKOFF_SECONDS)
+        response = requests.post(
+            url, params={"key": api_key}, json=payload, timeout=timeout
+        )
+    return response
 
 
 def generate_json(
@@ -40,12 +61,15 @@ def generate_json(
     schema: dict | None = None,
     model: str = DEFAULT_MODEL,
     timeout: int = 45,
+    retries: int = 0,
 ) -> dict:
     """One-shot structured generation: prompt (+ optional image) → dict.
 
     Raises `GeminiError` on API errors or malformed output; network errors
     propagate as `requests.RequestException` so callers can distinguish
-    "Gemini said no" from "the wire broke".
+    "Gemini said no" from "the wire broke". `retries` resends the request
+    on a 429/503 (transient overload) before giving up — 0 by default so
+    existing callers keep their current latency.
     """
     parts: list[dict] = [{"text": prompt}]
     if image_bytes is not None:
@@ -61,14 +85,12 @@ def generate_json(
     if schema is not None:
         generation_config["responseSchema"] = schema
 
-    response = requests.post(
+    response = _post_with_retry(
         f"{GEMINI_API_BASE}/models/{model}:generateContent",
-        params={"key": api_key},
-        json={
-            "contents": [{"parts": parts}],
-            "generationConfig": generation_config,
-        },
-        timeout=timeout,
+        api_key,
+        {"contents": [{"parts": parts}], "generationConfig": generation_config},
+        timeout,
+        retries,
     )
     if response.status_code != 200:
         raise GeminiError(
@@ -89,14 +111,15 @@ def generate_image(
     image_mime: str = "image/jpeg",
     model: str = DEFAULT_IMAGE_MODEL,
     timeout: int = 90,
+    retries: int = 0,
 ) -> bytes:
     """Image-editing call: prompt + source image → edited image bytes.
 
     Same error contract as `generate_json`."""
-    response = requests.post(
+    response = _post_with_retry(
         f"{GEMINI_API_BASE}/models/{model}:generateContent",
-        params={"key": api_key},
-        json={
+        api_key,
+        {
             "contents": [
                 {
                     "parts": [
@@ -112,7 +135,8 @@ def generate_image(
             ],
             "generationConfig": {"responseModalities": ["IMAGE"]},
         },
-        timeout=timeout,
+        timeout,
+        retries,
     )
     if response.status_code != 200:
         raise GeminiError(

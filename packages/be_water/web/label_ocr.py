@@ -37,4 +37,5 @@ def extract_label(image_bytes: bytes) -> dict:
         image_bytes=image_bytes,
         schema=LABEL_SCHEMA,
         model=config.GEMINI_MODEL,
+        retries=1,
     )

@@ -2,6 +2,7 @@
 
 import base64
 import json
+from unittest.mock import patch
 
 import pytest
 import requests_mock
@@ -44,6 +45,39 @@ def test_generate_json_raises_on_http_error():
         m.post(_URL, status_code=429, text="quota")
         with pytest.raises(gemini.GeminiError, match="429"):
             gemini.generate_json("key", "prompt")
+
+
+def test_generate_json_retries_on_503_then_succeeds():
+    with requests_mock.Mocker() as m:
+        m.post(
+            _URL,
+            [
+                {"status_code": 503, "text": "overloaded"},
+                {"json": _api_response({"name": "Bezoya"})},
+            ],
+        )
+        with patch("core.sdk.gemini.time.sleep") as mock_sleep:
+            result = gemini.generate_json("key", "prompt", retries=1)
+    assert result == {"name": "Bezoya"}
+    assert m.call_count == 2
+    mock_sleep.assert_called_once_with(gemini._RETRY_BACKOFF_SECONDS)
+
+
+def test_generate_json_raises_after_exhausting_retries():
+    with requests_mock.Mocker() as m:
+        m.post(_URL, status_code=503, text="overloaded")
+        with patch("core.sdk.gemini.time.sleep"):
+            with pytest.raises(gemini.GeminiError, match="503"):
+                gemini.generate_json("key", "prompt", retries=1)
+    assert m.call_count == 2
+
+
+def test_generate_json_does_not_retry_by_default():
+    with requests_mock.Mocker() as m:
+        m.post(_URL, status_code=503, text="overloaded")
+        with pytest.raises(gemini.GeminiError, match="503"):
+            gemini.generate_json("key", "prompt")
+    assert m.call_count == 1
 
 
 def test_generate_json_raises_on_malformed_body():
