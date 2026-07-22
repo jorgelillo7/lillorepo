@@ -324,6 +324,47 @@ def test_community_shows_aesan_progress(client):
     assert "por fichar" in body
 
 
+def test_community_pending_list_shows_unmatched_registry_waters(client):
+    """None of `_catalog()`'s waters match the fake registry — all 3 pend."""
+    with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
+        f"{_REPO}.get_all_waters", return_value=_catalog()
+    ):
+        resp = client.get("/comunidad")
+    body = resp.get_data(as_text=True)
+    assert "aguas pendientes de fichar" in body
+    assert "Font Nova" in body
+    assert "Girona" in body
+    assert "Teruel" in body
+
+
+def test_community_shows_complete_registry_message(client):
+    catalog = [
+        Water(
+            id="font-nova",
+            name="Font Nova",
+            brand="Font Nova",
+            spring="",
+            province="Girona",
+            community="",
+        ),
+        Water(
+            id="doble",
+            name="Doble",
+            brand="Doble",
+            spring="",
+            province="Teruel",
+            community="",
+        ),
+    ]
+    with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
+        f"{_REPO}.get_all_waters", return_value=catalog
+    ):
+        resp = client.get("/comunidad")
+    body = resp.get_data(as_text=True)
+    assert "Registro completo" in body
+    assert "aguas pendientes de fichar" not in body
+
+
 def test_about_shows_live_registry_numbers(client):
     with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         resp = client.get("/acerca")

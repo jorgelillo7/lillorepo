@@ -1,7 +1,13 @@
 """Community stats and achievements."""
 
+from unittest.mock import patch
+
 from packages.be_water.web.community import build_community_stats
 from packages.be_water.web.domain import Water
+
+_FAKE_REGISTRY = [
+    {"name": "Font Nova", "spring": "", "place": "", "province": "Girona"}
+]
 
 
 def _water(
@@ -107,3 +113,19 @@ def test_con_gas_and_higher_water_count_tiers():
     assert "Manantial andante" in names  # 11 waters >= 10
     assert "Fuente inagotable" not in names  # needs 25
     assert "Con gas" in names
+
+
+def test_explorador_fires_for_water_outside_aesan_registry():
+    catalog = [_water("Agua Rara", "jorgelillo", "Cuenca")]
+    with patch("packages.be_water.web.community.aesan.AESAN_WATERS", _FAKE_REGISTRY):
+        ranking = build_community_stats(catalog, "2026-07")
+    names = {b["name"] for b in ranking[0]["badges"]}
+    assert "Explorador" in names
+
+
+def test_explorador_does_not_fire_for_water_matching_aesan_registry():
+    catalog = [_water("Font Nova", "jorgelillo", "Girona")]
+    with patch("packages.be_water.web.community.aesan.AESAN_WATERS", _FAKE_REGISTRY):
+        ranking = build_community_stats(catalog, "2026-07")
+    names = {b["name"] for b in ranking[0]["badges"]}
+    assert "Explorador" not in names
