@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario{% endblock %}
+
+{% block content %}
+<div class="card p-6 rounded-xl shadow-lg">
+    <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 text-center">{{ month_label }}</h2>
+
+    {% if error %}
+        <div class="text-center text-red-500 mb-4">{{ error }}</div>
+    {% endif %}
+
+    <div class="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden text-xs sm:text-sm">
+        {% for label in weekday_labels %}
+        <div class="bg-gray-50 text-gray-500 font-medium text-center py-2">{{ label }}</div>
+        {% endfor %}
+
+        {% for week in weeks %}
+            {% for day in week %}
+            <div class="bg-white min-h-[4.5rem] sm:min-h-[6rem] p-1.5 sm:p-2
+                        {% if not day.in_month %}bg-gray-50{% endif %}
+                        {% if day.is_today %}ring-2 ring-inset ring-green-600{% endif %}">
+                <div class="font-medium
+                            {% if day.is_today %}text-green-700{% elif not day.in_month %}text-gray-300{% else %}text-gray-700{% endif %}">
+                    {{ day.date.day }}
+                </div>
+                {% for title in day.events %}
+                <div class="mt-0.5 text-[0.65rem] sm:text-xs leading-tight text-gray-500 truncate" title="{{ title }}">
+                    {{ title }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

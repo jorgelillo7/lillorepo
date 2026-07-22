@@ -95,6 +95,9 @@
                 <a href="{{ url_for('main.reglamento') }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'reglamento' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Fair Play</a>
+                <a href="{{ url_for('main.calendario') }}"
+                   class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'calendario' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    Calendario</a>
             </div>
             <!-- Season selector in mobile panel -->
             <div class="px-4 py-3">
@@ -132,6 +135,8 @@
                    class="nav-link {% if active_page == 'palmares' %}active{% endif %}">Palmarés</a>
                 <a href="{{ url_for('main.reglamento') }}"
                    class="nav-link {% if active_page == 'reglamento' %}active{% endif %}">Fair Play</a>
+                <a href="{{ url_for('main.calendario') }}"
+                   class="nav-link {% if active_page == 'calendario' %}active{% endif %}">Calendario</a>
             </nav>
             <!-- Season pill -->
             <div class="relative ml-3 flex-shrink-0">
