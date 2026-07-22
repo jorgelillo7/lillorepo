@@ -224,6 +224,7 @@ def community_page():
         "community.html",
         ranking=ranking,
         period=period,
+        catalog_size=len(catalog),
         aesan=aesan.coverage(catalog_names),
         achievements=[
             {"emoji": emoji, "name": name, "description": description}

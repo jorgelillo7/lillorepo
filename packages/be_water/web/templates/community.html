@@ -20,16 +20,19 @@
 <!-- La misión: cubrir el registro oficial entero -->
 <section class="max-w-xl mx-auto mb-10 bg-white rounded-3xl ring-1 ring-slate-200 p-6">
     <div class="flex items-baseline justify-between mb-2">
-        <h2 class="font-bold text-slate-900">📋 El registro oficial</h2>
-        <span class="text-sm font-semibold text-sky-600">{{ aesan.covered }} de {{ aesan.total }}</span>
+        <h2 class="font-bold text-slate-900">📋 Cobertura del registro AESAN</h2>
+        <span class="text-sm font-semibold text-sky-600">{{ aesan.covered }} de {{ aesan.total }} aguas oficiales</span>
     </div>
     <div class="h-3 rounded-full bg-slate-100 overflow-hidden">
         <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-400"
              style="width: {{ (aesan.covered / aesan.total * 100) | round(1) }}%"></div>
     </div>
     <p class="text-xs text-slate-500 mt-2">
-        España reconoce oficialmente {{ aesan.total }} aguas minerales naturales (AESAN).
-        Quedan <strong>{{ aesan.total - aesan.covered }}</strong> por fichar — cada botella nueva suma.
+        Tu catálogo tiene {{ catalog_size }} fichas. España reconoce oficialmente
+        {{ aesan.total }} aguas minerales naturales (AESAN) y ya cubres
+        <strong>{{ aesan.covered }}</strong> de ellas — no es lo mismo que el tamaño
+        del catálogo. Quedan <strong>{{ aesan.total - aesan.covered }}</strong> por fichar
+        — cada botella nueva suma.
     </p>
 </section>
 
