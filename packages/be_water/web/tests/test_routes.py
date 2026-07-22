@@ -320,7 +320,7 @@ def test_community_shows_aesan_progress(client):
     with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
-    assert "El registro oficial" in body
+    assert "Cobertura del registro AESAN" in body
     assert "por fichar" in body
 
 
