@@ -13,6 +13,12 @@ colors:
   accent-light: "#c6f6d5"
   danger: "#e53e3e"
   warning: "#d69e2e"
+  calendar-liga: "#38a169"
+  calendar-copa: "#d69e2e"
+  calendar-h2h: "#3182ce"
+  calendar-mercado: "#e53e3e"
+  calendar-draft: "#805ad5"
+  calendar-otros: "#718096"
 typography:
   heading:
     fontFamily: Oswald
@@ -124,6 +130,17 @@ Full-width input with `focus:ring-2 focus:ring-green-500`. The focus ring must b
 ### Pagination
 
 Bordered buttons, `rounded-md` radius. The active page inverts colours: `#38a169` background, white text.
+
+### Calendar category colours (`/calendario` only)
+
+Scoped exception to the "one live colour" rule: the calendar page categorises
+events by keyword match on their title (`liga`, `copa`, `h2h`, `mercado`,
+`draft`, else `otros`) and colour-codes them as light `bg-{color}-100
+text-{color}-800` chips so events are scannable at a glance — `calendar-liga`
+(green), `calendar-copa` (amber), `calendar-h2h` (blue), `calendar-mercado`
+(red), `calendar-draft` (purple), `calendar-otros` (grey, catch-all). These
+colours are **only** used for event chips and the category filter pills on
+this one page — do not reuse them as decoration elsewhere in the site.
 
 ## JS Template Conventions
 

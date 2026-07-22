@@ -29,6 +29,17 @@
         <div class="text-center text-red-500 mb-4">{{ error }}</div>
     {% endif %}
 
+    {% if categories|length > 1 %}
+    <div class="flex flex-wrap gap-2 mb-4" id="category-filters">
+        {% for cat in categories %}
+        <button type="button" data-category="{{ cat.key }}" onclick="toggleCategory('{{ cat.key }}', this)"
+                class="px-2.5 py-1 rounded-full text-xs font-medium border {{ cat.chip }}">
+            {{ cat.label }}
+        </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden text-xs sm:text-sm">
         {% for label in weekday_labels %}
         <div class="bg-gray-50 text-gray-500 font-medium text-center py-2">{{ label }}</div>
@@ -45,8 +56,9 @@
                 </div>
                 {% for event in day.events %}
                 <button type="button"
+                        data-category="{{ event.category }}"
                         onclick="showEventDetail('{{ day.date.isoformat() }}', {{ loop.index0 }})"
-                        class="block w-full text-left mt-0.5 text-[0.65rem] sm:text-xs leading-tight text-gray-500 hover:text-green-700 truncate">
+                        class="event-chip block w-full text-left mt-0.5 truncate rounded px-1 border text-[0.65rem] sm:text-xs leading-tight {{ category_styles[event.category].chip }}">
                     {{ event.title }}
                 </button>
                 {% endfor %}
@@ -60,8 +72,11 @@
 <div id="event-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" onclick="closeEventModal()">
     <div class="card rounded-xl shadow-lg p-6 max-w-sm w-full" onclick="event.stopPropagation()">
         <div class="flex items-start justify-between mb-2">
-            <h3 id="event-modal-title" class="font-header text-lg font-bold text-gray-900"></h3>
-            <button type="button" onclick="closeEventModal()" class="text-gray-400 hover:text-gray-700" aria-label="Cerrar">
+            <div>
+                <span id="event-modal-category" class="inline-block mb-1 px-2 py-0.5 rounded-full text-[0.65rem] font-medium border"></span>
+                <h3 id="event-modal-title" class="font-header text-lg font-bold text-gray-900"></h3>
+            </div>
+            <button type="button" onclick="closeEventModal()" class="text-gray-400 hover:text-gray-700 flex-shrink-0" aria-label="Cerrar">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -75,6 +90,24 @@
 
 <script>
 const EVENTS_BY_DAY = {{ events_by_day | tojson }};
+const CATEGORY_STYLES = {{ category_styles | tojson }};
+
+const activeCategories = new Set(
+    Array.from(document.querySelectorAll('#category-filters [data-category]')).map(btn => btn.dataset.category)
+);
+
+function toggleCategory(key, btn) {
+    if (activeCategories.has(key)) {
+        activeCategories.delete(key);
+        btn.classList.add('opacity-40');
+    } else {
+        activeCategories.add(key);
+        btn.classList.remove('opacity-40');
+    }
+    document.querySelectorAll(`.event-chip[data-category="${key}"]`).forEach(el => {
+        el.classList.toggle('hidden', !activeCategories.has(key));
+    });
+}
 
 function showEventDetail(dateIso, index) {
     const events = EVENTS_BY_DAY[dateIso] || [];
@@ -84,6 +117,11 @@ function showEventDetail(dateIso, index) {
     const dateLabel = new Date(dateIso + 'T00:00:00').toLocaleDateString('es-ES', {
         weekday: 'long', day: 'numeric', month: 'long'
     });
+
+    const style = CATEGORY_STYLES[evt.category] || CATEGORY_STYLES.otros;
+    const categoryEl = document.getElementById('event-modal-category');
+    categoryEl.textContent = style.label;
+    categoryEl.className = `inline-block mb-1 px-2 py-0.5 rounded-full text-[0.65rem] font-medium border ${style.chip}`;
 
     document.getElementById('event-modal-title').textContent = evt.title;
     document.getElementById('event-modal-date').textContent = evt.time ? `${dateLabel} · ${evt.time}` : dateLabel;
