@@ -17,8 +17,8 @@ ACHIEVEMENTS = [
     (
         "🦅",
         "Ojo de halcón",
-        "5+ valores confirmados de etiqueta",
-        lambda s: s["fields_verified"] >= 5,
+        "25+ valores confirmados de etiqueta",
+        lambda s: s["fields_verified"] >= 25,
     ),
     (
         "🗺️",
@@ -29,14 +29,32 @@ ACHIEVEMENTS = [
     (
         "📸",
         "Paparazzi",
-        "Primera botella fotografiada",
-        lambda s: s["waters_with_photo"] >= 1,
+        "5+ botellas fotografiadas",
+        lambda s: s["waters_with_photo"] >= 5,
     ),
     (
         "🚰",
         "Manantial andante",
         "10+ aguas añadidas",
         lambda s: s["waters_added"] >= 10,
+    ),
+    (
+        "🌊",
+        "Fuente inagotable",
+        "25+ aguas añadidas",
+        lambda s: s["waters_added"] >= 25,
+    ),
+    (
+        "🫧",
+        "Con gas",
+        "Añadió su primera agua con gas",
+        lambda s: s["sparkling_added"] >= 1,
+    ),
+    (
+        "🔥",
+        "Racha del mes",
+        "3+ aguas añadidas este mes",
+        lambda s: s["month_waters"] >= 3,
     ),
 ]
 
@@ -45,8 +63,11 @@ def build_community_stats(catalog: list[Water], month_prefix: str) -> list[dict]
     """Per-contributor stats (seed excluded), ranked by contribution score.
 
     `month_prefix` is "YYYY-MM" — used for the monthly counters over
-    `added_at`. Score = waters added + fields verified (a verification is
-    worth the same as a catalog entry: it is the scarce resource).
+    `added_at`. Score = 2 * waters added + fields verified. A single water
+    add typically brings several verified fields with it (labels have
+    5-9 declared minerals), so weighing them 1:1 let verification dwarf
+    the rarer, harder act of adding a brand new water; doubling the water
+    weight instead of halving the field weight keeps the score integer.
     """
     by_user: dict[str, dict] = {}
     for water in catalog:
@@ -61,6 +82,7 @@ def build_community_stats(catalog: list[Water], month_prefix: str) -> list[dict]
                 "fields_verified": 0,
                 "waters_with_photo": 0,
                 "provinces": set(),
+                "sparkling_added": 0,
                 "month_waters": 0,
                 "month_fields": 0,
             },
@@ -71,14 +93,16 @@ def build_community_stats(catalog: list[Water], month_prefix: str) -> list[dict]
             stats["waters_with_photo"] += 1
         if water.province:
             stats["provinces"].add(water.province)
+        if water.sparkling:
+            stats["sparkling_added"] += 1
         if water.added_at and water.added_at.startswith(month_prefix):
             stats["month_waters"] += 1
             stats["month_fields"] += len(water.verified_fields)
 
     ranking = []
     for stats in by_user.values():
-        stats["score"] = stats["waters_added"] + stats["fields_verified"]
-        stats["month_score"] = stats["month_waters"] + stats["month_fields"]
+        stats["score"] = 2 * stats["waters_added"] + stats["fields_verified"]
+        stats["month_score"] = 2 * stats["month_waters"] + stats["month_fields"]
         stats["badges"] = [
             {"emoji": emoji, "name": name, "description": description}
             for emoji, name, description, predicate in ACHIEVEMENTS
