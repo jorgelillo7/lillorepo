@@ -632,3 +632,64 @@ def test_calendario_event_detail_data_is_embedded_for_the_click_modal(client):
     assert "Trae tu portatil" in body
     assert "Discord" in body
     assert "19:30" in body  # 18:30 UTC -> Europe/Madrid winter offset +1
+
+
+@pytest.mark.parametrize(
+    "title,expected_category",
+    [
+        ("Liga J3", "liga"),
+        ("Copa Santa Claus - J4", "copa"),
+        ("H2H J1", "h2h"),
+        ("Cierre de Mercado", "mercado"),
+        ("Inicio del draft", "draft"),
+        ("Semifinales vuelta Copa Santa Claus", "copa"),
+        ("Cena de fin de temporada", "otros"),
+    ],
+)
+def test_categorize_maps_title_keywords(title, expected_category):
+    assert main_routes._categorize(title) == expected_category
+
+
+def test_calendario_colours_events_by_category(client):
+    """Liga and Mercado events render with their own category chip classes."""
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:5@test\r\n"
+        "DTSTART;VALUE=DATE:20260110\r\n"
+        "SUMMARY:Liga J1\r\n"
+        "END:VEVENT",
+        "BEGIN:VEVENT\r\n"
+        "UID:6@test\r\n"
+        "DTSTART;VALUE=DATE:20260112\r\n"
+        "SUMMARY:Cierre de Mercado\r\n"
+        "END:VEVENT",
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario/2026/1")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert main_routes._CATEGORY_STYLES["liga"]["chip"] in body
+    assert main_routes._CATEGORY_STYLES["mercado"]["chip"] in body
+    # Both categories present this month -> the filter bar renders.
+    assert 'id="category-filters"' in body
+
+
+def test_calendario_hides_filter_bar_for_a_single_category(client):
+    """No point filtering when only one category shows up in the month."""
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:7@test\r\n"
+        "DTSTART;VALUE=DATE:20260110\r\n"
+        "SUMMARY:Liga J1\r\n"
+        "END:VEVENT"
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario/2026/1")
+
+    assert response.status_code == 200
+    assert 'id="category-filters"' not in response.get_data(as_text=True)

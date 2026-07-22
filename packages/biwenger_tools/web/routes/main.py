@@ -57,6 +57,40 @@ _MONTHS_ES = [
 ]
 _WEEKDAY_LABELS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
+# Category detection is keyword-based: the public .ics feed carries no
+# CATEGORIES/COLOR field (Google only exposes per-event color via the paid
+# Calendar API), but event titles already follow a stable naming convention
+# ("Liga J3", "Copa Santa Claus - J4", "H2H J1"...). Order matters: first
+# keyword match wins. See DESIGN.md "Calendar category colours".
+_CATEGORY_KEYWORDS = [
+    ("liga", "liga"),
+    ("copa", "copa"),
+    ("h2h", "h2h"),
+    ("mercado", "mercado"),
+    ("draft", "draft"),
+]
+_CATEGORY_STYLES = {
+    "liga": {"label": "Liga", "chip": "bg-green-100 text-green-800 border-green-200"},
+    "copa": {"label": "Copa", "chip": "bg-amber-100 text-amber-800 border-amber-200"},
+    "h2h": {"label": "H2H", "chip": "bg-blue-100 text-blue-800 border-blue-200"},
+    "mercado": {"label": "Mercado", "chip": "bg-red-100 text-red-800 border-red-200"},
+    "draft": {
+        "label": "Draft",
+        "chip": "bg-purple-100 text-purple-800 border-purple-200",
+    },
+    "otros": {"label": "Otros", "chip": "bg-gray-100 text-gray-700 border-gray-200"},
+}
+_CATEGORY_ORDER = ["liga", "copa", "h2h", "mercado", "draft", "otros"]
+
+
+def _categorize(title: str) -> str:
+    """Map an event title to a category key via keyword match, else `otros`."""
+    lowered = title.lower()
+    for keyword, category in _CATEGORY_KEYWORDS:
+        if keyword in lowered:
+            return category
+    return "otros"
+
 
 def _display_season(season: str) -> str:
     """Expand ``25-26`` → ``2025-2026`` for the palmares heading.
@@ -241,11 +275,13 @@ def _month_events(year: int, month: int) -> dict[date, list[dict]]:
             dtstart_date = dtstart_raw
             event_time = None
 
+        title = str(component.get("SUMMARY", ""))
         event = {
-            "title": str(component.get("SUMMARY", "")),
+            "title": title,
             "time": event_time,
             "description": str(component.get("DESCRIPTION", "")),
             "location": str(component.get("LOCATION", "")),
+            "category": _categorize(title),
         }
 
         rrule = component.get("RRULE")
@@ -308,6 +344,15 @@ def calendario(year: int | None = None, month: int | None = None) -> str:
     ]
     events_by_day = {day.isoformat(): day_events for day, day_events in events.items()}
 
+    categories_present = {
+        e["category"] for day_events in events.values() for e in day_events
+    }
+    categories = [
+        {"key": key, **_CATEGORY_STYLES[key]}
+        for key in _CATEGORY_ORDER
+        if key in categories_present
+    ]
+
     prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
 
@@ -317,6 +362,8 @@ def calendario(year: int | None = None, month: int | None = None) -> str:
         weekday_labels=_WEEKDAY_LABELS_ES,
         month_label=f"{_MONTHS_ES[month]} {year}",
         events_by_day=events_by_day,
+        categories=categories,
+        category_styles=_CATEGORY_STYLES,
         prev_year=prev_year,
         prev_month=prev_month,
         next_year=next_year,
