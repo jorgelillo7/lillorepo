@@ -1,15 +1,52 @@
-"""Main routes: home, favicon, palmares, reglamento."""
+"""Main routes: home, favicon, palmares, reglamento, calendario."""
 
+import calendar
 import ssl
+import time
+from datetime import date, datetime
 
+import icalendar
+import requests
+from dateutil.rrule import rrulestr
 from flask import Blueprint, Response, g, jsonify, redirect, render_template, url_for
 
+from core.constants import MADRID_TZ
 from core.sdk.gcp import get_sheets_data
+from core.sdk.http import retry_http_request
 from core.utils import get_logger
 from packages.biwenger_tools.web import config, repository, services
 
 logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
+
+# Public "Lloros League" Google Calendar — read-only, season-agnostic.
+# Public by design (see Google Calendar sharing settings), so no secret
+# management needed for this URL.
+CALENDAR_ICS_URL = (
+    "https://calendar.google.com/calendar/ical/"
+    "9be2a252ae966f7166d9b2a91491f5f3666b5d86096e1bc942717fca559d474f"
+    "%40group.calendar.google.com/public/basic.ics"
+)
+
+_CALENDAR_CACHE_TTL_SECONDS = 30 * 60
+_calendar_cache: dict = {"fetched_at": 0.0, "raw": None}
+
+_MONTHS_ES = [
+    "",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+]
+_WEEKDAY_LABELS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
 
 def _display_season(season: str) -> str:
@@ -150,4 +187,105 @@ def reglamento() -> str:
         leagues=leagues,
         error=error,
         active_page="reglamento",
+    )
+
+
+def _fetch_calendar_ics() -> bytes:
+    """Fetch the league's public .ics feed, cached for `_CALENDAR_CACHE_TTL_SECONDS`."""
+    now = time.monotonic()
+    if (
+        _calendar_cache["raw"] is not None
+        and now - _calendar_cache["fetched_at"] < _CALENDAR_CACHE_TTL_SECONDS
+    ):
+        return _calendar_cache["raw"]
+
+    response = retry_http_request(
+        lambda: requests.get(CALENDAR_ICS_URL, timeout=10),
+        label="league calendar ics fetch",
+    )
+    _calendar_cache["raw"] = response.content
+    _calendar_cache["fetched_at"] = now
+    return _calendar_cache["raw"]
+
+
+def _month_events(year: int, month: int) -> dict[date, list[str]]:
+    """Map each date in `year`-`month` to the titles of events occurring on it.
+
+    Expands `RRULE` recurrences via `dateutil`; all-day and timed `VEVENT`s
+    are both reduced to a plain `date` in Madrid time.
+    """
+    cal = icalendar.Calendar.from_ical(_fetch_calendar_ics())
+
+    month_start = date(year, month, 1)
+    month_end = date(year, month, calendar.monthrange(year, month)[1])
+
+    events: dict[date, list[str]] = {}
+    for component in cal.walk("VEVENT"):
+        summary = str(component.get("SUMMARY", ""))
+        dtstart_raw = component.get("DTSTART").dt
+        if isinstance(dtstart_raw, datetime):
+            dtstart_date = dtstart_raw.astimezone(MADRID_TZ).date()
+        else:
+            dtstart_date = dtstart_raw
+
+        rrule = component.get("RRULE")
+        if rrule:
+            window_start = datetime.combine(month_start, datetime.min.time())
+            window_end = datetime.combine(month_end, datetime.max.time())
+            dtstart_dt = datetime.combine(dtstart_date, datetime.min.time())
+            occurrence_dates = [
+                occurrence.date()
+                for occurrence in rrulestr(
+                    rrule.to_ical().decode(), dtstart=dtstart_dt
+                ).between(window_start, window_end, inc=True)
+            ]
+        elif month_start <= dtstart_date <= month_end:
+            occurrence_dates = [dtstart_date]
+        else:
+            occurrence_dates = []
+
+        for day in occurrence_dates:
+            events.setdefault(day, []).append(summary)
+
+    return events
+
+
+@bp.route("/calendario")
+def calendario() -> str:
+    """Display the league's public Google Calendar for the current month.
+
+    Read-only viewer, season-agnostic: always shows today's month, no
+    navigation between months.
+    """
+    today = datetime.now(MADRID_TZ).date()
+    error = None
+    events: dict[date, list[str]] = {}
+    try:
+        events = _month_events(today.year, today.month)
+    except Exception:
+        error = "No se ha podido cargar el calendario."
+        logger.exception("Error loading league calendar.")
+
+    weeks = [
+        [
+            {
+                "date": day,
+                "in_month": day.month == today.month,
+                "is_today": day == today,
+                "events": events.get(day, []),
+            }
+            for day in week
+        ]
+        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(
+            today.year, today.month
+        )
+    ]
+
+    return render_template(
+        "calendario.html",
+        weeks=weeks,
+        weekday_labels=_WEEKDAY_LABELS_ES,
+        month_label=f"{_MONTHS_ES[today.month]} {today.year}",
+        error=error,
+        active_page="calendario",
     )

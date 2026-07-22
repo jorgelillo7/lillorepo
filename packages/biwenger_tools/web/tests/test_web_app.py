@@ -1,10 +1,12 @@
 """Tests for the Biwenger web application."""
 
+import requests
 import pytest
 from unittest.mock import MagicMock, patch
 
 from packages.biwenger_tools.web import services
 from packages.biwenger_tools.web.app import app
+from packages.biwenger_tools.web.routes import main as main_routes
 from core.domain.models import (
     Clausulazo,
     JusticeEntry,
@@ -42,6 +44,16 @@ def client():
     app.config["SECRET_KEY"] = "test_key"
     with app.test_client() as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def reset_calendar_cache():
+    """The .ics fetch is cached at module level — avoid leaking across tests."""
+    main_routes._calendar_cache["raw"] = None
+    main_routes._calendar_cache["fetched_at"] = 0.0
+    yield
+    main_routes._calendar_cache["raw"] = None
+    main_routes._calendar_cache["fetched_at"] = 0.0
 
 
 def _msg(
@@ -507,3 +519,64 @@ def test_mercado_no_data(mock_tabla, mock_clausulazos, client):
     response = client.get("/24-25/mercado")
     assert response.status_code == 200
     assert b"error" not in response.data.lower()
+
+
+# --- Calendario tests ---
+
+
+def _ics_calendar(*vevents: str) -> bytes:
+    body = "\r\n".join(vevents)
+    return f"BEGIN:VCALENDAR\r\nVERSION:2.0\r\n{body}\r\nEND:VCALENDAR\r\n".encode()
+
+
+def test_calendario_shows_current_month_event(client):
+    """A simple (non-recurring) event in the current month renders on the page."""
+    today = main_routes.datetime.now(main_routes.MADRID_TZ).date()
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:1@test\r\n"
+        f"DTSTART;VALUE=DATE:{today.strftime('%Y%m%d')}\r\n"
+        "SUMMARY:Cierre de mercado\r\n"
+        "END:VEVENT"
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert main_routes._MONTHS_ES[today.month] in body
+    assert "Cierre de mercado" in body
+
+
+def test_calendario_expands_recurring_event(client):
+    """A weekly RRULE event shows up in whichever month the request lands in."""
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:2@test\r\n"
+        "DTSTART;VALUE=DATE:20200106\r\n"
+        "RRULE:FREQ=WEEKLY;BYDAY=MO\r\n"
+        "SUMMARY:Entreno semanal\r\n"
+        "END:VEVENT"
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario")
+
+    assert response.status_code == 200
+    assert "Entreno semanal" in response.get_data(as_text=True)
+
+
+def test_calendario_network_failure_renders_empty_grid(client):
+    """A failed fetch shows an error banner instead of a 500."""
+    with patch.object(
+        main_routes,
+        "retry_http_request",
+        side_effect=requests.RequestException("boom"),
+    ):
+        response = client.get("/calendario")
+
+    assert response.status_code == 200
+    assert "No se ha podido cargar el calendario." in response.get_data(as_text=True)

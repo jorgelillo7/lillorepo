@@ -5,6 +5,7 @@ unidecode
 beautifulsoup4
 bleach
 gunicorn
+icalendar
 
 # Para el manejo de fechas y zonas horarias
 python-dateutil

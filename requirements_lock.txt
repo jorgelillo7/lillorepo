@@ -77,6 +77,8 @@ httplib2==0.32.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
+icalendar==7.2.2
+    # via -r requirements.in
 idna==3.18
     # via requests
 iniconfig==2.3.0
@@ -113,7 +115,9 @@ packaging==26.2
 pathspec==1.1.1
     # via black
 pillow==12.3.0
-    # via matplotlib
+    # via
+    #   -r requirements.in
+    #   matplotlib
 platformdirs==4.10.0
     # via black
 pluggy==1.6.0
@@ -151,6 +155,7 @@ python-dateutil==2.9.0.post0
     # via
     #   -r requirements.in
     #   freezegun
+    #   icalendar
     #   matplotlib
 python-dotenv==1.2.2
     # via -r requirements.in
@@ -176,6 +181,9 @@ typing-extensions==4.16.0
     # via
     #   beautifulsoup4
     #   grpcio
+    #   icalendar
+tzdata==2026.3
+    # via icalendar
 unidecode==1.4.0
     # via -r requirements.in
 uritemplate==4.2.0
