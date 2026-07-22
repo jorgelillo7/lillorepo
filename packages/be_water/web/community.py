@@ -4,6 +4,7 @@ Badges are pure functions of a contributor's stats, so adding one is a
 single entry in ACHIEVEMENTS and history rewrites itself for free.
 """
 
+from packages.be_water.web import aesan
 from packages.be_water.web.domain import Water
 
 # (emoji, name, description, predicate over a stats dict)
@@ -56,6 +57,12 @@ ACHIEVEMENTS = [
         "3+ aguas añadidas este mes",
         lambda s: s["month_waters"] >= 3,
     ),
+    (
+        "🧭",
+        "Explorador",
+        "Añadió un agua fuera del registro oficial AESAN",
+        lambda s: s["off_registry_added"] >= 1,
+    ),
 ]
 
 
@@ -83,6 +90,7 @@ def build_community_stats(catalog: list[Water], month_prefix: str) -> list[dict]
                 "waters_with_photo": 0,
                 "provinces": set(),
                 "sparkling_added": 0,
+                "off_registry_added": 0,
                 "month_waters": 0,
                 "month_fields": 0,
             },
@@ -95,6 +103,10 @@ def build_community_stats(catalog: list[Water], month_prefix: str) -> list[dict]
             stats["provinces"].add(water.province)
         if water.sparkling:
             stats["sparkling_added"] += 1
+        if not (
+            aesan.registry_matches(water.name) or aesan.registry_matches(water.brand)
+        ):
+            stats["off_registry_added"] += 1
         if water.added_at and water.added_at.startswith(month_prefix):
             stats["month_waters"] += 1
             stats["month_fields"] += len(water.verified_fields)

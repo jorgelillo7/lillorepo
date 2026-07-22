@@ -226,6 +226,7 @@ def community_page():
         period=period,
         catalog_size=len(catalog),
         aesan=aesan.coverage(catalog_names),
+        pending=aesan.pending_waters(catalog_names),
         achievements=[
             {"emoji": emoji, "name": name, "description": description}
             for emoji, name, description, _ in community.ACHIEVEMENTS

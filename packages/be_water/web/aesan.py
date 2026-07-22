@@ -27,15 +27,27 @@ def registry_matches(name: str) -> list[dict]:
     ]
 
 
+def _key(text: str) -> str:
+    return unidecode(text or "").strip().lower()
+
+
 def coverage(catalog_names) -> dict:
     """How much of the registry the given names cover (containment either
     way, accent-insensitive). White labels register under the producer's
     name and rightly don't match."""
-
-    def _key(text):
-        return unidecode(text or "").strip().lower()
-
     registry = {_key(e["name"]) for e in AESAN_WATERS}
     names = {_key(n) for n in catalog_names if n}
     covered = {r for r in registry if any(r in n or n in r for n in names)}
     return {"total": len(registry), "covered": len(covered)}
+
+
+def pending_waters(catalog_names) -> list[dict]:
+    """AESAN entries not matched by any catalog name — the public "still
+    to catalogue" list, sorted by province then name for a scannable UI."""
+    names = {_key(n) for n in catalog_names if n}
+    pending = [
+        entry
+        for entry in AESAN_WATERS
+        if not any(_key(entry["name"]) in n or n in _key(entry["name"]) for n in names)
+    ]
+    return sorted(pending, key=lambda e: (e["province"], e["name"]))
