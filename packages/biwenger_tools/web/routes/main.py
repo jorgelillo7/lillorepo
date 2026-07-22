@@ -8,7 +8,16 @@ from datetime import date, datetime
 import icalendar
 import requests
 from dateutil.rrule import rrulestr
-from flask import Blueprint, Response, g, jsonify, redirect, render_template, url_for
+from flask import (
+    Blueprint,
+    Response,
+    abort,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    url_for,
+)
 
 from core.constants import MADRID_TZ
 from core.sdk.gcp import get_sheets_data
@@ -208,25 +217,36 @@ def _fetch_calendar_ics() -> bytes:
     return _calendar_cache["raw"]
 
 
-def _month_events(year: int, month: int) -> dict[date, list[str]]:
-    """Map each date in `year`-`month` to the titles of events occurring on it.
+def _month_events(year: int, month: int) -> dict[date, list[dict]]:
+    """Map each date in `year`-`month` to the events occurring on it.
 
-    Expands `RRULE` recurrences via `dateutil`; all-day and timed `VEVENT`s
-    are both reduced to a plain `date` in Madrid time.
+    Each event is `{title, time, description, location}` — `time` is
+    `None` for all-day events. Expands `RRULE` recurrences via
+    `dateutil`; all-day and timed `VEVENT`s are both reduced to a plain
+    `date` in Madrid time for bucketing.
     """
     cal = icalendar.Calendar.from_ical(_fetch_calendar_ics())
 
     month_start = date(year, month, 1)
     month_end = date(year, month, calendar.monthrange(year, month)[1])
 
-    events: dict[date, list[str]] = {}
+    events: dict[date, list[dict]] = {}
     for component in cal.walk("VEVENT"):
-        summary = str(component.get("SUMMARY", ""))
         dtstart_raw = component.get("DTSTART").dt
         if isinstance(dtstart_raw, datetime):
-            dtstart_date = dtstart_raw.astimezone(MADRID_TZ).date()
+            local_start = dtstart_raw.astimezone(MADRID_TZ)
+            dtstart_date = local_start.date()
+            event_time = local_start.strftime("%H:%M")
         else:
             dtstart_date = dtstart_raw
+            event_time = None
+
+        event = {
+            "title": str(component.get("SUMMARY", "")),
+            "time": event_time,
+            "description": str(component.get("DESCRIPTION", "")),
+            "location": str(component.get("LOCATION", "")),
+        }
 
         rrule = component.get("RRULE")
         if rrule:
@@ -245,23 +265,31 @@ def _month_events(year: int, month: int) -> dict[date, list[str]]:
             occurrence_dates = []
 
         for day in occurrence_dates:
-            events.setdefault(day, []).append(summary)
+            events.setdefault(day, []).append(event)
 
     return events
 
 
 @bp.route("/calendario")
-def calendario() -> str:
-    """Display the league's public Google Calendar for the current month.
+@bp.route("/calendario/<int:year>/<int:month>")
+def calendario(year: int | None = None, month: int | None = None) -> str:
+    """Display the league's public Google Calendar for a given month.
 
-    Read-only viewer, season-agnostic: always shows today's month, no
-    navigation between months.
+    Defaults to the current month (Madrid time). Read-only viewer with
+    month navigation; event titles are clickable to reveal their detail.
     """
     today = datetime.now(MADRID_TZ).date()
-    error = None
-    events: dict[date, list[str]] = {}
+    if year is None or month is None:
+        year, month = today.year, today.month
     try:
-        events = _month_events(today.year, today.month)
+        date(year, month, 1)
+    except ValueError:
+        abort(404)
+
+    error = None
+    events: dict[date, list[dict]] = {}
+    try:
+        events = _month_events(year, month)
     except Exception:
         error = "No se ha podido cargar el calendario."
         logger.exception("Error loading league calendar.")
@@ -270,22 +298,30 @@ def calendario() -> str:
         [
             {
                 "date": day,
-                "in_month": day.month == today.month,
+                "in_month": day.month == month,
                 "is_today": day == today,
                 "events": events.get(day, []),
             }
             for day in week
         ]
-        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(
-            today.year, today.month
-        )
+        for week in calendar.Calendar(firstweekday=0).monthdatescalendar(year, month)
     ]
+    events_by_day = {day.isoformat(): day_events for day, day_events in events.items()}
+
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
 
     return render_template(
         "calendario.html",
         weeks=weeks,
         weekday_labels=_WEEKDAY_LABELS_ES,
-        month_label=f"{_MONTHS_ES[today.month]} {today.year}",
+        month_label=f"{_MONTHS_ES[month]} {year}",
+        events_by_day=events_by_day,
+        prev_year=prev_year,
+        prev_month=prev_month,
+        next_year=next_year,
+        next_month=next_month,
+        is_current_month=(year == today.year and month == today.month),
         error=error,
         active_page="calendario",
     )

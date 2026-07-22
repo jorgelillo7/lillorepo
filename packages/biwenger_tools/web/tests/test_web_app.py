@@ -580,3 +580,55 @@ def test_calendario_network_failure_renders_empty_grid(client):
 
     assert response.status_code == 200
     assert "No se ha podido cargar el calendario." in response.get_data(as_text=True)
+
+
+def test_calendario_navigates_to_requested_month(client):
+    """/calendario/<year>/<month> shows that month, not the current one."""
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:3@test\r\n"
+        "DTSTART;VALUE=DATE:20260115\r\n"
+        "SUMMARY:Reunion de enero\r\n"
+        "END:VEVENT"
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario/2026/1")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Enero 2026" in body
+    assert "Reunion de enero" in body
+    # Prev/next links point at December 2025 and February 2026.
+    assert "/calendario/2025/12" in body
+    assert "/calendario/2026/2" in body
+
+
+def test_calendario_invalid_month_returns_404(client):
+    """An out-of-range month in the URL 404s instead of crashing."""
+    response = client.get("/calendario/2026/13")
+    assert response.status_code == 404
+
+
+def test_calendario_event_detail_data_is_embedded_for_the_click_modal(client):
+    """Description/location/time are serialized for the JS detail modal."""
+    ics = _ics_calendar(
+        "BEGIN:VEVENT\r\n"
+        "UID:4@test\r\n"
+        "DTSTART:20260115T183000Z\r\n"
+        "SUMMARY:Sorteo del draft\r\n"
+        "DESCRIPTION:Trae tu portatil\r\n"
+        "LOCATION:Discord\r\n"
+        "END:VEVENT"
+    )
+    with patch.object(
+        main_routes, "retry_http_request", return_value=MagicMock(content=ics)
+    ):
+        response = client.get("/calendario/2026/1")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Trae tu portatil" in body
+    assert "Discord" in body
+    assert "19:30" in body  # 18:30 UTC -> Europe/Madrid winter offset +1

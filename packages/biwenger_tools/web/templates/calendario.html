@@ -4,7 +4,26 @@
 
 {% block content %}
 <div class="card p-6 rounded-xl shadow-lg">
-    <h2 class="font-header text-3xl font-bold text-gray-900 mb-6 text-center">{{ month_label }}</h2>
+    <div class="flex items-center justify-between mb-6">
+        <a href="{{ url_for('main.calendario', year=prev_year, month=prev_month) }}"
+           class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900" aria-label="Mes anterior">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <div class="text-center">
+            <h2 class="font-header text-3xl font-bold text-gray-900">{{ month_label }}</h2>
+            {% if not is_current_month %}
+            <a href="{{ url_for('main.calendario') }}" class="text-xs text-green-700 hover:underline">Volver a hoy</a>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('main.calendario', year=next_year, month=next_month) }}"
+           class="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900" aria-label="Mes siguiente">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </a>
+    </div>
 
     {% if error %}
         <div class="text-center text-red-500 mb-4">{{ error }}</div>
@@ -24,14 +43,65 @@
                             {% if day.is_today %}text-green-700{% elif not day.in_month %}text-gray-300{% else %}text-gray-700{% endif %}">
                     {{ day.date.day }}
                 </div>
-                {% for title in day.events %}
-                <div class="mt-0.5 text-[0.65rem] sm:text-xs leading-tight text-gray-500 truncate" title="{{ title }}">
-                    {{ title }}
-                </div>
+                {% for event in day.events %}
+                <button type="button"
+                        onclick="showEventDetail('{{ day.date.isoformat() }}', {{ loop.index0 }})"
+                        class="block w-full text-left mt-0.5 text-[0.65rem] sm:text-xs leading-tight text-gray-500 hover:text-green-700 truncate">
+                    {{ event.title }}
+                </button>
                 {% endfor %}
             </div>
             {% endfor %}
         {% endfor %}
     </div>
 </div>
+
+<!-- Event detail modal -->
+<div id="event-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" onclick="closeEventModal()">
+    <div class="card rounded-xl shadow-lg p-6 max-w-sm w-full" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between mb-2">
+            <h3 id="event-modal-title" class="font-header text-lg font-bold text-gray-900"></h3>
+            <button type="button" onclick="closeEventModal()" class="text-gray-400 hover:text-gray-700" aria-label="Cerrar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <p id="event-modal-date" class="text-sm text-gray-500 mb-2"></p>
+        <p id="event-modal-location" class="text-sm text-gray-500 mb-2 hidden"></p>
+        <p id="event-modal-description" class="text-sm text-gray-700 whitespace-pre-line"></p>
+    </div>
+</div>
+
+<script>
+const EVENTS_BY_DAY = {{ events_by_day | tojson }};
+
+function showEventDetail(dateIso, index) {
+    const events = EVENTS_BY_DAY[dateIso] || [];
+    const evt = events[index];
+    if (!evt) return;
+
+    const dateLabel = new Date(dateIso + 'T00:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long'
+    });
+
+    document.getElementById('event-modal-title').textContent = evt.title;
+    document.getElementById('event-modal-date').textContent = evt.time ? `${dateLabel} · ${evt.time}` : dateLabel;
+
+    const locationEl = document.getElementById('event-modal-location');
+    if (evt.location) {
+        locationEl.textContent = evt.location;
+        locationEl.classList.remove('hidden');
+    } else {
+        locationEl.classList.add('hidden');
+    }
+
+    document.getElementById('event-modal-description').textContent = evt.description || '';
+    document.getElementById('event-modal').classList.remove('hidden');
+}
+
+function closeEventModal() {
+    document.getElementById('event-modal').classList.add('hidden');
+}
+</script>
 {% endblock %}
