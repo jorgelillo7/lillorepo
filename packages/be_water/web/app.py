@@ -503,6 +503,7 @@ def add_water_photo():
             logger.warning(
                 "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
             )
+            studio_note = " El estudio no pudo retocar la foto; se guarda la original."
     photo_tmp = f"uploads/{uid}.jpg"
     photos.upload_photo(photo_tmp, display)
 

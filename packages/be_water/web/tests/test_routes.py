@@ -754,7 +754,9 @@ def test_photo_flow_studio_failure_falls_back_to_raw(client):
     assert resp.status_code == 200
     # Display upload falls back to the processed raw photo.
     assert mock_upload.call_args_list[1].args[1] == b"jpg"
-    assert "estudio" not in resp.get_data(as_text=True)
+    body = resp.get_data(as_text=True)
+    assert "ha pasado por el estudio" not in body  # success note absent
+    assert "no pudo retocar la foto" in body  # honest failure note shown
 
 
 def test_photo_flow_survives_gemini_failure(client):
