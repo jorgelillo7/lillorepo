@@ -144,11 +144,25 @@ def generate_image(
             status_code=response.status_code,
         )
     try:
-        parts = response.json()["candidates"][0]["content"]["parts"]
-        for part in parts:
+        data = response.json()
+        candidate = (data.get("candidates") or [{}])[0]
+        content = candidate.get("content")
+        if content is None:
+            # HTTP 200 with no content = safety/recitation block or an empty
+            # generation. Surface finishReason instead of a bare KeyError so
+            # the log says *why* the image never came back.
+            raise GeminiError(
+                "Gemini returned no image "
+                f"(finishReason={candidate.get('finishReason')!r}, "
+                f"promptFeedback={data.get('promptFeedback')!r})"
+            )
+        for part in content["parts"]:
             blob = part.get("inlineData") or part.get("inline_data")
             if blob and blob.get("data"):
                 return base64.b64decode(blob["data"])
-        raise KeyError("no image part in response")
+        raise GeminiError(
+            "Gemini returned no image part "
+            f"(finishReason={candidate.get('finishReason')!r})"
+        )
     except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise GeminiError(f"Unparseable Gemini image response: {exc}") from exc

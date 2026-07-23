@@ -124,5 +124,14 @@ def test_generate_image_raises_without_image_part():
         m.post(
             _IMG_URL, json={"candidates": [{"content": {"parts": [{"text": "no"}]}}]}
         )
-        with pytest.raises(gemini.GeminiError, match="Unparseable"):
+        with pytest.raises(gemini.GeminiError, match="no image part"):
+            gemini.generate_image("key", "isolate", b"src")
+
+
+def test_generate_image_surfaces_finish_reason_when_content_missing():
+    # 200 with a candidate but no content = safety/recitation block; the
+    # error must name the finishReason so the log explains the fallback.
+    with requests_mock.Mocker() as m:
+        m.post(_IMG_URL, json={"candidates": [{"finishReason": "IMAGE_SAFETY"}]})
+        with pytest.raises(gemini.GeminiError, match="IMAGE_SAFETY"):
             gemini.generate_image("key", "isolate", b"src")
