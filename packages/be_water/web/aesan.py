@@ -42,12 +42,30 @@ def coverage(catalog_names) -> dict:
 
 
 def pending_waters(catalog_names) -> list[dict]:
-    """AESAN entries not matched by any catalog name — the public "still
-    to catalogue" list, sorted by province then name for a scannable UI."""
+    """AESAN entries not matched by any catalog name — the public "still to
+    catalogue" list, sorted by province then name for a scannable UI.
+
+    Deduplicated by commercial name so the list length matches `coverage`,
+    which counts unique names: the registry lists multi-spring brands (Font
+    Vella, Cabreiroá…) once per spring, and counting rows here while counting
+    names there made "quedan N por fichar" disagree with "ver las M pendientes".
+    """
     names = {_key(n) for n in catalog_names if n}
-    pending = [
-        entry
-        for entry in AESAN_WATERS
-        if not any(_key(entry["name"]) in n or n in _key(entry["name"]) for n in names)
-    ]
-    return sorted(pending, key=lambda e: (e["province"], e["name"]))
+    uncovered = sorted(
+        (
+            entry
+            for entry in AESAN_WATERS
+            if not any(
+                _key(entry["name"]) in n or n in _key(entry["name"]) for n in names
+            )
+        ),
+        key=lambda e: (e["province"], e["name"]),
+    )
+    seen = set()
+    deduped = []
+    for entry in uncovered:
+        key = _key(entry["name"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(entry)
+    return deduped
