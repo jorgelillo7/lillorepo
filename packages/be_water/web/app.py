@@ -32,6 +32,7 @@ from packages.be_water.web import (
     geo,
     label_ocr,
     photos,
+    provenance,
     repository,
     similarity,
 )
@@ -434,6 +435,14 @@ def add_water():
             if existing.added_by and existing.added_by != "seed":
                 water.added_by = existing.added_by
                 water.added_at = existing.added_at
+        # Provenance of every non-label value (label fields are implied by
+        # verified_fields): prior sources survive the merge, new hand-entered
+        # minerals become "manual".
+        water.sources = provenance.sources_on_save(
+            water.minerals,
+            water.verified_fields,
+            existing.sources if existing is not None else {},
+        )
         # Auto-promotion: label proof on file and every declared mineral
         # backed by it → the whole ficha is verified (and data-frozen
         # against the monthly dataset sync).

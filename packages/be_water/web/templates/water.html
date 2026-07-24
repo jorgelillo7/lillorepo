@@ -36,6 +36,10 @@
             <h1 class="text-2xl font-extrabold text-slate-900">{{ water.name }}</h1>
             <p class="text-slate-500 text-sm mt-1">{{ water.spring }}</p>
             <p class="text-slate-600 text-sm mt-2 font-medium">📍 {{ water.province }} · {{ water.community }}</p>
+            {% if water.source_of('province') == 'aesan' %}
+            <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mt-0.5"
+               title="Procedencia cruzada con el registro oficial AESAN">registro AESAN</p>
+            {% endif %}
             <div class="mt-5 inline-flex flex-col items-center">
                 <span class="text-5xl font-extrabold text-{{ tone }}-700">{{ water.tds if water.tds is not none else '—' }}</span>
                 <span class="text-[11px] uppercase tracking-wider text-{{ tone }}-600/80 font-semibold mt-1">mg/L residuo seco</span>
@@ -82,9 +86,6 @@
                    class="text-slate-400 hover:text-sky-600 underline">📄 ver etiqueta de composición</a>
             </p>
             {% endif %}
-            {% if not water.verified %}
-            <p class="mt-2 text-[11px] text-slate-400">⚠️ datos de etiqueta sin verificar</p>
-            {% endif %}
         </div>
     </section>
 
@@ -96,7 +97,8 @@
             <dl class="space-y-3">
                 {% for field in mineral_fields if water.minerals.get(field) is not none %}
                 {% set val = water.minerals[field] %}
-                <div class="grid grid-cols-[7.5rem_1fr_4.6rem] items-center gap-3 text-sm">
+                {% set src = water.source_of(field) %}
+                <div class="grid grid-cols-[7rem_1fr_5rem] items-center gap-3 text-sm">
                     <dt class="text-slate-500">{{ mineral_labels[field] }}</dt>
                     <dd>
                         {% if field != 'ph' %}
@@ -106,15 +108,26 @@
                         </div>
                         {% endif %}
                     </dd>
-                    <dd class="text-right font-semibold text-slate-800 tabular-nums">
-                        {{ val }}{% if water.is_field_verified(field) %} <span class="text-teal-500 text-xs" title="Confirmado de foto de etiqueta">✓</span>{% else %} <span class="text-transparent text-xs select-none">✓</span>{% endif %}
+                    <dd class="text-right leading-tight">
+                        <div class="font-semibold text-slate-800 tabular-nums">{{ val }}</div>
+                        {% if src == 'label' %}
+                        <div class="text-[10px] uppercase tracking-wide font-semibold text-teal-600"
+                             title="Confirmado de foto de etiqueta">✓ etiqueta</div>
+                        {% elif src == 'manual' %}
+                        <div class="text-[10px] uppercase tracking-wide font-semibold text-amber-600"
+                             title="Aportado a mano por la comunidad">a mano</div>
+                        {% elif src == 'manufacturer' %}
+                        <div class="text-[10px] uppercase tracking-wide font-semibold text-slate-400"
+                             title="Datos publicados por el fabricante">fabricante</div>
+                        {% endif %}
                     </dd>
                 </div>
                 {% endfor %}
             </dl>
-            <p class="mt-4 text-[11px] text-slate-400">
-                <span class="text-teal-500">✓</span> confirmado de foto de etiqueta ·
-                el resto proviene de datos publicados por el fabricante (aproximados).
+            <p class="mt-4 text-[11px] text-slate-400 leading-relaxed">
+                <span class="text-teal-600 font-semibold">✓ etiqueta</span> confirmado de foto ·
+                <span class="text-slate-500 font-semibold">fabricante</span> datos publicados ·
+                <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad.
                 <a href="{{ url_for('about') }}" class="underline hover:text-sky-600">Más sobre las fuentes</a>
             </p>
         </div>
