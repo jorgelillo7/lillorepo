@@ -10,7 +10,7 @@ Here is the solution! This project is a **backup + web + analysis** system so yo
 
 ## Packages
 
-Four packages working together to archive, visualise and analyse data from a Biwenger league. Each one has its own README with entry point, gotchas, and local dev notes — this file is just the index.
+Four modules working together to archive, visualise and analyse data from a Biwenger league. Each one has its own README with entry point, gotchas, and local dev notes — this file is just the index.
 
 | Package | Deployment | Detail |
 |---|---|---|
