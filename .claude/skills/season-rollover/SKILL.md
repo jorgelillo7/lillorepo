@@ -195,3 +195,14 @@ Show the user:
 - The PR URL
 - A reminder to update `.env` files on any other local machine
 - Reminder that merging to `master` triggers the full CI deploy
+- **Special-cup winner images**: once the `palmares/<ending_season>` doc exists
+  (Step 2b), the `/palmares` "Copas especiales" block renders for that season.
+  Remind the user they can upload the winner graphics — no redeploy needed —
+  with the filename matching the palmarés doc id (e.g. `25-26`):
+  ```bash
+  gcloud storage cp copa-santa.jpg \
+      gs://biwenger-special-tournaments/santa-cup/<ending_season>.jpg
+  gcloud storage cp copa-castolo.jpg \
+      gs://biwenger-special-tournaments/castolo-cup/<ending_season>.jpg
+  ```
+  (Slugs live in `config.SPECIAL_TOURNAMENTS`; see `docs/operations.md` §1.)

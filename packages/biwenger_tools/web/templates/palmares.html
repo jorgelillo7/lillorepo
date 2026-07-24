@@ -76,6 +76,24 @@
                 </div>
             </div>
 
+            {% if special_tournaments and data.show_special_cups %}
+            <div class="special-tournaments mt-8 pt-6 border-t border-gray-200">
+                <h3 class="font-header text-xl font-bold text-gray-800 mb-4">🏆 Copas especiales</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for t in special_tournaments %}
+                    <figure class="special-cup">
+                        <img src="{{ special_base }}/{{ t.slug }}/{{ season }}.png"
+                             alt="{{ t.label }} — {{ data.display_season or season }}"
+                             loading="lazy"
+                             class="w-full rounded-lg shadow-md ring-1 ring-gray-200 cursor-pointer hover:ring-green-400 transition"
+                             onerror="cupImgFallback(this)">
+                        <figcaption class="text-sm text-gray-500 mt-1 text-center">{{ t.label }}</figcaption>
+                    </figure>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             {% if data.standings_table %}
             <div class="mt-8 pt-6 border-t border-gray-200">
                 <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Clasificación final</h3>
@@ -132,4 +150,47 @@
         <p class="text-center card p-6 rounded-xl text-gray-500">No hay datos del palmarés disponibles.</p>
     {% endif %}
 </div>
+
+<!-- Fullscreen viewer for special-cup graphics (click to enlarge) -->
+<div id="cup-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 hidden z-50">
+    <div class="relative max-w-5xl max-h-full">
+        <img id="cup-modal-image" src="" alt="Copa ampliada" class="w-auto h-auto max-w-full max-h-[90vh] rounded-lg">
+        <button id="cup-modal-close" class="absolute -top-4 -right-4 h-10 w-10 bg-white rounded-full text-gray-800 flex items-center justify-center text-2xl font-bold" aria-label="Cerrar">&times;</button>
+    </div>
+</div>
+
+<script>
+// Special-cup graphics are optional and per-season: try {slug}/{season}.png,
+// fall back to .jpg, and if neither exists drop the figure — and the whole
+// "Copas especiales" block when a season has none. Uploading a new winner
+// therefore needs no redeploy.
+function cupImgFallback(img) {
+    if (img.src.endsWith('.png')) {
+        img.src = img.src.slice(0, -4) + '.jpg';
+        return;
+    }
+    const figure = img.closest('.special-cup');
+    const section = img.closest('.special-tournaments');
+    if (figure) figure.remove();
+    if (section && !section.querySelector('.special-cup')) section.remove();
+}
+
+// Click a cup to view it full-size. Delegation, so it works for whichever
+// figures survive the 404 fallback above.
+(function () {
+    const modal = document.getElementById('cup-modal');
+    const modalImage = document.getElementById('cup-modal-image');
+    const close = () => { modal.classList.add('hidden'); modalImage.src = ''; };
+    document.addEventListener('click', e => {
+        const img = e.target.closest('.special-cup img');
+        if (img) {
+            modalImage.src = img.currentSrc || img.src;
+            modal.classList.remove('hidden');
+        }
+    });
+    document.getElementById('cup-modal-close').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+})();
+</script>
 {% endblock %}

@@ -109,6 +109,15 @@ def _display_season(season: str) -> str:
     return season
 
 
+def _season_start_year(season: str) -> int:
+    """Start year from a season id, short (``25-26`` → 2025) or long
+    (``2024-2025`` → 2024). 0 when it doesn't parse."""
+    head = season.split("-", 1)[0]
+    if head.isdigit():
+        return 2000 + int(head) if len(head) == 2 else int(head)
+    return 0
+
+
 @bp.route("/version")
 def version() -> Response:
     """Return the deployed git commit SHA."""
@@ -139,6 +148,7 @@ def palmares() -> str:
     """
     error = None
     sorted_seasons: list = []
+    cups_since = _season_start_year(config.SPECIAL_TOURNAMENTS_SINCE)
     try:
         for p in repository.get_palmares():
             n = len(p.standings_table)
@@ -193,6 +203,9 @@ def palmares() -> str:
                         "multas": p.multas,
                         "farolillo_note": farolillo_note,
                         "neutros": p.neutros,
+                        "show_special_cups": (
+                            _season_start_year(p.temporada) >= cups_since
+                        ),
                     },
                 )
             )
@@ -205,6 +218,10 @@ def palmares() -> str:
         seasons=sorted_seasons,
         error=error,
         active_page="palmares",
+        special_tournaments=config.SPECIAL_TOURNAMENTS,
+        special_base=(
+            f"https://storage.googleapis.com/{config.SPECIAL_TOURNAMENTS_BUCKET}"
+        ),
     )
 
 

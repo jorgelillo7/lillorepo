@@ -102,6 +102,26 @@ Commands for running each component.
 
     > **Note:** The footer shows "local" when deploying from a local machine because the `GIT_COMMIT` env var is not set (defaults to `"local"`). CI injects the real value automatically via `${GITHUB_SHA::7}`. This is expected behaviour — it does not indicate a failed deploy.
 
+  * **🏆 Special-tournament winner images (Palmarés "Copas especiales"):**
+
+    Public bucket `gs://biwenger-special-tournaments` (project `biwenger-tools`,
+    us-central1, `allUsers:objectViewer`). The `/palmares` page builds an
+    `<img>` per known cup from `{slug}/{temporada}` and drops the ones that
+    404, so **adding a winner needs no redeploy** — just upload the file:
+
+    ```bash
+      # <slug> ∈ config.SPECIAL_TOURNAMENTS (santa-cup, castolo-cup, …)
+      # <temporada> = the palmarés Firestore doc id (short "25-26" for
+      #   rollover-skill seasons, long "2024-2025" for legacy docs).
+      # The template tries .png then .jpg — either extension works.
+      gcloud storage cp copa-santa-25-26.jpg \
+          gs://biwenger-special-tournaments/santa-cup/25-26.jpg
+    ```
+
+    A brand-new cup *type* is one line in `config.SPECIAL_TOURNAMENTS` (that
+    one does need a redeploy). Teammate `d.lucena9@gmail.com` has
+    `storage.objectCreator` on the bucket.
+
 ### 2\. Scraper Job
 
   * **Run locally:**
