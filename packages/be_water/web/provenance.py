@@ -26,6 +26,29 @@ from packages.be_water.web.seed_data import SEED_WATERS
 # contributor keep their seeded numbers but lose the "seed" author.
 _SEED_MINERALS = {w["id"]: (w.get("minerals") or {}) for w in SEED_WATERS}
 
+# Non-mineral fields whose provenance is worth keeping in `sources`.
+_IDENTITY_KEYS = ("province", "community", "spring")
+
+
+def sources_on_save(
+    minerals: dict, verified_fields: list, existing_sources: dict
+) -> dict:
+    """Provenance after a form save. Label fields are implied by
+    `verified_fields` (so they are dropped here); identity sources and prior
+    mineral sources survive a merge; any remaining mineral a contributor
+    entered by hand is `manual`."""
+    verified = set(verified_fields)
+    keep = set(minerals) | set(_IDENTITY_KEYS)
+    result = {
+        field_name: source
+        for field_name, source in existing_sources.items()
+        if field_name in keep and field_name not in verified
+    }
+    for field_name in minerals:
+        if field_name not in verified:
+            result.setdefault(field_name, SOURCE_MANUAL)
+    return result
+
 
 def derive_sources(water: Water) -> dict:
     """Provenance map for a water's non-label fields. Only fills gaps — any

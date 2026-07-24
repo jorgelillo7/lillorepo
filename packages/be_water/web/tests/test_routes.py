@@ -93,6 +93,27 @@ def test_water_detail_404(client):
     assert resp.status_code == 404
 
 
+def test_water_detail_renders_provenance_badges(client):
+    solan = Water(
+        id="solan-de-cabras",
+        name="Solán de Cabras",
+        brand="Solán de Cabras",
+        spring="s",
+        province="Cuenca",
+        community="Castilla-La Mancha",
+        minerals={"tds": 261, "calcium": 59.5, "sodium": 5.2},
+        verified_fields=["calcium"],  # ✓ etiqueta
+        sources={"tds": "manufacturer", "sodium": "manual", "province": "aesan"},
+    )
+    with patch(f"{_REPO}.get_all_waters", return_value=[solan]):
+        body = client.get("/agua/solan-de-cabras").get_data(as_text=True)
+    assert "✓ etiqueta" in body  # calcium (label)
+    assert "fabricante" in body  # tds
+    assert "a mano" in body  # sodium
+    assert "registro AESAN" in body  # province provenance
+    assert "sin verificar" not in body  # blanket warning is gone
+
+
 def test_login_sets_session_and_favorite_toggles(client):
     with patch(f"{_REPO}.touch_user"):
         resp = client.post("/login", data={"nickname": "jorge"})
@@ -423,6 +444,8 @@ def test_add_water_saves_and_redirects(client):
     assert water.minerals["tds"] == 310.0
     assert water.minerals["calcium"] == 80.5  # comma decimal accepted
     assert water.added_by == "jorge"
+    # No OCR → both values are hand-entered.
+    assert water.sources == {"tds": "manual", "calcium": "manual"}
 
 
 def test_add_water_refuses_verified_duplicates(client):

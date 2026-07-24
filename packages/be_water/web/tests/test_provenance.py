@@ -71,3 +71,35 @@ def test_no_aesan_source_when_registry_disagrees():
     mismatch = [{"province": "Segovia"}]
     with patch(f"{_MOD}.aesan.registry_matches", return_value=mismatch):
         assert "province" not in provenance.derive_sources(water)
+
+
+# --- sources_on_save --------------------------------------------------------
+
+
+def test_sources_on_save_marks_new_minerals_manual_labels_implied():
+    result = provenance.sources_on_save(
+        minerals={"tds": 100, "calcium": 50},
+        verified_fields=["calcium"],  # label → not stored
+        existing_sources={},
+    )
+    assert result == {"tds": "manual"}
+
+
+def test_sources_on_save_preserves_prior_and_identity_sources():
+    result = provenance.sources_on_save(
+        minerals={"tds": 100, "sodium": 5},
+        verified_fields=[],
+        existing_sources={"tds": "manufacturer", "province": "aesan"},
+    )
+    # tds keeps manufacturer, province (identity) survives, sodium is new.
+    assert result == {"tds": "manufacturer", "province": "aesan", "sodium": "manual"}
+
+
+def test_sources_on_save_drops_vanished_and_label_fields():
+    result = provenance.sources_on_save(
+        minerals={"tds": 100},
+        verified_fields=["tds"],  # tds is now label-backed
+        existing_sources={"tds": "manual", "calcium": "manufacturer"},
+    )
+    # tds became label → dropped; calcium no longer a mineral → dropped.
+    assert result == {}
