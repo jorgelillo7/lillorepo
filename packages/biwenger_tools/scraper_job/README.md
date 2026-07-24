@@ -23,10 +23,10 @@ Schemas, indexes, and read costs are documented in `docs/firestore.md`.
 
 ## ⚙️ Configuration and usage
 
-* **Installation and dependencies**: see section **`1.2 Scraper Job`** in
-  `docs/operations.md`.
-* **Local run + GCP deploy**: see **`2.2 Scraper Job`** in
-  `docs/operations.md`.
+* **Local run + GCP deploy**: see section **`2. Scraper Job`** in
+  [`OPERATIONS.md`](../OPERATIONS.md).
+* **Dependencies**: see the dependency workflow in
+  [`docs/operations.md`](../../../docs/operations.md).
 * **Auth**: Application Default Credentials. In Cloud Run the compute SA
   is picked up automatically; locally, run
   `gcloud auth application-default login` once.

@@ -16,42 +16,10 @@ A Telegram bot that delivers Chuck Norris facts on demand, powered by [chucknorr
 | `/animal` | Animal fact |
 | `/dev` | Developer fact |
 
-## Development
+## Development & deployment
 
-```bash
-# Run tests
-bazel test //packages/chucknorris_bot/bot:bot_tests --test_output=streamed --test_arg=-v
-
-# Run locally
-bazel run //packages/chucknorris_bot/bot:bot_local
-```
-
-## Deployment
-
-```bash
-# Build and push image
-bazel run //packages/chucknorris_bot/bot:push_image_to_gcp --platforms=//platforms:linux_amd64
-
-# Deploy to Cloud Run
-cd packages/chucknorris_bot/bot/ && ./deploy.sh
-```
-
-## Configuration
-
-Copy `.env.example` to `.env` and fill in the values:
-
-```
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
-```
-
-Register the webhook with Telegram after deploying:
-
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -d "url=https://<CLOUD_RUN_URL>/telegram/webhook" \
-  -d "secret_token=<WEBHOOK_SECRET>"
-```
+Run/test/deploy commands, webhook registration and `.env` configuration live
+in [`OPERATIONS.md`](../OPERATIONS.md).
 
 ## Origin
 

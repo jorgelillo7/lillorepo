@@ -32,7 +32,7 @@ Read these files to understand the current season and build the exact diffs need
 - `packages/biwenger_tools/scraper_job/config.py` — find `TEMPORADA_ACTUAL`
 - `packages/biwenger_tools/web/.env` — find `TEMPORADA_ACTUAL`
 - `packages/biwenger_tools/scraper_job/.env` — find `TEMPORADA_ACTUAL`
-- `docs/operations.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference
+- `packages/biwenger_tools/OPERATIONS.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference (§ Cambio de temporada)
 
 Note: `api`, `bot`, and `chucknorris_bot` do **not** use `TEMPORADA_ACTUAL`
 (verified 2026-05-12 — they don't have season-specific data paths). Do not add them to the edit
@@ -138,7 +138,7 @@ Make all edits. For each file, use Edit (never Write) since these are existing f
 **`packages/biwenger_tools/scraper_job/.env`**
 - Replace `TEMPORADA_ACTUAL="<current>"` with the new value
 
-**`docs/operations.md`**
+**`packages/biwenger_tools/OPERATIONS.md`**
 - Replace the `--update-env-vars TEMPORADA_ACTUAL=<current>` references with the new value (there may be more than one — replace all)
 
 # Step 5 — Commit
@@ -150,7 +150,7 @@ git add \
   .github/workflows/deploy.yml \
   packages/biwenger_tools/web/config.py \
   packages/biwenger_tools/scraper_job/config.py \
-  docs/operations.md
+  packages/biwenger_tools/OPERATIONS.md
 git commit -m "chore: roll over to season <new_season>"
 ```
 
@@ -176,7 +176,7 @@ Automated changes prepared by the `season-rollover` skill.
 - `.github/workflows/deploy.yml` — `TEMPORADA_ACTUAL` updated
 - `packages/biwenger_tools/web/config.py` — default updated, `<new>` added to `TEMPORADAS_DISPONIBLES`
 - `packages/biwenger_tools/scraper_job/config.py` — default updated
-- `docs/operations.md` — manual commands updated
+- `packages/biwenger_tools/OPERATIONS.md` — manual commands updated
 
 ### Not included (local only, gitignored)
 - `web/.env` and `scraper_job/.env` — updated locally, not committed
@@ -205,4 +205,4 @@ Show the user:
   gcloud storage cp copa-castolo.jpg \
       gs://biwenger-special-tournaments/castolo-cup/<ending_season>.jpg
   ```
-  (Slugs live in `config.SPECIAL_TOURNAMENTS`; see `docs/operations.md` §1.)
+  (Slugs live in `config.SPECIAL_TOURNAMENTS`; see `packages/biwenger_tools/OPERATIONS.md` §1.)

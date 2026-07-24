@@ -2,7 +2,7 @@
 
 Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
 
-> Current maturity: **9.4 / 10** (biwenger platform, 2026-05-24 audit; cap ~9.5 under the side-project constraints). See [`STATUS.md`](STATUS.md) for the audit, the full capability inventory and the July 2026 multi-product update.
+> See [`STATUS.md`](STATUS.md) for the living maturity score, the full capability inventory and the multi-product state of the repo.
 
 ## Architecture
 
@@ -69,7 +69,9 @@ bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platform
 cd packages/biwenger_tools/web/ && ./deploy.sh
 ```
 
-See [`docs/operations.md`](docs/operations.md) for the full command reference.
+See [`docs/operations.md`](docs/operations.md) for repo-wide workflows, and each
+package's `OPERATIONS.md` (e.g. [`packages/biwenger_tools/OPERATIONS.md`](packages/biwenger_tools/OPERATIONS.md))
+for its build/test/deploy commands.
 
 ## Stack
 

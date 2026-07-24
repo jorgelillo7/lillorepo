@@ -6,7 +6,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 
 | Doc | What's in it |
 |---|---|
-| [`operations.md`](operations.md) | The runbook: per-module commands (run, test, deploy), dependency workflow, secrets, cleanup scripts, season rollover, Firestore maintenance |
+| [`operations.md`](operations.md) | Repo-wide runbook + index: prerequisites, dependency workflow, secrets, linter, GCP cleanup. Per-package commands (run, test, deploy) live in `packages/*/OPERATIONS.md`; season rollover + Firestore maintenance in `packages/biwenger_tools/OPERATIONS.md` |
 | [`gcp.md`](gcp.md) | GCP services in use and the *rationale* behind every cost decision; cross-project deploy grants (see also [`INFRA.md`](../INFRA.md) at the repo root for the at-a-glance inventory) |
 | [`firestore.md`](firestore.md) | Firestore data model: collections, doc shapes, indexes, TTLs |
 
