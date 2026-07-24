@@ -129,24 +129,29 @@ def upload_photo(object_name: str, data: bytes) -> str:
     return public_url(object_name)
 
 
+def delete_object(object_name: str) -> None:
+    """Best-effort delete of a bucket object; logs but never raises — a
+    leftover object is orphaned bytes, not a correctness failure."""
+    try:
+        requests.delete(
+            f"{_STORAGE_API}/storage/v1/b/{config.PHOTOS_BUCKET}/o/"
+            f"{requests.utils.quote(object_name, safe='')}",
+            headers=_auth_header(),
+            timeout=15,
+        )
+    except requests.RequestException:  # pragma: no cover — dust, not a failure
+        logger.warning("Photo delete failed.", extra={"object": object_name})
+
+
 def promote_photo(tmp_name: str, final_name: str) -> str:
     """Server-side copy tmp → final, best-effort delete of tmp."""
-    headers = _auth_header()
     response = requests.post(
         f"{_STORAGE_API}/storage/v1/b/{config.PHOTOS_BUCKET}/o/"
         f"{requests.utils.quote(tmp_name, safe='')}/copyTo/b/"
         f"{config.PHOTOS_BUCKET}/o/{requests.utils.quote(final_name, safe='')}",
-        headers=headers,
+        headers=_auth_header(),
         timeout=30,
     )
     response.raise_for_status()
-    try:
-        requests.delete(
-            f"{_STORAGE_API}/storage/v1/b/{config.PHOTOS_BUCKET}/o/"
-            f"{requests.utils.quote(tmp_name, safe='')}",
-            headers=headers,
-            timeout=15,
-        )
-    except requests.RequestException:  # pragma: no cover — dust, not a failure
-        logger.warning("Tmp photo cleanup failed.", extra={"object": tmp_name})
+    delete_object(tmp_name)
     return public_url(final_name)

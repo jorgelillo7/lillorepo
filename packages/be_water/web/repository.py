@@ -38,6 +38,11 @@ def save_water(water: Water) -> None:
     logger.info("Water saved.", extra={"water_id": water.id})
 
 
+def delete_water(water_id: str) -> None:
+    firestore.delete_document(WATERS, water_id)
+    logger.info("Water deleted.", extra={"water_id": water_id})
+
+
 def get_user(nickname: str) -> dict | None:
     return firestore.get_document(USERS, nickname)
 

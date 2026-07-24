@@ -1,0 +1,11 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+# Interactive photo audit (local, uses ADC). Read-only by default; --fix
+# mutates GCS + Firestore behind confirmations. Reuses the web library so it
+# shares the exact photo/studio/repository logic the service runs.
+py_binary(
+    name = "audit_photos",
+    srcs = ["audit_photos.py"],
+    main = "audit_photos.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)
