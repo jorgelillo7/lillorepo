@@ -1,14 +1,16 @@
 ---
 name: google-cloud-recipe-auth
+metadata:
+  category: GettingStarted
 description: Provides expert guidance on authenticating and authorizing to Google Cloud services and APIs, covering human users, service identities, Application Default Credentials (ADC), and best practices for secure access.
 ---
 
 # Authenticating to Google Cloud
 
-[Authentication](https://docs.cloud.google.com/docs/authentication) is the
+[Authentication](https://docs.cloud.google.com/docs/authentication.md.txt) is the
 process of proving **who you are**. In Google Cloud, you represent a
 **Principal** (an identity like a user or a service). This is the first step
-before [Authorization](https://docs.cloud.google.com/iam/docs/overview)
+before [Authorization](https://docs.cloud.google.com/iam/docs/overview.md.txt)
 (determining **what you can do**).
 
 ## Authentication
@@ -20,9 +22,9 @@ Before providing a specific solution, clarify the following with the user:
 1.  **Who or what is authenticating?** (A human developer, a local script, or an
     application running in production?)
 2.  **Where is the code running?** (Local laptop, [Compute
-    Engine](https://docs.cloud.google.com/compute/docs),
-    [GKE](https://docs.cloud.google.com/kubernetes-engine/docs), [Cloud
-    Run](https://docs.cloud.google.com/run/docs), or another cloud like
+    Engine](https://docs.cloud.google.com/compute/docs.md.txt),
+    [GKE](https://docs.cloud.google.com/kubernetes-engine/docs.md.txt), [Cloud
+    Run](https://docs.cloud.google.com/run/docs.md.txt), or another cloud like
     AWS/Azure?)
 3.  **What is the target?** (A Google Cloud API like Storage/BigQuery, or a
     custom application you built?)
@@ -42,19 +44,19 @@ Google Cloud supports several ways to configure identities for your internal
 workforce (developers, administrators, employees):
 
 *   **[Google-Managed
-    Accounts](https://docs.cloud.google.com/iam/docs/user-identities#google-accounts)**:
+    Accounts](https://docs.cloud.google.com/iam/docs/user-identities.md.txt)**:
     You can use Cloud Identity or Google Workspace to create managed user
     accounts. These are called managed accounts because your organization
     controls their lifecycle and configuration.
 *   **[Federation using Cloud Identity or Google
-    Workspace](https://docs.cloud.google.com/iam/docs/user-identities#synced-federation)**:
+    Workspace](https://docs.cloud.google.com/iam/docs/user-identities.md.txt)**:
     You can federate identities to allow users to use their existing identity
     and credentials to sign in to Google services. Users authenticate against an
     external identity provider (IdP), but you must keep accounts synchronized
     into Google Cloud using tools like Google Cloud Directory Sync (GCDS) or an
     external authoritative source like Active Directory or Microsoft Entra ID.
 *   **[Workforce Identity
-    Federation](https://docs.cloud.google.com/iam/docs/user-identities#workforce)**:
+    Federation](https://docs.cloud.google.com/iam/docs/user-identities.md.txt)**:
     This lets you use an external IdP to authenticate and authorize a workforce
     using IAM directly. Unlike standard federation, you do not need to
     synchronize user identities from your existing IdP to Google Cloud
@@ -68,17 +70,17 @@ management.
 *   **[Google Cloud Console](https://console.cloud.google.com/)**: The primary
     web interface. You authenticate using your Google Account (Gmail or [Google
     Workspace](https://workspace.google.com/)).
-*   **[gcloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk) (`gcloud
+*   **[gcloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk.md.txt) (`gcloud
     auth login`)**: Used to authenticate the CLI itself so you can run
     management commands (e.g., `gcloud compute instances list`). It uses a
     **Credential** (like an OAuth 2.0 refresh token) stored locally.
 *   **Local Development with [App Default Credentials
-    (ADC)](https://docs.cloud.google.com/docs/authentication/application-default-credentials)
+    (ADC)](https://docs.cloud.google.com/docs/authentication/application-default-credentials.md.txt)
     (`gcloud auth application-default login`)**: This is different from CLI
     auth. It creates a local JSON file that Google Cloud **Client Libraries**
     (Python, Java, etc.) use to act as "you" when you run code on your laptop.
 *   **[Service Account
-    Impersonation](https://docs.cloud.google.com/docs/authentication/use-service-account-impersonation)**:
+    Impersonation](https://docs.cloud.google.com/docs/authentication/use-service-account-impersonation.md.txt)**:
     For security reasons, developers should avoid downloading Service Account
     keys entirely. Instead, they should authenticate as humans (`gcloud auth
     login`) and use Service Account Impersonation to run CLI commands or
@@ -91,14 +93,14 @@ Used when a human (who is not a developer) needs to access a web application
 you've deployed on Google Cloud. Note: These are distinct from workforce
 identities.
 
-*   **[Identity-Aware Proxy (IAP)](https://docs.cloud.google.com/iap/docs)**:
+*   **[Identity-Aware Proxy (IAP)](https://docs.cloud.google.com/iap/docs.md.txt)**:
     Acts as a central authorization layer for web applications. It intercepts
     web requests and verifies the user's identity (via Google Workspace, Cloud
     Identity, or external providers) before letting them reach the application.
     It's often used to protect internal apps without a VPN, or secure customer
     portals.
 *   **[Identity
-    Platform](https://docs.cloud.google.com/identity-platform/docs)**: A
+    Platform](https://docs.cloud.google.com/identity-platform/docs.md.txt)**: A
     Customer Identity and Access Management (CIAM) solution for adding consumer
     sign-in (email/password, phone, social) directly into the code of your
     custom-built applications.
@@ -113,10 +115,10 @@ human user account.
 ### Service Accounts and Service Agents
 
 *   **[Service
-    Account](https://docs.cloud.google.com/iam/docs/service-account-overview)**:
+    Account](https://docs.cloud.google.com/iam/docs/service-account-overview.md.txt)**:
     A special identity intended for non-human users. It's like a "robot
     identity" with its own email address.
-*   **[Service Agent](https://docs.cloud.google.com/iam/docs/service-agents)**:
+*   **[Service Agent](https://docs.cloud.google.com/iam/docs/service-agents.md.txt)**:
     A service account managed by Google that allows a service (like Pub/Sub) to
     access your resources on your behalf.
 
@@ -128,10 +130,10 @@ environment then provides a **Token** (a short-lived digital object) via a local
 metadata server.
 
 *   **[Compute
-    Engine](https://docs.cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances)**:
+    Engine](https://docs.cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances.md.txt)**:
     Assign a service account during VM creation.
 *   **[Cloud
-    Run](https://docs.cloud.google.com/run/docs/securing/service-identity)**:
+    Run](https://docs.cloud.google.com/run/docs/securing/service-identity.md.txt)**:
     Assign a service account in the service configuration.
 
 ### Special Cases & Advanced Topics
@@ -139,31 +141,31 @@ metadata server.
 #### Kubernetes Engine (GKE)
 
 Use **[Workload Identity Federation for
-GKE](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)**
+GKE](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity.md.txt)**
 to map Kubernetes identities to IAM principal identifiers. This grants specific
 Kubernetes workloads access to specific Google Cloud APIs. [Learn more
-here.](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#configure-authz-principals)
+here.](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity.md.txt)
 
-#### External Workloads ([Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation))
+#### External Workloads ([Workload Identity Federation](https://docs.cloud.google.com/iam/docs/workload-identity-federation.md.txt))
 
 For code running **outside** Google Cloud (e.g., AWS, Azure, or on-prem), do not
 use keys. Instead, use Workload Identity Federation to exchange an external
 token (like an AWS IAM role) for a short-lived Google Cloud access token.
 
-#### [API Keys](https://docs.cloud.google.com/docs/authentication/api-keys)
+#### [API Keys](https://docs.cloud.google.com/docs/authentication/api-keys.md.txt)
 
 API keys are encrypted strings used for public data (e.g., Google Maps) or
 simplified access like **[Vertex AI Express
-Mode](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview)**,
+Mode](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview.md.txt)**,
 which allows fast testing of Gemini models without complex setup. Both humans
 and services (e.g., Cloud Run-based AI agent) can use API keys, for the services
 that support it.
 
 Note: API keys should be
-[restricted](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys)
+[restricted](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys.md.txt)
 to specific APIs and projects to minimize security risks. Store API keys in a
 secrets manager like [Secret
-Manager](https://docs.cloud.google.com/secret-manager/docs) to prevent
+Manager](https://docs.cloud.google.com/secret-manager/docs.md.txt) to prevent
 accidental exposure.
 
 #### OAuth 2.0 Access Scopes
@@ -186,17 +188,17 @@ Web Tokens (JWTs) dynamically, removing the need for static credentials.
 ## Authorization
 
 After Authentication, Google Cloud uses **[Identity and Access Management
-(IAM)](https://docs.cloud.google.com/iam/docs/overview)** to determine what the
+(IAM)](https://docs.cloud.google.com/iam/docs/overview.md.txt)** to determine what the
 authenticated principal can do.
 
 *   **Allow Policy**: A record that binds a **Principal** to a **Role** on a
     **Resource**.
 *   **[Predefined
-    Roles](https://docs.cloud.google.com/iam/docs/understanding-roles)**:
+    Roles](https://docs.cloud.google.com/iam/docs/roles-permissions)**:
     Prebuilt roles like `roles/storage.objectViewer` or
     `roles/bigquery.dataEditor`. **Always try to use these first.**
 *   **[Custom
-    Roles](https://docs.cloud.google.com/iam/docs/creating-custom-roles)**:
+    Roles](https://docs.cloud.google.com/iam/docs/creating-custom-roles.md.txt)**:
     User-defined collections of specific permissions if predefined roles are too
     broad.
 
@@ -224,7 +226,7 @@ authenticated principal can do.
 3.  **Code**: The Cloud Run environment provides the token automatically to the
     connection driver.
 
-### Calling a Custom Application ([OIDC](https://docs.cloud.google.com/docs/authentication/get-id-token))
+### Calling a Custom Application ([OIDC](https://docs.cloud.google.com/docs/authentication/get-id-token.md.txt))
 
 When calling a private Cloud Run service from another service, the caller
 generates a Google-signed **OpenID Connect (OIDC) ID Token** and passes it in
@@ -246,13 +248,13 @@ the `Authorization: Bearer <TOKEN>` header.
     Federation.
 -   [ ] Is the user calling a custom app? Recommend OIDC ID Tokens.
 -   [ ] Has the user restricted their API Keys? Check for appropriate [API Key
-    Restrictions](https://docs.cloud.google.com/docs/authentication/api-keys#adding-application-restrictions).
+    Restrictions](https://docs.cloud.google.com/docs/authentication/api-keys.md.txt).
 
 ## References
 
--   [Authentication Overview](https://docs.cloud.google.com/docs/authentication)
--   [User Identities](https://docs.cloud.google.com/iam/docs/user-identities)
--   [Application Default Credentials](https://docs.cloud.google.com/docs/authentication/provide-credentials-adc)
--   [Service Account Best Practices](https://docs.cloud.google.com/iam/docs/best-practices-service-accounts)
+-   [Authentication Overview](https://docs.cloud.google.com/docs/authentication.md.txt)
+-   [User Identities](https://docs.cloud.google.com/iam/docs/user-identities.md.txt)
+-   [Application Default Credentials](https://docs.cloud.google.com/docs/authentication/provide-credentials-adc.md.txt)
+-   [Service Account Best Practices](https://docs.cloud.google.com/iam/docs/best-practices-service-accounts.md.txt)
 
 
