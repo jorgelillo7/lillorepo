@@ -99,10 +99,6 @@ class Water:
     def mineralization(self) -> str:
         return mineralization_label(self.tds)
 
-    def is_field_verified(self, field_name: str) -> bool:
-        """True when this mineral value comes from a bottle label."""
-        return self.verified or field_name in self.verified_fields
-
     def source_of(self, field_name: str) -> Optional[str]:
         """Provenance of a field: 'label' when confirmed against a photographed
         label (in `verified_fields`), else the recorded source (manufacturer /

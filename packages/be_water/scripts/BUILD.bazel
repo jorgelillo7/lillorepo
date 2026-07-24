@@ -17,3 +17,12 @@ py_binary(
     main = "backfill_sources.py",
     deps = ["//packages/be_water/web:web_lib"],
 )
+
+# Interactive data curation (local, uses ADC): verification sign-off now,
+# duplicate/anomaly review later. Reuses the web curation engine.
+py_binary(
+    name = "audit_data",
+    srcs = ["audit_data.py"],
+    main = "audit_data.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)
