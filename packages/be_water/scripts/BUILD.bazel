@@ -9,3 +9,11 @@ py_binary(
     main = "audit_photos.py",
     deps = ["//packages/be_water/web:web_lib"],
 )
+
+# One-shot backfill of Water.sources (field provenance). Dry-run by default.
+py_binary(
+    name = "backfill_sources",
+    srcs = ["backfill_sources.py"],
+    main = "backfill_sources.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)

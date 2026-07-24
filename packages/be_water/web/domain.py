@@ -23,6 +23,15 @@ MINERAL_FIELDS = [
 MINERAL_FIELDS_MAIN = MINERAL_FIELDS[:7]
 MINERAL_FIELDS_EXTRA = MINERAL_FIELDS[7:]
 
+# Where a field's value came from. Label-confirmed fields live in
+# `verified_fields` (they drive the ✓); `sources` records the provenance of
+# everything else, so the UI can name it ("fabricante" / "AESAN" / "a mano")
+# instead of a blanket "sin verificar".
+SOURCE_LABEL = "label"
+SOURCE_MANUFACTURER = "manufacturer"
+SOURCE_AESAN = "aesan"
+SOURCE_MANUAL = "manual"
+
 MINERAL_LABELS = {
     "tds": "Residuo seco",
     "bicarbonates": "Bicarbonatos",
@@ -71,6 +80,9 @@ class Water:
     # `verified` water implies every declared field; this list covers the
     # mixed case (Lanjarón: 4 label values + approximations for the rest).
     verified_fields: list = field(default_factory=list)
+    # Provenance of non-label fields: {field_name: source}. Label fields are
+    # not stored here — their source is implied by `verified_fields`.
+    sources: dict = field(default_factory=dict)
     # External recognitions, e.g. {"source": "OCU", "label": "Excelente",
     # "url": ...}. Mention-and-link only — never reproduce third-party
     # scores wholesale.
@@ -91,6 +103,14 @@ class Water:
         """True when this mineral value comes from a bottle label."""
         return self.verified or field_name in self.verified_fields
 
+    def source_of(self, field_name: str) -> Optional[str]:
+        """Provenance of a field: 'label' when confirmed against a photographed
+        label (in `verified_fields`), else the recorded source (manufacturer /
+        aesan / manual), or None when unknown."""
+        if field_name in self.verified_fields:
+            return SOURCE_LABEL
+        return self.sources.get(field_name)
+
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Water":
         return cls(
@@ -107,6 +127,7 @@ class Water:
             photo_url=data.get("photo_url"),
             label_photo_url=data.get("label_photo_url"),
             verified_fields=list(data.get("verified_fields", []) or []),
+            sources=dict(data.get("sources", {}) or {}),
             mentions=list(data.get("mentions", []) or []),
             added_by=data.get("added_by", ""),
             added_at=data.get("added_at"),
@@ -127,6 +148,7 @@ class Water:
             "photo_url": self.photo_url,
             "label_photo_url": self.label_photo_url,
             "verified_fields": self.verified_fields,
+            "sources": self.sources,
             "mentions": self.mentions,
             "added_by": self.added_by,
             "added_at": self.added_at,
