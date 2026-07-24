@@ -1,14 +1,45 @@
-# 💧 be_water — brainstorming + plan
+# 💧 be_water
 
-> **Estado**: plan v2.1 (2026-07-17) tras análisis de competencia.
-> Arquitectura: **package del monorepo** (`packages/be_water/`) con su propio
-> servicio Cloud Run — la razón de ser de lillorepo es exactamente esta:
-> cada package es un proyecto con despliegue propio sobre infra compartida.
-> No hay código todavía.
-> **Brand sugerida (display)**: "Be Water" o "Be Water, My Friend".
-> **Cloud Run service**: `be-water`.
+> **Estado**: **en producción** desde 2026-07-18 (`be-water`, proyecto GCP
+> `be-water-app`). Este documento nació como brainstorming + plan (v2.1,
+> 2026-07-17) y se conserva abajo como registro de diseño — pero el código ya
+> existe y ha superado el plan original. Para el estado real, ver:
+>
+> - **Qué ha shipeado**: `release-notes.md` (junto a este fichero).
+> - **Comandos y runbooks** (correr, tests, deploy, catalog sync, tooling de
+>   curación/auditoría): `docs/operations.md` §5.
+> - **Seguimiento pendiente**: `PENDING.md` (raíz) → sección `be_water`.
+> - **Sistema de diseño de la web**: `web/DESIGN.md`.
 
-## 1. Contexto — el problema real
+## Estado actual (resumen)
+
+Catálogo colaborativo de aguas minerales españolas, servido con Flask sobre
+Cloud Run. Piezas principales bajo `web/`:
+
+- **App** (`app.py`) — catálogo, ficha, favoritas, /comunidad (ranking +
+  logros), recomendador, alta con foto + OCR (Gemini), /acerca.
+- **Datos** — `domain.py` (`Water`, con **procedencia por campo** en `sources`
+  y `verified_fields`), `repository.py` (Firestore), `seed_data.py`,
+  `aesan_snapshot.py` (registro oficial), `catalog_sync.py` (sync mensual).
+- **Fotos + IA** — `photos.py` (GCS + tratamiento *studio* con Gemini,
+  admin-gated), `label_ocr.py` (OCR de etiquetas).
+- **Motores reutilizables** (los reusará también la futura `/admin`):
+  `provenance.py` (deriva la fuente de cada valor), `photo_audit.py`
+  (diagnóstico/reparación de fotos), `data_audit.py` (sign-off de
+  verificación, duplicados, valores sospechosos).
+
+**Modelo de confianza del dato**: cada valor lleva su fuente
+(`label`/`manufacturer`/`manual`/`aesan`), visible en la ficha. Una ficha se
+verifica y **bloquea** por auto-promoción (todo respaldado por etiqueta) o por
+sign-off de admin (etiqueta fotografiada + al menos un valor confirmado). Las
+CLIs de mantenimiento están en `docs/operations.md` §5.
+
+---
+
+_Lo que sigue es el brainstorming original (2026-07-17), conservado como
+registro de las decisiones de diseño._
+
+## 1. Contexto — el problema real (histórico)
 
 El problema que dispara el proyecto es personal y concreto: **fuera de casa,
 si no están las aguas de siempre (Lanjarón, Solán de Cabras), la elección es

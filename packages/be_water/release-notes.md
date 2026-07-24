@@ -2,6 +2,18 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.4 - The Provenance Update (24 July 2026)**
+
+The catalog stopped hand-waving about where its numbers come from. Every value on a ficha now says its source, the "verified" flag finally fits waters whose label prints only part of the composition, and a set of admin tools keeps the photos and the data honest.
+
+* **🔎 Every value says where it came from (the headline)**: per-field provenance now shows on each mineral — `✓ etiqueta` (confirmed from a label photo), `fabricante` (published manufacturer data) or `a mano` (community-entered) — plus "registro AESAN" on the location. The blanket "datos sin verificar" warning is gone: a reader now knows the origin of the residuo seco and *why* the water is filed under Cuenca. A one-shot backfill (`backfill_sources`) derived the provenance for all 44 fichas — seed values that still match their source read as *fabricante*, anything a contributor changed reads as *a mano*.
+* **✍️ Verification that fits real labels**: Spanish labels rarely print all ~10 values, so the strict "every value label-backed" rule left correctly-photographed waters unverifiable forever. An admin can now **sign a ficha off** after reviewing its label — it freezes (locked against overwrite) while the non-label values keep their honest provenance. Auto-promotion stays for the full-label case.
+* **🖼️ Photo audit + repair tool** (`audit_photos`): finds fichas whose main photo never went through the studio treatment (auto-detected — the studio output is an exact 1080² white canvas) or whose composition-label shot is wrong, and repairs them (regenerate studio / re-upload / delete) behind confirmations. The engine is the one the future admin page reuses.
+* **🧹 Catalog curation tools** (`audit_data`): duplicate detection (fuzzy name + spring, leaving genuine multi-spring brands like Font Vella alone) and suspicious-value flags (pH out of range, an ion over 3000 mg/L, a dry residue incoherent with the ion sum), with merge / correct repairs.
+* **🏅 Achievements, harder and richer**: raised thresholds, three new badges (including Explorador for cataloguing a water outside the official AESAN registry), rebalanced score. The /comunidad mission now lists exactly which AESAN waters remain to catalogue, with a 100%-coverage celebration.
+* **🩹 Honest failures**: when Gemini's studio call comes back empty, the log now says *why* (`finishReason`) and the admin sees a note instead of a silent fallback — the bug that quietly swallowed the first studio upload of a new admin. OCR-overloaded copy is honest too, and core retries Gemini on transient 429/503.
+* **🔢 Coverage math fixed**: "quedan 119 por fichar" and "ver las 120 pendientes" disagreed by one — the pending list counted registry rows while coverage counted unique names, so a multi-spring brand (Font Vella, Cabreiroá…) drifted the tally. Now counted on the same unit.
+
 ### **v1.3 - The Registry Update (19 July 2026)**
 
 Same day as v1.2, because the owner kept testing bottles and every bottle taught the app something. The official Spanish registry went from footnote to backbone, a Lidl bottle exposed that "one brand" can mean two different waters, and the groundwork for Google Sign-In shipped complete — dormant, waiting for one OAuth click.
