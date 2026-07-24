@@ -41,15 +41,23 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   Trofeos spreadsheets and shares the IDs: add the `*_26_27` GitHub secrets,
   wire them in `deploy.yml`, and extend the season→sheet maps in
   `web/config.py`. No rush — nothing to show until the league has data.
-- **Lloros Awards showing "No hay datos disponibles" for 25-26 (2026-07-24)** —
-  BUG: the 25-26 sheets DO exist and have data (`lucen_ligas_25-26`,
-  `lucen_trofeos_25-26`), yet both Awards tabs (Ligas Especiales + Trofeos)
-  render empty for 25-26. So the web can't load sheets that are actually there —
-  diagnose: stale sheet IDs in the `*_25_26` secrets, SA no longer shared on
-  those sheets, or access broken by the Drive cleanup / SA repoint. (26-27
-  sheets are simply not created yet — that's the separate item above, not this
-  bug.) To do when we resume: confirm the live sheet IDs, verify the SA has read
-  access, reconcile against the deployed secrets.
+- **Lloros Awards empty for 25-26 — ROOT CAUSE FOUND (2026-07-24)** — both
+  Awards tabs render empty because the Sheets read throws
+  `google.auth.exceptions.RefreshError: invalid_grant: Invalid JWT Signature`
+  BEFORE it ever touches the sheet (confirmed in `biwenger-summary` logs; the
+  25-26 sheet IDs are correctly set as env vars and the sheets exist). The web
+  service (`biwenger-summary` in europe-southwest1) authenticates Sheets with SA
+  `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`, key
+  `78fe38d4a8101834a9b138f8e26ee966e1eef3f5`, mounted via secret
+  `biwenger-tools-sa-regional:latest`. That key is `disabled=True` (its only
+  user-managed key) — almost certainly disabled during the SA-repoint / Drive
+  cleanup work above. FIX, pick one: (a) quick —
+  `gcloud iam service-accounts keys enable 78fe38d4a8101834a9b138f8e26ee966e1eef3f5
+  --iam-account=biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com` then
+  redeploy/restart the revision to clear cached creds; (b) clean (folds into the
+  SA-repoint item) — create the Sheets-only SA, share the sheets with it, new
+  key → new secret version → redeploy, leaving this key dead on purpose.
+  (26-27 sheets simply not created yet — separate item above.)
 
 - **Special-tournament winner images on Palmarés** (design agreed 2026-07-24;
   paused to finish be_water first) — new "Copas especiales" block per season on
