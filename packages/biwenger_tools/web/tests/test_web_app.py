@@ -239,6 +239,54 @@ def test_palmares_renders_multas_with_farolillo_marker(mock_get, client):
     assert "Pepe" in body  # last in multas → farolillo
 
 
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_renders_special_tournament_slots(mock_get, client):
+    """Each season gets a constructible <img> per known cup; the template's JS
+    drops the ones that 404, so uploading a winner needs no redeploy."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="25-26",
+            campeon="Jorge",
+            subcampeon="",
+            tercero="",
+            puntuacion="",
+            record_puntos="",
+            jornadas_ganadas="",
+            multas=[],
+        ),
+    ]
+    body = client.get("/palmares").data.decode("utf-8")
+    base = "https://storage.googleapis.com/biwenger-special-tournaments"
+    assert "Copas especiales" in body
+    assert f"{base}/santa-cup/25-26.png" in body
+    assert f"{base}/castolo-cup/25-26.png" in body
+    assert "Copa Santa Claus" in body
+    assert "cupImgFallback" in body  # the .jpg fallback / hide-on-404 hook
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_skips_special_cups_before_25_26(mock_get, client):
+    """Cups started in 25-26; older seasons (short or long id) get no block."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="2024-2025",
+            campeon="Fabio",
+            subcampeon="",
+            tercero="",
+            puntuacion="",
+            record_puntos="",
+            jornadas_ganadas="",
+            multas=[],
+        ),
+    ]
+    body = client.get("/palmares").data.decode("utf-8")
+    base = "https://storage.googleapis.com/biwenger-special-tournaments"
+    # No cup <img> for the old season (the block header/JS strings live in the
+    # always-present <script>, so assert on the constructible URL instead).
+    assert f"{base}/santa-cup/2024-2025" not in body
+    assert f"{base}/castolo-cup/2024-2025" not in body
+
+
 # --- API endpoint tests ---
 
 

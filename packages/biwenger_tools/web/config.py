@@ -32,6 +32,22 @@ TROFEOS_SHEETS = {
     "25-26": os.getenv("TROFEOS_SHEET_ID_25_26"),
 }
 
+# --- Special tournaments (Palmarés "Copas especiales") ---
+# Winner graphics live in a public bucket; the app builds the URL from
+# {slug}/{temporada}.png and the template drops any that 404 (trying .jpg
+# first). Uploading a new winner needs no redeploy — only a brand-new cup type
+# adds a line here.
+SPECIAL_TOURNAMENTS_BUCKET = os.getenv(
+    "SPECIAL_TOURNAMENTS_BUCKET", "biwenger-special-tournaments"
+)
+SPECIAL_TOURNAMENTS = [
+    {"slug": "santa-cup", "label": "Copa Santa Claus"},
+    {"slug": "castolo-cup", "label": "Copa Castolo"},
+]
+# The cups started in 25-26; older palmarés seasons never get a graphic, so the
+# block is skipped for them (no broken-image flash, no wasted 404s).
+SPECIAL_TOURNAMENTS_SINCE = "25-26"
+
 
 # --- SCRAPER TRIGGER (admin panel) ---
 # Used by `/admin/run-scraper` to launch the Cloud Run Job.

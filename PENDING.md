@@ -59,25 +59,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   key → new secret version → redeploy, leaving this key dead on purpose.
   (26-27 sheets simply not created yet — separate item above.)
 
-- **Special-tournament winner images on Palmarés** (design agreed 2026-07-24;
-  paused to finish be_water first) — new "Copas especiales" block per season on
-  the `/palmares` page, rendered only when an image exists for that season.
-  Storage: public GCS bucket `gs://biwenger-special-tournaments`
-  (us-central1 / Standard / free-tier / UBLA + `allUsers:objectViewer` — ALREADY
-  CREATED). Zero-backend by design: constructible URL
-  `https://storage.googleapis.com/biwenger-special-tournaments/<slug>/<temporada>.png`
-  with `<temporada>` = Firestore short id (`25-26`); template emits an `<img>`
-  per known tournament with `onerror` to drop 404s, so new images need NO
-  redeploy. To implement: `config.py` gets `SPECIAL_TOURNAMENTS_BUCKET` + a
-  static registry `slug → label` (`santa-cup → "Copa Santa Claus"`,
-  `castolo-cup → "Copa Castolo"`, more to come); the `palmares` route passes the
-  base URL + list to the template; `palmares.html` gets the block inside the
-  season loop (wrapper hidden if no image loads). A brand-new cup *type* = 1
-  line in the registry (redeploy); new images for a known cup = none.
-  Teammate write access GRANTED (`d.lucena9@gmail.com` -> `storage.objectCreator`).
-  When the feature ships, document this bucket in the infra READMEs
-  (`packages/biwenger_tools/web/README.md` + any infra/ops doc listing GCP
-  resources) — it is currently undocumented.
+- **Special-tournament winner images on Palmarés** — SHIPPED 2026-07-24.
+  The "Copas especiales" block is live; `santa-cup/25-26` uploaded. Adding a
+  winner is now self-service (no code): `gcloud storage cp` to
+  `gs://biwenger-special-tournaments/<slug>/<temporada>` — see the runbook in
+  `docs/operations.md` §1. USER-OWNED remaining: upload `castolo-cup/25-26`
+  when the Castolo winner image exists. A brand-new cup *type* is one line in
+  `config.SPECIAL_TOURNAMENTS` (redeploy).
 
 ## my_photos
 
