@@ -42,3 +42,75 @@ def test_mark_verified_refuses_without_proof():
         with pytest.raises(ValueError):
             data_audit.mark_verified(_water(verified_fields=["calcium"]))  # no photo
     save.assert_not_called()
+
+
+# --- duplicates -------------------------------------------------------------
+
+
+def test_find_duplicates_groups_same_name_compatible_spring():
+    catalog = [
+        _water(id="font-vella", name="Font Vella", spring="Sacalm"),
+        _water(id="font-vella-2", name="Font Vella", spring=""),  # spring unknown
+        _water(id="bezoya", name="Bezoya", spring="Bezoya"),
+    ]
+    groups = data_audit.find_duplicates(catalog)
+    assert len(groups) == 1
+    assert {w.id for w in groups[0]} == {"font-vella", "font-vella-2"}
+
+
+def test_find_duplicates_leaves_multi_spring_brands_alone():
+    catalog = [
+        _water(id="fv-sacalm", name="Font Vella", spring="Sacalm"),
+        _water(id="fv-siguenza", name="Font Vella", spring="Sigüenza"),
+    ]
+    assert data_audit.find_duplicates(catalog) == []  # genuinely different springs
+
+
+# --- suspicious -------------------------------------------------------------
+
+
+def test_suspicious_flags_ph_and_ion_incoherence():
+    bad_ph = _water(minerals={"ph": 12})
+    assert any("pH" in r for r in data_audit.suspicious_reasons(bad_ph))
+
+    incoherent = _water(minerals={"tds": 2000, "calcium": 10, "sodium": 5})
+    assert any("residuo seco" in r for r in data_audit.suspicious_reasons(incoherent))
+
+
+def test_suspicious_clean_water_has_no_reasons():
+    clean = _water(minerals={"tds": 250, "bicarbonates": 200, "calcium": 60, "ph": 7.4})
+    assert data_audit.suspicious_reasons(clean) == []
+
+
+# --- repairs ----------------------------------------------------------------
+
+
+def test_set_source_moves_field_in_and_out_of_verified():
+    water = _water(verified_fields=["tds"], sources={})
+    with patch(f"{_MOD}.repository.save_water"):
+        data_audit.set_source(water, "tds", "manufacturer")
+    assert water.verified_fields == []
+    assert water.sources["tds"] == "manufacturer"
+    with patch(f"{_MOD}.repository.save_water"):
+        data_audit.set_source(water, "tds", "label")
+    assert water.verified_fields == ["tds"]
+    assert "tds" not in water.sources
+
+
+def test_merge_waters_folds_and_deletes_drop():
+    keep = _water(id="keep", minerals={"tds": 100}, verified_fields=["tds"])
+    drop = _water(
+        id="drop",
+        minerals={"tds": 999, "calcium": 50},  # tds conflict → keep wins
+        label_photo_url="lbl",
+        sources={"calcium": "manufacturer"},
+    )
+    with patch(f"{_MOD}.repository.save_water") as save, patch(
+        f"{_MOD}.repository.delete_water"
+    ) as delete:
+        data_audit.merge_waters(keep, drop)
+    assert keep.minerals == {"tds": 100, "calcium": 50}
+    assert keep.label_photo_url == "lbl"  # filled from drop
+    assert keep.sources["calcium"] == "manufacturer"
+    save.assert_called_once_with(keep)
+    delete.assert_called_once_with("drop")
