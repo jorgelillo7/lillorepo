@@ -301,6 +301,35 @@ inventory and `.github/workflows/README.md` for the cross-project deploy grants.
     > locally) about changes and about waters the dataset doesn't know
     > (typos or novelties).
 
+  * **🧹 Curation & audit tooling (local, ADC — read-only until you confirm a write):**
+
+    Interactive maintenance CLIs over the live catalog. Each shares the same
+    engine the future `/admin` page will reuse (`photo_audit`, `data_audit`,
+    `provenance`).
+
+    ```bash
+      # Photos — audit every uploaded shot; --fix repairs (studio regenerate /
+      # re-upload / delete). Records verdicts to a local photo_audit.json.
+      bazel run //packages/be_water/scripts:audit_photos
+      bazel run //packages/be_water/scripts:audit_photos -- --fix
+
+      # Data — sign off eligible fichas as verified (label photo + a
+      # label-confirmed value → freezes it); review duplicates / bad values.
+      bazel run //packages/be_water/scripts:audit_data
+      bazel run //packages/be_water/scripts:audit_data -- --duplicates
+      bazel run //packages/be_water/scripts:audit_data -- --suspicious
+
+      # Provenance — one-shot backfill of Water.sources; dry-run by default.
+      bazel run //packages/be_water/scripts:backfill_sources           # preview
+      bazel run //packages/be_water/scripts:backfill_sources -- --apply
+    ```
+
+    > Provenance model: each mineral's source is `label` (in `verified_fields`,
+    > shown as ✓), `manufacturer`, `manual` or (for identity) `aesan`. A ficha
+    > is `verified` either by auto-promotion (every value label-backed) or by an
+    > admin sign-off via `audit_data`; verified fichas are frozen against
+    > overwrite.
+
   * **☁️ Deploy to production:**
 
     Normally via CI (`deploy-be-water` job on merge to master). Manual fallback:

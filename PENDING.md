@@ -13,10 +13,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 ## infra
 
 - **Drive folder cleanup** (USER-OWNED, actionable since the 2026-07-14 league
-  restart) — delete the Drive folder contents (the old CSVs the scraper used to
-  upload); then repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do
-  NOT drop it, the web still authenticates Sheets through that mount for
-  `ligas_especiales` / `trofeos`.
+  restart) — the old scraper CSVs are DELETED (done 2026-07-24); the shared Drive
+  now holds only the `ligas_especiales` / `trofeos` Sheets. Remaining step:
+  repoint `biwenger-tools-sa-regional` to a Sheets-only SA — do NOT drop it, the
+  web still authenticates Sheets through that mount for those sheets.
 - **Parked by choice** (2026-07-19 review of the 2026-07-11 audit backlog;
   shipped from it: dependabot, docs index, scripts move, typed
   `BiwengerError`. Each survivor below waits for a trigger, not boredom):
@@ -41,6 +41,35 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   Trofeos spreadsheets and shares the IDs: add the `*_26_27` GitHub secrets,
   wire them in `deploy.yml`, and extend the season→sheet maps in
   `web/config.py`. No rush — nothing to show until the league has data.
+- **Lloros Awards showing "No hay datos disponibles" for 25-26 (2026-07-24)** —
+  BUG: the 25-26 sheets DO exist and have data (`lucen_ligas_25-26`,
+  `lucen_trofeos_25-26`), yet both Awards tabs (Ligas Especiales + Trofeos)
+  render empty for 25-26. So the web can't load sheets that are actually there —
+  diagnose: stale sheet IDs in the `*_25_26` secrets, SA no longer shared on
+  those sheets, or access broken by the Drive cleanup / SA repoint. (26-27
+  sheets are simply not created yet — that's the separate item above, not this
+  bug.) To do when we resume: confirm the live sheet IDs, verify the SA has read
+  access, reconcile against the deployed secrets.
+
+- **Special-tournament winner images on Palmarés** (design agreed 2026-07-24;
+  paused to finish be_water first) — new "Copas especiales" block per season on
+  the `/palmares` page, rendered only when an image exists for that season.
+  Storage: public GCS bucket `gs://biwenger-special-tournaments`
+  (us-central1 / Standard / free-tier / UBLA + `allUsers:objectViewer` — ALREADY
+  CREATED). Zero-backend by design: constructible URL
+  `https://storage.googleapis.com/biwenger-special-tournaments/<slug>/<temporada>.png`
+  with `<temporada>` = Firestore short id (`25-26`); template emits an `<img>`
+  per known tournament with `onerror` to drop 404s, so new images need NO
+  redeploy. To implement: `config.py` gets `SPECIAL_TOURNAMENTS_BUCKET` + a
+  static registry `slug → label` (`santa-cup → "Copa Santa Claus"`,
+  `castolo-cup → "Copa Castolo"`, more to come); the `palmares` route passes the
+  base URL + list to the template; `palmares.html` gets the block inside the
+  season loop (wrapper hidden if no image loads). A brand-new cup *type* = 1
+  line in the registry (redeploy); new images for a known cup = none.
+  Teammate write access GRANTED (`d.lucena9@gmail.com` -> `storage.objectCreator`).
+  When the feature ships, document this bucket in the infra READMEs
+  (`packages/biwenger_tools/web/README.md` + any infra/ops doc listing GCP
+  resources) — it is currently undocumented.
 
 ## my_photos
 
@@ -55,13 +84,23 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   provenance, /acerca. Regularization done 2026-07-19 (cost script
   covers both projects, cleanup covers both registries, docs swept).
   Roadmap, in order:
-  1. **Data verification pass** (USER-assisted): bottle-in-hand check of
-     the ~25 seeded compositions; photos of labels to me work great.
-     Full-label fichas now auto-promote to verified on save. The AESAN
-     snapshot shipped 2026-07-19 (`aesan_snapshot.py`, regenerate with
-     `packages/be_water/scripts/refresh_aesan_snapshot.py` every few months — a git diff
-     there = newly recognised waters; note the official PDF is AMN/08
-     from 2018, so refreshes are about catching AESAN's next revision).
+  1. **Data verification pass** — curation tooling SHIPPED 2026-07-24
+     (per-field provenance model + backfill, provenance badges on the ficha,
+     admin sign-off, and the `audit_photos` / `audit_data` CLIs). Two
+     USER-OWNED manual runs remain (both prompt before every write, local via
+     ADC):
+     - `bazel run //packages/be_water/scripts:audit_photos -- --fix` — the 2
+       fichas whose main photo never got the studio treatment.
+     - `bazel run //packages/be_water/scripts:audit_data` — sign off the 5
+       fichas eligible for verification (label photo + label-confirmed values;
+       the label-subset case auto-promotion can't reach).
+     Ongoing (no tooling gap): bottle-in-hand check of the remaining seeded
+     compositions — label photos to me work great; full-label fichas still
+     auto-promote on save. The AESAN snapshot shipped 2026-07-19
+     (`aesan_snapshot.py`, regenerate with
+     `packages/be_water/scripts/refresh_aesan_snapshot.py` every few months — a
+     git diff there = newly recognised waters; the official PDF is AMN/08 from
+     2018, so refreshes are about catching AESAN's next revision).
   2. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
      add `country` to `Water` defaulting to "España" (backward compatible,
      one-line migration in `catalog_sync`). Unlocks international waters
@@ -78,3 +117,5 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      docs/operations.md ("Activar Google Sign-In") — Console clicks +
      one gcloud command, doable by any model or human in ~10 min.
      Domain: PARKED (owner call 2026-07-19, alongside country).
+     When it lands, the curation/photo engines (`data_audit`, `photo_audit`)
+     are ready to surface in-page — same functions the CLIs already call.
