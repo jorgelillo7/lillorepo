@@ -17,6 +17,9 @@ Thumbs.db
 #csv exportación
 *.csv
 
+# Local work-list from the be_water photo audit script (scripts/audit_photos.py)
+photo_audit.json
+
 .vscode/*
 # Metadatos del paquete
 *.egg-info/

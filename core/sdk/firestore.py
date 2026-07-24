@@ -61,6 +61,12 @@ def set_document(
     get_client().collection(collection_path).document(doc_id).set(data, merge=merge)
 
 
+def delete_document(collection_path: str, doc_id: str) -> None:
+    """Delete a single document. A no-op if it does not exist (Firestore
+    treats deleting a missing doc as success)."""
+    get_client().collection(collection_path).document(doc_id).delete()
+
+
 def list_documents(collection_path: str) -> Iterator[tuple[str, dict]]:
     """Stream every document in a collection as ``(doc_id, data)`` pairs."""
     for snapshot in get_client().collection(collection_path).stream():

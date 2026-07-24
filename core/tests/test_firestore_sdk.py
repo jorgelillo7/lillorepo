@@ -41,6 +41,15 @@ def test_set_and_get_document(collection):
     assert firestore.get_document(collection, "missing") is None
 
 
+def test_delete_document(collection):
+    from core.sdk import firestore
+
+    firestore.set_document(collection, "d", {"a": 1})
+    firestore.delete_document(collection, "d")
+    assert firestore.get_document(collection, "d") is None
+    firestore.delete_document(collection, "missing")  # no-op, must not raise
+
+
 def test_set_document_merge(collection):
     from core.sdk import firestore
 
