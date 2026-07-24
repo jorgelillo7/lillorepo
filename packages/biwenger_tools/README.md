@@ -56,7 +56,7 @@ Four packages working together to archive, visualise and analyse data from a Biw
 
 ## Operational commands
 
-See [`docs/operations.md`](../../docs/operations.md) for the full reference (build, test, local run, deploy per package).
+See [`OPERATIONS.md`](OPERATIONS.md) for the full per-module reference (build, test, local run, deploy), plus season rollover and Firestore maintenance. Repo-wide workflows live in [`docs/operations.md`](../../docs/operations.md).
 
 ## Stack at a glance
 

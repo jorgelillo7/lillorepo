@@ -69,7 +69,9 @@ bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platform
 cd packages/biwenger_tools/web/ && ./deploy.sh
 ```
 
-See [`docs/operations.md`](docs/operations.md) for the full command reference.
+See [`docs/operations.md`](docs/operations.md) for repo-wide workflows, and each
+package's `OPERATIONS.md` (e.g. [`packages/biwenger_tools/OPERATIONS.md`](packages/biwenger_tools/OPERATIONS.md))
+for its build/test/deploy commands.
 
 ## Stack
 

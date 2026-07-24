@@ -13,7 +13,7 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
     scraper_job/    League message scraper → Firestore
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
-/docs           Documentation (operations.md = command reference, setup/linter.md = lint/format)
+/docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format)
 /scripts        Utility scripts (GCP cleanup, costs)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
@@ -29,7 +29,8 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
 
 ## Key Commands
 
-See `docs/operations.md` for the full reference. Quick summary:
+See `docs/operations.md` for repo-wide workflows and `packages/*/OPERATIONS.md`
+for per-package build/test/deploy detail. Quick summary:
 
 ```bash
 # Full build

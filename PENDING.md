@@ -63,7 +63,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   The "Copas especiales" block is live; `santa-cup/25-26` uploaded. Adding a
   winner is now self-service (no code): `gcloud storage cp` to
   `gs://biwenger-special-tournaments/<slug>/<temporada>` — see the runbook in
-  `docs/operations.md` §1. USER-OWNED remaining: upload `castolo-cup/25-26`
+  `packages/biwenger_tools/OPERATIONS.md` §1. USER-OWNED remaining: upload `castolo-cup/25-26`
   when the Castolo winner image exists. A brand-new cup *type* is one line in
   `config.SPECIAL_TOURNAMENTS` (redeploy).
 
@@ -110,7 +110,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      users table + contributions + block/ban, blocked-user enforcement,
      admin emails via BEWATER_ADMIN_EMAILS). Dormant until the OAuth
      client exists; the ONLY remaining step is the runbook in
-     docs/operations.md ("Activar Google Sign-In") — Console clicks +
+     packages/be_water/OPERATIONS.md ("Activar Google Sign-In") — Console clicks +
      one gcloud command, doable by any model or human in ~10 min.
      Domain: PARKED (owner call 2026-07-19, alongside country).
      When it lands, the curation/photo engines (`data_audit`, `photo_audit`)

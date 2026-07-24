@@ -7,7 +7,7 @@
 >
 > - **Qué ha shipeado**: `release-notes.md` (junto a este fichero).
 > - **Comandos y runbooks** (correr, tests, deploy, catalog sync, tooling de
->   curación/auditoría): `docs/operations.md` §5.
+>   curación/auditoría): `OPERATIONS.md` (en este paquete).
 > - **Seguimiento pendiente**: `PENDING.md` (raíz) → sección `be_water`.
 > - **Sistema de diseño de la web**: `web/DESIGN.md`.
 
@@ -32,7 +32,7 @@ Cloud Run. Piezas principales bajo `web/`:
 (`label`/`manufacturer`/`manual`/`aesan`), visible en la ficha. Una ficha se
 verifica y **bloquea** por auto-promoción (todo respaldado por etiqueta) o por
 sign-off de admin (etiqueta fotografiada + al menos un valor confirmado). Las
-CLIs de mantenimiento están en `docs/operations.md` §5.
+CLIs de mantenimiento están en `OPERATIONS.md` (en este paquete).
 
 ---
 

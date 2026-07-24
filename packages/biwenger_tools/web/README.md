@@ -49,4 +49,4 @@ bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platform
 cd packages/biwenger_tools/web/ && ./deploy.sh
 ```
 
-See [`docs/operations.md`](../../../docs/operations.md) for build/test/deploy detail.
+See [`OPERATIONS.md`](../OPERATIONS.md) §1 for build/test/deploy detail.

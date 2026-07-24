@@ -84,5 +84,4 @@ every CI deploy reapplies them — no drift.
 `BIWENGER_API_URL` is resolved at deploy time by reading the api service URL
 from gcloud and passed as an env var (see `deploy-bot` in the workflow).
 
-See [`docs/operations.md`](../../../docs/operations.md) for build/test/deploy
-commands.
+See [`OPERATIONS.md`](../OPERATIONS.md) §4 for build/test/deploy commands.

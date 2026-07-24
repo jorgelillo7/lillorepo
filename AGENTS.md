@@ -10,6 +10,8 @@ Read these in order:
 4. **`PENDING.md`** — open follow-ups grouped by package.
 5. **`packages/<pkg>/README.md`** — per-package entry point, gotchas, local dev notes.
 
-Operational reference: **`docs/operations.md`** (build, test, deploy commands).
+Operational reference: **`docs/operations.md`** (repo-wide workflows) plus a
+per-package **`packages/*/OPERATIONS.md`** for that package's build/test/deploy
+commands.
 
 Skills + hooks for Claude Code live under `.claude/`.

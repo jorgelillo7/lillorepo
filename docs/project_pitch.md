@@ -4,9 +4,9 @@
 
 ## The positioning line
 
-> "I used a Biwenger project as an excuse to practice Bazel monorepos, cloud-native GCP architecture, and production-grade CI/CD."
+> "I used a Biwenger project as an excuse to practice Bazel monorepos, cloud-native GCP architecture, and production-grade CI/CD — then grew it into a multi-product monorepo (a second app, Be Water, on its own GCP project) riding the same machinery."
 
-That line frames the project correctly: not as a one-off side project but as deliberate practice of real-world skills. For the current state and capability inventory, point reviewers at `STATUS.md` at the repo root.
+That line frames the project correctly: not a one-off side project but deliberate practice of real-world skills, and proof the setup scales to a second product without re-inventing the build/deploy/cost machinery. For the current state and capability inventory, point reviewers at `STATUS.md` at the repo root.
 
 ---
 
@@ -32,16 +32,16 @@ That line frames the project correctly: not as a one-off side project but as del
 
 ## Weaknesses to be ready for
 
-**Long orchestration functions.** `run_auto_bid` and `run_auto_pick_lineup` mix setup, business logic and side effects. Refactoring them into context + pure helpers is tracked in `PENDING.md`. Honest answer: known, scoped, deliberately deferred.
-
 **No staging environment.** Local + prod is enough for one user; every merge ships. The trade-off is articulated in `STATUS.md` under "Accepted gaps".
 
-**Observability stops at Cloud Logging.** No alerts, no dashboards. Same trade-off — observability tooling would push past the €0/mes target.
+**Observability stops at Cloud Logging.** No alerts, no dashboards. Same trade-off — observability tooling would push past the sub-euro/mes target.
 
-**Mixed ES/EN in code.** Telegram user-facing strings stay in Spanish on purpose; everything else (variables, comments, log messages) should be English. The cleanup is tracked in `PENDING.md`.
+**Uneven test coverage across products.** The biwenger platform sits at a ~0.60 test/src ratio; `be_water` shipped four productizing sprints fast and lags at ~0.46. Honest answer: known, and it's the reason `STATUS.md` sits at 9.3 rather than the ~9.5 cap.
+
+**Bus factor 1.** Single author/operator for every service, SDK and runbook. Fine for a side project; a real caveat for anything claiming "production maturity".
 
 ---
 
 ## Overall assessment
 
-For a cover-letter signal: solid. Shows that you can build real infrastructure around a Python project: build system, cloud deployment, secrets, CI/CD, tests, documentation, automated reasoning under cost constraints. Current maturity (2026-05-24): **8.5 / 10**, projected ~9.45 after the `PENDING.md` items ship.
+For a cover-letter signal: solid. Shows that you can build real infrastructure around a Python project: build system, cross-project cloud deployment, secrets, CI/CD, tests, documentation, and automated reasoning under hard cost constraints — and that the setup scaled to a second product. Current maturity (2026-07-25): **9.3 / 10** (see `STATUS.md` for the full rationale and the ~9.5 cap).
