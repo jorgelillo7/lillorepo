@@ -48,7 +48,8 @@ bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test
 
 CI on push to `master` when `packages/biwenger_tools/api/**`, `core/**`,
 `tools/**`, `docker/**` or `MODULE.bazel` changes. Cloud Run resource name:
-`biwenger-api`.
+`biwenger-api`. See [`OPERATIONS.md`](../OPERATIONS.md) §3 for local run,
+tests, smoke test and manual deploy.
 
 ## Code layout
 

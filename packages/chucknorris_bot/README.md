@@ -19,7 +19,7 @@ A Telegram bot that delivers Chuck Norris facts on demand, powered by [chucknorr
 ## Development & deployment
 
 Run/test/deploy commands, webhook registration and `.env` configuration live
-in [`OPERATIONS.md`](../OPERATIONS.md).
+in [`OPERATIONS.md`](OPERATIONS.md).
 
 ## Origin
 
