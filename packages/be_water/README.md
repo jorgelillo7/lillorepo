@@ -1,74 +1,71 @@
 # 💧 be_water
 
-> **Estado**: **en producción** desde 2026-07-18 (`be-water`, proyecto GCP
-> `be-water-app`). Para el detalle operativo, ver:
+> **Status**: **in production** since 2026-07-18 (`be-water`, GCP project
+> `be-water-app`). For operational detail, see:
 >
-> - **Qué ha shipeado**: `release-notes.md` (junto a este fichero).
-> - **Comandos y runbooks** (correr, tests, deploy, catalog sync, tooling de
->   curación/auditoría): `OPERATIONS.md` (en este paquete).
-> - **Modelo de datos Firestore**: `docs/firestore.md` (raíz) → sección
->   `be-water-app`.
-> - **Seguimiento pendiente**: `PENDING.md` (raíz) → sección `be_water`.
-> - **Sistema de diseño de la web**: `web/DESIGN.md`.
+> - **What shipped**: `release-notes.md` (next to this file).
+> - **Commands and runbooks** (run, tests, deploy, catalog sync, curation /
+>   audit tooling): `OPERATIONS.md` (in this package).
+> - **Firestore data model**: `docs/firestore.md` (root) → `be-water-app` section.
+> - **Pending follow-ups**: `PENDING.md` (root) → `be_water` section.
+> - **Web design system**: `web/DESIGN.md`.
 
-Catálogo colaborativo de aguas minerales españolas, servido con Flask sobre
-Cloud Run. Cualquiera con el link sube una foto de la etiqueta y la ficha se
-rellena sola (OCR con Gemini); el catálogo cruza **perfil mineral × procedencia**
-para recomendar aguas parecidas a las tuyas allá donde estés.
+A collaborative catalog of Spanish bottled mineral waters, served with Flask on
+Cloud Run. Anyone with the link photographs a bottle label and the entry fills
+itself in (OCR via Gemini); the catalog crosses **mineral profile × origin** to
+recommend waters similar to your favorites wherever you are.
 
-## Piezas principales (bajo `web/`)
+## Main pieces (under `web/`)
 
-- **App** (`app.py`) — catálogo, ficha, favoritas, /comunidad (ranking +
-  logros), recomendador, alta con foto + OCR, /acerca, /admin (dormant).
-- **Datos** — `domain.py` (`Water`, con **procedencia por campo** en `sources`
-  y `verified_fields`), `repository.py` (Firestore), `seed_data.py`,
-  `aesan_snapshot.py` (registro oficial AESAN), `catalog_sync.py` (sync mensual).
-- **Fotos + IA** — `photos.py` (GCS + tratamiento *studio* con Gemini,
-  admin-gated), `label_ocr.py` (OCR de etiquetas). SDK compartido en
-  `core/sdk/gemini.py`.
-- **Motores reutilizables** (los reusa también `/admin`): `provenance.py`
-  (deriva la fuente de cada valor), `photo_audit.py` (diagnóstico/reparación de
-  fotos), `data_audit.py` (sign-off de verificación, duplicados, valores
-  sospechosos), `similarity.py`.
+- **App** (`app.py`) — catalog, water page, favorites, /comunidad (ranking +
+  achievements), recommender, photo + OCR add flow, /acerca, /admin (dormant).
+- **Data** — `domain.py` (`Water`, with **per-field provenance** in `sources`
+  and `verified_fields`), `repository.py` (Firestore), `seed_data.py`,
+  `aesan_snapshot.py` (official AESAN registry), `catalog_sync.py` (monthly sync).
+- **Photos + AI** — `photos.py` (GCS + admin-gated *studio* treatment with
+  Gemini), `label_ocr.py` (label OCR). Shared SDK in `core/sdk/gemini.py`.
+- **Reusable engines** (also reused by `/admin`): `provenance.py` (derives each
+  value's source), `photo_audit.py` (photo diagnosis/repair), `data_audit.py`
+  (verification sign-off, duplicates, suspicious values), `similarity.py`.
 
-## Modelo de confianza del dato
+## Data trust model
 
-Cada valor lleva su fuente (`label` / `manufacturer` / `manual` / `aesan`),
-visible en la ficha. Una ficha se **verifica y bloquea** contra sobrescritura
-por dos vías: auto-promoción (todo respaldado por etiqueta) o sign-off de admin
-(etiqueta fotografiada + al menos un valor confirmado). El registro oficial
-AESAN aporta identidad (denominación + manantial + provincia); la composición
-viene siempre de la etiqueta, la fuente legal.
+Every value carries its source (`label` / `manufacturer` / `manual` / `aesan`),
+shown on the water page. An entry is **verified and locked** against overwrite
+two ways: auto-promotion (every value label-backed) or admin sign-off (a
+photographed label + at least one confirmed value). The official AESAN registry
+supplies identity (name + spring + province); compositions always come from the
+label, the legal source.
 
-## Decisiones de diseño (el *por qué*)
+## Design decisions (the *why*)
 
-- **Package del monorepo + proyecto GCP propio.** El código vive en lillorepo
-  como package autocontenido (comparte Bazel, `core/`, imagen `python-base`, CI
-  y disciplina de PRs). El *runtime* corre en un proyecto GCP separado
-  (`be-water-app`): free tier de Firestore independiente del de la liga, coste
-  atribuible (budget €1 propio), y aislamiento total — nada de be_water puede
-  rozar la SLO del digest de biwenger. Mismo `deploy.yml`, destino distinto vía
-  paths-filter + `--project`.
-- **Similitud: distancia euclídea normalizada en log-scale, k-NN en memoria.**
-  El vector mineral es fijo (~10 dimensiones), así que el catálogo entero cabe
-  en RAM y se compara sin infra vectorial. El log corrige los órdenes de
-  magnitud (el Na va de 0 a >1000 mg/L, el TDS de 20 a >4000): 100 mg de
-  diferencia en TDS no pesan lo mismo que 100 mg en Na. El recomendador por
-  ubicación reusa el motor: centroide de tus favoritas × candidatas de la zona.
-- **OCR con Gemini multimodal, no Cloud Vision.** Una llamada con la foto + un
-  schema estructurado devuelve el vector mineral ya parseado en JSON, sin regex
-  frágiles por etiqueta. El humano revisa y corrige antes de guardar; si Gemini
-  falla, el form se abre vacío sin perder la foto.
-- **"Auth" ligera.** Login por nickname (sin password), suficiente para un uso
-  entre amigos. Google Sign-In + /admin shipearon dormant, listos para
-  endurecerlo cuando el grupo crezca (runbook en `OPERATIONS.md`).
+- **Monorepo package + its own GCP project.** The code lives in lillorepo as a
+  self-contained package (shares Bazel, `core/`, the `python-base` image, CI and
+  PR discipline). The *runtime* runs in a separate GCP project (`be-water-app`):
+  a Firestore free tier independent of the league's, attributable cost (its own
+  €1 budget), and full isolation — nothing be_water does can touch the biwenger
+  digest SLO. Same `deploy.yml`, different target via paths-filter + `--project`.
+- **Similarity: normalized Euclidean distance in log-scale, in-memory k-NN.**
+  The mineral vector is fixed (~10 dimensions), so the whole catalog fits in RAM
+  and compares without vector infrastructure. Log-scale corrects the orders of
+  magnitude (sodium ranges 0 to >1000 mg/L, TDS 20 to >4000): a 100 mg
+  difference in TDS doesn't weigh the same as 100 mg in sodium. The
+  location-based recommender reuses the engine: centroid of your favorites ×
+  candidates from the area.
+- **OCR via Gemini multimodal, not Cloud Vision.** One call with the photo + a
+  structured schema returns the mineral vector already parsed as JSON, with no
+  fragile per-label regex. A human reviews and corrects before saving; if Gemini
+  fails, the form opens empty without losing the photo.
+- **Lightweight "auth".** Nickname login (no password), enough for use among
+  friends. Google Sign-In + /admin shipped dormant, ready to harden it when the
+  group grows (runbook in `OPERATIONS.md`).
 
-## Fuentes de datos
+## Data sources
 
-- [Lista oficial AESAN](https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm)
+- [Official AESAN list](https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm)
   ([PDF](https://www.aesan.gob.es/AECOSAN/docs/documentos/seguridad_alimentaria/gestion_riesgos/lista_espanola.pdf))
-  — identidad oficial (denominación + manantial + lugar); base del snapshot en repo.
-- [IGME — Aguas minerales reconocidas](https://aguasmineralesytermales.igme.es/introduccion/aguas-minerales-reconocidas)
-  — inventario geológico con visor.
-- **Etiquetas reales** (fotos + Gemini) — la composición, siempre desde la botella.
-- [mineralwaters.org](https://mineralwaters.org/) — cross-check de composiciones dudosas.
+  — official identity (name + spring + location); basis of the in-repo snapshot.
+- [IGME — recognised mineral waters](https://aguasmineralesytermales.igme.es/introduccion/aguas-minerales-reconocidas)
+  — geological inventory with a map viewer.
+- **Real labels** (photos + Gemini) — the composition, always from the bottle.
+- [mineralwaters.org](https://mineralwaters.org/) — cross-check for dubious compositions.
