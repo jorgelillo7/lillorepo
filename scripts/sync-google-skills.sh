@@ -92,9 +92,12 @@ list_installed_skills() {
 show_diff_summary() {
   local local_dir="$1"
   local upstream_dir="$2"
+  # `diff` exits 1 when files differ; under `set -e`+`pipefail` that non-zero
+  # would abort the whole script after the first changed skill. Swallow it —
+  # a difference is the expected, non-error case here.
   diff -rq "$local_dir" "$upstream_dir" 2>/dev/null \
     | sed -e "s|$TMP_DIR/repo|<upstream>|g" -e "s|$DEST_DIR|<local>|g" \
-    | sed 's/^/    /'
+    | sed 's/^/    /' || true
 }
 
 confirm() {

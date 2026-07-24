@@ -1,5 +1,7 @@
 ---
 name: firebase-basics
+metadata:
+  category: Serverless
 description: Use this skill whenever you are working on a project that uses Firebase products or services, especially for mobile or web apps.
 ---
 
@@ -43,7 +45,6 @@ patterns and lack of access to essential reference materials.
 
     *If the skills are already installed, this command will ensure they are up
     to date. Do not skip this step.*
-
 
 ## Quick start
 
