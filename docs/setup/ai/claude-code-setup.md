@@ -125,9 +125,7 @@ Claude Code is expected to use:
 
 ## 9. Configure MCP Servers
 
-Use the dedicated Claude guide:
-
-- [mcp-setup-claude-code.md](mcp-setup-claude-code.md)
+See [mcp-setup.md](mcp-setup.md) for how MCP wiring differs by client.
 
 ## 10. Configure RTK
 
@@ -148,6 +146,5 @@ See the full guide:
 
 ## Related Guides
 
-- [codex-setup.md](codex-setup.md)
 - [mcp-setup.md](mcp-setup.md)
-- [mcp-setup-codex.md](mcp-setup-codex.md)
+- [rtk-setup.md](rtk-setup.md)

@@ -45,7 +45,7 @@ access token from the Codex CLI, which does obtain the correct scopes and auto-r
 "openai-codex": { "type": "api_key", "key": "!jq -r '.tokens.access_token' ~/.codex/auth.json" }
 ```
 
-Prerequisite: Codex CLI must be installed and authenticated (`codex` → sign in). See [codex-setup.md](codex-setup.md).
+Prerequisite: Codex CLI must be installed and authenticated (`codex` → sign in).
 
 ### Full `~/.pi/agent/auth.json`
 
@@ -157,5 +157,3 @@ pi --skill .agents/skills/review-pr/SKILL.md "Review the open PRs"
 ## Related Guides
 
 - [claude-code-setup.md](claude-code-setup.md)
-- [codex-setup.md](codex-setup.md)
-- [gemini-cli-setup.md](gemini-cli-setup.md)
