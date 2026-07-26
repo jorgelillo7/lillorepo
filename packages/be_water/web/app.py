@@ -6,7 +6,6 @@ import uuid
 from typing import Optional
 
 import requests
-from unidecode import unidecode
 from flask import (
     Flask,
     Response,
@@ -32,9 +31,9 @@ from packages.be_water.web import (
     geo,
     label_ocr,
     photos,
-    provenance,
     repository,
     similarity,
+    submission,
 )
 from packages.be_water.web.domain import (
     MINERAL_FIELDS,
@@ -47,15 +46,12 @@ from packages.be_water.web.domain import (
 logger = get_logger(__name__)
 
 _NICKNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{2,20}$")
-_SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 # Abuse basics for the public phase: per-instance sliding windows keyed by
 # client IP. The photo limit doubles as a spend cap on the Gemini calls.
 _LOGIN_LIMITER = RateLimiter(20, 300)
 _SAVE_LIMITER = RateLimiter(30, 3600)
 _PHOTO_LIMITER = RateLimiter(15, 3600)
-_MAX_FIELD_LEN = 80
-_MAX_MINERAL_VALUE = 100_000  # mg/L — beyond this it's not water
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 app = Flask(__name__, template_folder=template_dir)
@@ -95,35 +91,6 @@ def inject_globals() -> dict:
 def _client_ip() -> str:
     forwarded = request.headers.get("X-Forwarded-For", "")
     return forwarded.split(",")[0].strip() or request.remote_addr or "?"
-
-
-def _form_field(name: str) -> str:
-    """Trimmed form value, length-capped — nobody's manantial needs 80+ chars."""
-    return (request.form.get(name) or "").strip()[:_MAX_FIELD_LEN]
-
-
-def _springs_differ(submitted: str, current: str) -> bool:
-    """True when both springs are declared and neither's token set contains
-    the other's — i.e. genuinely different sources, not spelling drift."""
-    a = set(_SLUG_RE.sub(" ", unidecode(submitted).lower()).split())
-    b = set(_SLUG_RE.sub(" ", unidecode(current).lower()).split())
-    return bool(a) and bool(b) and not (a <= b or b <= a)
-
-
-def _similar_water(name: str, catalog: list[Water]) -> Optional[Water]:
-    """Fuzzy duplicate guard: token-subset match on normalized names, so
-    "Naturis" flags «Naturis (Lidl) — Albacete». Exact slugs are handled
-    upstream; near-misses come back for the user to decide — white labels
-    bottled from several springs are legitimately several waters."""
-    tokens = set(_SLUG_RE.sub(" ", unidecode(name).lower()).split())
-    if not tokens:
-        return None
-    for water in catalog:
-        for candidate in (water.name, water.brand):
-            cand = set(_SLUG_RE.sub(" ", unidecode(candidate).lower()).split())
-            if cand and (tokens <= cand or cand <= tokens):
-                return water
-    return None
 
 
 def _places(catalog: list[Water]) -> list[str]:
@@ -291,171 +258,142 @@ def profile():
     )
 
 
+def _promote_photos(water_id: str) -> tuple[Optional[str], Optional[str]]:
+    """Promote the form's tmp uploads to their permanent paths; on a storage
+    hiccup keep the tmp URL as a fallback rather than losing the photo."""
+    photo_url = label_photo_url = None
+    photo_tmp = (request.form.get("photo_tmp") or "").strip()
+    label_tmp = (request.form.get("label_tmp") or "").strip()
+    if photo_tmp:
+        try:
+            photo_url = photos.promote_photo(photo_tmp, f"{water_id}.jpg")
+        except requests.RequestException:
+            photo_url = photos.public_url(photo_tmp)
+    if label_tmp:
+        try:
+            label_photo_url = photos.promote_photo(
+                label_tmp, f"originals/{water_id}.jpg"
+            )
+        except requests.RequestException:
+            label_photo_url = photos.public_url(label_tmp)
+    return photo_url, label_photo_url
+
+
 @app.route("/anadir", methods=["GET", "POST"])
 def add_water():
     if not session.get("nickname"):
         return redirect(url_for("index"))
-    if request.method == "POST":
-        if _nickname_blocked():
-            return redirect(url_for("index"))
-        if not verify_csrf_token():
-            return _render_add_form(
-                prefill=dict(request.form),
-                error="La sesión ha caducado — recarga la página e inténtalo de nuevo.",
-            )
-        if not _SAVE_LIMITER.allow(_client_ip()):
-            return _render_add_form(
-                prefill=dict(request.form),
-                error="Demasiadas aguas en poco tiempo — espera un rato.",
-            )
-        name = _form_field("name")
-        if not name:
+    if request.method != "POST":
+        return _render_add_form()
+    if _nickname_blocked():
+        return redirect(url_for("index"))
+    if not verify_csrf_token():
+        return _render_add_form(
+            prefill=dict(request.form),
+            error="La sesión ha caducado — recarga la página e inténtalo de nuevo.",
+        )
+    if not _SAVE_LIMITER.allow(_client_ip()):
+        return _render_add_form(
+            prefill=dict(request.form),
+            error="Demasiadas aguas en poco tiempo — espera un rato.",
+        )
+
+    name = submission.form_field(request.form, "name")
+    if not name:
+        abort(400)
+    water_id = submission.slugify(name)
+    existing = repository.get_water(water_id)
+    merge_into = (request.form.get("merge_into") or "").strip()
+
+    # Resolve which doc (if any) this submission targets, or bounce back to the
+    # form for the user to disambiguate.
+    resolution = _resolve_add_target(name, water_id, existing, merge_into)
+    if not isinstance(resolution, tuple):
+        return resolution  # a re-rendered form or abort
+    water_id, existing = resolution
+
+    minerals = submission.parse_minerals(request.form)
+    photo_url, label_photo_url = _promote_photos(water_id)
+    verified_fields = submission.verified_fields_from_ocr(
+        request.form.get("ocr_fields") or "", minerals
+    )
+    water = submission.build_water(
+        request.form,
+        water_id=water_id,
+        name=name,
+        minerals=minerals,
+        verified_fields=verified_fields,
+        photo_url=photo_url,
+        label_photo_url=label_photo_url,
+        added_by=session["nickname"],
+    )
+    if existing is not None:
+        submission.apply_existing(
+            water,
+            existing,
+            merge_into=bool(merge_into),
+            form_has_brand=bool(submission.form_field(request.form, "brand")),
+        )
+    submission.finalize_provenance(water, existing)
+    repository.save_water(water)
+    repository.touch_user(session["nickname"])
+    return redirect(url_for("water_detail", water_id=water_id))
+
+
+def _resolve_add_target(name, water_id, existing, merge_into):
+    """Decide the target doc for a submission, or return a re-rendered form
+    when the user must disambiguate. Returns `(water_id, existing)` to proceed,
+    otherwise a Flask response (or aborts)."""
+    form = request.form
+
+    def _form_with(**extra):
+        return _render_add_form(
+            prefill=dict(form),
+            photo_tmp=form.get("photo_tmp") or None,
+            label_tmp=form.get("label_tmp") or None,
+            ocr_fields=form.get("ocr_fields") or None,
+            **extra,
+        )
+
+    if existing is None and merge_into:
+        # The user confirmed the fuzzy match: update that water instead.
+        existing = repository.get_water(merge_into)
+        if existing is None:
             abort(400)
-        # unidecode first: "Lanjarón" must slug to "lanjaron", not "lanjar-n",
-        # or the duplicate guard misses the existing doc (real bug, 2nd day live).
-        water_id = _SLUG_RE.sub("-", unidecode(name).lower()).strip("-")
+        return merge_into, existing
+    if existing is None and not form.get("force_new"):
+        similar = submission.similar_water(name, repository.get_all_waters())
+        if similar is not None:
+            return _form_with(similar=similar)
+    if (
+        existing is not None
+        and not merge_into
+        and not form.get("force_new")
+        and submission.springs_differ(
+            submission.form_field(form, "spring"), existing.spring
+        )
+    ):
+        # Exact commercial name, different spring — the Font Vella case
+        # (Sacalm vs Sigüenza): ask instead of silently merging.
+        return _form_with(similar=existing)
+    if existing is not None and form.get("force_new"):
+        # A new water sharing the exact name: id disambiguated by the spring
+        # tokens the name doesn't already carry.
+        water_id = submission.disambiguated_id(
+            water_id, submission.form_field(form, "spring")
+        )
         existing = repository.get_water(water_id)
-        merge_into = (request.form.get("merge_into") or "").strip()
-        if existing is None and merge_into:
-            # The user confirmed the fuzzy match: update that water instead.
-            existing = repository.get_water(merge_into)
-            if existing is None:
-                abort(400)
-            water_id = merge_into
-        elif existing is None and not request.form.get("force_new"):
-            similar = _similar_water(name, repository.get_all_waters())
-            if similar is not None:
-                return _render_add_form(
-                    prefill=dict(request.form),
-                    photo_tmp=request.form.get("photo_tmp") or None,
-                    label_tmp=request.form.get("label_tmp") or None,
-                    ocr_fields=request.form.get("ocr_fields") or None,
-                    similar=similar,
-                )
-        if (
-            existing is not None
-            and not merge_into
-            and not request.form.get("force_new")
-            and _springs_differ(_form_field("spring"), existing.spring)
-        ):
-            # Exact commercial name, different spring — the Font Vella case
-            # (Sacalm vs Sigüenza): ask instead of silently merging.
-            return _render_add_form(
-                prefill=dict(request.form),
-                photo_tmp=request.form.get("photo_tmp") or None,
-                label_tmp=request.form.get("label_tmp") or None,
-                ocr_fields=request.form.get("ocr_fields") or None,
-                similar=existing,
-            )
-        if existing is not None and request.form.get("force_new"):
-            # A new water sharing the exact name: id disambiguated by the
-            # spring tokens the name doesn't already carry.
-            spring_tokens = _SLUG_RE.sub(
-                " ", unidecode(_form_field("spring")).lower()
-            ).split()
-            extra = [t for t in spring_tokens if t not in water_id]
-            if extra:
-                water_id = f"{water_id}-{'-'.join(extra)}"
-                existing = repository.get_water(water_id)
-        if existing is not None and existing.verified:
-            # A verified water is bottle-checked and data-frozen.
-            return _render_add_form(
-                prefill=dict(request.form),
-                photo_tmp=request.form.get("photo_tmp") or None,
-                error=(
-                    f"«{name}» ya está en el catálogo y verificada — "
-                    "no se puede sobrescribir."
-                ),
-            )
-        minerals = {}
-        for field in MINERAL_FIELDS:
-            raw = (request.form.get(field) or "").strip().replace(",", ".")
-            if raw:
-                try:
-                    value = float(raw)
-                except ValueError:
-                    continue
-                if 0 <= value <= _MAX_MINERAL_VALUE:
-                    minerals[field] = value
-        photo_url = None
-        label_photo_url = None
-        photo_tmp = (request.form.get("photo_tmp") or "").strip()
-        label_tmp = (request.form.get("label_tmp") or "").strip()
-        if photo_tmp:
-            try:
-                photo_url = photos.promote_photo(photo_tmp, f"{water_id}.jpg")
-            except requests.RequestException:
-                photo_url = photos.public_url(photo_tmp)  # keep tmp as fallback
-        if label_tmp:
-            try:
-                label_photo_url = photos.promote_photo(
-                    label_tmp, f"originals/{water_id}.jpg"
-                )
-            except requests.RequestException:
-                label_photo_url = photos.public_url(label_tmp)
-        ocr_fields = (request.form.get("ocr_fields") or "").split(",")
-        verified_fields = sorted(f for f in ocr_fields if f in minerals)
-        water = Water(
-            id=water_id,
-            name=name,
-            brand=_form_field("brand") or name,
-            spring=_form_field("spring"),
-            province=_form_field("province"),
-            community=_form_field("community"),
-            sparkling=request.form.get("sparkling") == "on",
-            minerals=minerals,
-            photo_url=photo_url,
-            label_photo_url=label_photo_url,
-            verified_fields=verified_fields,
-            added_by=session["nickname"],
-            added_at=datetime.now(timezone.utc).isoformat(),
+    if existing is not None and existing.verified:
+        # A verified water is bottle-checked and data-frozen.
+        return _render_add_form(
+            prefill=dict(form),
+            photo_tmp=form.get("photo_tmp") or None,
+            error=(
+                f"«{name}» ya está en el catálogo y verificada — "
+                "no se puede sobrescribir."
+            ),
         )
-        if existing is not None:
-            # Label-backed update of an unverified water: the reviewed form
-            # wins, everything it can't carry survives from the current doc.
-            if merge_into:
-                # Confirmed fuzzy match: the canonical display name stays.
-                water.name = existing.name
-                water.retailer = existing.retailer
-            water.minerals = {**existing.minerals, **water.minerals}
-            water.sparkling = water.sparkling or existing.sparkling
-            water.spring = water.spring or existing.spring
-            water.province = water.province or existing.province
-            water.community = water.community or existing.community
-            if not _form_field("brand"):
-                water.brand = existing.brand or water.brand
-            water.photo_url = water.photo_url or existing.photo_url
-            water.label_photo_url = water.label_photo_url or existing.label_photo_url
-            water.mentions = existing.mentions
-            water.verified_fields = sorted(
-                set(water.verified_fields) | set(existing.verified_fields)
-            )
-            # Seeded waters get adopted by whoever backs them with a label;
-            # a real user's water keeps its original author.
-            if existing.added_by and existing.added_by != "seed":
-                water.added_by = existing.added_by
-                water.added_at = existing.added_at
-        # Provenance of every non-label value (label fields are implied by
-        # verified_fields): prior sources survive the merge, new hand-entered
-        # minerals become "manual".
-        water.sources = provenance.sources_on_save(
-            water.minerals,
-            water.verified_fields,
-            existing.sources if existing is not None else {},
-        )
-        # Auto-promotion: label proof on file and every declared mineral
-        # backed by it → the whole ficha is verified (and data-frozen
-        # against the monthly dataset sync).
-        if (
-            water.label_photo_url
-            and water.minerals
-            and set(water.minerals) <= set(water.verified_fields)
-        ):
-            water.verified = True
-        repository.save_water(water)
-        repository.touch_user(session["nickname"])
-        return redirect(url_for("water_detail", water_id=water_id))
-    return _render_add_form()
+    return water_id, existing
 
 
 @app.route("/anadir/foto", methods=["POST"])
