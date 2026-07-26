@@ -18,10 +18,10 @@ state beyond Firestore and Google Secret Manager.
 
 | Package | Module | Capability spec (`specs/{package}/…`) |
 |---|---|---|
-| `biwenger_tools` | `api` | [`auto-bid`](specs/biwenger_tools/auto-bid/spec.md), clausulazo-emergency, daily-digest |
+| `biwenger_tools` | `api` | [`auto-bid`](specs/biwenger_tools/auto-bid/spec.md), [`clausulazo-emergency`](specs/biwenger_tools/clausulazo-emergency/spec.md), [`daily-digest`](specs/biwenger_tools/daily-digest/spec.md) |
 | `biwenger_tools` | `bot` | Telegram command surface → calls `api` |
-| `biwenger_tools` | `scraper_job` | league-scraper (messages → Firestore, tabla justicia) |
-| `biwenger_tools` | `web` | web-dataviz on Cloud Run |
+| `biwenger_tools` | `scraper_job` | [`league-scraper`](specs/biwenger_tools/league-scraper/spec.md) (messages → Firestore, tabla justicia) |
+| `biwenger_tools` | `web` | [`web-dataviz`](specs/biwenger_tools/web-dataviz/spec.md) on Cloud Run |
 | `be_water` | `web` | [`water-similarity`](specs/be_water/water-similarity/spec.md); provenance, aesan-registry, photos, community, catalog-curation |
 | `chucknorris_bot` | `bot` | chuck-jokes Telegram bot |
 | `core` | — | shared SDK contracts (Biwenger, JP, Firestore, Telegram, Gemini) + domain models |
