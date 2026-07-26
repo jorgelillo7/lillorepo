@@ -14,6 +14,10 @@ bazel_dep(name = "platforms", version = "1.1.0")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.13",
+    # Enables `bazel coverage` line instrumentation using the coverage tool
+    # bundled with rules_python (CPython 3.9–3.14). Added to py_test deps only
+    # during coverage runs — never ships in the runtime image.
+    configure_coverage_tool = True,
 )
 use_repo(python, python_toolchain = "python_3_13")
 
