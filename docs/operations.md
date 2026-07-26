@@ -83,6 +83,31 @@ repo-wide with any LCOV reader, or `genhtml` it for a browsable report.
 Coverage is a weak signal on its own — pair it with the behaviour specs in
 `openspec/specs/` (what must be true) rather than chasing the percentage.
 
+### Mutation testing (ad-hoc)
+
+Coverage says a line *ran*; mutation testing says a bug in it would be *caught*.
+It is run ad-hoc on pure-logic modules (not in CI — it is slow), in a throwaway
+venv since it needs a plain pytest environment:
+
+```bash
+  python3 -m venv /tmp/mutenv
+  /tmp/mutenv/bin/pip install pytest requests-mock freezegun requests unidecode \
+    google-cloud-firestore google-auth google-api-python-client python-dateutil \
+    python-json-logger python-dotenv Flask matplotlib 'mutmut<3'
+
+  # from the repo root, mutate one module, run only its test file
+  PYTHONPATH=. /tmp/mutenv/bin/mutmut run \
+    --paths-to-mutate packages/biwenger_tools/api/logic/auto_bid.py \
+    --runner "/tmp/mutenv/bin/python -m pytest \
+      packages/biwenger_tools/api/tests/test_auto_bid.py -x -q -p no:cacheprovider"
+
+  /tmp/mutenv/bin/mutmut results   # list survivors; `mutmut show <id>` to inspect
+```
+
+Triage survivors: most are equivalent mutants (log strings, internal dict keys)
+— **do not** chase those. Kill the ones that reveal an untested behavioural
+boundary. Auto-bid's pilot sits at ~70% (the surviving 30% are cosmetic).
+
 ## 📦 How to Add or Update Python Dependencies
 
 The project uses a three-level system to manage dependencies, keeping modules isolated and guaranteeing 100% reproducible builds.
