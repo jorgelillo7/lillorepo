@@ -6,6 +6,7 @@ from packages.be_water.web.similarity import (
     favorites_centroid,
     profile_traits,
     recommend,
+    recommend_nearby,
     similar_waters,
 )
 
@@ -136,3 +137,32 @@ def test_distance_normalizes_by_shared_coverage():
     same_minus_one = {"tds": 261, "sodium": 5, "calcium": 59}  # mg unknown
     different = {"tds": 900, "sodium": 200, "calcium": 10, "magnesium": 2}
     assert distance(full, same_minus_one) < distance(full, different)
+
+
+# --- recommend_nearby (geo fallback, real adjacency) ------------------------
+
+
+def test_recommend_nearby_pulls_from_adjacent_provinces():
+    """Madrid has no bottled water of its own → recommend from bordering
+    provinces. Segovia borders Madrid, so Bezoya (Segovia) is a candidate;
+    Girona does not border Madrid, so Vichy is excluded."""
+    catalog = [SOLAN, BEZOYA, VICHY]  # Cuenca, Segovia, Girona
+    result = recommend_nearby([SOLAN], catalog, place="Madrid")
+    ids = [w.id for w, _ in result]
+    assert "bezoya" in ids
+    assert "vichy" not in ids
+
+
+def test_recommend_nearby_excludes_favorites():
+    """A neighbour water that is already a favourite is not recommended back."""
+    result = recommend_nearby([SOLAN, BEZOYA], [SOLAN, BEZOYA], place="Madrid")
+    assert all(w.id != "bezoya" for w, _ in result)
+
+
+def test_recommend_nearby_without_favorites_is_empty():
+    assert recommend_nearby([], [SOLAN, BEZOYA], place="Madrid") == []
+
+
+def test_recommend_nearby_empty_when_place_has_no_neighbours():
+    """An island province (no land border) yields no neighbour candidates."""
+    assert recommend_nearby([SOLAN], [BEZOYA], place="Illes Balears") == []
