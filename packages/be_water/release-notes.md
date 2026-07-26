@@ -2,6 +2,16 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.5 - The Grown-Up Sprint (26 July 2026)**
+
+Be Water shipped four features in seven weeks and left its coverage — and its biggest file — behind. This release pays that debt: no new drops in the catalog, but the code around them is honest now. The composition-photo pipeline, always faked in tests, finally runs for real; the 677-line `app.py` monolith is gone; and every capability has a written contract.
+
+* **🖼️ The photo pipeline is finally tested (the headline)**: `process_image`, `studio_photo` and the watermark stamp were mocked in every test — the actual byte-work (resize, EXIF strip, 1080² canvas, watermark) had no coverage, on code that ships to Telegram daily and had a history of silent studio failures. Now exercised for real with synthetic images: `photos.py` went **34% → 82%**. `recommend_nearby` (the Madrid "no water of its own → borrow from bordering provinces" fallback) got its first tests too — `similarity.py` is now 100%. **be_water/web line coverage is 88.9%** — no longer the catalog's coverage laggard.
+* **🧱 The monolith, dismantled**: `web/app.py` held 18 routes and their helpers in 677 lines, and `add_water` alone was 164 — both well past the repo's own `<200/<50` guideline. Split into a `routes/` package (`main`, `add`, `session`, `admin`) mirroring the biwenger web app, with request helpers in `helpers.py`; `add_water` decomposed into a pure, unit-tested `submission.py` (slug, duplicate guards, mineral parsing, the merge rules, verification). `app.py` is now **36 lines**. Zero behaviour change — the 133 route tests passed untouched.
+* **📐 Every capability has a spec**: joined the repo-wide `openspec/` adoption — `water-similarity`, `provenance`, `aesan-registry`, `community`, `catalog-sync`, `data-curation` and `photos` each state their contract in `WHEN/THEN` scenarios linked to their tests. Two honest `GAP` markers the specs surfaced (the untested photo pipeline and `recommend_nearby`) are the gaps this release then closed.
+
+---
+
 ### **v1.4 - The Provenance Update (24 July 2026)**
 
 The catalog stopped hand-waving about where its numbers come from. Every value on a ficha now says its source, the "verified" flag finally fits waters whose label prints only part of the composition, and a set of admin tools keeps the photos and the data honest.

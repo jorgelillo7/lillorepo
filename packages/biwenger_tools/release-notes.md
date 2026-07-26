@@ -2,6 +2,16 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v8.1 - Specs, and Tests That Bite (26 July 2026)**
+
+No new buttons — this one hardens the foundations. The behaviour the platform *must* keep was scattered across test docstrings, memory and ops docs; now it lives in one place, the coverage gauge that read zero reads real numbers, and the auto-bid engine got put through a gauntlet that hunts tests which only *look* like they protect you.
+
+* **📐 Behaviour specs, one source of truth (the headline)**: a new `openspec/` folder (the tool-agnostic [OpenSpec](https://github.com/Fission-AI/OpenSpec) convention, markdown only, no CLI) captures *what each capability must do* as `Requirement` + `WHEN/THEN Scenario`, one folder per package. The biwenger surface is fully specced — `auto-bid`, `clausulazo-emergency`, `clausulazo-recommendations`, `daily-digest` (the SLO as a requirement), `offers-inbox`, `auto-pick-lineup`, `team-analysis`, `league-scraper`, `web-dataviz` and the whole `telegram-commands` bot (33 tests, previously zero spec). Every scenario links the test that verifies it; `OPERATIONS.md` now points here for the *what* and keeps only the *how*.
+* **📊 The coverage gauge actually works**: `bazel coverage` reported `LF:0` for every file — the `rules_python` toolchain had no coverage tool wired, a false green. One line in `MODULE.bazel` (`configure_coverage_tool`) fixed it; real line coverage is **~80% repo-wide** now, and `docs/operations.md` documents the command.
+* **🧬 Mutation-testing pilot on auto-bid**: 259 mutants, 68% killed on the first pass. Triaged the survivors — most are cosmetic (log strings, dict keys) and left alone on purpose; three were real untested boundaries, now covered: the `SF > 200` summary threshold, the zero-cash fallback, and a `continue`-vs-`break` that a mid-list unmatched player had been masking. The ad-hoc runbook lives in `docs/operations.md`.
+
+---
+
 ### **v8.0 - The League Reboots, the Repo Grows Up (16 July 2026)**
 
 Biwenger reset the league on 14 July. The daily digest met an empty squad, crashed inside matplotlib, and took the market analysis down with it — the exact single-point-of-failure this release kills. Around that incident, an audit-driven hardening spree: CI on every PR, real branch protection, keyless deploys, zero plaintext secrets. The league starts from scratch; the repo has never been more grown-up.

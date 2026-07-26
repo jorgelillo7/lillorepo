@@ -5,11 +5,13 @@ For feature-by-feature timelines read `packages/biwenger_tools/release-notes.md`
 and `packages/be_water/release-notes.md`. For the GCP inventory at a glance,
 read `INFRA.md`.
 
-**Current score: 9.3 / 10** (2026-07-25 review). **Cap under current
+**Current score: 9.4 / 10** (2026-07-26 review). **Cap under current
 constraints: ~9.5 / 10** (see _Accepted gaps_). The repo is now genuinely
 **multi-product**; the score tracks the whole estate, weighted toward the
-mature biwenger platform. `be_water` is younger by design and carries lighter
-test coverage (below), which is what keeps the headline off the cap.
+mature biwenger platform. The July quality-hardening pass (26 Jul) closed the
+be_water coverage drag that held the previous review at 9.3 — measured line
+coverage now sits at **80% repo-wide**, be_water among the best-covered. The
+only thing between here and the cap is the open Lloros Awards incident (below).
 
 ---
 
@@ -103,22 +105,28 @@ SA-repoint work. Root-caused and fix documented in `PENDING.md`
 
 ## Test coverage
 
-Test/src LOC ratio across the repo is **~0.65** — uncommon for a personal
-project, and the suite validates behaviour, not call patterns (regression
+**Real line coverage is measured now** (`bazel coverage //...` — the
+`rules_python` toolchain reported `LF:0` for every file until the 26-Jul
+`configure_coverage_tool` fix; see `docs/operations.md`). Repo-wide: **80.2%**
+(3510/4375 lines). The suite validates behaviour, not call patterns (regression
 tests pinned to specific incidents, e.g. the 2026-05-24 HTML-escape silent
-fail).
+fail), and behaviour is now also written down as specs in `openspec/` (what
+must be true) that each scenario links back to its test.
 
-The distribution is uneven, and honestly so:
-
-| Scope | test/src (LOC) | Note |
+| Scope | line coverage | Note |
 |---|---|---|
-| biwenger web | ~0.60 | mature |
-| be_water web | ~0.46 | grew fastest, thinnest coverage — the headline drag |
-| core + biwenger api/bot/scraper | strong | the load-bearing SDK boundaries are well covered |
+| biwenger scraper | 93% | highest |
+| **be_water web** | **89%** | was the drag; the 26-Jul pass tested the photo pipeline (34→82%) + `recommend_nearby` |
+| biwenger web | 81% | mature |
+| core | 77% | SDK boundaries; rest is network I/O |
+| chucknorris bot | 76% | small surface, fully behaviour-covered |
+| biwenger api / bot | ~75% | load-bearing logic covered; uncovered is I/O + one-shot scripts |
 
-`be_water` shipped four productizing sprints in July; its coverage lags the
-biwenger baseline. That's the honest reason the repo sits at 9.3 rather than
-at the cap.
+Beyond line coverage, a **mutation-testing** pilot on the auto-bid engine
+(259 mutants, ~70% killed after closing three real boundary gaps) confirms the
+tests bite where it matters; the ad-hoc runbook is in `docs/operations.md`.
+be_water's fast-shipped coverage debt — the honest reason the repo sat at 9.3 —
+is paid.
 
 ---
 
@@ -139,9 +147,10 @@ at the cap.
 4. **Idempotency by design** — SHA-256 doc IDs in the scraper, Firestore log
    keyed by `(date, player_id)` in auto-bid, provenance-aware upserts that
    never overwrite verified fields in be_water's monthly sync.
-5. **Single-source-of-truth doctrine** — `CLAUDE.md` (charter), `PENDING.md`
-   (follow-ups), per-package `release-notes.md` (history), `INFRA.md` (GCP),
-   this file (maturity). Claude memory deliberately empty. No duplication.
+5. **Single-source-of-truth doctrine** — `CLAUDE.md` (charter), `openspec/`
+   (behaviour contracts, per capability), `PENDING.md` (follow-ups), per-package
+   `release-notes.md` (history), `INFRA.md` (GCP), this file (maturity). Claude
+   memory deliberately empty. No duplication.
 6. **Security hygiene** — webhook HMAC, OIDC bot↔api, regional secrets, ADC
    for Firestore (no key files in the request path), HTML sanitisation, plus
    be_water's public-facing armor (CSRF, per-IP rate limits, timing-safe admin
@@ -178,9 +187,13 @@ Total cap under the stated constraints: **~9.5 / 10**.
 | Baseline (pre-Firestore, May 2026) | 7.5 |
 | All biwenger PENDING follow-ups shipped (2026-05-24 audit) | 9.4 |
 | Multi-product estate + be_water v1.4 (2026-07-25) | 9.3 |
+| Quality-hardening pass — specs, real coverage, refactor (2026-07-26) | 9.4 |
 | Theoretical max under current constraints | ~9.5 |
 
-The dip from 9.4 to 9.3 is not a regression in the biwenger platform — it's the
-score honestly re-weighting to include a fast-shipped second product whose test
-coverage hasn't yet caught up, plus one open production incident. Close both and
-the repo is back at the cap.
+The 26-Jul pass recovered the coverage half of the earlier 9.4→9.3 dip:
+behaviour specs across every package (`openspec/`), a fixed coverage gauge
+(80% repo-wide, measured), the be_water photo-pipeline and `recommend_nearby`
+tested, a mutation-tested auto-bid engine, and the 677-line be_water `app.py`
+monolith split into a `routes/` package. What still separates the repo from the
+~9.5 cap is the **open Lloros Awards incident** (Sheets JWT auth) plus the
+intentional gaps below. Close the incident and it's at the cap.
