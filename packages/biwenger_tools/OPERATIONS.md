@@ -6,6 +6,12 @@ the season rollover and Firestore maintenance runbooks.
 Repo-wide procedures (prerequisites, Python dependency workflow, secrets,
 linter, GCP cost/cleanup) live in [`docs/operations.md`](../../docs/operations.md).
 
+**What each capability does** — the tier rules, the clausulazo house rules, the
+digest SLO, the offer-decision algorithm — lives in the behaviour specs at
+[`openspec/specs/biwenger_tools/`](../../openspec/specs/biwenger_tools/). This
+file is the operational how-to (run, test, deploy, env vars); the specs are the
+single source of *what must be true*.
+
 📜 Index
 
 - [1. Biwenger Web App](#1-biwenger-web-app)
@@ -180,9 +186,9 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
-    default in `api/config.py`): while today (Madrid) is before that date the
-    digest posts a pause note instead of bidding. `/market/auto-bid` (bot's
-    `/pujar`) ignores the pause. Override without a deploy:
+    default in `api/config.py`) — pause semantics are specified in
+    [`daily-digest`](../../openspec/specs/biwenger_tools/daily-digest/spec.md)
+    ("Config-driven auto-bid pause"). Override without a deploy:
 
     ```bash
     gcloud run services update biwenger-api --region europe-southwest1 \
