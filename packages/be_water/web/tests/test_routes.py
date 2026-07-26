@@ -45,9 +45,9 @@ def client(monkeypatch):
     monkeypatch.setattr(app_module.repository, "get_all_waters", lambda: [])
     monkeypatch.setattr(app_module.repository, "get_user", lambda nickname: None)
     for limiter in (
-        app_module._LOGIN_LIMITER,
-        app_module._SAVE_LIMITER,
-        app_module._PHOTO_LIMITER,
+        app_module.helpers.LOGIN_LIMITER,
+        app_module.helpers.SAVE_LIMITER,
+        app_module.helpers.PHOTO_LIMITER,
     ):
         limiter.reset()
     app_module.app.config["TESTING"] = True
@@ -176,7 +176,7 @@ def test_photo_uploads_are_rate_limited(client, monkeypatch):
     from packages.be_water.web import app as app_module
     from core.web.ratelimit import RateLimiter
 
-    monkeypatch.setattr(app_module, "_PHOTO_LIMITER", RateLimiter(1, 3600))
+    monkeypatch.setattr(app_module.helpers, "PHOTO_LIMITER", RateLimiter(1, 3600))
     _login(client)
     import io
 
