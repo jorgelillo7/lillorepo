@@ -18,8 +18,8 @@ state beyond Firestore and Google Secret Manager.
 
 | Package | Module | Capability spec (`specs/{package}/…`) |
 |---|---|---|
-| `biwenger_tools` | `api` | [`auto-bid`](specs/biwenger_tools/auto-bid/spec.md), [`clausulazo-emergency`](specs/biwenger_tools/clausulazo-emergency/spec.md), [`daily-digest`](specs/biwenger_tools/daily-digest/spec.md) |
-| `biwenger_tools` | `bot` | Telegram command surface → calls `api` |
+| `biwenger_tools` | `api` | [`auto-bid`](specs/biwenger_tools/auto-bid/spec.md), [`clausulazo-emergency`](specs/biwenger_tools/clausulazo-emergency/spec.md), [`clausulazo-recommendations`](specs/biwenger_tools/clausulazo-recommendations/spec.md), [`daily-digest`](specs/biwenger_tools/daily-digest/spec.md), [`offers-inbox`](specs/biwenger_tools/offers-inbox/spec.md), [`auto-pick-lineup`](specs/biwenger_tools/auto-pick-lineup/spec.md), [`team-analysis`](specs/biwenger_tools/team-analysis/spec.md) |
+| `biwenger_tools` | `bot` | [`telegram-commands`](specs/biwenger_tools/telegram-commands/spec.md) → calls `api` |
 | `biwenger_tools` | `scraper_job` | [`league-scraper`](specs/biwenger_tools/league-scraper/spec.md) (messages → Firestore, tabla justicia) |
 | `biwenger_tools` | `web` | [`web-dataviz`](specs/biwenger_tools/web-dataviz/spec.md) on Cloud Run |
 | `be_water` | `web` | [`water-similarity`](specs/be_water/water-similarity/spec.md), [`provenance`](specs/be_water/provenance/spec.md), [`aesan-registry`](specs/be_water/aesan-registry/spec.md), [`community`](specs/be_water/community/spec.md), [`catalog-sync`](specs/be_water/catalog-sync/spec.md), [`data-curation`](specs/be_water/data-curation/spec.md), [`photos`](specs/be_water/photos/spec.md) |
