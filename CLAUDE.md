@@ -14,6 +14,7 @@ Bazel monorepo with Python projects targeting Google Cloud. Currently contains `
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format)
+/openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
 /scripts        Utility scripts (GCP cleanup, costs)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
@@ -120,6 +121,28 @@ Rationale:
 - PRs give a natural review checkpoint and keep master always deployable.
 
 For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
+
+## Specs (`openspec/`)
+
+`openspec/` is the canonical, tool-agnostic home for **project decisions and
+behaviour** — the single source of *what the system must do*. The goal is that
+every non-trivial decision ends up here, not scattered across docstrings,
+memory, and OPERATIONS docs. New sessions should read `openspec/project.md`
+first for the behaviour map.
+
+- **`openspec/project.md`** — the repo behaviour map + index of capabilities.
+- **`openspec/specs/{package}/{capability}/spec.md`** — current behaviour,
+  grouped by the package it belongs to (`biwenger_tools`, `be_water`,
+  `chucknorris_bot`, `core`), stated as `Requirement` (SHALL) + `Scenario`
+  (WHEN/THEN) blocks. Each scenario links the test that verifies it.
+- **`openspec/changes/{name}/`** — in-flight proposals (`proposal.md`,
+  `design.md`, `tasks.md`, spec deltas); empty between changes.
+
+Spec vs test: the spec states the **what**, the test proves **it holds**. They
+are complementary, never duplicated — a scenario with no test is a gap; a test
+with no scenario is undocumented behaviour. When you change behaviour, update
+the spec in the same PR. Follows the [OpenSpec](https://github.com/Fission-AI/OpenSpec)
+filesystem convention (convention only — no npm CLI).
 
 ## Plans (`.claude/plans/`)
 
