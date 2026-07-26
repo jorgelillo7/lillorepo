@@ -194,6 +194,18 @@ def test_build_candidates_drops_user_listings_and_unmatched_players():
     assert candidates[1]["sf"] == 0
 
 
+def test_build_candidates_keeps_valid_after_unmatched_player():
+    """An unmatched player mid-list is skipped without aborting the scan: a
+    valid candidate *after* it still makes the cut. Guards the `continue`
+    against being weakened to a `break` (which would drop later actionable
+    rows the moment one player is missing from the Biwenger map)."""
+    market = [_sale(1), _sale(2)]  # id 1 absent from the map, id 2 present
+    biwenger_players = {2: _bw(2, "Valid", 1_000_000)}
+    jp = {"by_name": {"valid": _jp_with_sf("Valid", 500)}, "by_slug": {}}
+    candidates = auto_bid._build_candidates(market, biwenger_players, jp)
+    assert [c["player_id"] for c in candidates] == [2]
+
+
 def test_build_candidates_sorts_by_sf_descending():
     market = [_sale(i) for i in (10, 20, 30)]
     biwenger_players = {i: _bw(i, f"P{i}", 1_000_000) for i in (10, 20, 30)}
@@ -512,6 +524,41 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
     assert "⏭️ Saltado <b>LowSf</b>" in text
 
 
+def test_run_auto_bid_sf_200_boundary_for_summary_line(run_env):
+    """Boundary: a below-floor miss is surfaced in the summary only for
+    SF > 200 (borderline-interesting), so SF exactly 200 is silently dropped
+    to keep the message short while SF 201 shows up. Pins the `>` against a
+    `>=` slip."""
+    biwenger_players = {1: _bw(1, "Edge", 1_000_000)}
+    for sf, expected_skips in ((200, 0), (201, 1)):
+        biwenger, _ = run_env(
+            market_players=[_sale(1)],
+            biwenger_players=biwenger_players,
+            jp_players=[_jp_with_sf("Edge", sf)],
+            cash=30_000_000,
+        )
+        result = auto_bid.run_auto_bid()
+        assert result["bid_count"] == 0
+        assert result["skipped_count"] == expected_skips, f"SF {sf}"
+
+
+def test_run_auto_bid_zero_account_cash_places_no_bid(run_env):
+    """The account-state cash fallback (`get("cash") or 0`): a zero/falsy cash
+    must resolve to 0, so even an all-in target is skipped for no_cash rather
+    than bidding a stray euro off a `or 1`-style slip."""
+    biwenger, _ = run_env(
+        market_players=[_sale(1)],
+        biwenger_players={1: _bw(1, "Star", 5_000_000)},
+        jp_players=[_jp_with_sf("Star", 910)],
+        cash=0,
+    )
+    result = auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_not_called()
+    assert result["bid_count"] == 0
+    assert result["skipped_count"] == 1  # no_cash
+
+
 def test_run_auto_bid_skips_already_bid_today(run_env):
     """Cloud Scheduler retry on 5xx: the player already in today's log is
     not re-bid even though they still match the tier rule."""
@@ -640,6 +687,7 @@ def test_log_bid_writes_expected_document():
     assert collection_path == "auto_bid_log/2026-05-23/bids"
     assert doc_id == "42"
     assert payload["player_id"] == 42
+    assert payload["name"] == "Vinicius"
     assert payload["bid"] == 30_000_000
     assert payload["offer_id"] == 99
     assert payload["status"] == "waiting"
