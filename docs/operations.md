@@ -67,6 +67,22 @@ domain models, utils). Run its suite with:
   pytest core/tests/
 ```
 
+## 📊 Test coverage
+
+Line coverage is collected via the `coverage` tool bundled with rules_python
+(enabled by `configure_coverage_tool` in `MODULE.bazel`; it never ships in the
+runtime image). Run it across every target and produce a combined LCOV report:
+
+```bash
+  bazel coverage //... --combined_report=lcov --test_output=errors
+```
+
+The combined report lands at `$(bazel info output_path)/_coverage/_coverage_report.dat`
+(standard LCOV: `SF:` per file, `DA:` per line). Aggregate it per package or
+repo-wide with any LCOV reader, or `genhtml` it for a browsable report.
+Coverage is a weak signal on its own — pair it with the behaviour specs in
+`openspec/specs/` (what must be true) rather than chasing the percentage.
+
 ## 📦 How to Add or Update Python Dependencies
 
 The project uses a three-level system to manage dependencies, keeping modules isolated and guaranteeing 100% reproducible builds.
