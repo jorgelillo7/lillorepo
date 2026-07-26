@@ -22,7 +22,7 @@ state beyond Firestore and Google Secret Manager.
 | `biwenger_tools` | `bot` | Telegram command surface → calls `api` |
 | `biwenger_tools` | `scraper_job` | league-scraper (messages → Firestore, tabla justicia) |
 | `biwenger_tools` | `web` | web-dataviz on Cloud Run |
-| `be_water` | `web` | water-catalog (mineral-water compare, provenance, AESAN) |
+| `be_water` | `web` | [`water-similarity`](specs/be_water/water-similarity/spec.md); provenance, aesan-registry, photos, community, catalog-curation |
 | `chucknorris_bot` | `bot` | chuck-jokes Telegram bot |
 | `core` | — | shared SDK contracts (Biwenger, JP, Firestore, Telegram, Gemini) + domain models |
 
