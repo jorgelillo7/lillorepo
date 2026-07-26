@@ -10,6 +10,12 @@ Repo-wide procedures (prerequisites, Python dependency workflow, secrets,
 linter, GCP cost/cleanup) live in [`docs/operations.md`](../../docs/operations.md).
 For the Firestore data model, see [`docs/firestore.md`](../../docs/firestore.md).
 
+**What each capability does** — the similarity engine, per-field provenance,
+AESAN coverage, the idempotent catalog sync, community badges, the curation
+rules — lives in the behaviour specs at
+[`openspec/specs/be_water/`](../../openspec/specs/be_water/). This file is the
+operational how-to; the specs are the single source of *what must be true*.
+
 ---
 
 ## Be Water Web

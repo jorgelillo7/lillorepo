@@ -7,6 +7,11 @@ disclaimer in [`README.md`](README.md)).
 Repo-wide procedures (prerequisites, Python dependency workflow, secrets,
 linter, GCP cost/cleanup) live in [`docs/operations.md`](../../docs/operations.md).
 
+**What the bot does** — webhook gating, command/keyboard dispatch, joke-fetch
+fallback — lives in the behaviour spec at
+[`openspec/specs/chucknorris_bot/chuck-jokes/spec.md`](../../openspec/specs/chucknorris_bot/chuck-jokes/spec.md).
+This file is the operational how-to.
+
 ---
 
 ## Bot
