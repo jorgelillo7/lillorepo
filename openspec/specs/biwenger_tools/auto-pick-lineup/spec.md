@@ -8,16 +8,21 @@ cf-base player values.
 
 ---
 
-### Requirement: Captain by highest SF under a price cap
+### Requirement: Captain by highest SF under the 3M price cap
 
 `_pick_captain` SHALL choose the starter with the highest SF whose price is
-strictly below the cap, excluding starters with an unknown (0) price — never
-gamble the captaincy on a player whose market value we can't see. When no
-starter qualifies it SHALL return `None` (caller PUTs `captain=0`).
+**strictly below 3M** (`_CAPTAIN_MAX_PRICE = 3_000_000`) — Biwenger returns
+HTTP 403 *"Captain over max MV: X > 3000000"* for any captain priced ≥ 3M. The
+cap applies to the **cf.biwenger.com base price** (`row["price"]`), NOT the
+per-league `owner.price`, which can be much lower — a player who looks cheap in
+your league can still be rejected on his cf-base value. Starters with an
+unknown (0) price are excluded — never gamble the captaincy on a market value
+we can't see. When no starter qualifies it SHALL return `None` (caller PUTs
+`captain=0`).
 
 #### Scenario: cap, strictness, unknown price
-- **WHEN** several starters qualify **THEN** the highest-SF under the cap wins
-- **WHEN** a starter sits exactly at the cap **THEN** it is excluded (strict `<`)
+- **WHEN** several starters qualify **THEN** the highest-SF under 3M wins
+- **WHEN** a starter sits exactly at 3M **THEN** it is excluded (strict `<`)
 - **WHEN** every starter is over the cap, or all prices are unknown
 - **THEN** the result is `None`
 - **WHEN** a price-0 starter has the highest SF but known options exist
