@@ -32,7 +32,15 @@ binary, so you stay pinned to whatever the cask ships until you upgrade it
 yourself:
 
 ```bash
-brew upgrade --cask claude-code@latest
+brew update && brew upgrade --cask claude-code@latest
+```
+
+`brew update` refreshes the cask definitions; without it `brew upgrade`
+compares your version against a stale catalogue and reports you are up to date
+when you are not. To check first without installing anything:
+
+```bash
+brew outdated --cask claude-code@latest
 ```
 
 The npm install self-updates, so it needs no equivalent step.
