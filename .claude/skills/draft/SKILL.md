@@ -86,8 +86,32 @@ Simple + structured (not prose-heavy): the ranked CSV, then a compact squad
 table (player · pos · price · pts · value/€ · no-data badge) with totals +
 remaining budget, and a tight alternatives block for the top-5.
 
+## Archetype generator
+
+`scripts/archetypes.py --ranked <draft-ranked.csv>` builds and compares several
+squad-construction archetypes (value-max, captain-anchor, spine, superstar,
+2-galácticos, ultra-balanced) under the budget + composition, ranked by
+**effective points** = total SF + captain SF. Pass `--exclude "name,name"` for
+the news-DD blacklist (Mourinho outcasts, etc.). It writes a local
+`mi-arquetipos.md` (gitignored).
+
+**The captain rule is decisive.** Biwenger rejects any captain priced ≥ 3M
+(`_CAPTAIN_MAX_PRICE`), and the captain doubles points — so the most valuable
+roster slot is the **best player under 3M**. Two consequences the generator
+bakes in:
+- **Prices move daily**, so a captain pegged at ~2.9M crosses 3M after one good
+  match. Prefer a **durable** captain: ≤ 2.5M buffer *and* not a screaming
+  bargain (a high value-per-M player rockets past 3M fast). Gayà-type
+  (~2.2M, fairly priced, nailed-on starter) beats a 1.5M rocket.
+- A build with **no player under 3M** (the flat 3-4M "ultra-balanced" trap)
+  has **no captain** and throws away ~one player's SF every week.
+- When two archetypes tie on effective points, **pick the one with the durable
+  captain** (the raw number can't see that a rocket captain loses eligibility
+  in weeks — that's why "captain-anchor" usually beats "value-max" in practice).
+
 ## Reglamento anchors (stable rules)
 
 15 players; valid XI + 1 sub per line; snake draft (round order reverses each
-round); prices frozen to the export day; market closed during the draft. Full
-text: the Lloros League reglamento, Capítulo I.
+round); prices frozen to the export day; market closed during the draft;
+**captain must cost < 3M** (Biwenger hard cap). Full text: the Lloros League
+reglamento, Capítulo I.
