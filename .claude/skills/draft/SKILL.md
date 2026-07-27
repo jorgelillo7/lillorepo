@@ -73,10 +73,12 @@ case. Steps:
      Real Madrid cut-list — Rodrygo, Camavinga, Fran García… — tanked their
      minutes; Valverde's dressing-room fight + sale pressure made his 688 SF a
      trap). Web-search the club's manager + "bajas/descartes".
-   - **Backward-looking scores**: a high SofaScore earned at a **promoted club
-     or a different league** may not translate to LaLiga (2026/27: cheap DEF
-     "chollos" from Málaga/Deportivo scored their points in Segunda; Aubameyang's
-     508 was from Marseille). Flag and discount these.
+   - **Backward-looking scores**: a high SofaScore earned in a **different
+     league** may not translate to LaLiga (2026/27: Aubameyang's 508 was from
+     Marseille). Flag and discount these.
+   - **Placeholder scores**: promoted-club players and new signings often carry
+     JP's flat default, not a real score — see "JP placeholder scores" below.
+     The generator drops them; if you re-add one by hand, treat him as unrated.
 4. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
    a lineless bench.
 
@@ -90,24 +92,43 @@ remaining budget, and a tight alternatives block for the top-5.
 
 `scripts/archetypes.py --ranked <draft-ranked.csv>` builds and compares several
 squad-construction archetypes (value-max, captain-anchor, spine, superstar,
-2-galácticos, ultra-balanced) under the budget + composition, ranked by
-**effective points** = total SF + captain SF. Pass `--exclude "name,name"` for
-the news-DD blacklist (Mourinho outcasts, etc.). It writes a local
-`mi-arquetipos.md` (gitignored).
+2-galácticos, ultra-balanced) under the budget + composition. Pass
+`--exclude "name,name"` for the news-DD blacklist (Mourinho outcasts, etc.). It
+writes a local `mi-arquetipos.md` (gitignored).
 
-**The captain rule is decisive.** Biwenger rejects any captain priced ≥ 3M
+**The captain rule is decisive**, and it is now enforced in the ranking rather
+than left to the reader. Biwenger rejects any captain priced ≥ 3M
 (`_CAPTAIN_MAX_PRICE`), and the captain doubles points — so the most valuable
-roster slot is the **best player under 3M**. Two consequences the generator
-bakes in:
-- **Prices move daily**, so a captain pegged at ~2.9M crosses 3M after one good
-  match. Prefer a **durable** captain: ≤ 2.5M buffer *and* not a screaming
-  bargain (a high value-per-M player rockets past 3M fast). Gayà-type
-  (~2.2M, fairly priced, nailed-on starter) beats a 1.5M rocket.
-- A build with **no player under 3M** (the flat 3-4M "ultra-balanced" trap)
-  has **no captain** and throws away ~one player's SF every week.
-- When two archetypes tie on effective points, **pick the one with the durable
-  captain** (the raw number can't see that a rocket captain loses eligibility
-  in weeks — that's why "captain-anchor" usually beats "value-max" in practice).
+roster slot is the **best startable player under 3M**. What the generator bakes
+in:
+
+- Archetypes are ranked by **durable effective points** = squad SF + the SF of
+  a captain who *starts* and *survives price drift* (< 3M, ≤ 2.5M buffer, and
+  value-per-M ≤ 200). Raw effective points — any captain eligible today — are
+  printed alongside as the optimistic bound. A build whose only sub-3M options
+  are rockets or players pegged at the cap scores **zero** captain bonus,
+  because within weeks that is exactly what it has.
+- **The captain must be in the XI.** The generator picks the best formation
+  among the shapes Biwenger accepts and looks for the captain only among those
+  eleven, the same constraint production applies (`lineup.py`, `starters`). A
+  5th-choice midfielder cannot be captain no matter how cheap he is.
+- Every archetype gets a **captain-repair pass**: if it cannot field a durable
+  captain, the generator swaps in the cheapest one that fits. The premium is
+  ~10 SF out of ~7300, so there is no reason to run a build without an anchor —
+  which is also why value-max and captain-anchor usually converge on the same 15.
+- A build with **no player under 3M** (the flat 3-4M "ultra-balanced" trap) has
+  no captain at all and throws away ~one player's SF every week.
+
+**JP placeholder scores.** JP hands out one flat score (400 in 2026/27) to
+players it has no data for — promoted clubs and fresh signings. It is a
+top-decile number attached to 1.5M players, so it poisons every cheap-heavy
+archetype. The generator auto-detects the spike and **drops those players**,
+listing them in the report; `--keep-placeholder` overrides, `--placeholder-sf N`
+pins the value by hand.
+
+Known limitation: squad shape is fixed at 2-5-5-3. It is a valid composition and
+covers every formation the XI picker uses, but the generator does not explore
+other legal shapes (2-6-5-2, 2-5-6-2…).
 
 ## Reglamento anchors (stable rules)
 
