@@ -38,7 +38,7 @@ not double-bid the players that already went through.
 
 import html
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import requests
@@ -213,8 +213,10 @@ def _log_bid(day: str, candidate: dict, bid_amount: int, offer: dict) -> None:
             "status": offer.get("status"),
             "created_at": now.isoformat(),
             # Firestore TTL field — the policy on the `bids` collection-group
-            # deletes the doc once this timestamp is in the past.
-            "expires_at": now + timedelta(days=_LOG_TTL_DAYS),
+            # deletes the doc once this timestamp is in the past. Shift in UTC:
+            # adding a timedelta to a ZoneInfo-aware datetime is DST-naive, so a
+            # window that crosses a DST change would drift the instant by ±1h.
+            "expires_at": now.astimezone(timezone.utc) + timedelta(days=_LOG_TTL_DAYS),
         },
     )
 
