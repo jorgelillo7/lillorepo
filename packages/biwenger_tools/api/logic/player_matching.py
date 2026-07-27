@@ -14,6 +14,11 @@ PLAYER_NAME_MAPPINGS = {
     "brugue": "brugui",
     "ricardo rodriguez": "r. rodriguez",
     "matias moreno": "m. moreno",
+    # JP short-names the automatic strategies can't derive from the Biwenger
+    # full name (confirmed against the Automanager list).
+    "de la fuente": "dela",
+    "juan cruz diaz": "j. cruz",
+    "de tomas": "rdt",  # Raúl De Tomás
 }
 
 

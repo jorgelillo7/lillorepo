@@ -33,6 +33,22 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   - *Parametrised `base_deps` / Dockerfile.base from the lock* —
     build-system surgery guarded today by the add-python-dep skill.
     Trigger: a package whose deps materially diverge from the base.
+- **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
+  to replace the OpenSpec npm CLI (deliberately not installed — no-installer
+  preference), in three parts:
+  1. *Backfill mode* — point at a module → generate its
+     `openspec/specs/<pkg>/<cap>/spec.md` from source + tests (Requirement /
+     WHEN-THEN Scenario, scenario↔test links, GAP markers). Derives from code,
+     asks nothing. This is how the current 21 specs were written by hand.
+  2. *Propose mode* (spec-first / SDD) — describe a new feature →
+     AskUserQuestion interview → draft `openspec/changes/<feature>/`
+     (proposal + spec deltas) → approve → archive into `specs/`. Must delegate
+     the *how* (implementation plan) to the existing `rpi-plan` skill — spec is
+     the *what*, don't duplicate rpi.
+  3. *(optional) spec-lint* — a `docs-audit`-style check: every `test_*` a
+     scenario references still exists, every capability has a spec, closed GAPs
+     are marked. This is what institutionalises openspec — an audit that warns,
+     not a CI gate. (Mutmut stays on-demand by the same reasoning.)
 
 ## biwenger_tools
 
@@ -66,6 +82,20 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   `packages/biwenger_tools/OPERATIONS.md` §1. USER-OWNED remaining: upload `castolo-cup/25-26`
   when the Castolo winner image exists. A brand-new cup *type* is one line in
   `config.SPECIAL_TOURNAMENTS` (redeploy).
+
+- **Draft skill — Phase A SHIPPED 2026-07-27** (`.claude/skills/draft/`).
+  Annual pre-season helper for the Lloros League draft. *Phase A* (the merge)
+  is a tested script: reads the closed-market CSV (frozen prices), fetches live
+  JP SofaScore via `core/sdk/jp.fetch_all_players`, matches through the
+  production `player_matching` (+3 overrides added: De la Fuente→Dela, Juan
+  Cruz Díaz→J. Cruz, De Tomás→RDT), adds a value-per-M column, ranks, flags
+  no-JP players. Validated on the real 2026/27 export: **507/509 matched**
+  (Dubasin + Miguel Rodríguez genuinely absent from JP). Re-runnable — JP
+  self-invalidates on `updated_at`, prices stay frozen. *Phase B* (the
+  interactive adviser: build the 15 + top-5 alternatives, news due-diligence,
+  budget/composition validation) is done live each season per the SKILL.md —
+  nothing to build. Yearly params (budget 52M this year, snake order) asked
+  each run.
 
 ## my_photos
 
