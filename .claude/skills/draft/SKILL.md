@@ -64,9 +64,19 @@ case. Steps:
    global picks land at ~3, 12, 17, 26… — several tiers vanish between picks,
    which is *why* the top-5 need plan B/C (resilience, not predicting rivals).
 3. **News due-diligence (before finalising)**: web-search each shortlisted
-   player for red flags the price/points can't see — injuries, suspensions
-   (apercibido), transfer/exit rumours. Points reward last season; the news is
-   about *this* one starting.
+   player for red flags the price/points can't see — points reward last season,
+   the news is about *this* one starting. Check for:
+   - **Injuries / suspensions** (apercibido) and **transfer/exit rumours** (a
+     player who leaves LaLiga is auto-sold per reglamento Art. 6).
+   - **Coach changes / locker-room conflict** — a new manager can freeze or
+     bench players regardless of last season's numbers (2026/27: Mourinho's
+     Real Madrid cut-list — Rodrygo, Camavinga, Fran García… — tanked their
+     minutes; Valverde's dressing-room fight + sale pressure made his 688 SF a
+     trap). Web-search the club's manager + "bajas/descartes".
+   - **Backward-looking scores**: a high SofaScore earned at a **promoted club
+     or a different league** may not translate to LaLiga (2026/27: cheap DEF
+     "chollos" from Málaga/Deportivo scored their points in Segunda; Aubameyang's
+     508 was from Marseille). Flag and discount these.
 4. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
    a lineless bench.
 
