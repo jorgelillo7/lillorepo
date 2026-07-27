@@ -6,10 +6,36 @@ This guide installs Claude Code, configures the local environment, and points to
 
 ## 1. Install Claude Code
 
+Pick **one** method. Installing via Homebrew *and* npm leaves two `claude`
+binaries competing on the `PATH`, and they drift to different versions.
+
+**Homebrew (recommended):**
+
 ```bash
-brew install --cask claude-code
+brew install --cask claude-code@latest
+```
+
+Use the `@latest` cask, not `claude-code`. The plain `claude-code` cask tracks
+the stable channel and lags several releases behind; a client that is too old
+simply does not offer the newest models in the selector.
+
+**npm (alternative):**
+
+```bash
 npm install -g @anthropic-ai/claude-code
 ```
+
+### Keeping it updated
+
+A Homebrew install **disables Claude Code's own auto-updater** — brew owns the
+binary, so you stay pinned to whatever the cask ships until you upgrade it
+yourself:
+
+```bash
+brew upgrade --cask claude-code@latest
+```
+
+The npm install self-updates, so it needs no equivalent step.
 
 Official reference:
 
@@ -21,7 +47,14 @@ Official reference:
 2. Request your personal API key.
 3. Expect it to expire every 90 days.
 
-## 3. Configure Environment Variables
+## 3. Configure Environment Variables — MasOrange environment only
+
+> **Do not set these on a personal machine.** They route every request through
+> the corporate gateway, which exposes only the models that gateway allows, and
+> `ANTHROPIC_DEFAULT_SONNET_MODEL` pins one model by hand. The symptom is a
+> model selector missing the newest models — indistinguishable from running an
+> outdated client. On a personal setup all `ANTHROPIC_*` variables must stay
+> unset so Claude Code uses your own account and its full model roster.
 
 Add these variables to `~/.zshrc`:
 
@@ -67,10 +100,18 @@ brew update && brew upgrade --cask masorange/claudeusagetracker/claudeusagetrack
 ## 6. Verify Installation
 
 ```bash
+which -a claude   # must print exactly one path
 claude --version
 echo $ANTHROPIC_AUTH_TOKEN
 echo $ANTHROPIC_BASE_URL
 ```
+
+More than one line from `which -a claude` means both installation methods are
+present. Remove one — `brew uninstall --cask claude-code` /
+`brew uninstall --cask claude-code@latest`, or
+`npm uninstall -g @anthropic-ai/claude-code` — and reopen the shell.
+
+On a personal machine the two `echo` lines must come back empty (see section 3).
 
 ## 7. Configure The Custom Status Line
 
