@@ -142,6 +142,21 @@ text-{color}-800` chips so events are scannable at a glance — `calendar-liga`
 colours are **only** used for event chips and the category filter pills on
 this one page — do not reuse them as decoration elsewhere in the site.
 
+### Chapter accents (`/reglamento` only)
+
+The rulebook is split into five chapters, each with an accent colour exposed as
+the `--ch` / `--ch-soft` CSS variables on the chapter root. The accent tints the
+roman numeral badge, the article badges and the left border of the chapter
+header — nothing else. Values reuse the existing calendar tokens rather than
+introducing new ones: I El Draft `calendar-draft` (purple), II Reglas de Juego
+`accent` (green), III Torneos `calendar-copa` (amber), IV Comunicados
+`calendar-h2h` (blue), V Final de Temporada `calendar-mercado` (red).
+
+Body copy inside an article stays in the neutral scale; the accent identifies
+the chapter, it does not highlight content. Red/green callout boxes inside an
+article are reserved for sanctions and prohibitions (`rule-no`) versus
+permissions (`rule-yes`).
+
 ## JS Template Conventions
 
 Vanilla JS only — no frameworks. Standardised patterns for consistency across templates:
