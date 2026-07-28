@@ -94,12 +94,31 @@ single source of *what must be true*.
         --format='table(status.traffic.revisionName, status.traffic.percent, status.traffic.tag)'
     ```
 
-    Clean up once validated — an untagged, trafficless revision is harmless but
-    the tag clutters the service:
+    **⚠️ Always clean up with `--to-latest`.** `--no-traffic` switches the
+    service from "serve the latest revision" to traffic *pinned* to whatever
+    revision was serving at that moment. It stays pinned: the next deploy from
+    `master` builds and deploys fine, reports success, and still serves the old
+    revision — a green CI run that shipped nothing. `--remove-tags` does **not**
+    undo this.
 
     ```bash
+      # Drop the preview tag AND restore latest-revision routing
       gcloud run services update-traffic biwenger-summary \
         --region europe-southwest1 --remove-tags preview
+      gcloud run services update-traffic biwenger-summary \
+        --region europe-southwest1 --to-latest
+
+      # Delete the preview revision first if it is newer than the one you want
+      # served — `--to-latest` routes to the newest ready revision.
+      gcloud run revisions delete <preview-revision> --region europe-southwest1
+    ```
+
+    Confirm the service is back to latest-revision mode — `spec.traffic` must
+    read `latestRevision: true`, not a pinned `revisionName`:
+
+    ```bash
+      gcloud run services describe biwenger-summary --region europe-southwest1 \
+        --format='value(spec.traffic)'
     ```
 
     > **Cost:** none in practice. The service has no `minScale`, so a
