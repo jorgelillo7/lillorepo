@@ -67,6 +67,51 @@ single source of *what must be true*.
 
     > **Note:** The footer shows "local" when deploying from a local machine because the `GIT_COMMIT` env var is not set (defaults to `"local"`). CI injects the real value automatically via `${GITHUB_SHA::7}`. This is expected behaviour — it does not indicate a failed deploy.
 
+  * **👀 Preview deploy (validate a change without touching production):**
+
+    Publishes the current working tree as a Cloud Run revision that receives
+    **0 % of traffic** and is reachable only through its own tagged URL. Use it
+    to check a UI change from a phone, or from any machine that can't run the
+    app locally. Everyone else keeps seeing the live revision.
+
+    ```bash
+      # 1. Push the image (same step as a production deploy)
+      bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
+
+      # 2. Deploy it as a tagged revision with no traffic
+      cd packages/biwenger_tools/web/
+      ./deploy.sh --no-traffic --tag preview
+    ```
+
+    URL: `https://preview---biwenger-summary-pjpqofuevq-no.a.run.app`
+    (pattern: `https://<tag>---<service-host>`). Use a distinct `--tag` to keep
+    two previews alive at once.
+
+    Verify which revision serves real traffic before and after:
+
+    ```bash
+      gcloud run services describe biwenger-summary --region europe-southwest1 \
+        --format='table(status.traffic.revisionName, status.traffic.percent, status.traffic.tag)'
+    ```
+
+    Clean up once validated — an untagged, trafficless revision is harmless but
+    the tag clutters the service:
+
+    ```bash
+      gcloud run services update-traffic biwenger-summary \
+        --region europe-southwest1 --remove-tags preview
+    ```
+
+    > **Cost:** none in practice. The service has no `minScale`, so a
+    > preview revision with 0 % traffic scales to zero and bills nothing while
+    > idle; you only pay the CPU/memory seconds of the requests you make to it
+    > yourself (cents at most, inside the free tier). The image layers are
+    > already in Artifact Registry from the push step.
+
+    > **Not a substitute for CI.** A preview proves the page renders; it does
+    > not run flake8, Black or the tests. The change still goes through
+    > branch → PR → green checks → merge.
+
   * **🏆 Special-tournament winner images (Palmarés "Copas especiales"):**
 
     Public bucket `gs://biwenger-special-tournaments` (project `biwenger-tools`,

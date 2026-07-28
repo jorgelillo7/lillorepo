@@ -1,188 +1,691 @@
 {% extends "base.html" %}
 
-{% block title %}Fair Play / Reglamento{% endblock %}
+{% block title %}Reglamento / Fair Play{% endblock %}
 
 {% block content %}
+<style>
+    .chapter { --ch: #38a169; --ch-soft: #f0fff4; }
+    .chapter-head { border-left: 4px solid var(--ch); }
+    .chapter-roman {
+        font-family: 'Oswald', sans-serif;
+        color: var(--ch);
+        background: var(--ch-soft);
+    }
+    .art-badge {
+        font-family: 'Oswald', sans-serif;
+        color: var(--ch);
+        background: var(--ch-soft);
+        letter-spacing: 0.04em;
+    }
+    .art + .art { border-top: 1px solid #edf2f7; }
+    .nav-tile:hover { border-color: var(--ch); }
+    .nav-tile:hover .nav-tile-roman { color: var(--ch); }
+    .stat-num { font-family: 'Oswald', sans-serif; line-height: 1; }
+    .rule-yes::before { content: '✓'; color: #38a169; font-weight: 700; margin-right: .5rem; }
+    .rule-no::before  { content: '✕'; color: #e53e3e; font-weight: 700; margin-right: .5rem; }
+</style>
+
 <div class="space-y-6">
-    <!-- Video -->
-    <div class="card p-6 rounded-xl shadow-lg">
-        <h2 class="font-header text-3xl font-bold text-gray-900 mb-4 text-center">Fair Play / El Veredicto</h2>
-        <div class="flex justify-center my-4">
-            <div class="w-full max-w-2xl">
-                <div class="aspect-video rounded-lg overflow-hidden shadow-md">
-                    <iframe class="w-full h-full" src="https://www.youtube.com/embed/zM_Rc6V-OCU"
-                            frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                </div>
+
+    <!-- Portada -->
+    <section class="card rounded-xl overflow-hidden">
+        <div class="px-6 py-8 md:py-10 text-center border-b border-gray-100">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Lloros League · {{ season }}</p>
+            <h1 class="font-header text-4xl md:text-5xl font-bold text-gray-900 tracking-wider mt-2">REGLAMENTO</h1>
+            <p class="text-sm text-gray-500 mt-3 max-w-xl mx-auto">
+                Normas oficiales de la competición, ordenadas por capítulos y artículos.
+                Lo que no está aquí, no existe.
+            </p>
+        </div>
+        <div class="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50">
+            <div class="px-4 py-4 text-center">
+                <p class="stat-num text-3xl font-bold text-gray-900">5</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Capítulos</p>
+            </div>
+            <div class="px-4 py-4 text-center">
+                <p class="stat-num text-3xl font-bold text-gray-900">27</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Artículos</p>
+            </div>
+            <div class="px-4 py-4 text-center">
+                <p class="stat-num text-3xl font-bold text-gray-900">7</p>
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Presidentes</p>
             </div>
         </div>
+    </section>
+
+    <!-- Buscador -->
+    <div class="relative">
+        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
+        </svg>
+        <input id="rule-search" type="search" autocomplete="off"
+               placeholder="Buscar en el reglamento (capitán, cláusula, draft…)"
+               class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm
+                      focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500">
     </div>
+    <p id="search-empty" class="hidden text-center text-sm text-gray-500 py-6">
+        Ningún artículo coincide con la búsqueda.
+    </p>
 
-    <!-- Índice -->
-    <div class="card p-5 rounded-xl shadow-sm">
-        <h3 class="font-header text-lg font-bold text-gray-700 mb-3">Índice del Partido</h3>
-        <ul class="space-y-1 text-sm">
-            <li><a href="#sec-reglas" onclick="openSection('sec-reglas')" class="text-green-700 hover:underline">1. Reglas Biwenger</a></li>
-            <li><a href="#sec-torneos" onclick="openSection('sec-torneos')" class="text-green-700 hover:underline">2. Nuevos Torneos y Trofeos</a>
-                <ul class="pl-4 mt-1 space-y-1 text-gray-500">
-                    <li><a href="#copa-navidad" onclick="openSection('sec-torneos')" class="hover:underline">2.1 Copa Navidad</a></li>
-                    <li><a href="#copa-castolo" onclick="openSection('sec-torneos')" class="hover:underline">2.2 Copa Castolo</a></li>
-                    <li><a href="#liga-camareros" onclick="openSection('sec-torneos')" class="hover:underline">2.3 Liga Camareros</a></li>
-                    <li><a href="#liga-amistad" onclick="openSection('sec-torneos')" class="hover:underline">2.4 Liga Amistad</a></li>
-                </ul>
-            </li>
-            <li><a href="#sec-comunicados" onclick="openSection('sec-comunicados')" class="text-green-700 hover:underline">3. Normas para Comunicados</a></li>
-            <li><a href="#sec-draft" onclick="openSection('sec-draft')" class="text-green-700 hover:underline">4. El Draft</a></li>
-            <li><a href="#sec-final" onclick="openSection('sec-final')" class="text-green-700 hover:underline">5. Final de Temporada</a></li>
-        </ul>
-    </div>
+    <!-- Índice visual -->
+    <nav id="chapter-index" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <a href="#cap-1" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#805ad5">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">I</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">El Draft</p>
+            <p class="text-xs text-gray-500 mt-0.5">9 artículos</p>
+        </a>
+        <a href="#cap-2" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#38a169">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">II</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">Reglas de Juego</p>
+            <p class="text-xs text-gray-500 mt-0.5">6 artículos</p>
+        </a>
+        <a href="#cap-3" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#d69e2e">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">III</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">Torneos y Trofeos</p>
+            <p class="text-xs text-gray-500 mt-0.5">4 artículos</p>
+        </a>
+        <a href="#cap-4" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#3182ce">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">IV</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">Comunicados</p>
+            <p class="text-xs text-gray-500 mt-0.5">4 artículos</p>
+        </a>
+        <a href="#cap-5" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#e53e3e">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">V</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">Final de Temporada</p>
+            <p class="text-xs text-gray-500 mt-0.5">4 artículos</p>
+        </a>
+        <a href="#veredicto" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#718096">
+            <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">▶</span>
+            <p class="font-header text-base font-bold text-gray-800 mt-1">El Veredicto</p>
+            <p class="text-xs text-gray-500 mt-0.5">Vídeo oficial</p>
+        </a>
+    </nav>
 
-    <!-- Acordeón -->
-    <div class="space-y-2">
+    <div class="space-y-3">
 
-        <!-- 1. Reglas Biwenger -->
-        <div class="card rounded-xl overflow-hidden" id="sec-reglas">
-            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                    data-target="body-reglas">
-                <span class="font-header text-xl font-bold text-gray-800">1. Reglas Biwenger</span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- ═══════════ CAPÍTULO I — EL DRAFT ═══════════ -->
+        <section id="cap-1" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#805ad5; --ch-soft:#faf5ff">
+            <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                    data-target="body-cap-1">
+                <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">I</span>
+                <span class="flex-1 min-w-0">
+                    <span class="block font-header text-xl font-bold text-gray-800">El Draft</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Artículos 1.1 – 1.9 · Reparto inicial de jugadores</span>
+                </span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
-            <div id="body-reglas" class="accordion-content px-5 pb-5 border-t border-gray-100">
-                <div class="prose max-w-none mt-4">
-                    <ul>
-                        <li>
-                            <strong>Puntuación Personalizada:</strong> Se utiliza un sistema de puntuación personalizado.
-                            <div class="mt-2 flex flex-wrap gap-4">
-                                <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
-                                     data-src="{{ url_for('static', filename='nota_sofascore.jpg') }}">
-                                    <p class="italic text-sm text-gray-600">Nota Sofascore</p>
-                                    <img src="{{ url_for('static', filename='nota_sofascore.jpg') }}" alt="Nota Sofascore" class="max-h-64">
-                                </div>
-                                <div class="zoomable-image p-2 bg-gray-100 rounded-md border text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
-                                     data-src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}">
-                                    <p class="italic text-sm text-gray-600">Puntuación Personalizada</p>
-                                    <img src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}" alt="Puntuación Personalizada" class="max-h-64">
-                                </div>
-                            </div>
+
+            <div id="body-cap-1" class="accordion-content border-t border-gray-100">
+
+                <!-- Cifras clave del Draft -->
+                <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-gray-100 bg-gray-50">
+                    <div class="px-3 py-4 text-center">
+                        <p class="stat-num text-2xl font-bold text-gray-900">50 M€</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Presupuesto</p>
+                    </div>
+                    <div class="px-3 py-4 text-center">
+                        <p class="stat-num text-2xl font-bold text-gray-900">15</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Jugadores</p>
+                    </div>
+                    <div class="px-3 py-4 text-center">
+                        <p class="stat-num text-2xl font-bold text-gray-900">15</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Rondas</p>
+                    </div>
+                    <div class="px-3 py-4 text-center">
+                        <p class="stat-num text-2xl font-bold text-gray-900">31 JUL</p>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1">Arranque</p>
+                    </div>
+                </div>
+
+                <!-- 1.1 Objeto -->
+                <article class="art px-5 py-5" data-article id="art-1-1">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.1</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Objeto</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        El Draft constituye el acto inaugural de cada temporada y reparte los jugadores
+                        disponibles entre todos los presidentes de la forma más equilibrada posible.
+                        Todos empiezan con el mismo presupuesto y las mismas oportunidades para
+                        confeccionar una plantilla competitiva.
+                    </p>
+                </article>
+
+                <!-- 1.2 Presupuesto -->
+                <article class="art px-5 py-5" data-article id="art-1-2">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.2</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Presupuesto</h3>
+                    </div>
+                    <div class="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 flex items-center justify-between gap-4">
+                        <span class="text-sm text-gray-600">Presupuesto inicial por presidente</span>
+                        <span class="stat-num text-2xl font-bold text-gray-900 whitespace-nowrap">50.000.000 €</span>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed mt-3">
+                        La gestión del presupuesto durante el Draft es responsabilidad exclusiva de cada presidente.
+                    </p>
+                </article>
+
+                <!-- 1.3 Composición de la plantilla -->
+                <article class="art px-5 py-5" data-article id="art-1-3">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.3</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Composición de la plantilla</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Al finalizar el Draft cada presidente deberá tener <strong class="text-gray-900">15 jugadores</strong>:
+                        un once válido en todo momento y, al menos, un suplente por línea.
+                    </p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                        <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
+                            <p class="stat-num text-xl font-bold text-gray-900">1</p>
+                            <p class="text-xs font-semibold text-gray-600 mt-0.5">Portero</p>
+                            <p class="text-[11px] text-gray-400">suplente</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
+                            <p class="stat-num text-xl font-bold text-gray-900">1</p>
+                            <p class="text-xs font-semibold text-gray-600 mt-0.5">Defensa</p>
+                            <p class="text-[11px] text-gray-400">suplente</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
+                            <p class="stat-num text-xl font-bold text-gray-900">1</p>
+                            <p class="text-xs font-semibold text-gray-600 mt-0.5">Centrocampista</p>
+                            <p class="text-[11px] text-gray-400">suplente</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
+                            <p class="stat-num text-xl font-bold text-gray-900">1</p>
+                            <p class="text-xs font-semibold text-gray-600 mt-0.5">Delantero</p>
+                            <p class="text-[11px] text-gray-400">suplente</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-red-700">Sanción</p>
+                        <p class="text-sm text-red-800 mt-1">
+                            No se permite terminar el Draft con una plantilla que incumpla estos requisitos.
+                            Quien lo haga deberá vender jugadores al <strong>70 % de su valor</strong> y comprar
+                            en el mercado hasta poder alinear un once válido.
+                        </p>
+                    </div>
+                </article>
+
+                <!-- 1.4 Sistema de elección -->
+                <article class="art px-5 py-5" data-article id="art-1-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.4</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Sistema de elección</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Snake Draft (draft serpiente). El orden de la primera ronda es el inverso a la
+                        clasificación de la temporada anterior; en la segunda ronda se invierte por completo,
+                        y así sucesivamente hasta completar las quince rondas.
+                    </p>
+
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Orden 2026/2027 · Ronda 1</p>
+                    <ol class="space-y-1.5">
+                        {% for p in ['Rubén', 'Javi', 'Lillo', 'Manu', 'Pablo', 'Lucen', 'Fabio'] %}
+                        <li class="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2">
+                            <span class="stat-num flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-sm font-bold">{{ loop.index }}</span>
+                            <span class="text-sm font-medium text-gray-800">{{ p }}</span>
                         </li>
-                        <li><strong>Clausulazos:</strong> Ilimitados, pero con restricciones:
-                            <ul>
-                                <li>El jugador clausulado queda <strong>bloqueado durante 2 semanas</strong> para el equipo comprador.</li>
-                                <li>Solo se podrá clausular un portero si el equipo afectado tiene un suplente disponible.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Capitán:</strong> Se puede elegir un capitán que puntúa doble. Su valor de mercado no puede superar los <strong>3 millones de euros</strong> al inicio de la jornada.</li>
-                        <li><strong>Partidos Aplazados:</strong> Los puntos y el dinero de la jornada se abonarán únicamente cuando se hayan disputado todos los partidos, incluidos los aplazados.</li>
-                        <li><strong>Duelos:</strong> Se pueden realizar duelos con apuestas entre mánagers, notificándolo a la administración antes de la jornada.</li>
-                        <li><strong>Básicos:</strong> Estar en positivo antes del inicio de la jornada y tener 11 jugadores alineados.</li>
+                        {% endfor %}
+                    </ol>
+
+                    <div class="mt-3 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Cómo serpentea</p>
+                        <div class="space-y-1 font-mono text-xs text-gray-600">
+                            <p><span class="font-bold text-gray-800">R1</span> &nbsp;1 → 2 → 3 → 4 → 5 → 6 → 7</p>
+                            <p><span class="font-bold text-gray-800">R2</span> &nbsp;7 → 6 → 5 → 4 → 3 → 2 → 1</p>
+                            <p><span class="font-bold text-gray-800">R3</span> &nbsp;1 → 2 → 3 → 4 → 5 → 6 → 7</p>
+                            <p class="text-gray-400">… hasta la ronda 15</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 rounded-lg border-l-4 border-purple-400 bg-purple-50 px-4 py-3">
+                        <p class="text-sm text-purple-900">
+                            <strong>Ayudas externas permitidas.</strong> Está permitido usar IA y llamar en
+                            secreto a tu compañero de trabajo futbolero.
+                        </p>
+                    </div>
+                </article>
+
+                <!-- 1.5 Calendario -->
+                <article class="art px-5 py-5" data-article id="art-1-5">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.5</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Calendario</h3>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div class="rounded-lg border border-gray-200 px-4 py-3">
+                            <p class="stat-num text-xl font-bold text-gray-900">30 julio</p>
+                            <p class="text-sm text-gray-600 mt-1">Publicación oficial de la lista de jugadores elegibles.</p>
+                        </div>
+                        <div class="rounded-lg border-2 border-purple-300 bg-purple-50 px-4 py-3">
+                            <p class="stat-num text-xl font-bold text-purple-800">31 julio</p>
+                            <p class="text-sm text-purple-900 mt-1">Comienzo oficial del Draft.</p>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 1.6 Lista de jugadores -->
+                <article class="art px-5 py-5" data-article id="art-1-6">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.6</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Lista de jugadores</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        La lista de elegibles es la publicada por la organización el 30 de julio.
+                        Durante el desarrollo del Draft:
+                    </p>
+                    <ul class="mt-2 space-y-1.5 text-sm text-gray-600">
+                        <li class="rule-no">No pueden seleccionarse jugadores incorporados a Biwenger con posterioridad.</li>
+                        <li class="rule-yes">Si un jugador abandona LaLiga durante el Draft, el presidente lo conserva hasta que el Draft termine.</li>
+                        <li class="rule-yes">Al finalizar, ese jugador se vende automáticamente al precio al que fue adquirido, sea cual sea su valor de mercado.</li>
                     </ul>
-                </div>
-            </div>
-        </div>
+                    <div class="mt-3 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+                        <p class="text-sm text-gray-700">
+                            <strong class="text-gray-900">Precios congelados.</strong> Las variaciones de valor de mercado
+                            no afectan al Draft: la referencia es siempre el precio oficial publicado el 30 de julio.
+                        </p>
+                    </div>
+                </article>
 
-        <!-- 2. Nuevos Torneos -->
-        <div class="card rounded-xl overflow-hidden" id="sec-torneos">
-            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                    data-target="body-torneos">
-                <span class="font-header text-xl font-bold text-gray-800">2. Nuevos Torneos y Trofeos</span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <!-- 1.7 Mercado de fichajes -->
+                <article class="art px-5 py-5" data-article id="art-1-7">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.7</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Mercado de fichajes</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        El mercado permanece <strong class="text-gray-900">cerrado</strong> durante todo el desarrollo del Draft.
+                    </p>
+                    <div class="mt-3 rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3">
+                        <p class="text-xs font-bold uppercase tracking-wide text-red-700 mb-2">No está permitido</p>
+                        <ul class="space-y-1.5 text-sm text-red-800">
+                            <li class="rule-no">Comprar jugadores al mercado.</li>
+                            <li class="rule-no">Realizar fichajes fuera del proceso del Draft.</li>
+                            <li class="rule-no">Aprovechar incorporaciones de última hora a Biwenger.</li>
+                        </ul>
+                        <p class="text-sm text-red-800 mt-2">
+                            Cualquier fichaje realizado durante el Draft — o el mismo día en que finalice — será anulado
+                            por la organización.
+                        </p>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed mt-3">
+                        El mercado abre oficialmente <strong class="text-gray-900">al día siguiente</strong> de finalizar
+                        el Draft; a partir de ahí, a pujar con total libertad.
+                    </p>
+                </article>
+
+                <!-- 1.8 Comunicación de las elecciones -->
+                <article class="art px-5 py-5" data-article id="art-1-8">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.8</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Comunicación de las elecciones</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Todas las elecciones se anuncian <strong class="text-gray-900">exclusivamente en el grupo
+                        específico del Draft</strong>. Así se mantiene limpio el grupo principal de la competición
+                        (Grupo de los Lloros) y se facilita el seguimiento del proceso.
+                    </p>
+                </article>
+
+                <!-- 1.9 Finalización -->
+                <article class="art px-5 py-5" data-article id="art-1-9">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 1.9</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Finalización del Draft</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Completadas las quince rondas, el Draft se considera oficialmente finalizado.
+                        La organización revisa las plantillas y, a partir de ese momento, cada presidente
+                        gestiona la suya como considere oportuno, respetando siempre el resto del Reglamento.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- ═══════════ CAPÍTULO II — REGLAS DE JUEGO ═══════════ -->
+        <section id="cap-2" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#38a169; --ch-soft:#f0fff4">
+            <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                    data-target="body-cap-2">
+                <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">II</span>
+                <span class="flex-1 min-w-0">
+                    <span class="block font-header text-xl font-bold text-gray-800">Reglas de Juego</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Artículos 2.1 – 2.6 · Cómo se compite cada jornada</span>
+                </span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
-            <div id="body-torneos" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
-                <div class="prose max-w-none mt-4">
-                    <p>Puedes consultar los resultados y clasificaciones en la sección de
-                        <a href="{{ url_for('season.lloros_awards', season=season) }}" class="text-green-700 hover:underline">Torneos y Trofeos</a>.
+
+            <div id="body-cap-2" class="accordion-content border-t border-gray-100 hidden">
+
+                <!-- 2.1 Puntuación -->
+                <article class="art px-5 py-5" data-article id="art-2-1">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.1</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Puntuación</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        La liga usa un sistema de puntuación personalizado sobre la nota Sofascore.
+                        Toca para ampliar cualquiera de las dos tablas.
+                    </p>
+                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="zoomable-image rounded-lg border border-gray-200 p-2 text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
+                             data-src="{{ url_for('static', filename='nota_sofascore.jpg') }}">
+                            <img src="{{ url_for('static', filename='nota_sofascore.jpg') }}" alt="Nota Sofascore" class="w-full max-h-56 object-contain">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-2">Nota Sofascore</p>
+                        </div>
+                        <div class="zoomable-image rounded-lg border border-gray-200 p-2 text-center cursor-pointer hover:ring-2 hover:ring-green-500 transition"
+                             data-src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}">
+                            <img src="{{ url_for('static', filename='puntuacion_personalizada.jpg') }}" alt="Puntuación personalizada" class="w-full max-h-56 object-contain">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mt-2">Puntuación personalizada</p>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 2.2 Cláusulas -->
+                <article class="art px-5 py-5" data-article id="art-2-2">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.2</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Cláusulas de rescisión</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los clausulazos son <strong class="text-gray-900">ilimitados</strong>, con dos restricciones:
+                    </p>
+                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div class="rounded-lg border border-gray-200 px-4 py-3">
+                            <p class="stat-num text-xl font-bold text-gray-900">2 semanas</p>
+                            <p class="text-sm text-gray-600 mt-1">El jugador clausulado queda bloqueado para el equipo comprador.</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 px-4 py-3">
+                            <p class="stat-num text-xl font-bold text-gray-900">Porteros</p>
+                            <p class="text-sm text-gray-600 mt-1">Solo se puede clausular un portero si el equipo afectado tiene suplente disponible.</p>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- 2.3 Capitán -->
+                <article class="art px-5 py-5" data-article id="art-2-3">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.3</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Capitán</h3>
+                    </div>
+                    <div class="rounded-lg bg-green-50 border border-green-200 px-4 py-3 flex items-center justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-semibold text-green-900">Puntúa doble</p>
+                            <p class="text-xs text-green-800 mt-0.5">Valor máximo al inicio de la jornada</p>
+                        </div>
+                        <span class="stat-num text-2xl font-bold text-green-800 whitespace-nowrap">3 M€</span>
+                    </div>
+                </article>
+
+                <!-- 2.4 Alineación -->
+                <article class="art px-5 py-5" data-article id="art-2-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.4</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Alineación y plantilla</h3>
+                    </div>
+                    <ul class="space-y-1.5 text-sm text-gray-600">
+                        <li class="rule-yes">Tener <strong class="text-gray-900">11 jugadores alineados</strong> antes del inicio de la jornada.</li>
+                        <li class="rule-yes">Estar <strong class="text-gray-900">en positivo</strong> antes del inicio de la jornada.</li>
+                        <li class="rule-yes">Máximo de <strong class="text-gray-900">25 jugadores</strong> en plantilla durante la temporada.</li>
+                    </ul>
+                </article>
+
+                <!-- 2.5 Partidos aplazados -->
+                <article class="art px-5 py-5" data-article id="art-2-5">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.5</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Partidos aplazados</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los puntos y el dinero de la jornada se abonan únicamente cuando se han disputado
+                        todos los partidos, incluidos los aplazados.
+                    </p>
+                </article>
+
+                <!-- 2.6 Duelos -->
+                <article class="art px-5 py-5" data-article id="art-2-6">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 2.6</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Duelos</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Se pueden pactar duelos con apuesta entre mánagers, siempre notificándolo a la
+                        administración antes de que empiece la jornada.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- ═══════════ CAPÍTULO III — TORNEOS ═══════════ -->
+        <section id="cap-3" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#d69e2e; --ch-soft:#fffaf0">
+            <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                    data-target="body-cap-3">
+                <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">III</span>
+                <span class="flex-1 min-w-0">
+                    <span class="block font-header text-xl font-bold text-gray-800">Torneos y Trofeos</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Artículos 3.1 – 3.4 · Competiciones paralelas</span>
+                </span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div id="body-cap-3" class="accordion-content border-t border-gray-100 hidden">
+                <div class="px-5 py-4 bg-gray-50 border-b border-gray-100">
+                    <p class="text-sm text-gray-600">
+                        Resultados y clasificaciones en
+                        <a href="{{ url_for('season.lloros_awards', season=season) }}" class="text-green-700 font-medium hover:underline">Torneos y Trofeos</a>.
                     </p>
                 </div>
-                <div class="space-y-3 mt-4">
-                    <div id="copa-navidad" class="p-4 border-l-4 border-blue-500 bg-blue-50 rounded-r-md">
-                        <h4 class="font-bold text-gray-800">Copa Navidad</h4>
-                        <p class="text-sm text-gray-700 mt-1">Fase de grupos y Final Four. La final coincide con la última jornada del año.</p>
-                    </div>
-                    <div id="copa-castolo" class="p-4 border-l-4 border-purple-500 bg-purple-50 rounded-r-md">
-                        <h4 class="font-bold text-gray-800">Copa Castolo</h4>
-                        <p class="text-sm text-gray-700 mt-1">Eliminatoria directa. El campeón de la Copa Navidad entra directamente en semifinales y el ganador obtiene recompensas para la siguiente temporada.</p>
-                    </div>
-                    <div id="liga-camareros" class="p-4 border-l-4 border-green-500 bg-green-50 rounded-r-md">
-                        <h4 class="font-bold text-gray-800">Liga Camareros</h4>
-                        <p class="text-sm text-gray-700 mt-1">Los presidentes se dividen en 2 grupos. La puntuación de cada grupo es la media de sus miembros. El grupo perdedor tendrá que servir bebidas al grupo ganador durante la fiesta final.</p>
-                    </div>
-                    <div id="liga-amistad" class="p-4 border-l-4 border-yellow-500 bg-yellow-50 rounded-r-md">
-                        <h4 class="font-bold text-gray-800">Liga de la Amistad</h4>
-                        <p class="text-sm text-gray-700 mt-1">Los presidentes se dividen en 3 equipos. El equipo con menos puntos al final de la temporada será el "Campeón de la Amistad" y deberá estar esposado durante una hora en la fiesta final.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- 3. Normas Comunicados -->
-        <div class="card rounded-xl overflow-hidden" id="sec-comunicados">
-            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                    data-target="body-comunicados">
-                <span class="font-header text-xl font-bold text-gray-800">3. Normas para Comunicados</span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <article class="art px-5 py-5" data-article id="art-3-1">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 3.1</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Copa Navidad</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Fase de grupos y Final Four. La final coincide con la última jornada del año.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-3-2">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 3.2</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Copa Castolo</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Eliminatoria directa. El campeón de la Copa Navidad entra directamente en semifinales
+                        y el ganador obtiene recompensas para la siguiente temporada.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-3-3">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 3.3</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Liga Camareros</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los presidentes se dividen en 2 grupos y cada grupo puntúa la media de sus miembros.
+                        El grupo perdedor sirve las bebidas al ganador durante la fiesta final.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-3-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 3.4</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Liga de la Amistad</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los presidentes se dividen en 3 equipos. El equipo con menos puntos al final de la
+                        temporada será el «Campeón de la Amistad» y deberá estar esposado durante una hora
+                        en la fiesta final.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- ═══════════ CAPÍTULO IV — COMUNICADOS ═══════════ -->
+        <section id="cap-4" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#3182ce; --ch-soft:#ebf8ff">
+            <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                    data-target="body-cap-4">
+                <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">IV</span>
+                <span class="flex-1 min-w-0">
+                    <span class="block font-header text-xl font-bold text-gray-800">Comunicados</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Artículos 4.1 – 4.4 · Cómo escribir en el grupo</span>
+                </span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
-            <div id="body-comunicados" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
-                <div class="prose max-w-none mt-4">
-                    <ul>
-                        <li>Si quieres publicar una crónica, el título debe empezar por <strong>"CRÓNICA - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season) }}?tab=cronicas" class="text-green-700 hover:underline">Salseo (Crónicas)</a>.</li>
-                        <li>Si quieres publicar un "dato curioso", el título debe empezar por <strong>"DATO - "</strong> o <strong>"DATOS - "</strong>. Aparecerá en <a href="{{ url_for('season.salseo', season=season) }}?tab=datos" class="text-green-700 hover:underline">Salseo (Mr. Lucen)</a>.</li>
-                        <li>Para registrar una cesión, el título del mensaje debe empezar por <strong>"CESIÓN - "</strong>. Los movimientos del mercado se pueden consultar en <a href="{{ url_for('season.mercado', season=season) }}" class="text-green-700 hover:underline">Mercado</a>.</li>
-                        <li>El resto de mensajes se considerarán comunicados oficiales y aparecerán en la <a href="{{ url_for('season.comunicados', season=season) }}" class="text-green-700 hover:underline">página principal</a>.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
 
-        <!-- 4. El Draft -->
-        <div class="card rounded-xl overflow-hidden" id="sec-draft">
-            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                    data-target="body-draft">
-                <span class="font-header text-xl font-bold text-gray-800">4. El Draft</span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div id="body-cap-4" class="accordion-content border-t border-gray-100 hidden">
+                <div class="px-5 py-4 bg-gray-50 border-b border-gray-100">
+                    <p class="text-sm text-gray-600">
+                        El título del mensaje decide dónde acaba publicado en la web. Respeta el prefijo exacto.
+                    </p>
+                </div>
+
+                <article class="art px-5 py-5" data-article id="art-4-1">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 4.1</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Crónicas</h3>
+                    </div>
+                    <p class="text-sm text-gray-600">
+                        Empieza el título por <code class="font-mono text-xs bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded">CRÓNICA - </code>
+                        → aparece en <a href="{{ url_for('season.salseo', season=season) }}?tab=cronicas" class="text-green-700 font-medium hover:underline">Salseo · Crónicas</a>.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-4-2">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 4.2</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Datos curiosos</h3>
+                    </div>
+                    <p class="text-sm text-gray-600">
+                        Empieza el título por <code class="font-mono text-xs bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded">DATO - </code>
+                        o <code class="font-mono text-xs bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded">DATOS - </code>
+                        → aparece en <a href="{{ url_for('season.salseo', season=season) }}?tab=datos" class="text-green-700 font-medium hover:underline">Salseo · Mr. Lucen</a>.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-4-3">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 4.3</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Cesiones</h3>
+                    </div>
+                    <p class="text-sm text-gray-600">
+                        Empieza el título por <code class="font-mono text-xs bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded">CESIÓN - </code>
+                        → el movimiento queda registrado en <a href="{{ url_for('season.mercado', season=season) }}" class="text-green-700 font-medium hover:underline">Mercado</a>.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-4-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 4.4</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Comunicados oficiales</h3>
+                    </div>
+                    <p class="text-sm text-gray-600">
+                        Cualquier otro mensaje se considera comunicado oficial y aparece en
+                        <a href="{{ url_for('season.comunicados', season=season) }}" class="text-green-700 font-medium hover:underline">la página principal</a>.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- ═══════════ CAPÍTULO V — FINAL DE TEMPORADA ═══════════ -->
+        <section id="cap-5" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#e53e3e; --ch-soft:#fff5f5">
+            <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
+                    data-target="body-cap-5">
+                <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">V</span>
+                <span class="flex-1 min-w-0">
+                    <span class="block font-header text-xl font-bold text-gray-800">Final de Temporada</span>
+                    <span class="block text-xs text-gray-500 mt-0.5">Artículos 5.1 – 5.4 · Quién paga la comida</span>
+                </span>
+                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
-            <div id="body-draft" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
-                <div class="prose max-w-none mt-4">
-                    <ul>
-                        <li><strong>Fecha y Hora:</strong> Se acuerda un día para el evento, preferentemente un mes antes de empezar la liga.</li>
-                        <li><strong>Presupuesto:</strong> Cada mánager empieza con <strong>50 Millones de euros</strong>.</li>
-                        <li><strong>Plataforma:</strong> Preferentemente en una casa con cerveza/cocacola y todos conectados a Discord para el salseo en directo.</li>
-                        <li><strong>Formato:</strong> Sistema "serpiente", empezando por el último clasificado del año anterior.</li>
-                        <li><strong>Rondas:</strong> Son <strong>15 rondas</strong> para elegir un mínimo de 15 jugadores (11 titulares + 4 suplentes). El máximo por plantilla durante la temporada es de 25.</li>
-                        <li><strong>Ayudas Externas:</strong> Está permitido tanto usar IA como llamar en secreto a tu compañero de trabajo futbolero.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
 
-        <!-- 5. Final de Temporada -->
-        <div class="card rounded-xl overflow-hidden" id="sec-final">
-            <button class="accordion-btn w-full text-left px-5 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                    data-target="body-final">
-                <span class="font-header text-xl font-bold text-gray-800">5. Final de Temporada</span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-            </button>
-            <div id="body-final" class="accordion-content px-5 pb-5 border-t border-gray-100 hidden">
-                <div class="prose max-w-none mt-4">
-                    <ul>
-                        <li>Los <strong>3 primeros</strong> reciben la gloria, el honor y una invitación a comer por parte del resto.</li>
-                        <li>El <strong>4º clasificado</strong> es territorio neutral: no paga ni cobra, salvo su propia comida.</li>
-                        <li>Los <strong>3 últimos</strong>, además de pagar su comida, invitan a los 4 de arriba.</li>
-                        <li>Puedes consultar el histórico en la sección de <a href="{{ url_for('main.palmares') }}" class="text-green-700 hover:underline">Palmarés</a>.</li>
-                        <li><strong>Opción Extra:</strong> Se puede proponer la compra de camisetas sorpresa en <a href="https://camisetasfutbolsorpresa.com/" target="_blank" rel="noopener noreferrer" class="text-green-700 hover:underline">camisetasfutbolsorpresa.com</a>.</li>
-                    </ul>
+            <div id="body-cap-5" class="accordion-content border-t border-gray-100 hidden">
+
+                <!-- Reparto visual -->
+                <div class="px-5 py-5 bg-gray-50 border-b border-gray-100">
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-3">Reparto final</p>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="rounded-lg bg-white border-2 border-green-300 px-2 py-3">
+                            <p class="stat-num text-xl font-bold text-green-700">1 – 3</p>
+                            <p class="text-xs font-semibold text-gray-700 mt-1">Cobran</p>
+                        </div>
+                        <div class="rounded-lg bg-white border border-gray-200 px-2 py-3">
+                            <p class="stat-num text-xl font-bold text-gray-700">4</p>
+                            <p class="text-xs font-semibold text-gray-700 mt-1">Neutral</p>
+                        </div>
+                        <div class="rounded-lg bg-white border-2 border-red-300 px-2 py-3">
+                            <p class="stat-num text-xl font-bold text-red-700">5 – 7</p>
+                            <p class="text-xs font-semibold text-gray-700 mt-1">Pagan</p>
+                        </div>
+                    </div>
                 </div>
+
+                <article class="art px-5 py-5" data-article id="art-5-1">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 5.1</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Podio</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los tres primeros reciben la gloria, el honor y una invitación a comer por parte del resto.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-5-2">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 5.2</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Zona neutral</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        El cuarto clasificado no paga ni cobra: solo su propia comida.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-5-3">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 5.3</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Zona de pago</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Los tres últimos, además de pagar su comida, invitan a los cuatro de arriba.
+                        El histórico está en <a href="{{ url_for('main.palmares') }}" class="text-green-700 font-medium hover:underline">Palmarés</a>.
+                    </p>
+                </article>
+
+                <article class="art px-5 py-5" data-article id="art-5-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <span class="art-badge text-xs font-bold px-2 py-1 rounded">ART. 5.4</span>
+                        <h3 class="font-header text-lg font-bold text-gray-900">Camisetas sorpresa</h3>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Opción extra: se puede proponer la compra de camisetas sorpresa en
+                        <a href="https://camisetasfutbolsorpresa.com/" target="_blank" rel="noopener noreferrer" class="text-green-700 font-medium hover:underline">camisetasfutbolsorpresa.com</a>.
+                    </p>
+                </article>
             </div>
-        </div>
+        </section>
     </div>
+
+    <!-- El Veredicto -->
+    <section id="veredicto" class="card rounded-xl p-5 scroll-mt-20">
+        <h2 class="font-header text-lg font-bold text-gray-800 mb-3 text-center">Fair Play · El Veredicto</h2>
+        <div class="aspect-video rounded-lg overflow-hidden shadow-md max-w-2xl mx-auto">
+            <iframe class="w-full h-full" src="https://www.youtube.com/embed/zM_Rc6V-OCU"
+                    title="El Veredicto" frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+    </section>
 </div>
 
 <!-- Modal imagen -->
@@ -194,42 +697,73 @@
 </div>
 
 <script>
-    // Accordion
+    function setChapterOpen(chapter, open) {
+        const content = chapter.querySelector('.accordion-content');
+        if (!content) return;
+        content.classList.toggle('hidden', !open);
+        chapter.querySelector('.accordion-icon')?.classList.toggle('rotate-180', open);
+    }
+
     document.querySelectorAll('.accordion-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const content = document.getElementById(btn.dataset.target);
-            const icon = btn.querySelector('.accordion-icon');
-            const isOpen = !content.classList.contains('hidden');
-            content.classList.toggle('hidden', isOpen);
-            icon.classList.toggle('rotate-180', !isOpen);
+            setChapterOpen(btn.closest('.chapter'), content.classList.contains('hidden'));
         });
     });
 
-    function openSection(sectionId) {
-        const content = document.getElementById('body-' + sectionId.replace('sec-', ''));
-        if (content && content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            const btn = content.previousElementSibling;
-            btn?.querySelector('.accordion-icon')?.classList.add('rotate-180');
-        }
-    }
-
-    // Auto-open section from URL hash
+    // Deep links: #cap-N opens the chapter, #art-N-M opens it and scrolls to the article.
     function openByHash() {
         const hash = window.location.hash;
         if (!hash) return;
-        const el = document.querySelector(hash);
-        if (!el) return;
-        const card = el.classList.contains('card') ? el : el.closest('.card');
-        if (!card) return;
-        const content = card.querySelector('.accordion-content');
-        if (content && content.classList.contains('hidden')) {
-            content.classList.remove('hidden');
-            card.querySelector('.accordion-icon')?.classList.add('rotate-180');
-        }
+        const target = document.querySelector(hash);
+        const chapter = target?.closest('.chapter');
+        if (!chapter) return;
+        setChapterOpen(chapter, true);
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     window.addEventListener('hashchange', openByHash);
     document.addEventListener('DOMContentLoaded', openByHash);
+
+    // Search: filter articles, keeping only the chapters that still have matches.
+    const searchInput = document.getElementById('rule-search');
+    const emptyMsg = document.getElementById('search-empty');
+    const chapterIndex = document.getElementById('chapter-index');
+
+    function normalize(text) {
+        return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    searchInput.addEventListener('input', () => {
+        const query = normalize(searchInput.value.trim());
+        const chapters = document.querySelectorAll('.chapter');
+
+        if (!query) {
+            chapters.forEach((chapter, i) => {
+                chapter.classList.remove('hidden');
+                chapter.querySelectorAll('[data-article]').forEach(a => a.classList.remove('hidden'));
+                setChapterOpen(chapter, i === 0);
+            });
+            chapterIndex.classList.remove('hidden');
+            emptyMsg.classList.add('hidden');
+            return;
+        }
+
+        let total = 0;
+        chapters.forEach(chapter => {
+            let matches = 0;
+            chapter.querySelectorAll('[data-article]').forEach(article => {
+                const hit = normalize(article.textContent).includes(query);
+                article.classList.toggle('hidden', !hit);
+                if (hit) matches++;
+            });
+            chapter.classList.toggle('hidden', matches === 0);
+            setChapterOpen(chapter, matches > 0);
+            total += matches;
+        });
+
+        chapterIndex.classList.add('hidden');
+        emptyMsg.classList.toggle('hidden', total > 0);
+    });
 
     // Image modal
     const modal = document.getElementById('image-modal');
