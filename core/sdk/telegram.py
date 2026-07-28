@@ -215,17 +215,27 @@ def build_persistent_reply_keyboard(labels: list[str], cols: int = 2) -> dict:
     }
 
 
-def register_bot_commands(bot_token: str, commands: list[dict]) -> None:
+def register_bot_commands(
+    bot_token: str, commands: list[dict], scope: Optional[dict] = None
+) -> None:
     """Registers bot commands so they appear in the Telegram '/' menu.
 
     Each entry in `commands` must have 'command' (lowercase, no slash)
-    and 'description' keys.
+    and 'description' keys. `scope` is a Telegram `BotCommandScope` dict
+    (e.g. `{"type": "chat", "chat_id": "<id>"}`) to limit the menu to one
+    chat; `None` registers globally, unchanged from before this parameter.
     """
     url = TELEGRAM_SET_COMMANDS_URL.format(token=bot_token)
+    payload: dict[str, Any] = {"commands": commands}
+    if scope is not None:
+        payload["scope"] = scope
     try:
-        response = requests.post(url, json={"commands": commands}, timeout=15)
+        response = requests.post(url, json=payload, timeout=15)
         response.raise_for_status()
-        logger.info("Bot commands registered.", extra={"count": len(commands)})
+        extra = {"count": len(commands)}
+        if scope is not None:
+            extra["scope"] = scope
+        logger.info("Bot commands registered.", extra=extra)
     except requests.RequestException as e:
         logger.error("Failed to register bot commands.", extra={"error": str(e)})
 
@@ -267,7 +277,9 @@ def reset_menu_button_to_default(bot_token: str) -> None:
         logger.error("Failed to reset menu button.", extra={"error": str(e)})
 
 
-def configure_bot_commands(bot_token: str, commands: list[dict]) -> None:
+def configure_bot_commands(
+    bot_token: str, commands: list[dict], scope: Optional[dict] = None
+) -> None:
     """Idiomatic post-deploy setup shared by every bot in this repo.
 
     Registers `commands` for the slash autocomplete that Telegram pops
@@ -275,9 +287,16 @@ def configure_bot_commands(bot_token: str, commands: list[dict]) -> None:
     default — bots in this repo expose their main actions via a
     persistent reply keyboard (`build_persistent_reply_keyboard`), so
     a redundant pill on the left adds clutter without adding value.
+
+    `scope` limits the registered menu to one chat (see
+    `register_bot_commands`). The menu button is chat-agnostic in the
+    Bot API (no `scope` field on `setChatMenuButton`), so it is left
+    untouched for a scoped call — resetting it here would affect every
+    chat, not just the one being configured.
     """
-    register_bot_commands(bot_token, commands)
-    reset_menu_button_to_default(bot_token)
+    register_bot_commands(bot_token, commands, scope=scope)
+    if scope is None:
+        reset_menu_button_to_default(bot_token)
 
 
 def set_webhook(
@@ -327,18 +346,22 @@ def parse_command(text: str) -> str:
     return text.lower().split()[0].split("@")[0] if text.strip() else ""
 
 
-def extract_webhook_update(request: Any) -> tuple[str, str]:
-    """Extract (chat_id, text) from a Flask webhook POST request body.
+def extract_webhook_update(request: Any) -> tuple[str, str, str]:
+    """Extract (chat_id, text, user_id) from a Flask webhook POST request body.
 
     Only handles plain text messages — callback_query updates go through
-    `extract_webhook_callback`. Returns ('', '') for empty/malformed bodies
-    or for updates that aren't text messages.
+    `extract_webhook_callback`. `user_id` is the sender's Telegram user id
+    (needed in group chats, where `chat_id` alone doesn't identify who sent
+    a message), `''` when absent. `text` is `''` for empty/malformed bodies,
+    non-text updates, and Telegram service messages (e.g. a user added to
+    the group), which carry no `text` field.
     """
     body = request.get_json(silent=True) or {}
     message = body.get("message", {})
     chat_id = str(message.get("chat", {}).get("id", ""))
     text = (message.get("text") or "").strip()
-    return chat_id, text
+    user_id = str(message.get("from", {}).get("id") or "")
+    return chat_id, text, user_id
 
 
 def extract_webhook_callback(request: Any) -> Optional[dict]:

@@ -83,6 +83,26 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   when the Castolo winner image exists. A brand-new cup *type* is one line in
   `config.SPECIAL_TOURNAMENTS` (redeploy).
 
+- **Draft bot — bucket rename.** The frozen market CSV now lives at
+  `gs://biwenger-special-tournaments/draft/<temporada>/market.csv`, in a bucket
+  whose name only describes the cup images. Rename to `gs://biwenger` with
+  `special-tournaments/` and `draft/` inside. GCS cannot rename a bucket, so it
+  is create + `gcloud storage cp -r` + repoint + redeploy web + delete old. Nine
+  references: `web/config.py` (`SPECIAL_TOURNAMENTS_BUCKET`), two literals in
+  `web/tests/test_web_app.py`, `api/config.py` (`DRAFT_MARKET_CSV_URL`),
+  `OPERATIONS.md`, the `season-rollover` skill (2), this file, and the draft
+  spec. Deferred deliberately: it redeploys the web service, which has nothing
+  to do with the draft, and the draft was two days out.
+
+- **Draft bot — derive the snake order from the palmarés.** `SEASON_ORDER_NAMES`
+  in `api/logic/draft.py` is hand-copied every season from the final standings,
+  inverted. The `palmares/<season>` doc the rollover already writes holds that
+  table, so the rollover could propose the reversed order instead of asking
+  cold. Keep it a *suggestion to confirm*: the reglamento's anomalies for new
+  entrants are not derivable from the classification. A mis-copied order does
+  not fail loudly — it just makes everyone pick in the wrong turn for fifteen
+  rounds.
+
 - **Draft skill — Phase A SHIPPED 2026-07-27** (`.claude/skills/draft/`).
   Annual pre-season helper for the Lloros League draft. *Phase A* (the merge)
   is a tested script: reads the closed-market CSV (frozen prices), fetches live

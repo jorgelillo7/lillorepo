@@ -60,3 +60,34 @@ SCRAPER_JOB_NAME = os.getenv("SCRAPER_JOB_NAME", "biwenger-scraper-data")
 # Deployed version metadata (set by CI, see deploy.yml). Used by /version.
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
+
+# --- DRAFT (annual snake draft, see logic/draft.py + logic/draft_service.py) ---
+# Season string for the `draft/{season}/...` Firestore layout. Reuses the
+# web package's `TEMPORADA_ACTUAL` env var (packages/biwenger_tools/web/config.py)
+# so both packages roll over together with a single deploy.yml bump.
+DRAFT_SEASON = os.getenv("TEMPORADA_ACTUAL", "26-27")
+
+# Frozen closed-market CSV (see .claude/skills/draft). Read from a public
+# bucket object rather than bundled into the image: the `python_service` macro
+# only ships `templates/` and `static/`, and re-uploading a corrected export
+# must not require a redeploy the night before the draft.
+DRAFT_MARKET_CSV_URL = os.getenv(
+    "DRAFT_MARKET_CSV_URL",
+    "https://storage.googleapis.com/biwenger-special-tournaments"
+    f"/draft/{DRAFT_SEASON}/market.csv",
+)
+
+# Offline fallback used when `DRAFT_MARKET_CSV_URL` is blank (tests, laptop).
+DRAFT_MARKET_CSV_PATH = os.getenv("DRAFT_MARKET_CSV_PATH", "")
+
+# Telegram user id allowed to call `/draft/undo`. Defaults to the owner: a
+# one-to-one Telegram chat id is the user's own id, so the configured private
+# chat already identifies the admin.
+DRAFT_ADMIN_TELEGRAM_ID = os.getenv("DRAFT_ADMIN_TELEGRAM_ID", "") or TELEGRAM_CHAT_ID
+
+# Gate on the Biwenger *writes* the draft makes (`transfer_player` /
+# `revert_transfer`). Default False: validation, state and Firestore all
+# run normally, but no player ever actually changes hands until this is
+# flipped on for the live draft session.
+_DRAFT_APPLY_RAW = os.getenv("DRAFT_APPLY_TO_BIWENGER", "false").strip().lower()
+DRAFT_APPLY_TO_BIWENGER = _DRAFT_APPLY_RAW in ("1", "true", "yes")

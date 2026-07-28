@@ -439,3 +439,211 @@ def test_offers_decide_rejects_invalid_decision(client):
 def test_offers_decide_rejects_get(client):
     resp = client.get("/offers/decide?offer_id=1&decision=accepted")
     assert resp.status_code == 405
+
+
+# --- /draft/* --------------------------------------------------------------
+# These pin the wiring only — body parsing, method, status codes, and the
+# 5xx fallback shape. `draft_service`'s own behaviour is covered in
+# test_draft_service.py.
+
+
+def test_draft_register_calls_service(client):
+    fake = {"ok": True, "manager_id": 1, "manager_name": "Ruben", "message": "hola"}
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.register_manager",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post(
+            "/draft/register", json={"telegram_user_id": "1", "name": "Ruben"}
+        )
+    mock_run.assert_called_once_with("1", "Ruben")
+    assert resp.status_code == 200
+    assert resp.get_json() == fake
+
+
+def test_draft_register_rejects_missing_fields(client):
+    resp = client.post("/draft/register", json={"telegram_user_id": "1"})
+    assert resp.status_code == 400
+    assert resp.get_json()["ok"] is False
+
+
+def test_draft_register_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.register_manager",
+        side_effect=RuntimeError("firestore down"),
+    ):
+        resp = client.post(
+            "/draft/register", json={"telegram_user_id": "1", "name": "Ruben"}
+        )
+    assert resp.status_code == 500
+    assert "firestore down" in resp.get_json()["message"]
+
+
+def test_draft_register_rejects_get(client):
+    resp = client.get("/draft/register")
+    assert resp.status_code == 405
+
+
+def test_draft_state_calls_service(client):
+    fake = {
+        "completed": False,
+        "pick_number": 1,
+        "round": 1,
+        "position": 1,
+        "manager_id": 7727371,
+        "manager_name": "Ruben",
+        "budgets": {},
+        "spent": {},
+        "squad_counts": {},
+        "message": "turno de Ruben",
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.get_state", return_value=fake
+    ) as mock_run:
+        resp = client.get("/draft/state")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json() == fake
+
+
+def test_draft_state_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.get_state",
+        side_effect=RuntimeError("boom"),
+    ):
+        resp = client.get("/draft/state")
+    assert resp.status_code == 500
+    assert resp.get_json()["completed"] is False
+
+
+def test_draft_state_rejects_post(client):
+    resp = client.post("/draft/state")
+    assert resp.status_code == 405
+
+
+def test_draft_pick_calls_service(client):
+    fake = {
+        "status": "applied",
+        "message": "ok",
+        "player": {},
+        "remaining": 0,
+        "next_manager": "Javi",
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.submit_pick",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post(
+            "/draft/pick", json={"telegram_user_id": "1", "query": "messi"}
+        )
+    mock_run.assert_called_once_with("1", "messi")
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "applied"
+
+
+def test_draft_pick_rejects_missing_fields(client):
+    resp = client.post("/draft/pick", json={"telegram_user_id": "1"})
+    assert resp.status_code == 400
+    assert resp.get_json()["status"] == "rejected"
+
+
+def test_draft_pick_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.submit_pick",
+        side_effect=RuntimeError("boom"),
+    ):
+        resp = client.post(
+            "/draft/pick", json={"telegram_user_id": "1", "query": "messi"}
+        )
+    assert resp.status_code == 500
+    assert resp.get_json()["error"] == "INTERNAL_ERROR"
+
+
+def test_draft_pick_rejects_get(client):
+    resp = client.get("/draft/pick")
+    assert resp.status_code == 405
+
+
+def test_draft_pick_confirm_calls_service(client):
+    fake = {
+        "status": "applied",
+        "message": "ok",
+        "player": {},
+        "remaining": 0,
+        "next_manager": "Javi",
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.confirm_pick",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post(
+            "/draft/pick/confirm", json={"telegram_user_id": "1", "player_id": 42}
+        )
+    mock_run.assert_called_once_with("1", 42)
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "applied"
+
+
+def test_draft_pick_confirm_rejects_non_int_player_id(client):
+    resp = client.post(
+        "/draft/pick/confirm", json={"telegram_user_id": "1", "player_id": "abc"}
+    )
+    assert resp.status_code == 400
+
+
+def test_draft_pick_confirm_rejects_missing_fields(client):
+    resp = client.post("/draft/pick/confirm", json={"telegram_user_id": "1"})
+    assert resp.status_code == 400
+
+
+def test_draft_undo_calls_service(client):
+    fake = {"status": "reverted", "message": "listo"}
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.undo_last_pick",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post("/draft/undo", json={"telegram_user_id": "999"})
+    mock_run.assert_called_once_with("999")
+    assert resp.status_code == 200
+    assert resp.get_json()["status"] == "reverted"
+
+
+def test_draft_undo_rejects_missing_telegram_id(client):
+    resp = client.post("/draft/undo", json={})
+    assert resp.status_code == 400
+
+
+def test_draft_undo_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.undo_last_pick",
+        side_effect=RuntimeError("boom"),
+    ):
+        resp = client.post("/draft/undo", json={"telegram_user_id": "999"})
+    assert resp.status_code == 500
+
+
+def test_draft_export_calls_service(client):
+    fake = {"message": "3 fichajes", "picks": [{"player_id": 1}]}
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.export_picks",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.get("/draft/export")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json() == fake
+
+
+def test_draft_export_returns_500_on_exception(client):
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.export_picks",
+        side_effect=RuntimeError("boom"),
+    ):
+        resp = client.get("/draft/export")
+    assert resp.status_code == 500
+    assert resp.get_json()["picks"] == []
+
+
+def test_draft_export_rejects_post(client):
+    resp = client.post("/draft/export")
+    assert resp.status_code == 405

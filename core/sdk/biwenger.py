@@ -49,6 +49,14 @@ def clausulazos_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/board?type=transfer&fields=*,content(*,player(*))"
 
 
+def league_transfer_url(league_id: Union[str, int]) -> str:
+    return f"{league_url(league_id)}/transfer"
+
+
+def league_bonus_url(league_id: Union[str, int]) -> str:
+    return f"{league_url(league_id)}/bonus"
+
+
 def manager_squad_url(manager_id: Union[str, int]) -> str:
     return f"{BIWENGER_API_BASE}/user/{manager_id}?fields=players(id,owner(*))"
 
@@ -277,9 +285,13 @@ class BiwengerClient:
         logger.info("All board messages fetched.", extra={"total": len(all_messages)})
         return all_messages
 
-    def get_all_players_data_map(self, all_players_data_url: str) -> dict:
-        """Downloads the full Biwenger player database."""
-        logger.info("Downloading Biwenger player database...")
+    @staticmethod
+    def _fetch_competition_data(url: str) -> dict:
+        """Return the `data` block of the public competition payload.
+
+        The endpoint sometimes answers with a JSONP wrapper instead of plain
+        JSON, hence the fallback unwrap.
+        """
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -287,17 +299,39 @@ class BiwengerClient:
                 "Chrome/138.0.0.0 Safari/537.36"
             )
         }
-        response = requests.get(all_players_data_url, headers=headers)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         try:
             data = response.json()
         except json.JSONDecodeError:
-            jsonp_text = response.text
             json_str = re.search(
-                r"^\s*jsonp_\d+\((.*)\)\s*$", jsonp_text, re.DOTALL
+                r"^\s*jsonp_\d+\((.*)\)\s*$", response.text, re.DOTALL
             ).group(1)
             data = json.loads(json_str)
-        players_dict = data.get("data", {}).get("players", {})
+        return data.get("data", {}) or {}
+
+    def get_all_teams_map(self, all_players_data_url: str) -> dict:
+        """Returns `{team_id: team_name}` from the public competition payload.
+
+        Needed to tell apart namesakes: the player database carries only a
+        numeric `teamID`, while the market CSV names the team in full.
+        """
+        teams = self._fetch_competition_data(all_players_data_url).get("teams", {})
+        entries = teams.values() if isinstance(teams, dict) else teams
+        teams_map = {
+            int(t["id"]): t.get("name", "")
+            for t in entries
+            if isinstance(t, dict) and t.get("id") is not None
+        }
+        logger.info("Team map built.", extra={"count": len(teams_map)})
+        return teams_map
+
+    def get_all_players_data_map(self, all_players_data_url: str) -> dict:
+        """Downloads the full Biwenger player database."""
+        logger.info("Downloading Biwenger player database...")
+        players_dict = self._fetch_competition_data(all_players_data_url).get(
+            "players", {}
+        )
         players_map = {
             player_info["id"]: player_info for _, player_info in players_dict.items()
         }
@@ -443,6 +477,130 @@ class BiwengerClient:
             },
         )
         return data
+
+    def transfer_player(
+        self,
+        *,
+        player_id: int,
+        manager_id: int,
+        amount: int,
+        transfer_url: Optional[str] = None,
+    ) -> None:
+        """POST an admin transfer: assigns `player_id` to `manager_id` and
+        charges `amount` euros, atomically. `manager_id=0` means free
+        agency (nobody owns the player afterwards).
+
+        Returns 204 with no body — Biwenger applies the change but doesn't
+        echo it back, so the caller must re-read squad/cash state to
+        confirm the transfer took effect.
+        """
+        url = transfer_url or league_transfer_url(self.league_id)
+        payload = {
+            "to": int(manager_id),
+            "amount": int(amount),
+            "player": int(player_id),
+            "operation": "transfer",
+        }
+        logger.info(
+            "Transferring player.",
+            extra={
+                "player_id": player_id,
+                "manager_id": manager_id,
+                "amount": amount,
+            },
+        )
+        # No retry: a transfer has no idempotency key, so retrying after a
+        # lost 204 would assign the player and charge the money twice.
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        logger.info(
+            "Transfer applied.",
+            extra={
+                "player_id": player_id,
+                "manager_id": manager_id,
+                "amount": amount,
+            },
+        )
+
+    def revert_transfer(
+        self,
+        *,
+        player_id: int,
+        amount: int,
+        offer_id: int,
+        transfer_url: Optional[str] = None,
+    ) -> None:
+        """POST an admin transfer revert: returns `player_id` to the pool
+        and refunds `amount` euros (the SAME positive amount as the
+        original transfer), referencing the original transfer's
+        `offer_id`.
+
+        Returns 204 with no body — the caller must re-read squad/cash
+        state to confirm the revert took effect.
+        """
+        url = transfer_url or league_transfer_url(self.league_id)
+        payload = {
+            "to": 0,
+            "amount": int(amount),
+            "player": int(player_id),
+            "offer": int(offer_id),
+            "operation": "revertOffer",
+        }
+        logger.info(
+            "Reverting transfer.",
+            extra={
+                "player_id": player_id,
+                "amount": amount,
+                "offer_id": offer_id,
+            },
+        )
+        # No retry: a revert has no idempotency key, so retrying after a
+        # lost 204 would refund the money and un-assign the player twice.
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        logger.info(
+            "Transfer revert applied.",
+            extra={
+                "player_id": player_id,
+                "amount": amount,
+                "offer_id": offer_id,
+            },
+        )
+
+    def apply_bonus(
+        self,
+        *,
+        amounts: dict[int, int],
+        reason: str,
+        bonus_url: Optional[str] = None,
+    ) -> None:
+        """POST an admin bonus/penalty: applies a signed euro delta per
+        manager. `amounts` must map EVERY league member's user id to a
+        delta — 0 for untouched managers — mirroring what the Biwenger
+        web UI sends. Sign convention is OPPOSITE `transfer_player`:
+        negative deducts, positive credits. `reason` is free text
+        rendered publicly on the league board.
+
+        Returns 204 with no body — the caller must re-read balances to
+        confirm the bonus took effect.
+        """
+        url = bonus_url or league_bonus_url(self.league_id)
+        payload = {
+            "amount": {int(user_id): int(delta) for user_id, delta in amounts.items()},
+            "reason": reason,
+        }
+        logger.info(
+            "Applying league bonus.",
+            extra={"amounts": payload["amount"], "reason": reason},
+        )
+        # No retry: a bonus has no idempotency key, so retrying after a
+        # lost 204 would apply every manager's delta twice.
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        logger.info(
+            "League bonus applied.",
+            extra={"amounts": payload["amount"], "reason": reason},
+        )
 
     def get_received_offers(self, user_offers_url: str = USER_OFFERS_URL) -> list:
         """Return the user's pending received offers (status="waiting").

@@ -34,9 +34,12 @@ Read these files to understand the current season and build the exact diffs need
 - `packages/biwenger_tools/scraper_job/.env` — find `TEMPORADA_ACTUAL`
 - `packages/biwenger_tools/OPERATIONS.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference (§ Cambio de temporada)
 
-Note: `api`, `bot`, and `chucknorris_bot` do **not** use `TEMPORADA_ACTUAL`
-(verified 2026-05-12 — they don't have season-specific data paths). Do not add them to the edit
-list unless a future grep finds new references.
+Note: the `api` service **does** consume `TEMPORADA_ACTUAL` — it backs
+`config.DRAFT_SEASON`, which keys the `draft/{season}/...` Firestore layout.
+It is passed in `deploy.yml`'s `deploy-api` step, so the single `env:` bump
+covers it; no separate edit is needed, but do not assume the api is
+season-agnostic. `bot` and `chucknorris_bot` still have no season-specific
+data paths.
 
 Extract the current season value from `deploy.yml`. If the new season matches the current one, warn the user and stop.
 
@@ -109,6 +112,34 @@ fix). Default behaviour is "write once, never clobber".
 Show the user the Firestore doc preview and the per-user table. If `--write-firestore`
 landed, mention the doc has been written; otherwise tell them to either re-run with
 the flag or paste the JSON in the Firestore console manually.
+
+# Step 2c — Draft parameters for the new season
+
+The draft (`packages/biwenger_tools/api/logic/draft.py`) carries three values
+that change every season. They are code constants, so they drift silently if
+skipped — a wrong order does not fail, it just makes people pick in the wrong
+turn for fifteen rounds.
+
+Ask with `AskUserQuestion`, then edit:
+
+1. **Snake order** — `SEASON_ORDER_NAMES`. Inverse to last season's final
+   standings, with the reglamento's anomalies for new entrants. The names must
+   match `core.constants.LEAGUE_MEMBERS` values (accent/case-insensitive).
+   The `palmares/<ending_season>` doc written in Step 2b holds that final
+   classification — offer its reverse as the suggested order, but have the user
+   confirm it; the anomalies are not derivable from the table.
+2. **Budget overrides** — `BUDGET_OVERRIDES`. The Copa Castolo winner carries a
+   +2M draft bonus into the new season. Keyed **by manager id**, never by draft
+   position.
+3. **League membership** — `core/constants.py`: `LEAGUE_MEMBERS` and
+   `NON_PLAYING_MEMBER_IDS`, if anyone joined, left, or switched between
+   playing and spectating.
+
+Also remind the user that the frozen market CSV is a manual per-season
+artifact: exported on the agreed market-close day and uploaded to
+`gs://biwenger-special-tournaments/draft/<new_season>/market.csv` (see
+`openspec/specs/biwenger_tools/draft/spec.md`). Nothing auto-downloads it —
+a late export carries the wrong prices.
 
 # Step 3 — Create a branch
 

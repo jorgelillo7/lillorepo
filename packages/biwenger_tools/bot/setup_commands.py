@@ -53,6 +53,17 @@ COMMANDS = [
     {"command": "help", "description": "Muestra todos los comandos disponibles"},
 ]
 
+# Registered scoped to the draft supergroup, so the `/` menu there offers these
+# and none of the admin commands above. The scoped list wins over the global one
+# inside that chat.
+DRAFT_COMMANDS = [
+    {"command": "pick", "description": "Ficha a un jugador en tu turno"},
+    {"command": "estado", "description": "Turno actual, presupuestos y plantillas"},
+    {"command": "soy", "description": "Vincula tu cuenta de Telegram con tu equipo"},
+    {"command": "deshacer", "description": "Revierte el último fichaje (admin)"},
+    {"command": "exportar", "description": "Exporta todos los fichajes del draft"},
+]
+
 
 def main():
     token = config.TELEGRAM_BOT_TOKEN
@@ -62,6 +73,17 @@ def main():
 
     print("Configuring commands + resetting menu button to default…")
     configure_bot_commands(token, COMMANDS)
+
+    draft_chat_id = config.TELEGRAM_DRAFT_CHAT_ID
+    if draft_chat_id:
+        print(f"Configuring draft commands scoped to chat {draft_chat_id}…")
+        configure_bot_commands(
+            token,
+            DRAFT_COMMANDS,
+            scope={"type": "chat", "chat_id": draft_chat_id},
+        )
+    else:
+        print("Skipping draft commands (draft_chat_id not set).")
 
     bot_url = os.getenv("BIWENGER_BOT_URL", "").strip()
     if bot_url:

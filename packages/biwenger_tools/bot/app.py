@@ -1,13 +1,15 @@
 """Biwenger bot service — handles Telegram webhook and calls biwenger-api.
 
-Two kinds of updates land on the webhook:
+Two chats are routed, each with its own command set:
 
-1. **Text commands** (`/menu`, `/analizar`, etc.). `/analizar` opens the
-   manager picker; the rest dispatch directly to biwenger-api.
-2. **Inline-keyboard taps** (callback_query). `menu:<action>` rows
-   either dispatch the action (mercado, alinear, …) or — for analizar —
-   answer with the manager picker. `analizar:<id|all>` taps run the
-   teams endpoint with the selected filter.
+1. **Owner private chat** (`config.TELEGRAM_CHAT_ID`) — the full admin
+   surface: text commands (`/menu`, `/analizar`, etc.) and the matching
+   inline-keyboard / reply-keyboard flows.
+2. **Draft supergroup** (`config.TELEGRAM_DRAFT_CHAT_ID`) — only the
+   draft commands (`/soy`, `/pick`, `/estado`, `/deshacer`, `/exportar`)
+   and the `d:` disambiguation callback. The reply-keyboard label router
+   and every admin command/callback prefix are unreachable from this
+   chat. Any other chat is dropped silently (200, no reply).
 
 The bot acknowledges every tap, edits the picker into a "procesando…"
 message, then spawns a daemon thread to call biwenger-api so the webhook
@@ -56,6 +58,15 @@ _HELP_TEXT = (
     "/help — Muestra este mensaje\n\n"
     "<i>Desktop:</i> si no ves el menú visual, pulsa el icono de "
     "teclado junto al input para desplegarlo."
+)
+
+_DRAFT_HELP_TEXT = (
+    "<b>Draft Lloros League</b>\n\n"
+    "/soy &lt;nombre&gt; — Vincula tu cuenta de Telegram con tu equipo\n"
+    "/pick &lt;jugador&gt; — Ficha a un jugador en tu turno\n"
+    "/estado — Turno actual, presupuestos y plantillas\n"
+    "/deshacer — Revierte el último fichaje (admin)\n"
+    "/exportar — Exporta todos los fichajes del draft"
 )
 
 # Map main-menu action key → (api path, http method, query params).
@@ -511,43 +522,10 @@ def _try_dispatch_label(text: str) -> bool:
     return True
 
 
-@app.route("/telegram/webhook", methods=["POST"])
-def webhook():
-    if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
-        logger.warning(
-            "Webhook: invalid secret token",
-            extra={
-                "remote_addr": request.remote_addr,
-                "user_agent": request.headers.get("User-Agent", ""),
-            },
-        )
-        return "", 401
-
-    # Inline-keyboard tap first — callback updates carry no `message.text`.
-    cb = extract_webhook_callback(request)
-    if cb is not None:
-        if cb["chat_id"] != config.TELEGRAM_CHAT_ID:
-            logger.info(
-                "Webhook: ignoring callback from unknown chat",
-                extra={"chat_id": cb["chat_id"]},
-            )
-            return "", 200
-        _handle_callback(cb)
-        return "", 200
-
-    chat_id, text = extract_webhook_update(request)
-    if chat_id != config.TELEGRAM_CHAT_ID:
-        logger.info(
-            "Webhook: ignoring message from unknown chat",
-            extra={"chat_id": chat_id},
-        )
-        return "", 200
-
-    # Persistent-reply-keyboard taps arrive as plain text equal to one of
-    # the menu labels. Try the label router first; fall through to slash
-    # commands if nothing matched.
+def _handle_owner_message(text: str) -> None:
+    """Full admin command set — owner private chat only, unchanged."""
     if _try_dispatch_label(text):
-        return "", 200
+        return
 
     cmd = parse_command(text)
 
@@ -587,6 +565,312 @@ def webhook():
         )
     else:
         logger.info("Webhook: unknown command, ignoring", extra={"text": text[:50]})
+
+
+# --- Draft group -------------------------------------------------------------
+#
+# Reachable only from `config.TELEGRAM_DRAFT_CHAT_ID`. `biwenger-api` owns all
+# draft state and player-name matching; every /draft/* response carries a
+# ready-to-send Spanish `message` this layer just relays. Unlike the admin
+# actions above (where biwenger-api posts to Telegram directly and the bot
+# never reads the response body), the draft flow needs the parsed JSON back
+# — an ambiguous /pick returns candidates to render as buttons, and every
+# command's result text lives in the body, not pushed server-side.
+
+
+def _command_arg(text: str) -> str:
+    """Text after the command token, stripped. `''` if there is none."""
+    parts = text.strip().split(maxsplit=1)
+    return parts[1].strip() if len(parts) > 1 else ""
+
+
+def _call_draft_api(path: str, method: str, payload: dict | None) -> dict:
+    """Call a `/draft/*` endpoint and return its parsed JSON body."""
+    return api_client.call_api_json(config.BIWENGER_API_URL, path, method, payload)
+
+
+def _draft_candidates_keyboard(requesting_user_id: str, candidates: list) -> dict:
+    """Inline keyboard for an ambiguous `/pick` — one button per candidate.
+
+    `callback_data` is `d:<requesting_user_id>:<player_id>` so the tap
+    handler can both resolve the player and verify the tapper is the same
+    user who ran `/pick` — nobody else can confirm someone else's pick.
+    """
+    rows = []
+    for c in candidates:
+        price = c.get("price", 0)
+        label = f"{c.get('name', '?')} ({c.get('team', '?')}) · {price:,} EUR"
+        rows.append(
+            [
+                {
+                    "text": label,
+                    "callback_data": f"d:{requesting_user_id}:{c.get('player_id')}",
+                }
+            ]
+        )
+    return {"inline_keyboard": rows}
+
+
+def _run_draft_action(
+    path: str, method: str, params: dict | None, chat_id: str, label: str
+) -> None:
+    """Call a `/draft/*` endpoint in the background and relay its `message`."""
+
+    def _call() -> None:
+        try:
+            data = _call_draft_api(path, method, params)
+        except Exception as exc:
+            logger.error(
+                "Webhook: draft api call failed",
+                extra={"path": path, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text=(
+                    f"❌ Error al ejecutar <b>{html.escape(label)}</b>: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+            return
+        message = data.get("message", "")
+        if message:
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=message
+            )
+
+    _run_in_background(_call)
+
+
+def _run_draft_pick(user_id: str, query: str, chat_id: str) -> None:
+    """`/pick <jugador>` — resolve `query` against the draft pool.
+
+    A clean match sends the api's confirmation message. An ambiguous match
+    renders the candidates as an inline keyboard (`d:<user_id>:<player_id>`)
+    instead — the user taps the right one to confirm.
+    """
+
+    def _call() -> None:
+        try:
+            data = _call_draft_api(
+                "/draft/pick",
+                "POST",
+                {"telegram_user_id": user_id, "query": query},
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: draft pick failed",
+                extra={"user_id": user_id, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text=(
+                    f"❌ Error al ejecutar <b>Pick</b>: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+            return
+
+        message = data.get("message", "")
+        if data.get("status") == "ambiguous":
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text=message,
+                reply_markup=_draft_candidates_keyboard(
+                    user_id, data.get("candidates", [])
+                ),
+            )
+        elif message:
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=message
+            )
+
+    _run_in_background(_call)
+
+
+def _handle_draft_message(text: str, user_id: str) -> None:
+    """Route a draft-group message straight to `parse_command`.
+
+    Deliberately skips `_try_dispatch_label` — that router fires on plain
+    text matching an admin menu label, which ordinary group chatter could
+    collide with. Empty `text` (Telegram service messages, e.g. someone
+    added to the group) falls through every branch below and is dropped.
+    """
+    cmd = parse_command(text)
+    arg = _command_arg(text)
+    chat_id = config.TELEGRAM_DRAFT_CHAT_ID
+
+    if cmd == "/soy":
+        _run_draft_action(
+            "/draft/register",
+            "POST",
+            {"telegram_user_id": user_id, "name": arg},
+            chat_id,
+            "Soy",
+        )
+    elif cmd == "/pick":
+        _run_draft_pick(user_id, arg, chat_id)
+    elif cmd == "/estado":
+        _run_draft_action("/draft/state", "GET", None, chat_id, "Estado")
+    elif cmd == "/deshacer":
+        _run_draft_action(
+            "/draft/undo", "POST", {"telegram_user_id": user_id}, chat_id, "Deshacer"
+        )
+    elif cmd == "/exportar":
+        _run_draft_action("/draft/export", "GET", None, chat_id, "Exportar")
+    elif cmd == "/help":
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=_DRAFT_HELP_TEXT
+        )
+    elif cmd:
+        logger.info(
+            "Webhook: unknown draft command, ignoring", extra={"text": text[:50]}
+        )
+
+
+def _callback_from_user_id() -> str:
+    """The tapping user's Telegram id, read off the raw update body.
+
+    `extract_webhook_callback` doesn't carry `callback_query.from.id` —
+    nothing else in the admin flow needs it. Draft-pick confirmation does,
+    to check the tapper is the same user who ran `/pick`.
+    """
+    body = request.get_json(silent=True) or {}
+    cq = body.get("callback_query") or {}
+    return str(cq.get("from", {}).get("id") or "")
+
+
+def _handle_draft_callback(cb: dict) -> None:
+    """Dispatch a draft-group callback_query — only `d:<user_id>:<player_id>`
+    (pick disambiguation) is allowed here. Any other prefix (`analizar:`,
+    `e:`, `o:`) is refused, even though the group is never shown those
+    buttons — defense in depth against a forged callback_data."""
+    cb_data = cb.get("data", "")
+    prefix, _, value = cb_data.partition(":")
+    cb_id = cb["id"]
+
+    if prefix != "d":
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+        logger.info(
+            "Webhook: refusing non-draft callback prefix from draft chat",
+            extra={"prefix": prefix},
+        )
+        return
+
+    parts = value.split(":", 1)
+    if len(parts) != 2:
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+        logger.info("Webhook: malformed draft callback", extra={"data": cb_data})
+        return
+    requesting_user_id, player_id_str = parts
+
+    if _callback_from_user_id() != requesting_user_id:
+        answer_callback_query(
+            config.TELEGRAM_BOT_TOKEN,
+            cb_id,
+            text="❌ Solo quien pidió el fichaje puede confirmarlo.",
+        )
+        return
+
+    try:
+        player_id = int(player_id_str)
+    except ValueError:
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+        logger.info(
+            "Webhook: non-int player_id in draft callback", extra={"data": cb_data}
+        )
+        return
+
+    answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+    chat_id = cb["chat_id"]
+    edit_into = (chat_id, cb["message_id"]) if cb.get("message_id") else None
+    if edit_into is not None:
+        edit_message_reply_markup(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=edit_into[1],
+            reply_markup={"inline_keyboard": []},
+        )
+
+    def _call() -> None:
+        try:
+            data = _call_draft_api(
+                "/draft/pick/confirm",
+                "POST",
+                {"telegram_user_id": requesting_user_id, "player_id": player_id},
+            )
+        except Exception as exc:
+            logger.error(
+                "Webhook: draft pick confirm failed",
+                extra={"player_id": player_id, "error": str(exc)},
+            )
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text=(
+                    f"❌ Error al confirmar el fichaje: "
+                    f"<code>{html.escape(str(exc))}</code>"
+                ),
+            )
+            return
+        message = data.get("message", "") or "Fichaje confirmado."
+        if edit_into is not None:
+            edit_message_text(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                message_id=edit_into[1],
+                text=message,
+            )
+        else:
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=message
+            )
+
+    _run_in_background(_call)
+
+
+@app.route("/telegram/webhook", methods=["POST"])
+def webhook():
+    if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
+        logger.warning(
+            "Webhook: invalid secret token",
+            extra={
+                "remote_addr": request.remote_addr,
+                "user_agent": request.headers.get("User-Agent", ""),
+            },
+        )
+        return "", 401
+
+    # Inline-keyboard tap first — callback updates carry no `message.text`.
+    cb = extract_webhook_callback(request)
+    if cb is not None:
+        if cb["chat_id"] == config.TELEGRAM_CHAT_ID:
+            _handle_callback(cb)
+        elif (
+            config.TELEGRAM_DRAFT_CHAT_ID
+            and cb["chat_id"] == config.TELEGRAM_DRAFT_CHAT_ID
+        ):
+            _handle_draft_callback(cb)
+        else:
+            logger.info(
+                "Webhook: ignoring callback from unknown chat",
+                extra={"chat_id": cb["chat_id"]},
+            )
+        return "", 200
+
+    chat_id, text, user_id = extract_webhook_update(request)
+
+    if chat_id == config.TELEGRAM_CHAT_ID:
+        _handle_owner_message(text)
+    elif config.TELEGRAM_DRAFT_CHAT_ID and chat_id == config.TELEGRAM_DRAFT_CHAT_ID:
+        _handle_draft_message(text, user_id)
+    else:
+        logger.info(
+            "Webhook: ignoring message from unknown chat",
+            extra={"chat_id": chat_id},
+        )
 
     return "", 200
 
