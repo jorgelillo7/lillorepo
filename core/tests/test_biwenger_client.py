@@ -479,3 +479,118 @@ def test_get_report_rows_empty_payload(biwenger_client_authenticated):
         m.get(url, json={"status": 200, "data": {}}, status_code=200)
         rows = biwenger_client_authenticated.get_report_rows(url)
     assert rows == []
+
+
+# --- transfer_player / revert_transfer / apply_bonus ---
+
+TEST_TRANSFER_URL = "https://biwenger.as.com/api/v2/league/123456/transfer"
+TEST_BONUS_URL = "https://biwenger.as.com/api/v2/league/123456/bonus"
+
+
+def test_transfer_player_posts_expected_body_and_url(biwenger_client_authenticated):
+    """Body shape must be {to, amount, player, operation: "transfer"};
+    `to=0` is the free-agency marker so it must round-trip untouched."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=204)
+        result = client.transfer_player(
+            player_id=20102, manager_id=0, amount=10_000_000
+        )
+
+    assert result is None
+    assert m.last_request.url == TEST_TRANSFER_URL
+    assert m.last_request.json() == {
+        "to": 0,
+        "amount": 10_000_000,
+        "player": 20102,
+        "operation": "transfer",
+    }
+
+
+def test_transfer_player_coerces_numeric_args_to_int(biwenger_client_authenticated):
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=204)
+        client.transfer_player(
+            player_id="20102",  # type: ignore[arg-type]
+            manager_id="7728610",  # type: ignore[arg-type]
+            amount=10_000_000.0,  # type: ignore[arg-type]
+        )
+    body = m.last_request.json()
+    assert body == {
+        "to": 7728610,
+        "amount": 10_000_000,
+        "player": 20102,
+        "operation": "transfer",
+    }
+
+
+def test_transfer_player_not_retried_on_failure(biwenger_client_authenticated):
+    """A 500 must NOT be retried — a retried transfer would double-assign
+    the player and double-charge the manager."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=500, text="boom")
+        with pytest.raises(requests.HTTPError):
+            client.transfer_player(player_id=1, manager_id=2, amount=1_000_000)
+    assert m.call_count == 1
+
+
+def test_revert_transfer_posts_expected_body(biwenger_client_authenticated):
+    """Body shape must be {to: 0, amount, player, offer, operation:
+    "revertOffer"} — `amount` is the SAME positive value as the original
+    transfer, and `offer` references it."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=204)
+        result = client.revert_transfer(
+            player_id=20102, amount=10_000_000, offer_id=555
+        )
+
+    assert result is None
+    assert m.last_request.json() == {
+        "to": 0,
+        "amount": 10_000_000,
+        "player": 20102,
+        "offer": 555,
+        "operation": "revertOffer",
+    }
+
+
+def test_revert_transfer_not_retried_on_failure(biwenger_client_authenticated):
+    """Same non-idempotency risk as `transfer_player`: no retry on failure."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=503, text="unavailable")
+        with pytest.raises(requests.HTTPError):
+            client.revert_transfer(player_id=1, amount=1_000_000, offer_id=1)
+    assert m.call_count == 1
+
+
+def test_apply_bonus_posts_expected_body(biwenger_client_authenticated):
+    """Body shape must be {amount: {user_id: signed_delta, ...}, reason}.
+    The full league member map is sent, 0 for untouched managers."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_BONUS_URL, status_code=204)
+        result = client.apply_bonus(
+            amounts={1372802: -5_000_000, 7728610: 0, 12449616: 5_000_000},
+            reason="Penalización por alineación indebida",
+        )
+
+    assert result is None
+    assert m.last_request.json() == {
+        "amount": {"1372802": -5_000_000, "7728610": 0, "12449616": 5_000_000},
+        "reason": "Penalización por alineación indebida",
+    }
+
+
+def test_apply_bonus_not_retried_on_failure(biwenger_client_authenticated):
+    """A failing bonus POST must NOT be retried — a retry would apply
+    every manager's delta twice."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_BONUS_URL, status_code=500, text="boom")
+        with pytest.raises(requests.HTTPError):
+            client.apply_bonus(amounts={1: -1_000_000}, reason="test")
+    assert m.call_count == 1

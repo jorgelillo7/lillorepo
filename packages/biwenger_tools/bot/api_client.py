@@ -60,6 +60,41 @@ def call_api(
     )
 
 
+def call_api_json(
+    base_url: str,
+    path: str,
+    method: str = "POST",
+    payload: dict | None = None,
+    timeout: int = 60,
+) -> dict:
+    """Call biwenger-api and return its parsed JSON body. Raises on non-2xx.
+
+    Sibling of `call_api`, which discards the response. The draft endpoints
+    answer with a ready-to-send message plus a status the caller branches on,
+    so the body cannot be thrown away. `payload` travels as a JSON body, or as
+    the query string when the method is GET.
+    """
+    url = base_url.rstrip("/") + path
+    token = _fetch_id_token(base_url)
+    resp = http_requests.request(
+        method,
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        params=payload if method == "GET" else None,
+        json=payload if method != "GET" else None,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    logger.info(
+        "biwenger-api json call ok.",
+        extra={"path": path, "method": method, "status": resp.status_code},
+    )
+    return resp.json()
+
+
 def list_managers(base_url: str, timeout: int = 30) -> list[dict] | None:
     """Fetch the league managers — used by the bot's /analizar picker.
 

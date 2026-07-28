@@ -4,8 +4,12 @@ import requests_mock
 
 from core.sdk.telegram import (
     TELEGRAM_SEND_MESSAGE_URL,
+    TELEGRAM_SET_COMMANDS_URL,
+    TELEGRAM_SET_MENU_BUTTON_URL,
+    configure_bot_commands,
     extract_webhook_update,
     parse_command,
+    register_bot_commands,
     send_telegram_message,
     validate_webhook_secret,
 )
@@ -117,27 +121,110 @@ def _mock_json_request(body: dict) -> MagicMock:
 
 
 def test_extract_webhook_update_normal():
-    req = _mock_json_request({"message": {"chat": {"id": 42}, "text": "/help"}})
-    chat_id, text = extract_webhook_update(req)
+    req = _mock_json_request(
+        {
+            "message": {
+                "chat": {"id": 42},
+                "text": "/help",
+                "from": {"id": 999},
+            }
+        }
+    )
+    chat_id, text, user_id = extract_webhook_update(req)
     assert chat_id == "42"
     assert text == "/help"
+    assert user_id == "999"
 
 
 def test_extract_webhook_update_empty_body():
     req = MagicMock()
     req.get_json = MagicMock(return_value=None)
-    chat_id, text = extract_webhook_update(req)
+    chat_id, text, user_id = extract_webhook_update(req)
     assert chat_id == ""
     assert text == ""
+    assert user_id == ""
 
 
 def test_extract_webhook_update_strips_text_whitespace():
     req = _mock_json_request({"message": {"chat": {"id": 1}, "text": "  /random  "}})
-    _, text = extract_webhook_update(req)
+    _, text, _user_id = extract_webhook_update(req)
     assert text == "/random"
 
 
 def test_extract_webhook_update_no_text_key():
     req = _mock_json_request({"message": {"chat": {"id": 1}}})
-    _, text = extract_webhook_update(req)
+    _, text, _user_id = extract_webhook_update(req)
     assert text == ""
+
+
+def test_extract_webhook_update_no_from_key():
+    """Telegram service messages (e.g. a user added to the group) carry a
+    chat id but no `from`/`text` — must not raise."""
+    req = _mock_json_request({"message": {"chat": {"id": 1}}})
+    chat_id, text, user_id = extract_webhook_update(req)
+    assert chat_id == "1"
+    assert text == ""
+    assert user_id == ""
+
+
+# --- register_bot_commands / configure_bot_commands scope ---
+
+TEST_COMMANDS = [{"command": "help", "description": "Show help"}]
+
+
+def test_register_bot_commands_without_scope_omits_scope_field():
+    with requests_mock.Mocker() as m:
+        m.post(
+            TELEGRAM_SET_COMMANDS_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        register_bot_commands(TEST_BOT_TOKEN, TEST_COMMANDS)
+        body = m.last_request.json()
+        assert "scope" not in body
+
+
+def test_register_bot_commands_with_scope_sends_it():
+    scope = {"type": "chat", "chat_id": TEST_CHAT_ID}
+    with requests_mock.Mocker() as m:
+        m.post(
+            TELEGRAM_SET_COMMANDS_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        register_bot_commands(TEST_BOT_TOKEN, TEST_COMMANDS, scope=scope)
+        body = m.last_request.json()
+        assert body["scope"] == scope
+
+
+def test_configure_bot_commands_without_scope_resets_menu_button():
+    with requests_mock.Mocker() as m:
+        m.post(
+            TELEGRAM_SET_COMMANDS_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        m.post(
+            TELEGRAM_SET_MENU_BUTTON_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        configure_bot_commands(TEST_BOT_TOKEN, TEST_COMMANDS)
+        menu_calls = [
+            r
+            for r in m.request_history
+            if r.url == TELEGRAM_SET_MENU_BUTTON_URL.format(token=TEST_BOT_TOKEN)
+        ]
+        assert len(menu_calls) == 1
+
+
+def test_configure_bot_commands_with_scope_skips_menu_button_reset():
+    scope = {"type": "chat", "chat_id": TEST_CHAT_ID}
+    with requests_mock.Mocker() as m:
+        m.post(
+            TELEGRAM_SET_COMMANDS_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        m.post(
+            TELEGRAM_SET_MENU_BUTTON_URL.format(token=TEST_BOT_TOKEN), json={"ok": True}
+        )
+        configure_bot_commands(TEST_BOT_TOKEN, TEST_COMMANDS, scope=scope)
+        body = m.request_history[0].json()
+        assert body["scope"] == scope
+        menu_calls = [
+            r
+            for r in m.request_history
+            if r.url == TELEGRAM_SET_MENU_BUTTON_URL.format(token=TEST_BOT_TOKEN)
+        ]
+        assert len(menu_calls) == 0

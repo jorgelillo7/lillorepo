@@ -9,6 +9,7 @@ from packages.biwenger_tools.bot.app import app
 
 _VALID_SECRET = "test-secret"
 _VALID_CHAT = "111222333"
+_VALID_DRAFT_CHAT = "444555666"
 _API_URL = "https://biwenger-api.example.run.app"
 
 
@@ -17,6 +18,7 @@ def patch_config():
     """Set known config values for every test."""
     cfg.TELEGRAM_WEBHOOK_SECRET = _VALID_SECRET
     cfg.TELEGRAM_CHAT_ID = _VALID_CHAT
+    cfg.TELEGRAM_DRAFT_CHAT_ID = _VALID_DRAFT_CHAT
     cfg.TELEGRAM_BOT_TOKEN = "test-token"
     cfg.BIWENGER_API_URL = _API_URL
     yield
@@ -45,16 +47,36 @@ def _update(chat_id, text):
     return {"update_id": 1, "message": {"chat": {"id": chat_id}, "text": text}}
 
 
-def _callback_update(chat_id, data, message_id=42, query_id="cb-1"):
-    """Webhook body for an inline-keyboard tap."""
+def _group_update(chat_id, text, user_id):
+    """Webhook body for a group text message — carries `from` (sender)."""
     return {
-        "update_id": 2,
-        "callback_query": {
-            "id": query_id,
-            "data": data,
-            "message": {"chat": {"id": chat_id}, "message_id": message_id},
+        "update_id": 1,
+        "message": {
+            "chat": {"id": chat_id},
+            "text": text,
+            "from": {"id": user_id},
         },
     }
+
+
+def _service_message_update(chat_id):
+    """Webhook body for a Telegram service message — no `text` at all."""
+    return {
+        "update_id": 1,
+        "message": {"chat": {"id": chat_id}, "new_chat_member": {"id": 999}},
+    }
+
+
+def _callback_update(chat_id, data, message_id=42, query_id="cb-1", from_user_id=None):
+    """Webhook body for an inline-keyboard tap."""
+    callback_query = {
+        "id": query_id,
+        "data": data,
+        "message": {"chat": {"id": chat_id}, "message_id": message_id},
+    }
+    if from_user_id is not None:
+        callback_query["from"] = {"id": from_user_id}
+    return {"update_id": 2, "callback_query": callback_query}
 
 
 def _post(client, body, secret=_VALID_SECRET):
@@ -569,3 +591,205 @@ def test_empty_body_does_not_crash(client):
         headers={"X-Telegram-Bot-Api-Secret-Token": _VALID_SECRET},
     )
     assert resp.status_code == 200
+
+
+# --- Draft group: routing and command surface -----------------------------
+
+
+@pytest.mark.parametrize(
+    "command,path,method,params",
+    [
+        (
+            "/soy Jorge",
+            "/draft/register",
+            "POST",
+            {"telegram_user_id": "777", "name": "Jorge"},
+        ),
+        ("/estado", "/draft/state", "GET", None),
+        (
+            "/deshacer",
+            "/draft/undo",
+            "POST",
+            {"telegram_user_id": "777"},
+        ),
+        ("/exportar", "/draft/export", "GET", None),
+    ],
+)
+def test_draft_command_from_group_reaches_right_api_path(
+    client, command, path, method, params
+):
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"message": "ok"},
+    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, command, "777"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(path, method, params)
+
+
+def test_pick_command_calls_draft_pick_with_query(client):
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"status": "ok", "message": "Fichado: Rodrygo"},
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick Rodrygo", "777"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        "/draft/pick", "POST", {"telegram_user_id": "777", "query": "Rodrygo"}
+    )
+    assert "Fichado: Rodrygo" in mock_send.call_args.kwargs.get("text", "")
+
+
+def test_pick_ambiguous_renders_candidate_keyboard(client):
+    """An ambiguous /pick renders one button per candidate, callback_data
+    `d:<requesting_user_id>:<player_id>` — so a later tap both resolves the
+    player and can verify the tapper is the same user who ran /pick."""
+    candidates = [
+        {"player_id": 1, "name": "Rodrygo", "team": "Real Madrid", "price": 20_000_000},
+        {"player_id": 2, "name": "Rodri", "team": "Man City", "price": 15_000_000},
+    ]
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={
+            "status": "ambiguous",
+            "candidates": candidates,
+            "message": "¿Cuál de estos?",
+        },
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick rodri", "777"))
+    assert resp.status_code == 200
+    markup = mock_send.call_args.kwargs.get("reply_markup")
+    assert markup is not None
+    rows = markup["inline_keyboard"]
+    assert len(rows) == 2
+    assert rows[0][0]["callback_data"] == "d:777:1"
+    assert rows[1][0]["callback_data"] == "d:777:2"
+
+
+def test_admin_command_from_draft_group_is_refused(client):
+    """None of the owner-only commands are reachable from the draft group."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app._call_draft_api"
+    ) as mock_draft_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/emergencia", "777"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    mock_draft_call.assert_not_called()
+    mock_send.assert_not_called()
+
+
+def test_group_message_does_not_consult_label_dispatch(client):
+    """Plain chatter in the group that happens to match an admin menu label
+    must not fire the matching admin action — the group branch must skip
+    `_try_dispatch_label` entirely."""
+    with patch(
+        "packages.biwenger_tools.bot.app._try_dispatch_label"
+    ) as mock_label, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "🚨 Emergencia", "777"))
+    assert resp.status_code == 200
+    mock_label.assert_not_called()
+    mock_call.assert_not_called()
+
+
+def test_draft_command_from_unknown_chat_is_dropped(client):
+    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call:
+        resp = _post(client, _group_update("000111222", "/estado", "777"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+
+
+def test_service_message_with_empty_text_is_ignored(client):
+    """Telegram service messages (e.g. someone added to the group) carry a
+    chat id but no `text` at all — must be dropped silently."""
+    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _service_message_update(_VALID_DRAFT_CHAT))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    mock_send.assert_not_called()
+
+
+# --- Draft group: callback routing (d: prefix + confirm) -------------------
+
+
+@pytest.mark.parametrize("data", ["e:n", "o:a:123", "analizar:1"])
+def test_admin_callback_prefix_from_draft_group_is_refused(client, data):
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ) as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip:
+        resp = _post(client, _callback_update(_VALID_DRAFT_CHAT, data))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    mock_edit.assert_not_called()
+    mock_strip.assert_not_called()
+    mock_ack.assert_called_once()
+
+
+def test_draft_pick_confirm_rejects_different_user(client):
+    """Only the user who ran /pick may confirm the ambiguous candidate —
+    a tap from anyone else must not call the api nor strip the keyboard."""
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
+        "packages.biwenger_tools.bot.app._call_draft_api"
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip:
+        resp = _post(
+            client,
+            _callback_update(_VALID_DRAFT_CHAT, "d:777:1234", from_user_id="888"),
+        )
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    mock_strip.assert_not_called()
+    toast = mock_ack.call_args.kwargs.get("text", "")
+    assert "Solo quien pidió" in toast
+
+
+def test_draft_pick_confirm_succeeds_for_requesting_user(client):
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip, patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ) as mock_edit, patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"message": "Fichaje confirmado: Rodrygo"},
+    ) as mock_call:
+        resp = _post(
+            client,
+            _callback_update(_VALID_DRAFT_CHAT, "d:777:1234", from_user_id="777"),
+        )
+    assert resp.status_code == 200
+    mock_strip.assert_called_once()
+    mock_call.assert_called_once_with(
+        "/draft/pick/confirm",
+        "POST",
+        {"telegram_user_id": "777", "player_id": 1234},
+    )
+    text = mock_edit.call_args.kwargs.get("text", "")
+    assert "Rodrygo" in text
+
+
+def test_draft_callback_from_unknown_chat_is_dropped(client):
+    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call:
+        resp = _post(
+            client,
+            _callback_update("000111222", "d:777:1234", from_user_id="777"),
+        )
+    assert resp.status_code == 200
+    mock_call.assert_not_called()

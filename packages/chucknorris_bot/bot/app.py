@@ -99,7 +99,7 @@ def webhook():
         )
         return "", 401
 
-    chat_id, text = extract_webhook_update(request)
+    chat_id, text, _user_id = extract_webhook_update(request)
     if not chat_id or not text:
         return "", 200
 

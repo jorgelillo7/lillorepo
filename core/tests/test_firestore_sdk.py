@@ -90,6 +90,22 @@ def test_query_filter_and_order(collection):
     assert [d["n"] for d in only_x] == [1, 3]
 
 
+def test_run_transaction_reads_and_writes_atomically(collection):
+    from core.sdk import firestore
+
+    firestore.set_document(collection, "d", {"n": 1})
+
+    def increment(transaction):
+        ref = firestore.get_client().collection(collection).document("d")
+        snapshot = ref.get(transaction=transaction)
+        transaction.update(ref, {"n": snapshot.to_dict()["n"] + 1})
+        return snapshot.to_dict()["n"]
+
+    previous = firestore.run_transaction(increment)
+    assert previous == 1
+    assert firestore.get_document(collection, "d") == {"n": 2}
+
+
 def test_delete_collection(collection):
     from core.sdk import firestore
 

@@ -505,6 +505,81 @@ paths:
           description: Board page.
       x-verified-at: "2026-05-25"
 
+  /league/{leagueID}/transfer:
+    post:
+      tags: [league]
+      summary: Admin transfer — assign a player to a manager and charge/refund euros.
+      description: |
+        League-admin-only endpoint (captured live via Biwenger web
+        DevTools). Two operations share this path:
+
+        - **`transfer`** — assigns `player` to `to` and charges `amount`
+          euros, atomically. `to: 0` means free agency (nobody owns the
+          player afterwards).
+        - **`revertOffer`** — undoes a previous `transfer`: returns the
+          player to the pool and refunds `amount` (the SAME positive
+          value as the original transfer). Always sends `to: 0` plus the
+          original transfer's `offer` id.
+
+        `amount` is in euros (NOT cents) — same convention as `POST
+        /offers`. Both operations return `204 No Content` with an EMPTY
+        body: there is nothing to echo back, so the caller must re-read
+        squad/cash state to confirm the change took effect.
+
+        ⚠️ Non-idempotent: there is no idempotency key, so retrying a
+        failed call blindly double-assigns the player and double-charges
+        or double-refunds the money.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TransferBody'
+                - $ref: '#/components/schemas/RevertTransferBody'
+      responses:
+        "204":
+          description: Transfer applied. No response body.
+      x-verified-at: "2026-07-28"
+
+  /league/{leagueID}/bonus:
+    post:
+      tags: [league]
+      summary: Admin bonus/penalty — apply a signed euro delta per manager.
+      description: |
+        League-admin-only endpoint. `amount` is a map of EVERY league
+        member's user id to a signed euro delta; the web UI always sends
+        the full map, with `0` for managers left untouched. Sign
+        convention is OPPOSITE `transfer`/`POST /offers`: here NEGATIVE
+        deducts and POSITIVE credits. `reason` is free text rendered
+        publicly on the league board — a useful audit trail.
+
+        Returns `204 No Content` with an EMPTY body; re-read balances to
+        confirm.
+
+        ⚠️ Non-idempotent: there is no idempotency key, so retrying a
+        failed call blindly applies every manager's delta twice.
+      parameters:
+        - name: leagueID
+          in: path
+          required: true
+          schema: {type: integer}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusBody'
+      responses:
+        "204":
+          description: Bonus applied. No response body.
+      x-verified-at: "2026-07-28"
+
   /league/{leagueID}/report/rounds:
     get:
       tags: [league]
@@ -784,6 +859,73 @@ components:
           items: {type: integer}
           minItems: 1
           maxItems: 1
+
+    TransferBody:
+      type: object
+      description: Body shape for an admin transfer via POST /league/{leagueID}/transfer.
+      required: [to, amount, player, operation]
+      properties:
+        to:
+          type: integer
+          description: Target manager's user id. 0 means free agency (nobody).
+          example: 7728610
+        amount:
+          type: integer
+          description: Euros charged to `to` (NOT cents).
+          example: 10000000
+        player:
+          type: integer
+          description: Biwenger player id being transferred.
+          example: 20102
+        operation:
+          type: string
+          enum: [transfer]
+
+    RevertTransferBody:
+      type: object
+      description: |
+        Body shape to revert a previous admin transfer via POST
+        /league/{leagueID}/transfer.
+      required: [to, amount, player, offer, operation]
+      properties:
+        to:
+          type: integer
+          description: Always 0 — the player returns to the pool.
+          enum: [0]
+        amount:
+          type: integer
+          description: SAME positive euro amount as the original transfer (refunded).
+          example: 10000000
+        player:
+          type: integer
+          description: Biwenger player id being returned to the pool.
+          example: 20102
+        offer:
+          type: integer
+          description: Offer id of the original transfer being reverted.
+          example: 555
+        operation:
+          type: string
+          enum: [revertOffer]
+
+    BonusBody:
+      type: object
+      description: Body shape for an admin bonus/penalty via POST /league/{leagueID}/bonus.
+      required: [amount, reason]
+      properties:
+        amount:
+          type: object
+          description: |
+            Map of every league member's user id (as a string key) to a
+            signed euro delta. Negative deducts, positive credits — the
+            OPPOSITE sign convention of `TransferBody.amount`. Untouched
+            managers still get an entry with value 0.
+          additionalProperties: {type: integer}
+          example: {"1372802": -5000000, "7728610": 0, "12449616": 5000000}
+        reason:
+          type: string
+          description: Free text shown publicly on the league board.
+          example: "Penalización por alineación indebida"
 
     CompetitionPlayer:
       type: object

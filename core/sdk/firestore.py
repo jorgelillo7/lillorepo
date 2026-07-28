@@ -137,6 +137,23 @@ def batch_write(collection_path: str, docs: Iterable[tuple[str, dict]]) -> int:
     return written
 
 
+def run_transaction(fn):
+    """Run ``fn(transaction)`` inside a Firestore transaction and return its result.
+
+    Firestore retries the transaction (re-running `fn`) on write conflicts,
+    so `fn` must be idempotent and side-effect-free beyond the transaction
+    itself — use this for atomic read-modify-write, e.g. guarding against
+    two picks racing for the same document.
+    """
+    transaction = get_client().transaction()
+
+    @firestore.transactional
+    def _run(transaction):
+        return fn(transaction)
+
+    return _run(transaction)
+
+
 def delete_collection(collection_path: str, page_size: int = _BATCH_LIMIT) -> int:
     """Delete every document in a collection. Returns the number deleted.
 

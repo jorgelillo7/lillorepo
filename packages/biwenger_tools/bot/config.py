@@ -21,6 +21,13 @@ TELEGRAM_WEBHOOK_SECRET = (
     _TELEGRAM_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 ).strip()
 
+# Supergroup where the annual draft runs. Distinct from TELEGRAM_CHAT_ID: that
+# one is the owner's private chat and reaches every admin command, while this
+# group only ever routes the draft commands. Empty disables the group entirely.
+TELEGRAM_DRAFT_CHAT_ID = (
+    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID", "")
+).strip()
+
 # Base URL of the biwenger-api Cloud Run service. The bot calls it for every
 # command (and uses the same URL as the audience for the ID token).
 BIWENGER_API_URL = os.getenv("BIWENGER_API_URL", "")

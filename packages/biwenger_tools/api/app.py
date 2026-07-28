@@ -16,6 +16,7 @@ from packages.biwenger_tools.api.logic import (
     actions,
     auto_bid,
     digests,
+    draft_service,
     emergency,
     offers,
     recommendations,
@@ -263,6 +264,197 @@ def offers_decide():
         "offers.decide",
         lambda: offers.run_offer_decision(offer_id=offer_id, decision=decision),
     )
+
+
+# --- Draft endpoints ---------------------------------------------------
+
+# These do not use `_run_action` — the response shapes are the bot's
+# contract (every reply carries `message`, a ready-to-send Spanish
+# string) and differ per route, unlike the uniform `{"status": "ok", ...}`
+# envelope the rest of the API uses.
+
+
+@app.route("/draft/register", methods=["POST"])
+def draft_register():
+    """Bind a Telegram user to a draft manager — bot's registration step."""
+    body = request.get_json(silent=True) or {}
+    telegram_user_id = str(body.get("telegram_user_id") or "").strip()
+    name = str(body.get("name") or "").strip()
+    if not telegram_user_id or not name:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "manager_id": None,
+                    "manager_name": "",
+                    "message": "Faltan telegram_user_id o name.",
+                }
+            ),
+            400,
+        )
+    try:
+        return jsonify(draft_service.register_manager(telegram_user_id, name)), 200
+    except Exception as exc:
+        logger.exception("draft.register failed.")
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "manager_id": None,
+                    "manager_name": "",
+                    "message": f"Error interno registrando al manager: {exc}",
+                }
+            ),
+            500,
+        )
+
+
+@app.route("/draft/state", methods=["GET"])
+def draft_state():
+    """Whose turn it is, plus budgets/spend/squad size per manager."""
+    try:
+        return jsonify(draft_service.get_state()), 200
+    except Exception as exc:
+        logger.exception("draft.state failed.")
+        return (
+            jsonify(
+                {
+                    "completed": False,
+                    "pick_number": 0,
+                    "round": 0,
+                    "position": 0,
+                    "manager_id": None,
+                    "manager_name": "",
+                    "budgets": {},
+                    "spent": {},
+                    "squad_counts": {},
+                    "message": f"Error interno leyendo el estado del draft: {exc}",
+                }
+            ),
+            500,
+        )
+
+
+@app.route("/draft/pick", methods=["POST"])
+def draft_pick():
+    """Resolve free-text `query` against the frozen market and apply the pick."""
+    body = request.get_json(silent=True) or {}
+    telegram_user_id = str(body.get("telegram_user_id") or "").strip()
+    query = str(body.get("query") or "").strip()
+    if not telegram_user_id or not query:
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "error": "BAD_REQUEST",
+                    "message": "Faltan telegram_user_id o query.",
+                }
+            ),
+            400,
+        )
+    try:
+        return jsonify(draft_service.submit_pick(telegram_user_id, query)), 200
+    except Exception as exc:
+        logger.exception("draft.pick failed.")
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "error": "INTERNAL_ERROR",
+                    "message": f"Error interno haciendo el fichaje: {exc}",
+                }
+            ),
+            500,
+        )
+
+
+@app.route("/draft/pick/confirm", methods=["POST"])
+def draft_pick_confirm():
+    """Apply a pick the user already disambiguated (tapped a candidate)."""
+    body = request.get_json(silent=True) or {}
+    telegram_user_id = str(body.get("telegram_user_id") or "").strip()
+    player_id_raw = body.get("player_id")
+    if not telegram_user_id or player_id_raw is None:
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "error": "BAD_REQUEST",
+                    "message": "Faltan telegram_user_id o player_id.",
+                }
+            ),
+            400,
+        )
+    try:
+        player_id = int(player_id_raw)
+    except (TypeError, ValueError):
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "error": "BAD_REQUEST",
+                    "message": "player_id debe ser un entero.",
+                }
+            ),
+            400,
+        )
+    try:
+        return jsonify(draft_service.confirm_pick(telegram_user_id, player_id)), 200
+    except Exception as exc:
+        logger.exception("draft.pick.confirm failed.")
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "error": "INTERNAL_ERROR",
+                    "message": f"Error interno confirmando el fichaje: {exc}",
+                }
+            ),
+            500,
+        )
+
+
+@app.route("/draft/undo", methods=["POST"])
+def draft_undo():
+    """Revert the most recent pick — restricted to the draft admin."""
+    body = request.get_json(silent=True) or {}
+    telegram_user_id = str(body.get("telegram_user_id") or "").strip()
+    if not telegram_user_id:
+        return (
+            jsonify({"status": "rejected", "message": "Falta telegram_user_id."}),
+            400,
+        )
+    try:
+        return jsonify(draft_service.undo_last_pick(telegram_user_id)), 200
+    except Exception as exc:
+        logger.exception("draft.undo failed.")
+        return (
+            jsonify(
+                {
+                    "status": "rejected",
+                    "message": f"Error interno deshaciendo el fichaje: {exc}",
+                }
+            ),
+            500,
+        )
+
+
+@app.route("/draft/export", methods=["GET"])
+def draft_export():
+    """Every applied pick, in draft order — the season's audit trail."""
+    try:
+        return jsonify(draft_service.export_picks()), 200
+    except Exception as exc:
+        logger.exception("draft.export failed.")
+        return (
+            jsonify(
+                {
+                    "message": f"Error interno exportando el draft: {exc}",
+                    "picks": [],
+                }
+            ),
+            500,
+        )
 
 
 # --- Scheduler-triggered endpoints -----------------------------------------
