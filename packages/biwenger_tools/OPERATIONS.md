@@ -133,10 +133,11 @@ single source of *what must be true*.
 
   * **🏆 Special-tournament winner images (Palmarés "Copas especiales"):**
 
-    Public bucket `gs://biwenger-special-tournaments` (project `biwenger-tools`,
-    us-central1, `allUsers:objectViewer`). The `/palmares` page builds an
-    `<img>` per known cup from `{slug}/{temporada}` and drops the ones that
-    404, so **adding a winner needs no redeploy** — just upload the file:
+    Public bucket `gs://biwenger` (project `biwenger-tools`, us-central1,
+    `allUsers:objectViewer`), under the `special-tournaments/` prefix. The
+    `/palmares` page builds an `<img>` per known cup from
+    `special-tournaments/{slug}/{temporada}` and drops the ones that 404, so
+    **adding a winner needs no redeploy** — just upload the file:
 
     ```bash
       # <slug> ∈ config.SPECIAL_TOURNAMENTS (santa-cup, castolo-cup, …)
@@ -144,7 +145,7 @@ single source of *what must be true*.
       #   rollover-skill seasons, long "2024-2025" for legacy docs).
       # The template tries .png then .jpg — either extension works.
       gcloud storage cp copa-santa-25-26.jpg \
-          gs://biwenger-special-tournaments/santa-cup/25-26.jpg
+          gs://biwenger/special-tournaments/santa-cup/25-26.jpg
     ```
 
     A brand-new cup *type* is one line in `config.SPECIAL_TOURNAMENTS` (that

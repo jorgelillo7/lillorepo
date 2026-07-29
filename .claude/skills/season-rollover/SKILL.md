@@ -115,29 +115,53 @@ the flag or paste the JSON in the Firestore console manually.
 
 # Step 2c — Draft parameters for the new season
 
-The draft (`packages/biwenger_tools/api/logic/draft.py`) carries three values
-that change every season. They are code constants, so they drift silently if
-skipped — a wrong order does not fail, it just makes people pick in the wrong
-turn for fifteen rounds.
+Three values change every season. They are code constants, so they drift
+silently if skipped — a wrong order does not fail, it just makes people pick in
+the wrong turn for fifteen rounds.
 
-Ask with `AskUserQuestion`, then edit:
+**Suggest the new order, do not ask cold.** The `palmares/<ending_season>` doc
+written in Step 2b holds the final classification, and the draft order is its
+reverse. Read it and propose that reversal:
 
-1. **Snake order** — `SEASON_ORDER_NAMES`. Inverse to last season's final
-   standings, with the reglamento's anomalies for new entrants. The names must
-   match `core.constants.LEAGUE_MEMBERS` values (accent/case-insensitive).
-   The `palmares/<ending_season>` doc written in Step 2b holds that final
-   classification — offer its reverse as the suggested order, but have the user
-   confirm it; the anomalies are not derivable from the table.
-2. **Budget overrides** — `BUDGET_OVERRIDES`. The Copa Castolo winner carries a
-   +2M draft bonus into the new season. Keyed **by manager id**, never by draft
-   position.
+```bash
+python3 .claude/skills/season-rollover/scripts/suggest_draft_order.py <ending_season>
+```
+
+The script inverts the final classification, drops non-playing accounts (which
+the palmarés stores with `user_id=0`, so an id check alone misses them) and
+places anyone with no previous classification in the middle, per the
+reglamento's rule for newcomers.
+
+Confirm with `AskUserQuestion` before applying — never unattended. The script
+covers the ordinary case; the reglamento may still call for an adjustment it
+cannot know about.
+
+Then edit:
+
+1. **Snake order** — `core/constants.py`, `DRAFT_ORDER_NAMES`. **One place
+   only**: the api arbitrates the draft with it and the web publishes it on the
+   rulebook page, both reading the same constant. Names must match
+   `LEAGUE_MEMBERS` values (accent/case-insensitive).
+2. **Budget overrides** — `packages/biwenger_tools/api/logic/draft.py`,
+   `BUDGET_OVERRIDES`. The Copa Castolo winner carries a +2M draft bonus into
+   the new season. Keyed **by manager id**, never by draft position — the order
+   changes yearly, so a positional key would silently hand the bonus to
+   whoever happens to pick third.
 3. **League membership** — `core/constants.py`: `LEAGUE_MEMBERS` and
    `NON_PLAYING_MEMBER_IDS`, if anyone joined, left, or switched between
    playing and spectating.
 
+**The rulebook page needs no edit for any of this.** `/reglamento` renders the
+draft order from `DRAFT_ORDER_NAMES` and derives its season label from
+`TEMPORADA_ACTUAL`. What it does *not* track is the rules themselves: if the
+reglamento document changed, that is a separate content pass over
+`packages/biwenger_tools/web/templates/reglamento.html`. Ask the user whether
+this season's document changed, and say plainly that nothing automatic will
+catch it if it did.
+
 Also remind the user that the frozen market CSV is a manual per-season
 artifact: exported on the agreed market-close day and uploaded to
-`gs://biwenger-special-tournaments/draft/<new_season>/market.csv` (see
+`gs://biwenger/draft/<new_season>/market.csv` (see
 `openspec/specs/biwenger_tools/draft/spec.md`). Nothing auto-downloads it —
 a late export carries the wrong prices.
 
@@ -232,8 +256,8 @@ Show the user:
   with the filename matching the palmarés doc id (e.g. `25-26`):
   ```bash
   gcloud storage cp copa-santa.jpg \
-      gs://biwenger-special-tournaments/santa-cup/<ending_season>.jpg
+      gs://biwenger/special-tournaments/santa-cup/<ending_season>.jpg
   gcloud storage cp copa-castolo.jpg \
-      gs://biwenger-special-tournaments/castolo-cup/<ending_season>.jpg
+      gs://biwenger/special-tournaments/castolo-cup/<ending_season>.jpg
   ```
   (Slugs live in `config.SPECIAL_TOURNAMENTS`; see `packages/biwenger_tools/OPERATIONS.md` §1.)

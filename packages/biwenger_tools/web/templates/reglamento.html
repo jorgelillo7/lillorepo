@@ -227,9 +227,9 @@
                         y así sucesivamente hasta completar las quince rondas.
                     </p>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Orden 2026/2027 · Ronda 1</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Orden {{ season_label }} · Ronda 1</p>
                     <ol class="space-y-1.5">
-                        {% for p in ['Rubén', 'Javi', 'Lillo', 'Manu', 'Pablo', 'Lucen', 'Fabio'] %}
+                        {% for p in draft_order %}
                         <li class="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2">
                             <span class="stat-num flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-sm font-bold">{{ loop.index }}</span>
                             <span class="text-sm font-medium text-gray-800">{{ p }}</span>

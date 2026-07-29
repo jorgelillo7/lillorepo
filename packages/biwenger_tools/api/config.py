@@ -74,8 +74,7 @@ DRAFT_SEASON = os.getenv("TEMPORADA_ACTUAL", "26-27")
 # must not require a redeploy the night before the draft.
 DRAFT_MARKET_CSV_URL = os.getenv(
     "DRAFT_MARKET_CSV_URL",
-    "https://storage.googleapis.com/biwenger-special-tournaments"
-    f"/draft/{DRAFT_SEASON}/market.csv",
+    f"https://storage.googleapis.com/biwenger/draft/{DRAFT_SEASON}/market.csv",
 )
 
 # Offline fallback used when `DRAFT_MARKET_CSV_URL` is blank (tests, laptop).

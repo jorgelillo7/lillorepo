@@ -37,9 +37,7 @@ TROFEOS_SHEETS = {
 # {slug}/{temporada}.png and the template drops any that 404 (trying .jpg
 # first). Uploading a new winner needs no redeploy — only a brand-new cup type
 # adds a line here.
-SPECIAL_TOURNAMENTS_BUCKET = os.getenv(
-    "SPECIAL_TOURNAMENTS_BUCKET", "biwenger-special-tournaments"
-)
+SPECIAL_TOURNAMENTS_BUCKET = os.getenv("SPECIAL_TOURNAMENTS_BUCKET", "biwenger")
 SPECIAL_TOURNAMENTS = [
     {"slug": "santa-cup", "label": "Copa Santa Claus"},
     {"slug": "castolo-cup", "label": "Copa Castolo"},
