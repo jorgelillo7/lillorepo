@@ -83,6 +83,31 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   when the Castolo winner image exists. A brand-new cup *type* is one line in
   `config.SPECIAL_TOURNAMENTS` (redeploy).
 
+- **JP matching collides on namesakes — 11 players get someone else's score.**
+  Measured against live data (JP 528 / Biwenger 546): five JP players are
+  claimed by two or more Biwenger players, because `find_player_match`
+  (`api/logic/player_matching.py`) ends in loose strategies — bare surname,
+  bare first name, token-subset — that return the FIRST hit. Observed:
+  JP «Rubén» ← Rubén García + Rubén López + Rubén Sánchez; JP «Álvaro» ←
+  Álvaro Fernández + Álvaro García; JP «Navarro» ← Robert Navarro + Ximo
+  Navarro; JP «Moussa Diarra» ← both Moussa Diarras; and JP «Valverde» ←
+  Valverde + **Ernesto Valverde, who is a coach** (Biwenger lists coaches
+  alongside players). 16 more have no match at all. This feeds `auto_bid`,
+  which spends real money on those scores, and the daily digest. NOTE: a wrong
+  match counts as "matched", so the draft skill's 507/509 headline does not
+  measure this. FIX direction: the draft's `join_market_to_biwenger` already
+  disambiguates namesakes by team via `BiwengerClient.get_all_teams_map` —
+  the same tiebreak applies here. Also consider refusing to match when a
+  loose strategy has more than one candidate, rather than taking the first.
+
+- **`fetch_all_players` treats a JP auth failure as an empty squad.** JP
+  answers a bad token with **HTTP 200** and body `{"error": "auth"}`, so
+  `raise_for_status()` passes and `.get("players", [])` yields `[]` silently.
+  If the token ever rotates, the digest and auto-bid would quietly run with no
+  JP data instead of failing loudly. `core/sdk/jp.py` already has
+  `check_api_health`, which does raise — `fetch_all_players` should apply the
+  same check on the payload it just fetched.
+
 - **Draft bot — bucket rename.** The frozen market CSV now lives at
   `gs://biwenger-special-tournaments/draft/<temporada>/market.csv`, in a bucket
   whose name only describes the cup images. Rename to `gs://biwenger` with

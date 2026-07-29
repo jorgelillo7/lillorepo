@@ -456,7 +456,34 @@ def test_draft_register_calls_service(client):
         resp = client.post(
             "/draft/register", json={"telegram_user_id": "1", "name": "Ruben"}
         )
-    mock_run.assert_called_once_with("1", "Ruben")
+    mock_run.assert_called_once_with("1", "Ruben", None)
+    assert resp.status_code == 200
+    assert resp.get_json() == fake
+
+
+def test_draft_register_accepts_manager_id_from_the_soy_picker(client):
+    fake = {"ok": True, "manager_id": 7, "manager_name": "Manu", "message": "hola"}
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.register_manager",
+        return_value=fake,
+    ) as mock_run:
+        resp = client.post(
+            "/draft/register", json={"telegram_user_id": "1", "manager_id": 7}
+        )
+    mock_run.assert_called_once_with("1", "", 7)
+    assert resp.status_code == 200
+
+
+def test_draft_managers_lists_the_picker_options(client):
+    fake = {
+        "managers": [{"manager_id": 1, "name": "Ruben", "claimed_by": ""}],
+        "message": "x",
+    }
+    with patch(
+        "packages.biwenger_tools.api.app.draft_service.list_draft_managers",
+        return_value=fake,
+    ):
+        resp = client.get("/draft/managers")
     assert resp.status_code == 200
     assert resp.get_json() == fake
 

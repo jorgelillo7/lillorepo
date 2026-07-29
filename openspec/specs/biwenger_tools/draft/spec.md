@@ -136,9 +136,16 @@ ran `/pick`.
 ### Requirement: Prices come from the frozen market export
 
 Prices SHALL come from the closed-market CSV exported on the agreed day, never
-from the live market. Rows SHALL be joined to Biwenger player ids by normalised
-name, disambiguated by team when two players share a name, and any row that
-still cannot be resolved SHALL be reported rather than silently dropped.
+from the live market. The file is read from a public bucket object and decoded
+as `utf-8-sig` explicitly — the bucket serves it without a charset, and the
+HTTP default of ISO-8859-1 would mangle every accented name and the
+BOM-prefixed first header, silently dropping a third of the market.
+
+Rows SHALL be joined to Biwenger player ids by normalised name, disambiguated
+by team when two players share a name, and any row that still cannot be
+resolved SHALL be reported rather than silently dropped. The joined market
+SHALL be cached per instance: it cannot change mid-draft, and re-reading it
+would add two network round-trips to every pick.
 
 #### Scenario: parsing and joining the export
 - **WHEN** the CSV is parsed **THEN** its BOM and `;` delimiter are handled
@@ -191,18 +198,74 @@ player ids stay identical between a rehearsal and the live session.
 
 ### Requirement: The last pick can be undone by the admin
 
-`/deshacer` SHALL be restricted to the configured draft admin. Undo uses
-Biwenger's own `revertOffer`, which returns the player to the pool and refunds
-the price in a single call. Because the transfer responds `204` with no body,
-the `offer_id` is recovered best-effort from the transfer board; when it could
-not be recovered the undo SHALL say so rather than pretend to have worked.
+`/deshacer` SHALL be restricted to the configured draft admin, identified by a
+Telegram **user** id — always positive, and therefore never derivable from the
+owner chat id, which belongs to a group and is negative.
 
-#### Scenario: undo permissions and behaviour
+Undo SHALL be a `release_player` (transfer back to free agency) followed by an
+`apply_bonus` refund, in that order, and SHALL NOT use `revertOffer`. Biwenger
+issues no identifier for an admin transfer — the POST answers `204` with an
+empty body and no useful headers, and `adminTransfer` board entries carry no
+`id` field even when one is requested explicitly — so there is nothing to
+revert *by*. Release goes first because a player left unowned is visible on the
+board, whereas a refund without a release would silently pay twice.
+
+Undo SHALL rewind the turn to the manager whose pick was removed, restore the
+budget, and be chainable: repeating it walks back one pick at a time.
+
+#### Scenario: undo permissions
 - **WHEN** a non-admin calls undo **THEN** it is refused
 - **WHEN** there are no picks **THEN** it is refused
-- **WHEN** the pick was applied and has an `offer_id` **THEN** `revert_transfer` is called
-- **WHEN** the `offer_id` is missing **THEN** the undo refuses and reports it
-- *Verifies:* `test_undo_rejects_non_admin`, `test_undo_rejects_when_no_picks`,
-  `test_undo_reverts_last_pick_gate_off`,
-  `test_undo_calls_revert_transfer_when_applied_with_offer_id`,
-  `test_undo_refuses_when_offer_id_missing`
+- *Verifies:* `test_undo_rejects_non_admin`, `test_undo_rejects_when_no_picks`
+
+#### Scenario: undo releases the player and refunds the price
+- **WHEN** an applied pick is undone
+- **THEN** the player is released to free agency and the exact price is
+  refunded to its buyer alone, without any call to `revert_transfer`
+- **WHEN** the pick never reached Biwenger (gate off) **THEN** only state rewinds
+- *Verifies:* `test_undo_releases_the_player_and_refunds_the_price`,
+  `test_undo_works_without_an_offer_id`, `test_undo_reverts_last_pick_gate_off`
+
+#### Scenario: the turn rewinds and undo chains
+- **WHEN** three picks are undone in a row
+- **THEN** the turn walks back one at a time and every budget is restored
+- **WHEN** the manager re-picks into the slot just freed
+- **THEN** it is accepted — a `reverted` slot is free, only `reserved` and
+  `applied` block a second call
+- *Verifies:* `test_chained_undos_rewind_the_turn_one_pick_at_a_time`,
+  `test_undo_then_repick_reuses_the_same_slot`
+
+---
+
+### Requirement: Registration is offered as a picker
+
+`/soy` with no name SHALL answer with one button per draft manager rather than
+an error: Telegram sends a bare command when it is tapped from the `/` menu, so
+the argument-less form is the common path, not the exceptional one. Managers
+already claimed SHALL be marked but stay selectable, so a mis-tap is fixable
+without an admin. `/pick` with no player SHALL likewise explain itself.
+
+#### Scenario: the picker
+- **WHEN** `/soy` arrives with no argument **THEN** the manager buttons are posted
+- **WHEN** a button is tapped **THEN** that manager is registered by id
+- **WHEN** `/pick` arrives with no argument **THEN** the bot asks for a player
+  and calls no endpoint
+- *Verifies:* `test_bare_soy_posts_the_manager_picker_instead_of_failing`,
+  `test_soy_picker_tap_registers_that_manager`,
+  `test_bare_pick_asks_for_a_player_without_calling_the_api`
+
+---
+
+### Requirement: The export is readable in the group
+
+`/exportar` SHALL send one message per manager, each listing that squad's
+picks with prices and the budget left. A single block would exceed Telegram's
+4096-character limit at full draft size, and a squad is the unit a reader
+wants whole. The api decides where the seams go; the bot only relays them.
+
+#### Scenario: per-manager blocks
+- **WHEN** picks exist **THEN** one block per manager with picks is returned
+- **WHEN** none exist **THEN** no blocks are sent
+- *Verifies:* `test_export_picks_renders_one_message_per_manager`,
+  `test_export_picks_with_nothing_yet_sends_no_blocks`,
+  `test_exportar_sends_one_message_per_manager_block`

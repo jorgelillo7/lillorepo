@@ -358,6 +358,11 @@ root). All default to dry-run; pass `--apply` to write. They use ADC (`gcloud au
 - **`biwenger_rename_team.py`** — rename a team across `clausulazos/{season}/transfers` and rebuild `tabla_justicia/{season}/teams` from the corrected data.
 - **`biwenger_recategorise.py`** — recompute `categoria` for every message and rebuild `participacion/{season}/authors`; supports `--autor-alias OLD=NEW`.
 - **`biwenger_check_categorias.py`** — read-only audit of `categoria` mismatches.
+- **`biwenger_reset_draft.py`** — wipe `draft/{season}/picks` + `state` between a
+  rehearsal and the real draft, and again at the rollover. Keeps
+  `draft/{season}/managers` unless `--managers` is passed: those bindings are
+  the `/soy` roll-call, and repeating it with seven people waiting is the
+  friction the bot exists to remove.
 
 Usage pattern is the same everywhere: run without `--apply` first, review, then re-run with `--apply`.
 

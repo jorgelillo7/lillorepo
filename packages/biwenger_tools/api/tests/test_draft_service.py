@@ -24,6 +24,7 @@ JORGE_ID = 1372802
 
 TG_RUBEN = "111"
 TG_JAVI = "222"
+TG_JORGE = "333"
 TG_ADMIN = "999"
 
 MESSI_ID = 101
@@ -92,6 +93,9 @@ class FakeFirestore:
 
     def get_document(self, collection_path, doc_id):
         return self.root.get(collection_path, {}).get(doc_id)
+
+    def list_documents(self, collection_path):
+        return list(self.root.get(collection_path, {}).items())
 
     def set_document(self, collection_path, doc_id, data, merge=False):
         coll = self.root.setdefault(collection_path, {})
@@ -325,8 +329,7 @@ def test_confirm_pick_applies_explicit_player_id(fake_fs, biwenger):
 
 def test_gate_off_never_calls_biwenger_transfer_or_board(fake_fs, biwenger):
     """`DRAFT_APPLY_TO_BIWENGER=False` (the default): validation, state and
-    Firestore all run, but neither the transfer POST nor the transfer-board
-    read (used only to resolve `offer_id` after a real transfer) happen."""
+    Firestore all run, but no Biwenger write happens."""
     assert config.DRAFT_APPLY_TO_BIWENGER is False
     draft_service.register_manager(TG_RUBEN, "Ruben")
     result = draft_service.submit_pick(TG_RUBEN, "messi")
@@ -342,22 +345,10 @@ def test_gate_off_never_calls_biwenger_transfer_or_board(fake_fs, biwenger):
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["status"] == draft_service.PICK_STATUS_APPLIED
     assert pick_doc["applied_to_biwenger"] is False
-    assert pick_doc["offer_id"] is None
 
 
-def test_gate_on_calls_biwenger_transfer_and_resolves_offer_id(
-    fake_fs, biwenger, monkeypatch
-):
+def test_gate_on_calls_biwenger_transfer(fake_fs, biwenger, monkeypatch):
     monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
-    biwenger.get_all_clausulazos.return_value = {
-        "data": [
-            {
-                "id": 4242,
-                "date": 1000,
-                "content": [{"player": {"id": MESSI_ID}}],
-            }
-        ]
-    }
     draft_service.register_manager(TG_RUBEN, "Ruben")
     result = draft_service.submit_pick(TG_RUBEN, "messi")
 
@@ -367,7 +358,7 @@ def test_gate_on_calls_biwenger_transfer_and_resolves_offer_id(
     )
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["applied_to_biwenger"] is True
-    assert pick_doc["offer_id"] == 4242
+    assert "offer_id" not in pick_doc, "Biwenger issues no id for an admin transfer"
 
 
 def test_gate_on_biwenger_failure_keeps_pick_reserved_and_rejects(
@@ -543,32 +534,33 @@ def test_undo_reverts_last_pick_gate_off(fake_fs, biwenger):
     assert pick_doc["status"] == draft_service.PICK_STATUS_REVERTED
 
 
-def test_undo_calls_revert_transfer_when_applied_with_offer_id(
-    fake_fs, biwenger, monkeypatch
-):
+def test_undo_releases_the_player_and_refunds_the_price(fake_fs, biwenger, monkeypatch):
+    """Undo is a release plus a bonus, never `revertOffer`: Biwenger exposes no
+    id for an admin transfer, so there is nothing to revert *by*."""
     monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
-    biwenger.get_all_clausulazos.return_value = {
-        "data": [{"id": 4242, "date": 1, "content": [{"player": {"id": MESSI_ID}}]}]
-    }
     draft_service.register_manager(TG_RUBEN, "Ruben")
     draft_service.submit_pick(TG_RUBEN, "messi")
 
     result = draft_service.undo_last_pick(TG_ADMIN)
     assert result["status"] == "reverted"
-    biwenger.revert_transfer.assert_called_once_with(
-        player_id=MESSI_ID, amount=5_000_000, offer_id=4242
-    )
+    biwenger.release_player.assert_called_once_with(player_id=MESSI_ID)
+    biwenger.revert_transfer.assert_not_called()
+
+    amounts = biwenger.apply_bonus.call_args.kwargs["amounts"]
+    assert amounts[RUBEN_ID] == 5_000_000, "the buyer gets his money back"
+    assert all(v == 0 for k, v in amounts.items() if k != RUBEN_ID)
 
 
-def test_undo_refuses_when_offer_id_missing(fake_fs, biwenger, monkeypatch):
+def test_undo_works_without_an_offer_id(fake_fs, biwenger, monkeypatch):
+    """The board carries no id for admin transfers, so every real pick has
+    `offer_id: None` — undo must not depend on it."""
     monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
-    biwenger.get_all_clausulazos.return_value = {"data": []}  # offer_id unresolved
+    biwenger.get_all_clausulazos.return_value = {"data": []}
     draft_service.register_manager(TG_RUBEN, "Ruben")
     draft_service.submit_pick(TG_RUBEN, "messi")
 
-    result = draft_service.undo_last_pick(TG_ADMIN)
-    assert result["status"] == "rejected"
-    biwenger.revert_transfer.assert_not_called()
+    assert draft_service.undo_last_pick(TG_ADMIN)["status"] == "reverted"
+    biwenger.release_player.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -611,3 +603,60 @@ def test_export_picks_lists_applied_only(fake_fs, biwenger):
     assert len(result["picks"]) == 1
     assert result["picks"][0]["player_name"] == "Lionel Messi"
     assert result["picks"][0]["manager_name"] == "Ruben"
+
+
+def test_chained_undos_rewind_the_turn_one_pick_at_a_time(fake_fs, biwenger):
+    """Three picks, then three undos: the turn walks back 4 -> 3 -> 2 -> 1 and
+    every budget is restored, so a bad run can be unwound to any earlier point."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+    draft_service.register_manager(TG_JORGE, "Jorge")
+
+    for tg, query in ((TG_RUBEN, "messi"), (TG_JAVI, "ronaldo"), (TG_JORGE, "modric")):
+        assert draft_service.submit_pick(tg, query)["status"] == "applied"
+
+    assert draft_service.get_state()["pick_number"] == 4
+
+    for expected_pick in (3, 2, 1):
+        assert draft_service.undo_last_pick(TG_ADMIN)["status"] == "reverted"
+        assert draft_service.get_state()["pick_number"] == expected_pick
+
+    state = draft_service.get_state()
+    assert not any(state["spent"].values()), "every euro handed back"
+    assert not any(state["squad_counts"].values()), "every squad empty again"
+    assert draft_service.undo_last_pick(TG_ADMIN)["status"] == "rejected"
+
+
+def test_undo_then_repick_reuses_the_same_slot(fake_fs, biwenger):
+    """Undo rewinds the turn to the same manager, who re-picks into the same
+    deterministic doc id. The idempotency guard must not read that as a
+    duplicate, or the draft stalls on the very next pick."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    first = draft_service.submit_pick(TG_RUBEN, "messi")
+    assert first["status"] == "applied"
+
+    undone = draft_service.undo_last_pick(TG_ADMIN)
+    assert undone["status"] == "reverted"
+
+    again = draft_service.submit_pick(TG_RUBEN, "ronaldo")
+    assert again["status"] == "applied", again
+    assert draft_service.get_state()["pick_number"] == 2
+
+
+def test_export_picks_renders_one_message_per_manager(fake_fs, biwenger):
+    """The listing is what makes /exportar useful — a bare count is not."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.submit_pick(TG_RUBEN, "messi")
+
+    result = draft_service.export_picks()
+    assert len(result["messages"]) == 1, "one block per manager with picks"
+    block = result["messages"][0]
+    assert "Ruben" in block
+    assert "Lionel Messi" in block
+    assert "M" in block, "prices rendered in millions"
+
+
+def test_export_picks_with_nothing_yet_sends_no_blocks(fake_fs, biwenger):
+    result = draft_service.export_picks()
+    assert result["messages"] == []
+    assert "Todavía no hay fichajes" in result["message"]

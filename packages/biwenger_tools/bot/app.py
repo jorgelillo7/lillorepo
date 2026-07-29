@@ -589,6 +589,48 @@ def _call_draft_api(path: str, method: str, payload: dict | None) -> dict:
     return api_client.call_api_json(config.BIWENGER_API_URL, path, method, payload)
 
 
+def _draft_managers_keyboard(managers: list) -> dict:
+    """One button per draft manager for a bare `/soy`, two per row.
+
+    Already-claimed managers keep a marker so nobody taps a taken name by
+    accident, but stay tappable — a mis-tap has to be fixable without an admin.
+    """
+    buttons = [
+        {
+            "text": f"{'✅ ' if m.get('claimed_by') else ''}{m.get('name', '?')}",
+            "callback_data": f"s:{m.get('manager_id')}",
+        }
+        for m in managers
+    ]
+    rows = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
+    return {"inline_keyboard": rows}
+
+
+def _run_draft_who_am_i(chat_id: str) -> None:
+    """`/soy` with no name — post the manager picker instead of an error."""
+
+    def _call() -> None:
+        try:
+            data = _call_draft_api("/draft/managers", "GET", None)
+        except Exception as exc:
+            logger.error("Webhook: draft managers failed", extra={"error": str(exc)})
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text="❌ No pude cargar la lista de managers.",
+            )
+            return
+        managers = data.get("managers", [])
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            text=data.get("message", "¿Quién eres?"),
+            reply_markup=_draft_managers_keyboard(managers) if managers else None,
+        )
+
+    _run_in_background(_call)
+
+
 def _draft_candidates_keyboard(requesting_user_id: str, candidates: list) -> dict:
     """Inline keyboard for an ambiguous `/pick` — one button per candidate.
 
@@ -637,6 +679,12 @@ def _run_draft_action(
         if message:
             send_telegram_message(
                 bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=message
+            )
+        # Endpoints whose payload cannot fit Telegram's 4096-char limit send a
+        # pre-split list; the api decides where the seams go.
+        for extra in data.get("messages") or []:
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=extra
             )
 
     _run_in_background(_call)
@@ -703,15 +751,25 @@ def _handle_draft_message(text: str, user_id: str) -> None:
     chat_id = config.TELEGRAM_DRAFT_CHAT_ID
 
     if cmd == "/soy":
-        _run_draft_action(
-            "/draft/register",
-            "POST",
-            {"telegram_user_id": user_id, "name": arg},
-            chat_id,
-            "Soy",
-        )
+        if arg:
+            _run_draft_action(
+                "/draft/register",
+                "POST",
+                {"telegram_user_id": user_id, "name": arg},
+                chat_id,
+                "Soy",
+            )
+        else:
+            _run_draft_who_am_i(chat_id)
     elif cmd == "/pick":
-        _run_draft_pick(user_id, arg, chat_id)
+        if arg:
+            _run_draft_pick(user_id, arg, chat_id)
+        else:
+            send_telegram_message(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=chat_id,
+                text="✍️ Dime a quién fichas: <code>/pick Mbappé</code>",
+            )
     elif cmd == "/estado":
         _run_draft_action("/draft/state", "GET", None, chat_id, "Estado")
     elif cmd == "/deshacer":
@@ -743,13 +801,25 @@ def _callback_from_user_id() -> str:
 
 
 def _handle_draft_callback(cb: dict) -> None:
-    """Dispatch a draft-group callback_query — only `d:<user_id>:<player_id>`
-    (pick disambiguation) is allowed here. Any other prefix (`analizar:`,
-    `e:`, `o:`) is refused, even though the group is never shown those
-    buttons — defense in depth against a forged callback_data."""
+    """Dispatch a draft-group callback_query — `d:<user_id>:<player_id>` (pick
+    disambiguation) and `s:<manager_id>` (the `/soy` picker) are the only
+    prefixes allowed here. Any other (`analizar:`, `e:`, `o:`) is refused, even
+    though the group is never shown those buttons — defense in depth against a
+    forged callback_data."""
     cb_data = cb.get("data", "")
     prefix, _, value = cb_data.partition(":")
     cb_id = cb["id"]
+
+    if prefix == "s":
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+        _run_draft_action(
+            "/draft/register",
+            "POST",
+            {"telegram_user_id": _callback_from_user_id(), "manager_id": value},
+            cb["chat_id"],
+            "Soy",
+        )
+        return
 
     if prefix != "d":
         answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)

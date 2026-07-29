@@ -4,8 +4,8 @@ Wraps the pure engine in `logic/draft.py` with:
 
 - Firestore persistence of manager registration, the serialised
   `DraftState`, and a per-pick idempotency guard.
-- The Biwenger `transfer_player`/`revert_transfer` calls that actually
-  move a player and charge a manager.
+- The Biwenger `transfer_player`/`release_player`/`apply_bonus` calls that
+  actually move a player and charge or refund a manager.
 - Free-text name -> market player resolution for the Telegram pick flow.
 
 Every public function returns a plain dict with a `message` field — a
@@ -17,11 +17,15 @@ Firestore layout (collection paths, see `core/sdk/firestore.py`):
     draft/{season}/picks     -- doc id = "R{round:02d}P{position:02d}"
     draft/{season}/state     -- single doc, id `STATE_DOC_ID`
 
-`DRAFT_APPLY_TO_BIWENGER` gates the Biwenger *writes* only
-(`transfer_player`/`revert_transfer`): reading the cf-base player database
-to resolve the canonical Biwenger id, and reading the transfer board to
-resolve `offer_id`, happen either way — they're side-effect-free and the
-same real ids are needed whether or not the gate is later flipped on.
+`DRAFT_APPLY_TO_BIWENGER` gates the Biwenger *writes* only: reading the
+cf-base player database to resolve the canonical Biwenger id happens either
+way — it is side-effect-free, and the same real ids are needed whether or not
+the gate is later flipped on.
+
+Undo is a `release_player` + `apply_bonus` pair rather than `revertOffer`:
+Biwenger issues no identifier for an admin transfer (the POST answers 204 with
+an empty body and no headers, and the `adminTransfer` board entries carry no
+`id`), so there is nothing to revert *by*.
 
 Idempotency: a pick is only ever written through the deterministic
 `R{round}P{position}` doc id. `_reserve_pick` creates that doc inside a
@@ -104,14 +108,48 @@ def _resolve_manager_name(name: str) -> Optional[int]:
     return matches[0] if len(matches) == 1 else None
 
 
-def register_manager(telegram_user_id: str, name: str) -> dict:
-    """Bind a Telegram user id to a draft manager.
+def list_draft_managers() -> dict:
+    """Every manager in the draft order, with who has claimed each one.
+
+    Backs the `/soy` picker: typing the name by hand is the error-prone path
+    when seven people register at once.
+    """
+    claimed = {
+        int(data["manager_id"]): data.get("telegram_user_id", "")
+        for _, data in fs.list_documents(_managers_path(config.DRAFT_SEASON))
+        if data.get("manager_id") is not None
+    }
+    managers = [
+        {
+            "manager_id": mid,
+            "name": LEAGUE_MEMBERS.get(mid, str(mid)),
+            "claimed_by": claimed.get(mid, ""),
+        }
+        for mid in _load_state().order
+    ]
+    free = [m["name"] for m in managers if not m["claimed_by"]]
+    message = (
+        "👤 <b>¿Quién eres?</b> Pulsa tu nombre."
+        if free
+        else "👥 Todos los managers están ya registrados."
+    )
+    return {"managers": managers, "message": message}
+
+
+def register_manager(
+    telegram_user_id: str, name: str = "", manager_id: Optional[int] = None
+) -> dict:
+    """Bind a Telegram user id to a draft manager, by id or by name.
 
     Idempotent: re-registering the same `telegram_user_id` overwrites the
     previous binding (a manager typing the wrong name and correcting it
-    shouldn't need an admin to intervene).
+    shouldn't need an admin to intervene). Claiming a manager somebody else
+    already holds is allowed but reported, so the group sees the change.
     """
-    manager_id = _resolve_manager_name(name)
+    if manager_id is not None:
+        manager_id = int(manager_id) if int(manager_id) in _load_state().order else None
+    else:
+        manager_id = _resolve_manager_name(name)
     if manager_id is None:
         return {
             "ok": False,
@@ -119,9 +157,18 @@ def register_manager(telegram_user_id: str, name: str) -> dict:
             "manager_name": "",
             "message": (
                 f"No encuentro a «{name}» entre los managers del draft. "
-                "Revisa el nombre e inténtalo de nuevo."
+                "Escribe <code>/soy</code> a secas y elige de la lista."
             ),
         }
+    previous = next(
+        (
+            data.get("telegram_user_id", "")
+            for _, data in fs.list_documents(_managers_path(config.DRAFT_SEASON))
+            if int(data.get("manager_id") or 0) == manager_id
+            and str(data.get("telegram_user_id")) != str(telegram_user_id)
+        ),
+        "",
+    )
     manager_name = LEAGUE_MEMBERS[manager_id]
     fs.set_document(
         _managers_path(config.DRAFT_SEASON),
@@ -132,11 +179,12 @@ def register_manager(telegram_user_id: str, name: str) -> dict:
             "manager_name": manager_name,
         },
     )
+    note = " (antes lo tenía otra cuenta)" if previous else ""
     return {
         "ok": True,
         "manager_id": manager_id,
         "manager_name": manager_name,
-        "message": f"Registrado como {manager_name}. ¡A por el draft!",
+        "message": f"✅ Registrado como <b>{manager_name}</b>{note}.",
     }
 
 
@@ -301,7 +349,13 @@ def _reserve_pick(manager_id: int, player_id: int, players_by_id: dict) -> dict:
         doc_id = _pick_doc_id(round_num, position)
         pick_ref = client.collection(_picks_path(season)).document(doc_id)
         existing = pick_ref.get(transaction=transaction)
-        if existing.exists:
+        # A reverted slot is free again: undo rewinds the turn to the same
+        # manager, who then re-picks into this very doc id. Only `reserved` and
+        # `applied` mean "already in flight" and must block a second call.
+        if (
+            existing.exists
+            and (existing.to_dict() or {}).get("status") != PICK_STATUS_REVERTED
+        ):
             return {"outcome": "duplicate", "pick": existing.to_dict()}
 
         row = players_by_id[player_id]
@@ -316,7 +370,6 @@ def _reserve_pick(manager_id: int, player_id: int, players_by_id: dict) -> dict:
             "player_team": row.get("team"),
             "price": int(row.get("price") or 0),
             "status": PICK_STATUS_RESERVED,
-            "offer_id": None,
             "applied_to_biwenger": False,
         }
         transaction.set(pick_ref, pick_doc)
@@ -357,48 +410,6 @@ def _finalize_pick(
         return new_state
 
     return fs.run_transaction(txn)
-
-
-def _resolve_offer_id(biwenger: BiwengerClient, player_id: int) -> Optional[int]:
-    """Best-effort: find the transfer-board entry for `player_id` and return
-    its id, for later use by `revert_transfer`.
-
-    UNVERIFIED whether the board entry id is the same id the `offer` field
-    of a revert expects — hence best-effort. Any failure (no match, request
-    error) logs clearly and returns None rather than failing the pick.
-    """
-    try:
-        raw = biwenger.get_all_clausulazos(config.CLAUSULAZOS_URL)
-        entries = raw.get("data", []) or []
-        if isinstance(entries, dict):
-            entries = list(entries.values())
-        entries.sort(key=lambda e: e.get("date", 0) or 0, reverse=True)
-        for entry in entries:
-            for item in entry.get("content") or []:
-                item_player = item.get("player")
-                item_player_id = (
-                    item_player.get("id")
-                    if isinstance(item_player, dict)
-                    else item_player
-                )
-                if item_player_id == player_id:
-                    offer_id = entry.get("id")
-                    logger.info(
-                        "Resolved draft pick offer_id from the transfer board.",
-                        extra={"player_id": player_id, "offer_id": offer_id},
-                    )
-                    return offer_id
-    except Exception:
-        logger.exception(
-            "Failed to resolve draft pick offer_id from the transfer board.",
-            extra={"player_id": player_id},
-        )
-        return None
-    logger.warning(
-        "Could not find a transfer-board entry for the draft pick.",
-        extra={"player_id": player_id},
-    )
-    return None
 
 
 def _duplicate_pick_response(pick_doc: dict) -> dict:
@@ -507,7 +518,6 @@ def _apply_confirmed_pick(
     doc_id = _pick_doc_id(pick_doc["round"], pick_doc["position"])
     price = pick_doc["price"]
 
-    offer_id = None
     applied_to_biwenger = False
     if config.DRAFT_APPLY_TO_BIWENGER:
         try:
@@ -532,7 +542,6 @@ def _apply_confirmed_pick(
                 "Biwenger rechazó el fichaje. La plaza sigue reservada — reintenta "
                 "más tarde o avisa al admin, no se ha aplicado ningún cambio.",
             )
-        offer_id = _resolve_offer_id(biwenger, player_id)
 
     new_state = _finalize_pick(manager_id, player_id, players_by_id)
     fs.set_document(
@@ -540,7 +549,6 @@ def _apply_confirmed_pick(
         doc_id,
         {
             "status": PICK_STATUS_APPLIED,
-            "offer_id": offer_id,
             "applied_to_biwenger": applied_to_biwenger,
         },
         merge=True,
@@ -631,21 +639,19 @@ def undo_last_pick(telegram_user_id: str) -> dict:
     player_name = (pick_doc or {}).get("player_name") or last_pick.player_id
 
     if pick_doc is not None and pick_doc.get("applied_to_biwenger"):
-        offer_id = pick_doc.get("offer_id")
-        if offer_id is None:
-            return {
-                "status": "rejected",
-                "message": (
-                    f"No puedo deshacer el fichaje de {manager_name} en Biwenger: no "
-                    "se guardó el offer_id. Deshazlo a mano en el panel de admin."
-                ),
-            }
+        # Two calls instead of `revertOffer`: Biwenger hands out no id for an
+        # admin transfer, so the release and the refund are driven separately.
+        # The release goes first — a player left unowned is obvious on the
+        # board, whereas a refund without a release would silently pay twice.
         try:
             biwenger = build_biwenger_session()
-            biwenger.revert_transfer(
-                player_id=last_pick.player_id,
-                amount=last_pick.price,
-                offer_id=int(offer_id),
+            biwenger.release_player(player_id=last_pick.player_id)
+            biwenger.apply_bonus(
+                amounts={
+                    m: (last_pick.price if m == last_pick.manager_id else 0)
+                    for m in LEAGUE_MEMBERS
+                },
+                reason=f"Draft: deshecho el fichaje de {player_name}",
             )
         except Exception:
             logger.exception(
@@ -689,6 +695,11 @@ def undo_last_pick(telegram_user_id: str) -> dict:
     }
 
 
+def _eur(amount: int) -> str:
+    """Euros as millions, the unit the league actually talks in."""
+    return f"{(amount or 0) / 1_000_000:.2f}M".replace(".", ",")
+
+
 def export_picks() -> dict:
     """Every applied pick, in draft order — for the season's audit trail."""
     docs = fs.query(_picks_path(config.DRAFT_SEASON), order_by="global_pick")
@@ -704,14 +715,45 @@ def export_picks() -> dict:
             "player_team": d.get("player_team"),
             "price": d.get("price"),
             "status": d.get("status"),
-            "offer_id": d.get("offer_id"),
         }
         for d in docs
         if d.get("status") == PICK_STATUS_APPLIED
     ]
-    message = (
-        f"{len(picks)} fichajes confirmados en el draft."
-        if picks
-        else "Todavía no hay fichajes confirmados en el draft."
-    )
-    return {"message": message, "picks": picks}
+    if not picks:
+        return {
+            "message": "Todavía no hay fichajes confirmados en el draft.",
+            "messages": [],
+            "picks": [],
+        }
+
+    state = _load_state()
+    by_manager: dict = {}
+    for p in picks:
+        by_manager.setdefault(p["manager_id"], []).append(p)
+
+    # One message per manager: 15 picks x 7 managers overflows Telegram's
+    # 4096-char limit as a single block, and a squad is what the reader wants
+    # to see whole anyway.
+    messages = []
+    for manager_id in state.order:
+        squad = by_manager.get(manager_id)
+        if not squad:
+            continue
+        spent = sum(p["price"] or 0 for p in squad)
+        left = state.budgets.get(manager_id, 0) - spent
+        lines = [
+            f"<b>{squad[0]['manager_name']}</b> — {len(squad)} jugadores · "
+            f"{_eur(spent)} gastados · {_eur(left)} libres"
+        ]
+        lines += [
+            f"{p['global_pick']:>3}. {p['player_name']} "
+            f"({p['player_team']}) {_eur(p['price'] or 0)}"
+            for p in squad
+        ]
+        messages.append("\n".join(lines))
+
+    return {
+        "message": f"🏁 <b>Draft {config.DRAFT_SEASON}</b> — {len(picks)} fichajes",
+        "messages": messages,
+        "picks": picks,
+    }

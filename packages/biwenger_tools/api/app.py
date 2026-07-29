@@ -274,26 +274,40 @@ def offers_decide():
 # envelope the rest of the API uses.
 
 
+@app.route("/draft/managers", methods=["GET"])
+def draft_managers():
+    """List the draft managers and who has claimed each — backs the `/soy` picker."""
+    try:
+        return jsonify(draft_service.list_draft_managers()), 200
+    except Exception:
+        logger.exception("draft.managers failed.")
+        return jsonify({"managers": [], "message": "❌ Error al listar managers."}), 500
+
+
 @app.route("/draft/register", methods=["POST"])
 def draft_register():
     """Bind a Telegram user to a draft manager — bot's registration step."""
     body = request.get_json(silent=True) or {}
     telegram_user_id = str(body.get("telegram_user_id") or "").strip()
     name = str(body.get("name") or "").strip()
-    if not telegram_user_id or not name:
+    manager_id = body.get("manager_id")
+    if not telegram_user_id or (not name and manager_id is None):
         return (
             jsonify(
                 {
                     "ok": False,
                     "manager_id": None,
                     "manager_name": "",
-                    "message": "Faltan telegram_user_id o name.",
+                    "message": "Faltan telegram_user_id y un nombre o manager_id.",
                 }
             ),
             400,
         )
     try:
-        return jsonify(draft_service.register_manager(telegram_user_id, name)), 200
+        return (
+            jsonify(draft_service.register_manager(telegram_user_id, name, manager_id)),
+            200,
+        )
     except Exception as exc:
         logger.exception("draft.register failed.")
         return (
