@@ -75,74 +75,11 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   key → new secret version → redeploy, leaving this key dead on purpose.
   (26-27 sheets simply not created yet — separate item above.)
 
-- **Special-tournament winner images on Palmarés** — SHIPPED 2026-07-24.
-  The "Copas especiales" block is live; `santa-cup/25-26` uploaded. Adding a
-  winner is now self-service (no code): `gcloud storage cp` to
-  `gs://biwenger-special-tournaments/<slug>/<temporada>` — see the runbook in
-  `packages/biwenger_tools/OPERATIONS.md` §1. USER-OWNED remaining: upload `castolo-cup/25-26`
-  when the Castolo winner image exists. A brand-new cup *type* is one line in
-  `config.SPECIAL_TOURNAMENTS` (redeploy).
-
-- **JP matching collides on namesakes — 11 players get someone else's score.**
-  Measured against live data (JP 528 / Biwenger 546): five JP players are
-  claimed by two or more Biwenger players, because `find_player_match`
-  (`api/logic/player_matching.py`) ends in loose strategies — bare surname,
-  bare first name, token-subset — that return the FIRST hit. Observed:
-  JP «Rubén» ← Rubén García + Rubén López + Rubén Sánchez; JP «Álvaro» ←
-  Álvaro Fernández + Álvaro García; JP «Navarro» ← Robert Navarro + Ximo
-  Navarro; JP «Moussa Diarra» ← both Moussa Diarras; and JP «Valverde» ←
-  Valverde + **Ernesto Valverde, who is a coach** (Biwenger lists coaches
-  alongside players). 16 more have no match at all. This feeds `auto_bid`,
-  which spends real money on those scores, and the daily digest. NOTE: a wrong
-  match counts as "matched", so the draft skill's 507/509 headline does not
-  measure this. FIX direction: the draft's `join_market_to_biwenger` already
-  disambiguates namesakes by team via `BiwengerClient.get_all_teams_map` —
-  the same tiebreak applies here. Also consider refusing to match when a
-  loose strategy has more than one candidate, rather than taking the first.
-
-- **`fetch_all_players` treats a JP auth failure as an empty squad.** JP
-  answers a bad token with **HTTP 200** and body `{"error": "auth"}`, so
-  `raise_for_status()` passes and `.get("players", [])` yields `[]` silently.
-  If the token ever rotates, the digest and auto-bid would quietly run with no
-  JP data instead of failing loudly. `core/sdk/jp.py` already has
-  `check_api_health`, which does raise — `fetch_all_players` should apply the
-  same check on the payload it just fetched.
-
-- **Draft bot — bucket rename.** The frozen market CSV now lives at
-  `gs://biwenger-special-tournaments/draft/<temporada>/market.csv`, in a bucket
-  whose name only describes the cup images. Rename to `gs://biwenger` with
-  `special-tournaments/` and `draft/` inside. GCS cannot rename a bucket, so it
-  is create + `gcloud storage cp -r` + repoint + redeploy web + delete old. Nine
-  references: `web/config.py` (`SPECIAL_TOURNAMENTS_BUCKET`), two literals in
-  `web/tests/test_web_app.py`, `api/config.py` (`DRAFT_MARKET_CSV_URL`),
-  `OPERATIONS.md`, the `season-rollover` skill (2), this file, and the draft
-  spec. Deferred deliberately: it redeploys the web service, which has nothing
-  to do with the draft, and the draft was two days out.
-
-- **Draft bot — derive the snake order from the palmarés.** `SEASON_ORDER_NAMES`
-  in `api/logic/draft.py` is hand-copied every season from the final standings,
-  inverted. The `palmares/<season>` doc the rollover already writes holds that
-  table, so the rollover could propose the reversed order instead of asking
-  cold. Keep it a *suggestion to confirm*: the reglamento's anomalies for new
-  entrants are not derivable from the classification. A mis-copied order does
-  not fail loudly — it just makes everyone pick in the wrong turn for fifteen
-  rounds.
-
-- **Draft skill — Phase A SHIPPED 2026-07-27** (`.claude/skills/draft/`).
-  Annual pre-season helper for the Lloros League draft. *Phase A* (the merge)
-  is a tested script: reads the closed-market CSV (frozen prices), fetches live
-  JP SofaScore via `core/sdk/jp.fetch_all_players`, matches through the
-  production `player_matching` (+3 overrides added: De la Fuente→Dela, Juan
-  Cruz Díaz→J. Cruz, De Tomás→RDT), adds a value-per-M column, ranks, flags
-  no-JP players. Validated on the real 2026/27 export: **507/509 matched**
-  (Dubasin + Miguel Rodríguez genuinely absent from JP). Re-runnable — JP
-  self-invalidates on `updated_at`, prices stay frozen. *Phase B* (the
-  interactive adviser: build the 15 + top-5 alternatives, news due-diligence,
-  budget/composition validation) is done live each season per the SKILL.md —
-  nothing to build. Yearly params (budget 52M this year, snake order) asked
-  each run.
-
-## my_photos
+- **Castolo cup image** (USER-OWNED) — upload `castolo-cup/25-26` when the
+  winner graphic exists: `gcloud storage cp` to
+  `gs://biwenger/special-tournaments/<slug>/<temporada>`, no redeploy needed
+  (runbook in `packages/biwenger_tools/OPERATIONS.md` §1). A brand-new cup
+  *type* is one line in `config.SPECIAL_TOURNAMENTS`.
 
 - **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
   Blocked on USER: run the migration script and free up the disks.
@@ -155,23 +92,17 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   provenance, /acerca. Regularization done 2026-07-19 (cost script
   covers both projects, cleanup covers both registries, docs swept).
   Roadmap, in order:
-  1. **Data verification pass** — curation tooling SHIPPED 2026-07-24
-     (per-field provenance model + backfill, provenance badges on the ficha,
-     admin sign-off, and the `audit_photos` / `audit_data` CLIs). Two
-     USER-OWNED manual runs remain (both prompt before every write, local via
-     ADC):
+  1. **Data verification pass** — tooling shipped; two USER-OWNED manual
+     runs remain (both prompt before every write, local via ADC):
      - `bazel run //packages/be_water/scripts:audit_photos -- --fix` — the 2
        fichas whose main photo never got the studio treatment.
      - `bazel run //packages/be_water/scripts:audit_data` — sign off the 5
-       fichas eligible for verification (label photo + label-confirmed values;
-       the label-subset case auto-promotion can't reach).
-     Ongoing (no tooling gap): bottle-in-hand check of the remaining seeded
-     compositions — label photos to me work great; full-label fichas still
-     auto-promote on save. The AESAN snapshot shipped 2026-07-19
-     (`aesan_snapshot.py`, regenerate with
-     `packages/be_water/scripts/refresh_aesan_snapshot.py` every few months — a
-     git diff there = newly recognised waters; the official PDF is AMN/08 from
-     2018, so refreshes are about catching AESAN's next revision).
+       fichas eligible for verification.
+     Ongoing: bottle-in-hand check of the remaining seeded compositions.
+     Refresh the AESAN snapshot every few months with
+     `packages/be_water/scripts/refresh_aesan_snapshot.py` — a git diff there
+     means AESAN recognised new waters.
+
   2. **Country field — PARKED** (owner call 2026-07-19; analysis kept):
      add `country` to `Water` defaulting to "España" (backward compatible,
      one-line migration in `catalog_sync`). Unlocks international waters
@@ -180,13 +111,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      home. Revisit after the verification pass (item 1) — recommender
      places and province achievements assume Spanish geography and need
      a small rethink first.
-  3. **Activate Google Sign-In + /admin** — ALL CODE SHIPPED 2026-07-19
-     (GIS button, credential verification via google-auth, /admin with
-     users table + contributions + block/ban, blocked-user enforcement,
-     admin emails via BEWATER_ADMIN_EMAILS). Dormant until the OAuth
-     client exists; the ONLY remaining step is the runbook in
-     packages/be_water/OPERATIONS.md ("Activar Google Sign-In") — Console clicks +
-     one gcloud command, doable by any model or human in ~10 min.
-     Domain: PARKED (owner call 2026-07-19, alongside country).
-     When it lands, the curation/photo engines (`data_audit`, `photo_audit`)
-     are ready to surface in-page — same functions the CLIs already call.
+  3. **Activate Google Sign-In + /admin** — all code shipped and dormant
+     until the OAuth client exists. Only remaining step: the runbook in
+     `packages/be_water/OPERATIONS.md` ("Activar Google Sign-In") — Console
+     clicks plus one gcloud command, ~10 min. Custom domain PARKED.

@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
-from core.constants import LEAGUE_MEMBERS
+from core.constants import DRAFT_ORDER_NAMES, LEAGUE_MEMBERS
 from packages.biwenger_tools.api.logic.lineup import DEF, FORMATIONS, FWD, GK, MID
 from packages.biwenger_tools.api.logic.player_matching import normalize_name
 
@@ -25,10 +25,9 @@ SQUAD_SIZE = NUM_ROUNDS  # one pick per round per manager
 
 DEFAULT_BUDGET = 50_000_000
 
-# This season's snake order, by `LEAGUE_MEMBERS` name (accent/case-insensitive
-# match, resolved by `resolve_order`). "Jorge" is the manager known in the
-# league chat as "Lillo" — LEAGUE_MEMBERS carries the real first name.
-SEASON_ORDER_NAMES = ("Ruben", "Javi", "Jorge", "Manu", "Pablo", "Lucena", "Fabio")
+# Resolved from `core.constants` so the api and the published rulebook cannot
+# disagree about who picks when.
+SEASON_ORDER_NAMES = DRAFT_ORDER_NAMES
 
 
 def resolve_order(

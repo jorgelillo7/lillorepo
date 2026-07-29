@@ -38,6 +38,23 @@ LEAGUE_MEMBERS: dict[int, str] = {
 # into comunicados/participacion via the scraper.
 NON_PLAYING_MEMBER_IDS: frozenset[int] = frozenset({13945871})
 
+# Draft pick order for the current season, by `LEAGUE_MEMBERS` name. Inverse to
+# the previous season's final standings, with the reglamento's adjustments for
+# newcomers, so it changes on every rollover.
+#
+# Lives here rather than in either package because both read it: the api
+# arbitrates the draft with it, and the web publishes it on the rulebook page.
+# It was duplicated before, and the copies had already drifted apart.
+DRAFT_ORDER_NAMES: tuple[str, ...] = (
+    "Ruben",
+    "Javi",
+    "Jorge",
+    "Manu",
+    "Pablo",
+    "Lucena",
+    "Fabio",
+)
+
 # A dynamic Drive file is considered stale if it hasn't been touched in
 # this long. Surfaced as a red "is_stale" badge in the admin panel.
 DRIVE_STALE_THRESHOLD = timedelta(days=7)

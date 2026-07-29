@@ -19,7 +19,7 @@ from flask import (
     url_for,
 )
 
-from core.constants import MADRID_TZ
+from core.constants import DRAFT_ORDER_NAMES, MADRID_TZ
 from core.sdk.gcp import get_sheets_data
 from core.sdk.http import retry_http_request
 from core.utils import get_logger
@@ -221,6 +221,7 @@ def palmares() -> str:
         special_tournaments=config.SPECIAL_TOURNAMENTS,
         special_base=(
             f"https://storage.googleapis.com/{config.SPECIAL_TOURNAMENTS_BUCKET}"
+            "/special-tournaments"
         ),
     )
 
@@ -247,7 +248,17 @@ def reglamento() -> str:
         leagues=leagues,
         error=error,
         active_page="reglamento",
+        draft_order=DRAFT_ORDER_NAMES,
+        season_label=_season_label(g.season),
     )
+
+
+def _season_label(season: str) -> str:
+    """`"26-27"` -> `"2026/2027"`, the form the rulebook prints."""
+    parts = (season or "").split("-")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        return season or ""
+    return f"20{parts[0]}/20{parts[1]}"
 
 
 def _fetch_calendar_ics() -> bytes:

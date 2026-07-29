@@ -256,7 +256,7 @@ def test_palmares_renders_special_tournament_slots(mock_get, client):
         ),
     ]
     body = client.get("/palmares").data.decode("utf-8")
-    base = "https://storage.googleapis.com/biwenger-special-tournaments"
+    base = "https://storage.googleapis.com/biwenger/special-tournaments"
     assert "Copas especiales" in body
     assert f"{base}/santa-cup/25-26.png" in body
     assert f"{base}/castolo-cup/25-26.png" in body
@@ -280,7 +280,7 @@ def test_palmares_skips_special_cups_before_25_26(mock_get, client):
         ),
     ]
     body = client.get("/palmares").data.decode("utf-8")
-    base = "https://storage.googleapis.com/biwenger-special-tournaments"
+    base = "https://storage.googleapis.com/biwenger/special-tournaments"
     # No cup <img> for the old season (the block header/JS strings live in the
     # always-present <script>, so assert on the constructible URL instead).
     assert f"{base}/santa-cup/2024-2025" not in body
