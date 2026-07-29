@@ -81,6 +81,8 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   (runbook in `packages/biwenger_tools/OPERATIONS.md` §1). A brand-new cup
   *type* is one line in `config.SPECIAL_TOURNAMENTS`.
 
+## my_photos
+
 - **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
   Blocked on USER: run the migration script and free up the disks.
 
