@@ -668,6 +668,68 @@ def test_pick_ambiguous_renders_candidate_keyboard(client):
     assert rows[1][0]["callback_data"] == "d:777:2"
 
 
+def test_bare_soy_posts_the_manager_picker_instead_of_failing(client):
+    """`/soy` with no name is what Telegram sends when the command is tapped
+    from the `/` menu, so it must offer the managers rather than error out."""
+    managers = [
+        {"manager_id": 11, "name": "Ruben", "claimed_by": ""},
+        {"manager_id": 22, "name": "Javi", "claimed_by": "999"},
+    ]
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"managers": managers, "message": "¿Quién eres?"},
+    ) as mock_api, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/soy", "777"))
+    assert resp.status_code == 200
+    assert mock_api.call_args.args[0] == "/draft/managers"
+    rows = mock_send.call_args.kwargs["reply_markup"]["inline_keyboard"]
+    assert rows[0][0]["callback_data"] == "s:11"
+    assert rows[0][1]["text"].startswith("✅")
+
+
+def test_soy_picker_tap_registers_that_manager(client):
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"message": "ok"},
+    ) as mock_api, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ), patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ):
+        resp = _post(
+            client, _callback_update(_VALID_DRAFT_CHAT, "s:22", from_user_id="777")
+        )
+    assert resp.status_code == 200
+    path, _method, payload = mock_api.call_args.args[:3]
+    assert path == "/draft/register"
+    assert payload == {"telegram_user_id": "777", "manager_id": "22"}
+
+
+def test_exportar_sends_one_message_per_manager_block(client):
+    """`messages` carries pre-split blocks — a single 105-pick listing would
+    blow past Telegram's 4096-char limit."""
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"message": "resumen", "messages": ["Ruben\n1. Messi", "Javi"]},
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/exportar", "777"))
+    assert resp.status_code == 200
+    sent = [c.kwargs["text"] for c in mock_send.call_args_list]
+    assert sent == ["resumen", "Ruben\n1. Messi", "Javi"]
+
+
+def test_bare_pick_asks_for_a_player_without_calling_the_api(client):
+    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_api, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick", "777"))
+    assert resp.status_code == 200
+    mock_api.assert_not_called()
+    assert "/pick" in mock_send.call_args.kwargs["text"]
+
+
 def test_admin_command_from_draft_group_is_refused(client):
     """None of the owner-only commands are reachable from the draft group."""
     with patch(

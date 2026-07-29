@@ -36,6 +36,7 @@ ALL_PLAYERS_DATA_URL = biwenger_sdk.ALL_PLAYERS_DATA_URL
 LEAGUE_DATA_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
 USER_SQUAD_URL = biwenger_sdk.manager_squad_url("{manager_id}")
 CLAUSULAZOS_URL = biwenger_sdk.clausulazos_url(LEAGUE_ID)
+ADMIN_TRANSFERS_URL = biwenger_sdk.admin_transfers_url(LEAGUE_ID)
 OFFERS_URL = biwenger_sdk.OFFERS_URL
 
 # --- JORNADA PERFECTA (private API) ---
@@ -80,10 +81,13 @@ DRAFT_MARKET_CSV_URL = os.getenv(
 # Offline fallback used when `DRAFT_MARKET_CSV_URL` is blank (tests, laptop).
 DRAFT_MARKET_CSV_PATH = os.getenv("DRAFT_MARKET_CSV_PATH", "")
 
-# Telegram user id allowed to call `/draft/undo`. Defaults to the owner: a
-# one-to-one Telegram chat id is the user's own id, so the configured private
-# chat already identifies the admin.
-DRAFT_ADMIN_TELEGRAM_ID = os.getenv("DRAFT_ADMIN_TELEGRAM_ID", "") or TELEGRAM_CHAT_ID
+# Telegram user id allowed to call `/draft/undo`. Must be a *user* id, which is
+# always positive — it cannot be derived from `TELEGRAM_CHAT_ID`, since the
+# owner chat is itself a group and so carries a negative id that matches nobody.
+DRAFT_ADMIN_TELEGRAM_ID = (
+    _TELEGRAM_CFG.get("draft_admin_telegram_id")
+    or os.getenv("DRAFT_ADMIN_TELEGRAM_ID", "")
+).strip()
 
 # Gate on the Biwenger *writes* the draft makes (`transfer_player` /
 # `revert_transfer`). Default False: validation, state and Firestore all

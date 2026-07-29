@@ -49,6 +49,18 @@ def clausulazos_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/board?type=transfer&fields=*,content(*,player(*))"
 
 
+def admin_transfers_url(league_id: Union[str, int]) -> str:
+    """Board feed of admin-made transfers — the draft's own movements.
+
+    A different `type` from `clausulazos_url`: an admin transfer is not a
+    clause, and does not appear in the `transfer` feed at all.
+    """
+    return (
+        f"{league_url(league_id)}/board"
+        "?type=adminTransfer&fields=*,content(*,player(*))"
+    )
+
+
 def league_transfer_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/transfer"
 
@@ -519,8 +531,42 @@ class BiwengerClient:
                 "player_id": player_id,
                 "manager_id": manager_id,
                 "amount": amount,
+                # Biwenger exposes no id for an admin transfer anywhere we can
+                # read it, and `revertOffer` needs one. Capture what the
+                # response carries so the gap is diagnosable from the logs.
+                "status_code": response.status_code,
+                "headers": dict(response.headers),
+                "body": response.text[:500],
             },
         )
+
+    def release_player(
+        self,
+        *,
+        player_id: int,
+        transfer_url: Optional[str] = None,
+    ) -> None:
+        """Send `player_id` back to free agency, moving no money.
+
+        The undo path that does not need an `offer` id: Biwenger exposes no
+        identifier for an admin transfer — not in the response (204, empty
+        body, no headers) nor in the `adminTransfer` board feed — so
+        `revert_transfer` is unusable for transfers we made ourselves. Pair
+        this with `apply_bonus` to hand the price back.
+        """
+        url = transfer_url or league_transfer_url(self.league_id)
+        payload = {
+            "to": 0,
+            "amount": 0,
+            "player": int(player_id),
+            "operation": "transfer",
+        }
+        logger.info("Releasing player to free agency.", extra={"player_id": player_id})
+        # No retry, same reason as `transfer_player`: releasing twice is
+        # harmless but a lost 204 would hide a second money movement.
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        logger.info("Player released.", extra={"player_id": player_id})
 
     def revert_transfer(
         self,
