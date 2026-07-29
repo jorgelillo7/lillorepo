@@ -227,23 +227,60 @@ def _save_state(state: draft.DraftState) -> None:
     )
 
 
+def _mention(manager_id: int) -> str:
+    """HTML mention of the manager's registered Telegram user.
+
+    A `tg://user?id=` link makes Telegram actually notify the person on
+    turn, username or not. Falls back to the plain name when the manager
+    has not done `/soy` yet — a dead link would notify nobody anyway.
+    """
+    name = LEAGUE_MEMBERS.get(manager_id, str(manager_id))
+    for _, data in fs.list_documents(_managers_path(config.DRAFT_SEASON)):
+        if int(data.get("manager_id") or 0) == manager_id:
+            return f'<a href="tg://user?id={data["telegram_user_id"]}">{name}</a>'
+    return name
+
+
 def get_state() -> dict:
     """Current turn + per-manager budgets/spend/squad size, name-keyed."""
     state = _load_state()
     turn = draft.whose_turn(state)
     completed = turn is None
     pick_num = draft.current_pick_number(state)
+    total_picks = len(state.order) * draft.NUM_ROUNDS
 
     if completed:
         last = state.picks[-1] if state.picks else None
         round_num = last.round if last else 0
         position = last.position if last else 0
         manager_name = ""
-        message = "El draft ha terminado. ¡Gracias por jugar!"
+        message = "🏁 El draft ha terminado. ¡Gracias por jugar!"
     else:
         round_num, position, _ = draft.pick_number_to_slot(pick_num, state.order)
         manager_name = LEAGUE_MEMBERS.get(turn, str(turn))
-        message = f"Ronda {round_num}, pick {position}: le toca a {manager_name}."
+        upcoming = [
+            LEAGUE_MEMBERS.get(m, str(m))
+            for m in (
+                draft.pick_number_to_slot(n, state.order)[2]
+                for n in range(pick_num + 1, min(pick_num + 3, total_picks + 1))
+            )
+        ]
+        lines = [
+            f"🏁 <b>Draft {config.DRAFT_SEASON}</b> — Ronda "
+            f"{round_num}/{draft.NUM_ROUNDS} · Pick {pick_num}/{total_picks}",
+            f"🎯 Le toca a {_mention(turn)}",
+        ]
+        if upcoming:
+            lines.append(f"⏭️ Después: {' → '.join(upcoming)}")
+        lines.append("")
+        lines.append("💰 <b>Libres</b> · plantilla")
+        for m in state.order:
+            free = state.budgets.get(m, 0) - state.spent.get(m, 0)
+            lines.append(
+                f"  {LEAGUE_MEMBERS.get(m, str(m))} — {_eur(free)} · "
+                f"{len(state.squads.get(m, []))}/{draft.SQUAD_SIZE}"
+            )
+        message = "\n".join(lines)
 
     budgets = {LEAGUE_MEMBERS.get(m, str(m)): v for m, v in state.budgets.items()}
     spent = {LEAGUE_MEMBERS.get(m, str(m)): v for m, v in state.spent.items()}
@@ -496,10 +533,14 @@ def _applied_response(
     sim_note = (
         "" if applied_to_biwenger else " (modo simulación: Biwenger no se ha tocado)"
     )
-    turn_note = f"Turno de {next_manager}." if next_manager else "¡Draft completado!"
+    turn_note = (
+        f"🎯 Turno de {_mention(next_manager_id)}."
+        if next_manager_id is not None
+        else "🏁 ¡Draft completado!"
+    )
     message = (
-        f"✅ {manager_name} ficha a {row['name']} ({row['team']}) por "
-        f"{price:,} EUR{sim_note}. Le quedan {remaining:,} EUR. {turn_note}"
+        f"✅ <b>{manager_name}</b> ficha a <b>{row['name']}</b> ({row['team']}) "
+        f"por {_eur(price)}{sim_note}. Le quedan {_eur(remaining)}. {turn_note}"
     )
 
     return {
@@ -709,7 +750,8 @@ def undo_last_pick(telegram_user_id: str) -> dict:
     return {
         "status": "reverted",
         "message": (
-            f"Fichaje de {manager_name} ({player_name}) deshecho. Le toca de nuevo."
+            f"↩️ Fichaje de <b>{manager_name}</b> ({player_name}) deshecho. "
+            f"Le toca de nuevo a {_mention(last_pick.manager_id)}."
         ),
     }
 

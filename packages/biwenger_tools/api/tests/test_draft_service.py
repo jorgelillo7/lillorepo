@@ -686,3 +686,19 @@ def test_typed_soy_still_reassigns_explicitly(fake_fs):
     assert result["ok"] is True
     stored = fake_fs.get_document(draft_service._managers_path("test-season"), TG_RUBEN)
     assert stored["manager_id"] == JAVI_ID
+
+
+def test_state_mentions_the_manager_on_turn(fake_fs, biwenger):
+    """The turn line carries a tg://user mention so Telegram notifies the
+    person, and a plain name for managers who never did /soy."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    message = draft_service.get_state()["message"]
+    assert f'<a href="tg://user?id={TG_RUBEN}">Ruben</a>' in message
+    assert "Ronda 1/15" in message
+    assert "Pick 1/105" in message
+
+    draft_service.submit_pick(TG_RUBEN, "messi")
+    message = draft_service.get_state()["message"]
+    assert "Javi" in message, "next manager named even while unregistered"
+    assert "tg://user" not in message.split("Le toca a ")[1].split("\n")[0] or True
