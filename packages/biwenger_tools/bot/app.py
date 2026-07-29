@@ -161,6 +161,31 @@ def _run_in_background(fn, *args, **kwargs) -> None:
     threading.Thread(target=fn, args=args, kwargs=kwargs, daemon=True).start()
 
 
+def _report_api_error(
+    label: str,
+    exc: Exception,
+    *,
+    log: str,
+    chat_id: str | None = None,
+    **log_extra,
+) -> None:
+    """Log an api failure and post an HTML-escaped error to the chat.
+
+    Defensive HTML escape on `exc` — request body fragments and gcloud-style
+    messages can contain `<`/`>`/`&` which would otherwise trigger a second
+    Telegram 400 and leave the user with no feedback at all.
+    """
+    logger.error(log, extra={**log_extra, "error": str(exc)})
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id or config.TELEGRAM_CHAT_ID,
+        text=(
+            f"❌ Error al ejecutar <b>{html.escape(label)}</b>: "
+            f"<code>{html.escape(str(exc))}</code>"
+        ),
+    )
+
+
 def _call_api_and_report(
     action_key: str,
     label: str,
@@ -168,27 +193,11 @@ def _call_api_and_report(
     method: str,
     params: dict | None,
 ) -> None:
-    """Call biwenger-api and post an HTML-escaped error on failure.
-
-    Defensive HTML escape on `exc` — request body fragments and gcloud-style
-    messages can contain `<`/`>`/`&` which would otherwise trigger a second
-    Telegram 400 and leave the user with no feedback at all.
-    """
+    """Call biwenger-api and post an error to the owner chat on failure."""
     try:
         api_client.call_api(config.BIWENGER_API_URL, path, method=method, params=params)
     except Exception as exc:
-        logger.error(
-            "Webhook: api call failed",
-            extra={"action": action_key, "error": str(exc)},
-        )
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=(
-                f"❌ Error al ejecutar <b>{html.escape(label)}</b>: "
-                f"<code>{html.escape(str(exc))}</code>"
-            ),
-        )
+        _report_api_error(label, exc, log="Webhook: api call failed", action=action_key)
 
 
 def _dispatch_action(action_key: str, label: str) -> None:
@@ -239,14 +248,8 @@ def _run_analizar(manager_value: str, edit_into: tuple[str, int] | None) -> None
                 config.BIWENGER_API_URL, "/teams", method="GET", params=params
             )
         except Exception as exc:
-            logger.error(
-                "Webhook: /teams call failed",
-                extra={"manager": manager_value, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
-                chat_id=config.TELEGRAM_CHAT_ID,
-                text=f"❌ Error al ejecutar <b>{label}</b>: <code>{exc}</code>",
+            _report_api_error(
+                label, exc, log="Webhook: /teams call failed", manager=manager_value
             )
 
     _run_in_background(_call_teams)
@@ -302,17 +305,11 @@ def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> 
                 },
             )
         except Exception as exc:
-            logger.error(
-                "Webhook: emergency execute failed",
-                extra={"player_id": player_id, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
-                chat_id=config.TELEGRAM_CHAT_ID,
-                text=(
-                    f"❌ Error al ejecutar <b>Emergencia</b>: "
-                    f"<code>{html.escape(str(exc))}</code>"
-                ),
+            _report_api_error(
+                "Emergencia",
+                exc,
+                log="Webhook: emergency execute failed",
+                player_id=player_id,
             )
 
     _run_in_background(_call_execute)
@@ -362,17 +359,8 @@ def _run_emergencia_refine(params: dict, edit_into: tuple[str, int] | None) -> N
                 params=params,
             )
         except Exception as exc:
-            logger.error(
-                "Webhook: emergency refine failed",
-                extra={"params": params, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
-                chat_id=config.TELEGRAM_CHAT_ID,
-                text=(
-                    f"❌ Error al ejecutar <b>Emergencia</b>: "
-                    f"<code>{html.escape(str(exc))}</code>"
-                ),
+            _report_api_error(
+                "Emergencia", exc, log="Webhook: emergency refine failed", params=params
             )
 
     _run_in_background(_call_refine)
@@ -662,17 +650,12 @@ def _run_draft_action(
         try:
             data = _call_draft_api(path, method, params)
         except Exception as exc:
-            logger.error(
-                "Webhook: draft api call failed",
-                extra={"path": path, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
+            _report_api_error(
+                label,
+                exc,
+                log="Webhook: draft api call failed",
                 chat_id=chat_id,
-                text=(
-                    f"❌ Error al ejecutar <b>{html.escape(label)}</b>: "
-                    f"<code>{html.escape(str(exc))}</code>"
-                ),
+                path=path,
             )
             return
         message = data.get("message", "")
@@ -706,17 +689,12 @@ def _run_draft_pick(user_id: str, query: str, chat_id: str) -> None:
                 {"telegram_user_id": user_id, "query": query},
             )
         except Exception as exc:
-            logger.error(
-                "Webhook: draft pick failed",
-                extra={"user_id": user_id, "error": str(exc)},
-            )
-            send_telegram_message(
-                bot_token=config.TELEGRAM_BOT_TOKEN,
+            _report_api_error(
+                "Pick",
+                exc,
+                log="Webhook: draft pick failed",
                 chat_id=chat_id,
-                text=(
-                    f"❌ Error al ejecutar <b>Pick</b>: "
-                    f"<code>{html.escape(str(exc))}</code>"
-                ),
+                user_id=user_id,
             )
             return
 

@@ -26,7 +26,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 
 | Doc | What's in it |
 |---|---|
-| [`technical/backend/python-best-practices.md`](technical/backend/python-best-practices.md) | Python standards guide (PEP 8/20 + team experience) |
+| [`technical/backend/python-best-practices.md`](technical/backend/python-best-practices.md) | Convenciones de Python de este repo (capas, errores, tests, trampas del stack) |
 | [`technical/reverse-engineering/frida-android-intercept.md`](technical/reverse-engineering/frida-android-intercept.md) | How the JP token was captured (Frida + Android JS bundle); scripts alongside |
 | [`technical/migration/retrofit-patterns.md`](technical/migration/retrofit-patterns.md) | Legacy-modernisation patterns (Strangler Fig, Branch by Abstraction…) |
 | [`technical/ai/claude-code-roadmap.md`](technical/ai/claude-code-roadmap.md) | Claude Code adoption roadmap for this repo |
