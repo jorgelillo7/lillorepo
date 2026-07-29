@@ -570,7 +570,15 @@ def _apply_confirmed_pick(
     outcome = reservation["outcome"]
 
     if outcome == "invalid":
-        return _rejected(reservation["error"], reservation["message"])
+        message = reservation["message"]
+        # The pure engine names the manager on turn but knows nothing about
+        # Telegram; the whole point of this rejection is to wake that person
+        # up, so upgrade the name to a mention here.
+        if reservation["error"] == draft.DraftError.NOT_YOUR_TURN.name:
+            turn = draft.whose_turn(_load_state())
+            if turn is not None:
+                message = f"⛔ No es tu turno — le toca a {_mention(turn)}."
+        return _rejected(reservation["error"], message)
     if outcome == "duplicate":
         return _duplicate_pick_response(reservation["pick"])
 
