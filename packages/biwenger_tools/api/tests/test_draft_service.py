@@ -702,3 +702,14 @@ def test_state_mentions_the_manager_on_turn(fake_fs, biwenger):
     message = draft_service.get_state()["message"]
     assert "Javi" in message, "next manager named even while unregistered"
     assert "tg://user" not in message.split("Le toca a ")[1].split("\n")[0] or True
+
+
+def test_out_of_turn_rejection_mentions_the_manager_on_turn(fake_fs, biwenger):
+    """The rejection exists to wake up the right person, so it pings them."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+
+    result = draft_service.submit_pick(TG_JAVI, "messi")
+    assert result["status"] == "rejected"
+    assert result["error"] == "NOT_YOUR_TURN"
+    assert f'<a href="tg://user?id={TG_RUBEN}">Ruben</a>' in result["message"]
