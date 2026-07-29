@@ -490,6 +490,23 @@ class BiwengerClient:
         )
         return data
 
+    def _post_admin_operation(
+        self, url: str, payload: dict, *, begin: str, done: str, extra: dict
+    ) -> None:
+        """POST a league-admin mutation, deliberately without retries.
+
+        None of these endpoints carries an idempotency key and all answer
+        204 with an empty body, so a retry after a lost response would
+        apply the mutation twice — a player assigned and charged again, a
+        refund paid twice. `raise_for_status` still surfaces hard
+        failures; the caller must re-read Biwenger state to confirm the
+        effect, because the empty 204 confirms nothing.
+        """
+        logger.info(begin, extra=extra)
+        response = self.session.post(url, json=payload, timeout=30)
+        response.raise_for_status()
+        logger.info(done, extra=extra)
+
     def transfer_player(
         self,
         *,
@@ -501,42 +518,21 @@ class BiwengerClient:
         """POST an admin transfer: assigns `player_id` to `manager_id` and
         charges `amount` euros, atomically. `manager_id=0` means free
         agency (nobody owns the player afterwards).
-
-        Returns 204 with no body — Biwenger applies the change but doesn't
-        echo it back, so the caller must re-read squad/cash state to
-        confirm the transfer took effect.
         """
-        url = transfer_url or league_transfer_url(self.league_id)
-        payload = {
-            "to": int(manager_id),
-            "amount": int(amount),
-            "player": int(player_id),
-            "operation": "transfer",
-        }
-        logger.info(
-            "Transferring player.",
-            extra={
-                "player_id": player_id,
-                "manager_id": manager_id,
-                "amount": amount,
+        self._post_admin_operation(
+            transfer_url or league_transfer_url(self.league_id),
+            {
+                "to": int(manager_id),
+                "amount": int(amount),
+                "player": int(player_id),
+                "operation": "transfer",
             },
-        )
-        # No retry: a transfer has no idempotency key, so retrying after a
-        # lost 204 would assign the player and charge the money twice.
-        response = self.session.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        logger.info(
-            "Transfer applied.",
+            begin="Transferring player.",
+            done="Transfer applied.",
             extra={
                 "player_id": player_id,
                 "manager_id": manager_id,
                 "amount": amount,
-                # Biwenger exposes no id for an admin transfer anywhere we can
-                # read it, and `revertOffer` needs one. Capture what the
-                # response carries so the gap is diagnosable from the logs.
-                "status_code": response.status_code,
-                "headers": dict(response.headers),
-                "body": response.text[:500],
             },
         )
 
@@ -554,19 +550,18 @@ class BiwengerClient:
         `revert_transfer` is unusable for transfers we made ourselves. Pair
         this with `apply_bonus` to hand the price back.
         """
-        url = transfer_url or league_transfer_url(self.league_id)
-        payload = {
-            "to": 0,
-            "amount": 0,
-            "player": int(player_id),
-            "operation": "transfer",
-        }
-        logger.info("Releasing player to free agency.", extra={"player_id": player_id})
-        # No retry, same reason as `transfer_player`: releasing twice is
-        # harmless but a lost 204 would hide a second money movement.
-        response = self.session.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        logger.info("Player released.", extra={"player_id": player_id})
+        self._post_admin_operation(
+            transfer_url or league_transfer_url(self.league_id),
+            {
+                "to": 0,
+                "amount": 0,
+                "player": int(player_id),
+                "operation": "transfer",
+            },
+            begin="Releasing player to free agency.",
+            done="Player released.",
+            extra={"player_id": player_id},
+        )
 
     def revert_transfer(
         self,
@@ -578,39 +573,20 @@ class BiwengerClient:
     ) -> None:
         """POST an admin transfer revert: returns `player_id` to the pool
         and refunds `amount` euros (the SAME positive amount as the
-        original transfer), referencing the original transfer's
-        `offer_id`.
-
-        Returns 204 with no body — the caller must re-read squad/cash
-        state to confirm the revert took effect.
+        original transfer), referencing the original transfer's `offer_id`.
         """
-        url = transfer_url or league_transfer_url(self.league_id)
-        payload = {
-            "to": 0,
-            "amount": int(amount),
-            "player": int(player_id),
-            "offer": int(offer_id),
-            "operation": "revertOffer",
-        }
-        logger.info(
-            "Reverting transfer.",
-            extra={
-                "player_id": player_id,
-                "amount": amount,
-                "offer_id": offer_id,
+        self._post_admin_operation(
+            transfer_url or league_transfer_url(self.league_id),
+            {
+                "to": 0,
+                "amount": int(amount),
+                "player": int(player_id),
+                "offer": int(offer_id),
+                "operation": "revertOffer",
             },
-        )
-        # No retry: a revert has no idempotency key, so retrying after a
-        # lost 204 would refund the money and un-assign the player twice.
-        response = self.session.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        logger.info(
-            "Transfer revert applied.",
-            extra={
-                "player_id": player_id,
-                "amount": amount,
-                "offer_id": offer_id,
-            },
+            begin="Reverting transfer.",
+            done="Transfer revert applied.",
+            extra={"player_id": player_id, "amount": amount, "offer_id": offer_id},
         )
 
     def apply_bonus(
@@ -626,26 +602,14 @@ class BiwengerClient:
         web UI sends. Sign convention is OPPOSITE `transfer_player`:
         negative deducts, positive credits. `reason` is free text
         rendered publicly on the league board.
-
-        Returns 204 with no body — the caller must re-read balances to
-        confirm the bonus took effect.
         """
-        url = bonus_url or league_bonus_url(self.league_id)
-        payload = {
-            "amount": {int(user_id): int(delta) for user_id, delta in amounts.items()},
-            "reason": reason,
-        }
-        logger.info(
-            "Applying league bonus.",
-            extra={"amounts": payload["amount"], "reason": reason},
-        )
-        # No retry: a bonus has no idempotency key, so retrying after a
-        # lost 204 would apply every manager's delta twice.
-        response = self.session.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        logger.info(
-            "League bonus applied.",
-            extra={"amounts": payload["amount"], "reason": reason},
+        deltas = {int(user_id): int(delta) for user_id, delta in amounts.items()}
+        self._post_admin_operation(
+            bonus_url or league_bonus_url(self.league_id),
+            {"amount": deltas, "reason": reason},
+            begin="Applying league bonus.",
+            done="League bonus applied.",
+            extra={"amounts": deltas, "reason": reason},
         )
 
     def get_received_offers(self, user_offers_url: str = USER_OFFERS_URL) -> list:
