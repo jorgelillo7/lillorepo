@@ -346,6 +346,73 @@ El cambio de temporada es **manual e intencional** — ocurre cuando se resetea 
 
 ---
 
+## 🏁 Draft anual
+
+Una vez al año, en pretemporada. El bot arbitra desde el supergrupo de Telegram:
+lleva el turno, el presupuesto y la composición, y —si el flag está encendido—
+aplica el traspaso en Biwenger. Comportamiento completo en
+`openspec/specs/biwenger_tools/draft/spec.md`.
+
+### 1. Subir el CSV de mercado cerrado
+
+Se exporta a mano desde Biwenger **el día pactado de cierre de mercado** — no se
+descarga solo a propósito: una exportación tardía trae precios equivocados.
+
+```bash
+# El que lee la api — nombre estable, re-subible sin desplegar
+gcloud storage cp primera-division.csv \
+    gs://biwenger/draft/26-27/market.csv
+
+# Copia inmutable, para dejar constancia de con qué precios se jugó
+gcloud storage cp primera-division.csv \
+    gs://biwenger/draft/26-27/market-$(date +%F).csv
+```
+
+La api cachea el mercado por instancia, así que **re-subir el CSV no basta para
+que lo relea**: hay que forzar revisiones nuevas (`gcloud run services update
+biwenger-api --update-env-vars DEPLOY_TIME=...`) o esperar al siguiente arranque
+en frío.
+
+### 2. Pase de lista
+
+Cada presidente escribe `/soy` en el grupo y pulsa su nombre. Queda guardado en
+`draft/{temporada}/managers` y **sobrevive al reset**, así que se hace una sola
+vez aunque se ensaye antes.
+
+### 3. Encender la escritura en Biwenger
+
+Sale apagada (`DRAFT_APPLY_TO_BIWENGER=false`): con el flag off el draft se
+ensaya entero —validación, turnos, Firestore, mensajes— sin mover un jugador.
+
+El valor lo fija la **variable de repositorio** del mismo nombre, porque el
+deploy usa `--set-env-vars`, que reemplaza el bloque entero: cambiarlo sólo en
+Cloud Run lo perdería en el siguiente despliegue.
+
+```bash
+gh variable set DRAFT_APPLY_TO_BIWENGER --body true   # o false
+```
+
+### 4. Reset entre el ensayo y el draft real
+
+```bash
+python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py --season 26-27
+python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py --season 26-27 --apply
+```
+
+Antes de resetear, **comprueba en Biwenger que las plantillas están vacías**. El
+reset borra los fichajes de Firestore pero no toca Biwenger: si quedara alguno
+asignado allí, se pierde el rastro de que existe. Si los deshiciste con
+`/deshacer` ya están devueltos; si no, quítalos desde el panel de admin primero.
+
+### 5. Deshacer un fichaje
+
+`/deshacer` en el grupo, sólo el admin (`draft_admin_telegram_id` en el secreto
+`telegram-bot-config-regional`, un id de **usuario**, siempre positivo). Devuelve
+el jugador al mercado, reintegra el precio y rebobina el turno. Encadenable: cada
+llamada deshace el último fichaje.
+
+---
+
 ## 🛠️ Firestore maintenance scripts
 
 One-off surgical edits live under `packages/biwenger_tools/scripts/`
