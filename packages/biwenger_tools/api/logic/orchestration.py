@@ -53,10 +53,18 @@ def build_context() -> OrchestratorContext:
         competition=config.JP_COMPETITION,
         score_type=config.JP_SCORE_TYPE,
     )
-    jp_index = build_jp_index(jp_players)
 
     biwenger = build_biwenger_session()
     biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
+
+    # The full roster (not just the players a given endpoint renders) is
+    # required to detect a loose match claimed by 2+ Biwenger players.
+    jp_index = build_jp_index(
+        jp_players,
+        biwenger_names=[
+            p.get("name") for p in biwenger_players.values() if p.get("name")
+        ],
+    )
     return OrchestratorContext(
         biwenger=biwenger,
         biwenger_players=biwenger_players,
