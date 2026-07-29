@@ -103,6 +103,15 @@ def test_fetch_all_players_probe_resilient_to_player_without_timestamp():
         assert limits == ["600", "5"]
 
 
+def test_fetch_all_players_raises_on_auth_error_masked_as_200():
+    """JP answers a rotated/invalid token with HTTP 200 + {"error": "auth"} —
+    must not be treated as an empty league."""
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json={"error": "auth"})
+        with pytest.raises(RuntimeError, match="token posiblemente rotado"):
+            fetch_all_players(TOKEN)
+
+
 def test_get_predict_rate_returns_value():
     player = {
         "predict": [

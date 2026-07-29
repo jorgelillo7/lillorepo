@@ -77,6 +77,22 @@ def _max_updated_at(players: list[dict], score_type: int) -> Optional[int]:
     return max(valid) if valid else None
 
 
+def _raise_if_unhealthy(status_code: int, payload: dict) -> None:
+    """Raise if JP answered with an error masked as HTTP 200.
+
+    An invalid/rotated token gets `{"error": "auth"}` back with a 200
+    status, so `players` is simply absent — indistinguishable from a
+    genuinely empty league unless checked explicitly.
+    """
+    if status_code != 200 or not payload.get("players"):
+        raise RuntimeError(
+            f"JP API no responde (HTTP {status_code}) — "
+            "token posiblemente rotado. Descargar APK nuevo y extraer token con: "
+            "unzip -p app.apk assets/index.android.bundle | "
+            "strings | grep -o 'lks9k2k[^ \"&]*'"
+        )
+
+
 def _peek_fingerprint(
     auth_token: str, competition: int, score_type: int
 ) -> Optional[int]:
@@ -87,6 +103,9 @@ def _peek_fingerprint(
     players and taking the max is a stable fingerprint of the snapshot
     — strictly stronger than reading just the first player (whose
     position by `priceIncrement DESC` shifts between requests).
+
+    Returns None on any failure, including an auth error — the caller
+    then falls through to the full fetch, which raises loudly instead.
     """
     params = _build_params(auth_token, competition, score_type)
     params["limit"] = str(_PROBE_SAMPLE_SIZE)
@@ -143,7 +162,9 @@ def fetch_all_players(
     params = _build_params(auth_token, competition, score_type)
     response = requests.get(JP_URL, headers=JP_HEADERS, params=params, timeout=30)
     response.raise_for_status()
-    players = response.json().get("players", [])
+    payload = response.json()
+    _raise_if_unhealthy(response.status_code, payload)
+    players = payload.get("players", [])
 
     # Use the same `top N by priceIncrement DESC` sample the probe sees,
     # so the next probe's max is comparable to what we cache here.
@@ -179,10 +200,4 @@ def check_api_health(
     except requests.RequestException as e:
         raise RuntimeError(f"JP API unreachable: {e}") from e
 
-    if response.status_code != 200 or not response.json().get("players"):
-        raise RuntimeError(
-            f"JP API no responde (HTTP {response.status_code}) — "
-            "token posiblemente rotado. Descargar APK nuevo y extraer token con: "
-            "unzip -p app.apk assets/index.android.bundle | "
-            "strings | grep -o 'lks9k2k[^ \"&]*'"
-        )
+    _raise_if_unhealthy(response.status_code, response.json())
