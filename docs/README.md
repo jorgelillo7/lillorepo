@@ -26,8 +26,8 @@ One entry per document. Runbooks first, then setup, then deep dives.
 
 | Doc | What's in it |
 |---|---|
-| [`technical/backend/python-best-practices.md`](technical/backend/python-best-practices.md) | Convenciones de Python de este repo (capas, errores, tests, trampas del stack) |
-| [`external/python-best-practices-retrofit.md`](external/python-best-practices-retrofit.md) | Referencia externa: guía del Retrofit Chapter (MasOrange), origen del doc anterior |
+| [`technical/backend/python-best-practices.md`](technical/backend/python-best-practices.md) | Python standards guide (PEP 8/20 + team experience) |
+| [`technical/backend/python-conventions.md`](technical/backend/python-conventions.md) | This repo's own Python conventions (layers, errors, tests, stack traps) |
 | [`technical/reverse-engineering/frida-android-intercept.md`](technical/reverse-engineering/frida-android-intercept.md) | How the JP token was captured (Frida + Android JS bundle); scripts alongside |
 | [`technical/migration/retrofit-patterns.md`](technical/migration/retrofit-patterns.md) | Legacy-modernisation patterns (Strangler Fig, Branch by Abstraction…) |
 | [`technical/ai/claude-code-roadmap.md`](technical/ai/claude-code-roadmap.md) | Claude Code adoption roadmap for this repo |
