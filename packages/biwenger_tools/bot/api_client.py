@@ -1,8 +1,7 @@
 """HTTP client that talks to biwenger-api with a Google-signed ID token.
 
-The bot used to enqueue Cloud Run Jobs to run analyzer modes. After PR 3,
-modes are real HTTP endpoints on `biwenger-api`. This module wraps the
-requests + auth boilerplate so `app.py` only sees `call_api(path, method)`.
+Wraps the requests + auth boilerplate so `app.py` only sees
+`call_api(path, method)`.
 """
 
 import google.auth

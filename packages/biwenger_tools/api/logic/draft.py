@@ -147,7 +147,7 @@ class DraftState:
 
 def new_draft_state(
     order: Sequence[int] = DEFAULT_ORDER,
-    budgets: Mapping[int, int] = None,
+    budgets: Mapping[int, int] | None = None,
 ) -> DraftState:
     """Fresh draft state: no picks made, empty squads, zero spend."""
     order = list(order)
@@ -166,7 +166,7 @@ def current_pick_number(state: DraftState) -> int:
     return len(state.picks) + 1
 
 
-def whose_turn(state: DraftState):
+def whose_turn(state: DraftState) -> int | None:
     """Manager id who should pick next, or `None` if the draft is complete."""
     total = len(state.order) * NUM_ROUNDS
     pick_num = current_pick_number(state)
@@ -285,7 +285,7 @@ class DraftError(Enum):
 @dataclass(frozen=True)
 class PickResult:
     ok: bool
-    error: DraftError = None
+    error: DraftError | None = None
     message: str = ""
 
 
@@ -387,7 +387,7 @@ def apply_pick(
     manager_id: int,
     player_id: int,
     players: Mapping[int, Mapping],
-) -> tuple:
+) -> tuple[DraftState, PickResult]:
     """Validate and, if valid, apply the pick.
 
     Returns `(new_state, result)`. On failure `new_state is state` (no
@@ -490,7 +490,7 @@ def _match_candidates(query: str, rows: Sequence[Mapping]) -> list:
 @dataclass(frozen=True)
 class NameMatch:
     ok: bool
-    row: Mapping = None
+    row: Mapping | None = None
     candidates: list = field(default_factory=list)
 
 
@@ -504,6 +504,23 @@ def resolve_player_name(query: str, rows: Sequence[Mapping]) -> NameMatch:
     """
     scored = _match_candidates(query, rows)
     if not scored:
+        # Half the market carries a one-word Biwenger name ("Cucho", "Pedri"),
+        # so adding a surname the export does not use turns a good query into
+        # a dead end. Fall back to the individual words before giving up.
+        words = normalize_name(query).split()
+        if len(words) > 1:
+            seen, merged = set(), []
+            for word in words:
+                for score, row in _match_candidates(word, rows):
+                    key = id(row)
+                    if key not in seen:
+                        seen.add(key)
+                        merged.append((score, row))
+            merged.sort(key=lambda sr: sr[0], reverse=True)
+            if merged:
+                return NameMatch(
+                    False, None, [row for _, row in merged[:_MAX_CANDIDATES]]
+                )
         return NameMatch(False, None, [])
 
     top_score = scored[0][0]

@@ -16,8 +16,8 @@ Four modules working together to archive, visualise and analyse data from a Biwe
 |---|---|---|
 | [`scraper_job/`](scraper_job/README.md) | Cloud Run Job (weekly cron) | Scrapes the league board and writes to Firestore (deterministic doc IDs, idempotent) |
 | [`web/`](web/README.md) | Cloud Run Service | Flask dashboard at https://biwenger-summary-pjpqofuevq-no.a.run.app/ — reads Firestore (server-side queries + composite index) plus Sheets for `ligas_especiales` / `trofeos` |
-| [`api/`](api/README.md) | Cloud Run Service | Biwenger business logic over HTTP — `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/market/auto-bid`, `/digests/daily`, etc. Renders PNG + posts to Telegram |
-| [`bot/`](bot/README.md) | Cloud Run Service | Telegram webhook → calls `api` with an OIDC ID token |
+| [`api/`](api/README.md) | Cloud Run Service | Biwenger business logic over HTTP — `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/market/auto-bid`, `/digests/daily`, `/draft/*`, etc. Renders PNG + posts to Telegram |
+| [`bot/`](bot/README.md) | Cloud Run Service | Telegram webhook → calls `api` with an OIDC ID token. Also arbitrates the annual snake draft from a separate Telegram group |
 
 ## How they fit together
 

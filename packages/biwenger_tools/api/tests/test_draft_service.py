@@ -660,3 +660,29 @@ def test_export_picks_with_nothing_yet_sends_no_blocks(fake_fs, biwenger):
     result = draft_service.export_picks()
     assert result["messages"] == []
     assert "Todavía no hay fichajes" in result["message"]
+
+
+def test_picker_tap_never_reassigns_a_registered_user(fake_fs):
+    """Picker buttons stay tappable in the chat and are not user-bound; a
+    stray tap must not silently rewrite an existing binding."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    result = draft_service.register_manager(TG_RUBEN, manager_id=JAVI_ID)
+    assert result["ok"] is False
+    assert "Ruben" in result["message"]
+    stored = fake_fs.get_document(draft_service._managers_path("test-season"), TG_RUBEN)
+    assert stored["manager_id"] == RUBEN_ID, "binding untouched"
+
+
+def test_picker_tap_on_own_name_is_a_noop_success(fake_fs):
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    result = draft_service.register_manager(TG_RUBEN, manager_id=RUBEN_ID)
+    assert result["ok"] is True
+
+
+def test_typed_soy_still_reassigns_explicitly(fake_fs):
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    result = draft_service.register_manager(TG_RUBEN, "Javi")
+    assert result["ok"] is True
+    stored = fake_fs.get_document(draft_service._managers_path("test-season"), TG_RUBEN)
+    assert stored["manager_id"] == JAVI_ID

@@ -148,9 +148,11 @@ The rulebook is split into five chapters, each with an accent colour exposed as
 the `--ch` / `--ch-soft` CSS variables on the chapter root. The accent tints the
 roman numeral badge, the article badges and the left border of the chapter
 header — nothing else. Values reuse the existing calendar tokens rather than
-introducing new ones: I El Draft `calendar-draft` (purple), II Reglas de Juego
-`accent` (green), III Torneos `calendar-copa` (amber), IV Comunicados
-`calendar-h2h` (blue), V Final de Temporada `calendar-mercado` (red).
+introducing new ones: I El Draft `calendar-draft` (purple), II Lloros League
+`accent` (green), III Liga H2H `calendar-h2h` (blue), IV Copa Santa Claus
+`calendar-copa` (amber), VIII Copa Castolo `calendar-mercado` (red). The
+numbering jumps from IV to VIII on purpose — it mirrors the article numbers in
+the official reglamento document.
 
 Body copy inside an article stays in the neutral scale; the accent identifies
 the chapter, it does not highlight content. Red/green callout boxes inside an

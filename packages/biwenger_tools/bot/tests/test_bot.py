@@ -855,3 +855,22 @@ def test_draft_callback_from_unknown_chat_is_dropped(client):
         )
     assert resp.status_code == 200
     mock_call.assert_not_called()
+
+
+def test_soy_picker_tap_strips_the_keyboard(client):
+    """The api round-trip takes seconds; a picker that still looks tappable
+    gets tapped again, which is three registrations for one person."""
+    with patch(
+        "packages.biwenger_tools.bot.app._call_draft_api",
+        return_value={"message": "ok"},
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message"), patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_edit:
+        resp = _post(
+            client, _callback_update(_VALID_DRAFT_CHAT, "s:22", from_user_id="777")
+        )
+    assert resp.status_code == 200
+    assert mock_ack.call_args.kwargs.get("text"), "acknowledge with a visible toast"
+    assert mock_edit.call_args.kwargs["reply_markup"] is None

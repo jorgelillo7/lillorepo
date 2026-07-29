@@ -310,9 +310,8 @@ def set_webhook(
     `allowed_updates` defaults to `["message", "callback_query"]` — that
     combination is the *only* one that lets the bot receive both text
     commands and inline-keyboard taps. Calling `setWebhook` without this
-    parameter ends up at Telegram's default (which historically defaulted
-    to `["message"]` for our bot — that's exactly the trap that broke
-    every menu callback for hours until we found it).
+    parameter falls back to Telegram's default, which excludes
+    `callback_query` and silently drops every inline-keyboard tap.
     """
     if allowed_updates is None:
         allowed_updates = ["message", "callback_query"]

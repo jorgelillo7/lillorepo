@@ -141,15 +141,34 @@ def register_manager(
 ) -> dict:
     """Bind a Telegram user id to a draft manager, by id or by name.
 
-    Idempotent: re-registering the same `telegram_user_id` overwrites the
-    previous binding (a manager typing the wrong name and correcting it
-    shouldn't need an admin to intervene). Claiming a manager somebody else
-    already holds is allowed but reported, so the group sees the change.
+    The two entry points carry different intent. `manager_id` is the picker:
+    its buttons stay tappable in the chat and are not bound to any user, so a
+    stray tap on somebody else's name must never silently reassign a user who
+    is already registered — that is exactly how a round of button-mashing
+    erased half the roll-call. Re-tapping your own name is a harmless no-op.
+    `name` is typed `/soy <nombre>`: explicit intent, so it may overwrite (a
+    manager correcting a mistake shouldn't need an admin). Claiming a manager
+    somebody else holds is allowed but reported, so the group sees the change.
     """
-    if manager_id is not None:
+    via_picker = manager_id is not None
+    if via_picker:
         manager_id = int(manager_id) if int(manager_id) in _load_state().order else None
     else:
         manager_id = _resolve_manager_name(name)
+
+    if via_picker and manager_id is not None:
+        mine = _get_registered_manager(telegram_user_id)
+        if mine and int(mine.get("manager_id") or 0) != manager_id:
+            current = mine.get("manager_name", "?")
+            return {
+                "ok": False,
+                "manager_id": int(mine["manager_id"]),
+                "manager_name": current,
+                "message": (
+                    f"Ya estás registrado como <b>{current}</b>. Para cambiar, "
+                    f"escribe <code>/soy {LEAGUE_MEMBERS[manager_id]}</code>."
+                ),
+            }
     if manager_id is None:
         return {
             "ok": False,

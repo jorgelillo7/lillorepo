@@ -425,7 +425,7 @@ class BiwengerClient:
     ) -> dict:
         """POST a clausulazo offer (release-clause buyout of another user's player).
 
-        Body shape (captured live against Biwenger 2026-05-26):
+        Body shape (reverse-engineered from the live API, undocumented):
 
             {"to": <seller_user_id>, "type": "clause",
              "amount": <eur>, "requestedPlayers": [<player_id>]}
@@ -722,7 +722,7 @@ class BiwengerClient:
     ) -> dict:
         """Accept or reject a received offer.
 
-        Captured live against Biwenger 2026-06-24:
+        Reverse-engineered from the live API (undocumented):
             PUT /api/v2/offers/{id}
             Body: {"status": "accepted"|"rejected"}
             Response: {"status": 200, "data": {<echoed offer>, status: ...}}

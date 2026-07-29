@@ -811,7 +811,18 @@ def _handle_draft_callback(cb: dict) -> None:
     cb_id = cb["id"]
 
     if prefix == "s":
-        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
+        # Acknowledge with a toast and drop the keyboard before calling the
+        # api: the round-trip takes a few seconds, and a picker that still
+        # looks tappable gets tapped again — three registrations for one
+        # person, one confirmation message each.
+        answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id, text="⏳ Registrando…")
+        if cb.get("message_id"):
+            edit_message_reply_markup(
+                bot_token=config.TELEGRAM_BOT_TOKEN,
+                chat_id=cb["chat_id"],
+                message_id=cb["message_id"],
+                reply_markup=None,
+            )
         _run_draft_action(
             "/draft/register",
             "POST",
