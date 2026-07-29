@@ -741,3 +741,23 @@ def test_calendario_hides_filter_bar_for_a_single_category(client):
 
     assert response.status_code == 200
     assert 'id="category-filters"' not in response.get_data(as_text=True)
+
+
+def test_reglamento_renders_every_chapter(client):
+    """Smoke test for the rulebook page, which carries the league's rules and
+    had no coverage at all — a Jinja slip there would ship silently."""
+    response = client.get("/reglamento")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    for chapter in (
+        "El Draft",
+        "Lloros League",
+        "Liga H2H",
+        "Copa Santa Claus",
+        "Copa Castolo",
+    ):
+        assert chapter in body, f"falta el capítulo «{chapter}»"
+    # Both scoring tables are the reader's reference for how points work.
+    assert "nota_sofascore" in body
+    assert "puntuacion_personalizada" in body
