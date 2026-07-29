@@ -22,6 +22,13 @@ OIDC ID token; the bot's and the Scheduler's service accounts both have
 | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
 | `GET`  | `/budget/recommendations[?top=N]` | Top-N affordable clausulazo targets per position |
 | `POST` | `/digests/daily` | Cron only — my team + market |
+| `GET`  | `/draft/managers` | Draft managers + who has claimed each — backs the `/soy` picker |
+| `POST` | `/draft/register` | Bind a Telegram user to a draft manager |
+| `GET`  | `/draft/state` | Whose turn it is, budgets/spend/squad size per manager |
+| `POST` | `/draft/pick` | Resolve free-text `query` against the frozen market and apply the pick |
+| `POST` | `/draft/pick/confirm` | Apply a pick already disambiguated (candidate tapped) |
+| `POST` | `/draft/undo` | Revert the most recent pick — draft admin only |
+| `GET`  | `/draft/export` | Every applied pick, in draft order |
 
 Convention: `GET` when the endpoint only **reads** from Biwenger / JP (sends
 PNG to Telegram as a side effect of the response). `POST` when it mutates
@@ -65,7 +72,9 @@ api/
 │   ├── lineup.py         # pick_lineup + format_lineup_message (backtracking + memoised)
 │   ├── image_formatter.py# matplotlib PNG renderer
 │   ├── player_matching.py# Biwenger ↔ JP name matching
-│   └── rows.py           # build_squad_rows, build_market_rows
+│   ├── rows.py           # build_squad_rows, build_market_rows
+│   ├── draft.py          # pure snake-draft state machine (no I/O)
+│   └── draft_service.py  # /draft/* persistence + Biwenger orchestration
 └── tests/
 ```
 

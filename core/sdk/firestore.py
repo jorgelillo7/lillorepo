@@ -18,7 +18,7 @@ validate that — callers build the paths.
 """
 
 import os
-from typing import Iterable, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 
 from google.cloud import firestore
 
@@ -137,7 +137,7 @@ def batch_write(collection_path: str, docs: Iterable[tuple[str, dict]]) -> int:
     return written
 
 
-def run_transaction(fn):
+def run_transaction(fn: Callable[[firestore.Transaction], Any]) -> Any:
     """Run ``fn(transaction)`` inside a Firestore transaction and return its result.
 
     Firestore retries the transaction (re-running `fn`) on write conflicts,

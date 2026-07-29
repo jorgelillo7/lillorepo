@@ -4,8 +4,10 @@ Cloud Run **Service** (`biwenger-bot`) that receives Telegram webhooks and
 calls the [`biwenger-api`](../api/README.md) service over HTTP. Pure
 orchestrator — no business logic lives here.
 
-Single-tenant: only the configured `chat_id` is honoured; everything else is
-silently dropped (returns `200` so Telegram does not retry).
+Two chats are routed, each with its own command set: the owner private chat
+(`config.TELEGRAM_CHAT_ID`) gets the full admin surface below; the draft
+supergroup (`config.TELEGRAM_DRAFT_CHAT_ID`) only sees the draft commands.
+Any other chat is silently dropped (returns `200` so Telegram does not retry).
 
 ## 🗺️ Entry point
 
@@ -14,7 +16,7 @@ silently dropped (returns `200` so Telegram does not retry).
 1. Validate `X-Telegram-Bot-Api-Secret-Token` against the stored secret using
    `hmac.compare_digest` (constant-time). 401 if it mismatches.
 2. Extract `chat_id` + `text` from the update body. Drop if the chat is not
-   the one we own.
+   one we own.
 3. Parse the command via `core.sdk.telegram.parse_command` (strips
    `@botname` suffix, lowercases).
 4. Map command → `(api path, http method)` and call `api_client.call_api`
@@ -25,7 +27,11 @@ silently dropped (returns `200` so Telegram does not retry).
 /analizar    →  opens the manager picker (GET /managers, then /teams?manager=<id|all>)
 /mercado     →  GET  /market
 /alinear     →  POST /lineups/auto-pick
+/preview     →  POST /lineups/auto-pick?dry_run=1
 /recomendar  →  GET  /budget/recommendations
+/pujar       →  POST /market/auto-bid
+/ofertas     →  POST /offers/inbox
+/emergencia  →  POST /emergency/clausulazo/preview
 /scrapper    →  POST /scraper/trigger
 /version     →  bot SHA + GET /version on biwenger-api
 /help        →  static HTML message (no api call)
@@ -34,6 +40,21 @@ silently dropped (returns `200` so Telegram does not retry).
 Inline-keyboard taps come back as `callback_query` updates. They share
 the same webhook entry point and dispatch on a `prefix:value`
 `callback_data` shape (`menu:<action>`, `analizar:<id|all>`).
+
+### Draft supergroup
+
+Only reachable from `TELEGRAM_DRAFT_CHAT_ID`. Every `/draft/*` response
+carries a ready-to-send Spanish `message` — the bot has no draft business
+logic of its own, biwenger-api owns all state and player-name matching.
+
+```
+/soy [nombre]  →  GET  /draft/managers (no name) or POST /draft/register
+/pick <jugador>→  POST /draft/pick (candidates render as buttons on a tie)
+/estado        →  GET  /draft/state
+/deshacer      →  POST /draft/undo — restricted to the draft admin
+/exportar      →  GET  /draft/export
+/help          →  static HTML message (no api call)
+```
 
 The api processes each request synchronously (build JP index, talk to
 Biwenger, render PNG, send to Telegram). The bot is just the HTTP edge.
@@ -53,9 +74,12 @@ In production: `TELEGRAM_BOT_CONFIG_JSON` from Secret Manager. Keys:
 {
   "bot_token": "...",
   "chat_id": "...",
-  "webhook_secret": "..."
+  "webhook_secret": "...",
+  "draft_chat_id": "..."
 }
 ```
+
+`draft_chat_id` is optional — empty disables the draft supergroup entirely.
 
 For local dev, fall back to the same names as plain env vars. After deploying,
 register the webhook once with Telegram:
