@@ -77,7 +77,9 @@ def detect_placeholder(scores):
     return None
 
 
-def load(path, exclude, placeholder_sf=None, keep_placeholder=False):
+def load(
+    path, exclude, placeholder_sf=None, keep_placeholder=False, bets=(), bet_sf=400
+):
     """Rows usable by the optimiser, plus the placeholder SF that was applied.
     Players carrying the placeholder score have no real data and are dropped
     unless `keep_placeholder`."""
@@ -98,11 +100,22 @@ def load(path, exclude, placeholder_sf=None, keep_placeholder=False):
                     "sf": int(r["sofascore"]),
                     "price": price,
                     "vm": float(r["value_per_m"]) if r["value_per_m"] else 0.0,
+                    "bet": False,
                 }
             )
+    bet_names = {_norm(b) for b in bets if b}
+    for r in raw:
+        if _norm(r["name"]) in bet_names:
+            r["sf"] = bet_sf
+            r["vm"] = bet_sf / (r["price"] / 1_000_000)
+            r["bet"] = True
     if placeholder_sf is None:
-        placeholder_sf = detect_placeholder([r["sf"] for r in raw])
-    dropped = [r for r in raw if placeholder_sf and r["sf"] == placeholder_sf]
+        placeholder_sf = detect_placeholder([r["sf"] for r in raw if not r.get("bet")])
+    dropped = [
+        r
+        for r in raw
+        if placeholder_sf and r["sf"] == placeholder_sf and not r.get("bet")
+    ]
     if keep_placeholder:
         dropped = []
     kept = [r for r in raw if r not in dropped]
@@ -370,8 +383,9 @@ def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
     for c in ("PT", "DF", "MC", "DL"):
         for r in sorted(squad[c], key=lambda x: -x["sf"]):
             mark = "©" if dur and r["name"] == dur["name"] else ""
+            label = r["name"] + (" 🎲" if r.get("bet") else "")
             cells = (
-                f"| {POS[c]} | {r['name']} | {r['team']} | {r['price'] / 1e6:.2f}M "
+                f"| {POS[c]} | {label} | {r['team']} | {r['price'] / 1e6:.2f}M "
                 f"| {r['sf']} | {r['vm']:.0f} | {'★' if r['name'] in starters else ''} "
                 f"| {mark} |"
             )
@@ -393,6 +407,26 @@ def main():
     )
     ap.add_argument("--managers", type=int, default=7, help="managers in the draft")
     ap.add_argument(
+        "--force",
+        default="",
+        help="comma-separated names to build a bespoke archetype around",
+    )
+    ap.add_argument(
+        "--bets",
+        default="",
+        help=(
+            "cheap players a human source says will start. Their SofaScore is "
+            "historical and low precisely because they did not play; this "
+            "re-rates them to --bet-sf so the optimiser can weigh them."
+        ),
+    )
+    ap.add_argument(
+        "--bet-sf",
+        type=int,
+        default=400,
+        help="assumed SofaScore for a --bets player (default: a regular starter)",
+    )
+    ap.add_argument(
         "--placeholder-sf",
         type=int,
         default=None,
@@ -406,11 +440,14 @@ def main():
     ap.add_argument("--out", default="mi-arquetipos.md")
     args = ap.parse_args()
 
+    bets = [x.strip() for x in args.bets.split(",") if x.strip()]
     rows, placeholder, dropped = load(
         args.ranked,
         args.exclude.split(","),
         args.placeholder_sf,
         args.keep_placeholder,
+        bets,
+        args.bet_sf,
     )
     if args.budget > 1_000:
         ap.error(
@@ -454,6 +491,18 @@ def main():
             {"thin_bench": True},
         ),
     ]
+    bespoke = [x.strip() for x in args.force.split(",") if x.strip()]
+    if bespoke:
+        joined = ", ".join(bespoke)
+        specs.append(("A medida", f"Forzado por ti: {joined}.", {"forced": bespoke}))
+        specs.append(
+            (
+                "A medida (banco mínimo)",
+                f"Forzado por ti ({joined}), suplentes al precio suelo.",
+                {"forced": bespoke, "thin_bench": True},
+            )
+        )
+
     if thin_star:
         specs.append(
             (
