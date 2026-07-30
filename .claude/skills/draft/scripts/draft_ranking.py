@@ -20,6 +20,8 @@ Run from the repo root with the JP token available (api `.env` or JP_AUTH_TOKEN)
 
 import argparse
 import csv
+import statistics
+from collections import Counter
 import os
 import sys
 
@@ -118,11 +120,43 @@ def rank(
                 "no_jp_data": sf is None,
             }
         )
+    # JP hands one flat score to players it cannot rate (promoted clubs, fresh
+    # signings). It is a top-decile number on 1.5M players, so it reads as real
+    # data in the CSV unless it is flagged here too — the archetype generator
+    # drops them, but anyone reading this file directly would be misled.
+    scores = [r["sofascore"] for r in out if r["sofascore"] is not None]
+    placeholder = _detect_placeholder(scores)
+    for r in out:
+        r["jp_placeholder"] = placeholder is not None and r["sofascore"] == placeholder
+
     # SF desc; unmatched (None) last, then by price desc as a stable tiebreak.
     out.sort(
         key=lambda r: (r["sofascore"] is not None, r["sofascore"] or 0), reverse=True
     )
     return out
+
+
+def _detect_placeholder(scores: list[int]) -> int | None:
+    """The one flat score JP repeats for unrated players, or None.
+
+    Same detection the archetype generator uses: a spike on one exact value
+    well above the median.
+    """
+    if not scores:
+        return None
+    counts = Counter(scores)
+    med = statistics.median(scores)
+    # Only values above the median can be the placeholder, and they must be
+    # ranked among themselves: scanning the overall most-common first lets a
+    # crowd of zero-minute players bury the spike.
+    above = Counter({v: n for v, n in counts.items() if v > med})
+    for value, n in above.most_common(8):
+        if n < 5:
+            continue
+        window = [counts.get(v, 0) for v in range(value - 15, value + 16) if v != value]
+        if window and n > 4 * (sum(window) / len(window)):
+            return value
+    return None
 
 
 def write_csv(rows: list[dict], path: str) -> None:
@@ -134,6 +168,7 @@ def write_csv(rows: list[dict], path: str) -> None:
         "sofascore",
         "value_per_m",
         "no_jp_data",
+        "jp_placeholder",
     ]
     with open(path, "w", encoding="utf-8", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=cols)

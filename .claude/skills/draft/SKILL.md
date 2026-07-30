@@ -90,11 +90,22 @@ remaining budget, and a tight alternatives block for the top-5.
 
 ## Archetype generator
 
-`scripts/archetypes.py --ranked <draft-ranked.csv>` builds and compares several
-squad-construction archetypes (value-max, captain-anchor, spine, superstar,
-2-galácticos, ultra-balanced) under the budget + composition. Pass
-`--exclude "name,name"` for the news-DD blacklist (Mourinho outcasts, etc.). It
-writes a local `mi-arquetipos.md` (gitignored).
+`scripts/archetypes.py --ranked <draft-ranked.csv>` builds and compares
+squad-construction archetypes under the budget + composition rules, ranked by
+**XI points** (only the eleven score on a matchday; the all-fifteen figure is
+reported alongside as a depth reading).
+
+| Flag | Qué hace |
+|---|---|
+| `--budget 52` | En **millones**. Pasar euros es un error y falla en seco |
+| `--exclude "n,n"` | Veto de la due-diligence de noticias (lesionados, sancionados, puntos de otra liga) |
+| `--force "n,n"` | Arquetipo **a medida** alrededor de quien tú digas. Genera versión normal y banco mínimo |
+| `--bets "n,n"` | Titulares baratos que una fuente de scouting anticipa. Su SofaScore es bajo porque no jugaron: se revalúan a `--bet-sf` (400) y salen marcados 🎲 |
+| `--pick-position 3 --managers 7` | Añade el **plan de picks**: en qué turno global coger a cada uno |
+| `--decision fichero.md` | Escribe además el **pliego de decisión**: los 15 en orden, alternativas para los 5 primeros y reglas de ejecución. Con `--force` sigue tu elección, no el ranking |
+| `--keep-placeholder` | No descartar a los que JP puntúa por defecto |
+
+Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
 
 **The captain rule is decisive**, and it is now enforced in the ranking rather
 than left to the reader. Biwenger rejects any captain priced ≥ 3M
