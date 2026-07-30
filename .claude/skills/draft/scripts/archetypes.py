@@ -266,7 +266,41 @@ def repair_captain(squad, spent, rows, budget, forced):
     return trial, new_spent, f"🔧 capitán reparado: {cur['name']} → {cand['name']}"
 
 
-def render(name, desc, squad, spent, budget, warnings):
+def my_picks(position, managers, rounds):
+    """Global pick numbers for `position` in a snake draft, in order.
+
+    Round order reverses every round, so the gaps alternate — picking third of
+    seven means waiting 9 picks, then 5, then 9 again. That gap is why the plan
+    matters: whoever you do not take now may not survive to your next turn.
+    """
+    if not position:
+        return []
+    picks = []
+    for r in range(rounds):
+        idx = position - 1 if r % 2 == 0 else managers - position
+        picks.append(r * managers + idx + 1)
+    return picks
+
+
+def best_star(rows, budget, top, thin_bench=False, extra_forced=()):
+    """The star that fields the most XI points, not the dearest one.
+
+    The most expensive player eats the budget the other ten starters need, so
+    the top of the ranking is usually the wrong forced pick. Tries the best few
+    and keeps whichever squad fields most.
+    """
+    best = None
+    for cand in top[:8]:
+        forced = [cand["name"], *extra_forced]
+        squad, _, _ = build(rows, budget, forced=forced, thin_bench=thin_bench)
+        _, xi, _, dur = lineup(squad)
+        score = sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
+        if best is None or score > best[0]:
+            best = (score, cand)
+    return best[1] if best else None
+
+
+def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
     formation, xi, cap, dur = lineup(squad)
     starters = {r["name"] for r in xi}
     sf = total_sf(squad)
@@ -305,16 +339,32 @@ def render(name, desc, squad, spent, budget, warnings):
     for w in warnings:
         o.append(f"> ⚠️ {w}")
     o.append("")
-    o.append("| Pos | Jugador | Equipo | Precio | SF | Valor/M | XI | © |")
-    o.append("|---|---|---|--:|--:|--:|:-:|:-:|")
+    # Draft order: dearest first. Price is what rivals bid on, so the most
+    # expensive pick is the one least likely to survive to your next turn.
+    plan = {}
+    if pick_numbers:
+        contested = sorted(
+            (r for c in POS for r in squad[c]), key=lambda r: -r["price"]
+        )
+        for slot, r in zip(pick_numbers, contested):
+            plan[r["name"]] = slot
+
+    head = "| Pick | Pos | Jugador | Equipo | Precio | SF | Valor/M | XI | © |"
+    rule = "|--:|---|---|---|--:|--:|--:|:-:|:-:|"
+    if not plan:
+        head = head.replace("| Pick ", "")
+        rule = rule.replace("|--:", "", 1)
+    o.append(head)
+    o.append(rule)
     for c in ("PT", "DF", "MC", "DL"):
         for r in sorted(squad[c], key=lambda x: -x["sf"]):
             mark = "©" if dur and r["name"] == dur["name"] else ""
-            o.append(
+            cells = (
                 f"| {POS[c]} | {r['name']} | {r['team']} | {r['price'] / 1e6:.2f}M "
                 f"| {r['sf']} | {r['vm']:.0f} | {'★' if r['name'] in starters else ''} "
                 f"| {mark} |"
             )
+            o.append((f"| {plan[r['name']]} " if plan else "") + cells)
     o.append("")
     return "\n".join(o), eff, raw, spent, xi_eff
 
@@ -324,6 +374,13 @@ def main():
     ap.add_argument("--ranked", required=True, help="ranked CSV from draft_ranking.py")
     ap.add_argument("--budget", type=float, default=52.0, help="budget in millions")
     ap.add_argument("--exclude", default="", help="comma-separated names to ban (news)")
+    ap.add_argument(
+        "--pick-position",
+        type=int,
+        default=0,
+        help="your slot in the snake order (1-based); adds the pick plan",
+    )
+    ap.add_argument("--managers", type=int, default=7, help="managers in the draft")
     ap.add_argument(
         "--placeholder-sf",
         type=int,
@@ -360,13 +417,18 @@ def main():
     ]
     cap_anchor = durable[0]["name"] if durable else None
 
+    pick_numbers = my_picks(args.pick_position, args.managers, sum(NEED.values()))
+
+    star = best_star(rows, budget, top)
+    thin_star = best_star(rows, budget, top, thin_bench=True)
+
     specs = [
         ("Value-max (reparto)", "Sin anclas caras: pura eficiencia, máximo SF.", {}),
         ("Columna vertebral", "2-3 studs de valor + chollos.", {"forced": anchors}),
         (
             "Superestrella",
-            "El mejor galáctico + relleno.",
-            {"forced": [top[0]["name"]]},
+            f"{star['name']} ({star['price'] / 1e6:.2f}M) + relleno.",
+            {"forced": [star["name"]]},
         ),
         (
             "2 galácticos + despojos",
@@ -384,23 +446,13 @@ def main():
             {"thin_bench": True},
         ),
     ]
-    # Thin bench plus a star: try each of the best few and keep whichever fields
-    # the most XI points. The dearest is rarely the answer — it eats the budget
-    # the other ten starters need.
-    star_best = None
-    for cand in top[:8]:
-        sq, sp, _ = build(rows, budget, forced=[cand["name"]], thin_bench=True)
-        _, xi, _, dur = lineup(sq)
-        score = sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
-        if star_best is None or score > star_best[0]:
-            star_best = (score, cand)
-    if star_best:
-        star = star_best[1]
+    if thin_star:
         specs.append(
             (
                 "Once de gala + estrella",
-                f"Banco mínimo con {star['name']} ({star['price'] / 1e6:.2f}M) arriba.",
-                {"thin_bench": True, "forced": [star["name"]]},
+                f"Banco mínimo con {thin_star['name']} "
+                f"({thin_star['price'] / 1e6:.2f}M) arriba.",
+                {"thin_bench": True, "forced": [thin_star["name"]]},
             )
         )
     if cap_anchor:
@@ -429,7 +481,7 @@ def main():
         if twin != name:
             warnings = warnings + [f"15 idéntico a «{twin}»"]
         block, eff, raw, spent, xi_eff = render(
-            name, desc, squad, spent, budget, warnings
+            name, desc, squad, spent, budget, warnings, pick_numbers
         )
         blocks.append(block)
         ranking.append((xi_eff, eff, raw, spent, idx, name, twin))
