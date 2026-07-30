@@ -329,6 +329,12 @@ def main():
         args.placeholder_sf,
         args.keep_placeholder,
     )
+    if args.budget > 1_000:
+        ap.error(
+            f"--budget se expresa en millones (52, no {args.budget:.0f}). "
+            "Pasar euros multiplica el presupuesto por un millón y el "
+            "generador devuelve un 15 imposible sin avisar."
+        )
     budget = int(args.budget * 1_000_000)
     top = sorted(rows, key=lambda x: -x["sf"])
     anchors = [r["name"] for r in top if 6_000_000 <= r["price"] <= 12_000_000][:3]
