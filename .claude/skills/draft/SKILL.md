@@ -107,6 +107,36 @@ reported alongside as a depth reading).
 
 Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
 
+### La llamada completa, tal cual se usó en el draft 26/27
+
+```bash
+python3 .claude/skills/draft/scripts/archetypes.py \
+    --ranked draft-ranked.csv --budget 52 --pick-position 3 --managers 7 \
+    --exclude "Aubameyang,Soler,Kike Salas" \
+    --bets "Fer Niño,Carlos Maciá,Riedel,Pablo Campos,Odysseas,Marc Bernal,Unai López,Adrián Niño,Julio Díaz" \
+    --force "Dani Olmo" \
+    --out arquetipos.md --decision final-decision.md
+```
+
+De dónde sale cada cosa, porque los nombres cambian cada año y lo que hay que
+repetir es el **criterio**:
+
+- **`--budget 52`** — 50M base + 2M de la Copa Castolo. Sale de
+  `BUDGET_OVERRIDES` en `api/logic/draft.py`.
+- **`--pick-position 3 --managers 7`** — tu puesto en el orden snake de la
+  temporada (`core.constants.DRAFT_ORDER_NAMES`).
+- **`--exclude`** — el veto de la due-diligence de noticias. Aquel año:
+  Aubameyang (sus puntos eran de la Ligue 1 y fichaba por un recién ascendido),
+  Carlos Soler (lesión de rodilla desde diciembre anterior, jugando en el
+  filial) y Kike Salas (investigado por amañar tarjetas). Los tres tenían buena
+  puntuación y los tres eran trampas.
+- **`--bets`** — los tapados que Jornada Perfecta daba titulares en sus
+  previas de pretemporada. Su SofaScore es bajo porque no jugaron, no porque
+  sean malos.
+- **`--force`** — la estrella elegida a mano. El generador proponía a
+  Valverde, pero arrastraba la pelea con Mourinho y la presión de salida;
+  Dani Olmo rendía casi igual (−6 puntos) por 0,34M menos y sin ese riesgo.
+
 **The captain rule is decisive**, and it is now enforced in the ranking rather
 than left to the reader. Biwenger rejects any captain priced ≥ 3M
 (`_CAPTAIN_MAX_PRICE`), and the captain doubles points — so the most valuable
