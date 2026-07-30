@@ -109,10 +109,15 @@ def load(path, exclude, placeholder_sf=None, keep_placeholder=False):
     return kept, placeholder_sf, dropped
 
 
-def build(rows, budget, forced=(), band=None):
+def build(rows, budget, forced=(), band=None, thin_bench=False):
     """Force `forced` (names), fill the cheapest per line from the (optionally
     band-restricted) pool, then greedily upgrade non-forced picks to spend the
-    budget while maximising SofaScore. Returns (squad, spent, warnings)."""
+    budget while maximising SofaScore. Returns (squad, spent, warnings).
+
+    `thin_bench` freezes the cheapest pick of every line at floor price, so the
+    budget goes to the eleven. Only the eleven score on a matchday, so a euro
+    spent on a substitute buys cover for absences, not points.
+    """
     byp = {
         c: sorted([r for r in rows if r["pos"] == c], key=lambda x: -x["sf"])
         for c in POS
@@ -151,6 +156,15 @@ def build(rows, budget, forced=(), band=None):
             warnings.append(f"{POS[c]}: solo {len(squad[c])}/{NEED[c]} jugadores")
     if spent > budget:
         warnings.append(f"relleno mínimo ya excede el presupuesto ({spent / 1e6:.2f}M)")
+    # The frozen substitute of each line: the cheapest pick, left untouched by
+    # the hill-climb so its money goes to the eleven instead.
+    frozen = set()
+    if thin_bench:
+        for c in POS:
+            free = [r for r in squad[c] if _norm(r["name"]) not in forced_n]
+            if free:
+                frozen.add(min(free, key=lambda r: r["price"])["name"])
+
     improved = True
     while improved:
         improved = False
@@ -160,7 +174,7 @@ def build(rows, budget, forced=(), band=None):
                 r for r in byp[c] if band is None or band[0] <= r["price"] <= band[1]
             ]
             for i, cur in enumerate(squad[c]):
-                if _norm(cur["name"]) in forced_n:
+                if _norm(cur["name"]) in forced_n or cur["name"] in frozen:
                     continue
                 for cand in pool:
                     if cand["name"] in used:
@@ -258,11 +272,12 @@ def render(name, desc, squad, spent, budget, warnings):
     sf = total_sf(squad)
     raw = sf + (cap["sf"] if cap else 0)
     eff = sf + (dur["sf"] if dur else 0)
+    xi_eff = sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
     shape = "-".join(str(n) for n in formation) if formation else "—"
     o = [f"## {name}", f"_{desc}_", ""]
     o.append(
-        f"**SF total {sf} · gasto {spent / 1e6:.2f}M · XI 1-{shape} · "
-        f"efectivo durable {eff}** (bruto {raw})"
+        f"**Efectivo XI {xi_eff} · SF total {sf} · gasto {spent / 1e6:.2f}M · "
+        f"XI 1-{shape} · efectivo durable {eff}** (bruto {raw})"
     )
     if dur:
         o.append(
@@ -301,7 +316,7 @@ def render(name, desc, squad, spent, budget, warnings):
                 f"| {mark} |"
             )
     o.append("")
-    return "\n".join(o), eff, raw, spent
+    return "\n".join(o), eff, raw, spent, xi_eff
 
 
 def main():
@@ -363,7 +378,31 @@ def main():
             "Todos en banda 3-4M (ojo capitán).",
             {"band": (3_000_000, 4_500_000)},
         ),
+        (
+            "Once de gala (banco mínimo)",
+            "Suplentes al precio suelo: todo el dinero en los once.",
+            {"thin_bench": True},
+        ),
     ]
+    # Thin bench plus a star: try each of the best few and keep whichever fields
+    # the most XI points. The dearest is rarely the answer — it eats the budget
+    # the other ten starters need.
+    star_best = None
+    for cand in top[:8]:
+        sq, sp, _ = build(rows, budget, forced=[cand["name"]], thin_bench=True)
+        _, xi, _, dur = lineup(sq)
+        score = sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
+        if star_best is None or score > star_best[0]:
+            star_best = (score, cand)
+    if star_best:
+        star = star_best[1]
+        specs.append(
+            (
+                "Once de gala + estrella",
+                f"Banco mínimo con {star['name']} ({star['price'] / 1e6:.2f}M) arriba.",
+                {"thin_bench": True, "forced": [star["name"]]},
+            )
+        )
     if cap_anchor:
         specs.insert(
             1,
@@ -379,7 +418,7 @@ def main():
     seen = {}
     for idx, (name, desc, kw) in enumerate(specs):
         squad, spent, warnings = build(rows, budget, **kw)
-        if kw.get("band") is None:
+        if kw.get("band") is None and not kw.get("thin_bench"):
             squad, spent, note = repair_captain(
                 squad, spent, rows, budget, kw.get("forced", ())
             )
@@ -389,26 +428,35 @@ def main():
         twin = seen.setdefault(sig, name)
         if twin != name:
             warnings = warnings + [f"15 idéntico a «{twin}»"]
-        block, eff, raw, spent = render(name, desc, squad, spent, budget, warnings)
+        block, eff, raw, spent, xi_eff = render(
+            name, desc, squad, spent, budget, warnings
+        )
         blocks.append(block)
-        ranking.append((eff, raw, spent, idx, name, twin))
+        ranking.append((xi_eff, eff, raw, spent, idx, name, twin))
 
-    ranking.sort(key=lambda t: (-t[0], -t[1], t[2], t[3]))
+    # Ranked by XI points: only the eleven score on a matchday.
+    ranking.sort(key=lambda t: (-t[0], -t[1], t[3], t[4]))
     header = [
         "# Arquetipos de draft — comparativa\n",
-        "**Efectivo durable** = SF del plantel + SF del capitán que además es "
-        "titular y aguanta la deriva de precios (©<3M, ≤2.5M, v/M ≤200). El "
-        "bruto cuenta cualquier capitán elegible hoy — optimista: un chollo "
-        "cruza 3M en semanas y deja el hueco vacío.\n",
-        "| # | Arquetipo | Efectivo durable | Bruto | Gasto |",
-        "|--:|---|--:|--:|--:|",
+        "**Efectivo XI** = SF de los once titulares + SF del capitán. Es la "
+        "columna que manda: en Biwenger sólo puntúan los once, así que un euro "
+        "gastado en el banquillo compra cobertura ante ausencias, no puntos.\n",
+        "**Efectivo durable** suma además los cuatro suplentes — mide el plantel "
+        "entero y por eso premia un banco caro que la liga no recompensa. Se "
+        "mantiene como referencia de profundidad frente a lesiones y rotaciones.\n",
+        "El capitán cuenta sólo si además es titular y aguanta la deriva de "
+        "precios (©<3M, ≤2.5M, v/M ≤200); el bruto acepta cualquier capitán "
+        "elegible hoy.\n",
+        "| # | Arquetipo | Efectivo XI | Efectivo durable | Bruto | Gasto |",
+        "|--:|---|--:|--:|--:|--:|",
     ]
-    for i, (eff, raw, spent, _, name, twin) in enumerate(ranking, 1):
+    for i, (xi_eff, eff, raw, spent, _, name, twin) in enumerate(ranking, 1):
         label = name if twin == name else f"{name} _(= {twin})_"
-        header.append(f"| {i} | {label} | {eff} | {raw} | {spent / 1e6:.2f}M |")
+        header.append(
+            f"| {i} | {label} | {xi_eff} | {eff} | {raw} | {spent / 1e6:.2f}M |"
+        )
     header.append(
-        f"\n> 🏆 **Recomendación: {ranking[0][4]}** "
-        f"({ranking[0][0]} efectivo durable)\n"
+        f"\n> 🏆 **Recomendación: {ranking[0][5]}** " f"({ranking[0][0]} efectivo XI)\n"
     )
     if placeholder and not args.keep_placeholder:
         names = ", ".join(f"{r['name']} ({r['team']})" for r in dropped)
