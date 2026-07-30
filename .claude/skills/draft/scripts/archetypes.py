@@ -68,8 +68,12 @@ def detect_placeholder(scores):
     returns None when no such spike exists."""
     counts = Counter(scores)
     med = statistics.median(scores)
-    for value, n in counts.most_common(5):
-        if n < 5 or value <= med:
+    # Only values above the median can be the placeholder, and they must be
+    # ranked among themselves: scanning the overall most-common first lets a
+    # crowd of zero-minute players bury the spike.
+    above = Counter({v: n for v, n in counts.items() if v > med})
+    for value, n in above.most_common(8):
+        if n < 5:
             continue
         window = [counts.get(v, 0) for v in range(value - 15, value + 16) if v != value]
         if n > 4 * (sum(window) / len(window)):
@@ -323,6 +327,103 @@ def best_star(rows, budget, top, thin_bench=False, extra_forced=()):
     return scored[:3]
 
 
+def alternatives(squad, rows, player, n=3):
+    """Same-line replacements for `player`, closest in price, best SF first.
+
+    What you actually need mid-draft is not the theoretical optimum but who to
+    take when the plan's man is gone — same line, comparable money. The upper
+    bound stays tight on purpose: a pricier "alternative" is not one, it shifts
+    every pick downstream and breaks the budget.
+    """
+    taken = {r["name"] for c in POS for r in squad[c]}
+    lo, hi = player["price"] * 0.6, player["price"] * 1.15
+    pool = [
+        r
+        for r in rows
+        if r["pos"] == player["pos"]
+        and r["name"] not in taken
+        and lo <= r["price"] <= hi
+    ]
+    return sorted(pool, key=lambda r: -r["sf"])[:n]
+
+
+def decision_sheet(name, squad, spent, rows, pick_numbers, budget):
+    """The winning archetype as an executable plan: who, in what order, and
+    who to fall back on for the picks that decide the draft."""
+    formation, xi, _, dur = lineup(squad)
+    starters = {r["name"] for r in xi}
+    ordered = sorted(
+        (r for c in POS for r in squad[c]), key=lambda r: (-r["sf"], -r["price"])
+    )
+    plan = (
+        list(zip(pick_numbers, ordered))
+        if pick_numbers
+        else [(None, r) for r in ordered]
+    )
+
+    o = [
+        f"# Decisión final — {name}",
+        "",
+        f"**Presupuesto {budget / 1e6:.0f}M · gasto {spent / 1e6:.2f}M · "
+        f"XI 1-{'-'.join(str(x) for x in formation)}**",
+        "",
+        "## Los 15, en orden de pick",
+        "",
+        "| Pick | Pos | Jugador | Equipo | Precio | SF | XI | © |",
+        "|--:|---|---|---|--:|--:|:-:|:-:|",
+    ]
+    for slot, r in plan:
+        mark = "©" if dur and r["name"] == dur["name"] else ""
+        bet = " 🎲" if r.get("bet") else ""
+        o.append(
+            f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']}{bet} "
+            f"| {r['team']} | {r['price'] / 1e6:.2f}M | {r['sf']} "
+            f"| {'★' if r['name'] in starters else ''} | {mark} |"
+        )
+    if any(r.get("bet") for _, r in plan):
+        o += [
+            "",
+            "🎲 **Apuesta**: una fuente de scouting los da titulares, pero su "
+            "histórico es bajo porque apenas jugaron. Son baratos: si fallan, "
+            "pierdes calderilla.",
+        ]
+    if dur:
+        o += [
+            "",
+            f"**© {dur['name']} es el capitán** ({dur['price'] / 1e6:.2f}M). "
+            "Biwenger rechaza capitanes de 3M o más y el capitán dobla puntos: "
+            "es la plaza más valiosa del equipo.",
+        ]
+
+    o += ["", "## Alternativas para los primeros picks", ""]
+    for slot, r in plan[:5]:
+        alts = alternatives(squad, rows, r)
+        o.append(
+            f"### Pick {slot if slot else '—'} — {r['name']} "
+            f"({r['price'] / 1e6:.2f}M · {r['sf']})"
+        )
+        for i, a in enumerate(alts, 1):
+            delta = a["sf"] - r["sf"]
+            o.append(
+                f"{i}. **{a['name']}** ({a['team']}, {a['price'] / 1e6:.2f}M · "
+                f"{a['sf']}) — {delta:+d} puntos"
+            )
+        o.append("")
+
+    o += [
+        "## Reglas para ejecutarlo",
+        "",
+        "1. **Si tu jugador sigue disponible en su pick, cógelo.** La lista ya "
+        "está optimizada; improvisar la rompe.",
+        "2. **Si te lo quitan, baja a la primera alternativa de su tier.** "
+        "Nunca subas de precio para compensar: ahí es donde se rompe el "
+        "presupuesto.",
+        "3. **El capitán es innegociable.** Si ves que alguien ficha en su "
+        "línea, adelántalo un turno.",
+    ]
+    return "\n".join(o) + "\n"
+
+
 def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
     formation, xi, cap, dur = lineup(squad)
     starters = {r["name"] for r in xi}
@@ -438,6 +539,11 @@ def main():
         help="keep unrated players instead of dropping them",
     )
     ap.add_argument("--out", default="mi-arquetipos.md")
+    ap.add_argument(
+        "--decision",
+        default="",
+        help="also write a decision sheet for the winning archetype to this path",
+    )
     args = ap.parse_args()
 
     bets = [x.strip() for x in args.bets.split(",") if x.strip()]
@@ -566,6 +672,33 @@ def main():
             f"(ascendidos / fichajes). No son puntos reales. Con "
             f"`--keep-placeholder` entran igualmente: {names}\n"
         )
+
+    if args.decision:
+        # Forcing players is an explicit choice: the sheet follows it rather
+        # than the leaderboard, which would quietly hand back a different plan.
+        chosen = next(
+            (
+                (i, n)
+                for i, (n, _, _) in enumerate(specs)
+                if bespoke and n == "A medida"
+            ),
+            (ranking[0][4], ranking[0][5]),
+        )
+        win_idx, win_name = chosen
+        win_squad, win_spent, _ = build(rows, budget, **specs[win_idx][2])
+        if specs[win_idx][2].get("band") is None and not specs[win_idx][2].get(
+            "thin_bench"
+        ):
+            win_squad, win_spent, _ = repair_captain(
+                win_squad, win_spent, rows, budget, specs[win_idx][2].get("forced", ())
+            )
+        with open(args.decision, "w", encoding="utf-8") as fh:
+            fh.write(
+                decision_sheet(
+                    win_name, win_squad, win_spent, rows, pick_numbers, budget
+                )
+            )
+        print("Decisión:", args.decision)
 
     report = "\n".join(header) + "\n" + "\n".join(blocks) + "\n"
     with open(args.out, "w", encoding="utf-8") as fh:
