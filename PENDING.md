@@ -83,6 +83,45 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## my_photos
 
+- **Draft skill — international tournaments and player nationality.** The
+  frozen market CSV carries team, position, points and price but **no
+  nationality**, so "who disappears mid-season for a national-team
+  tournament" can only be answered by eyeballing names — unreliable, and it
+  silently misses anyone whose name does not read as foreign. It bit this
+  season: AFCON 2027 moved to summer (19 Jun – 17 Jul, no LaLiga impact),
+  while the **AFC Asian Cup runs 7 Jan – 5 Feb 2027**, taking matchdays
+  ~20-24. The two affected LaLiga players were found by grep (Kubo, Kang-in
+  Lee) and happened to be irrelevant on score, but the method does not
+  generalise. FIX: check whether JP's payload carries nationality (it may —
+  `core/sdk/jp.fetch_all_players` returns the raw player dicts); if so, join
+  it in `draft_ranking.py` and give `archetypes.py` a
+  `--tournament-absences` flag taking the affected federations. Also make
+  "which international tournaments fall inside this season, and who do they
+  take" an explicit step of the skill rather than an assumption — the answer
+  inverted between two consecutive editions.
+
+- **Draft skill — the generator ignores that this is a draft.** It builds the
+  ideal 15 as if every player were purchasable, but picks are taken in snake
+  order: at position 3 of 7, nine players leave the board between the first
+  and second pick. The per-tier target lists that make the output actionable
+  are currently assembled by hand each year. A `--pick-position N` that
+  printed realistic availability windows per pick would close the gap.
+
+- **Draft skill — placeholder players are only filtered in the generator.**
+  `draft_ranking.py` writes them into the ranked CSV with
+  `no_jp_data=False`, so the intermediate file shows a flat `SF 400` that
+  looks like real data (Amatucci, Noubi, Puga, Calero this season).
+  `archetypes.py` drops them correctly, but anyone reading the CSV directly
+  is misled. Flag them in the ranking output too.
+
+- **Draft skill — news due-diligence is entirely manual.** This season it
+  produced three exclusions that changed the squad (Aubameyang: score earned
+  in Ligue 1, now at a promoted side, 37; Carlos Soler: knee injury since
+  December 2024, playing with the reserves; Kike Salas: under investigation
+  for booking-related betting fraud). They live in a `--exclude` command-line
+  flag, so nothing records *why* a player was banned. An `--exclude-file`
+  with a per-season, commented list would version the reasoning.
+
 - **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
   Blocked on USER: run the migration script and free up the disks.
 
