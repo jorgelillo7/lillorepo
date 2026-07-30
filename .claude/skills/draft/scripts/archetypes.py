@@ -105,11 +105,15 @@ def load(
                     "price": price,
                     "vm": float(r["value_per_m"]) if r["value_per_m"] else 0.0,
                     "bet": False,
+                    "sf_real": None,
                 }
             )
     bet_names = {_norm(b) for b in bets if b}
     for r in raw:
         if _norm(r["name"]) in bet_names:
+            # Keep the record: the optimiser weighs the forecast, the report
+            # shows what actually happened last season.
+            r["sf_real"] = r["sf"]
             r["sf"] = bet_sf
             r["vm"] = bet_sf / (r["price"] / 1_000_000)
             r["bet"] = True
@@ -283,6 +287,18 @@ def repair_captain(squad, spent, rows, budget, forced):
     return trial, new_spent, f"🔧 capitán reparado: {cur['name']} → {cand['name']}"
 
 
+def sf_cell(r, placeholder=None):
+    """The score as shown to a reader: a bet displays its real history too.
+
+    A bet whose history *is* the placeholder has no history at all — showing
+    "400 → 400" would read as a real score confirming itself.
+    """
+    if r.get("bet") and r.get("sf_real") is not None:
+        was = "sin datos" if r["sf_real"] == placeholder else str(r["sf_real"])
+        return f"{was} → {r['sf']}"
+    return str(r["sf"])
+
+
 def _alternatives(options):
     """The runners-up, so a human can override on news the data cannot see."""
     if len(options) < 2:
@@ -347,7 +363,7 @@ def alternatives(squad, rows, player, n=3):
     return sorted(pool, key=lambda r: -r["sf"])[:n]
 
 
-def decision_sheet(name, squad, spent, rows, pick_numbers, budget):
+def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=None):
     """The winning archetype as an executable plan: who, in what order, and
     who to fall back on for the picks that decide the draft."""
     formation, xi, _, dur = lineup(squad)
@@ -377,15 +393,18 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget):
         bet = " 🎲" if r.get("bet") else ""
         o.append(
             f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']}{bet} "
-            f"| {r['team']} | {r['price'] / 1e6:.2f}M | {r['sf']} "
+            f"| {r['team']} | {r['price'] / 1e6:.2f}M "
+            f"| {sf_cell(r, placeholder)} "
             f"| {'★' if r['name'] in starters else ''} | {mark} |"
         )
     if any(r.get("bet") for _, r in plan):
         o += [
             "",
-            "🎲 **Apuesta**: una fuente de scouting los da titulares, pero su "
-            "histórico es bajo porque apenas jugaron. Son baratos: si fallan, "
-            "pierdes calderilla.",
+            "🎲 **Apuesta**: el primer número es su SofaScore real de la "
+            "temporada pasada; el segundo es lo que rendiría como titular, que "
+            "es lo que una fuente de scouting anticipa. El plan se construye "
+            "sobre el segundo. Son baratos: si el pronóstico falla, pierdes "
+            "calderilla.",
         ]
     if dur:
         o += [
@@ -424,7 +443,9 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget):
     return "\n".join(o) + "\n"
 
 
-def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
+def render(
+    name, desc, squad, spent, budget, warnings, pick_numbers=None, placeholder=None
+):
     formation, xi, cap, dur = lineup(squad)
     starters = {r["name"] for r in xi}
     sf = total_sf(squad)
@@ -487,7 +508,8 @@ def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
             label = r["name"] + (" 🎲" if r.get("bet") else "")
             cells = (
                 f"| {POS[c]} | {label} | {r['team']} | {r['price'] / 1e6:.2f}M "
-                f"| {r['sf']} | {r['vm']:.0f} | {'★' if r['name'] in starters else ''} "
+                f"| {sf_cell(r, placeholder)} | {r['vm']:.0f} "
+                f"| {'★' if r['name'] in starters else ''} "
                 f"| {mark} |"
             )
             o.append((f"| {plan[r['name']]} " if plan else "") + cells)
@@ -635,7 +657,7 @@ def main():
         if twin != name:
             warnings = warnings + [f"15 idéntico a «{twin}»"]
         block, eff, raw, spent, xi_eff = render(
-            name, desc, squad, spent, budget, warnings, pick_numbers
+            name, desc, squad, spent, budget, warnings, pick_numbers, placeholder
         )
         blocks.append(block)
         ranking.append((xi_eff, eff, raw, spent, idx, name, twin))
@@ -695,7 +717,13 @@ def main():
         with open(args.decision, "w", encoding="utf-8") as fh:
             fh.write(
                 decision_sheet(
-                    win_name, win_squad, win_spent, rows, pick_numbers, budget
+                    win_name,
+                    win_squad,
+                    win_spent,
+                    rows,
+                    pick_numbers,
+                    budget,
+                    placeholder,
                 )
             )
         print("Decisión:", args.decision)
