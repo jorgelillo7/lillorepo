@@ -28,3 +28,7 @@ photo_audit.json
 bazel-*
 # Session-scoped Claude plans (see CLAUDE.md → ## Plans)
 .claude/plans/
+# Draft skill Phase-B output — the skill's own .gitignore only covers its
+# directory, but the generator writes to the repo root by default.
+mi-*.md
+draft-ranked*.csv
