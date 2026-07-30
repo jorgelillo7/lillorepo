@@ -266,6 +266,16 @@ def repair_captain(squad, spent, rows, budget, forced):
     return trial, new_spent, f"🔧 capitán reparado: {cur['name']} → {cand['name']}"
 
 
+def _alternatives(options):
+    """The runners-up, so a human can override on news the data cannot see."""
+    if len(options) < 2:
+        return ""
+    alts = ", ".join(
+        f"{c['name']} ({c['price'] / 1e6:.2f}M, {score})" for score, c in options[1:3]
+    )
+    return f"Alternativas equivalentes: {alts}."
+
+
 def my_picks(position, managers, rounds):
     """Global pick numbers for `position` in a snake draft, in order.
 
@@ -289,15 +299,15 @@ def best_star(rows, budget, top, thin_bench=False, extra_forced=()):
     the top of the ranking is usually the wrong forced pick. Tries the best few
     and keeps whichever squad fields most.
     """
-    best = None
+    scored = []
     for cand in top[:8]:
         forced = [cand["name"], *extra_forced]
         squad, _, _ = build(rows, budget, forced=forced, thin_bench=thin_bench)
         _, xi, _, dur = lineup(squad)
         score = sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
-        if best is None or score > best[0]:
-            best = (score, cand)
-    return best[1] if best else None
+        scored.append((score, cand))
+    scored.sort(key=lambda t: -t[0])
+    return scored[:3]
 
 
 def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
@@ -339,12 +349,13 @@ def render(name, desc, squad, spent, budget, warnings, pick_numbers=None):
     for w in warnings:
         o.append(f"> ⚠️ {w}")
     o.append("")
-    # Draft order: dearest first. Price is what rivals bid on, so the most
-    # expensive pick is the one least likely to survive to your next turn.
+    # Draft order: best SofaScore first. Rivals draft on perceived quality, not
+    # price — last season a 3.32M Marcos Alonso went tenth overall, ahead of
+    # players costing twice as much.
     plan = {}
     if pick_numbers:
         contested = sorted(
-            (r for c in POS for r in squad[c]), key=lambda r: -r["price"]
+            (r for c in POS for r in squad[c]), key=lambda r: (-r["sf"], -r["price"])
         )
         for slot, r in zip(pick_numbers, contested):
             plan[r["name"]] = slot
@@ -410,24 +421,21 @@ def main():
     budget = int(args.budget * 1_000_000)
     top = sorted(rows, key=lambda x: -x["sf"])
     anchors = [r["name"] for r in top if 6_000_000 <= r["price"] <= 12_000_000][:3]
-    durable = [
-        r
-        for r in top
-        if 2_000_000 <= r["price"] <= CAPTAIN_SAFE and r["vm"] <= ROCKET_VM
-    ]
-    cap_anchor = durable[0]["name"] if durable else None
 
     pick_numbers = my_picks(args.pick_position, args.managers, sum(NEED.values()))
 
-    star = best_star(rows, budget, top)
-    thin_star = best_star(rows, budget, top, thin_bench=True)
+    star_options = best_star(rows, budget, top)
+    thin_options = best_star(rows, budget, top, thin_bench=True)
+    star = star_options[0][1] if star_options else None
+    thin_star = thin_options[0][1] if thin_options else None
 
     specs = [
         ("Value-max (reparto)", "Sin anclas caras: pura eficiencia, máximo SF.", {}),
         ("Columna vertebral", "2-3 studs de valor + chollos.", {"forced": anchors}),
         (
             "Superestrella",
-            f"{star['name']} ({star['price'] / 1e6:.2f}M) + relleno.",
+            f"{star['name']} ({star['price'] / 1e6:.2f}M) + relleno. "
+            + _alternatives(star_options),
             {"forced": [star["name"]]},
         ),
         (
@@ -451,20 +459,11 @@ def main():
             (
                 "Once de gala + estrella",
                 f"Banco mínimo con {thin_star['name']} "
-                f"({thin_star['price'] / 1e6:.2f}M) arriba.",
+                f"({thin_star['price'] / 1e6:.2f}M) arriba. "
+                + _alternatives(thin_options),
                 {"thin_bench": True, "forced": [thin_star["name"]]},
             )
         )
-    if cap_anchor:
-        specs.insert(
-            1,
-            (
-                "Capitán-ancla",
-                f"Value-max + capitán durable fijo ({cap_anchor}).",
-                {"forced": [cap_anchor]},
-            ),
-        )
-
     blocks = []
     ranking = []
     seen = {}

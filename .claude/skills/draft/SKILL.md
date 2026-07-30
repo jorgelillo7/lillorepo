@@ -130,6 +130,34 @@ Known limitation: squad shape is fixed at 2-5-5-3. It is a valid composition and
 covers every formation the XI picker uses, but the generator does not explore
 other legal shapes (2-6-5-2, 2-5-6-2…).
 
+## Tu posición en el snake cambia el plan
+
+Con 7 presidentes y 15 rondas los huecos entre tus turnos dependen de dónde
+piques, y eso cambia qué decisión tomas, no sólo cuándo:
+
+| Posición | Huecos | Qué implica |
+|---|---|---|
+| 1-2 (arriba) | 11-3 alternos | Eliges primero pero esperas casi una ronda entera. Sales con el mejor del mercado y vuelves cuando ya han caído once |
+| 3-5 (medio) | 9-5 / 7-7 | El caso peor: nunca eliges primero y nunca eliges dos seguidos. Hay que acertar el tier, porque entre turno y turno desaparece uno entero |
+| 6-7 (abajo) | 1-13 alternos | Eliges **de dos en dos** (final de ronda + principio de la siguiente) y luego esperas trece. Puedes cerrar parejas complementarias — un portero y su suplente, dos centrales — pero pierdes tiers completos |
+
+No es "más agresivo arriba y más conservador abajo". Es que **arriba compras
+certeza y abajo compras combinaciones**: el último elige dos a la vez, así que
+puede permitirse un plan que dependa de dos jugadores concretos; el de en medio
+no, y necesita alternativas reales en cada tier.
+
+Regla práctica en el medio: prioriza al que **no tenga sustituto equivalente**.
+Si en tu tier hay tres jugadores parecidos, espera; si hay uno solo, cógelo ya.
+
+## El histórico es la mejor fuente de "cuándo"
+
+`draft-2025-26.md` guarda el draft anterior pick a pick. Cotejar el 15 objetivo
+contra él es lo único que dice si el plan es realista: el año pasado Gerard
+Moreno se fue en el pick 7 y Marcos Alonso — que hoy costaría 3,32M — en el
+pick 10. Un plan que los espere en el pick 40 es papel mojado.
+
+Al terminar cada draft, **añade el nuevo a ese fichero**.
+
 ## Reglamento anchors (stable rules)
 
 15 players; valid XI + 1 sub per line; snake draft (round order reverses each
