@@ -114,6 +114,44 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   `archetypes.py` drops them correctly, but anyone reading the CSV directly
   is misled. Flag them in the ranking output too.
 
+- **Draft skill — it ranked by the wrong metric (found 2026-08-01, mid-draft).**
+  The league scores **"Personalizado"**, and the skill ranked by JP's SofaScore
+  projection. Not a small gap: the real/projection factor ranges **0.225
+  (Terrats) to 0.610 (Dmitrović)** across 22 players measured this season, so a
+  single conversion factor cannot compare individuals. Converting is a dead end;
+  the fix is to **fetch the real number for the shortlist**. Concretely:
+  - **Two phases.** Phase A stays as-is — JP ranks the whole ~500-player market
+    and produces a shortlist. Phase B fetches real Personalizado points for the
+    shortlist only. **Size it at 30-45, not 15**: the whole point of phase B is
+    that it reorders, and this season Dmitrović (6th keeper by projection, 1st by
+    real points) and Juan Iglesias (not in the squad at all → captain) would both
+    have been outside a 15-name list.
+  - **`draft-real-points.csv` with `name,points,games`.** Games are mandatory:
+    Guido's "116" was meaningless until "from matchday 22" turned it into ~218.
+    The optimiser prefers real over projection and marks which is which.
+  - **Calibrate per line when projecting.** Median factor is **0.458 for
+    keepers vs 0.371 for outfielders** — a 23% systematic gap, because clean
+    sheets pay +2 here but barely move a SofaScore rating. One global factor
+    buried the best keeper in the market.
+  - **Provenance column in the final report** (`✅ real / ⚠️ partial /
+    ~ projection / 🎲 bet`). Hand-written this year; it was the most-used column
+    of the session.
+- **Draft skill — fit the custom bonus table from this season's data.**
+  `GET /players/la-liga/{slug}?fields=*,reports(*)` returns per-match `rawStats`
+  (`win`, `cleanSheet`, `minutesPlayed`, base score), which is enough to
+  reconstruct a Personalizado total — *if* the bonus table is known. It is not:
+  `SofaScore + 2×wins + 2×clean sheets` and `Marca + 2×wins` both fit Joan
+  García's 274 exactly. There are now **22 verified totals** from this draft;
+  solve the table against those. If it closes, phase B becomes one request per
+  candidate instead of asking the user to read numbers off the app. If it does
+  not, record that and keep reading them by hand.
+- **Draft skill — the fetcher must be bounded (learned the hard way).**
+  Biwenger's quota is **500 requests per 8-hour window, per account** (read off
+  the `429` headers: `x-rate-limit-limit: 500`). Pulling all ~550 players in
+  parallel locked the whole league out of the app for 8 hours **mid-draft**,
+  including the bot. The rule is written into `SKILL.md`; the tool that enforces
+  it does not exist yet: shortlist only, sequential with a delay, checkpoint to
+  disk, stop on the first 429 instead of retrying.
 - **Draft skill — news due-diligence is entirely manual.** This season it
   produced three exclusions that changed the squad (Aubameyang: score earned
   in Ligue 1, now at a promoted side, 37; Carlos Soler: knee injury since
@@ -121,6 +159,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   for booking-related betting fraud). They live in a `--exclude` command-line
   flag, so nothing records *why* a player was banned. An `--exclude-file`
   with a per-season, commented list would version the reasoning.
+  **Make it a blocking step, not an optional one.** It was skipped this season
+  until the user asked for it mid-draft, and it immediately turned up three
+  things the numbers could not see: Marcos Alonso left out of the pre-season
+  squad pending a renewal, Canales returning at 35 from three years in Liga MX
+  (so his only good figure was from 2022/23 at Betis), and Fortuño competing
+  with Dmitrović for the Espanyol goal — on a keeper meant to be kept unclausable
+  all season.
 
 - **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
   Blocked on USER: run the migration script and free up the disks.
