@@ -196,6 +196,25 @@ player ids stay identical between a rehearsal and the live session.
 
 ---
 
+### Requirement: A pick that is not applied costs Biwenger nothing
+
+Biwenger rate-limits the whole league, not one client, and a session costs two
+requests to open (login + `/account`). The session SHALL therefore be built only
+once a slot is reserved and a transfer is certain — never to validate a turn,
+resolve a name, or answer a duplicate.
+
+Resolving the market SHALL use the public competition endpoint, which needs no
+session, and SHALL download it once per load rather than once per map.
+
+#### Scenario: rejected picks make no request
+- **WHEN** a pick is rejected out of turn, names an unknown player, or is ambiguous
+  **THEN** no Biwenger session is opened
+- **WHEN** the market is loaded **THEN** the competition payload is fetched exactly once
+- *Verifies:* `test_rejected_pick_never_authenticates`,
+  `test_get_competition_maps_downloads_once`
+
+---
+
 ### Requirement: The last pick can be undone by the admin
 
 `/deshacer` SHALL be restricted to the configured draft admin, identified by a

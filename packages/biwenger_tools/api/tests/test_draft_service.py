@@ -181,14 +181,21 @@ def fake_fs(monkeypatch):
 @pytest.fixture
 def biwenger(monkeypatch):
     mock = MagicMock()
-    mock.get_all_players_data_map.return_value = _biwenger_players_map()
-    mock.get_all_teams_map.return_value = {}
-    monkeypatch.setattr(draft_service, "build_biwenger_session", lambda: mock)
+    # `login` counts how often a session was built — logging in is itself two
+    # Biwenger requests, so tests assert on it, not just on the transfer.
+    mock.login = MagicMock(return_value=mock)
+    monkeypatch.setattr(draft_service, "build_biwenger_session", mock.login)
+    # The market load is session-free now, so it is stubbed on the class.
+    monkeypatch.setattr(
+        draft_service.BiwengerClient,
+        "get_competition_maps",
+        classmethod(lambda cls, url: (_biwenger_players_map(), {})),
+    )
     return mock
 
 
-def _players_by_id(biwenger_mock):
-    return draft_service._load_market(biwenger_mock)
+def _players_by_id():
+    return draft_service._load_market()
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +311,30 @@ def test_submit_pick_rejects_out_of_turn(fake_fs, biwenger):
     biwenger.transfer_player.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "user, query",
+    [
+        (TG_JAVI, "messi"),  # not your turn
+        (TG_RUBEN, "nobody at all"),  # unknown player
+        (TG_RUBEN, "filler gk"),  # ambiguous name
+    ],
+)
+def test_rejected_pick_never_authenticates(fake_fs, biwenger, user, query):
+    """A pick that goes nowhere must cost Biwenger zero requests.
+
+    Authenticating is a login + an `/account` read, so building the session
+    up-front made every mistyped name and every out-of-turn tap hit Biwenger
+    twice — the traffic that got the league rate-limited mid-draft.
+    """
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+
+    result = draft_service.submit_pick(user, query)
+
+    assert result["status"] in ("rejected", "ambiguous")
+    biwenger.login.assert_not_called()
+
+
 def test_submit_pick_applies_with_gate_off(fake_fs, biwenger):
     draft_service.register_manager(TG_RUBEN, "Ruben")
     result = draft_service.submit_pick(TG_RUBEN, "messi")
@@ -408,11 +439,9 @@ def test_duplicate_applied_pick_does_not_recall_biwenger(
             "applied_to_biwenger": True,
         },
     )
-    players_by_id = _players_by_id(biwenger)
+    players_by_id = _players_by_id()
 
-    result = draft_service._apply_confirmed_pick(
-        RUBEN_ID, MESSI_ID, players_by_id, biwenger
-    )
+    result = draft_service._apply_confirmed_pick(RUBEN_ID, MESSI_ID, players_by_id)
 
     assert result["status"] == "applied"
     assert "ya se aplicó" in result["message"]
@@ -444,11 +473,9 @@ def test_duplicate_reserved_pick_rejects_without_calling_biwenger(
             "applied_to_biwenger": False,
         },
     )
-    players_by_id = _players_by_id(biwenger)
+    players_by_id = _players_by_id()
 
-    result = draft_service._apply_confirmed_pick(
-        RUBEN_ID, MESSI_ID, players_by_id, biwenger
-    )
+    result = draft_service._apply_confirmed_pick(RUBEN_ID, MESSI_ID, players_by_id)
 
     assert result["status"] == "rejected"
     assert result["error"] == draft_service.ERROR_PICK_IN_PROGRESS
@@ -491,7 +518,7 @@ def test_retried_submit_pick_after_reserve_before_finalize_skips_biwenger(
 def test_reserve_pick_rejects_second_reservation_of_same_slot(fake_fs, biwenger):
     """Direct unit test of the guard itself: two reservation attempts for
     the same (unadvanced) state collide on the deterministic doc id."""
-    players_by_id = _players_by_id(biwenger)
+    players_by_id = _players_by_id()
     first = draft_service._reserve_pick(RUBEN_ID, MESSI_ID, players_by_id)
     assert first["outcome"] == "reserved"
 
