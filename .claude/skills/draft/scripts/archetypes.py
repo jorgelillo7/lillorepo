@@ -130,7 +130,7 @@ def load(
     return kept, placeholder_sf, dropped
 
 
-def build(rows, budget, forced=(), band=None, thin_bench=False):
+def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=None):
     """Force `forced` (names), fill the cheapest per line from the (optionally
     band-restricted) pool, then greedily upgrade non-forced picks to spend the
     budget while maximising SofaScore. Returns (squad, spent, warnings).
@@ -138,7 +138,23 @@ def build(rows, budget, forced=(), band=None, thin_bench=False):
     `thin_bench` freezes the cheapest pick of every line at floor price, so the
     budget goes to the eleven. Only the eleven score on a matchday, so a euro
     spent on a substitute buys cover for absences, not points.
+
+    `max_per_team` caps players per club. The score cannot see concentration,
+    but the league's win/clean-sheet bonuses are club-wide: teammates gain and
+    lose them on the same weekends. `forced` picks bypass the cap.
     """
+
+    def team_count(sq, team):
+        return sum(1 for c in POS for r in sq[c] if r["team"] == team)
+
+    def team_ok(sq, cand, replacing=None):
+        if max_per_team is None:
+            return True
+        n = team_count(sq, cand["team"])
+        if replacing is not None and replacing["team"] == cand["team"]:
+            n -= 1
+        return n < max_per_team
+
     byp = {
         c: sorted([r for r in rows if r["pos"] == c], key=lambda x: -x["sf"])
         for c in POS
@@ -170,6 +186,8 @@ def build(rows, budget, forced=(), band=None, thin_bench=False):
         )
         while len(squad[c]) < NEED[c] and cheap:
             pk = cheap.pop(0)
+            if not team_ok(squad, pk):
+                continue
             squad[c].append(pk)
             used.add(pk["name"])
             spent += pk["price"]
@@ -198,7 +216,7 @@ def build(rows, budget, forced=(), band=None, thin_bench=False):
                 if _norm(cur["name"]) in forced_n or cur["name"] in frozen:
                     continue
                 for cand in pool:
-                    if cand["name"] in used:
+                    if cand["name"] in used or not team_ok(squad, cand, cur):
                         continue
                     extra = cand["price"] - cur["price"]
                     gain = cand["sf"] - cur["sf"]
@@ -530,6 +548,12 @@ def main():
     )
     ap.add_argument("--managers", type=int, default=7, help="managers in the draft")
     ap.add_argument(
+        "--max-per-team",
+        type=int,
+        default=None,
+        help="cap players per club (the win/clean-sheet bonuses are club-wide)",
+    )
+    ap.add_argument(
         "--force",
         default="",
         help="comma-separated names to build a bespoke archetype around",
@@ -645,7 +669,9 @@ def main():
     ranking = []
     seen = {}
     for idx, (name, desc, kw) in enumerate(specs):
-        squad, spent, warnings = build(rows, budget, **kw)
+        squad, spent, warnings = build(
+            rows, budget, max_per_team=args.max_per_team, **kw
+        )
         if kw.get("band") is None and not kw.get("thin_bench"):
             squad, spent, note = repair_captain(
                 squad, spent, rows, budget, kw.get("forced", ())
@@ -707,7 +733,9 @@ def main():
             (ranking[0][4], ranking[0][5]),
         )
         win_idx, win_name = chosen
-        win_squad, win_spent, _ = build(rows, budget, **specs[win_idx][2])
+        win_squad, win_spent, _ = build(
+            rows, budget, max_per_team=args.max_per_team, **specs[win_idx][2]
+        )
         if specs[win_idx][2].get("band") is None and not specs[win_idx][2].get(
             "thin_bench"
         ):

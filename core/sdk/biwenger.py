@@ -2,7 +2,7 @@
 
 import json
 import re
-from typing import Optional, Union
+from typing import Optional, Tuple, Union
 
 import requests
 
@@ -322,13 +322,9 @@ class BiwengerClient:
             data = json.loads(json_str)
         return data.get("data", {}) or {}
 
-    def get_all_teams_map(self, all_players_data_url: str) -> dict:
-        """Returns `{team_id: team_name}` from the public competition payload.
-
-        Needed to tell apart namesakes: the player database carries only a
-        numeric `teamID`, while the market CSV names the team in full.
-        """
-        teams = self._fetch_competition_data(all_players_data_url).get("teams", {})
+    @staticmethod
+    def _build_teams_map(data: dict) -> dict:
+        teams = data.get("teams", {})
         entries = teams.values() if isinstance(teams, dict) else teams
         teams_map = {
             int(t["id"]): t.get("name", "")
@@ -338,17 +334,41 @@ class BiwengerClient:
         logger.info("Team map built.", extra={"count": len(teams_map)})
         return teams_map
 
-    def get_all_players_data_map(self, all_players_data_url: str) -> dict:
-        """Downloads the full Biwenger player database."""
-        logger.info("Downloading Biwenger player database...")
-        players_dict = self._fetch_competition_data(all_players_data_url).get(
-            "players", {}
-        )
+    @staticmethod
+    def _build_players_map(data: dict) -> dict:
+        players_dict = data.get("players", {})
         players_map = {
             player_info["id"]: player_info for _, player_info in players_dict.items()
         }
         logger.info("Player database built.", extra={"count": len(players_map)})
         return players_map
+
+    def get_all_teams_map(self, all_players_data_url: str) -> dict:
+        """Returns `{team_id: team_name}` from the public competition payload.
+
+        Needed to tell apart namesakes: the player database carries only a
+        numeric `teamID`, while the market CSV names the team in full.
+        """
+        return self._build_teams_map(self._fetch_competition_data(all_players_data_url))
+
+    def get_all_players_data_map(self, all_players_data_url: str) -> dict:
+        """Downloads the full Biwenger player database."""
+        logger.info("Downloading Biwenger player database...")
+        return self._build_players_map(
+            self._fetch_competition_data(all_players_data_url)
+        )
+
+    @classmethod
+    def get_competition_maps(cls, all_players_data_url: str) -> Tuple[dict, dict]:
+        """Returns `(players_map, teams_map)` from a **single** download.
+
+        Callers that need both would otherwise pull the same ~550-player
+        payload twice. The endpoint is public, so this needs no session —
+        hence a classmethod, callable without authenticating.
+        """
+        logger.info("Downloading Biwenger competition data...")
+        data = cls._fetch_competition_data(all_players_data_url)
+        return cls._build_players_map(data), cls._build_teams_map(data)
 
     def get_manager_squad(
         self, manager_squad_url_template: str, manager_id: Union[str, int]

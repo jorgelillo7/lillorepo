@@ -196,6 +196,39 @@ player ids stay identical between a rehearsal and the live session.
 
 ---
 
+### Requirement: A pick that is not applied costs Biwenger nothing
+
+Biwenger rate-limits the whole league, not one client, and a session costs two
+requests to open (login + `/account`). The session SHALL therefore be built only
+once a slot is reserved and a transfer is certain — never to validate a turn,
+resolve a name, or answer a duplicate.
+
+Resolving the market SHALL use the public competition endpoint, which needs no
+session, and SHALL download it once per load rather than once per map.
+
+The session SHALL be reused across picks. Biwenger's quota, read off the `429`
+headers, is `x-rate-limit-limit: 500` per account over an 8-hour window, and 15
+rounds of 7 managers is 105 picks — logging in per pick would spend the window
+before the draft ends. (Whether the window slides on each request while over
+quota is unconfirmed: one observation showed the reset land exactly 8h after the
+probe rather than 8h after the burst, but distinguishing the two costs the very
+requests that would move it.) A
+rejected token SHALL be re-authenticated once, which is safe because a `401` is
+refused before Biwenger applies anything.
+
+#### Scenario: rejected picks make no request
+- **WHEN** a pick is rejected out of turn, names an unknown player, or is ambiguous
+  **THEN** no Biwenger session is opened
+- **WHEN** the market is loaded **THEN** the competition payload is fetched exactly once
+- **WHEN** consecutive picks are applied **THEN** they share one authenticated session
+- **WHEN** the token is rejected **THEN** the session is rebuilt once and the call retried
+- *Verifies:* `test_rejected_pick_never_authenticates`,
+  `test_get_competition_maps_downloads_once`,
+  `test_consecutive_picks_authenticate_once`,
+  `test_rejected_token_re_authenticates_once`
+
+---
+
 ### Requirement: The last pick can be undone by the admin
 
 `/deshacer` SHALL be restricted to the configured draft admin, identified by a

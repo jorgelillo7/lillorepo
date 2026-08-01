@@ -134,6 +134,29 @@ def test_get_all_players_data_map_jsonp(biwenger_client_authenticated):
         assert len(players_map) == 1
 
 
+def test_get_competition_maps_downloads_once(load_json_fixture):
+    """Both maps come from a single request, and without a session.
+
+    Asking for players and teams separately pulled the same ~550-player
+    payload twice per market load; the endpoint is public, so no login is
+    needed either.
+    """
+    with requests_mock.Mocker() as m:
+        m.get(
+            TEST_PLAYERS_DATA_URL,
+            json=load_json_fixture("all_players_data.json"),
+            status_code=200,
+        )
+
+        players_map, teams_map = BiwengerClient.get_competition_maps(
+            TEST_PLAYERS_DATA_URL
+        )
+
+        assert m.call_count == 1
+        assert players_map[1001]["name"] == "Yamal"
+        assert isinstance(teams_map, dict)
+
+
 def test_get_manager_squad(biwenger_client_authenticated, load_json_fixture):
     """Verifica que get_manager_squad devuelve la plantilla del mánager."""
     client = biwenger_client_authenticated

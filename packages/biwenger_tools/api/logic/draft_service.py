@@ -308,12 +308,44 @@ def get_state() -> dict:
 
 
 _MARKET_CACHE: dict | None = None
+_SESSION_CACHE: Optional[BiwengerClient] = None
 
 
 def reset_market_cache() -> None:
     """Drop the cached market so the next call re-reads it."""
     global _MARKET_CACHE
     _MARKET_CACHE = None
+
+
+def reset_session_cache() -> None:
+    """Drop the cached Biwenger session so the next call authenticates again."""
+    global _SESSION_CACHE
+    _SESSION_CACHE = None
+
+
+def _with_session(action):
+    """Run `action(client)` on a session reused across picks.
+
+    Authenticating is two requests (login + `/account`) against a quota the
+    whole league shares, so logging in once per pick was the bulk of the
+    draft's traffic. The session token carries no expiry claim, so it is held
+    for the life of the instance.
+
+    A rejected token is retried once, and only once. This does not weaken the
+    module's no-retry rule: a `401` is refused before Biwenger applies
+    anything, so unlike a timeout it cannot have half-happened.
+    """
+    global _SESSION_CACHE
+    if _SESSION_CACHE is None:
+        _SESSION_CACHE = build_biwenger_session()
+    try:
+        return action(_SESSION_CACHE)
+    except requests.HTTPError as exc:
+        if exc.response is None or exc.response.status_code != 401:
+            raise
+        logger.info("Biwenger session rejected — re-authenticating once.")
+        _SESSION_CACHE = build_biwenger_session()
+        return action(_SESSION_CACHE)
 
 
 def _fetch_market_rows() -> list:
@@ -333,15 +365,15 @@ def _fetch_market_rows() -> list:
     return draft.parse_market_csv(response.content.decode("utf-8-sig"))
 
 
-def _load_market(biwenger: BiwengerClient) -> dict:
+def _load_market() -> dict:
     """Frozen CSV rows joined to Biwenger ids, keyed by `player_id`.
 
-    Read-only against Biwenger (cf-base player database) — not gated by
-    `DRAFT_APPLY_TO_BIWENGER`, since the same canonical id is needed
-    whether or not the transfer itself is applied.
+    Reads the public cf-base player database, which needs no session — so
+    resolving a name costs no authentication, and a rejected pick costs
+    Biwenger nothing at all.
 
     Cached per instance: the frozen market cannot change mid-draft, and
-    re-reading it on every pick would add two network round-trips to each
+    re-reading it on every pick would add a network round-trip to each
     turn. `reset_market_cache` clears it.
     """
     global _MARKET_CACHE
@@ -349,8 +381,9 @@ def _load_market(biwenger: BiwengerClient) -> dict:
         return _MARKET_CACHE
 
     rows = _fetch_market_rows()
-    biwenger_players = biwenger.get_all_players_data_map(config.ALL_PLAYERS_DATA_URL)
-    teams = biwenger.get_all_teams_map(config.ALL_PLAYERS_DATA_URL)
+    biwenger_players, teams = BiwengerClient.get_competition_maps(
+        config.ALL_PLAYERS_DATA_URL
+    )
     matched, unmatched = draft.join_market_to_biwenger(rows, biwenger_players, teams)
     if unmatched:
         logger.warning(
@@ -557,9 +590,7 @@ def _applied_response(
     }
 
 
-def _apply_confirmed_pick(
-    manager_id: int, player_id: int, players_by_id: dict, biwenger: BiwengerClient
-) -> dict:
+def _apply_confirmed_pick(manager_id: int, player_id: int, players_by_id: dict) -> dict:
     if player_id not in players_by_id:
         return _rejected(
             draft.DraftError.PLAYER_UNKNOWN.name,
@@ -589,10 +620,14 @@ def _apply_confirmed_pick(
     applied_to_biwenger = False
     if config.DRAFT_APPLY_TO_BIWENGER:
         try:
-            biwenger.transfer_player(
-                player_id=player_id,
-                manager_id=manager_id,
-                amount=price,
+            # Touch the session only now: the slot is reserved and the transfer
+            # is certain, so a rejected or duplicate pick never authenticates.
+            _with_session(
+                lambda client: client.transfer_player(
+                    player_id=player_id,
+                    manager_id=manager_id,
+                    amount=price,
+                )
             )
             applied_to_biwenger = True
         except Exception:
@@ -641,8 +676,7 @@ def submit_pick(telegram_user_id: str, query: str) -> dict:
             "No estás registrado en el draft. Regístrate primero con tu nombre.",
         )
 
-    biwenger = build_biwenger_session()
-    players_by_id = _load_market(biwenger)
+    players_by_id = _load_market()
     rows = list(players_by_id.values())
 
     match = draft.resolve_player_name(query, rows)
@@ -667,7 +701,7 @@ def submit_pick(telegram_user_id: str, query: str) -> dict:
         }
 
     return _apply_confirmed_pick(
-        manager["manager_id"], match.row["player_id"], players_by_id, biwenger
+        manager["manager_id"], match.row["player_id"], players_by_id
     )
 
 
@@ -680,11 +714,8 @@ def confirm_pick(telegram_user_id: str, player_id: int) -> dict:
             "No estás registrado en el draft. Regístrate primero con tu nombre.",
         )
 
-    biwenger = build_biwenger_session()
-    players_by_id = _load_market(biwenger)
-    return _apply_confirmed_pick(
-        manager["manager_id"], player_id, players_by_id, biwenger
-    )
+    players_by_id = _load_market()
+    return _apply_confirmed_pick(manager["manager_id"], player_id, players_by_id)
 
 
 def undo_last_pick(telegram_user_id: str) -> dict:
@@ -712,14 +743,17 @@ def undo_last_pick(telegram_user_id: str) -> dict:
         # The release goes first — a player left unowned is obvious on the
         # board, whereas a refund without a release would silently pay twice.
         try:
-            biwenger = build_biwenger_session()
-            biwenger.release_player(player_id=last_pick.player_id)
-            biwenger.apply_bonus(
-                amounts={
-                    m: (last_pick.price if m == last_pick.manager_id else 0)
-                    for m in LEAGUE_MEMBERS
-                },
-                reason=f"Draft: deshecho el fichaje de {player_name}",
+            _with_session(
+                lambda client: client.release_player(player_id=last_pick.player_id)
+            )
+            _with_session(
+                lambda client: client.apply_bonus(
+                    amounts={
+                        m: (last_pick.price if m == last_pick.manager_id else 0)
+                        for m in LEAGUE_MEMBERS
+                    },
+                    reason=f"Draft: deshecho el fichaje de {player_name}",
+                )
             )
         except Exception:
             logger.exception(
