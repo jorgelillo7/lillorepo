@@ -206,9 +206,13 @@ resolve a name, or answer a duplicate.
 Resolving the market SHALL use the public competition endpoint, which needs no
 session, and SHALL download it once per load rather than once per map.
 
-The session SHALL be reused across picks. Biwenger's quota is 500 requests per
-rolling 8-hour window for the whole account, and 15 rounds of 7 managers is 105
-picks — logging in per pick would spend the window before the draft ends. A
+The session SHALL be reused across picks. Biwenger's quota, read off the `429`
+headers, is `x-rate-limit-limit: 500` per account over an 8-hour window, and 15
+rounds of 7 managers is 105 picks — logging in per pick would spend the window
+before the draft ends. (Whether the window slides on each request while over
+quota is unconfirmed: one observation showed the reset land exactly 8h after the
+probe rather than 8h after the burst, but distinguishing the two costs the very
+requests that would move it.) A
 rejected token SHALL be re-authenticated once, which is safe because a `401` is
 refused before Biwenger applies anything.
 
