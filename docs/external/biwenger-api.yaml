@@ -620,6 +620,75 @@ paths:
           description: Report payload with `columns` + `rows`.
       x-verified-at: "2026-05-15"
 
+  /players/{competition}/{slug}:
+    get:
+      tags: [competition]
+      summary: One player's history — per-season totals and per-match raw stats.
+      description: |
+        The only endpoint that exposes **per-match** data. Returns just the
+        basic player fields unless `fields` asks for more; the two useful
+        expansions are `seasons(*)` and `reports(*)`.
+
+        `seasons[].points` and `reports[].points` are dicts keyed by
+        **scoring-system id**, so one call yields every system at once and the
+        `score` query parameter makes no difference to them:
+
+        | id | System |
+        |---:|---|
+        | 1 | Marca |
+        | 2 | SofaScore |
+        | 3 | Picas |
+        | 5 | Media Marca-SofaScore |
+        | 6 | AS |
+
+        **A custom league's `scoreID` is not among those keys.** `GET /league`
+        reports `scoreID: 100` ("Personalizado"), and `100` appears in neither
+        `seasons[].points` nor `reports[].points`, with or without a `score=100`
+        query parameter and with the `X-League` header set.
+
+        A direct endpoint for custom totals probably exists — the app renders
+        them — but it was not found. Tried and ruled out: `score=` on this path
+        and on `/competitions/la-liga/data` (changes which base systems come
+        back, never adds `100`), `/league?fields=*,scores(*)`, `/scores/{id}`,
+        `/league/{id}/score`. Not yet tried: the paths the mobile client hits
+        when opening a player card — worth capturing from the app rather than
+        guessing.
+
+        Meanwhile the total is reconstructable: `reports[].rawStats` carries the
+        base score plus the raw flags (`win`, `cleanSheet`, `minutesPlayed`) the
+        custom bonuses are built on. See `.claude/skills/draft/SKILL.md` for the
+        fitted table.
+
+        Heavily rate-limited: parallel fetches return `429`, and the SDK's
+        `raise_for_status` then surfaces it as an `HTTPError`. Walk players
+        sequentially with a delay and back off on 429.
+      parameters:
+        - name: competition
+          in: path
+          required: true
+          schema: {type: string, example: "la-liga"}
+        - name: slug
+          in: path
+          required: true
+          description: Player slug from `/competitions/la-liga/data`.
+          schema: {type: string, example: "joan-garcia"}
+        - name: fields
+          in: query
+          description: Field selector; without it neither expansion is returned.
+          schema: {type: string, example: "*,reports(*),seasons(*)"}
+      responses:
+        "200":
+          description: Player with the requested expansions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {$ref: '#/components/schemas/PlayerDetail'}
+        "429":
+          description: Rate limited.
+      x-verified-at: "2026-08-01"
+
   # -------------------------------------------------------------------------
   # cf.biwenger.com host (note: this hangs off the SECOND server block)
   # -------------------------------------------------------------------------
@@ -949,3 +1018,66 @@ components:
             id: {type: integer}
             name: {type: string}
             slug: {type: string}
+
+    PlayerDetail:
+      type: object
+      description: |
+        One player from `/players/{competition}/{slug}`. Without a `fields`
+        selector only the flat attributes come back.
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        slug: {type: string}
+        position:
+          type: integer
+          description: '1=POR, 2=DEF, 3=MED, 4=DEL'
+        price: {type: integer}
+        status: {type: string, example: "ok"}
+        seasons:
+          type: array
+          description: Requires `fields=*,seasons(*)`. Newest season first.
+          items:
+            type: object
+            properties:
+              id: {type: string, example: "2026"}
+              name: {type: string, example: "Temporada 2025/2026"}
+              games: {type: integer, example: 30}
+              points:
+                type: object
+                description: Season total keyed by scoring-system id.
+                additionalProperties: {type: integer, nullable: true}
+                example: {"1": 220, "2": 190, "3": 104, "5": 214, "6": 202}
+        reports:
+          type: array
+          description: Requires `fields=*,reports(*)`. One entry per fixture.
+          items:
+            type: object
+            properties:
+              home: {type: boolean}
+              match:
+                type: object
+                description: Fixture, including a nested `competition` object.
+              points:
+                type: object
+                description: Match points keyed by scoring-system id.
+                additionalProperties: {type: integer, nullable: true}
+              rawStats:
+                type: object
+                description: |
+                  Inputs a custom scoring system is built from. Absent when the
+                  player was not in the squad.
+                properties:
+                  minutesPlayed: {type: integer}
+                  win: {type: boolean}
+                  cleanSheet: {type: boolean}
+                  sofascore: {type: number, example: 7.6}
+                  homeScore: {type: integer}
+                  awayScore: {type: integer}
+                  price: {type: integer}
+                additionalProperties: true
+                example:
+                  minutesPlayed: 90
+                  win: true
+                  cleanSheet: true
+                  sofascore: 7.6
+                  score2: 8

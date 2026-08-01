@@ -79,8 +79,58 @@ case. Steps:
    - **Placeholder scores**: promoted-club players and new signings often carry
      JP's flat default, not a real score — see "JP placeholder scores" below.
      The generator drops them; if you re-add one by hand, treat him as unrated.
-4. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
+4. **Cap the club concentration at 2 players per club.** Nothing in the score
+   sees it, but three players from one side means one bad run drags three slots
+   at once — and under the custom scoring below, all three lose the same win
+   bonus on the same weekends. Prefer pairs in different lines.
+5. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
    a lineless bench.
+
+## The league scores "Personalizado", not SofaScore
+
+**This is the biggest correction to the whole ranking, and it is easy to miss.**
+JP's projection *is* SofaScore, and the league is not:
+
+```
+Personalizado = SofaScore base  +  2 × wins  +  2 × clean sheets
+```
+
+Fitted exactly against Joan García 2025/26: `190 + 2×27 + 2×15 = 274`, the
+number the app shows under "Personalizado".
+
+Both bonuses are **team properties, not player properties**. What follows:
+
+- A Barcelona starter banks **+84 a season** for turning up; a promoted-club
+  starter, ~+30. Fifty points of gap before anyone touches the ball.
+- **Goalkeepers at defensively strong clubs are systematically underpriced.** A
+  clean sheet barely moves a SofaScore rating but pays +2 here, so JP's number
+  understates exactly the keepers this league rewards. In 26/27 this is what
+  made Oblak (3,88M, Atlético) the pick over Joan García (10,12M) — same clean
+  sheets, 6M cheaper.
+- The captain doubles the bonus too, so a cheap full-back at a clean-sheet club
+  beats a cheap forward of equal projection.
+
+### Getting the real numbers
+
+`GET /players/la-liga/{slug}?fields=*,reports(*)` (documented in
+`docs/external/biwenger-api.yaml`) returns per-match `rawStats` with `win`,
+`cleanSheet`, `minutesPlayed` and the base score — everything the formula needs.
+`seasons(*)` gives season totals per scoring-system id (1 Marca, 2 SofaScore,
+3 Picas, 5 media, 6 AS). **The league's own `scoreID: 100` is never one of those
+keys** — no endpoint serves custom totals, the app computes them client-side.
+
+> **Fetch the shortlist, never the database.** This endpoint is per-player, so
+> the cost is one request per name — and the answer only ever needs the ~20
+> players actually in contention for the remaining picks. Filter first (position
+> gaps, price band, still available), then fetch.
+>
+> Pulling all ~550 in parallel got the whole league 429'd for hours **mid-draft**,
+> including the user's own phone and, potentially, the bot's transfers. Hard
+> rules: shortlist only, **sequential with a delay**, checkpoint to disk, and
+> stop on the first 429 instead of retrying. If the draft is live and the data
+> isn't already cached, don't run it at all — estimate the team bonus from last
+> season's table and say plainly which numbers are measured and which are
+> modelled.
 
 ## Output
 
@@ -104,6 +154,7 @@ reported alongside as a depth reading).
 | `--pick-position 3 --managers 7` | Añade el **plan de picks**: en qué turno global coger a cada uno |
 | `--decision fichero.md` | Escribe además el **pliego de decisión**: los 15 en orden, alternativas para los 5 primeros y reglas de ejecución. Con `--force` sigue tu elección, no el ranking |
 | `--keep-placeholder` | No descartar a los que JP puntúa por defecto |
+| `--max-per-team 2` | Tope de jugadores por club. Los bonus de victoria y portería a cero son de equipo: tres compañeros los ganan y los pierden el mismo fin de semana |
 
 Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
 
