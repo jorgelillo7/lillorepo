@@ -348,6 +348,27 @@ def _with_session(action):
         return action(_SESSION_CACHE)
 
 
+def _transfer_landed(manager_id: int, player_id: int) -> Optional[bool]:
+    """Did the transfer reach Biwenger? `None` when the check itself failed.
+
+    A dropped connection mid-POST is ambiguous: the request may have been
+    applied with only the response lost. Biwenger's transfer endpoint carries no
+    idempotency key, so guessing either double-buys or strands the pick. One
+    read of the manager's squad settles it.
+    """
+    try:
+        squad = _with_session(
+            lambda client: client.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        )
+    except Exception:
+        logger.exception(
+            "Could not verify whether the transfer landed.",
+            extra={"manager_id": manager_id, "player_id": player_id},
+        )
+        return None
+    return any(int(p.get("id") or 0) == int(player_id) for p in squad)
+
+
 def _fetch_market_rows() -> list:
     """Frozen CSV rows: an explicit local path wins, otherwise the bucket.
 
@@ -634,17 +655,40 @@ def _apply_confirmed_pick(manager_id: int, player_id: int, players_by_id: dict) 
             logger.exception(
                 "Biwenger transfer failed for a draft pick.", extra={"pick": doc_id}
             )
-            fs.set_document(
-                _picks_path(config.DRAFT_SEASON),
-                doc_id,
-                {"status": PICK_STATUS_RESERVED},
-                merge=True,
-            )
-            return _rejected(
-                ERROR_BIWENGER_TRANSFER_FAILED,
-                "Biwenger rechazó el fichaje. La plaza sigue reservada — reintenta "
-                "más tarde o avisa al admin, no se ha aplicado ningún cambio.",
-            )
+            landed = _transfer_landed(manager_id, player_id)
+            if landed is True:
+                # The transfer went through and only the response was lost.
+                # Finalising is the honest record; retrying would buy twice.
+                logger.info(
+                    "Lost response, but Biwenger has the player — finalising.",
+                    extra={"pick": doc_id},
+                )
+                applied_to_biwenger = True
+            else:
+                fs.set_document(
+                    _picks_path(config.DRAFT_SEASON),
+                    doc_id,
+                    {
+                        "status": (
+                            PICK_STATUS_REVERTED
+                            if landed is False
+                            else PICK_STATUS_RESERVED
+                        )
+                    },
+                    merge=True,
+                )
+                return _rejected(
+                    ERROR_BIWENGER_TRANSFER_FAILED,
+                    (
+                        "❌ Biwenger no aceptó el fichaje y no se ha aplicado nada. "
+                        "Vuelve a intentarlo en un minuto."
+                        if landed is False
+                        else "⚠️ Se perdió la conexión con Biwenger y no he podido "
+                        "comprobar si el fichaje entró. La plaza queda bloqueada "
+                        "a propósito: avisa al admin, reintentar podría ficharlo "
+                        "dos veces."
+                    ),
+                )
 
     new_state = _finalize_pick(manager_id, player_id, players_by_id)
     fs.set_document(

@@ -429,21 +429,61 @@ def test_rejected_token_re_authenticates_once(fake_fs, biwenger, monkeypatch):
     assert biwenger.login.call_count == 2
 
 
-def test_gate_on_biwenger_failure_keeps_pick_reserved_and_rejects(
+def test_failed_transfer_frees_the_slot_when_it_did_not_land(
     fake_fs, biwenger, monkeypatch
 ):
+    """Verified not-owned: the manager retries himself, no admin needed."""
     monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
     biwenger.transfer_player.side_effect = RuntimeError("Biwenger 500")
+    biwenger.get_manager_squad.return_value = []
     draft_service.register_manager(TG_RUBEN, "Ruben")
 
     result = draft_service.submit_pick(TG_RUBEN, "messi")
     assert result["status"] == "rejected"
     assert result["error"] == draft_service.ERROR_BIWENGER_TRANSFER_FAILED
+    assert "intentarlo" in result["message"].lower()
+
+    pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
+    assert pick_doc["status"] == draft_service.PICK_STATUS_REVERTED
+    state = draft_service._load_state()
+    assert state.squads[RUBEN_ID] == []  # never finalised
+
+
+def test_failed_transfer_finalises_when_the_response_was_lost(
+    fake_fs, biwenger, monkeypatch
+):
+    """Biwenger has the player: record it, never buy it twice."""
+    monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
+    biwenger.transfer_player.side_effect = requests.ConnectionError("reset by peer")
+    biwenger.get_manager_squad.return_value = [{"id": MESSI_ID}]
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    result = draft_service.submit_pick(TG_RUBEN, "messi")
+
+    assert result["status"] == "applied"
+    assert biwenger.transfer_player.call_count == 1  # never retried
+    pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
+    assert pick_doc["status"] == draft_service.PICK_STATUS_APPLIED
+    assert pick_doc["applied_to_biwenger"] is True
+    assert MESSI_ID in draft_service._load_state().squads[RUBEN_ID]
+
+
+def test_failed_transfer_blocks_when_it_cannot_be_verified(
+    fake_fs, biwenger, monkeypatch
+):
+    """Unknown stays blocked on purpose — retrying could double-charge."""
+    monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
+    biwenger.transfer_player.side_effect = requests.ConnectionError("reset by peer")
+    biwenger.get_manager_squad.side_effect = requests.ConnectionError("still down")
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    result = draft_service.submit_pick(TG_RUBEN, "messi")
+    assert result["status"] == "rejected"
+    assert "admin" in result["message"].lower()
 
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["status"] == draft_service.PICK_STATUS_RESERVED
-    state = draft_service._load_state()
-    assert state.squads[RUBEN_ID] == []  # never finalised
+    assert draft_service._load_state().squads[RUBEN_ID] == []
 
 
 # ---------------------------------------------------------------------------

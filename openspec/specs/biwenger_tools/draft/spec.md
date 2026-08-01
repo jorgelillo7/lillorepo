@@ -188,11 +188,40 @@ player ids stay identical between a rehearsal and the live session.
 #### Scenario: gate off and on
 - **WHEN** the gate is off **THEN** no transfer, revert or board call is made
 - **WHEN** the gate is on **THEN** the transfer is applied and the `offer_id` resolved
-- **WHEN** the Biwenger call fails **THEN** the pick stays reserved and is rejected
+- **WHEN** the Biwenger call fails **THEN** the pick is never finalised blindly
 - *Verifies:* `test_gate_off_never_calls_biwenger_transfer_or_board`,
   `test_submit_pick_applies_with_gate_off`,
-  `test_gate_on_calls_biwenger_transfer_and_resolves_offer_id`,
-  `test_gate_on_biwenger_failure_keeps_pick_reserved_and_rejects`
+  `test_gate_on_calls_biwenger_transfer_and_resolves_offer_id`
+
+---
+
+### Requirement: A dropped transfer is verified, not guessed
+
+A connection lost mid-POST is ambiguous: Biwenger may have applied the transfer
+and only the response gone missing. The endpoint carries no idempotency key, so
+guessing either buys the player twice or strands the pick.
+
+On failure the service SHALL read the manager's squad and act on what it finds:
+
+| Player owned? | Slot | Told to the group |
+|---|---|---|
+| No | freed (`reverted`) | retry yourself |
+| Yes | finalised (`applied`) | pick stands |
+| Unknown | left `reserved` | call the admin |
+
+The transfer SHALL NOT be retried in any branch. The rejection message SHALL
+match what the manager can actually do — telling him to retry while the slot is
+still reserved sends him at the one action guaranteed to fail.
+
+#### Scenario: verify before deciding
+- **WHEN** the squad read shows the player is not owned **THEN** the slot is freed and
+  the manager can pick again unaided
+- **WHEN** the squad read shows the player is owned **THEN** the pick is finalised without
+  a second transfer
+- **WHEN** the squad read itself fails **THEN** the slot stays blocked for the admin
+- *Verifies:* `test_failed_transfer_frees_the_slot_when_it_did_not_land`,
+  `test_failed_transfer_finalises_when_the_response_was_lost`,
+  `test_failed_transfer_blocks_when_it_cannot_be_verified`
 
 ---
 
