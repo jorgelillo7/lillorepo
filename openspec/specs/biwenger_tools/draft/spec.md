@@ -206,12 +206,22 @@ resolve a name, or answer a duplicate.
 Resolving the market SHALL use the public competition endpoint, which needs no
 session, and SHALL download it once per load rather than once per map.
 
+The session SHALL be reused across picks. Biwenger's quota is 500 requests per
+rolling 8-hour window for the whole account, and 15 rounds of 7 managers is 105
+picks — logging in per pick would spend the window before the draft ends. A
+rejected token SHALL be re-authenticated once, which is safe because a `401` is
+refused before Biwenger applies anything.
+
 #### Scenario: rejected picks make no request
 - **WHEN** a pick is rejected out of turn, names an unknown player, or is ambiguous
   **THEN** no Biwenger session is opened
 - **WHEN** the market is loaded **THEN** the competition payload is fetched exactly once
+- **WHEN** consecutive picks are applied **THEN** they share one authenticated session
+- **WHEN** the token is rejected **THEN** the session is rebuilt once and the call retried
 - *Verifies:* `test_rejected_pick_never_authenticates`,
-  `test_get_competition_maps_downloads_once`
+  `test_get_competition_maps_downloads_once`,
+  `test_consecutive_picks_authenticate_once`,
+  `test_rejected_token_re_authenticates_once`
 
 ---
 

@@ -308,12 +308,44 @@ def get_state() -> dict:
 
 
 _MARKET_CACHE: dict | None = None
+_SESSION_CACHE: Optional[BiwengerClient] = None
 
 
 def reset_market_cache() -> None:
     """Drop the cached market so the next call re-reads it."""
     global _MARKET_CACHE
     _MARKET_CACHE = None
+
+
+def reset_session_cache() -> None:
+    """Drop the cached Biwenger session so the next call authenticates again."""
+    global _SESSION_CACHE
+    _SESSION_CACHE = None
+
+
+def _with_session(action):
+    """Run `action(client)` on a session reused across picks.
+
+    Authenticating is two requests (login + `/account`) against a quota the
+    whole league shares, so logging in once per pick was the bulk of the
+    draft's traffic. The session token carries no expiry claim, so it is held
+    for the life of the instance.
+
+    A rejected token is retried once, and only once. This does not weaken the
+    module's no-retry rule: a `401` is refused before Biwenger applies
+    anything, so unlike a timeout it cannot have half-happened.
+    """
+    global _SESSION_CACHE
+    if _SESSION_CACHE is None:
+        _SESSION_CACHE = build_biwenger_session()
+    try:
+        return action(_SESSION_CACHE)
+    except requests.HTTPError as exc:
+        if exc.response is None or exc.response.status_code != 401:
+            raise
+        logger.info("Biwenger session rejected — re-authenticating once.")
+        _SESSION_CACHE = build_biwenger_session()
+        return action(_SESSION_CACHE)
 
 
 def _fetch_market_rows() -> list:
@@ -588,13 +620,14 @@ def _apply_confirmed_pick(manager_id: int, player_id: int, players_by_id: dict) 
     applied_to_biwenger = False
     if config.DRAFT_APPLY_TO_BIWENGER:
         try:
-            # Authenticate only now: the slot is reserved and the transfer is
-            # certain, so a rejected or duplicate pick never logs in.
-            biwenger = build_biwenger_session()
-            biwenger.transfer_player(
-                player_id=player_id,
-                manager_id=manager_id,
-                amount=price,
+            # Touch the session only now: the slot is reserved and the transfer
+            # is certain, so a rejected or duplicate pick never authenticates.
+            _with_session(
+                lambda client: client.transfer_player(
+                    player_id=player_id,
+                    manager_id=manager_id,
+                    amount=price,
+                )
             )
             applied_to_biwenger = True
         except Exception:
@@ -710,14 +743,17 @@ def undo_last_pick(telegram_user_id: str) -> dict:
         # The release goes first — a player left unowned is obvious on the
         # board, whereas a refund without a release would silently pay twice.
         try:
-            biwenger = build_biwenger_session()
-            biwenger.release_player(player_id=last_pick.player_id)
-            biwenger.apply_bonus(
-                amounts={
-                    m: (last_pick.price if m == last_pick.manager_id else 0)
-                    for m in LEAGUE_MEMBERS
-                },
-                reason=f"Draft: deshecho el fichaje de {player_name}",
+            _with_session(
+                lambda client: client.release_player(player_id=last_pick.player_id)
+            )
+            _with_session(
+                lambda client: client.apply_bonus(
+                    amounts={
+                        m: (last_pick.price if m == last_pick.manager_id else 0)
+                        for m in LEAGUE_MEMBERS
+                    },
+                    reason=f"Draft: deshecho el fichaje de {player_name}",
+                )
             )
         except Exception:
             logger.exception(

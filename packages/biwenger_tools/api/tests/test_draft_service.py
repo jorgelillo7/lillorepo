@@ -10,9 +10,11 @@ The pure engine (`logic/draft.py`) is tested elsewhere (`test_draft.py`);
 these tests only cover what this module adds on top of it.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 from core.constants import LEAGUE_MEMBERS
 from packages.biwenger_tools.api import config
@@ -169,6 +171,7 @@ def _draft_config(tmp_path, monkeypatch):
     _write_market_csv(csv_path)
     monkeypatch.setattr(config, "DRAFT_MARKET_CSV_PATH", str(csv_path))
     draft_service.reset_market_cache()
+    draft_service.reset_session_cache()
 
 
 @pytest.fixture
@@ -390,6 +393,40 @@ def test_gate_on_calls_biwenger_transfer(fake_fs, biwenger, monkeypatch):
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["applied_to_biwenger"] is True
     assert "offer_id" not in pick_doc, "Biwenger issues no id for an admin transfer"
+
+
+def test_consecutive_picks_authenticate_once(fake_fs, biwenger, monkeypatch):
+    """The session is reused across picks.
+
+    Logging in costs two requests against a quota the whole league shares, so
+    one login per pick was the bulk of the draft's traffic — enough to burn the
+    500-request window before the fifteen rounds were done.
+    """
+    monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+
+    assert draft_service.submit_pick(TG_RUBEN, "messi")["status"] == "applied"
+    assert draft_service.submit_pick(TG_JAVI, "cristiano")["status"] == "applied"
+
+    assert biwenger.transfer_player.call_count == 2
+    biwenger.login.assert_called_once()
+
+
+def test_rejected_token_re_authenticates_once(fake_fs, biwenger, monkeypatch):
+    """A `401` is refused before Biwenger applies anything, so the one retry
+    cannot double-charge — unlike the timeouts the no-retry rule guards."""
+    monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    stale = requests.HTTPError(response=SimpleNamespace(status_code=401))
+    biwenger.transfer_player.side_effect = [stale, None]
+
+    result = draft_service.submit_pick(TG_RUBEN, "messi")
+
+    assert result["status"] == "applied"
+    assert biwenger.transfer_player.call_count == 2
+    assert biwenger.login.call_count == 2
 
 
 def test_gate_on_biwenger_failure_keeps_pick_reserved_and_rejects(
