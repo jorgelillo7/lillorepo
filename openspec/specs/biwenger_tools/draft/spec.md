@@ -258,6 +258,35 @@ refused before Biwenger applies anything.
 
 ---
 
+### Requirement: Each turn is timed
+
+The bot SHALL record when a turn opens and how long the manager took, and
+report the wait in the pick confirmation. `turn_started_at` lives on the state
+document but NOT on `DraftState`: the pure engine has no business knowing about
+clocks. It SHALL be written in the same `set` as the state — that call replaces
+the whole document, so a separate write would be erased by the next pick.
+
+The opening pick has no preceding turn and SHALL report no wait rather than an
+invented one. An undo SHALL restart the clock: it is an admin action, and the
+manager should not be charged for however long it took someone to notice.
+
+The per-manager report SHALL use the **median**, not the mean — a draft spans
+nights, and one turn that opened at 3am would otherwise decide the ranking.
+
+#### Scenario: measuring a turn
+- **WHEN** the first pick of the draft is applied **THEN** no wait is reported or stored
+- **WHEN** any later pick is applied **THEN** the wait since the previous pick is stored
+  and shown
+- **WHEN** consecutive picks are applied **THEN** the clock survives each state write
+- **WHEN** a pick is undone **THEN** the clock restarts from that moment
+- *Verifies:* `test_first_pick_reports_no_wait`,
+  `test_second_pick_measures_the_wait`,
+  `test_state_write_keeps_the_clock_alive_across_picks`,
+  `test_undo_restarts_the_clock`,
+  `test_format_wait_uses_the_coarsest_useful_unit`
+
+---
+
 ### Requirement: The last pick can be undone by the admin
 
 `/deshacer` SHALL be restricted to the configured draft admin, identified by a

@@ -37,6 +37,7 @@ Firestore on contention, and Biwenger's transfer endpoint has no
 idempotency key of its own).
 """
 
+import time
 from typing import Optional
 
 import requests
@@ -83,6 +84,27 @@ def _pick_doc_id(round_num: int, position: int) -> str:
 
 def _rejected(error: str, message: str) -> dict:
     return {"status": "rejected", "error": error, "message": message}
+
+
+def _format_wait(seconds: Optional[float]) -> str:
+    """A turn's length, in the coarsest unit that still says something.
+
+    A draft runs over days, so seconds are noise and days are the headline.
+    """
+    if seconds is None:
+        return ""
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return "menos de un minuto"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours} h {minutes} min" if minutes else f"{hours} h"
+    days, hours = divmod(hours, 24)
+    unit = "día" if days == 1 else "días"
+    return f"{days} {unit} {hours} h" if hours else f"{days} {unit}"
 
 
 # ---------------------------------------------------------------------------
@@ -221,10 +243,13 @@ def _load_state() -> draft.DraftState:
     return draft.new_draft_state() if data is None else draft.state_from_dict(data)
 
 
-def _save_state(state: draft.DraftState) -> None:
-    fs.set_document(
-        _state_path(config.DRAFT_SEASON), STATE_DOC_ID, draft.state_to_dict(state)
-    )
+def _save_state(
+    state: draft.DraftState, turn_started_at: Optional[float] = None
+) -> None:
+    doc = draft.state_to_dict(state)
+    if turn_started_at is not None:
+        doc["turn_started_at"] = turn_started_at
+    fs.set_document(_state_path(config.DRAFT_SEASON), STATE_DOC_ID, doc)
 
 
 def _mention(manager_id: int) -> str:
@@ -488,10 +513,18 @@ def _reserve_pick(manager_id: int, player_id: int, players_by_id: dict) -> dict:
     return fs.run_transaction(txn)
 
 
-def _finalize_pick(
-    manager_id: int, player_id: int, players_by_id: dict
-) -> draft.DraftState:
-    """Apply the (already-reserved, already-validated) pick to `DraftState`."""
+def _finalize_pick(manager_id: int, player_id: int, players_by_id: dict) -> tuple:
+    """Apply the (already-reserved, already-validated) pick to `DraftState`.
+
+    Returns `(new_state, waited_seconds)`. `waited_seconds` is how long this
+    manager sat on the clock, and is `None` for the opening pick, which has no
+    preceding turn to measure from.
+
+    `turn_started_at` rides on the state document but deliberately not on
+    `DraftState`: the pure engine has no business knowing about clocks. It has
+    to be written in the same `set` as the state — that call replaces the whole
+    document, so a separate write would be wiped by the next pick.
+    """
 
     def txn(transaction):
         client = fs.get_client()
@@ -499,11 +532,9 @@ def _finalize_pick(
             STATE_DOC_ID
         )
         state_snapshot = state_ref.get(transaction=transaction)
-        state = (
-            draft.state_from_dict(state_snapshot.to_dict())
-            if state_snapshot.exists
-            else draft.new_draft_state()
-        )
+        stored = state_snapshot.to_dict() if state_snapshot.exists else None
+        state = draft.state_from_dict(stored) if stored else draft.new_draft_state()
+        started_at = (stored or {}).get("turn_started_at")
         new_state, result = draft.apply_pick(
             state, manager_id, player_id, players_by_id
         )
@@ -515,9 +546,13 @@ def _finalize_pick(
                 "Pick failed to apply after a successful reservation.",
                 extra={"manager_id": manager_id, "player_id": player_id},
             )
-            return state
-        transaction.set(state_ref, draft.state_to_dict(new_state))
-        return new_state
+            return state, None
+        now = time.time()
+        transaction.set(
+            state_ref, {**draft.state_to_dict(new_state), "turn_started_at": now}
+        )
+        waited = round(now - started_at) if started_at else None
+        return new_state, waited
 
     return fs.run_transaction(txn)
 
@@ -573,6 +608,7 @@ def _applied_response(
     players_by_id: dict,
     price: int,
     applied_to_biwenger: bool,
+    waited_seconds: Optional[float] = None,
 ) -> dict:
     manager_name = LEAGUE_MEMBERS.get(manager_id, str(manager_id))
     remaining = new_state.budgets.get(manager_id, 0) - new_state.spent.get(
@@ -592,9 +628,15 @@ def _applied_response(
         if next_manager_id is not None
         else "🏁 ¡Draft completado!"
     )
+    wait_note = (
+        f"\n⏱️ Ha tardado {_format_wait(waited_seconds)}."
+        if waited_seconds is not None
+        else ""
+    )
     message = (
         f"✅ <b>{manager_name}</b> ficha a <b>{row['name']}</b> ({row['team']}) "
-        f"por {_eur(price)}{sim_note}. Le quedan {_eur(remaining)}. {turn_note}"
+        f"por {_eur(price)}{sim_note}.{wait_note}\n"
+        f"Le quedan {_eur(remaining)}. {turn_note}"
     )
 
     return {
@@ -690,19 +732,27 @@ def _apply_confirmed_pick(manager_id: int, player_id: int, players_by_id: dict) 
                     ),
                 )
 
-    new_state = _finalize_pick(manager_id, player_id, players_by_id)
+    new_state, waited = _finalize_pick(manager_id, player_id, players_by_id)
     fs.set_document(
         _picks_path(config.DRAFT_SEASON),
         doc_id,
         {
             "status": PICK_STATUS_APPLIED,
             "applied_to_biwenger": applied_to_biwenger,
+            "applied_at": time.time(),
+            "waited_seconds": waited,
         },
         merge=True,
     )
 
     return _applied_response(
-        new_state, manager_id, player_id, players_by_id, price, applied_to_biwenger
+        new_state,
+        manager_id,
+        player_id,
+        players_by_id,
+        price,
+        applied_to_biwenger,
+        waited,
     )
 
 
@@ -825,7 +875,9 @@ def undo_last_pick(telegram_user_id: str) -> dict:
         squads=new_squads,
         spent=new_spent,
     )
-    _save_state(new_state)
+    # The clock restarts: an undo is an admin action, and the manager should
+    # not be charged for however long it took someone to notice.
+    _save_state(new_state, turn_started_at=time.time())
     fs.set_document(
         _picks_path(config.DRAFT_SEASON),
         doc_id,
@@ -888,9 +940,17 @@ def export_picks() -> dict:
             continue
         spent = sum(p["price"] or 0 for p in squad)
         left = state.budgets.get(manager_id, 0) - spent
+        waits = [p["waited_seconds"] for p in squad if p.get("waited_seconds")]
+        # Median, not mean: a draft spans nights, and one turn that landed at
+        # 3am would otherwise decide the whole ranking.
+        pace = (
+            f" · ⏱️ {_format_wait(sorted(waits)[len(waits) // 2])} de mediana"
+            if waits
+            else ""
+        )
         lines = [
             f"<b>{squad[0]['manager_name']}</b> — {len(squad)} jugadores · "
-            f"{_eur(spent)} gastados · {_eur(left)} libres"
+            f"{_eur(spent)} gastados · {_eur(left)} libres{pace}"
         ]
         lines += [
             f"{p['global_pick']:>3}. {p['player_name']} "
