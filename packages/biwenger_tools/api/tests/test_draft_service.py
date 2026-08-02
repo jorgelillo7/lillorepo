@@ -487,6 +487,93 @@ def test_failed_transfer_blocks_when_it_cannot_be_verified(
 
 
 # ---------------------------------------------------------------------------
+# Turn timings
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (0, "menos de un minuto"),
+        (59, "menos de un minuto"),
+        (60, "1 min"),
+        (3540, "59 min"),
+        (3600, "1 h"),
+        (4320, "1 h 12 min"),
+        (86400, "1 día"),
+        (180000, "2 días 2 h"),
+    ],
+)
+def test_format_wait_uses_the_coarsest_useful_unit(seconds, expected):
+    assert draft_service._format_wait(seconds) == expected
+
+
+def test_first_pick_reports_no_wait(fake_fs, biwenger):
+    """Nothing preceded it, so there is no turn to measure."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+
+    result = draft_service.submit_pick(TG_RUBEN, "messi")
+
+    assert result["status"] == "applied"
+    assert "tardado" not in result["message"]
+    pick = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
+    assert pick["waited_seconds"] is None
+
+
+def test_second_pick_measures_the_wait(fake_fs, biwenger, monkeypatch):
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+    draft_service.submit_pick(TG_RUBEN, "messi")
+
+    # The clock started when Rubén's pick landed; move it back five minutes.
+    state_doc = fake_fs.get_document(
+        draft_service._state_path("test-season"), draft_service.STATE_DOC_ID
+    )
+    state_doc["turn_started_at"] -= 300
+    fake_fs.set_document(
+        draft_service._state_path("test-season"),
+        draft_service.STATE_DOC_ID,
+        state_doc,
+    )
+
+    result = draft_service.submit_pick(TG_JAVI, "cristiano")
+
+    assert "Ha tardado 5 min" in result["message"]
+    pick = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P02")
+    assert 299 <= pick["waited_seconds"] <= 301
+
+
+def test_undo_restarts_the_clock(fake_fs, biwenger, monkeypatch):
+    """An undo is the admin's doing; the manager inherits a fresh turn."""
+    monkeypatch.setattr(config, "DRAFT_APPLY_TO_BIWENGER", True)
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.submit_pick(TG_RUBEN, "messi")
+    path = draft_service._state_path("test-season")
+    before = fake_fs.get_document(path, draft_service.STATE_DOC_ID)
+    before["turn_started_at"] -= 9999
+    fake_fs.set_document(path, draft_service.STATE_DOC_ID, before)
+
+    draft_service.undo_last_pick(TG_ADMIN)
+
+    after = fake_fs.get_document(path, draft_service.STATE_DOC_ID)
+    assert after["turn_started_at"] > before["turn_started_at"] + 9000
+
+
+def test_state_write_keeps_the_clock_alive_across_picks(fake_fs, biwenger):
+    """`_finalize_pick` replaces the whole state doc — the clock must ride
+    inside that same write or every pick would erase it."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.register_manager(TG_JAVI, "Javi")
+    draft_service.submit_pick(TG_RUBEN, "messi")
+    draft_service.submit_pick(TG_JAVI, "cristiano")
+
+    state_doc = fake_fs.get_document(
+        draft_service._state_path("test-season"), draft_service.STATE_DOC_ID
+    )
+    assert state_doc.get("turn_started_at")
+
+
+# ---------------------------------------------------------------------------
 # Idempotency: duplicate pick requests never re-call Biwenger.
 # ---------------------------------------------------------------------------
 
@@ -575,7 +662,7 @@ def test_retried_submit_pick_after_reserve_before_finalize_skips_biwenger(
         # Biwenger call succeeds but before `_finalize_pick`'s write lands.
         state = draft_service._load_state()
         new_state, _ = draft.apply_pick(state, manager_id, player_id, players_by_id)
-        return new_state
+        return new_state, None
 
     real_finalize = draft_service._finalize_pick
     monkeypatch.setattr(draft_service, "_finalize_pick", _finalize_without_persisting)
