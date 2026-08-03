@@ -11,13 +11,12 @@ Any other chat is silently dropped (returns `200` so Telegram does not retry).
 
 ## El bot en el grupo
 
-| Un pick del draft | El export final |
-|---|---|
-| [![Pick](docs/01-draft-pick.png)](docs/01-draft-pick.png) | [![Exportar](docs/02-draft-exportar.png)](docs/02-draft-exportar.png) |
+| `/pick` | `/estado` | `/exportar` |
+|---|---|---|
+| [![Pick](docs/01-draft-pick.png)](docs/01-draft-pick.png) | [![Estado](docs/02-draft-estado.png)](docs/02-draft-estado.png) | [![Exportar](docs/03-draft-exportar.png)](docs/03-draft-exportar.png) |
+| Valida el turno, aplica el fichaje en Biwenger y pasa el turno al siguiente. | Ronda, pick global, a quién le toca y el presupuesto y plantilla de los siete. | Vuelca las plantillas completas, presidente a presidente. |
 
-<sub>`/pick` valida el turno, aplica el fichaje en Biwenger y pasa el turno al
-siguiente; `/exportar` vuelca las plantillas de los siete presidentes.
-Capturas del draft 26-27 en vivo.</sub>
+<sub>Capturas del draft 26-27 en vivo.</sub>
 
 ## 🗺️ Entry point
 
