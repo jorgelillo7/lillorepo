@@ -215,6 +215,50 @@ def _standing(position, name, note=""):
     )
 
 
+def test_split_record_separates_the_figure_from_its_holder():
+    """Seasons store records as one string; the tiles need the two halves."""
+    assert main_routes._split_record("120 @fabio") == {
+        "valor": "120",
+        "quien": "Fabio",
+    }
+    assert main_routes._split_record("109") == {"valor": "109", "quien": ""}
+    assert main_routes._split_record("") == {}
+    assert main_routes._split_record(None) == {}
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_shows_season_records_as_figures(mock_get, client):
+    """The number leads and the holder sits under it, instead of a prose line."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="25-26",
+            campeon="Fabio",
+            record_puntos="120 @fabio",
+            jornadas_ganadas="11 @fabio",
+            clausulazos_total="109",
+            puntuacion="personalizada",
+        )
+    ]
+    body = client.get("/palmares").get_data(as_text=True)
+
+    assert "Récord en una jornada" in body
+    assert "Jornadas ganadas" in body
+    assert "Clausulazos" in body
+    # the "@" is gone: the handle renders on its own line
+    assert "120 @fabio" not in body
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_hides_the_clausulazos_tile_when_the_season_has_none(mock_get, client):
+    """Seasons before 25-26 never counted them."""
+    mock_get.return_value = [
+        Palmares(temporada="23-24", campeon="Dani", record_puntos="101 @fabio")
+    ]
+    body = client.get("/palmares").get_data(as_text=True)
+    assert "Récord en una jornada" in body
+    assert "Clausulazos" not in body
+
+
 @patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
 def test_palmares_pairs_who_buys_lunch_for_whom(mock_get, client):
     """Reglamento 2.1: the bottom half pays for the top half, outside in.
