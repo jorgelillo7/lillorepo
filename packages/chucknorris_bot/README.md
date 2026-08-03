@@ -4,6 +4,13 @@ A Telegram bot that delivers Chuck Norris facts on demand, powered by [chucknorr
 
 > **Disclaimer**: This should probably live in its own GCP project. It doesn't. Couldn't be bothered.
 
+## El bot
+
+[<img src="docs/01-menu.png" width="380" alt="ChuckBot en Telegram">](docs/01-menu.png)
+
+<sub>Menú de categorías: cada botón pide un chiste de esa categoría a
+chucknorris.io.</sub>
+
 ## Commands
 
 | Command | Description |

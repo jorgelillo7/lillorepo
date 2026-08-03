@@ -5,6 +5,17 @@ plus a small admin panel to trigger the scraper on demand.
 
 Production URL: <https://biwenger-summary-pjpqofuevq-no.a.run.app/>
 
+## La web
+
+| Comunicados | Palmarés |
+|---|---|
+| [![Comunicados](docs/01-home.png)](docs/01-home.png) | [![Palmarés](docs/02-palmares.png)](docs/02-palmares.png) |
+| **Reglamento** | **Mercado** |
+| [![Reglamento](docs/03-reglamento.png)](docs/03-reglamento.png) | [![Mercado](docs/04-mercado.png)](docs/04-mercado.png) |
+
+<sub>Capturas de la web corriendo en local contra los datos reales de
+Firestore. Se regeneran a mano — ver `docs/` en este módulo.</sub>
+
 ## Entry point
 
 `app.py` builds the Flask app, registers session cookie hardening + CSRF helpers,

@@ -12,6 +12,7 @@ from core.domain.models import (
     JusticeEntry,
     LeagueMessage,
     Palmares,
+    SeasonStanding,
     Participation,
 )
 
@@ -201,6 +202,60 @@ def test_participacion_renders_calculated_counts(mock_get, client):
     assert "Autor2" in body
     assert ">2<" in body
     assert ">1<" in body
+
+
+def _standing(position, name, note=""):
+    return SeasonStanding(
+        position=position,
+        user_id=position,
+        real_name=name,
+        team_name=f"Equipo {position}",
+        points=100 - position,
+        note=note,
+    )
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_pairs_who_buys_lunch_for_whom(mock_get, client):
+    """Reglamento 2.1: the bottom half pays for the top half, outside in.
+    With seven finishers the middle one only pays for himself — that is what
+    the bare 'Neutros' list never managed to say."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="25-26",
+            campeon="Fabio",
+            standings_table=[
+                _standing(1, "Fabio"),
+                _standing(2, "Lucena"),
+                _standing(3, "Pablo"),
+                _standing(4, "Jorge"),
+                _standing(5, "Javi"),
+                _standing(6, "Ruben"),
+                _standing(7, "Alberto", note="abandono"),
+            ],
+        )
+    ]
+    body = client.get("/palmares").get_data(as_text=True)
+
+    assert "invita a" in body
+    assert "paga lo suyo" in body
+    # 7 pays for 1, 6 for 2, 5 for 3 — and 4 is the one left alone.
+    for payer, guest in (("Alberto", "Fabio"), ("Ruben", "Lucena"), ("Javi", "Pablo")):
+        assert body.index(payer) < body.index(guest) or guest in body
+    assert "Jorge" in body
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_falls_back_to_the_old_lists_without_a_standings_table(
+    mock_get, client
+):
+    """Seasons before 25-26 have no per-user rows; they keep the plain lists."""
+    mock_get.return_value = [
+        Palmares(temporada="23-24", campeon="Dani", multas=["Pepe", "Luis"])
+    ]
+    body = client.get("/palmares").get_data(as_text=True)
+    assert "Pierden:" in body
+    assert "invita a" not in body
 
 
 @patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")

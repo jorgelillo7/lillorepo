@@ -10,6 +10,17 @@
 > - **Pending follow-ups**: `PENDING.md` (root) → `be_water` section.
 > - **Web design system**: `web/DESIGN.md`.
 
+## La web
+
+| Catálogo | Ficha de un agua |
+|---|---|
+| [![Catálogo](web/docs/01-home.png)](web/docs/01-home.png) | [![Ficha](web/docs/02-ficha.png)](web/docs/02-ficha.png) |
+| **Recomendador** | **Comunidad** |
+| [![Recomendador](web/docs/03-recomendador.png)](web/docs/03-recomendador.png) | [![Comunidad](web/docs/04-comunidad.png)](web/docs/04-comunidad.png) |
+
+<sub>Capturas de la web en local contra los datos reales. Se regeneran a
+mano — ver `web/docs/`.</sub>
+
 A collaborative catalog of Spanish bottled mineral waters, served with Flask on
 Cloud Run. Anyone with the link photographs a bottle label and the entry fills
 itself in (OCR via Gemini); the catalog crosses **mineral profile × origin** to
