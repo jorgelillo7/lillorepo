@@ -190,9 +190,7 @@ def palmares() -> str:
                 for i in range(losers_count)
             ]
             solo = (
-                ordered[losers_count]
-                if n_rows % 2 and n_rows > losers_count
-                else None
+                ordered[losers_count] if n_rows % 2 and n_rows > losers_count else None
             )
 
             farolillo_name = p.multas[-1] if p.multas else ""
