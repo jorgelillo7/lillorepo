@@ -45,7 +45,30 @@
                     <p><strong class="font-medium text-gray-600">Clausulazos totales:</strong> {{ data.clausulazos_total }}</p>
                     {% endif %}
 
-                    {% if data.multas %}
+                    {% if data.comidas %}
+                    <h3 class="font-header text-xl font-bold text-gray-800 mt-6">🍽️ La comida</h3>
+                    <p class="text-xs text-gray-500 -mt-2">Quien acaba abajo invita a quien acaba arriba.</p>
+                    <ul class="list-none space-y-2 mt-2">
+                        {% for c in data.comidas %}
+                        <li class="flex items-center gap-2 text-sm">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-50 text-red-700 text-xs font-bold flex-shrink-0">{{ c.invita.position }}</span>
+                            <span class="font-semibold text-gray-800">{{ c.invita.real_name }}</span>
+                            {% if c.invita.note %}<span class="text-xs text-red-600 font-semibold">({{ c.invita.note }})</span>{% endif %}
+                            <span class="text-gray-400">invita a</span>
+                            <span class="font-semibold text-gray-800">{{ c.invitado.real_name }}</span>
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-50 text-green-700 text-xs font-bold flex-shrink-0">{{ c.invitado.position }}</span>
+                        </li>
+                        {% endfor %}
+                        {% if data.paga_lo_suyo %}
+                        <li class="flex items-center gap-2 text-sm pt-1">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-bold flex-shrink-0">{{ data.paga_lo_suyo.position }}</span>
+                            <span class="font-semibold text-gray-800">{{ data.paga_lo_suyo.real_name }}</span>
+                            <span class="text-gray-400">paga lo suyo</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    {% elif data.multas %}
                     <h3 class="font-header text-xl font-bold text-red-600 mt-6">Pierden:</h3>
                     <ul class="list-none space-y-2">
                         {% for name in data.multas %}
@@ -60,18 +83,14 @@
                         </li>
                         {% endfor %}
                     </ul>
-                    {% endif %}
-
                     {% if data.neutros %}
                     <h3 class="font-header text-xl font-bold text-gray-600 mt-6">Neutros:</h3>
                     <ul class="list-none space-y-2">
                         {% for n in data.neutros %}
-                        <li class="flex items-center gap-2">
-                            <span>•</span>
-                            <span class="text-gray-700">{{ n }}</span>
-                        </li>
+                        <li class="flex items-center gap-2"><span>•</span><span class="text-gray-700">{{ n }}</span></li>
                         {% endfor %}
                     </ul>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>

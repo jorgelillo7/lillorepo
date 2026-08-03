@@ -178,6 +178,23 @@ def palmares() -> str:
                         "tier": tier,
                     }
                 )
+            # Who buys whom lunch (reglamento art. 2.1): the bottom half pays
+            # for the top half, paired from the outside in — last pays first,
+            # second-last pays second. With an odd league the middle man pays
+            # only for himself, which is the whole meaning of "neutro".
+            ordered = sorted(annotated_rows, key=lambda r: r["position"])
+            n_rows = len(ordered)
+            losers_count = n_rows // 2
+            comidas = [
+                {"invita": ordered[n_rows - 1 - i], "invitado": ordered[i]}
+                for i in range(losers_count)
+            ]
+            solo = (
+                ordered[losers_count]
+                if n_rows % 2 and n_rows > losers_count
+                else None
+            )
+
             farolillo_name = p.multas[-1] if p.multas else ""
             farolillo_note = next(
                 (
@@ -207,6 +224,8 @@ def palmares() -> str:
                             _season_start_year(p.temporada) >= cups_since
                         ),
                         "copas": p.copas,
+                        "comidas": comidas,
+                        "paga_lo_suyo": solo,
                     },
                 )
             )

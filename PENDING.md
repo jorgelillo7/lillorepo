@@ -50,6 +50,18 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      are marked. This is what institutionalises openspec — an audit that warns,
      not a CI gate. (Mutmut stays on-demand by the same reasoning.)
 
+## infra
+
+- **Capturas en los READMEs — hecho para las webs, pendiente los bots.**
+  `biwenger_tools/web/docs/` y `be_water/web/docs/` ya tienen su galería de
+  cuatro capturas, referenciadas desde el README de cada paquete. Se generan a
+  mano: levantar el servicio con su `*_local` de Bazel y capturar con Chrome
+  headless (`--headless --force-device-scale-factor=2 --window-size=1280,H
+  --screenshot=...`) contra los datos reales de Firestore. Falta lo mismo para
+  los dos bots de Telegram (`biwenger_tools/bot`, `chucknorris_bot/bot`): ahí
+  no hay web que capturar, la imagen tiene que salir de una conversación real
+  y la aporta el usuario.
+
 ## biwenger_tools
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
