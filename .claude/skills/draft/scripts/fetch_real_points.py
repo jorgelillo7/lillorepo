@@ -32,6 +32,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0"}
 # Biwenger position ids.
 GK, DEF = 1, 2
 POSITION_CODE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
+# A start, not an appearance: below this a player came off the bench, and
+# the league's play/win bonuses only trigger past 65 minutes anyway.
+STARTER_MINUTES = 60
+SEASON_ROUNDS = 38
 SOFASCORE_SEASON_KEY = "2"
 
 
@@ -52,7 +56,7 @@ def personalizado(reports: list, position: int) -> dict:
     Biwenger's `star` flag is deliberately ignored — including it as the
     config's MVP bonus overshoots both controls (345 and 277).
     """
-    total = base = games = minutes = wins = clean = 0
+    total = base = games = minutes = wins = clean = started = 0
     for report in reports:
         stats = report.get("rawStats") or {}
         played = stats.get("minutesPlayed") or 0
@@ -60,6 +64,8 @@ def personalizado(reports: list, position: int) -> dict:
             continue
         games += 1
         minutes += played
+        if played >= STARTER_MINUTES:
+            started += 1
         score = stats.get("score2") or 0
         base += score
         points = score
@@ -87,6 +93,7 @@ def personalizado(reports: list, position: int) -> dict:
         "points": total,
         "sofascore_real": base,
         "games": games,
+        "starts": started,
         "minutes": minutes,
         "wins": wins,
         "clean_sheets": clean,
@@ -228,6 +235,7 @@ def main() -> int:
                 "price": entry.get("price") or 0,
                 "points": computed["points"],
                 "games": computed["games"],
+                "starts": computed["starts"],
                 "season_games": season.get("games") or computed["games"],
                 "minutes": computed["minutes"],
                 "sofascore_real": (
@@ -249,6 +257,8 @@ def main() -> int:
     for row in rows:
         games = row["games"] or 0
         row["per_game"] = round(row["points"] / games, 2) if games else None
+        row["min_per_game"] = round(row["minutes"] / games) if games else None
+        row["start_rate"] = round(row["starts"] / SEASON_ROUNDS, 2)
         price_m = (row["price"] or 0) / 1_000_000
         row["per_m"] = round(row["points"] / price_m, 1) if price_m else None
 
@@ -259,6 +269,9 @@ def main() -> int:
         "price",
         "points",
         "games",
+        "starts",
+        "start_rate",
+        "min_per_game",
         "per_game",
         "per_m",
         "minutes",
@@ -277,13 +290,15 @@ def main() -> int:
     print(f"{len(rows)} jugadores · {fetcher.requests_made} peticiones live")
     print(f"Escrito {args.out}")
     print(
-        f"\n{'Jugador':<22}{'Eq':<14}{'Pos':<5}{'Pts':>5}{'PJ':>4}{'/PJ':>7}{'/M':>7}"
+        f"\n{'Jugador':<22}{'Eq':<14}{'Pos':<5}{'Pts':>5}{'PJ':>4}"
+        f"{'Tit':>7}{'min':>5}{'/PJ':>7}{'/M':>7}"
     )
     for row in sorted(rows, key=lambda r: r["points"], reverse=True):
         print(
             f"{row['name'][:21]:<22}{row['team'][:13]:<14}{row['position']:<5}"
-            f"{row['points']:>5}{row['games']:>4}{row['per_game'] or 0:>7.2f}"
-            f"{row['per_m'] or 0:>7.1f}"
+            f"{row['points']:>5}{row['games']:>4}"
+            f"{str(row['starts']) + '/38':>7}{row['min_per_game'] or 0:>5}"
+            f"{row['per_game'] or 0:>7.2f}{row['per_m'] or 0:>7.1f}"
         )
     if no_history:
         print(

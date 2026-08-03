@@ -137,17 +137,36 @@ Steps:
 **This is the biggest correction to the whole ranking, and it is easy to miss.**
 JP's projection *is* SofaScore, and the league is not:
 
+Read off the league's own configuration screen and implemented in
+`scripts/fetch_real_points.py`:
+
 ```
-Personalizado = SofaScore base  +  2 × wins  +  2 × clean sheets
+Personalizado = SofaScore base
+              + 1  played > 65 min      · + 1 win  · − 1 loss  (both > 65 min)
+              + 2  clean sheet (GK)     · + 1 clean sheet (DF)
+              − 1  yellow card          · − 1 penalty goal
+              − 2  penalty missed
+              + 1  GK goal              · + 2 GK assist · + 1 DF assist
 ```
 
-Fitted exactly against Joan García 2025/26: `190 + 2×27 + 2×15 = 274`, the
-number the app shows under "Personalizado".
+**Verified to the point against two controls of different lines:** Vinícius Jr
+`296 → 330` (forward) and Joan García `190 → 274` (goalkeeper). Biwenger's
+per-match `star` flag is *not* the config's MVP bonus — adding it overshoots
+both (345 and 277), so it is ignored.
 
-Both bonuses are **team properties, not player properties**. What follows:
+Beware the shortcut that fits one control and fails the other: `SofaScore +
+2×wins + 2×clean sheets` reproduces Joan García's 274 exactly and misses
+Vinícius by 15. One control is never enough here.
+
+Most of the bonus is **team property, not player property**. What follows:
 
 - A Barcelona starter banks **+84 a season** for turning up; a promoted-club
   starter, ~+30. Fifty points of gap before anyone touches the ball.
+- **Minutes are the gate.** Every play/win bonus needs *more than 65 minutes*,
+  so a substitute collects almost none of them. Iago Aspas scored 143 points in
+  32 appearances but started 10 and cleared 65 minutes eight times — his total
+  looks like a bargain and does not transfer to a starting slot. Rank by
+  `starts`, not by appearances.
 - **Goalkeepers at defensively strong clubs are systematically underpriced.** A
   clean sheet barely moves a SofaScore rating but pays +2 here, so JP's number
   understates exactly the keepers this league rewards. In 26/27 this is what

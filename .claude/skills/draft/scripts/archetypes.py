@@ -36,6 +36,11 @@ ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
 # land on them every week.
 FALLBACK_FACTOR = {"PT": 0.458, "outfield": 0.371}
 THIN_SEASON = 20  # below this many games, a season total understates the player
+# Starts, out of 38. A substitute's total does not carry over to a starting
+# role, and the league's play/win bonuses need more than 65 minutes to fire:
+# Iago Aspas scored 143 points across 32 appearances but started 10, and
+# cleared 65 minutes eight times all season.
+STARTER_THRESHOLD = 19
 
 # (DF, MC, DL) — the XI shapes Biwenger accepts, all fieldable from a 2-5-5-3.
 FORMATIONS = (
@@ -103,6 +108,8 @@ def read_real_points(path):
             real[_norm(r["name"])] = {
                 "points": points,
                 "games": games,
+                "starts": int(r.get("starts") or 0),
+                "min_per_game": int(r.get("min_per_game") or 0),
                 "per_game": round(points / games, 2) if games else None,
             }
     return real
@@ -143,6 +150,8 @@ def apply_real_points(rows, real):
         match = real.get(_norm(r["name"]))
         r["real"] = match["points"] if match else None
         r["games"] = match["games"] if match else None
+        r["starts"] = match["starts"] if match else None
+        r["min_per_game"] = match["min_per_game"] if match else None
         r["per_game"] = match["per_game"] if match else None
     factors = calibrate(rows)
     for r in rows:
@@ -313,11 +322,20 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
 
 
 def _xi(squad, formation):
+    """The eleven, starters first.
+
+    Ordering by score alone fields last season's best substitute ahead of a
+    weaker regular, which is backwards: his total came from cameos and will not
+    repeat in a starting role. A substitute only reaches the eleven when the
+    line has no regular left to field.
+    """
     counts = dict(zip(("DF", "MC", "DL"), formation), PT=1)
     return [
         r
         for c in POS
-        for r in sorted(squad[c], key=lambda x: -x["sf"])[: counts.get(c, 0)]
+        for r in sorted(squad[c], key=lambda x: (not is_starter(x), -x["sf"]))[
+            : counts.get(c, 0)
+        ]
     ]
 
 
@@ -398,6 +416,16 @@ def sf_cell(r, placeholder=None):
 SOURCE_MARK = {"real": "✅", "proj": "~", "bet": "🎲"}
 
 
+def is_starter(r):
+    """Whether last season's total came from starting, not from cameos.
+
+    Unknown (no measured data) counts as a starter: the projection already
+    assumes a regular role, and blocking it here would silently drop every
+    player promoted from Segunda.
+    """
+    return r.get("starts") is None or r["starts"] >= STARTER_THRESHOLD
+
+
 def source_cell(r):
     """Where this player's score comes from, and whether it is trustworthy.
 
@@ -405,7 +433,11 @@ def source_cell(r):
     70 points in 5 games and 70 in 38 describe opposite players.
     """
     mark = SOURCE_MARK.get(r.get("source"), "~")
-    if r.get("source") == "real" and (r.get("games") or 0) < THIN_SEASON:
+    if r.get("source") != "real":
+        return mark
+    if not is_starter(r):
+        return "🪑"
+    if (r.get("games") or 0) < THIN_SEASON:
         return "⚠️"
     return mark
 
@@ -416,10 +448,12 @@ def data_cells(r):
     real = r.get("real")
     games = r.get("games")
     per_game = f"{r['per_game']:.1f}" if r.get("per_game") else "—"
+    starts = f"{r['starts']}/38" if r.get("starts") is not None else "—"
     return (
         f"| {r.get('sf_jp') or '—'} "
         f"| {real if real is not None else '—'} "
         f"| {games if games else '—'} "
+        f"| {starts} "
         f"| {per_game} "
         f"| {r['vm']:.0f} "
         f"| {source_cell(r)} "
@@ -512,9 +546,9 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "",
         "## Los 15, en orden de pick",
         "",
-        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Pts/PJ "
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
         "| Pts/M | Fuente | XI | © |",
-        "|--:|---|---|---|--:|--:|--:|--:|--:|--:|:-:|:-:|:-:|",
+        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
         mark = "©" if dur and r["name"] == dur["name"] else ""
@@ -531,7 +565,12 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 "
         "parecen lo mismo. **JP** es la proyección de la temporada que viene.",
         "",
-        "Fuente: ✅ dato real · ⚠️ real pero de menos de "
+        "**Tit** son las titularidades sobre 38. Un suplente no traslada su "
+        "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
+        "`+1 por victoria`) exigen pasar de 65 minutos.",
+        "",
+        "Fuente: ✅ titular con dato real · 🪑 real pero suplente "
+        f"(menos de {STARTER_THRESHOLD}/38) · ⚠️ real pero de menos de "
         f"{THIN_SEASON} partidos · ~ proyección calibrada · 🎲 apuesta sin datos.",
     ]
     if any(r.get("bet") for _, r in plan):
@@ -633,10 +672,10 @@ def render(
             plan[r["name"]] = slot
 
     head = (
-        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Pts/PJ "
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
         "| Pts/M | Fuente | XI | © |"
     )
-    rule = "|--:|---|---|---|--:|--:|--:|--:|--:|--:|:-:|:-:|:-:|"
+    rule = "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|"
     if not plan:
         head = head.replace("| Pick ", "")
         rule = rule.replace("|--:", "", 1)
