@@ -145,6 +145,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   solve the table against those. If it closes, phase B becomes one request per
   candidate instead of asking the user to read numbers off the app. If it does
   not, record that and keep reading them by hand.
+- **Draft skill — the timings backfill leaves a one-pick hole.**
+  `scripts/backfill_draft_timings.py` writes `applied_at`/`waited_seconds` onto
+  the pick documents but not `turn_started_at` onto the state document. The live
+  code measures from that field, so the first pick after the backfill has
+  nothing to measure against and lands blank — it happened on pick 49 of the
+  26/27 draft and was patched by hand. FIX: have the backfill also stamp
+  `turn_started_at` with the last matched pick's timestamp, so the handover to
+  live tracking is seamless.
 - **Draft skill — the fetcher must be bounded (learned the hard way).**
   Biwenger's quota is **500 requests per 8-hour window, per account** (read off
   the `429` headers: `x-rate-limit-limit: 500`). Pulling all ~550 players in

@@ -81,13 +81,22 @@
                 <h3 class="font-header text-xl font-bold text-gray-800 mb-4">🏆 Copas especiales</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {% for t in special_tournaments %}
+                    {% set win = (data.copas or {}).get(t.slug) %}
                     <figure class="special-cup">
                         <img src="{{ special_base }}/{{ t.slug }}/{{ season }}.png"
-                             alt="{{ t.label }} — {{ data.display_season or season }}"
+                             alt="{{ t.label }} — {{ data.display_season or season }}{% if win %}: {{ win.ganador }}{% endif %}"
                              loading="lazy"
                              class="w-full rounded-lg shadow-md ring-1 ring-gray-200 cursor-pointer hover:ring-green-400 transition"
                              onerror="cupImgFallback(this)">
-                        <figcaption class="text-sm text-gray-500 mt-1 text-center">{{ t.label }}</figcaption>
+                        <figcaption class="mt-2 text-center">
+                            <span class="block text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t.label }}</span>
+                            {% if win %}
+                            <span class="block font-header text-base font-bold text-gray-800 mt-0.5">🏆 {{ win.ganador }}</span>
+                            {% if win.equipo %}
+                            <span class="block text-xs text-gray-500">{{ win.equipo }}</span>
+                            {% endif %}
+                            {% endif %}
+                        </figcaption>
                     </figure>
                     {% endfor %}
                 </div>

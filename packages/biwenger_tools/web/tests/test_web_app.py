@@ -204,6 +204,38 @@ def test_participacion_renders_calculated_counts(mock_get, client):
 
 
 @patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_names_the_cup_winner_without_opening_the_graphic(mock_get, client):
+    """The cup winner is text, not something you have to read off the image."""
+    mock_get.return_value = [
+        Palmares(
+            temporada="25-26",
+            campeon="Fabio",
+            copas={
+                "castolo-cup": {
+                    "ganador": "Jorge",
+                    "equipo": "Farolillo Oracle United",
+                }
+            },
+        )
+    ]
+    body = client.get("/palmares").get_data(as_text=True)
+    assert "Farolillo Oracle United" in body
+    # The winner sits in the caption, beside the cup label.
+    assert "Copa Castolo" in body
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
+def test_palmares_cup_caption_survives_a_season_with_no_winners_recorded(
+    mock_get, client
+):
+    """Older seasons have no `copas`; the block must still render."""
+    mock_get.return_value = [Palmares(temporada="25-26", campeon="Fabio")]
+    response = client.get("/palmares")
+    assert response.status_code == 200
+    assert "Copa Castolo" in response.get_data(as_text=True)
+
+
+@patch("packages.biwenger_tools.web.routes.main.repository.get_palmares")
 def test_palmares_renders_multas_with_farolillo_marker(mock_get, client):
     """All losers (including the farolillo) live in `multas`; the template
     marks the LAST entry as the farolillo. Podium keys stay direct."""
