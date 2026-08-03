@@ -80,23 +80,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 Todo lo aprendido en el draft 26-27. La skill vive en
 `.claude/skills/draft/`; estos son sus arreglos pendientes.
 
-- **Draft skill — international tournaments and player nationality.** The
-  frozen market CSV carries team, position, points and price but **no
-  nationality**, so "who disappears mid-season for a national-team
-  tournament" can only be answered by eyeballing names — unreliable, and it
-  silently misses anyone whose name does not read as foreign. It bit this
-  season: AFCON 2027 moved to summer (19 Jun – 17 Jul, no LaLiga impact),
-  while the **AFC Asian Cup runs 7 Jan – 5 Feb 2027**, taking matchdays
-  ~20-24. The two affected LaLiga players were found by grep (Kubo, Kang-in
-  Lee) and happened to be irrelevant on score, but the method does not
-  generalise. FIX: check whether JP's payload carries nationality (it may —
-  `core/sdk/jp.fetch_all_players` returns the raw player dicts); if so, join
-  it in `draft_ranking.py` and give `archetypes.py` a
-  `--tournament-absences` flag taking the affected federations. Also make
-  "which international tournaments fall inside this season, and who do they
-  take" an explicit step of the skill rather than an assumption — the answer
-  inverted between two consecutive editions.
-
 - **Draft skill — the generator ignores that this is a draft.** It builds the
   ideal 15 as if every player were purchasable, but picks are taken in snake
   order: at position 3 of 7, nine players leave the board between the first

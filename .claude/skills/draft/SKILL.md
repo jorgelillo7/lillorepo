@@ -51,10 +51,56 @@ If a flagged player is one the user wants, check whether it's a JP short-name
 override in `packages/biwenger_tools/api/logic/player_matching.py` (helps
 auto-bid too), or leave it as a genuine no-data (newcomer / not tracked).
 
-## Phase B — the adviser (interactive, not a script)
+## Phase B — real points for the shortlist (bounded)
 
-Work with the user over the ranked CSV. Not a solver — each year is its own
-case. Steps:
+**The ranked CSV is for discarding, not for deciding.** JP projects SofaScore;
+this league scores `Personalizado`. The measured ratio between the two ranges
+from 0.225 to 0.610, so no constant makes the projection comparable across
+players — only the real total does.
+
+Narrow the market to the **30-45 players that actually compete** for the slots
+still open (line, price band, availability), then fetch only those:
+
+```bash
+PYTHONPATH=. python3 .claude/skills/draft/scripts/fetch_real_points.py \
+    --shortlist draft-shortlist.csv --out draft-real-points.csv
+```
+
+It computes each player's real `Personalizado` from per-match `rawStats` and
+reports **games played** alongside it. Both matter: *70 points in 5 games and
+70 in 38 describe opposite players*. Feed it back in:
+
+```bash
+PYTHONPATH=. python3 .claude/skills/draft/scripts/archetypes.py \
+    --ranked draft-ranked.csv --real-points draft-real-points.csv \
+    --budget 52 --pick-position 3 --managers 7 --max-per-team 2 \
+    --out mi-arquetipos.md --decision final-decision.md
+```
+
+The generator then ranks by the real total where it has one, and by a
+**per-line calibrated** projection where it does not, measuring the factor from
+the overlap in your own data rather than assuming one.
+
+**Never shortlist more than the cap.** Biwenger allows ~500 requests per 8-hour
+window **per account**, shared with the phone app — a sweep of the whole market
+locked the entire league out mid-draft. 45 requests is 9%; the script refuses a
+longer shortlist, goes sequential, caches to disk and stops at the first 429.
+
+**Why 30-45 and not 15.** Querying only the players you already chose confirms
+your own bias. Dmitrović was the *sixth* goalkeeper by projection and the
+*first* by real points; Juan Iglesias was not in any draft and ended up captain.
+
+Players with **no La Liga minutes last season** are excluded from the output
+rather than published as zero — the `seasons` block counts every competition,
+so someone arriving from Ligue 1 or Segunda would otherwise read as a genuine
+zero, which the optimiser would believe.
+
+## Phase C — the adviser (interactive, not a script)
+
+Work with the user over the refined data. Not a solver — each year is its own
+case. **Iterate**: when a player falls (taken, or bad news), promote the next
+candidate, fetch his real points too, and re-check budget and composition.
+Steps:
 
 1. **Build the 15** within budget, respecting the composition rule: a valid XI
    **plus at least one sub per line** (≥2 GK; each outfield line starters+1).

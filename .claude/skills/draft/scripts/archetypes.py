@@ -31,6 +31,11 @@ NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
 CAPTAIN_CAP = 3_000_000
 CAPTAIN_SAFE = 2_500_000  # durable buffer below the cap
 ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
+# Median real/projection ratio when a line has too few measured players to
+# calibrate on. Goalkeepers convert far better: clean sheets and win bonuses
+# land on them every week.
+FALLBACK_FACTOR = {"PT": 0.458, "outfield": 0.371}
+THIN_SEASON = 20  # below this many games, a season total understates the player
 
 # (DF, MC, DL) — the XI shapes Biwenger accepts, all fieldable from a 2-5-5-3.
 FORMATIONS = (
@@ -79,6 +84,79 @@ def detect_placeholder(scores):
         if n > 4 * (sum(window) / len(window)):
             return value
     return None
+
+
+def read_real_points(path):
+    """`{normalised name: {points, games, per_game}}` from `fetch_real_points.py`.
+
+    These are last season's actual points under the league's own scoring, which
+    is the only number that compares two players fairly — the JP column is a
+    projection under a different scoring system.
+    """
+    real = {}
+    with open(path, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if not r.get("points"):
+                continue
+            games = int(r.get("games") or 0)
+            points = int(r["points"])
+            real[_norm(r["name"])] = {
+                "points": points,
+                "games": games,
+                "per_game": round(points / games, 2) if games else None,
+            }
+    return real
+
+
+def calibrate(rows):
+    """Per-line `real / projection` factors, measured on the players that have
+    both. Falls back to the season's measured medians when a line is too thin.
+
+    One global factor cannot work: the observed ratio ranges from 0.225 to
+    0.610, and goalkeepers sit far above outfielders because clean sheets and
+    win bonuses land on them every week.
+    """
+    factors = {}
+    for line in POS:
+        ratios = [
+            r["real"] / r["sf_jp"]
+            for r in rows
+            if r.get("real") and r.get("sf_jp") and line == r["pos"]
+        ]
+        if len(ratios) >= 3:
+            factors[line] = statistics.median(ratios)
+        else:
+            factors[line] = FALLBACK_FACTOR["PT" if line == "PT" else "outfield"]
+    return factors
+
+
+def apply_real_points(rows, real):
+    """Overlay measured points on the projection and re-score every row.
+
+    Rows keep `sf_jp` (the projection) and gain `real`, `games`, `per_game` and
+    `source`. `sf` — what the optimiser ranks by — becomes the measured total
+    where it exists and a line-calibrated projection where it does not, so the
+    two are on the same scale.
+    """
+    for r in rows:
+        r["sf_jp"] = r["sf"]
+        match = real.get(_norm(r["name"]))
+        r["real"] = match["points"] if match else None
+        r["games"] = match["games"] if match else None
+        r["per_game"] = match["per_game"] if match else None
+    factors = calibrate(rows)
+    for r in rows:
+        if r["real"] is not None:
+            r["sf"] = r["real"]
+            r["source"] = "real"
+            # Measured points outrank a scouting hunch: the player is no longer
+            # a blind bet once last season's total is known.
+            r["bet"] = False
+        else:
+            r["sf"] = round(r["sf_jp"] * factors[r["pos"]])
+            r["source"] = "bet" if r.get("bet") else "proj"
+        r["vm"] = r["sf"] / (r["price"] / 1_000_000) if r["price"] else 0.0
+    return factors
 
 
 def load(
@@ -317,6 +395,37 @@ def sf_cell(r, placeholder=None):
     return str(r["sf"])
 
 
+SOURCE_MARK = {"real": "✅", "proj": "~", "bet": "🎲"}
+
+
+def source_cell(r):
+    """Where this player's score comes from, and whether it is trustworthy.
+
+    A total built on a handful of games is not comparable to a full season —
+    70 points in 5 games and 70 in 38 describe opposite players.
+    """
+    mark = SOURCE_MARK.get(r.get("source"), "~")
+    if r.get("source") == "real" and (r.get("games") or 0) < THIN_SEASON:
+        return "⚠️"
+    return mark
+
+
+def data_cells(r):
+    """The evidence columns: projection, measured total, games, and the two
+    rates that make them comparable."""
+    real = r.get("real")
+    games = r.get("games")
+    per_game = f"{r['per_game']:.1f}" if r.get("per_game") else "—"
+    return (
+        f"| {r.get('sf_jp') or '—'} "
+        f"| {real if real is not None else '—'} "
+        f"| {games if games else '—'} "
+        f"| {per_game} "
+        f"| {r['vm']:.0f} "
+        f"| {source_cell(r)} "
+    )
+
+
 def _alternatives(options):
     """The runners-up, so a human can override on news the data cannot see."""
     if len(options) < 2:
@@ -403,18 +512,28 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "",
         "## Los 15, en orden de pick",
         "",
-        "| Pick | Pos | Jugador | Equipo | Precio | SF | XI | © |",
-        "|--:|---|---|---|--:|--:|:-:|:-:|",
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Pts/PJ "
+        "| Pts/M | Fuente | XI | © |",
+        "|--:|---|---|---|--:|--:|--:|--:|--:|--:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
         mark = "©" if dur and r["name"] == dur["name"] else ""
-        bet = " 🎲" if r.get("bet") else ""
         o.append(
-            f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']}{bet} "
+            f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']} "
             f"| {r['team']} | {r['price'] / 1e6:.2f}M "
-            f"| {sf_cell(r, placeholder)} "
-            f"| {'★' if r['name'] in starters else ''} | {mark} |"
+            + data_cells(r)
+            + f"| {'★' if r['name'] in starters else ''} | {mark} |"
         )
+    o += [
+        "",
+        "**Real** son los puntos Personalizado de la temporada pasada — la "
+        "puntuación de esta liga, no la de SofaScore. **PJ** son los partidos "
+        "que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 "
+        "parecen lo mismo. **JP** es la proyección de la temporada que viene.",
+        "",
+        "Fuente: ✅ dato real · ⚠️ real pero de menos de "
+        f"{THIN_SEASON} partidos · ~ proyección calibrada · 🎲 apuesta sin datos.",
+    ]
     if any(r.get("bet") for _, r in plan):
         o += [
             "",
@@ -513,8 +632,11 @@ def render(
         for slot, r in zip(pick_numbers, contested):
             plan[r["name"]] = slot
 
-    head = "| Pick | Pos | Jugador | Equipo | Precio | SF | Valor/M | XI | © |"
-    rule = "|--:|---|---|---|--:|--:|--:|:-:|:-:|"
+    head = (
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Pts/PJ "
+        "| Pts/M | Fuente | XI | © |"
+    )
+    rule = "|--:|---|---|---|--:|--:|--:|--:|--:|--:|:-:|:-:|:-:|"
     if not plan:
         head = head.replace("| Pick ", "")
         rule = rule.replace("|--:", "", 1)
@@ -523,11 +645,10 @@ def render(
     for c in ("PT", "DF", "MC", "DL"):
         for r in sorted(squad[c], key=lambda x: -x["sf"]):
             mark = "©" if dur and r["name"] == dur["name"] else ""
-            label = r["name"] + (" 🎲" if r.get("bet") else "")
             cells = (
-                f"| {POS[c]} | {label} | {r['team']} | {r['price'] / 1e6:.2f}M "
-                f"| {sf_cell(r, placeholder)} | {r['vm']:.0f} "
-                f"| {'★' if r['name'] in starters else ''} "
+                f"| {POS[c]} | {r['name']} | {r['team']} | {r['price'] / 1e6:.2f}M "
+                + data_cells(r)
+                + f"| {'★' if r['name'] in starters else ''} "
                 f"| {mark} |"
             )
             o.append((f"| {plan[r['name']]} " if plan else "") + cells)
@@ -538,6 +659,15 @@ def render(
 def main():
     ap = argparse.ArgumentParser(description="Draft archetype generator")
     ap.add_argument("--ranked", required=True, help="ranked CSV from draft_ranking.py")
+    ap.add_argument(
+        "--real-points",
+        default="",
+        help=(
+            "CSV from fetch_real_points.py. Without it the optimiser ranks by a "
+            "projection under someone else's scoring system, which is how the "
+            "26-27 draft nearly took the sixth-best goalkeeper as the first."
+        ),
+    )
     ap.add_argument("--budget", type=float, default=52.0, help="budget in millions")
     ap.add_argument("--exclude", default="", help="comma-separated names to ban (news)")
     ap.add_argument(
@@ -601,6 +731,16 @@ def main():
         bets,
         args.bet_sf,
     )
+    factors = None
+    if args.real_points:
+        real = read_real_points(args.real_points)
+        factors = apply_real_points(rows, real)
+        measured = sum(1 for r in rows if r.get("real") is not None)
+        print(f"Puntos reales: {measured}/{len(rows)} jugadores")
+        print(
+            "Factor real/proyección por línea: "
+            + " · ".join(f"{k} {v:.3f}" for k, v in factors.items())
+        )
     if args.budget > 1_000:
         ap.error(
             f"--budget se expresa en millones (52, no {args.budget:.0f}). "
