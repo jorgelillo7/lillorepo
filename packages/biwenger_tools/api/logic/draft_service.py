@@ -54,6 +54,9 @@ from packages.biwenger_tools.api.logic.player_matching import normalize_name
 logger = get_logger(__name__)
 
 STATE_DOC_ID = "current"
+# The turn state is rewritten wholesale on every pick, so anything that must
+# survive a pick lives in its own document instead of riding along with it.
+LIFECYCLE_DOC_ID = "lifecycle"
 
 PICK_STATUS_RESERVED = "reserved"
 PICK_STATUS_APPLIED = "applied"
@@ -64,6 +67,7 @@ PICK_STATUS_REVERTED = "reverted"
 ERROR_NOT_REGISTERED = "NOT_REGISTERED"
 ERROR_PICK_IN_PROGRESS = "PICK_IN_PROGRESS"
 ERROR_BIWENGER_TRANSFER_FAILED = "BIWENGER_TRANSFER_FAILED"
+ERROR_DRAFT_CLOSED = "DRAFT_CLOSED"
 
 
 def _managers_path(season: str) -> str:
@@ -250,6 +254,64 @@ def _save_state(
     if turn_started_at is not None:
         doc["turn_started_at"] = turn_started_at
     fs.set_document(_state_path(config.DRAFT_SEASON), STATE_DOC_ID, doc)
+
+
+def _lifecycle() -> dict:
+    """Draft lifecycle record: `{opened_at, closed, closed_at}`.
+
+    Absent means open. A draft that predates this record must keep working —
+    the guard exists to stop writes *after* the last pick, not to demand a
+    ceremony the running draft never performed.
+    """
+    return fs.get_document(_state_path(config.DRAFT_SEASON), LIFECYCLE_DOC_ID) or {}
+
+
+def _reject_if_closed() -> Optional[dict]:
+    """Rejection for a write on a finished draft, or None while it is live.
+
+    `/deshacer` reverts a real Biwenger transfer with real money. Once the
+    season starts, that is not an undo — it is selling a player mid-season.
+    """
+    if not _lifecycle().get("closed"):
+        return None
+    return _rejected(
+        ERROR_DRAFT_CLOSED,
+        "El draft está cerrado. Las operaciones sobre Biwenger quedan "
+        "bloqueadas: un fichaje o un deshacer ahora movería dinero real de "
+        "la temporada en curso.",
+    )
+
+
+def close_draft(reason: str = "completed") -> None:
+    """Mark the draft finished. Idempotent."""
+    if _lifecycle().get("closed"):
+        return
+    fs.set_document(
+        _state_path(config.DRAFT_SEASON),
+        LIFECYCLE_DOC_ID,
+        {"closed": True, "closed_at": time.time(), "closed_reason": reason},
+        merge=True,
+    )
+    logger.info("Draft closed.", extra={"season": config.DRAFT_SEASON, "why": reason})
+
+
+def open_draft(csv_url: str = "") -> dict:
+    """Open the draft and stamp the starting instant.
+
+    `turn_started_at` is set here so the first pick has something to measure
+    against. Without it the wait times only begin once someone picks, which is
+    how the 26-27 draft lost every timing before pick 49.
+    """
+    now = time.time()
+    fs.set_document(
+        _state_path(config.DRAFT_SEASON),
+        LIFECYCLE_DOC_ID,
+        {"closed": False, "opened_at": now, "csv_url": csv_url},
+        merge=True,
+    )
+    _save_state(_load_state(), turn_started_at=now)
+    logger.info("Draft opened.", extra={"season": config.DRAFT_SEASON})
+    return {"status": "ok", "opened_at": now, "season": config.DRAFT_SEASON}
 
 
 def _mention(manager_id: int) -> str:
@@ -623,11 +685,16 @@ def _applied_response(
     sim_note = (
         "" if applied_to_biwenger else " (modo simulación: Biwenger no se ha tocado)"
     )
-    turn_note = (
-        f"🎯 Turno de {_mention(next_manager_id)}."
-        if next_manager_id is not None
-        else "🏁 ¡Draft completado!"
-    )
+    if next_manager_id is None:
+        # Nobody left to pick: shut the door behind the last one so a stray
+        # `/deshacer` in October cannot sell a player mid-season.
+        close_draft()
+        turn_note = (
+            "🏁 ¡Draft completado! Fichajes y deshacer quedan bloqueados: "
+            "a partir de ahora se opera desde la app."
+        )
+    else:
+        turn_note = f"🎯 Turno de {_mention(next_manager_id)}."
     wait_note = (
         f"\n⏱️ Ha tardado {_format_wait(waited_seconds)}."
         if waited_seconds is not None
@@ -763,6 +830,9 @@ def _apply_confirmed_pick(manager_id: int, player_id: int, players_by_id: dict) 
 
 def submit_pick(telegram_user_id: str, query: str) -> dict:
     """Resolve free-text `query` against the market and apply the pick."""
+    closed = _reject_if_closed()
+    if closed is not None:
+        return closed
     manager = _get_registered_manager(telegram_user_id)
     if manager is None:
         return _rejected(
@@ -801,6 +871,9 @@ def submit_pick(telegram_user_id: str, query: str) -> dict:
 
 def confirm_pick(telegram_user_id: str, player_id: int) -> dict:
     """Apply a pick the user already disambiguated (tapped a candidate)."""
+    closed = _reject_if_closed()
+    if closed is not None:
+        return closed
     manager = _get_registered_manager(telegram_user_id)
     if manager is None:
         return _rejected(
@@ -814,6 +887,9 @@ def confirm_pick(telegram_user_id: str, player_id: int) -> dict:
 
 def undo_last_pick(telegram_user_id: str) -> dict:
     """Revert the most recent pick. Restricted to `config.DRAFT_ADMIN_TELEGRAM_ID`."""
+    closed = _reject_if_closed()
+    if closed is not None:
+        return closed
     admin_id = config.DRAFT_ADMIN_TELEGRAM_ID
     if not admin_id or str(telegram_user_id) != str(admin_id):
         return {

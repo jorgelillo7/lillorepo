@@ -366,17 +366,26 @@ lleva el turno, el presupuesto y la composición, y —si el flag está encendid
 aplica el traspaso en Biwenger. Comportamiento completo en
 `openspec/specs/biwenger_tools/draft/spec.md`.
 
-### 1. Subir el CSV de mercado cerrado
+### 1. Abrir el draft (sube el CSV y arranca el reloj)
 
 Se exporta a mano desde Biwenger **el día pactado de cierre de mercado** — no se
 descarga solo a propósito: una exportación tardía trae precios equivocados.
 
-```bash
-# El que lee la api — nombre estable, re-subible sin desplegar
-gcloud storage cp primera-division.csv \
-    gs://biwenger/draft/26-27/market.csv
+Un solo comando sube el CSV, marca el draft abierto, sella el instante inicial y
+manda el mensaje de bienvenida al grupo. Sin `--write` solo enseña lo que haría:
 
-# Copia inmutable, para dejar constancia de con qué precios se jugó
+```bash
+PYTHONPATH=. python3 packages/biwenger_tools/api/scripts/open_draft.py \
+    --csv ~/Downloads/primera-division.csv --write
+```
+
+Sellar el instante inicial no es cosmético: en el draft 26-27 nadie lo registró,
+así que las esperas por turno solo existían a partir del pick 49 y las anteriores
+hubo que rescatarlas de Cloud Logging.
+
+Deja también una copia inmutable, para que conste con qué precios se jugó:
+
+```bash
 gcloud storage cp primera-division.csv \
     gs://biwenger/draft/26-27/market-$(date +%F).csv
 ```
@@ -385,6 +394,11 @@ La api cachea el mercado por instancia, así que **re-subir el CSV no basta para
 que lo relea**: hay que forzar revisiones nuevas (`gcloud run services update
 biwenger-api --update-env-vars DEPLOY_TIME=...`) o esperar al siguiente arranque
 en frío.
+
+**El cierre es automático.** Cuando cae el último pick el draft se marca cerrado
+y `/pick` y `/deshacer` dejan de aceptar órdenes. Es deliberado: `/deshacer`
+ejecuta un `release_player` + `apply_bonus` reales, y en octubre eso no deshace
+un pick, vende un jugador a mitad de temporada.
 
 ### 2. Pase de lista
 

@@ -287,6 +287,42 @@ nights, and one turn that opened at 3am would otherwise decide the ranking.
 
 ---
 
+### Requirement: The draft has an explicit lifecycle
+
+The draft SHALL be opened by publishing the frozen market CSV and closed when
+the last pick lands. While closed, every operation that writes to Biwenger —
+picking and undoing — SHALL be rejected.
+
+The reason is that `/deshacer` is a real `release_player` + `apply_bonus`
+against real money. Once the season is under way that is not an undo, it is
+selling a player mid-season.
+
+The lifecycle record SHALL live in its own document, NOT on the turn state:
+the state document is replaced wholesale on every pick, so anything stored
+alongside it is erased by the next one.
+
+A draft with no lifecycle record SHALL be treated as open. The guard exists to
+stop writes after the last pick, not to demand a ceremony that drafts already
+running never performed.
+
+Opening SHALL stamp `turn_started_at`, so the first pick has something to
+measure its wait against.
+
+#### Scenario: opening and closing
+- **WHEN** the draft is opened **THEN** the starting instant is stamped and the group
+  is greeted
+- **WHEN** the final pick is applied **THEN** the draft closes itself
+- **WHEN** a pick or an undo is attempted on a closed draft **THEN** it is rejected and
+  Biwenger is never contacted
+- **WHEN** no lifecycle record exists **THEN** the draft behaves as open
+- **WHEN** a pick is applied **THEN** the lifecycle record survives the state write
+- *Verifies:* `test_a_closed_draft_rejects_picks_and_undo`,
+  `test_a_draft_with_no_lifecycle_record_stays_open`,
+  `test_reopening_stamps_the_starting_instant`,
+  `test_a_pick_does_not_wipe_the_lifecycle_record`
+
+---
+
 ### Requirement: The last pick can be undone by the admin
 
 `/deshacer` SHALL be restricted to the configured draft admin, identified by a
