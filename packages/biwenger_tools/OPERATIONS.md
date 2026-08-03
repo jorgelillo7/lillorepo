@@ -152,6 +152,19 @@ single source of *what must be true*.
     one does need a redeploy). Teammate `d.lucena9@gmail.com` has
     `storage.objectCreator` on the bucket.
 
+    **Name the winner too.** The graphic alone forces a click to find out who
+    won, so `palmares/{temporada}` carries a `copas` map keyed by the same
+    slug; the caption renders it under the image. No redeploy — it is data:
+
+    ```python
+      db.document("palmares/25-26").set({"copas": {
+          "santa-cup":   {"ganador": "Fabio", "equipo": "Rayo Entrebirras"},
+          "castolo-cup": {"ganador": "Jorge", "equipo": "Farolillo Oracle United"},
+      }}, merge=True)
+    ```
+
+    A season with no `copas` still renders the graphics, just without names.
+
 ## 2. Scraper Job
 
   * **Run locally:**

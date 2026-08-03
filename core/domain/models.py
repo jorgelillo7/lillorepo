@@ -311,6 +311,11 @@ class Palmares:
     jornadas_ganadas: str = ""
     clausulazos_total: str = ""
     standings_table: list = field(default_factory=list)
+    # Cup winners, keyed by the slug in `web.config.SPECIAL_TOURNAMENTS`:
+    # ``{"castolo-cup": {"ganador": "Jorge", "equipo": "Farolillo United"}}``.
+    # Kept beside the graphic so the palmarés says who won without anyone
+    # having to open the image.
+    copas: dict = field(default_factory=dict)
 
     FIRESTORE_FIELDS: ClassVar[Tuple[str, ...]] = (
         "campeon",
@@ -346,6 +351,7 @@ class Palmares:
             SeasonStanding.from_firestore(row)
             for row in (data.get("standings_table") or [])
         ]
+        entry.copas = dict(data.get("copas") or {})
         return entry
 
     def to_firestore(self) -> dict:
@@ -354,4 +360,5 @@ class Palmares:
         doc["multas"] = self.multas
         doc["neutros"] = self.neutros
         doc["standings_table"] = [s.to_firestore() for s in self.standings_table]
+        doc["copas"] = self.copas
         return doc

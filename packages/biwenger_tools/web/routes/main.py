@@ -206,6 +206,7 @@ def palmares() -> str:
                         "show_special_cups": (
                             _season_start_year(p.temporada) >= cups_since
                         ),
+                        "copas": p.copas,
                     },
                 )
             )
