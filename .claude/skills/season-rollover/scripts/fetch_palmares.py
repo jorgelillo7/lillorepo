@@ -255,6 +255,28 @@ def _parse_abandoned(values: list[str]) -> list[tuple[str, str, str]]:
     return parsed
 
 
+def _parse_cup_winners(values: list[str]) -> dict:
+    """Parse ``SLUG=NAME=TEAM`` triples into the ``copas`` map.
+
+    The slug must match one in ``web.config.SPECIAL_TOURNAMENTS`` — the same
+    key the winner graphic is uploaded under — so the palmarés can print the
+    name beside the image instead of making everyone open it.
+    """
+    parsed = {}
+    for raw in values:
+        parts = raw.split("=", 2)
+        if len(parts) != 3:
+            print(
+                f"WARNING: --cup-winner '{raw}' is malformed "
+                "(need SLUG=NAME=TEAM); skipped.",
+                file=sys.stderr,
+            )
+            continue
+        slug, name, team = (x.strip() for x in parts)
+        parsed[slug] = {"ganador": name, "equipo": team}
+    return parsed
+
+
 def _write_to_firestore(palmares: Palmares, force: bool) -> bool:
     """Write to ``palmares/<season>``.
 
@@ -293,6 +315,15 @@ def main() -> None:
         help="Append a row for an account deleted mid-season; repeatable. "
         "Example: --abandoned-user 'Alberto=#NOALOSCLAUSULAZOS=abandono'. "
         "Leave the team slot empty if not known: 'Someone==abandono'.",
+    )
+    parser.add_argument(
+        "--cup-winner",
+        action="append",
+        default=[],
+        metavar="SLUG=NAME=TEAM",
+        help="Winner of a special cup; repeatable. The slug matches the one "
+        "the graphic is uploaded under. Example: "
+        "--cup-winner 'castolo-cup=Jorge=Farolillo Oracle United'.",
     )
     parser.add_argument(
         "--write-firestore",
@@ -369,6 +400,7 @@ def main() -> None:
     _append_abandoned(table, _parse_abandoned(args.abandoned_user))
 
     palmares = _build_palmares(args.season, table, clausulazos_total)
+    palmares.copas = _parse_cup_winners(args.cup_winner)
 
     # --- Output ---
     print("\n=== Firestore doc preview (palmares/{}) ===\n".format(args.season))

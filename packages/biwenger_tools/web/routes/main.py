@@ -137,6 +137,23 @@ def home() -> Response:
     return redirect(url_for("season.comunicados", season=g.season))
 
 
+def _split_record(value: str) -> dict:
+    """Split a ``"120 @fabio"`` record into its number and its holder.
+
+    Every season stores these as one string. Splitting them lets the template
+    lead with the figure and put the name underneath, instead of a line of
+    prose nobody reads.
+    """
+    text = (value or "").strip()
+    if not text:
+        return {}
+    number, _, holder = text.partition("@")
+    holder = holder.strip()
+    # Stored as a lowercase handle; the rest of the page uses proper names.
+    holder = holder[:1].upper() + holder[1:]
+    return {"valor": number.strip(), "quien": holder}
+
+
 @bp.route("/palmares")
 def palmares() -> str:
     """Display historical records and awards.
@@ -213,6 +230,8 @@ def palmares() -> str:
                         "puntuacion": p.puntuacion,
                         "record_puntos": p.record_puntos,
                         "jornadas_ganadas": p.jornadas_ganadas,
+                        "record": _split_record(p.record_puntos),
+                        "jornadas": _split_record(p.jornadas_ganadas),
                         "clausulazos_total": p.clausulazos_total,
                         "standings_table": annotated_rows,
                         "multas": p.multas,

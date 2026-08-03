@@ -70,6 +70,21 @@ injected manually. Collect a list of `NAME=TEAM=REASON` triples — the team is 
 Biwenger team name the abandoned account had (so the palmarés card still shows it);
 leave the team slot empty if unknown.
 
+## Ask who won the cups
+
+The Biwenger API knows nothing about the Copa Santa Claus or the Copa Castolo —
+they are league inventions — so ask the user for each winner: the manager and
+the Biwenger team name they held. Pass them as `--cup-winner SLUG=NAME=TEAM`,
+where the slug is the one in `web.config.SPECIAL_TOURNAMENTS` (`santa-cup`,
+`castolo-cup`).
+
+Without this the palmarés still renders the winner graphics, but nobody can
+tell who won without opening the image — which is exactly what the `copas`
+field exists to avoid.
+
+Remind the user to upload the two graphics as well; without them the block is
+empty. Runbook: `packages/biwenger_tools/OPERATIONS.md` §1.
+
 ## Auto-fetch
 
 If credentials are available, source the env file and run the fetch script. Pass each
@@ -82,11 +97,15 @@ set -a && source packages/biwenger_tools/scraper_job/.env && set +a
 
 # Preview (no Firestore write)
 python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
-  --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono"
+  --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono" \
+  --cup-winner "santa-cup=Fabio=Rayo Entrebirras" \
+  --cup-winner "castolo-cup=Jorge=Farolillo Oracle United"
 
 # Push to Firestore once the preview looks right
 python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
   --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono" \
+  --cup-winner "santa-cup=Fabio=Rayo Entrebirras" \
+  --cup-winner "castolo-cup=Jorge=Farolillo Oracle United" \
   --write-firestore
 ```
 

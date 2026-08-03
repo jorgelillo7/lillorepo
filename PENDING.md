@@ -50,17 +50,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      are marked. This is what institutionalises openspec — an audit that warns,
      not a CI gate. (Mutmut stays on-demand by the same reasoning.)
 
-## infra
-
-- **Capturas en los READMEs — hecho para las webs, pendiente los bots.**
-  `biwenger_tools/web/docs/` y `be_water/web/docs/` ya tienen su galería de
-  cuatro capturas, referenciadas desde el README de cada paquete. Se generan a
-  mano: levantar el servicio con su `*_local` de Bazel y capturar con Chrome
-  headless (`--headless --force-device-scale-factor=2 --window-size=1280,H
-  --screenshot=...`) contra los datos reales de Firestore. Los dos bots de
-  Telegram ya tienen la suya, aportada por el usuario desde una conversación
-  real y reescalada a 620 px con `sips` — ahí no hay nada que automatizar.
-
 ## biwenger_tools
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
@@ -86,13 +75,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   key → new secret version → redeploy, leaving this key dead on purpose.
   (26-27 sheets simply not created yet — separate item above.)
 
-- **Castolo cup image** (USER-OWNED) — upload `castolo-cup/25-26` when the
-  winner graphic exists: `gcloud storage cp` to
-  `gs://biwenger/special-tournaments/<slug>/<temporada>`, no redeploy needed
-  (runbook in `packages/biwenger_tools/OPERATIONS.md` §1). A brand-new cup
-  *type* is one line in `config.SPECIAL_TOURNAMENTS`.
+### Skill de draft
 
-## my_photos
+Todo lo aprendido en el draft 26-27. La skill vive en
+`.claude/skills/draft/`; estos son sus arreglos pendientes.
 
 - **Draft skill — international tournaments and player nationality.** The
   frozen market CSV carries team, position, points and price but **no
@@ -147,6 +133,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   - **Provenance column in the final report** (`✅ real / ⚠️ partial /
     ~ projection / 🎲 bet`). Hand-written this year; it was the most-used column
     of the session.
+
 - **Draft skill — fit the custom bonus table from this season's data.**
   `GET /players/la-liga/{slug}?fields=*,reports(*)` returns per-match `rawStats`
   (`win`, `cleanSheet`, `minutesPlayed`, base score), which is enough to
@@ -156,6 +143,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   solve the table against those. If it closes, phase B becomes one request per
   candidate instead of asking the user to read numbers off the app. If it does
   not, record that and keep reading them by hand.
+
 - **Draft skill — the timings backfill leaves a one-pick hole.**
   `scripts/backfill_draft_timings.py` writes `applied_at`/`waited_seconds` onto
   the pick documents but not `turn_started_at` onto the state document. The live
@@ -164,6 +152,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   26/27 draft and was patched by hand. FIX: have the backfill also stamp
   `turn_started_at` with the last matched pick's timestamp, so the handover to
   live tracking is seamless.
+
 - **Draft skill — the fetcher must be bounded (learned the hard way).**
   Biwenger's quota is **500 requests per 8-hour window, per account** (read off
   the `429` headers: `x-rate-limit-limit: 500`). Pulling all ~550 players in
@@ -171,6 +160,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   including the bot. The rule is written into `SKILL.md`; the tool that enforces
   it does not exist yet: shortlist only, sequential with a delay, checkpoint to
   disk, stop on the first 429 instead of retrying.
+
 - **Draft skill — news due-diligence is entirely manual.** This season it
   produced three exclusions that changed the squad (Aubameyang: score earned
   in Ligue 1, now at a promoted side, 37; Carlos Soler: knee injury since
@@ -185,6 +175,8 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   (so his only good figure was from 2022/23 at Betis), and Fortuño competing
   with Dmitrović for the Espanyol goal — on a keeper meant to be kept unclausable
   all season.
+
+## my_photos
 
 - **Photo-recognition project** — plan in `packages/my_photos/README.md`, not here.
   Blocked on USER: run the migration script and free up the disks.
