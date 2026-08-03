@@ -14,7 +14,7 @@ Any other chat is silently dropped (returns `200` so Telegram does not retry).
 | `/pick` | `/estado` | `/exportar` |
 |---|---|---|
 | [![Pick](docs/01-draft-pick.png)](docs/01-draft-pick.png) | [![Estado](docs/02-draft-estado.png)](docs/02-draft-estado.png) | [![Exportar](docs/03-draft-exportar.png)](docs/03-draft-exportar.png) |
-| Valida el turno, aplica el fichaje en Biwenger y pasa el turno al siguiente. | Ronda, pick global, a quién le toca y el presupuesto y plantilla de los siete. | Vuelca las plantillas completas, presidente a presidente. |
+| Pide el nombre si falta, valida el turno, aplica el fichaje en Biwenger, cronometra lo que ha tardado y pasa turno. | Ronda, pick global, a quién le toca y el presupuesto y plantilla de los siete. | Vuelca las plantillas completas, presidente a presidente. |
 
 <sub>Capturas del draft 26-27 en vivo.</sub>
 

@@ -60,8 +60,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   --screenshot=...`) contra los datos reales de Firestore. Los dos bots de
   Telegram ya tienen la suya, aportada por el usuario desde una conversación
   real y reescalada a 620 px con `sips` — ahí no hay nada que automatizar.
-  Pendiente: rehacer la del `/pick` cuando haya una jornada con el tiempo de
-  turno visible, que la actual es anterior a esa función.
 
 ## biwenger_tools
 
