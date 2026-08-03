@@ -9,6 +9,16 @@ Two chats are routed, each with its own command set: the owner private chat
 supergroup (`config.TELEGRAM_DRAFT_CHAT_ID`) only sees the draft commands.
 Any other chat is silently dropped (returns `200` so Telegram does not retry).
 
+## El bot en el grupo
+
+| Un pick del draft | El export final |
+|---|---|
+| [![Pick](docs/01-draft-pick.png)](docs/01-draft-pick.png) | [![Exportar](docs/02-draft-exportar.png)](docs/02-draft-exportar.png) |
+
+<sub>`/pick` valida el turno, aplica el fichaje en Biwenger y pasa el turno al
+siguiente; `/exportar` vuelca las plantillas de los siete presidentes.
+Capturas del draft 26-27 en vivo.</sub>
+
 ## 🗺️ Entry point
 
 `app.py` exposes `POST /telegram/webhook`. The flow per request:

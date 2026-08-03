@@ -57,10 +57,11 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   cuatro capturas, referenciadas desde el README de cada paquete. Se generan a
   mano: levantar el servicio con su `*_local` de Bazel y capturar con Chrome
   headless (`--headless --force-device-scale-factor=2 --window-size=1280,H
-  --screenshot=...`) contra los datos reales de Firestore. Falta lo mismo para
-  los dos bots de Telegram (`biwenger_tools/bot`, `chucknorris_bot/bot`): ahí
-  no hay web que capturar, la imagen tiene que salir de una conversación real
-  y la aporta el usuario.
+  --screenshot=...`) contra los datos reales de Firestore. Los dos bots de
+  Telegram ya tienen la suya, aportada por el usuario desde una conversación
+  real y reescalada a 620 px con `sips` — ahí no hay nada que automatizar.
+  Pendiente: rehacer la del `/pick` cuando haya una jornada con el tiempo de
+  turno visible, que la actual es anterior a esa función.
 
 ## biwenger_tools
 
