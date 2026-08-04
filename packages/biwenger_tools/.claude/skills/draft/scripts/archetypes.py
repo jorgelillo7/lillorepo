@@ -41,6 +41,8 @@ THIN_SEASON = 20  # below this many games, a season total understates the player
 # Iago Aspas scored 143 points across 32 appearances but started 10, and
 # cleared 65 minutes eight times all season.
 STARTER_THRESHOLD = 19
+# Price bands, matching the ones `availability_report.py` writes.
+BANDS = ((6_000_000, "≥ 6M"), (3_000_000, "3–6M"), (1_500_000, "1,5–3M"), (0, "< 1,5M"))
 
 # (DF, MC, DL) — the XI shapes Biwenger accepts, all fieldable from a 2-5-5-3.
 FORMATIONS = (
@@ -215,6 +217,73 @@ def load(
         dropped = []
     kept = [r for r in raw if r not in dropped]
     return kept, placeholder_sf, dropped
+
+
+def price_band(price):
+    for floor, label in BANDS:
+        if price >= floor:
+            return label
+    return "< 1,5M"
+
+
+def read_exclusions(path, extra=()):
+    """`(names, {name: reason})` from a commented ban list.
+
+    Returns the reason alongside the name because a bare `--exclude Valverde`
+    records that somebody was dropped and never why — and next season nobody
+    remembers whether it was an injury, a transfer rumour or a dressing-room
+    fight.
+    """
+    names, reasons = list(extra), {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            name, _, reason = line.partition("#")
+            name = name.strip()
+            if not name:
+                continue
+            names.append(name)
+            reasons[name] = reason.strip() or "sin motivo anotado"
+    return names, reasons
+
+
+def read_history(path):
+    """`{(line, band): [pick numbers]}` from a past draft's history CSV."""
+    history = {}
+    with open(path, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            history.setdefault((r["line"], r["band"]), []).append(int(r["pick"]))
+    return {k: sorted(v) for k, v in history.items()}
+
+
+def survival(history, line, band, pick):
+    """Share of that line+band still on the board at `pick`, last time round.
+
+    The optimiser builds the ideal fifteen as if every player were purchasable.
+    They are not: at position 3 of 7, nine players leave the board between your
+    first pick and your second. This is the correction — measured, not guessed.
+
+    Returns None when the reference draft has too few players of that kind to
+    say anything.
+    """
+    taken = history.get((line, band))
+    if not taken or len(taken) < 4:
+        return None
+    gone = sum(1 for p in taken if p < pick)
+    return 1 - gone / len(taken)
+
+
+def risk_cell(rate):
+    """How likely the plan's man is to survive to that pick."""
+    if rate is None:
+        return "—"
+    if rate >= 0.5:
+        return "✅"
+    if rate >= 0.25:
+        return "⚠️"
+    return "🔥"
 
 
 def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=None):
@@ -524,7 +593,16 @@ def alternatives(squad, rows, player, n=3):
     return sorted(pool, key=lambda r: -r["sf"])[:n]
 
 
-def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=None):
+def _survives(history, row, slot):
+    """Survival rate for this row at its planned pick, or None."""
+    if not history or not slot:
+        return None
+    return survival(history, row["pos"], price_band(row["price"]), slot)
+
+
+def decision_sheet(
+    name, squad, spent, rows, pick_numbers, budget, placeholder=None, history=None
+):
     """The winning archetype as an executable plan: who, in what order, and
     who to fall back on for the picks that decide the draft."""
     formation, xi, _, dur = lineup(squad)
@@ -547,8 +625,8 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "## Los 15, en orden de pick",
         "",
         "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
-        "| Pts/M | Fuente | XI | © |",
-        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|",
+        "| Pts/M | Fuente | ¿Llega? | XI | © |",
+        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
         mark = "©" if dur and r["name"] == dur["name"] else ""
@@ -556,6 +634,7 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
             f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']} "
             f"| {r['team']} | {r['price'] / 1e6:.2f}M "
             + data_cells(r)
+            + f"| {risk_cell(_survives(history, r, slot))} "
             + f"| {'★' if r['name'] in starters else ''} | {mark} |"
         )
     o += [
@@ -568,6 +647,11 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "**Tit** son las titularidades sobre 38. Un suplente no traslada su "
         "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
         "`+1 por victoria`) exigen pasar de 65 minutos.",
+        "",
+        "**¿Llega?** es cuántos de su línea y banda de precio seguían libres "
+        "a esa altura en el draft de referencia: ✅ más de la mitad · ⚠️ entre un "
+        "cuarto y la mitad · 🔥 casi ninguno, adelántalo o ten el recambio "
+        "elegido. Es medido, no intuido.",
         "",
         "Fuente: ✅ titular con dato real · 🪑 real pero suplente "
         f"(menos de {STARTER_THRESHOLD}/38) · ⚠️ real pero de menos de "
@@ -710,6 +794,24 @@ def main():
     ap.add_argument("--budget", type=float, default=52.0, help="budget in millions")
     ap.add_argument("--exclude", default="", help="comma-separated names to ban (news)")
     ap.add_argument(
+        "--exclude-file",
+        default="",
+        help=(
+            "one banned name per line, `#` for the reason. The news check is a "
+            "blocking step and its findings must outlive the shell history: a "
+            "name on `--exclude` records that somebody was dropped, never why."
+        ),
+    )
+    ap.add_argument(
+        "--history",
+        default="",
+        help=(
+            "history CSV from availability_report.py. Adds the ¿Llega? column: "
+            "how much of each line and price band was still on the board at "
+            "that pick last time."
+        ),
+    )
+    ap.add_argument(
         "--pick-position",
         type=int,
         default=0,
@@ -761,10 +863,19 @@ def main():
     )
     args = ap.parse_args()
 
+    excluded = [x.strip() for x in args.exclude.split(",") if x.strip()]
+    reasons = {}
+    if args.exclude_file:
+        excluded, reasons = read_exclusions(args.exclude_file, excluded)
+        print(f"Descartados por noticias: {len(reasons)}")
+        for who, why in reasons.items():
+            print(f"  ✂️  {who} — {why}")
+    history = read_history(args.history) if args.history else None
+
     bets = [x.strip() for x in args.bets.split(",") if x.strip()]
     rows, placeholder, dropped = load(
         args.ranked,
-        args.exclude.split(","),
+        excluded,
         args.placeholder_sf,
         args.keep_placeholder,
         bets,
@@ -931,6 +1042,7 @@ def main():
                     pick_numbers,
                     budget,
                     placeholder,
+                    history,
                 )
             )
         print("Decisión:", args.decision)

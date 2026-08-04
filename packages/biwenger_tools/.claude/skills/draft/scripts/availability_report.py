@@ -130,10 +130,37 @@ def render(picks: list[dict], season: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def write_history(picks: list[dict], path: str) -> None:
+    """The same picks as `line,band,price,pick` — the model next year reads.
+
+    The prose report is for the group chat; this is what `archetypes.py`
+    consumes to answer "will he still be there at my pick?".
+    """
+    import csv
+
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["pick", "line", "band", "price"])
+        writer.writeheader()
+        for pick in picks:
+            writer.writerow(
+                {
+                    "pick": pick["global_pick"],
+                    "line": pick["line"],
+                    "band": _band(pick.get("price") or 0),
+                    "price": pick.get("price") or 0,
+                }
+            )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Draft closing availability report")
     ap.add_argument("--season", default="26-27")
     ap.add_argument("--out", default="draft-disponibilidad.md")
+    ap.add_argument(
+        "--history-csv",
+        default="",
+        help="also write the machine-readable model archetypes.py reads",
+    )
     args = ap.parse_args()
 
     picks = load_picks(args.season)
@@ -143,6 +170,9 @@ def main() -> int:
     with open(args.out, "w", encoding="utf-8") as fh:
         fh.write(render(picks, args.season))
     print(f"{len(picks)} picks · escrito {args.out}")
+    if args.history_csv:
+        write_history(picks, args.history_csv)
+        print(f"Modelo de disponibilidad · escrito {args.history_csv}")
     return 0
 
 

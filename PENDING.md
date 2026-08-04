@@ -75,32 +75,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   key → new secret version → redeploy, leaving this key dead on purpose.
   (26-27 sheets simply not created yet — separate item above.)
 
-### Skill de draft
-
-Todo lo aprendido en el draft 26-27. La skill vive en
-`packages/biwenger_tools/.claude/skills/draft/`; estos son sus arreglos pendientes.
-
-- **Draft skill — the generator ignores that this is a draft.** It builds the
-  ideal 15 as if every player were purchasable, but picks are taken in snake
-  order: at position 3 of 7, nine players leave the board between the first
-  and second pick. The per-tier target lists that make the output actionable
-  are currently assembled by hand each year. A `--pick-position N` that
-  printed realistic availability windows per pick would close the gap.
-
-- **Draft skill — news due-diligence is entirely manual.** This season it
-  produced three exclusions that changed the squad (Aubameyang: score earned
-  in Ligue 1, now at a promoted side, 37; Carlos Soler: knee injury since
-  December 2024, playing with the reserves; Kike Salas: under investigation
-  for booking-related betting fraud). They live in a `--exclude` command-line
-  flag, so nothing records *why* a player was banned. An `--exclude-file`
-  with a per-season, commented list would version the reasoning.
-  **Make it a blocking step, not an optional one.** It was skipped this season
-  until the user asked for it mid-draft, and it immediately turned up three
-  things the numbers could not see: Marcos Alonso left out of the pre-season
-  squad pending a renewal, Canales returning at 35 from three years in Liga MX
-  (so his only good figure was from 2022/23 at Betis), and Fortuño competing
-  with Dmitrović for the Espanyol goal — on a keeper meant to be kept unclausable
-  all season.
+  **BLOCKED ON A DECISION, not on the fix.** The league has not settled how the
+  awards get updated during the season — Sheets or something else. Option (b)
+  builds a Sheets-only service account, which is wasted work if Sheets is
+  dropped. Waiting on that answer before spending the fix.
 
 ## my_photos
 

@@ -109,7 +109,16 @@ Steps:
    the same price/points tier. The user picks 3rd in a snake of 7, so their
    global picks land at ~3, 12, 17, 26… — several tiers vanish between picks,
    which is *why* the top-5 need plan B/C (resilience, not predicting rivals).
-3. **News due-diligence (before finalising)**: web-search each shortlisted
+3. **News due-diligence — BLOCKING, not optional.** Skipping it in 26/27 until
+   the user asked mid-draft turned up three things no number could see: Marcos
+   Alonso left out of the pre-season squad pending a renewal, Canales returning
+   at 35 from three years in Liga MX, and Fortuño competing with the keeper who
+   was meant to stay unclausable all season.
+
+   Record the findings in an `--exclude-file`, never in `--exclude`: a bare
+   name records *that* somebody was dropped and never *why*, and next season
+   nobody remembers whether it was an injury, a rumour or a dressing-room
+   fight. Web-search each shortlisted
    player for red flags the price/points can't see — points reward last season,
    the news is about *this* one starting. Check for:
    - **Injuries / suspensions** (apercibido) and **transfer/exit rumours** (a
@@ -213,6 +222,8 @@ reported alongside as a depth reading).
 | Flag | Qué hace |
 |---|---|
 | `--budget 52` | En **millones**. Pasar euros es un error y falla en seco |
+| `--exclude-file f.txt` | **El veto de noticias, con su motivo.** Un nombre por línea, tras `#` el porqué. Se versiona: el año que viene querrás saber *por qué* descartaste a alguien |
+| `--history h.csv` | Modelo de disponibilidad de `availability_report.py`. Añade la columna **¿Llega?** |
 | `--exclude "n,n"` | Veto de la due-diligence de noticias (lesionados, sancionados, puntos de otra liga) |
 | `--force "n,n"` | Arquetipo **a medida** alrededor de quien tú digas. Genera versión normal y banco mínimo |
 | `--bets "n,n"` | Titulares baratos que una fuente de scouting anticipa. Su SofaScore es bajo porque no jugaron: se revalúan a `--bet-sf` (400) y salen marcados 🎲 |
@@ -286,6 +297,34 @@ pins the value by hand.
 Known limitation: squad shape is fixed at 2-5-5-3. It is a valid composition and
 covers every formation the XI picker uses, but the generator does not explore
 other legal shapes (2-6-5-2, 2-5-6-2…).
+
+## ¿Llegará a tu pick? Pregúntaselo al draft anterior
+
+The optimiser builds the ideal fifteen as if every player were purchasable.
+They are not — at position 3 of 7, nine leave the board between your first pick
+and your second — so a plan without this correction is fantasy.
+
+Close the previous draft with the machine-readable model and feed it back:
+
+```bash
+PYTHONPATH=. python3 .../scripts/availability_report.py \
+    --season 26-27 --out draft-disponibilidad.md --history-csv draft-history.csv
+
+# al año siguiente
+... archetypes.py --history draft-history.csv ...
+```
+
+The **¿Llega?** column then reports, for each planned pick, how much of that
+line and price band was still on the board at that height last time:
+
+| | Significado |
+|:-:|---|
+| ✅ | más de la mitad seguía libre — el plan aguanta |
+| ⚠️ | entre un cuarto y la mitad — ten el recambio elegido |
+| 🔥 | casi ninguno — adelántalo o dalo por perdido |
+
+Es medido, no intuido. En el 26/27 marcó 🔥 a Gerard Moreno en el pick 17, que
+fue exactamente el jugador que desapareció antes de lo previsto.
 
 ## Tu posición en el snake cambia el plan
 
