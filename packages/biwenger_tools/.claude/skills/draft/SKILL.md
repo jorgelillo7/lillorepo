@@ -25,6 +25,7 @@ flowchart TD
         RANK --> REAL["fetch_real_points.py<br/>→ puntos Personalizado<br/>⚠️ shortlist 30-45, nunca el mercado"]
         REAL --> ARCH["archetypes.py<br/>→ final-decision.md"]
         HIST[("history/{año-1}.csv")] -.->|--history| ARCH
+        EXCL[("history/{año-1}-exclusiones.txt")] -.->|--exclude-file| ARCH
     end
 
     subgraph OPEN["🚦 Apertura · local · ESCRIBE"]
@@ -33,8 +34,13 @@ flowchart TD
 
     subgraph LIVE["⚽ Durante · Cloud Run + local"]
         BOT["/pick en Telegram<br/>→ api → Biwenger + Firestore"]
-        BOARD["board.py<br/>replanifica con lo que queda<br/>local · solo lectura"]
-        BOT <--> BOARD
+        subgraph LOOP["🔁 Por cada hueco: te quitan a alguien → recalibra"]
+            direction LR
+            L1["board.py<br/>qué queda y qué cabe"] --> L2["risers.py<br/>a quién compra el mercado"]
+            L2 --> L3["fetch_real_points.py<br/>10-15 peticiones<br/><b>SOLO ese hueco</b>"]
+            L3 --> L4["plan A · B · C"]
+        end
+        BOT <--> LOOP
     end
 
     subgraph CLOSE["🏁 Cierre · ESCRIBE"]
@@ -44,12 +50,15 @@ flowchart TD
 
     subgraph AFTER["📦 Después · se commitea"]
         OUT[("history/{año}.md + .csv")]
+        VETO[("history/{año}-exclusiones.txt<br/>a mano, según se descarta")]
     end
 
     PREP --> OPEN --> LIVE --> CLOSE
     AUTO -.->|"no genera ficheros"| MAN
     MAN --> OUT
+    LOOP -.->|"cada descarte, con su motivo"| VETO
     OUT -.->|"el año que viene"| HIST
+    VETO -.->|"el año que viene"| EXCL
 
     style PREP fill:#e8f4ea,stroke:#5a8f6b
     style OPEN fill:#fdf0e0,stroke:#c98a3a
@@ -58,16 +67,21 @@ flowchart TD
     style AFTER fill:#f0ebf7,stroke:#7a5aa5
 ```
 
-**Las tres cosas que se olvidan:**
+**Las cuatro cosas que se olvidan:**
 
-1. **Cerrar requiere despliegue o `close.py`.** La api se cierra sola al caer el
+1. **El pliego no se hace una vez, se recalibra.** `final-decision.md` caduca con
+   cada pick ajeno. Por cada hueco que te tumban se repite el bucle entero —
+   `board.py`, `risers.py` y **medir con datos reales los candidatos de ese
+   hueco**. Ese último paso es el que se salta y el que más veces cambia la
+   respuesta.
+2. **Anota cada descarte según lo haces.** El `--exclude-file` del año siguiente
+   sale de ahí, y un motivo no se reconstruye doce meses después.
+3. **Cerrar requiere despliegue o `close.py`.** La api se cierra sola al caer el
    último pick, pero `close_draft()` no es alcanzable de ninguna otra forma: si
    el pick final cae con una revisión antigua desplegada, el draft se queda
    abierto para siempre y `/deshacer` sigue vendiendo jugadores de verdad.
-2. **El histórico no lo genera el cierre de la api.** Cloud Run no escribe en tu
+4. **El histórico no lo genera el cierre de la api.** Cloud Run no escribe en tu
    repo. Lo hace `close.py`, en local.
-3. **`final-decision.md` caduca.** A mitad de draft se replanifica con
-   `board.py`, no releyendo el pliego.
 
 ## Inputs the user provides
 
@@ -215,6 +229,36 @@ tienes que reservar para los otros huecos obligatorios.
 Ese último punto es el que se falla a ojo: con cuatro fichas pendientes y 3M, el
 delantero de 2,5M que parece asequible deja el resto de la plantilla sin cerrar.
 
+### El bucle, cada vez que te quitan a alguien
+
+Cuatro pasos. Se repiten enteros por cada hueco, no una vez por draft:
+
+1. **`board.py`** — qué te queda, cuánto puedes gastar y quién sigue libre.
+2. **`risers.py`** — quién ha subido en el mercado real desde el congelado.
+3. **`fetch_real_points.py --names "..."` sobre los candidatos de *ese* hueco.**
+   10-15 peticiones, no las 45 del tope. Es lo que decide.
+4. Recalcular el resto con el presupuesto que quede, y dar plan B y C.
+
+**El paso 3 es el que se salta y el que más veces cambió la respuesta.** En el
+26-27, en el pick 82, medir diez delanteros costó diez peticiones y tumbó las dos
+opciones que parecían mejores: Villalibre no había jugado nunca en Primera e
+Isaac Romero proyectaba 123 y tenía 77. El elegido acabó siendo Danjuma, que era
+el cuarto por proyección. Seis peticiones más hicieron lo mismo con la defensa.
+
+Dieciséis peticiones de 500. El miedo al 429 es a los barridos del mercado
+entero, no a esto: **una lista corta y dirigida al hueco que vas a fichar es
+siempre asequible**, incluso con el draft en marcha.
+
+### Cuál de tus huecos va primero
+
+No es el que más puntúa: es **el que tiene menos recambios bajo tu tope**. Con
+`board.py` esto se cuenta, ya no se intuye — mira cuántos candidatos aceptables
+quedan por línea dentro de lo que puedes pagar.
+
+En el 26-27, con 3M y cuatro fichas: bajo 0,72M quedaba **un** medio útil (Neto)
+y **cuatro** defensas. Aunque el defensa tocaba antes por orden, se adelantó el
+medio: si cae Neto no hay sustituto, si cae un defensa hay tres detrás.
+
 ## The league scores "Personalizado", not SofaScore
 
 **This is the biggest correction to the whole ranking, and it is easy to miss.**
@@ -275,10 +319,14 @@ keys** — no endpoint serves custom totals, the app computes them client-side.
 > Pulling all ~550 in parallel got the whole league 429'd for hours **mid-draft**,
 > including the user's own phone and, potentially, the bot's transfers. Hard
 > rules: shortlist only, **sequential with a delay**, checkpoint to disk, and
-> stop on the first 429 instead of retrying. If the draft is live and the data
-> isn't already cached, don't run it at all — estimate the team bonus from last
-> season's table and say plainly which numbers are measured and which are
-> modelled.
+> stop on the first 429 instead of retrying.
+>
+> **Con el draft en marcha se sigue midiendo, pero dirigido.** Lo que quemó la
+> ventana fue el barrido paralelo del mercado entero, no el volumen. Diez o
+> quince nombres, secuenciales y acotados al hueco que vas a fichar ahora mismo,
+> son un 3% de la ventana y se hacen sin pensarlo: en el 26-27 dieciséis
+> peticiones a mitad de draft cambiaron dos de los cuatro picks que quedaban. Lo
+> que no se hace en vivo es refrescar la lista larga «por si acaso».
 
 ## Output
 
@@ -306,7 +354,42 @@ reported alongside as a depth reading).
 | `--keep-placeholder` | No descartar a los que JP puntúa por defecto |
 | `--max-per-team 2` | Tope de jugadores por club. Los bonus de victoria y portería a cero son de equipo: tres compañeros los ganan y los pierden el mismo fin de semana |
 
+Los otros dos scripts de la skill, que no son del generador:
+
+| Script | Para qué |
+|---|---|
+| `board.py` | **A mitad de draft.** Qué tienes, qué te cabe y quién sigue libre, contra Firestore |
+| `risers.py` | **Quién sube en el mercado real.** Dos exportaciones separadas unos días |
+
 Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
+
+**Arranca siempre con el `--exclude-file` del año anterior.** `history/26-27-exclusiones.txt`
+guarda los 19 descartes de aquel draft con su motivo. No es una lista negra: un
+ascendido sin minutos en el 26-27 puede ser titular en el 27-28. Se lee el
+motivo, se reevalúa el que haya cambiado y se arrastra el resto — que es la
+diferencia entre empezar con el trabajo hecho y volver a tropezar con
+Aubameyang.
+
+## El mercado real, cuando el congelado ya no dice la verdad
+
+`scripts/risers.py` compara dos exportaciones del mercado separadas unos días.
+Pagas el precio congelado, pero el mercado real sigue moviéndose — y en
+pretemporada se mueve **solo por demanda**, porque no se ha jugado nada. Un
+precio que se dispara es la liga entera comprando a alguien que espera que sea
+titular, que es justo lo que un total del año pasado no puede decirte.
+
+```bash
+PYTHONPATH=. python3 .../scripts/risers.py \
+    --before ~/Downloads/primera-division.csv \
+    --after "~/Downloads/primera-division (1).csv" \
+    --ranked draft-ranked.csv --max 2.55
+```
+
+**Una subida es una pregunta, no una respuesta.** En el 26-27 los dos defensas
+baratos que más subían, +101% y +90%, eran los dos que no habían jugado ni un
+minuto en Primera: el Málaga acababa de ascender y la liga compraba un nombre que
+no había visto jugar. Su SofaScore era real, pero de Segunda. Toda subida se
+confirma con `fetch_real_points.py` antes de gastar.
 
 ### La llamada completa, tal cual se usó en el draft 26/27
 

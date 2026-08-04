@@ -1,0 +1,38 @@
+# Descartes del draft 26-27, con su motivo. Entrada de `archetypes.py --exclude-file`.
+#
+# NO es una lista negra permanente. Es el registro de por qué cada uno se cayó
+# *aquel año*, para poder reevaluarlo. Un ascendido sin minutos en Primera en el
+# 26-27 puede ser titular en el 27-28: lee el motivo, no el nombre. Antes de
+# reutilizar este fichero, pásalo por `fetch_real_points.py` — es más barato que
+# arrastrar un veto caducado.
+#
+# El criterio que más veces acertó: titularidades, no partidos ni proyección.
+
+# --- Puntos de otra competición. JP no distingue división, así que un SofaScore
+# --- alto puede venir entero de Segunda o de otra liga.
+Aubameyang        # sus 508 eran del Marsella, y fichaba por un recién ascendido
+Villalibre        # SF 310 y CERO minutos en Primera (31 partidos fuera)
+Joaquín Muñoz     # SF 320 y CERO minutos en Primera (42 partidos fuera)
+Luismi Cruz       # CERO minutos en Primera (40 partidos fuera)
+Nsongo            # CERO partidos, sin historial que medir
+Einar Galilea     # SF 240 y CERO minutos en Primera — Málaga recién ascendido
+Rafael Garrido    # SF 270 y CERO minutos en Primera — Málaga recién ascendido
+
+# --- Trampa de titularidad: el total parece bueno y no se traslada a una plaza
+# --- del once, porque los bonus de esta liga exigen pasar de 65 minutos.
+Iago Aspas        # 143 puntos en 32 partidos pero 10 titularidades de 38
+
+# --- La proyección se desplomó contra el dato real.
+Sadiq             # proyectaba 152, reales 91 (-40%)
+Terrats           # proyectaba 147, reales 85 (-42%)
+Camello           # proyectaba 133, reales 99 (-26%)
+Carlos Álvarez    # proyectaba 171, reales 135 (-21%)
+Isaac Romero      # proyectaba ~123, reales 77 con 15/38 titularidades
+
+# --- Noticias: lo que ningún número veía.
+Carlos Soler      # lesión de rodilla desde diciembre, jugando en el filial
+Kike Salas        # investigado por amañar tarjetas
+Valverde          # pelea con Mourinho y presión de salida pese a 688 SF
+Marcos Alonso     # fuera de la lista de pretemporada a la espera de renovación
+Canales           # vuelve a los 35 tras tres años en la Liga MX
+Fortuño           # compite con el portero que iba a ser inclausulable
