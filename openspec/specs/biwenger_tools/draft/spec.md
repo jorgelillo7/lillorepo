@@ -308,6 +308,16 @@ running never performed.
 Opening SHALL stamp `turn_started_at`, so the first pick has something to
 measure its wait against.
 
+Closing SHALL also be reachable outside the api. Inside it, closing happens only
+as a side effect of the final pick, so a draft whose last pick lands under a
+revision that predates this behaviour would stay open forever — and an open
+finished draft still accepts `/deshacer`, which sells a player mid-season.
+
+The season's history — the readable record and the machine-readable
+availability model the next draft reads — SHALL be written by that same
+out-of-api close. The api runs in Cloud Run and cannot write to the repository,
+so nothing else will produce it.
+
 #### Scenario: opening and closing
 - **WHEN** the draft is opened **THEN** the starting instant is stamped and the group
   is greeted
@@ -316,10 +326,20 @@ measure its wait against.
   Biwenger is never contacted
 - **WHEN** no lifecycle record exists **THEN** the draft behaves as open
 - **WHEN** a pick is applied **THEN** the lifecycle record survives the state write
-- *Verifies:* `test_a_closed_draft_rejects_picks_and_undo`,
+- *Verifies:* `test_the_final_pick_closes_the_draft`,
+  `test_a_closed_draft_rejects_picks_and_undo`,
   `test_a_draft_with_no_lifecycle_record_stays_open`,
   `test_reopening_stamps_the_starting_instant`,
   `test_a_pick_does_not_wipe_the_lifecycle_record`
+
+#### Scenario: closing from outside the api
+- **WHEN** `scripts/draft/close.py --write` runs on a finished draft **THEN** the draft
+  is closed, the season history is written and the group is told
+- **WHEN** it runs on a draft the api already closed **THEN** it writes the history
+  anyway, because that path produces no files
+- **WHEN** it runs with picks still pending **THEN** it refuses unless `--force` is
+  passed with a reason
+- *Verifies:* operational script, exercised by its own dry run
 
 ---
 

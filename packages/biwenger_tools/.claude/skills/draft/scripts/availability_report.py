@@ -7,11 +7,15 @@ of a guess.
 Reads `draft/{season}/picks` from Firestore and one public competition payload
 (for each player's line); it never touches the per-player endpoint.
 
+Writes `history/{season}.md` (the readable record) and `history/{season}.csv`
+(what `archetypes.py --history` reads) unless told otherwise.
+
     PYTHONPATH=. python3 .claude/skills/draft/scripts/availability_report.py \
-        --season 26-27 --out draft-disponibilidad.md
+        --season 26-27
 """
 
 import argparse
+import os
 from collections import defaultdict
 
 import requests
@@ -155,24 +159,29 @@ def write_history(picks: list[dict], path: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Draft closing availability report")
     ap.add_argument("--season", default="26-27")
-    ap.add_argument("--out", default="draft-disponibilidad.md")
+    ap.add_argument("--out", default="")
     ap.add_argument(
         "--history-csv",
         default="",
         help="also write the machine-readable model archetypes.py reads",
     )
     args = ap.parse_args()
+    # Both default into `history/`, one file per season: a draft's record is
+    # the only artefact of this skill that outlives the week it was run.
+    home = os.path.join(os.path.dirname(__file__), "..", "history")
+    out = args.out or os.path.join(home, f"{args.season}.md")
+    history_csv = args.history_csv or os.path.join(home, f"{args.season}.csv")
+    os.makedirs(home, exist_ok=True)
 
     picks = load_picks(args.season)
     if not picks:
         print(f"No hay picks aplicados en draft/{args.season}/picks.")
         return 1
-    with open(args.out, "w", encoding="utf-8") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         fh.write(render(picks, args.season))
-    print(f"{len(picks)} picks · escrito {args.out}")
-    if args.history_csv:
-        write_history(picks, args.history_csv)
-        print(f"Modelo de disponibilidad · escrito {args.history_csv}")
+    print(f"{len(picks)} picks · escrito {out}")
+    write_history(picks, history_csv)
+    print(f"Modelo de disponibilidad · escrito {history_csv}")
     return 0
 
 

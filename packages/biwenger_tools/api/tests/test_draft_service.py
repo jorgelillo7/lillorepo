@@ -925,6 +925,24 @@ def test_a_closed_draft_rejects_picks_and_undo(fake_fs, biwenger):
     biwenger.login.assert_not_called()
 
 
+def test_the_final_pick_closes_the_draft(fake_fs, biwenger, monkeypatch):
+    """Closing is a side effect of the last pick, and there is no other path to
+    it inside the api — if this stops firing the draft never closes at all."""
+    monkeypatch.setattr(draft, "NUM_ROUNDS", 1)
+    telegram_ids = [str(1000 + i) for i in range(len(draft.DEFAULT_ORDER))]
+    for telegram_id, manager_id in zip(telegram_ids, draft.DEFAULT_ORDER):
+        draft_service.register_manager(telegram_id, LEAGUE_MEMBERS[manager_id])
+
+    for i, telegram_id in enumerate(telegram_ids):
+        assert draft_service._lifecycle().get("closed") is not True
+        result = draft_service.submit_pick(telegram_id, f"Filler MID {i}")
+        assert result["status"] != "rejected", result
+
+    assert draft_service._lifecycle()["closed"] is True
+    assert draft_service._lifecycle()["closed_reason"] == "completed"
+    assert "bloqueados" in result["message"]
+
+
 def test_a_draft_with_no_lifecycle_record_stays_open(fake_fs, biwenger):
     """Absence of the record means open — a draft that predates it must run."""
     draft_service.register_manager(TG_RUBEN, "Ruben")
