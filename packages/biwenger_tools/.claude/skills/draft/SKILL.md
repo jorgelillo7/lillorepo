@@ -11,8 +11,63 @@ allowed-tools:
 
 # Draft — Lloros League pre-season squad builder
 
-Runs once a year, at the season draft. Two phases: a deterministic **merge**
-(a script), then an interactive **adviser** (conversation).
+Runs once a year, at the season draft.
+
+## El ciclo completo, de un vistazo
+
+Lo que más se olvida en doce meses no es el análisis: es **qué paso va antes de
+cuál, cuál escribe de verdad y cuál corre dónde**.
+
+```mermaid
+flowchart TD
+    subgraph PREP["🔍 Antes · local · solo lectura"]
+        CSV["Exportas el CSV<br/>mercado cerrado"] --> RANK["draft_ranking.py<br/>→ draft-ranked.csv"]
+        RANK --> REAL["fetch_real_points.py<br/>→ puntos Personalizado<br/>⚠️ shortlist 30-45, nunca el mercado"]
+        REAL --> ARCH["archetypes.py<br/>→ final-decision.md"]
+        HIST[("history/{año-1}.csv")] -.->|--history| ARCH
+    end
+
+    subgraph OPEN["🚦 Apertura · local · ESCRIBE"]
+        OP["scripts/draft/open.py --write<br/>sube CSV al bucket · marca abierto<br/>arranca el reloj · saluda al grupo"]
+    end
+
+    subgraph LIVE["⚽ Durante · Cloud Run + local"]
+        BOT["/pick en Telegram<br/>→ api → Biwenger + Firestore"]
+        BOARD["board.py<br/>replanifica con lo que queda<br/>local · solo lectura"]
+        BOT <--> BOARD
+    end
+
+    subgraph CLOSE["🏁 Cierre · ESCRIBE"]
+        AUTO["último pick → close_draft()<br/>automático, pero solo si la api<br/>desplegada ya lo trae"]
+        MAN["scripts/draft/close.py --write<br/>cierra · escribe history/ · despide"]
+    end
+
+    subgraph AFTER["📦 Después · se commitea"]
+        OUT[("history/{año}.md + .csv")]
+    end
+
+    PREP --> OPEN --> LIVE --> CLOSE
+    AUTO -.->|"no genera ficheros"| MAN
+    MAN --> OUT
+    OUT -.->|"el año que viene"| HIST
+
+    style PREP fill:#e8f4ea,stroke:#5a8f6b
+    style OPEN fill:#fdf0e0,stroke:#c98a3a
+    style LIVE fill:#e6eefb,stroke:#4a6fa5
+    style CLOSE fill:#fbe6e6,stroke:#a54a4a
+    style AFTER fill:#f0ebf7,stroke:#7a5aa5
+```
+
+**Las tres cosas que se olvidan:**
+
+1. **Cerrar requiere despliegue o `close.py`.** La api se cierra sola al caer el
+   último pick, pero `close_draft()` no es alcanzable de ninguna otra forma: si
+   el pick final cae con una revisión antigua desplegada, el draft se queda
+   abierto para siempre y `/deshacer` sigue vendiendo jugadores de verdad.
+2. **El histórico no lo genera el cierre de la api.** Cloud Run no escribe en tu
+   repo. Lo hace `close.py`, en local.
+3. **`final-decision.md` caduca.** A mitad de draft se replanifica con
+   `board.py`, no releyendo el pliego.
 
 ## Inputs the user provides
 
@@ -141,6 +196,25 @@ Steps:
 5. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
    a lineless bench.
 
+## A mitad de draft, el pliego ya no vale — recalcúlalo
+
+`final-decision.md` se escribe una vez y envejece con cada pick ajeno: a la
+altura del pick 73 la mitad de sus nombres ya estaban cogidos y el gasto real no
+se parecía al planificado. No decidas de memoria ni releyendo el pliego.
+
+```bash
+PYTHONPATH=. python3 .../scripts/board.py \
+    --season 26-27 --me Jorge --ranked draft-ranked.csv --budget 52
+```
+
+Solo lee (Firestore + el CSV). Saca tu plantilla con el gasto real, los picks que
+te quedan, qué huecos de composición faltan, cuánto queda libre de cada banda y
+los candidatos libres que **te caben** — el tope por línea ya descuenta lo que
+tienes que reservar para los otros huecos obligatorios.
+
+Ese último punto es el que se falla a ojo: con cuatro fichas pendientes y 3M, el
+delantero de 2,5M que parece asequible deja el resto de la plantilla sin cerrar.
+
 ## The league scores "Personalizado", not SofaScore
 
 **This is the biggest correction to the whole ranking, and it is easy to miss.**
@@ -223,7 +297,7 @@ reported alongside as a depth reading).
 |---|---|
 | `--budget 52` | En **millones**. Pasar euros es un error y falla en seco |
 | `--exclude-file f.txt` | **El veto de noticias, con su motivo.** Un nombre por línea, tras `#` el porqué. Se versiona: el año que viene querrás saber *por qué* descartaste a alguien |
-| `--history h.csv` | Modelo de disponibilidad de `availability_report.py`. Añade la columna **¿Llega?** |
+| `--history h.csv` | Modelo de disponibilidad de `availability_report.py`. Añade la columna **Vaciado** |
 | `--exclude "n,n"` | Veto de la due-diligence de noticias (lesionados, sancionados, puntos de otra liga) |
 | `--force "n,n"` | Arquetipo **a medida** alrededor de quien tú digas. Genera versión normal y banco mínimo |
 | `--bets "n,n"` | Titulares baratos que una fuente de scouting anticipa. Su SofaScore es bajo porque no jugaron: se revalúan a `--bet-sf` (400) y salen marcados 🎲 |
@@ -298,7 +372,7 @@ Known limitation: squad shape is fixed at 2-5-5-3. It is a valid composition and
 covers every formation the XI picker uses, but the generator does not explore
 other legal shapes (2-6-5-2, 2-5-6-2…).
 
-## ¿Llegará a tu pick? Pregúntaselo al draft anterior
+## Cuánto se vació su banda — y por qué eso no predice a un jugador
 
 The optimiser builds the ideal fifteen as if every player were purchasable.
 They are not — at position 3 of 7, nine leave the board between your first pick
@@ -307,24 +381,34 @@ and your second — so a plan without this correction is fantasy.
 Close the previous draft with the machine-readable model and feed it back:
 
 ```bash
-PYTHONPATH=. python3 .../scripts/availability_report.py \
-    --season 26-27 --out draft-disponibilidad.md --history-csv draft-history.csv
+PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
 
 # al año siguiente
-... archetypes.py --history draft-history.csv ...
+... archetypes.py --history .claude/skills/draft/history/26-27.csv ...
 ```
 
-The **¿Llega?** column then reports, for each planned pick, how much of that
-line and price band was still on the board at that height last time:
+The **Vaciado** column then reports, for each planned pick, `gone/supply`: how
+many of that line and price band had gone at that height last time, out of how
+many exist. In bold, the band emptied completely.
 
-| | Significado |
-|:-:|---|
-| ✅ | más de la mitad seguía libre — el plan aguanta |
-| ⚠️ | entre un cuarto y la mitad — ten el recambio elegido |
-| 🔥 | casi ninguno — adelántalo o dalo por perdido |
+**No lo conviertas en una probabilidad sobre el jugador.** Se intentó y salió
+mal en el 26/27: el modelo marcaba 🔥 a Gerard Moreno en el pick 17 y el jugador
+llegó libre al pick 74 sin que nadie lo cogiera. Tres razones, todas
+estructurales:
 
-Es medido, no intuido. En el 26/27 marcó 🔥 a Gerard Moreno en el pick 17, que
-fue exactamente el jugador que desapareció antes de lo previsto.
+- **Un draft consume un quinto del mercado.** 105 picks sobre 513 jugadores. Casi
+  ninguna banda se agota, así que dividir por los que *acaban drafteados* en vez
+  de por los que *existen* da «no queda ninguno» justo en las bandas que nadie
+  quiere.
+- **La banda alta no tiene techo.** `≥ 6M` mete a Gerard Moreno (6,61M) con
+  Mbappé (24,69M): con 52M para quince fichas, los cuatro de arriba no los puede
+  pagar nadie y siguen libres toda la noche.
+- **Nadie compra una banda por orden de calidad.** De los cuatro delanteros
+  `≥ 6M` que se fueron, el primero fue Oyarzabal (SF 306) y Gerard Moreno (578)
+  se quedó. Ordenar por SofaScore no reproduce lo que hacen los rivales.
+
+Lo que sí sirve la columna: ver de un vistazo que a tu pick 40 la banda `3–6M` de
+defensas ya iba por la mitad. El «cuándo» por línea, no el «a quién».
 
 ## Tu posición en el snake cambia el plan
 
@@ -347,12 +431,29 @@ Si en tu tier hay tres jugadores parecidos, espera; si hay uno solo, cógelo ya.
 
 ## El histórico es la mejor fuente de "cuándo"
 
-`draft-2025-26.md` guarda el draft anterior pick a pick. Cotejar el 15 objetivo
-contra él es lo único que dice si el plan es realista: el año pasado Gerard
-Moreno se fue en el pick 7 y Marcos Alonso — que hoy costaría 3,32M — en el
-pick 10. Un plan que los espere en el pick 40 es papel mojado.
+`history/{temporada}.md` guarda cada draft pick a pick. Cotejar el 15 objetivo
+contra el anterior es lo único que dice si el plan es realista: en el 25/26
+Gerard Moreno se fue en el pick 7 y Marcos Alonso — que hoy costaría 3,32M — en
+el pick 10. Un plan que los espere en el pick 40 es papel mojado.
 
-Al terminar cada draft, **añade el nuevo a ese fichero**.
+**El cierre del draft es un paso a mano y hay que hacerlo el mismo día.** La api
+cierra sola la puerta a `/pick` y `/deshacer` en el último pick, pero corre en
+Cloud Run y no puede escribir en este repo: el histórico lo generas tú.
+
+```bash
+PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
+```
+
+Escribe `history/26-27.md` (el relato) y `history/26-27.csv` (el modelo que lee
+`archetypes.py --history`). **Ambos se commitean** — son el único artefacto de
+esta skill que sobrevive a la semana en que se usó. Todo lo demás
+(`final-decision.md`, `mi-arquetipos.md`, el CSV rankeado) está gitignorado a
+propósito: es de un año y de una persona.
+
+**Firestore solo tiene el 26/27 en adelante.** `draft/25-26/picks` está vacío, así
+que el `.csv` de aquel año no se puede reconstruir y `--history` no tuvo
+referencia en el 26/27. El primer año con modelo real es el 27/28; hasta
+entonces, el `.md` del 25/26 es la única fuente del «cuándo».
 
 ## Reglamento anchors (stable rules)
 
