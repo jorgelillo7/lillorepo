@@ -16,8 +16,12 @@ player the market has already re-rated.
 
 Read-only. `--max` is in millions and caps what you pay, not the new price.
 
-Treat a spike on a player with no real SofaScore as hype, not evidence: the
-crowd is often buying a name it read in a pre-season preview.
+**A rise is a question, not an answer.** It says the crowd is buying, and the
+crowd buys promoted-club players it has never seen play: in 26-27 the two
+biggest risers among cheap defenders, +101% and +90%, both turned out to have
+zero minutes in the top flight — their score came from the division below, and
+JP does not distinguish. Confirm every riser with `fetch_real_points.py` before
+spending on him. The column that decides is starts, not the rise.
 """
 
 import argparse
