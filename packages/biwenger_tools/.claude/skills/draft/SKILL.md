@@ -184,6 +184,26 @@ Steps:
    at 35 from three years in Liga MX, and Fortuño competing with the keeper who
    was meant to stay unclausable all season.
 
+   **Empieza por el fichero del año pasado, y reevalúa cada línea.** Un motivo
+   caduca más rápido que el jugador: el ascendido acumula minutos, el lesionado
+   vuelve, el que estaba en guerra con su entrenador se queda sin entrenador.
+   Búscalo en internet uno a uno — `archetypes.py` te los imprime al aplicarlos,
+   así que los tendrás delante y no hay excusa.
+
+   El fichero anota además **qué pasó con cada uno**, que es lo que dice cuánto
+   pesar el veto:
+   - **Nadie lo cogió** → el veto era compartido por los siete. Si el motivo se
+     ha caído, ahí hay una ineficiencia: un jugador que la liga entera sigue
+     recordando como problemático y tú ya has comprobado que no lo es. En el
+     26-27 **Valverde** (SF 688) no lo cogió nadie en 105 picks por la guerra con
+     Mourinho. Si eso se ha resuelto, es candidato a pick 1, no a descarte.
+   - **Lo cogió otro** → duda del veto, no del rival. Marcos Alonso salió en el
+     pick 22 pese a estar fuera de la lista de pretemporada.
+
+   Y si vetas a alguien y luego lo fichas igual, **sácalo del fichero**: en el
+   26-27 Canales estaba vetado y fue el pick 17, así que arrastrarlo habría
+   descartado a un titular propio. Un veto que ignoras no es un veto.
+
    Record the findings in an `--exclude-file`, never in `--exclude`: a bare
    name records *that* somebody was dropped and never *why*, and next season
    nobody remembers whether it was an injury, a rumour or a dressing-room
