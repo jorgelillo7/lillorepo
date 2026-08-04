@@ -97,16 +97,30 @@ cheapest available prices.
 
 ---
 
-### Requirement: The squad must remain completable
+### Requirement: The squad must remain able to field an XI
 
-A squad is 15 players that can field a valid XI plus at least one substitute
-per line. A pick SHALL be rejected when the resulting counts could no longer
-reach a valid composition with the slots that remain.
+A squad is 15 players that can field **some** legal XI. Only the eleven are
+constrained; the four on the bench may be anything. A pick SHALL be rejected
+when it would leave no formation reachable with the slots that remain.
+
+The bench is deliberately unconstrained. Requiring a substitute in every line
+rejects picks that are perfectly legal — Biwenger accepts twelve formations
+including `4-6-0`, so a squad with no forward at all is a shape, not a fault.
+
+Multi-position players SHALL count for every line they can play. Biwenger gives
+107 of 553 players an `altPositions` list; ignoring it reads a forward who also
+plays midfield as a pure forward, and that miscount blocked a legal pick during
+the 26-27 draft.
 
 #### Scenario: composition reachability
-- **WHEN** the final slot would leave a line uncoverable
+- **WHEN** the remaining slots cannot complete any formation
 - **THEN** rejected as `COMPOSITION_INFEASIBLE`
-- *Verifies:* `test_composition_ok_false_with_only_one_goalkeeper`,
+- **WHEN** a squad holds one goalkeeper and a fieldable ten **THEN** it is valid
+- **WHEN** a player lists `altPositions` **THEN** he counts toward each of them
+- *Verifies:* `test_one_goalkeeper_is_enough`,
+  `test_a_squad_with_no_forward_is_legal`,
+  `test_multi_position_players_cover_the_line_that_is_short`,
+  `test_composition_reachable_from_scratch_needs_only_the_eleven`,
   `test_composition_reachable_false_with_negative_slots`,
   `test_validate_pick_rejects_composition_infeasible_on_final_slot`,
   `test_validate_pick_rejects_when_squad_already_full`

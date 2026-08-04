@@ -172,7 +172,10 @@ candidate, fetch his real points too, and re-check budget and composition.
 Steps:
 
 1. **Build the 15** within budget, respecting the composition rule: a valid XI
-   **plus at least one sub per line** (≥2 GK; each outfield line starters+1).
+   able to field **some** legal XI. El banquillo es libre: Biwenger acepta doce
+   formaciones, `4-6-0` entre ellas, así que una plantilla sin delanteros es una
+   forma, no un error. Y los multiposición cuentan en cada línea que pueden
+   jugar — 107 de 553 traen `altPositions`.
    Favour SofaScore, but weigh value-per-€ for the mid/late picks.
 2. **Top-5 = the base**: give each of the first 5 picks **3 alternatives** at
    the same price/points tier. The user picks 3rd in a snake of 7, so their
@@ -560,7 +563,7 @@ entonces, el `.md` del 25/26 es la única fuente del «cuándo».
 
 ## Reglamento anchors (stable rules)
 
-15 players; valid XI + 1 sub per line; snake draft (round order reverses each
+15 players able to field some legal XI (bench unconstrained); snake draft (round order reverses each
 round); prices frozen to the export day; market closed during the draft;
 **captain must cost < 3M** (Biwenger hard cap). Full text: the Lloros League
 reglamento, Capítulo I.
