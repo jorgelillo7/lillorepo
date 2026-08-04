@@ -19,6 +19,8 @@ import requests
 from core.sdk import firestore as fs
 
 COMPETITION_URL = "https://cf.biwenger.com/api/v2/competitions/la-liga/data?lang=es"
+# Without a browser User-Agent the endpoint answers JSONP, not JSON.
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 LINES = [("PT", "Porteros"), ("DF", "Defensas"), ("MC", "Medios"), ("DL", "Delanteros")]
 POSITION_CODE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
 BANDS = ((6_000_000, "≥ 6M"), (3_000_000, "3–6M"), (1_500_000, "1,5–3M"), (0, "< 1,5M"))
@@ -53,7 +55,9 @@ def load_picks(season: str) -> list[dict]:
         if p.get("status") == "applied" and p.get("global_pick")
     ]
     lines = {}
-    data = requests.get(COMPETITION_URL, timeout=30).json().get("data") or {}
+    response = requests.get(COMPETITION_URL, headers=HEADERS, timeout=30)
+    response.raise_for_status()
+    data = (response.json().get("data")) or {}
     for player in (data.get("players") or {}).values():
         lines[int(player["id"])] = POSITION_CODE.get(player.get("position"), "?")
     for pick in picks:
