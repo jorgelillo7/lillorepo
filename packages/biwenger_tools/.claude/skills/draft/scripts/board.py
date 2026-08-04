@@ -24,7 +24,6 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0])
 from archetypes import BANDS, NEED, POS, price_band  # noqa: E402
 
 from core.constants import DRAFT_ORDER_NAMES  # noqa: E402
-from core.sdk import firestore as fs  # noqa: E402
 
 # Median measured `real/projection`. Orders a list; does not compare magnitudes
 # across players — the ratio ranges from 0.225 to 0.610.
@@ -50,6 +49,10 @@ def my_picks(position, managers, rounds):
 
 
 def load_picks(season):
+    # Imported here so the pure helpers stay usable — and testable — without
+    # the Firestore client and its credentials.
+    from core.sdk import firestore as fs
+
     return sorted(
         (
             p
@@ -107,6 +110,23 @@ def board_state(market, picks):
     taken = {_norm(p.get("player_name")) for p in picks}
     free = [r for k, r in market.items() if k not in taken]
     return free, taken
+
+
+def spend_cap(free, held, line, budget_left):
+    """Most you can pay for `line` and still fill every other empty slot.
+
+    The trap this exists for: with four picks left and 3M, a 2.55M forward
+    looks affordable and is not — the other three slots still have to be paid
+    for. Reserves the cheapest available player per remaining mandatory slot.
+    """
+    reserve = 0
+    for other in POS:
+        if other == line:
+            continue
+        gap = max(0, NEED[other] - len(held.get(other, ())))
+        prices = sorted(r["price"] for r in free if r["pos"] == other)
+        reserve += sum(prices[:gap])
+    return budget_left - reserve
 
 
 def availability(market, picks, line, band):
@@ -212,16 +232,7 @@ def main():
     print(f"## Libres que te caben ({_eur(left_budget)} para {len(pending)} fichas)\n")
     for code in POS:
         gap = max(0, NEED[code] - len(by_line.get(code, [])))
-        # Every other mandatory slot still has to be paid for, at least at
-        # the cheapest player of its line.
-        reserve = 0
-        for other in POS:
-            if other == code:
-                continue
-            other_gap = max(0, NEED[other] - len(by_line.get(other, [])))
-            cheapest = sorted(r["price"] for r in free if r["pos"] == other)[:other_gap]
-            reserve += sum(cheapest)
-        cap = left_budget - reserve
+        cap = spend_cap(free, by_line, code, left_budget)
         pool = [r for r in free if r["pos"] == code and r["price"] <= cap]
         # Placeholders last: JP's default score is a top-decile number on a
         # 1.5M player, so ranking it inline hijacks the head of the list.
