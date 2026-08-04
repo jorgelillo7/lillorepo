@@ -142,7 +142,7 @@ class BiwengerClient:
         account_response.raise_for_status()
         account_data = account_response.json()
 
-        leagues = account_data.get("data", {}).get("leagues", [])
+        leagues = (account_data.get("data") or {}).get("leagues", [])
         for league in leagues:
             if str(league.get("id")) == self.league_id:
                 self.user_id = league.get("user", {}).get("id")
@@ -182,7 +182,7 @@ class BiwengerClient:
         """
         response = self.session.get(self.account_url)
         response.raise_for_status()
-        leagues = response.json().get("data", {}).get("leagues", [])
+        leagues = (response.json().get("data") or {}).get("leagues", [])
         for league in leagues:
             if str(league.get("id")) != self.league_id:
                 continue
@@ -212,7 +212,7 @@ class BiwengerClient:
         logger.info("Fetching league users...")
         response = self.session.get(league_users_url)
         response.raise_for_status()
-        standings = response.json().get("data", {}).get("standings", [])
+        standings = (response.json().get("data") or {}).get("standings", [])
         if not standings:
             return {}
         user_map = {
@@ -231,7 +231,7 @@ class BiwengerClient:
         """
         response = self.session.get(league_standings_url)
         response.raise_for_status()
-        standings = response.json().get("data", {}).get("standings", [])
+        standings = (response.json().get("data") or {}).get("standings", [])
         logger.info("Standings fetched.", extra={"count": len(standings)})
         return standings
 
@@ -377,14 +377,14 @@ class BiwengerClient:
         url = manager_squad_url_template.format(manager_id=manager_id)
         response = self.session.get(url)
         response.raise_for_status()
-        return response.json().get("data", {}).get("players", [])
+        return (response.json().get("data") or {}).get("players", [])
 
     def get_market_players(self, market_url: str) -> list:
         """Returns the players currently on the transfer market."""
         logger.info("Fetching market players...")
         response = self.session.get(market_url)
         response.raise_for_status()
-        market_players = response.json().get("data", {}).get("sales", [])
+        market_players = (response.json().get("data") or {}).get("sales") or []
         logger.info("Market players fetched.", extra={"count": len(market_players)})
         return market_players
 

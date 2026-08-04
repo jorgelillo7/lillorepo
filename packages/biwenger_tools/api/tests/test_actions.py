@@ -53,3 +53,51 @@ def test_run_teams_all_mode_continues_after_first_photo_fails():
     assert mock_send.call_count == 3  # me + 1 rival + mercado
     assert result["sent"] == 2  # only the two successes counted
     assert result["teams"] == 2
+
+
+def test_run_teams_all_mode_survives_a_broken_market():
+    """The squads are already in the chat when the market is read.
+
+    A closed market used to raise inside `get_market_players`, so the route
+    answered 500 *after* every squad photo had been delivered — the user saw
+    all the images arrive and then a bare error. The squads must still count
+    and the run must succeed.
+    """
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_league_users.return_value = {1: "Me", 2: "Rival"}
+    biwenger.get_manager_squad.return_value = []
+    biwenger.get_market_players.side_effect = AttributeError(
+        "'NoneType' object has no attribute 'get'"
+    )
+
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+    stack = ExitStack()
+    stack.enter_context(patch(_patches("config")))
+    stack.enter_context(patch(_patches("build_context"), return_value=ctx))
+    stack.enter_context(
+        patch(_patches("require_telegram"), return_value=("tok", "chat"))
+    )
+    stack.enter_context(patch(_patches("build_table_image"), return_value=b""))
+    stack.enter_context(
+        patch(_patches("send_image_or_text_fallback"), return_value=True)
+    )
+    notice = stack.enter_context(patch(_patches("send_telegram_message")))
+    try:
+        from packages.biwenger_tools.api.logic import actions
+
+        result = actions.run_teams(manager_id=None)
+    finally:
+        stack.close()
+
+    assert result["sent"] == 2  # me + rival landed
+    assert result["market"] == 0
+    notice.assert_called_once()
+    assert "Mercado" in notice.call_args.kwargs["text"]

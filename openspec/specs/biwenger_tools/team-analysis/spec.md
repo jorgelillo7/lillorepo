@@ -45,3 +45,27 @@ actually landed.
 - **THEN** every remaining squad and the market photo are still attempted, and
   `sent` counts only the successes
 - *Verifies:* `test_run_teams_all_mode_continues_after_first_photo_fails`
+
+---
+
+### Requirement: A missing market never fails the run
+
+The market SHALL be read after the squad images are already delivered, and a
+failure reading or rendering it SHALL be reported in the chat without failing
+the request.
+
+Returning 5xx at that point is the worst outcome available: every squad photo
+has landed, so the work succeeded and the bot still shows a bare error.
+
+Biwenger answers a disabled market with `200` and a **null** payload, which is
+not the same as an empty one — `.get("data", {})` yields `None` for a key that
+is present and null, so any chained lookup raises. Payload unwrapping in the
+SDK SHALL treat null and missing alike.
+
+#### Scenario: the market is closed
+- **WHEN** the market payload is null, or its sales are null **THEN** the SDK returns
+  an empty list rather than raising
+- **WHEN** reading the market fails during an all-managers run **THEN** the squads
+  still count, a notice is posted, and the request succeeds
+- *Verifies:* `test_get_market_players_when_the_market_is_disabled`,
+  `test_run_teams_all_mode_survives_a_broken_market`
