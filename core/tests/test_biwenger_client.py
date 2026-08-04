@@ -188,6 +188,21 @@ def test_get_market_players(biwenger_client_authenticated, load_json_fixture):
         assert len(market_players) == 2
 
 
+def test_get_market_players_when_the_market_is_disabled(biwenger_client_authenticated):
+    """A closed market answers 200 with a null payload, not an empty list.
+
+    `.get("data", {})` returns None for a key that is present and null — the
+    default only fires when the key is missing — so chaining `.get("sales")`
+    off it raised AttributeError and turned `/teams` into a 500 after every
+    squad photo had already been delivered.
+    """
+    client = biwenger_client_authenticated
+    for payload in ({"data": None}, {"data": {"sales": None}}, {}):
+        with requests_mock.Mocker() as m:
+            m.get(TEST_MARKET_URL, json=payload, status_code=200)
+            assert client.get_market_players(TEST_MARKET_URL) == []
+
+
 # --- Paginators ---
 
 

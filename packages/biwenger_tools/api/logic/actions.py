@@ -12,6 +12,7 @@ import time
 import requests
 
 from core.sdk.telegram import (
+    send_telegram_message,
     send_telegram_message_or_raise,
     send_telegram_photo_or_raise,
 )
@@ -175,12 +176,26 @@ def run_teams(manager_id: int | None = None) -> dict:
         if send_image_or_text_fallback(token, chat_id, img, f"👤 {manager_name}"):
             sent_count += 1
 
-    market_players = biwenger.get_market_players(config.MARKET_URL)
-    market_rows = build_market_rows(market_players, biwenger_players, jp_index)
-    if send_image_or_text_fallback(
-        token, chat_id, build_table_image(market_rows, "🛒 Mercado"), "🛒 Mercado"
-    ):
-        sent_count += 1
+    # The squads are already in the chat by now, so a market failure must not
+    # turn the whole run into a 500 — the user would see every photo arrive and
+    # then a bare error. The market is also the section most likely to fail:
+    # it is off-season for months a year, and Biwenger answers a disabled
+    # market with a payload that carries no sales at all.
+    market_rows: list[dict] = []
+    try:
+        market_players = biwenger.get_market_players(config.MARKET_URL)
+        market_rows = build_market_rows(market_players, biwenger_players, jp_index)
+        if send_image_or_text_fallback(
+            token, chat_id, build_table_image(market_rows, "🛒 Mercado"), "🛒 Mercado"
+        ):
+            sent_count += 1
+    except Exception:
+        logger.exception("Market section failed; squads already sent.")
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text="⚠️ <b>Mercado</b> no disponible. Los equipos sí han salido.",
+        )
 
     logger.info(
         "All-teams analysis sent.",
