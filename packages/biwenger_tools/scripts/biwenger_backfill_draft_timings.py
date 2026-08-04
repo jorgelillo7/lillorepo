@@ -7,7 +7,7 @@ which identify a pick uniquely.
 
 Read-only by default. Pass `--write` to persist.
 
-    python3 packages/biwenger_tools/api/scripts/backfill_draft_timings.py \\
+    python3 packages/biwenger_tools/scripts/biwenger_backfill_draft_timings.py \\
         --season 26-27 --freshness 72h [--write]
 """
 
