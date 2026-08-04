@@ -23,12 +23,18 @@ point of them existing.
 
 | Path | Reads | Writes |
 |---|:-:|:-:|
-| `packages/biwenger_tools/.claude/skills/draft/scripts/` | ✅ | ❌ nothing, ever |
+| `packages/biwenger_tools/.claude/skills/draft/scripts/` | ✅ | 📄 local files only |
 | `/packages/biwenger_tools/scripts/draft/` | ✅ | ✅ Firestore, the bucket, the group chat |
 
-The skill's scripts only ever produce analysis for you to decide with. The
-package's scripts move real state: `open.py` greets the league and starts the
-clock, `reset.py` wipes the picks, `backfill_timings.py` rewrites history.
+The skill's scripts only ever produce analysis for you to decide with — reports
+and CSVs on your disk, never shared state. The package's scripts move the real
+thing: `open.py` greets the league and starts the clock, `close.py` shuts the
+door and writes the season's history, `reset.py` wipes the picks,
+`backfill_timings.py` rewrites history.
+
+The one crossing is deliberate and one-way: `close.py` shells out to the skill's
+`availability_report.py` for the history file, because Cloud Run cannot write to
+this repo and nothing else would ever produce it.
 
 Never reach for one when you mean the other.
 

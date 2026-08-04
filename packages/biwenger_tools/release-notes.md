@@ -2,6 +2,20 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v8.2 - The Draft, Measured (4 August 2026)**
+
+Shipped mid-draft, which is how most of it was found. The squad builder ranked players by a projection of a scoring system this league does not use, the plan was written once and never revisited, and the draft had no notion of being over. Three assumptions, all wrong, all corrected against the 105 picks actually happening in the room.
+
+* **📊 Real points instead of a projection (the headline)**: Jornada Perfecta projects *SofaScore*; this league scores *Personalizado*, and the measured ratio between them ranges from **0.225 to 0.610** — no constant makes them comparable. `fetch_real_points.py` now computes each player's true total from per-match `rawStats` for a bounded shortlist, and the generator ranks on that where it has it and on a **per-line calibrated** projection where it does not. The gap is not academic: Dmitrović was the *sixth* goalkeeper by projection and the *first* by real points, and Sadiq projected 152 against 91 real.
+* **⏱️ Starts, not appearances**: a substitute's total does not transfer to a starting slot — every play and win bonus in this league needs **more than 65 minutes**. Iago Aspas scored 143 points across 32 appearances having started 10 of 38. Rankings now surface starts and minutes-per-game alongside the total, which is what turned a 0.66M defender with 19/38 starts into a better buy than a dearer one with 14/38.
+* **🔒 The draft now ends**: after the final pick the bot happily kept accepting `/pick` and `/deshacer` — and `/deshacer` is a real `release_player` + `apply_bonus`, so run in October it does not undo a draft pick, it **sells a player mid-season**. The last pick now closes the draft and a closed draft rejects both writes before ever contacting Biwenger. `open.py` and the new `close.py` bracket the whole thing, dry-run by default.
+* **🔁 A plan you recalibrate, not a plan you follow**: `final-decision.md` rots with every rival pick — by pick 73 half its names were gone. Two new read-only scripts fix that: **`board.py`** recomputes what you hold, what you can still afford (reserving the cost of every mandatory slot you have not filled) and who is free, straight from Firestore; **`risers.py`** diffs two market exports to show who the league is actually buying, which in pre-season is pure demand and the closest thing to a starting-XI leak.
+* **📦 A history that feeds next year**: `close.py` writes `history/{season}.md` and a machine-readable `.csv` the next draft reads, plus a versioned exclusions file recording **why** each player was cut. Both are committed; everything else the skill produces stays local. Firestore only holds 26-27 onwards, so 27-28 is the first draft with a real reference model.
+* **🙅 A column that stopped lying**: the availability model claimed to predict whether a specific pick would survive to your turn. It divided by the players of that band who *end up drafted* rather than the ones who *exist*, and flagged Gerard Moreno as unreachable at pick 17 — he went undrafted across all 105. Two rewrites failed too (a draft consumes a fifth of the market; nobody buys a price band in quality order), so it now reports the measured drain, `gone/supply`, and claims nothing more.
+* **🗂️ Skills scoped to their package**: the Biwenger-specific `draft` and `season-rollover` skills moved out of the repo root into `packages/biwenger_tools/.claude/`, where Claude Code prefers them when you work inside that package. Operational scripts got grouped by subject (`scripts/draft/`, `scripts/scraper/`) instead of sharing one flat folder.
+
+---
+
 ### **v8.1 - Specs, and Tests That Bite (26 July 2026)**
 
 No new buttons — this one hardens the foundations. The behaviour the platform *must* keep was scattered across test docstrings, memory and ops docs; now it lives in one place, the coverage gauge that read zero reads real numbers, and the auto-bid engine got put through a gauntlet that hunts tests which only *look* like they protect you.
