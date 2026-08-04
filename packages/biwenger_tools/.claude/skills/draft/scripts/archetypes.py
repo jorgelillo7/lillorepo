@@ -258,32 +258,32 @@ def read_history(path):
     return {k: sorted(v) for k, v in history.items()}
 
 
-def survival(history, line, band, pick):
-    """Share of that line+band still on the board at `pick`, last time round.
+def band_supply(rows):
+    """`{(line, band): how many exist}` — what the drain is measured against."""
+    return dict(Counter((r["pos"], price_band(r["price"])) for r in rows))
 
-    The optimiser builds the ideal fifteen as if every player were purchasable.
-    They are not: at position 3 of 7, nine players leave the board between your
-    first pick and your second. This is the correction — measured, not guessed.
 
-    Returns None when the reference draft has too few players of that kind to
-    say anything.
+def drain(history, supply, line, band, pick):
+    """`(gone, supply)` — picks spent on that line+band before `pick`, last time.
+
+    Deliberately a count and not a verdict on the named player. One draft
+    consumes ~20% of the market, rivals do not buy a band in quality order, and
+    the top band has no ceiling — a 6M forward shares it with a 25M one. Any
+    per-player probability squeezed out of that is invention; the drain is the
+    most the evidence supports.
     """
-    taken = history.get((line, band))
-    if not taken or len(taken) < 4:
+    total = supply.get((line, band), 0)
+    if not total:
         return None
-    gone = sum(1 for p in taken if p < pick)
-    return 1 - gone / len(taken)
+    return sum(1 for p in history.get((line, band), ()) if p < pick), total
 
 
-def risk_cell(rate):
-    """How likely the plan's man is to survive to that pick."""
-    if rate is None:
+def drain_cell(got):
+    """`gone/supply`, bolded only when the band was genuinely emptied."""
+    if not got:
         return "—"
-    if rate >= 0.5:
-        return "✅"
-    if rate >= 0.25:
-        return "⚠️"
-    return "🔥"
+    gone, total = got
+    return f"**{gone}/{total}**" if gone >= total else f"{gone}/{total}"
 
 
 def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=None):
@@ -593,11 +593,11 @@ def alternatives(squad, rows, player, n=3):
     return sorted(pool, key=lambda r: -r["sf"])[:n]
 
 
-def _survives(history, row, slot):
-    """Survival rate for this row at its planned pick, or None."""
+def _drained(history, supply, row, slot):
+    """Band drain at this row's planned pick, or None."""
     if not history or not slot:
         return None
-    return survival(history, row["pos"], price_band(row["price"]), slot)
+    return drain(history, supply, row["pos"], price_band(row["price"]), slot)
 
 
 def decision_sheet(
@@ -616,6 +616,7 @@ def decision_sheet(
         else [(None, r) for r in ordered]
     )
 
+    supply = band_supply(rows)
     o = [
         f"# Decisión final — {name}",
         "",
@@ -625,7 +626,7 @@ def decision_sheet(
         "## Los 15, en orden de pick",
         "",
         "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
-        "| Pts/M | Fuente | ¿Llega? | XI | © |",
+        "| Pts/M | Fuente | Vaciado | XI | © |",
         "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
@@ -634,7 +635,7 @@ def decision_sheet(
             f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']} "
             f"| {r['team']} | {r['price'] / 1e6:.2f}M "
             + data_cells(r)
-            + f"| {risk_cell(_survives(history, r, slot))} "
+            + f"| {drain_cell(_drained(history, supply, r, slot))} "
             + f"| {'★' if r['name'] in starters else ''} | {mark} |"
         )
     o += [
@@ -648,10 +649,11 @@ def decision_sheet(
         "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
         "`+1 por victoria`) exigen pasar de 65 minutos.",
         "",
-        "**¿Llega?** es cuántos de su línea y banda de precio seguían libres "
-        "a esa altura en el draft de referencia: ✅ más de la mitad · ⚠️ entre un "
-        "cuarto y la mitad · 🔥 casi ninguno, adelántalo o ten el recambio "
-        "elegido. Es medido, no intuido.",
+        "**Vaciado** es cuántos de su línea y banda de precio se habían ido a "
+        "esa altura en el draft de referencia, sobre los que existen. En "
+        "negrita, la banda entera se agotó. Es el desgaste de la banda, no una "
+        "probabilidad sobre él: nadie compra una banda por orden de calidad y "
+        "un draft solo consume un quinto del mercado.",
         "",
         "Fuente: ✅ titular con dato real · 🪑 real pero suplente "
         f"(menos de {STARTER_THRESHOLD}/38) · ⚠️ real pero de menos de "
