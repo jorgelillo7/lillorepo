@@ -32,3 +32,7 @@ bazel-*
 # directory, but the generator writes to the repo root by default.
 mi-*.md
 draft-ranked*.csv
+
+# Claude Code per-machine permission allow-list. Local by nature, and it
+# accumulates whole command lines — which is how an API key ends up in it.
+.claude/settings.local.json
