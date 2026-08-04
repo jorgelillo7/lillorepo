@@ -90,14 +90,14 @@ def main() -> int:
     args = ap.parse_args()
 
     season = config.DRAFT_SEASON
-    state = draft_service._load_state()
+    state = draft_service.load_state()
     pending = draft.whose_turn(state)
     total = len(state.order) * draft.NUM_ROUNDS
-    already = draft_service._lifecycle().get("closed")
+    already = draft_service.lifecycle().get("closed")
 
     print(f"Season   : {season}")
     print(f"Picks    : {len(state.picks)} de {total}")
-    print(f"Turno    : {'—' if pending is None else draft_service._mention(pending)}")
+    print(f"Turno    : {'—' if pending is None else draft_service.mention(pending)}")
     print(f"Estado   : {'ya cerrado' if already else 'abierto'}")
 
     if already:

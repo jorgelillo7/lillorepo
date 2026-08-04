@@ -6,7 +6,8 @@ composition, records every pick in Firestore, and — behind a gate — applies 
 transfer in Biwenger.
 
 - **Source:** `packages/biwenger_tools/api/logic/draft.py` (pure engine),
-  `api/logic/draft_service.py` (persistence + orchestration),
+  `api/logic/draft_service/` (persistence + orchestration, split by concern:
+  `store` · `managers` · `state` · `market` · `picks`),
   `api/app.py` (`/draft/*`), `packages/biwenger_tools/bot/app.py` (group routing),
   `core/sdk/biwenger.py` (admin operations)
 - **Verified by:** `api/tests/test_draft.py`, `api/tests/test_draft_service.py`,

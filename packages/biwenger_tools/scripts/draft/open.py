@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 
+from core.constants import LEAGUE_MEMBERS
 from core.sdk.telegram import send_telegram_message
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service
@@ -63,8 +64,8 @@ def main() -> int:
     with open(args.csv, encoding="utf-8-sig") as fh:
         players = max(0, sum(1 for _ in fh) - 1)
 
-    state = draft_service._load_state()
-    order = " · ".join(draft_service.LEAGUE_MEMBERS.get(m, str(m)) for m in state.order)
+    state = draft_service.load_state()
+    order = " · ".join(LEAGUE_MEMBERS.get(m, str(m)) for m in state.order)
     text = WELCOME.format(season=config.DRAFT_SEASON, players=players, order=order)
     rounds = len(state.order) * draft.NUM_ROUNDS
 
