@@ -35,7 +35,7 @@ token and reuses `core.sdk.jp.fetch_all_players` + the production
 `player_matching`):
 
 ```bash
-PYTHONPATH=. python3 .claude/skills/draft/scripts/draft_ranking.py \
+PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/draft_ranking.py \
     --csv /path/to/primera-division.csv --out draft-ranked.csv
 ```
 
@@ -62,7 +62,7 @@ Narrow the market to the **30-45 players that actually compete** for the slots
 still open (line, price band, availability), then fetch only those:
 
 ```bash
-PYTHONPATH=. python3 .claude/skills/draft/scripts/fetch_real_points.py \
+PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/fetch_real_points.py \
     --shortlist draft-shortlist.csv --out draft-real-points.csv
 ```
 
@@ -71,7 +71,7 @@ reports **games played** alongside it. Both matter: *70 points in 5 games and
 70 in 38 describe opposite players*. Feed it back in:
 
 ```bash
-PYTHONPATH=. python3 .claude/skills/draft/scripts/archetypes.py \
+PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/archetypes.py \
     --ranked draft-ranked.csv --real-points draft-real-points.csv \
     --budget 52 --pick-position 3 --managers 7 --max-per-team 2 \
     --out mi-arquetipos.md --decision final-decision.md
@@ -226,7 +226,7 @@ Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
 ### La llamada completa, tal cual se usó en el draft 26/27
 
 ```bash
-python3 .claude/skills/draft/scripts/archetypes.py \
+python3 packages/biwenger_tools/.claude/skills/draft/scripts/archetypes.py \
     --ranked draft-ranked.csv --budget 52 --pick-position 3 --managers 7 \
     --exclude "Aubameyang,Soler,Kike Salas" \
     --bets "Fer Niño,Carlos Maciá,Riedel,Pablo Campos,Odysseas,Marc Bernal,Unai López,Adrián Niño,Julio Díaz" \

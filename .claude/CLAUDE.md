@@ -10,9 +10,38 @@ Claude-specific notes for this repository.
 
 ## Claude-Specific Surface
 
-- Skills: `.claude/skills/`
+- Skills: `.claude/skills/` — **generic only** (see below)
 - Hooks: `.claude/hooks/`
 - Runtime config: `.claude/settings.json`
+
+## Where a skill belongs
+
+**Generic here, domain in its package.** A skill lives at the root only if it
+would still make sense in a repo that had never heard of Biwenger. Anything
+that assumes a package's domain lives in that package's own `.claude/skills/`,
+and Claude Code prefers it over a root skill of the same name when you are
+working inside that package.
+
+| Scope | Location | Index |
+|---|---|---|
+| Repo-wide | `.claude/skills/` | this file |
+| `biwenger_tools` | [`packages/biwenger_tools/.claude/`](../packages/biwenger_tools/.claude/CLAUDE.md) | its own `CLAUDE.md` |
+
+Each `.claude/` indexes only its own skills. Adding a package-scoped skill
+means creating that package's `.claude/CLAUDE.md` if it has none yet — an
+unindexed skill is one nobody remembers exists.
+
+### Generic skills
+
+| Skill | When |
+|---|---|
+| `add-python-dep` | Adding a PyPI dependency — keeps the five dependency layers in sync. |
+| `check-deps` | Snapshot the pinned versions (Bazel, Python, modules, Actions). |
+| `docs-audit` | Hunt broken links and drifted cross-references across every doc. |
+| `release-notes` | Write a package's release-notes entry from recent commits. |
+| `rpi-research` · `rpi-plan` · `rpi-implement` · `rpi-common` | The research → plan → implement workflow. |
+| `jira-cli` | Anything Jira. |
+| `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 
 ## Key References
 

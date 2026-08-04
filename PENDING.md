@@ -78,7 +78,7 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 ### Skill de draft
 
 Todo lo aprendido en el draft 26-27. La skill vive en
-`.claude/skills/draft/`; estos son sus arreglos pendientes.
+`packages/biwenger_tools/.claude/skills/draft/`; estos son sus arreglos pendientes.
 
 - **Draft skill — the generator ignores that this is a draft.** It builds the
   ideal 15 as if every player were purchasable, but picks are taken in snake
