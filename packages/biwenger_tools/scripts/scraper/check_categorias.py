@@ -54,7 +54,10 @@ def main() -> None:
         return
     for fecha, autor, titulo, change in sorted(drift):
         print(f"  {fecha:20s}  {autor:30s}  {titulo!r:40s}  {change}")
-    print("\nRun packages/biwenger_tools/scripts/scraper/recategorise.py " f"{season} --apply  to fix these.")
+    print(
+        "\nRun packages/biwenger_tools/scripts/scraper/recategorise.py "
+        f"{season} --apply  to fix these."
+    )
 
 
 if __name__ == "__main__":
