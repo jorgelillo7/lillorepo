@@ -18,10 +18,10 @@ Default is dry-run; pass ``--apply`` to actually write Firestore.
 Usage::
 
     # Inspect what would change for the current season
-    python3 scripts/biwenger_recategorise.py 25-26
+    python3 packages/biwenger_tools/scripts/scraper/recategorise.py 25-26
 
     # Apply, also reassigning a stale author fallback
-    python3 scripts/biwenger_recategorise.py 25-26 --apply \\
+    python3 packages/biwenger_tools/scripts/scraper/recategorise.py 25-26 --apply \\
         --autor-alias 'Autor Desconocido=#NOALOSCLAUSULAZOS'
 """
 

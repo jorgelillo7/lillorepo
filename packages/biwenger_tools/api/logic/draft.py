@@ -209,61 +209,86 @@ def state_from_dict(data: Mapping) -> DraftState:
 
 
 # ---------------------------------------------------------------------------
-# Squad composition: valid XI + 1 sub per line
+# Squad composition: the fifteen must be able to field some legal XI
 # ---------------------------------------------------------------------------
 
-
-def composition_ok(counts: Mapping[int, int]) -> bool:
-    """True iff `counts` (position_id -> player count) can field a valid XI
-    plus at least one substitute per line: >= 2 GK, and DEF/MID/FWD each at
-    starters+1 for some formation `FORMATIONS` accepts."""
-    if counts.get(GK, 0) < 2:
-        return False
-    for _, n_def, n_mid, n_fwd in FORMATIONS:
-        if (
-            counts.get(DEF, 0) >= n_def + 1
-            and counts.get(MID, 0) >= n_mid + 1
-            and counts.get(FWD, 0) >= n_fwd + 1
-        ):
-            return True
-    return False
+_LINES = (GK, DEF, MID, FWD)
+# Every subset of the four lines, for the min-cut below.
+_LINE_SUBSETS = tuple(
+    frozenset(line for k, line in enumerate(_LINES) if mask >> k & 1)
+    for mask in range(1 << len(_LINES))
+)
 
 
-def composition_reachable(counts: Mapping[int, int], remaining_slots: int) -> bool:
-    """True iff some distribution of `remaining_slots` more players over
-    GK/DEF/MID/FWD could make `composition_ok(counts)` true.
+def eligible_lines(player: Mapping) -> frozenset:
+    """Every line this player can be fielded in.
 
-    Extra players beyond a formation's minimum never hurt (`composition_ok`
-    only checks a lower bound per line), so it is enough to check whether the
-    cheapest-to-complete formation fits within `remaining_slots`.
+    Biwenger hands 107 of 553 players an `altPositions` list, and ignoring it
+    reads a DEL/MED hybrid as a pure forward — which is how a squad of five
+    forwards, all of whom could play midfield, was told it had no legal future.
+    """
+    lines = {player.get("position")}
+    lines.update(player.get("altPositions") or ())
+    return frozenset(line for line in lines if line in _LINES)
+
+
+def _shortfall(
+    eligibilities: Sequence[frozenset], requirement: Mapping[int, int]
+) -> int:
+    """How many more players `requirement` still needs, given what is held.
+
+    A multi-position player covers whichever line the formation is short of, so
+    a per-line count understates the squad. This is the max-flow answer, read
+    off its min cut: choose a set of lines to give up on, pay their requirement
+    plus one for every held player who can only play inside that set. Sixteen
+    subsets, so enumerating them is exact and instant.
+    """
+    usable = min(
+        sum(requirement[line] for line in subset)
+        + sum(1 for e in eligibilities if not e <= subset)
+        for subset in _LINE_SUBSETS
+    )
+    return sum(requirement.values()) - usable
+
+
+def _requirements():
+    """One `{line: needed}` per formation Biwenger accepts. Eleven players, one
+    keeper — `4-6-0` is on the list, so a squad with no forward at all is legal."""
+    return ({GK: 1, DEF: d, MID: m, FWD: f} for _, d, m, f in FORMATIONS)
+
+
+def squad_lines(player_ids: Iterable[int], players: Mapping[int, Mapping]) -> list:
+    """Eligibility per drafted player, skipping anyone the market cannot place
+    (coaches come back as position 5)."""
+    out = []
+    for pid in player_ids:
+        lines = eligible_lines(players.get(pid) or {})
+        if lines:
+            out.append(lines)
+    return out
+
+
+def composition_reachable(
+    eligibilities: Sequence[frozenset], remaining_slots: int
+) -> bool:
+    """True iff the squad can still field some legal XI within `remaining_slots`.
+
+    Only the eleven are checked. The bench is free: the reglamento asks for a
+    fieldable XI, and with twelve formations accepted there is almost always
+    one that fits what you already hold — blocking a pick on the shape of the
+    *bench* rejected picks that were perfectly legal.
     """
     if remaining_slots < 0:
         return False
-    gk, d, m, f = (
-        counts.get(GK, 0),
-        counts.get(DEF, 0),
-        counts.get(MID, 0),
-        counts.get(FWD, 0),
+    return any(
+        _shortfall(eligibilities, requirement) <= remaining_slots
+        for requirement in _requirements()
     )
-    for _, n_def, n_mid, n_fwd in FORMATIONS:
-        needed = (
-            max(0, 2 - gk)
-            + max(0, n_def + 1 - d)
-            + max(0, n_mid + 1 - m)
-            + max(0, n_fwd + 1 - f)
-        )
-        if needed <= remaining_slots:
-            return True
-    return False
 
 
-def _position_counts(player_ids: Iterable[int], players: Mapping[int, Mapping]) -> dict:
-    counts = {GK: 0, DEF: 0, MID: 0, FWD: 0}
-    for pid in player_ids:
-        pos = (players.get(pid) or {}).get("position")
-        if pos in counts:
-            counts[pos] += 1
-    return counts
+def composition_ok(eligibilities: Sequence[frozenset]) -> bool:
+    """True iff these players can field a legal XI right now."""
+    return composition_reachable(eligibilities, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -370,13 +395,13 @@ def validate_pick(
                 f"{cheapest:,} EUR cada uno).",
             )
 
-    counts_after = _position_counts(squad + [player_id], players)
-    if not composition_reachable(counts_after, remaining_slots):
+    lines_after = squad_lines(squad + [player_id], players)
+    if not composition_reachable(lines_after, remaining_slots):
         return PickResult(
             False,
             DraftError.COMPOSITION_INFEASIBLE,
-            "Esa compra deja imposible completar una plantilla válida "
-            "(XI + 1 suplente por línea).",
+            "Esa compra deja imposible formar un once legal con los huecos "
+            f"que te quedan ({remaining_slots}).",
         )
 
     return PickResult(True, None, "Fichaje válido.")

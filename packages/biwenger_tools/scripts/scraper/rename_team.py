@@ -12,7 +12,7 @@ Default is dry-run; pass ``--apply`` to actually write to Firestore.
 
 Usage::
 
-    python3 scripts/biwenger_rename_team.py 25-26 \\
+    python3 packages/biwenger_tools/scripts/scraper/rename_team.py 25-26 \\
         --old Usuario --new '#NOALOSCLAUSULAZOS' [--apply]
 """
 

@@ -91,14 +91,14 @@ SA-repoint work. Root-caused and fix documented in `PENDING.md`
 | **Container registry** | Artifact Registry `biwenger-docker` + `be-water-docker` | Multi-arch `python-base` + per-service images; concurrency-gated cleanup post-deploy covers both repos |
 | **CI/CD** | GitHub Actions `deploy.yml` | Detect changed → lint → test → per-module deploy (incl. cross-project `be-water` via WIF) → cleanup; `workflow_dispatch` fallback |
 | **Lint / format** | flake8 + black (88 cols), hermetic via Bazel | CI gate before tests |
-| **Tests** | pytest + requests-mock + MagicMock — 7 suites (core + 4 biwenger + chucknorris + be_water) | See _Test coverage_ below |
+| **Tests** | pytest + requests-mock + MagicMock — 8 suites (core + 4 biwenger + the draft skill's scripts + chucknorris + be_water) | See _Test coverage_ below |
 | **Domain models** | `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares` (biwenger); `Water`, per-field provenance (be_water) | Symmetric `from_firestore` / `to_firestore` |
 | **Image rendering** | Squad / market tables → PNG; be_water studio photos | matplotlib (biwenger) · Gemini image gen (be_water) |
 | **Security** | webhook secret HMAC, OIDC service-to-service, ADC for Firestore, HTML sanitisation (bleach), CSRF tokens + per-IP rate limits (be_water), timing-safe admin login | Zero key files in the Firestore code path |
 | **Cost controls** | €1 budget per project (+1 for Gemini), log retention 7d, `min-instances=0`, free-tier ceilings respected, AR cleanup script, prepaid Gemini credits (hard cap) | `scripts/check-gcp-costs.sh` audits both projects + account totals |
 | **Observability** | Structured JSON logs via `core.utils.get_logger` | Cloud Logging only — alerts intentionally out of scope (see below) |
 | **Documentation** | repo-wide `operations.md` + per-package `OPERATIONS.md`, `gcp.md`, `firestore.md` (both projects), `INFRA.md`, per-package DESIGN.md + release-notes, `frida-android-intercept.md` | Maintained, no orphan docs |
-| **AI / agents** | `.claude/skills/`, `.claude/hooks/`, AGENTS.md; memory deliberately empty | Claude Code workflow integrated |
+| **AI / agents** | `.claude/skills/` (generic) + per-package `packages/*/.claude/skills/` (domain), `.claude/hooks/`, AGENTS.md; memory deliberately empty | Claude Code workflow integrated; scoped skills win inside their package |
 | **AI in product** | `core/sdk/gemini.py` — label OCR (free tier) + image generation (prepaid), retries on 429/503 | be_water photo-first add flow + admin studio |
 
 ---
@@ -121,6 +121,7 @@ must be true) that each scenario links back to its test.
 | core | 77% | SDK boundaries; rest is network I/O |
 | chucknorris bot | 76% | small surface, fully behaviour-covered |
 | biwenger api / bot | ~75% | load-bearing logic covered; uncovered is I/O + one-shot scripts |
+| draft skill scripts | **not measured** | 32 tests run in CI, but `bazel coverage` does not instrument a package under a dot directory (`.claude/`), so these lines are outside the percentages above |
 
 Beyond line coverage, a **mutation-testing** pilot on the auto-bid engine
 (259 mutants, ~70% killed after closing three real boundary gaps) confirms the

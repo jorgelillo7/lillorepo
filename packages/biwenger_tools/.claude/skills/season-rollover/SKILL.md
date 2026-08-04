@@ -96,13 +96,13 @@ flag to push:
 set -a && source packages/biwenger_tools/scraper_job/.env && set +a
 
 # Preview (no Firestore write)
-python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
+python packages/biwenger_tools/.claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
   --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono" \
   --cup-winner "santa-cup=Fabio=Rayo Entrebirras" \
   --cup-winner "castolo-cup=Jorge=Farolillo Oracle United"
 
 # Push to Firestore once the preview looks right
-python .claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
+python packages/biwenger_tools/.claude/skills/season-rollover/scripts/fetch_palmares.py <current_season> \
   --abandoned-user "Alberto=#NOALOSCLAUSULAZOS=abandono" \
   --cup-winner "santa-cup=Fabio=Rayo Entrebirras" \
   --cup-winner "castolo-cup=Jorge=Farolillo Oracle United" \
@@ -143,7 +143,7 @@ written in Step 2b holds the final classification, and the draft order is its
 reverse. Read it and propose that reversal:
 
 ```bash
-python3 .claude/skills/season-rollover/scripts/suggest_draft_order.py <ending_season>
+python3 packages/biwenger_tools/.claude/skills/season-rollover/scripts/suggest_draft_order.py <ending_season>
 ```
 
 The script inverts the final classification, drops non-playing accounts (which

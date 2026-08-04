@@ -130,41 +130,65 @@ def test_default_budget_overrides_apply_to_exactly_one_manager():
     assert list(BUDGET_OVERRIDES.values()) == [52_000_000]
 
 
-# --- squad composition: valid XI + 1 sub per line ---------------------------
+# --- squad composition: the fifteen must field some legal XI ----------------
 
 
-def _counts(gk=0, d=0, m=0, f=0):
-    return {GK: gk, DEF: d, MID: m, FWD: f}
+def _lines(gk=0, d=0, m=0, f=0, hybrids=()):
+    """Eligibility sets for a squad. `hybrids` takes explicit line tuples."""
+    squad = [frozenset({GK})] * gk
+    squad += [frozenset({DEF})] * d
+    squad += [frozenset({MID})] * m
+    squad += [frozenset({FWD})] * f
+    return squad + [frozenset(h) for h in hybrids]
 
 
-def test_composition_ok_true_when_a_formation_and_its_subs_fit():
-    # 3-4-3 needs DEF>=4, MID>=5, FWD>=4 (starters+1); this squad clears it.
-    assert composition_ok(_counts(gk=2, d=4, m=7, f=4)) is True
+def test_composition_ok_true_when_some_formation_fits():
+    # 4-4-2 needs 1 GK, 4 DEF, 4 MID, 2 FWD.
+    assert composition_ok(_lines(gk=1, d=4, m=4, f=2)) is True
 
 
-def test_composition_ok_false_with_only_one_goalkeeper():
-    assert composition_ok(_counts(gk=1, d=4, m=7, f=4)) is False
+def test_one_goalkeeper_is_enough():
+    """Only the eleven are checked, and eleven need one keeper. The reglamento
+    allows a single-keeper squad — it just makes him unclausable all season."""
+    assert composition_ok(_lines(gk=1, d=4, m=4, f=2)) is True
+    assert composition_ok(_lines(gk=0, d=5, m=4, f=2)) is False
 
 
-def test_composition_ok_false_when_every_line_is_too_thin():
-    # every formation needs DEF>=3 (min n_def is 3): 2 can never clear it.
-    assert composition_ok(_counts(gk=2, d=2, m=2, f=2)) is False
+def test_a_squad_with_no_forward_is_legal():
+    """`4-6-0` is a formation Biwenger accepts, so zero forwards is a shape,
+    not a broken squad."""
+    assert composition_ok(_lines(gk=1, d=4, m=6, f=0)) is True
 
 
-def test_composition_reachable_from_scratch_matches_squad_size():
-    """With nothing drafted yet, every formation's minimum (2 GK + 10
-    outfield with subs) sums to exactly SQUAD_SIZE — so an empty squad is
-    reachable with SQUAD_SIZE more picks, and not with one fewer."""
-    assert composition_reachable({}, NUM_ROUNDS) is True
-    assert composition_reachable({}, NUM_ROUNDS - 1) is False
+def test_composition_ok_false_when_a_line_can_never_be_filled():
+    # Every formation needs at least 2 MID (4-2-4); one can never clear it.
+    assert composition_ok(_lines(gk=1, d=5, m=1, f=4)) is False
+
+
+def test_multi_position_players_cover_the_line_that_is_short():
+    """The regression that blocked a live pick: five forwards who can all play
+    midfield are not five forwards, and counting them as such declared a legal
+    squad impossible."""
+    pure = _lines(gk=1, d=4, m=0, f=6)
+    hybrid = _lines(gk=1, d=4, hybrids=[(FWD, MID)] * 6)
+
+    assert composition_ok(pure) is False
+    assert composition_ok(hybrid) is True
+
+
+def test_composition_reachable_from_scratch_needs_only_the_eleven():
+    """An empty squad needs eleven more players, not fifteen: the four on the
+    bench can be anybody."""
+    assert composition_reachable([], 11) is True
+    assert composition_reachable([], 10) is False
 
 
 def test_composition_reachable_false_with_negative_slots():
-    assert composition_reachable(_counts(gk=2, d=5, m=5, f=5), -1) is False
+    assert composition_reachable(_lines(gk=2, d=5, m=5, f=5), -1) is False
 
 
 def test_composition_reachable_true_when_already_valid_with_zero_slots_left():
-    assert composition_reachable(_counts(gk=2, d=4, m=5, f=4), 0) is True
+    assert composition_reachable(_lines(gk=1, d=4, m=5, f=2), 0) is True
 
 
 # --- validate_pick / apply_pick ------------------------------------------
@@ -281,8 +305,8 @@ def test_validate_pick_accepts_when_budget_feasibility_holds():
 
 
 def test_validate_pick_rejects_composition_infeasible_on_final_slot():
-    """Last pick of the draft (0 slots remain after it): the final position
-    counts must already clear `composition_ok` on their own."""
+    """Last pick of the draft (0 slots remain after it): the squad must already
+    field a legal XI on its own."""
     state = DraftState(
         order=[1, 2],
         budgets={1: 50_000_000, 2: 50_000_000},

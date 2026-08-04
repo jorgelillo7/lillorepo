@@ -7,7 +7,7 @@ which identify a pick uniquely.
 
 Read-only by default. Pass `--write` to persist.
 
-    python3 packages/biwenger_tools/api/scripts/backfill_draft_timings.py \\
+    python3 packages/biwenger_tools/scripts/draft/backfill_timings.py \\
         --season 26-27 --freshness 72h [--write]
 """
 
@@ -111,7 +111,16 @@ def main() -> None:
             {"applied_at": at, "waited_seconds": waited, "timing_backfilled": True},
             merge=True,
         )
-    print(f"Escritos {len(rows)} picks.")
+    # Live tracking measures each wait against `turn_started_at` on the state
+    # document. Without this the first pick after the backfill has nothing to
+    # measure against and lands blank.
+    fs.set_document(
+        f"draft/{args.season}/state",
+        "current",
+        {"turn_started_at": rows[-1][1]},
+        merge=True,
+    )
+    print(f"Escritos {len(rows)} picks + turn_started_at.")
 
 
 if __name__ == "__main__":

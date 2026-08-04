@@ -199,6 +199,7 @@ Index file: `MEMORY.md`. Each memory is a separate `.md` file in the same direct
 ## Notes for Claude
 
 - This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
+- **Skills are scoped.** `/.claude/skills/` holds only what would make sense in a repo that had never heard of Biwenger; anything domain-specific lives in its package (`packages/biwenger_tools/.claude/skills/`), and Claude Code prefers the scoped one when you work inside that package. Each `.claude/CLAUDE.md` indexes its own.
 - `BUILD.bazel` files are the source of truth for Bazel dependencies.
 - See `AGENTS.md` for context on project agents.
 - **Commits and PRs:** always write commit messages and PR titles/descriptions in English. Do not add a `Co-Authored-By` line.

@@ -11,8 +11,8 @@ Requires ADC against the project hosting the draft Firestore:
 
     gcloud auth application-default login
 
-    python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py --season 26-27
-    python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py \
+    python3 packages/biwenger_tools/scripts/draft/reset.py --season 26-27
+    python3 packages/biwenger_tools/scripts/draft/reset.py \
         --season 26-27 --apply
 """
 

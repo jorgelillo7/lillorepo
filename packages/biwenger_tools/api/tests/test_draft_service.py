@@ -904,3 +904,66 @@ def test_out_of_turn_rejection_mentions_the_manager_on_turn(fake_fs, biwenger):
     assert result["status"] == "rejected"
     assert result["error"] == "NOT_YOUR_TURN"
     assert f'<a href="tg://user?id={TG_RUBEN}">Ruben</a>' in result["message"]
+
+
+def test_a_closed_draft_rejects_picks_and_undo(fake_fs, biwenger):
+    """After the last pick the bot must stop touching Biwenger.
+
+    `/deshacer` is a real `release_player` + `apply_bonus`: run in October it
+    does not undo a draft pick, it sells a player mid-season.
+    """
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.close_draft()
+
+    pick = draft_service.submit_pick(TG_RUBEN, "messi")
+    assert pick["status"] == "rejected"
+    assert pick["error"] == draft_service.ERROR_DRAFT_CLOSED
+
+    undo = draft_service.undo_last_pick(TG_ADMIN)
+    assert undo["status"] == "rejected"
+    assert undo["error"] == draft_service.ERROR_DRAFT_CLOSED
+    biwenger.login.assert_not_called()
+
+
+def test_the_final_pick_closes_the_draft(fake_fs, biwenger, monkeypatch):
+    """Closing is a side effect of the last pick, and there is no other path to
+    it inside the api — if this stops firing the draft never closes at all."""
+    monkeypatch.setattr(draft, "NUM_ROUNDS", 1)
+    telegram_ids = [str(1000 + i) for i in range(len(draft.DEFAULT_ORDER))]
+    for telegram_id, manager_id in zip(telegram_ids, draft.DEFAULT_ORDER):
+        draft_service.register_manager(telegram_id, LEAGUE_MEMBERS[manager_id])
+
+    for i, telegram_id in enumerate(telegram_ids):
+        assert draft_service._lifecycle().get("closed") is not True
+        result = draft_service.submit_pick(telegram_id, f"Filler MID {i}")
+        assert result["status"] != "rejected", result
+
+    assert draft_service._lifecycle()["closed"] is True
+    assert draft_service._lifecycle()["closed_reason"] == "completed"
+    assert "bloqueados" in result["message"]
+
+
+def test_a_draft_with_no_lifecycle_record_stays_open(fake_fs, biwenger):
+    """Absence of the record means open — a draft that predates it must run."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    assert draft_service._lifecycle() == {}
+    assert draft_service.submit_pick(TG_RUBEN, "messi")["status"] != "rejected"
+
+
+def test_reopening_stamps_the_starting_instant(fake_fs, biwenger):
+    """The first pick needs something to measure its wait against."""
+    result = draft_service.open_draft(csv_url="https://example/market.csv")
+    assert result["status"] == "ok"
+
+    state_doc = fake_fs.get_document("draft/test-season/state", "current")
+    assert state_doc["turn_started_at"] == pytest.approx(result["opened_at"])
+    assert draft_service._lifecycle()["closed"] is False
+
+
+def test_a_pick_does_not_wipe_the_lifecycle_record(fake_fs, biwenger):
+    """The turn state is rewritten wholesale, so the record lives apart."""
+    draft_service.register_manager(TG_RUBEN, "Ruben")
+    draft_service.open_draft()
+    draft_service.submit_pick(TG_RUBEN, "messi")
+
+    assert draft_service._lifecycle().get("opened_at") is not None

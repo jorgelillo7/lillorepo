@@ -1,0 +1,11 @@
+# Personal per-year squad drafts (Phase B output) stay local — not repo content.
+mi-*.md
+draft-ranked*.csv
+final-decision*.md
+draft-resumen*.md
+draft-tiempos*.md
+draft-real-points*.csv
+
+# Fetched player payloads. The cache exists so a re-run costs zero requests
+# against a budget shared with the whole league — it is not repo content.
+.cache/

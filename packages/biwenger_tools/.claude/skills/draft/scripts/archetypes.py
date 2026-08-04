@@ -31,6 +31,18 @@ NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
 CAPTAIN_CAP = 3_000_000
 CAPTAIN_SAFE = 2_500_000  # durable buffer below the cap
 ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
+# Median real/projection ratio when a line has too few measured players to
+# calibrate on. Goalkeepers convert far better: clean sheets and win bonuses
+# land on them every week.
+FALLBACK_FACTOR = {"PT": 0.458, "outfield": 0.371}
+THIN_SEASON = 20  # below this many games, a season total understates the player
+# Starts, out of 38. A substitute's total does not carry over to a starting
+# role, and the league's play/win bonuses need more than 65 minutes to fire:
+# Iago Aspas scored 143 points across 32 appearances but started 10, and
+# cleared 65 minutes eight times all season.
+STARTER_THRESHOLD = 19
+# Price bands, matching the ones `availability_report.py` writes.
+BANDS = ((6_000_000, "≥ 6M"), (3_000_000, "3–6M"), (1_500_000, "1,5–3M"), (0, "< 1,5M"))
 
 # (DF, MC, DL) — the XI shapes Biwenger accepts, all fieldable from a 2-5-5-3.
 FORMATIONS = (
@@ -81,6 +93,83 @@ def detect_placeholder(scores):
     return None
 
 
+def read_real_points(path):
+    """`{normalised name: {points, games, per_game}}` from `fetch_real_points.py`.
+
+    These are last season's actual points under the league's own scoring, which
+    is the only number that compares two players fairly — the JP column is a
+    projection under a different scoring system.
+    """
+    real = {}
+    with open(path, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if not r.get("points"):
+                continue
+            games = int(r.get("games") or 0)
+            points = int(r["points"])
+            real[_norm(r["name"])] = {
+                "points": points,
+                "games": games,
+                "starts": int(r.get("starts") or 0),
+                "min_per_game": int(r.get("min_per_game") or 0),
+                "per_game": round(points / games, 2) if games else None,
+            }
+    return real
+
+
+def calibrate(rows):
+    """Per-line `real / projection` factors, measured on the players that have
+    both. Falls back to the season's measured medians when a line is too thin.
+
+    One global factor cannot work: the observed ratio ranges from 0.225 to
+    0.610, and goalkeepers sit far above outfielders because clean sheets and
+    win bonuses land on them every week.
+    """
+    factors = {}
+    for line in POS:
+        ratios = [
+            r["real"] / r["sf_jp"]
+            for r in rows
+            if r.get("real") and r.get("sf_jp") and line == r["pos"]
+        ]
+        if len(ratios) >= 3:
+            factors[line] = statistics.median(ratios)
+        else:
+            factors[line] = FALLBACK_FACTOR["PT" if line == "PT" else "outfield"]
+    return factors
+
+
+def apply_real_points(rows, real):
+    """Overlay measured points on the projection and re-score every row.
+
+    Rows keep `sf_jp` (the projection) and gain `real`, `games`, `per_game` and
+    `source`. `sf` — what the optimiser ranks by — becomes the measured total
+    where it exists and a line-calibrated projection where it does not, so the
+    two are on the same scale.
+    """
+    for r in rows:
+        r["sf_jp"] = r["sf"]
+        match = real.get(_norm(r["name"]))
+        r["real"] = match["points"] if match else None
+        r["games"] = match["games"] if match else None
+        r["starts"] = match["starts"] if match else None
+        r["min_per_game"] = match["min_per_game"] if match else None
+        r["per_game"] = match["per_game"] if match else None
+    factors = calibrate(rows)
+    for r in rows:
+        if r["real"] is not None:
+            r["sf"] = r["real"]
+            r["source"] = "real"
+            # Measured points outrank a scouting hunch: the player is no longer
+            # a blind bet once last season's total is known.
+            r["bet"] = False
+        else:
+            r["sf"] = round(r["sf_jp"] * factors[r["pos"]])
+            r["source"] = "bet" if r.get("bet") else "proj"
+        r["vm"] = r["sf"] / (r["price"] / 1_000_000) if r["price"] else 0.0
+    return factors
+
+
 def load(
     path, exclude, placeholder_sf=None, keep_placeholder=False, bets=(), bet_sf=400
 ):
@@ -128,6 +217,73 @@ def load(
         dropped = []
     kept = [r for r in raw if r not in dropped]
     return kept, placeholder_sf, dropped
+
+
+def price_band(price):
+    for floor, label in BANDS:
+        if price >= floor:
+            return label
+    return "< 1,5M"
+
+
+def read_exclusions(path, extra=()):
+    """`(names, {name: reason})` from a commented ban list.
+
+    Returns the reason alongside the name because a bare `--exclude Valverde`
+    records that somebody was dropped and never why — and next season nobody
+    remembers whether it was an injury, a transfer rumour or a dressing-room
+    fight.
+    """
+    names, reasons = list(extra), {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            name, _, reason = line.partition("#")
+            name = name.strip()
+            if not name:
+                continue
+            names.append(name)
+            reasons[name] = reason.strip() or "sin motivo anotado"
+    return names, reasons
+
+
+def read_history(path):
+    """`{(line, band): [pick numbers]}` from a past draft's history CSV."""
+    history = {}
+    with open(path, encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            history.setdefault((r["line"], r["band"]), []).append(int(r["pick"]))
+    return {k: sorted(v) for k, v in history.items()}
+
+
+def band_supply(rows):
+    """`{(line, band): how many exist}` — what the drain is measured against."""
+    return dict(Counter((r["pos"], price_band(r["price"])) for r in rows))
+
+
+def drain(history, supply, line, band, pick):
+    """`(gone, supply)` — picks spent on that line+band before `pick`, last time.
+
+    Deliberately a count and not a verdict on the named player. One draft
+    consumes ~20% of the market, rivals do not buy a band in quality order, and
+    the top band has no ceiling — a 6M forward shares it with a 25M one. Any
+    per-player probability squeezed out of that is invention; the drain is the
+    most the evidence supports.
+    """
+    total = supply.get((line, band), 0)
+    if not total:
+        return None
+    return sum(1 for p in history.get((line, band), ()) if p < pick), total
+
+
+def drain_cell(got):
+    """`gone/supply`, bolded only when the band was genuinely emptied."""
+    if not got:
+        return "—"
+    gone, total = got
+    return f"**{gone}/{total}**" if gone >= total else f"{gone}/{total}"
 
 
 def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=None):
@@ -235,11 +391,20 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
 
 
 def _xi(squad, formation):
+    """The eleven, starters first.
+
+    Ordering by score alone fields last season's best substitute ahead of a
+    weaker regular, which is backwards: his total came from cameos and will not
+    repeat in a starting role. A substitute only reaches the eleven when the
+    line has no regular left to field.
+    """
     counts = dict(zip(("DF", "MC", "DL"), formation), PT=1)
     return [
         r
         for c in POS
-        for r in sorted(squad[c], key=lambda x: -x["sf"])[: counts.get(c, 0)]
+        for r in sorted(squad[c], key=lambda x: (not is_starter(x), -x["sf"]))[
+            : counts.get(c, 0)
+        ]
     ]
 
 
@@ -317,6 +482,53 @@ def sf_cell(r, placeholder=None):
     return str(r["sf"])
 
 
+SOURCE_MARK = {"real": "✅", "proj": "~", "bet": "🎲"}
+
+
+def is_starter(r):
+    """Whether last season's total came from starting, not from cameos.
+
+    Unknown (no measured data) counts as a starter: the projection already
+    assumes a regular role, and blocking it here would silently drop every
+    player promoted from Segunda.
+    """
+    return r.get("starts") is None or r["starts"] >= STARTER_THRESHOLD
+
+
+def source_cell(r):
+    """Where this player's score comes from, and whether it is trustworthy.
+
+    A total built on a handful of games is not comparable to a full season —
+    70 points in 5 games and 70 in 38 describe opposite players.
+    """
+    mark = SOURCE_MARK.get(r.get("source"), "~")
+    if r.get("source") != "real":
+        return mark
+    if not is_starter(r):
+        return "🪑"
+    if (r.get("games") or 0) < THIN_SEASON:
+        return "⚠️"
+    return mark
+
+
+def data_cells(r):
+    """The evidence columns: projection, measured total, games, and the two
+    rates that make them comparable."""
+    real = r.get("real")
+    games = r.get("games")
+    per_game = f"{r['per_game']:.1f}" if r.get("per_game") else "—"
+    starts = f"{r['starts']}/38" if r.get("starts") is not None else "—"
+    return (
+        f"| {r.get('sf_jp') or '—'} "
+        f"| {real if real is not None else '—'} "
+        f"| {games if games else '—'} "
+        f"| {starts} "
+        f"| {per_game} "
+        f"| {r['vm']:.0f} "
+        f"| {source_cell(r)} "
+    )
+
+
 def _alternatives(options):
     """The runners-up, so a human can override on news the data cannot see."""
     if len(options) < 2:
@@ -381,7 +593,16 @@ def alternatives(squad, rows, player, n=3):
     return sorted(pool, key=lambda r: -r["sf"])[:n]
 
 
-def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=None):
+def _drained(history, supply, row, slot):
+    """Band drain at this row's planned pick, or None."""
+    if not history or not slot:
+        return None
+    return drain(history, supply, row["pos"], price_band(row["price"]), slot)
+
+
+def decision_sheet(
+    name, squad, spent, rows, pick_numbers, budget, placeholder=None, history=None
+):
     """The winning archetype as an executable plan: who, in what order, and
     who to fall back on for the picks that decide the draft."""
     formation, xi, _, dur = lineup(squad)
@@ -395,6 +616,7 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         else [(None, r) for r in ordered]
     )
 
+    supply = band_supply(rows)
     o = [
         f"# Decisión final — {name}",
         "",
@@ -403,18 +625,40 @@ def decision_sheet(name, squad, spent, rows, pick_numbers, budget, placeholder=N
         "",
         "## Los 15, en orden de pick",
         "",
-        "| Pick | Pos | Jugador | Equipo | Precio | SF | XI | © |",
-        "|--:|---|---|---|--:|--:|:-:|:-:|",
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
+        "| Pts/M | Fuente | Vaciado | XI | © |",
+        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
         mark = "©" if dur and r["name"] == dur["name"] else ""
-        bet = " 🎲" if r.get("bet") else ""
         o.append(
-            f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']}{bet} "
+            f"| {slot if slot else '—'} | {POS[r['pos']]} | {r['name']} "
             f"| {r['team']} | {r['price'] / 1e6:.2f}M "
-            f"| {sf_cell(r, placeholder)} "
-            f"| {'★' if r['name'] in starters else ''} | {mark} |"
+            + data_cells(r)
+            + f"| {drain_cell(_drained(history, supply, r, slot))} "
+            + f"| {'★' if r['name'] in starters else ''} | {mark} |"
         )
+    o += [
+        "",
+        "**Real** son los puntos Personalizado de la temporada pasada — la "
+        "puntuación de esta liga, no la de SofaScore. **PJ** son los partidos "
+        "que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 "
+        "parecen lo mismo. **JP** es la proyección de la temporada que viene.",
+        "",
+        "**Tit** son las titularidades sobre 38. Un suplente no traslada su "
+        "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
+        "`+1 por victoria`) exigen pasar de 65 minutos.",
+        "",
+        "**Vaciado** es cuántos de su línea y banda de precio se habían ido a "
+        "esa altura en el draft de referencia, sobre los que existen. En "
+        "negrita, la banda entera se agotó. Es el desgaste de la banda, no una "
+        "probabilidad sobre él: nadie compra una banda por orden de calidad y "
+        "un draft solo consume un quinto del mercado.",
+        "",
+        "Fuente: ✅ titular con dato real · 🪑 real pero suplente "
+        f"(menos de {STARTER_THRESHOLD}/38) · ⚠️ real pero de menos de "
+        f"{THIN_SEASON} partidos · ~ proyección calibrada · 🎲 apuesta sin datos.",
+    ]
     if any(r.get("bet") for _, r in plan):
         o += [
             "",
@@ -513,8 +757,11 @@ def render(
         for slot, r in zip(pick_numbers, contested):
             plan[r["name"]] = slot
 
-    head = "| Pick | Pos | Jugador | Equipo | Precio | SF | Valor/M | XI | © |"
-    rule = "|--:|---|---|---|--:|--:|--:|:-:|:-:|"
+    head = (
+        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
+        "| Pts/M | Fuente | XI | © |"
+    )
+    rule = "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|"
     if not plan:
         head = head.replace("| Pick ", "")
         rule = rule.replace("|--:", "", 1)
@@ -523,11 +770,10 @@ def render(
     for c in ("PT", "DF", "MC", "DL"):
         for r in sorted(squad[c], key=lambda x: -x["sf"]):
             mark = "©" if dur and r["name"] == dur["name"] else ""
-            label = r["name"] + (" 🎲" if r.get("bet") else "")
             cells = (
-                f"| {POS[c]} | {label} | {r['team']} | {r['price'] / 1e6:.2f}M "
-                f"| {sf_cell(r, placeholder)} | {r['vm']:.0f} "
-                f"| {'★' if r['name'] in starters else ''} "
+                f"| {POS[c]} | {r['name']} | {r['team']} | {r['price'] / 1e6:.2f}M "
+                + data_cells(r)
+                + f"| {'★' if r['name'] in starters else ''} "
                 f"| {mark} |"
             )
             o.append((f"| {plan[r['name']]} " if plan else "") + cells)
@@ -538,8 +784,35 @@ def render(
 def main():
     ap = argparse.ArgumentParser(description="Draft archetype generator")
     ap.add_argument("--ranked", required=True, help="ranked CSV from draft_ranking.py")
+    ap.add_argument(
+        "--real-points",
+        default="",
+        help=(
+            "CSV from fetch_real_points.py. Without it the optimiser ranks by a "
+            "projection under someone else's scoring system, which is how the "
+            "26-27 draft nearly took the sixth-best goalkeeper as the first."
+        ),
+    )
     ap.add_argument("--budget", type=float, default=52.0, help="budget in millions")
     ap.add_argument("--exclude", default="", help="comma-separated names to ban (news)")
+    ap.add_argument(
+        "--exclude-file",
+        default="",
+        help=(
+            "one banned name per line, `#` for the reason. The news check is a "
+            "blocking step and its findings must outlive the shell history: a "
+            "name on `--exclude` records that somebody was dropped, never why."
+        ),
+    )
+    ap.add_argument(
+        "--history",
+        default="",
+        help=(
+            "history CSV from availability_report.py. Adds the ¿Llega? column: "
+            "how much of each line and price band was still on the board at "
+            "that pick last time."
+        ),
+    )
     ap.add_argument(
         "--pick-position",
         type=int,
@@ -592,15 +865,34 @@ def main():
     )
     args = ap.parse_args()
 
+    excluded = [x.strip() for x in args.exclude.split(",") if x.strip()]
+    reasons = {}
+    if args.exclude_file:
+        excluded, reasons = read_exclusions(args.exclude_file, excluded)
+        print(f"Descartados por noticias: {len(reasons)}")
+        for who, why in reasons.items():
+            print(f"  ✂️  {who} — {why}")
+    history = read_history(args.history) if args.history else None
+
     bets = [x.strip() for x in args.bets.split(",") if x.strip()]
     rows, placeholder, dropped = load(
         args.ranked,
-        args.exclude.split(","),
+        excluded,
         args.placeholder_sf,
         args.keep_placeholder,
         bets,
         args.bet_sf,
     )
+    factors = None
+    if args.real_points:
+        real = read_real_points(args.real_points)
+        factors = apply_real_points(rows, real)
+        measured = sum(1 for r in rows if r.get("real") is not None)
+        print(f"Puntos reales: {measured}/{len(rows)} jugadores")
+        print(
+            "Factor real/proyección por línea: "
+            + " · ".join(f"{k} {v:.3f}" for k, v in factors.items())
+        )
     if args.budget > 1_000:
         ap.error(
             f"--budget se expresa en millones (52, no {args.budget:.0f}). "
@@ -752,6 +1044,7 @@ def main():
                     pick_numbers,
                     budget,
                     placeholder,
+                    history,
                 )
             )
         print("Decisión:", args.decision)

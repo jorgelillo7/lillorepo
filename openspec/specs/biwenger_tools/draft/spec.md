@@ -97,16 +97,30 @@ cheapest available prices.
 
 ---
 
-### Requirement: The squad must remain completable
+### Requirement: The squad must remain able to field an XI
 
-A squad is 15 players that can field a valid XI plus at least one substitute
-per line. A pick SHALL be rejected when the resulting counts could no longer
-reach a valid composition with the slots that remain.
+A squad is 15 players that can field **some** legal XI. Only the eleven are
+constrained; the four on the bench may be anything. A pick SHALL be rejected
+when it would leave no formation reachable with the slots that remain.
+
+The bench is deliberately unconstrained. Requiring a substitute in every line
+rejects picks that are perfectly legal — Biwenger accepts twelve formations
+including `4-6-0`, so a squad with no forward at all is a shape, not a fault.
+
+Multi-position players SHALL count for every line they can play. Biwenger gives
+107 of 553 players an `altPositions` list; ignoring it reads a forward who also
+plays midfield as a pure forward, and that miscount blocked a legal pick during
+the 26-27 draft.
 
 #### Scenario: composition reachability
-- **WHEN** the final slot would leave a line uncoverable
+- **WHEN** the remaining slots cannot complete any formation
 - **THEN** rejected as `COMPOSITION_INFEASIBLE`
-- *Verifies:* `test_composition_ok_false_with_only_one_goalkeeper`,
+- **WHEN** a squad holds one goalkeeper and a fieldable ten **THEN** it is valid
+- **WHEN** a player lists `altPositions` **THEN** he counts toward each of them
+- *Verifies:* `test_one_goalkeeper_is_enough`,
+  `test_a_squad_with_no_forward_is_legal`,
+  `test_multi_position_players_cover_the_line_that_is_short`,
+  `test_composition_reachable_from_scratch_needs_only_the_eleven`,
   `test_composition_reachable_false_with_negative_slots`,
   `test_validate_pick_rejects_composition_infeasible_on_final_slot`,
   `test_validate_pick_rejects_when_squad_already_full`
@@ -284,6 +298,62 @@ nights, and one turn that opened at 3am would otherwise decide the ranking.
   `test_state_write_keeps_the_clock_alive_across_picks`,
   `test_undo_restarts_the_clock`,
   `test_format_wait_uses_the_coarsest_useful_unit`
+
+---
+
+### Requirement: The draft has an explicit lifecycle
+
+The draft SHALL be opened by publishing the frozen market CSV and closed when
+the last pick lands. While closed, every operation that writes to Biwenger —
+picking and undoing — SHALL be rejected.
+
+The reason is that `/deshacer` is a real `release_player` + `apply_bonus`
+against real money. Once the season is under way that is not an undo, it is
+selling a player mid-season.
+
+The lifecycle record SHALL live in its own document, NOT on the turn state:
+the state document is replaced wholesale on every pick, so anything stored
+alongside it is erased by the next one.
+
+A draft with no lifecycle record SHALL be treated as open. The guard exists to
+stop writes after the last pick, not to demand a ceremony that drafts already
+running never performed.
+
+Opening SHALL stamp `turn_started_at`, so the first pick has something to
+measure its wait against.
+
+Closing SHALL also be reachable outside the api. Inside it, closing happens only
+as a side effect of the final pick, so a draft whose last pick lands under a
+revision that predates this behaviour would stay open forever — and an open
+finished draft still accepts `/deshacer`, which sells a player mid-season.
+
+The season's history — the readable record and the machine-readable
+availability model the next draft reads — SHALL be written by that same
+out-of-api close. The api runs in Cloud Run and cannot write to the repository,
+so nothing else will produce it.
+
+#### Scenario: opening and closing
+- **WHEN** the draft is opened **THEN** the starting instant is stamped and the group
+  is greeted
+- **WHEN** the final pick is applied **THEN** the draft closes itself
+- **WHEN** a pick or an undo is attempted on a closed draft **THEN** it is rejected and
+  Biwenger is never contacted
+- **WHEN** no lifecycle record exists **THEN** the draft behaves as open
+- **WHEN** a pick is applied **THEN** the lifecycle record survives the state write
+- *Verifies:* `test_the_final_pick_closes_the_draft`,
+  `test_a_closed_draft_rejects_picks_and_undo`,
+  `test_a_draft_with_no_lifecycle_record_stays_open`,
+  `test_reopening_stamps_the_starting_instant`,
+  `test_a_pick_does_not_wipe_the_lifecycle_record`
+
+#### Scenario: closing from outside the api
+- **WHEN** `scripts/draft/close.py --write` runs on a finished draft **THEN** the draft
+  is closed, the season history is written and the group is told
+- **WHEN** it runs on a draft the api already closed **THEN** it writes the history
+  anyway, because that path produces no files
+- **WHEN** it runs with picks still pending **THEN** it refuses unless `--force` is
+  passed with a reason
+- *Verifies:* operational script, exercised by its own dry run
 
 ---
 

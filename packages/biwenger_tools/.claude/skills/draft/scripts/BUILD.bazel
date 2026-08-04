@@ -1,0 +1,20 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# The draft skill's analysis scripts are not shipped in any image — they run
+# from a laptop, once a year. They are tested anyway because they produce the
+# decisions, and a wrong number here looks exactly like a right one: the
+# availability metric shipped inverted and survived a season undetected.
+py_test(
+    name = "draft_skill_tests",
+    timeout = "short",
+    main = "tests/main.py",
+    srcs = glob([
+        "*.py",
+        "tests/*.py",
+    ]),
+    deps = [
+        "//core",
+        "@pypi//pytest",
+        "@pypi//requests",
+    ],
+)
