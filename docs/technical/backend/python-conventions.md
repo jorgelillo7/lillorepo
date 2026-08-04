@@ -102,7 +102,11 @@ outside scripts.
 
 ## 7. Operational scripts
 
-Fixed pattern (`biwenger_reset_draft.py`, `fetch_palmares.py`):
+Fixed pattern (`scripts/draft/reset.py`, `fetch_palmares.py`):
+
+They live under `packages/{package}/scripts/{domain}/`, grouped by what
+they operate on — `draft/` and `scraper/` in `biwenger_tools`. The
+directory carries the subject, so the file name only has to carry the verb.
 
 - **Dry-run by default, `--apply` to write.** No exceptions: the dry run
   shows what it would do, with counts.

@@ -27,14 +27,14 @@ Three subcommands, all dry-run by default; pass ``--apply`` to write:
 Examples::
 
     # Find the message id by scanning the bad-season collection
-    python3 scripts/biwenger_firestore_surgery.py list-messages 26-27 --limit 5
+    python3 packages/biwenger_tools/scripts/scraper/surgery.py list-messages 26-27 --limit 5
 
     # Move it to the right season, renaming the author to the season-1 team name
-    python3 scripts/biwenger_firestore_surgery.py move-message 26-27 25-26 \\
+    python3 packages/biwenger_tools/scripts/scraper/surgery.py move-message 26-27 25-26 \\
         --doc-id <hash> --rename-author 'Los caídos de la jornada' --apply
 
     # Wipe everything the scraper wrote under the wrong season
-    python3 scripts/biwenger_firestore_surgery.py wipe-season 26-27 --apply
+    python3 packages/biwenger_tools/scripts/scraper/surgery.py wipe-season 26-27 --apply
 """
 
 import argparse

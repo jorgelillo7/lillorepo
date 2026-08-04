@@ -4,10 +4,10 @@
 
 Usage::
 
-    python3 scripts/biwenger_check_categorias.py [season]
+    python3 packages/biwenger_tools/scripts/scraper/check_categorias.py [season]
 
 ``season`` defaults to ``25-26``. Read-only — touches nothing in Firestore.
-Pair with ``biwenger_recategorise.py`` to fix the drift it surfaces.
+Pair with ``scraper/recategorise.py`` to fix the drift it surfaces.
 """
 
 import sys
@@ -54,7 +54,7 @@ def main() -> None:
         return
     for fecha, autor, titulo, change in sorted(drift):
         print(f"  {fecha:20s}  {autor:30s}  {titulo!r:40s}  {change}")
-    print("\nRun scripts/biwenger_recategorise.py " f"{season} --apply  to fix these.")
+    print("\nRun packages/biwenger_tools/scripts/scraper/recategorise.py " f"{season} --apply  to fix these.")
 
 
 if __name__ == "__main__":

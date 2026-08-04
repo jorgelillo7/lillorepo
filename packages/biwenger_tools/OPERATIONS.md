@@ -375,7 +375,7 @@ Un solo comando sube el CSV, marca el draft abierto, sella el instante inicial y
 manda el mensaje de bienvenida al grupo. Sin `--write` solo enseña lo que haría:
 
 ```bash
-PYTHONPATH=. python3 packages/biwenger_tools/scripts/biwenger_open_draft.py \
+PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/open.py \
     --csv ~/Downloads/primera-division.csv --write
 ```
 
@@ -422,8 +422,8 @@ gh variable set DRAFT_APPLY_TO_BIWENGER --body true   # o false
 ### 4. Reset entre el ensayo y el draft real
 
 ```bash
-python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py --season 26-27
-python3 packages/biwenger_tools/scripts/biwenger_reset_draft.py --season 26-27 --apply
+python3 packages/biwenger_tools/scripts/draft/reset.py --season 26-27
+python3 packages/biwenger_tools/scripts/draft/reset.py --season 26-27 --apply
 ```
 
 Antes de resetear, **comprueba en Biwenger que las plantillas están vacías**. El
@@ -446,20 +446,20 @@ One-off surgical edits live under `packages/biwenger_tools/scripts/`
 (run as `python3 packages/biwenger_tools/scripts/<script>.py` from the repo
 root). All default to dry-run; pass `--apply` to write. They use ADC (`gcloud auth application-default login` once) and respect `FIRESTORE_PROJECT` / `GOOGLE_CLOUD_PROJECT`.
 
-- **`biwenger_firestore_surgery.py`** — recovery toolkit for scraper mishaps (e.g. a `/scrapper` run against the wrong season). Three subcommands:
+- **`scraper/surgery.py`** — recovery toolkit for scraper mishaps (e.g. a `/scrapper` run against the wrong season). Three subcommands:
   - `list-messages <SEASON> [--author X] [--limit N]` — inspect `comunicados/{SEASON}/messages` and find a `doc-id`.
   - `move-message <FROM> <TO> --doc-id <ID> [--rename-author <NAME>]` — copy one message across seasons (same id_hash), optionally rewriting `autor`, and rebuild `participacion/{TO}/authors/{autor}` accordingly.
   - `wipe-season <SEASON>` — delete every doc under `comunicados`, `participacion`, `clausulazos`, `tabla_justicia` for that season.
-- **`biwenger_rename_team.py`** — rename a team across `clausulazos/{season}/transfers` and rebuild `tabla_justicia/{season}/teams` from the corrected data.
-- **`biwenger_recategorise.py`** — recompute `categoria` for every message and rebuild `participacion/{season}/authors`; supports `--autor-alias OLD=NEW`.
-- **`biwenger_check_categorias.py`** — read-only audit of `categoria` mismatches.
-- **`biwenger_open_draft.py`** — open the draft: upload the frozen market CSV,
+- **`scraper/rename_team.py`** — rename a team across `clausulazos/{season}/transfers` and rebuild `tabla_justicia/{season}/teams` from the corrected data.
+- **`scraper/recategorise.py`** — recompute `categoria` for every message and rebuild `participacion/{season}/authors`; supports `--autor-alias OLD=NEW`.
+- **`scraper/check_categorias.py`** — read-only audit of `categoria` mismatches.
+- **`draft/open.py`** — open the draft: upload the frozen market CSV,
   stamp the starting instant, greet the group. Dry-run without `--write`. See
   "Abrir el draft" above.
-- **`biwenger_backfill_draft_timings.py`** — recover `applied_at` /
+- **`draft/backfill_timings.py`** — recover `applied_at` /
   `waited_seconds` from Cloud Logging for picks made before timings shipped,
   and hand the clock over to live tracking.
-- **`biwenger_reset_draft.py`** — wipe `draft/{season}/picks` + `state` between a
+- **`draft/reset.py`** — wipe `draft/{season}/picks` + `state` between a
   rehearsal and the real draft, and again at the rollover. Keeps
   `draft/{season}/managers` unless `--managers` is passed: those bindings are
   the `/soy` roll-call, and repeating it with seven people waiting is the

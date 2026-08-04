@@ -5,7 +5,7 @@ draft starts now", so it is what opens it. Doing the four steps by hand left the
 26-27 draft with no starting instant at all: wait times only began at pick 49,
 and the earlier ones had to be dug out of Cloud Logging afterwards.
 
-    python3 packages/biwenger_tools/scripts/biwenger_open_draft.py \\
+    python3 packages/biwenger_tools/scripts/draft/open.py \\
         --csv ~/Downloads/primera-division.csv [--write]
 
 Read-only by default. Pass `--write` to upload, open and send.
