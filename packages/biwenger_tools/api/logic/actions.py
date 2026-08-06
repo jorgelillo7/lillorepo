@@ -8,9 +8,11 @@ exceptions into 5xx.
 """
 
 import time
+from datetime import datetime
 
 import requests
 
+from core.constants import MADRID_TZ
 from core.sdk.telegram import (
     send_telegram_message,
     send_telegram_message_or_raise,
@@ -18,6 +20,7 @@ from core.sdk.telegram import (
 )
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
@@ -247,6 +250,40 @@ def run_market() -> dict:
     _send_image(token, chat_id, build_table_image(market_rows, "Mercado"), "Mercado")
     logger.info("Market analysis sent.", extra={"size": len(market_rows)})
     return {"sent": 1, "size": len(market_rows)}
+
+
+def run_league_compare() -> dict:
+    """Send the league's squads ranked by value and by projection.
+
+    Owner-only by construction: it goes to `TELEGRAM_CHAT_ID`, never to the
+    draft group. Handing every rival the projection of their own squad would
+    give away the only edge the tooling provides.
+    """
+    ctx = build_context()
+    telegram = require_telegram()
+    if telegram is None:
+        return {"sent": 0, "reason": "telegram_credentials_missing"}
+    token, chat_id = telegram
+
+    summary = league_compare.collect_cached(ctx)
+    if not summary:
+        return {"sent": 0, "reason": "no_squads"}
+    today = datetime.now(MADRID_TZ).strftime("%d/%m")
+    send_telegram_message_or_raise(
+        bot_token=token,
+        chat_id=chat_id,
+        text=league_compare.render(
+            summary,
+            title=f"📊 <b>La liga hoy</b> · {today}",
+            note=(
+                "Valor de mercado actual y proyección de Jornada Perfecta para "
+                "la próxima jornada. Van sin combinar porque son dos preguntas "
+                "distintas: un equipo caro no es un equipo que puntúe."
+            ),
+        ),
+    )
+    logger.info("League comparison sent.", extra={"managers": len(summary)})
+    return {"sent": 1, "managers": len(summary)}
 
 
 def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:

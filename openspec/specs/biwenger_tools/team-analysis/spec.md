@@ -69,3 +69,36 @@ SDK SHALL treat null and missing alike.
   still count, a notice is posted, and the request succeeds
 - *Verifies:* `test_get_market_players_when_the_market_is_disabled`,
   `test_run_teams_all_mode_survives_a_broken_market`
+
+---
+
+### Requirement: The league compared, on demand and to the owner alone
+
+`POST /league/compare` SHALL rank every squad in the league by market value and
+by projected points, and send the result to the owner's chat — never to the
+draft group. Handing every rival the projection of their own squad gives away
+the only edge the tooling provides.
+
+The two rankings SHALL stay separate and uncombined: they answer different
+questions, and merging them needs a weighting that would be invented rather
+than measured. The value heading SHALL follow the data — with a cost to compare
+against it reads "quién compró mejor", without one "equipo más caro", because a
+month into the season half a squad arrived by clause and nobody remembers what
+it cost.
+
+It SHALL be on demand rather than chained into the daily digest: the value is in
+reading it *while deciding whether to buy*, and a fifth message every morning is
+noise. Because it costs one squad read per manager against a budget the whole
+league shares, and because it hangs off a menu button, the result SHALL be
+cached for a few minutes.
+
+#### Scenario: ranking and delivery
+- **WHEN** `/comparar` is invoked **THEN** both rankings are sent to the owner's chat
+- **WHEN** a cost is present **THEN** the value ranking is titled "quién compró mejor"
+- **WHEN** it is absent **THEN** it is titled "equipo más caro"
+- **WHEN** it is invoked twice inside the cache window **THEN** Biwenger is read once
+- *Verifies:* `test_league_compare_calls_the_action`,
+  `test_league_compare_rejects_get`,
+  `test_render_says_who_bought_best_only_when_there_is_a_cost`,
+  `test_the_two_rankings_are_independent`,
+  `test_the_comparison_is_cached_so_a_second_tap_costs_nothing`

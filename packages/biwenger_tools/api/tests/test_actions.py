@@ -4,6 +4,8 @@ multi-photo flows. Route wiring is tested in `test_routes.py`."""
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
+from packages.biwenger_tools.api.logic import league_compare
+
 
 def _patches(target):
     return f"packages.biwenger_tools.api.logic.actions.{target}"
@@ -101,3 +103,50 @@ def test_run_teams_all_mode_survives_a_broken_market():
     assert result["market"] == 0
     notice.assert_called_once()
     assert "Mercado" in notice.call_args.kwargs["text"]
+
+
+# --- league comparison ---
+
+
+def _squad(value, projection):
+    return {"value": value, "projection": projection, "size": 15}
+
+
+def test_render_says_who_bought_best_only_when_there_is_a_cost():
+    """Right after the draft "what it cost against what it is worth" is the
+    interesting number. A month later half a squad arrived by clause and nobody
+    remembers what it cost, so the same renderer must ask a different question."""
+    with_cost = {"A": {**_squad(60_000_000, 5000), "gain": 9_000_000}}
+    without = {"A": _squad(60_000_000, 5000)}
+
+    assert "Quién compró mejor" in league_compare.render(with_cost, "t")
+    assert "sobre lo que pagó" in league_compare.render(with_cost, "t")
+    assert "Equipo más caro" in league_compare.render(without, "t")
+    assert "sobre lo que pagó" not in league_compare.render(without, "t")
+
+
+def test_the_two_rankings_are_independent():
+    """Value and projection answer different questions; the most expensive
+    squad is not automatically the one that scores."""
+    summary = {
+        "Caro": _squad(60_000_000, 3000),
+        "Barato": _squad(40_000_000, 5000),
+    }
+
+    assert league_compare.rank(summary, "value") == ["Caro", "Barato"]
+    assert league_compare.rank(summary, "projection") == ["Barato", "Caro"]
+
+
+def test_the_comparison_is_cached_so_a_second_tap_costs_nothing():
+    """Nine Biwenger reads hang off a button, against a budget the whole league
+    shares."""
+    league_compare.reset_cache()
+    ctx = object()
+    with patch.object(
+        league_compare, "collect", return_value={"A": _squad(1, 1)}
+    ) as collect:
+        league_compare.collect_cached(ctx)
+        league_compare.collect_cached(ctx)
+
+    collect.assert_called_once()
+    league_compare.reset_cache()

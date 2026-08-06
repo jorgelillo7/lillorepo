@@ -261,6 +261,7 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position |
     | `POST` | `/scraper/trigger` | Queue a scraper job execution (bot's `/scrapper`) |
     | `POST` | `/digests/daily` | Cron — my team + market images, lineup, auto-bid summary and offers (chained, Scheduler only) |
+    | `POST` | `/league/compare` | Every squad ranked by value and projection — bot's `/comparar`, owner's chat only |
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,

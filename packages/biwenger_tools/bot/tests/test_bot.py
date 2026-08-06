@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 import packages.biwenger_tools.bot.config as cfg
+from packages.biwenger_tools.bot.menu import MAIN_MENU_ACTIONS
 from packages.biwenger_tools.bot.app import app
 
 _VALID_SECRET = "test-secret"
@@ -243,14 +244,12 @@ def test_menu_sends_persistent_reply_keyboard(client):
     assert markup is not None
     assert markup.get("is_persistent") is True
     assert markup.get("resize_keyboard") is True
-    # 8 actions arranged in 2 columns → 4 rows
-    assert len(markup["keyboard"]) == 4
+    # Two columns, derived from the source rather than hard-coded: a test that
+    # breaks whenever a button is added is pinning the count, not the layout.
+    expected_rows = -(-len(MAIN_MENU_ACTIONS) // 2)
+    assert len(markup["keyboard"]) == expected_rows
     flattened = [b["text"] for row in markup["keyboard"] for b in row]
-    assert "📊 Analizar" in flattened
-    assert "💸 Pujar" in flattened
-    assert "🧹 Scraper" in flattened
-    assert "📥 Ofertas" in flattened
-    assert "🚨 Emergencia" in flattened
+    assert flattened == [label for _, label in MAIN_MENU_ACTIONS]
 
 
 def test_start_aliases_menu(client):

@@ -480,6 +480,18 @@ def digests_daily():
     return _run_action("digests.daily", digests.run_daily)
 
 
+@app.route("/league/compare", methods=["POST"])
+def league_compare_route():
+    """Every squad in the league ranked by value and by projection.
+
+    On demand rather than chained into the digest: the value is in reading it
+    *while deciding whether to buy*, and a fifth message every morning is
+    noise. Answers are cached for a few minutes so a repeated tap costs no
+    second round-trip.
+    """
+    return _run_action("league.compare", actions.run_league_compare)
+
+
 @app.route("/market/auto-bid", methods=["POST"])
 def market_auto_bid():
     """Cron-triggered (09:00 Madrid): tiered auto-bid on the daily market.
