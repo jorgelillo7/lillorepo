@@ -167,6 +167,38 @@ def send_telegram_photo(
         return False
 
 
+def send_telegram_animation(
+    bot_token: str,
+    chat_id: str,
+    animation_url: str,
+    caption: str = "",
+) -> bool:
+    """Send a GIF to a Telegram chat via sendAnimation, by URL.
+
+    Telegram fetches the URL itself, so nothing is uploaded from here — which
+    also means a URL Telegram cannot reach fails as a 4xx rather than a
+    timeout. Same contract as the helpers above: True, or False and logged.
+    """
+    url = f"https://api.telegram.org/bot{bot_token}/sendAnimation"
+    try:
+        response = requests.post(
+            url,
+            data={
+                "chat_id": chat_id,
+                "animation": animation_url,
+                "caption": caption,
+                "parse_mode": "HTML",
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        logger.info("Telegram animation sent.", extra={"url": animation_url[:60]})
+        return True
+    except requests.RequestException as e:
+        logger.error("Failed to send Telegram animation.", extra={"error": str(e)})
+        return False
+
+
 class TelegramDeliveryError(RuntimeError):
     """Raised by the `_or_raise` helpers when Telegram refuses delivery."""
 
