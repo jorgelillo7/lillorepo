@@ -24,8 +24,8 @@ flowchart TD
         CSV["Exportas el CSV<br/>mercado cerrado"] --> RANK["draft_ranking.py<br/>→ draft-ranked.csv"]
         RANK --> REAL["fetch_real_points.py<br/>→ puntos Personalizado<br/>⚠️ shortlist 30-45, nunca el mercado"]
         REAL --> ARCH["archetypes.py<br/>→ final-decision.md"]
-        HIST[("history/{año-1}.csv")] -.->|--history| ARCH
-        EXCL[("history/{año-1}-exclusiones.txt")] -.->|--exclude-file| ARCH
+        HIST[("{año-1}/disponibilidad.csv")] -.->|--history| ARCH
+        EXCL[("{año-1}/exclusiones.txt")] -.->|--exclude-file| ARCH
     end
 
     subgraph OPEN["🚦 Apertura · local · ESCRIBE"]
@@ -45,12 +45,14 @@ flowchart TD
 
     subgraph CLOSE["🏁 Cierre · ESCRIBE"]
         AUTO["último pick → close_draft()<br/>automático, pero solo si la api<br/>desplegada ya lo trae"]
-        MAN["scripts/draft/close.py --write<br/>cierra · escribe history/ · despide"]
+        MAN["scripts/draft/close.py --write<br/>cierra · escribe la carpeta<br/>de temporada · despide"]
+        POST["scripts/draft/postmortem.py --write<br/>compara los siete drafts<br/>y los publica en el grupo"]
+        MAN --> POST
     end
 
     subgraph AFTER["📦 Después · se commitea"]
-        OUT[("history/{año}.md + .csv")]
-        VETO[("history/{año}-exclusiones.txt<br/>a mano, según se descarta")]
+        OUT[("{año}/disponibilidad.md + .csv")]
+        VETO[("{año}/exclusiones.txt<br/>a mano, según se descarta")]
     end
 
     PREP --> OPEN --> LIVE --> CLOSE
@@ -82,6 +84,52 @@ flowchart TD
    abierto para siempre y `/deshacer` sigue vendiendo jugadores de verdad.
 4. **El histórico no lo genera el cierre de la api.** Cloud Run no escribe en tu
    repo. Lo hace `close.py`, en local.
+
+## Una carpeta por temporada, y el mismo árbol cada año
+
+Todo lo que produce un draft vive en `<temporada>/`. La temporada la lleva la
+carpeta, **nunca el nombre del fichero** — eso es lo que permite comparar dos
+años con un `diff -r` y lo que hace que una ejecución limpia genere el mismo
+árbol que generó el año pasado.
+
+```
+skills/draft/
+  25-26/
+    draft.md                 relato a mano; de ese año no hay datos en Firestore
+  26-27/
+    draft-ranked.csv         Fase A · draft_ranking.py
+    draft-real-points.csv    Fase B · fetch_real_points.py
+    arquetipos.md            archetypes.py --out
+    decision.md              archetypes.py --decision
+    disponibilidad.md        availability_report.py — el relato del draft
+    disponibilidad.csv       availability_report.py — el modelo del año siguiente
+    exclusiones.txt          los vetos de noticias, a mano
+    .cache/                  payloads descargados (lo único gitignorado)
+```
+
+**Todo se commitea salvo `.cache/`.** Sin el CSV rankeado y el informe de
+arquetipos en git no hay contra qué diffear la ejecución del año que viene, que
+es justo para lo que existe esta estructura.
+
+Ningún script pide rutas: `scripts/paths.py` las resuelve todas a partir de
+`--season`. Si dos ejecuciones difieren en dónde escriben, es un bug de ahí y de
+ningún otro sitio.
+
+### El ensayo en limpio
+
+`DRAFT_OUT_ROOT` manda la ejecución entera a otra parte **usando los mismos
+nombres por defecto**, que es la única forma de que la comprobación signifique
+algo — una ruta escrita a mano no prueba que el default sea correcto.
+
+```bash
+export DRAFT_OUT_ROOT=/tmp/ensayo
+#   …lanza las fases A, B y el generador tal cual…
+diff -r packages/biwenger_tools/.claude/skills/draft/26-27 /tmp/ensayo/26-27
+```
+
+Silencio significa que la skill es reproducible. Cualquier diferencia que no sea
+un dato de mercado que haya cambiado es un fallo de formato, y hay que
+arreglarlo antes de cerrar la temporada.
 
 ## Inputs the user provides
 
@@ -386,7 +434,7 @@ Los otros dos scripts de la skill, que no son del generador:
 
 Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
 
-**Arranca siempre con el `--exclude-file` del año anterior.** `history/26-27-exclusiones.txt`
+**Arranca siempre con el `--exclude-file` del año anterior.** `26-27/exclusiones.txt`
 guarda los 19 descartes de aquel draft con su motivo. No es una lista negra: un
 ascendido sin minutos en el 26-27 puede ser titular en el 27-28. Se lee el
 motivo, se reevalúa el que haya cambiado y se arrastra el resto — que es la
@@ -490,7 +538,7 @@ Close the previous draft with the machine-readable model and feed it back:
 PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
 
 # al año siguiente
-... archetypes.py --history .claude/skills/draft/history/26-27.csv ...
+... archetypes.py --history 26-27/disponibilidad.csv ...
 ```
 
 The **Vaciado** column then reports, for each planned pick, `gone/supply`: how
@@ -537,7 +585,7 @@ Si en tu tier hay tres jugadores parecidos, espera; si hay uno solo, cógelo ya.
 
 ## El histórico es la mejor fuente de "cuándo"
 
-`history/{temporada}.md` guarda cada draft pick a pick. Cotejar el 15 objetivo
+`{temporada}/disponibilidad.md` guarda cada draft pick a pick. Cotejar el 15 objetivo
 contra el anterior es lo único que dice si el plan es realista: en el 25/26
 Gerard Moreno se fue en el pick 7 y Marcos Alonso — que hoy costaría 3,32M — en
 el pick 10. Un plan que los espere en el pick 40 es papel mojado.
@@ -550,7 +598,7 @@ Cloud Run y no puede escribir en este repo: el histórico lo generas tú.
 PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
 ```
 
-Escribe `history/26-27.md` (el relato) y `history/26-27.csv` (el modelo que lee
+Escribe `26-27/disponibilidad.md` (el relato) y `26-27/disponibilidad.csv` (el modelo que lee
 `archetypes.py --history`). **Ambos se commitean** — son el único artefacto de
 esta skill que sobrevive a la semana en que se usó. Todo lo demás
 (`final-decision.md`, `mi-arquetipos.md`, el CSV rankeado) está gitignorado a
