@@ -38,6 +38,24 @@ state beyond Firestore and Google Secret Manager.
 - The relationship is complementary, not duplicated: the spec says **what**,
   the test proves **that it holds**.
 
+## The rules the platform runs inside
+
+The Lloros League reglamento and Biwenger's own limits are **environment, not
+behaviour** — nothing here implements them, but several capabilities are only
+correct because of them. Recorded once so they are not rediscovered per module:
+
+| Rule | Where it bites |
+|---|---|
+| **25 players maximum** per squad in LaLiga, and a **125M team-value ceiling** past which you cannot buy (Biwenger) | The squad and market renderers must stay legible up to 25 rows; the draft's fifteen is well inside both |
+| **Jornada única** — *"entregar puntos y abonos tras disputarse todos los partidos"* (reglamento 2.5.8) | A matchday is not final until every match in it is played. 2026/27 opened with a round spanning **twelve days**, so standings, prizes and points are provisional until it closes — and no lineup set on day one is right for the whole round |
+| **Per-matchday prize money** (2.5.7): 75k per point, 500k per Once Ideal player, 100k for the MVP, paid automatically by Biwenger | Cash grows every matchday without anyone selling, which is the budget auto-bid and the clausulazo recommender read |
+| **Captain must cost < 3M** (Biwenger hard cap) | Enforced in `lineup.py`; the draft ranks the best sub-3M starter accordingly |
+| **15 players able to field some legal XI**, bench unconstrained; snake draft; prices frozen to the export day | The draft capability, `specs/biwenger_tools/draft/spec.md` |
+
+The full text lives in the league's reglamento document, not in this repo. When
+an article changes, the row above changes with it — and so does whatever it
+bites.
+
 ## Service-level objective
 
 One SLO covers the user-facing surface — the 09:00 Madrid daily digest,

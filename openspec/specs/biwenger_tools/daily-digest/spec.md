@@ -20,8 +20,13 @@ breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 ### Requirement: Ordered sections, then bidding
 
 `run_daily` SHALL send both images ("Mi equipo", then "Mercado") **before**
-running auto-bid exactly once, so the chat reads squad → market → bids. It then
-chains the offers inbox after auto-bid. Missing Telegram credentials SHALL
+setting the lineup and running auto-bid exactly once, so the chat reads
+squad → market → lineup → bids. It then chains the offers inbox after auto-bid.
+
+The lineup step SHALL reuse the context the digest already built, so chaining it
+costs no second JP + Biwenger round-trip, and SHALL be switchable off by
+`DAILY_LINEUP_ENABLED` without a deploy — it writes to Biwenger every morning,
+and a step that writes needs a switch that does not require a release. Missing Telegram credentials SHALL
 short-circuit the whole run with `reason = telegram_credentials_missing` and no
 sends.
 
@@ -70,6 +75,23 @@ failures.
 - **THEN** a "Digest diario falló" Telegram message is sent before the error
   propagates
 - *Verifies:* `test_run_daily_notifies_telegram_when_inner_raises`
+
+### Requirement: The morning lineup is a floor, not the best one
+
+Setting the lineup at 09:00 exists so a player who arrives overnight is fielded
+without anyone opening the app. It SHALL NOT be treated as the optimal moment:
+Biwenger locks each player at *his* own kickoff, and under the league's
+"jornada única" configuration a matchday is not final until every match in it
+has been played — 2026/27 opened with a round spanning twelve days. The manual
+`/lineups/auto-pick` remains the way to re-align closer to a specific match.
+
+#### Scenario: lineup step
+- **WHEN** the digest runs and `DAILY_LINEUP_ENABLED` is on
+- **THEN** the lineup is set from the digest's own context, before auto-bid
+- **WHEN** it is off **THEN** the step is skipped and reported as `disabled`
+- *Verifies:* operational switch, exercised by the digest's own chain
+
+---
 
 ### Requirement: Config-driven auto-bid pause
 

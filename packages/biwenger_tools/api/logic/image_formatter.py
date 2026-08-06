@@ -275,11 +275,15 @@ def build_table_image(
 
         sf_col = base_headers.index("Proyección")
         plays_col = base_headers.index("Juega")
+        # A full Biwenger squad is 25 players, so that is the density this has
+        # to stay legible at — not a hypothetical. Below ~18 rows the figure
+        # still grows; past that it is capped, so the type gives back the room.
+        body_size = 9.5 if n_rows <= 18 else 8.5
         for i in range(1, n_rows + 1):
             jp = sorted_rows[i - 1].get("jp_player")
             for j in range(n_cols):
                 cell = table[i, j]
-                cell.get_text().set_fontsize(9.5)
+                cell.get_text().set_fontsize(body_size)
                 cell.set_edgecolor(_EDGE)
             # Two independent signals, two independent colours.
             table[i, sf_col].get_text().set_color(_BAND_FG[sf_band(jp)])
