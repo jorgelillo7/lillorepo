@@ -46,6 +46,8 @@ _CAPTAIN_MAX_PRICE = 3_000_000
 # prefers filling the slot with someone unlikely to play (0 points) over
 # leaving a hole and losing the -4 "empty slot" penalty Biwenger applies.
 _UNCALLED_SF = 1
+# Injured, suspended, no fixture or no data. Still ahead of an empty slot.
+_DOUBTFUL_SF = 0
 
 # Per-slot branching cap inside `_try_fill`. The exhaustive backtracking
 # blows up exponentially when many multi-position players are eligible for
@@ -110,7 +112,7 @@ def pick_lineup(squad_rows: list) -> dict | None:
             continue
 
         starter_ids = {r["bw_id"] for r, _ in assignment}
-        reserves = _pick_reserves(available, starter_ids)
+        reserves = _pick_reserves(squad_rows, starter_ids)
         captain = _pick_captain([r for r, _ in assignment])
 
         best_score = score
@@ -175,19 +177,25 @@ def format_lineup_message(result: dict) -> str:
 def _sf(row: dict) -> int:
     """Predicted SF score for a player.
 
-    Special cases:
-    - 0 if JP has no prediction at all.
-    - `_UNCALLED_SF` (1) if JP has marked the player as `playerInLineup=False`
-      ("no convocado"). They stay eligible so the picker doesn't leave a slot
-      empty (Biwenger penalises an empty slot by -4), but they only get used
-      when there is no real alternative — any other available player at the
-      same position wins easily on SF.
+    A ladder of last resorts rather than a filter, so a slot is only ever left
+    empty when the squad genuinely has nobody for it:
+
+    - the real prediction for a player who is expected to play,
+    - `_UNCALLED_SF` (1) for "no convocado",
+    - `_DOUBTFUL_SF` (0) for injured, suspended, no fixture, or no JP data.
+
+    Any player with a real prediction beats all of these outright, so the
+    fallbacks never displace someone who is actually going to play.
     """
     jp = row.get("jp_player") or {}
+    if jp.get("status") in ("injured", "suspended"):
+        return _DOUBTFUL_SF
     next_match = jp.get("nextMatch") or {}
+    if next_match.get("status") == "break":
+        return _DOUBTFUL_SF
     if next_match.get("playerInLineup") is False:
         return _UNCALLED_SF
-    return get_predict_rate(jp, SCORE_SF) or 0
+    return get_predict_rate(jp, SCORE_SF) or _DOUBTFUL_SF
 
 
 def _is_uncalled(row: dict) -> bool:
@@ -237,25 +245,17 @@ def _back_bias(assignment: list) -> int:
 def _is_available(row: dict) -> bool:
     """Whether a player can be picked for the lineup.
 
-    Excludes:
-    - players with no JP data (we can't predict their SF),
-    - injured or suspended (per JP status),
-    - matches in `break` (their team has no game this matchday).
+    Nobody is excluded any more. Every reason a player might not play —
+    not called up, injured, suspended, no fixture, no JP data at all — is a
+    penalty in `_sf` instead, because **an empty slot scores -4 and a player
+    who does not play scores 0**. Leaving the slot open is strictly worse than
+    filling it with anyone, and fixtures get postponed: a player written off on
+    Friday sometimes plays on Tuesday.
 
-    Note: `playerInLineup is False` ("no convocado") used to be a hard
-    exclusion. It is now a soft penalty applied in `_sf` instead — a
-    not-called player still beats an empty slot in Biwenger's scoring
-    (empty slot = -4, not playing = 0), so we want them as fallback,
-    not removed.
+    The argument was already made here for "no convocado" and simply never
+    extended to the rest. A real alternative always outranks these on SF, so
+    they only ever appear when the slot would otherwise stay empty.
     """
-    jp = row.get("jp_player")
-    if jp is None:
-        return False
-    if jp.get("status") in ("injured", "suspended"):
-        return False
-    next_match = jp.get("nextMatch") or {}
-    if next_match.get("status") == "break":
-        return False
     return True
 
 
@@ -387,14 +387,16 @@ def _try_fill(players: list, slots: dict) -> list | None:
 # ---------------------------------------------------------------------------
 
 
-def _pick_reserves(available: list, starter_ids: set) -> list:
+def _pick_reserves(squad: list, starter_ids: set) -> list:
     """Pick up to 4 reserves in Biwenger's positional order: GK → DEF → MID → FWD.
 
-    For each position slot we pick the highest-SF eligible bench player that
-    has not already been picked for an earlier slot. If no candidate exists
-    for a slot we leave a `None` there — Biwenger accepts a partial bench.
+    Takes the **whole squad**, not the trimmed candidate pool. The trim exists
+    to bound the starter search, and letting it reach the bench silently lost
+    players: a squad with eleven midfield-eligible names left the midfield
+    reserve slot empty because the twelfth-ranked one had been dropped before
+    the bench was ever considered.
     """
-    bench_pool = [r for r in available if r["bw_id"] not in starter_ids]
+    bench_pool = [r for r in squad if r["bw_id"] not in starter_ids]
     used_ids: set = set()
     reserves: list = []
     for slot_pos in (GK, DEF, MID, FWD):
