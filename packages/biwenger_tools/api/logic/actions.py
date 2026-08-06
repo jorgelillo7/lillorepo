@@ -249,14 +249,17 @@ def run_market() -> dict:
     return {"sent": 1, "size": len(market_rows)}
 
 
-def run_auto_pick_lineup(dry_run: bool = False) -> dict:
+def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     """Pick the best lineup, apply it on Biwenger, confirm via Telegram.
 
     Used by POST /lineups/auto-pick (was /alinear). With `dry_run=True`
     skips the Biwenger PUT and sends the would-be lineup to Telegram as
     a preview — useful before a high-stakes matchday.
+
+    `ctx` lets the daily digest hand over the context it already built, so
+    chaining this step costs no extra JP + Biwenger round-trip.
     """
-    ctx = build_context()
+    ctx = ctx or build_context()
     biwenger, biwenger_players, jp_index = (
         ctx.biwenger,
         ctx.biwenger_players,

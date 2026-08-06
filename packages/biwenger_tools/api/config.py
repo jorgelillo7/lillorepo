@@ -26,6 +26,12 @@ TELEGRAM_BOT_TOKEN = (
 TELEGRAM_CHAT_ID = (
     _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
 ).strip()
+# The league's supergroup, where the draft runs. `TELEGRAM_CHAT_ID` above is the
+# owner's private chat: anything addressed to the seven presidents goes here
+# instead, and the operational draft scripts all mean this one.
+TELEGRAM_DRAFT_CHAT_ID = (
+    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID", "")
+).strip()
 
 # --- BIWENGER API URLs (derived from core for the user's league) ---
 LOGIN_URL = biwenger_sdk.LOGIN_URL
@@ -52,6 +58,12 @@ JP_SCORE_TYPE = 2  # SofaScore (Automanager system)
 # works. Empty string = never paused. Override via env without a deploy:
 #   gcloud run services update biwenger-api --update-env-vars AUTO_BID_PAUSED_UNTIL=...
 AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
+
+# --- DAILY LINEUP (daily digest only) ---
+# The digest sets the best lineup on Biwenger every morning. Off switches the
+# step off without a deploy; the manual `POST /lineups/auto-pick` (bot's
+# /alinear) is never affected, and stays the way to re-align closer to kickoff.
+DAILY_LINEUP_ENABLED = os.getenv("DAILY_LINEUP_ENABLED", "true").lower() != "false"
 
 # --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
