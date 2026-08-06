@@ -34,6 +34,10 @@ COMMANDS = [
         "description": "Qué fichar si me clausulan (top 3 por posición)",
     },
     {
+        "command": "comparar",
+        "description": "Valor y proyección de todas las plantillas",
+    },
+    {
         "command": "pujar",
         "description": "Lanza el auto-bid del mercado diario por tiers",
     },

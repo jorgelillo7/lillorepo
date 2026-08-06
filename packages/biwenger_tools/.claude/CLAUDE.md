@@ -34,11 +34,11 @@ thing:
 |---|---|
 | `open.py` | Greets the league, uploads the frozen CSV and starts the clock |
 | `close.py` | Shuts the door and writes the season's history |
-| `postmortem.py` | **After closing**: compares everyone's draft and posts the verdict, one message per manager, to the group |
+| `postdraft.py` | **After closing**: compares everyone's draft and posts the verdict, one message per manager, to the group |
 | `reset.py` | Wipes the picks between a rehearsal and the real thing |
 | `backfill_timings.py` | Rewrites the per-pick timings from Cloud Logging |
 
-`postmortem.py` is the one you will forget exists: it runs once a year, days
+`postdraft.py` is the one you will forget exists: it runs once a year, days
 after the draft, and nothing prompts you to run it. It is here rather than in
 the skill for the reason above — it posts to the group.
 

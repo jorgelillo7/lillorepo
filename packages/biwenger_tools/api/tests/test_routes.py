@@ -133,6 +133,24 @@ def test_digests_daily_rejects_get(client):
     assert resp.status_code == 405  # method not allowed
 
 
+# --- /league/compare ---
+
+
+def test_league_compare_calls_the_action(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_league_compare",
+        return_value={"sent": 1, "managers": 7},
+    ) as mock_run:
+        resp = client.post("/league/compare")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json()["managers"] == 7
+
+
+def test_league_compare_rejects_get(client):
+    assert client.get("/league/compare").status_code == 405
+
+
 # --- /market/auto-bid ---
 
 

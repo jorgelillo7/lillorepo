@@ -52,6 +52,23 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
+- **The draft skill's generator only explores 2-5-5-3** (2026-08-06). It builds
+  the ideal fifteen from that one shape, so it would never have proposed the
+  4-6-0 the 26-27 squad actually plays. The data no longer blocks the fix —
+  `alt_positions` reaches the ranked CSV and `composition_ok` is imported from
+  the api — but `build()` still fills a fixed shape. Worth doing before the
+  27-28 draft, worthless after it.
+- **`bazel coverage` cannot see the draft skill's tests** (2026-08-06). The
+  package lives under `.claude/`, and coverage does not instrument a path with a
+  dot component; `--instrumentation_filter` does not help. The 32 tests run in
+  CI and contribute nothing to the measured 80%. Either accept it (and keep the
+  note in `STATUS.md`) or move the scripts out from under `.claude/`.
+- **The bot's `/comparar` and the lineup step have no end-to-end proof**
+  (2026-08-06). Both are wired and unit-tested, but nothing exercises
+  bot → api → Biwenger. The accepted-gaps table already parks integration
+  tests; this is the first feature where that gap has teeth, since the lineup
+  step writes to Biwenger every morning.
+
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
   Trofeos spreadsheets and shares the IDs: add the `*_26_27` GitHub secrets,

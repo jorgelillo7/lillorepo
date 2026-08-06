@@ -260,7 +260,8 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
     | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position |
     | `POST` | `/scraper/trigger` | Queue a scraper job execution (bot's `/scrapper`) |
-    | `POST` | `/digests/daily` | Cron — my team + market images, then auto-bid summary (chained, Scheduler only) |
+    | `POST` | `/digests/daily` | Cron — my team + market images, lineup, auto-bid summary and offers (chained, Scheduler only) |
+    | `POST` | `/league/compare` | Every squad ranked by value and projection — bot's `/comparar`, owner's chat only |
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
@@ -272,6 +273,21 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     gcloud run services update biwenger-api --region europe-southwest1 \
       --update-env-vars AUTO_BID_PAUSED_UNTIL=2026-09-01
     ```
+
+    The digest also **sets the lineup** every morning, so a player who arrived
+    overnight is fielded without anyone opening the app. It PUTs to Biwenger,
+    so it has its own kill switch — a step that writes needs one that does not
+    require a release:
+
+    ```bash
+    gcloud run services update biwenger-api --region europe-southwest1 \
+      --update-env-vars DAILY_LINEUP_ENABLED=false
+    ```
+
+    09:00 is deliberately early and deliberately not optimal: Biwenger locks
+    each player at *his* kickoff and a matchday can span twelve days, so this
+    is a floor. `/alinear` stays the way to re-align closer to a match that
+    matters.
 
   * **Smoke test:**
 

@@ -24,7 +24,6 @@ def short_position(position_id) -> str:
 OUT_REASONS = {
     "lesionado": "injured",
     "sancionado": "suspended",
-    "no convocado": "not called up",
     "sin partido": "no match",
 }
 
@@ -32,10 +31,14 @@ OUT_REASONS = {
 def availability(jp_player: dict | None) -> str:
     """`"plays"`, `"out"` or `"unknown"` — can he be fielded at all.
 
-    This is the question the row colour should answer. A fit starter projected
-    below the green threshold was being painted the same amber as a doubt, and
-    a defender whose team simply rests that week the same red as a torn
-    quadriceps.
+    This is the question the row colour should answer, and it is about
+    availability rather than expectation. A player JP leaves out of its
+    projected eleven is **available**: he comes on at the hour and scores. Only
+    an injury, a suspension or no fixture at all make him unfieldable.
+
+    Treating a projected substitute as unavailable was the same mistake one
+    layer down as painting a fit starter amber for a modest forecast — his low
+    SF already says he will not score much, and the bar column says it.
     """
     if jp_player is None:
         return "unknown"
@@ -43,8 +46,6 @@ def availability(jp_player: dict | None) -> str:
         return "out"
     next_match = jp_player.get("nextMatch") or {}
     if next_match.get("status") == "break":
-        return "out"
-    if next_match.get("playerInLineup") is False:
         return "out"
     return "plays"
 
@@ -134,7 +135,10 @@ def play_status_label(jp_player: dict | None) -> str:
     if next_match.get("status") == "break":
         return "sin partido"
     if next_match.get("playerInLineup") is False:
-        return "no convocado"
+        # JP's own field is `playerInLineup`: it says he is not in their
+        # *projected eleven*, not that the club left him out of the squad.
+        # "No convocado" claimed the stronger thing and was simply wrong.
+        return "suplente"
     return "casa" if next_match.get("isLocal") else "fuera"
 
 

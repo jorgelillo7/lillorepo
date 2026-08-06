@@ -51,6 +51,7 @@ _HELP_TEXT = (
     "/preview — Previsualiza la alineación sin aplicarla\n"
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
+    "/comparar — Valor y proyección de todas las plantillas de la liga\n"
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
@@ -79,6 +80,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "alinear_dry": ("/lineups/auto-pick", "POST", {"dry_run": "1"}),
     "recomendar": ("/budget/recommendations", "GET", None),
     "pujar": ("/market/auto-bid", "POST", None),
+    "comparar": ("/league/compare", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
     "emergencia": ("/emergency/clausulazo/preview", "POST", None),
     "ofertas": ("/offers/inbox", "POST", None),

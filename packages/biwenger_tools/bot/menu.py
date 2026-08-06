@@ -24,6 +24,7 @@ MAIN_MENU_ACTIONS = [
     ("mercado", "🛒 Mercado"),
     ("alinear", "📋 Alinear"),
     ("recomendar", "💡 Recomendar"),
+    ("comparar", "⚖️ Comparar"),
     ("ofertas", "📥 Ofertas"),
     ("pujar", "💸 Pujar"),
     ("emergencia", "🚨 Emergencia"),

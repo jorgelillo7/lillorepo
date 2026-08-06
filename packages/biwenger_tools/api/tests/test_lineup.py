@@ -21,6 +21,10 @@ from packages.biwenger_tools.api.logic.lineup import (
     pick_lineup,
 )
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
+from packages.biwenger_tools.api.player_formatting import (
+    availability,
+    play_status_label,
+)
 
 
 def _row(bw_id: int, price: int, sf: int) -> dict:
@@ -231,3 +235,26 @@ def test_the_bench_is_drawn_from_the_whole_squad_not_the_trimmed_pool():
 
     reserves = _pick_reserves(squad, starter_ids={p["bw_id"] for p in crowded})
     assert reserves[2] is ninth  # …and the bench finds him anyway
+
+
+# --- what the labels claim ------------------------------------------------
+
+
+def test_a_projected_substitute_is_available_not_out():
+    """JP's `playerInLineup` says he is outside their *projected eleven*, not
+    that the club left him out. He comes on at the hour and scores, so calling
+    him unavailable — and painting him the red of a torn quadriceps — claimed
+    something the data never said."""
+    bench = _player(1, 200, MID, called=False)["jp_player"]
+
+    assert availability(bench) == "plays"
+    assert play_status_label(bench) == "suplente"
+
+
+def test_only_a_real_absence_counts_as_out():
+    for jp in (
+        _player(1, 5, MID, status="injured")["jp_player"],
+        _player(2, 5, MID, status="suspended")["jp_player"],
+        _player(3, 5, MID, fixture="break")["jp_player"],
+    ):
+        assert availability(jp) == "out"
