@@ -275,9 +275,9 @@ def build_table_image(
 
         sf_col = base_headers.index("Proyección")
         plays_col = base_headers.index("Juega")
-        # A full Biwenger squad is 25 players, so that is the density this has
-        # to stay legible at — not a hypothetical. Below ~18 rows the figure
-        # still grows; past that it is capped, so the type gives back the room.
+        # Squad size is a per-league setting, commonly up to 25, so that is the
+        # density this has to stay legible at. Below ~18 rows the figure still
+        # grows; past that it is capped, so the type gives back the room.
         body_size = 9.5 if n_rows <= 18 else 8.5
         for i in range(1, n_rows + 1):
             jp = sorted_rows[i - 1].get("jp_player")

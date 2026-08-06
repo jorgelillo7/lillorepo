@@ -46,7 +46,7 @@ correct because of them. Recorded once so they are not rediscovered per module:
 
 | Rule | Where it bites |
 |---|---|
-| **25 players maximum** per squad in LaLiga, and a **125M team-value ceiling** past which you cannot buy (Biwenger) | The squad and market renderers must stay legible up to 25 rows; the draft's fifteen is well inside both |
+| **Squad size is a per-league Biwenger setting**, not a platform constant — commonly 16–25 depending on how many managers play, and Premium can cap it per position. Ours is not exposed by the API | The squad and market renderers must stay legible well past the draft's fifteen; verified at 25 rows, which is the top of the usual range |
 | **Jornada única** — *"entregar puntos y abonos tras disputarse todos los partidos"* (reglamento 2.5.8) | A matchday is not final until every match in it is played. 2026/27 opened with a round spanning **twelve days**, so standings, prizes and points are provisional until it closes — and no lineup set on day one is right for the whole round |
 | **Per-matchday prize money** (2.5.7): 75k per point, 500k per Once Ideal player, 100k for the MVP, paid automatically by Biwenger | Cash grows every matchday without anyone selling, which is the budget auto-bid and the clausulazo recommender read |
 | **Captain must cost < 3M** (Biwenger hard cap) | Enforced in `lineup.py`; the draft ranks the best sub-3M starter accordingly |
