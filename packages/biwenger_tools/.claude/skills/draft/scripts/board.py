@@ -21,7 +21,10 @@ from collections import defaultdict
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 
-from archetypes import BANDS, NEED, POS, price_band  # noqa: E402
+from archetypes import BANDS, NEED, POS, eligibility, price_band  # noqa: E402
+
+from packages.biwenger_tools.api.logic.draft import composition_ok  # noqa: E402
+import paths  # noqa: E402
 
 from core.constants import DRAFT_ORDER_NAMES  # noqa: E402
 
@@ -77,6 +80,7 @@ def load_market(path):
                 "price": int(r["price"]),
                 "sf": int(r["sofascore"]),
                 "placeholder": r.get("jp_placeholder") == "True",
+                "lines": (r.get("alt_positions") or r["position"]).split("/"),
                 "real": None,
                 "starts": None,
             }
@@ -118,13 +122,24 @@ def spend_cap(free, held, line, budget_left):
     The trap this exists for: with four picks left and 3M, a 2.55M forward
     looks affordable and is not — the other three slots still have to be paid
     for. Reserves the cheapest available player per remaining mandatory slot.
+
+    A multi-position player counts towards every line he covers, so a squad
+    that looks short of defenders may not be — reserving against the naive
+    per-line count would refuse purchases that are perfectly affordable.
     """
+    covered = {code: 0 for code in POS}
+    for code, rows in held.items():
+        for entry in rows:
+            row = entry[1] if isinstance(entry, tuple) else entry
+            for other in row.get("lines", [code]) if row else [code]:
+                if other in covered:
+                    covered[other] += 1
     reserve = 0
     for other in POS:
         if other == line:
             continue
-        gap = max(0, NEED[other] - len(held.get(other, ())))
-        prices = sorted(r["price"] for r in free if r["pos"] == other)
+        gap = max(0, NEED[other] - covered[other])
+        prices = sorted(r["price"] for r in free if other in r.get("lines", [r["pos"]]))
         reserve += sum(prices[:gap])
     return budget_left - reserve
 
@@ -152,7 +167,9 @@ def main():
     ap = argparse.ArgumentParser(description="Estado del draft a mitad de camino")
     ap.add_argument("--season", default="26-27")
     ap.add_argument("--me", default="Jorge")
-    ap.add_argument("--ranked", default="draft-ranked.csv")
+    ap.add_argument(
+        "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
+    )
     ap.add_argument("--real-points", default="")
     ap.add_argument("--budget", type=float, default=52, help="en millones")
     ap.add_argument("--managers", type=int, default=len(DRAFT_ORDER_NAMES))
@@ -164,7 +181,8 @@ def main():
     position = order.index(_norm(args.me)) + 1
 
     picks = load_picks(args.season)
-    market = load_market(args.ranked)
+    ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
+    market = load_market(ranked)
     if args.real_points:
         overlay_real(market, args.real_points)
 
@@ -201,20 +219,27 @@ def main():
     print(f"**Picks pendientes: {', '.join(map(str, pending)) or 'ninguno'}**\n")
 
     print("## Composición\n")
-    print("| Línea | Tienes | Mínimo | Falta |")
+    print("| Línea | De su línea | Contando multiposición | Mínimo |")
     print("|---|--:|--:|--:|")
-    missing = 0
+    held_rows = [row for rows in by_line.values() for _, row in rows if row]
     for code in POS:
-        have, need = len(by_line.get(code, [])), NEED[code]
-        gap = max(0, need - have)
-        missing += gap
-        print(f"| {POS[code]} | {have} | {need} | {gap or '—'} |")
-    if missing > len(pending):
-        print(
-            f"\n⚠️ Faltan {missing} huecos obligatorios y solo quedan "
-            f"{len(pending)} picks. La composición ya no cierra."
+        strict = len(by_line.get(code, []))
+        loose = sum(1 for r in held_rows if code in r.get("lines", [r["pos"]]))
+        print(f"| {POS[code]} | {strict} | **{loose}** | {NEED[code]} |")
+    legal = composition_ok([eligibility(r) for r in held_rows])
+    print(
+        "\n"
+        + (
+            "✅ Ya puedes alinear un once legal."
+            if legal
+            else "⚠️ Todavía no puedes alinear un once legal."
         )
-    print()
+    )
+    print(
+        "\n«Contando multiposición» es lo que de verdad limita: un DF/MC tapa "
+        "las dos líneas, así que ir corto en una columna no significa ir corto "
+        "de verdad.\n"
+    )
 
     free, _ = board_state(market, picks)
     left_budget = budget - spent

@@ -1,11 +1,9 @@
-# Personal per-year squad drafts (Phase B output) stay local — not repo content.
-mi-*.md
-draft-ranked*.csv
-final-decision*.md
-draft-resumen*.md
-draft-tiempos*.md
-draft-real-points*.csv
-
-# Fetched player payloads. The cache exists so a re-run costs zero requests
-# against a budget shared with the whole league — it is not repo content.
-.cache/
+# One folder per season holds everything that season produced, and all of it is
+# committed: without the ranked CSV and the archetype report in git there is
+# nothing to diff next year's run against, which is the whole point of the
+# per-season layout.
+#
+# The exception is the fetched payload cache. It is ~800 KB of raw Biwenger
+# responses per season, it is reproducible from the API, and it says nothing a
+# reader would ever want to read.
+*/.cache/

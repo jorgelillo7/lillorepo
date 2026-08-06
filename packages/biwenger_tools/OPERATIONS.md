@@ -445,7 +445,7 @@ llamada deshace el último fichaje.
 PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/close.py --write
 ```
 
-Cierra, escribe `history/{temporada}.md` + `.csv` en la skill y despide al grupo.
+Cierra, escribe `{temporada}/disponibilidad.md` + `.csv` en la skill y despide al grupo.
 Sin `--write` sólo enseña lo que haría. Se niega a cerrar con picks pendientes
 salvo `--force --reason "..."`.
 
@@ -456,7 +456,7 @@ Dos motivos para que exista, aunque el cierre sea automático:
   desplegada, el draft se queda abierto para siempre y `/deshacer` sigue
   vendiendo jugadores de verdad.
 - **El histórico no lo puede escribir la api.** Corre en Cloud Run y no toca este
-  repo. `history/{temporada}.csv` es lo que lee `archetypes.py --history` al año
+  repo. `{temporada}/disponibilidad.csv` es lo que lee `archetypes.py --history` al año
   siguiente, así que si nadie lo genera, el año que viene no hay referencia.
 
 Los dos ficheros **se commitean**. El resto de salidas de la skill están
@@ -480,7 +480,7 @@ root). All default to dry-run; pass `--apply` to write. They use ADC (`gcloud au
 - **`draft/open.py`** — open the draft: upload the frozen market CSV,
   stamp the starting instant, greet the group. Dry-run without `--write`. See
   "Abrir el draft" above.
-- **`draft/close.py`** — close the draft, write `history/{temporada}.md` +
+- **`draft/close.py`** — close the draft, write `{temporada}/disponibilidad.md` +
   `.csv` and say goodbye. Dry-run without `--write`. The api closes itself on
   the last pick but cannot write files, and `close_draft()` is reachable no
   other way. See "Cerrar el draft" above.

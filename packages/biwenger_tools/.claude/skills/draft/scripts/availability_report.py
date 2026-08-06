@@ -16,11 +16,16 @@ Writes `history/{season}.md` (the readable record) and `history/{season}.csv`
 
 import argparse
 import os
+import sys
 from collections import defaultdict
 
 import requests
 
 from core.sdk import firestore as fs
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import paths  # noqa: E402
 
 COMPETITION_URL = "https://cf.biwenger.com/api/v2/competitions/la-liga/data?lang=es"
 # Without a browser User-Agent the endpoint answers JSONP, not JSON.
@@ -168,10 +173,10 @@ def main() -> int:
     args = ap.parse_args()
     # Both default into `history/`, one file per season: a draft's record is
     # the only artefact of this skill that outlives the week it was run.
-    home = os.path.join(os.path.dirname(__file__), "..", "history")
-    out = args.out or os.path.join(home, f"{args.season}.md")
-    history_csv = args.history_csv or os.path.join(home, f"{args.season}.csv")
-    os.makedirs(home, exist_ok=True)
+    out = args.out or paths.season_path(args.season, paths.AVAILABILITY)
+    history_csv = args.history_csv or paths.season_path(
+        args.season, paths.AVAILABILITY_CSV
+    )
 
     picks = load_picks(args.season)
     if not picks:

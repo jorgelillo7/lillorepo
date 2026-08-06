@@ -18,6 +18,81 @@ def short_position(position_id) -> str:
     return POSITION_SHORT.get(position_id, "?")
 
 
+# Why a player cannot be fielded, in the order the reader cares about. Kept
+# apart from the score band on purpose: an injury and a low projection are not
+# the same news, and the old traffic light gave them the same colour.
+OUT_REASONS = {
+    "lesionado": "injured",
+    "sancionado": "suspended",
+    "no convocado": "not called up",
+    "sin partido": "no match",
+}
+
+
+def availability(jp_player: dict | None) -> str:
+    """`"plays"`, `"out"` or `"unknown"` — can he be fielded at all.
+
+    This is the question the row colour should answer. A fit starter projected
+    below the green threshold was being painted the same amber as a doubt, and
+    a defender whose team simply rests that week the same red as a torn
+    quadriceps.
+    """
+    if jp_player is None:
+        return "unknown"
+    if jp_player.get("status") in ("injured", "suspended"):
+        return "out"
+    next_match = jp_player.get("nextMatch") or {}
+    if next_match.get("status") == "break":
+        return "out"
+    if next_match.get("playerInLineup") is False:
+        return "out"
+    return "plays"
+
+
+def sf_band(jp_player: dict | None) -> str:
+    """`"high"`, `"mid"`, `"low"` or `"none"` for the projected score alone."""
+    if jp_player is None:
+        return "none"
+    sf = get_predict_rate(jp_player, SCORE_SF)
+    if sf is None:
+        return "none"
+    if sf >= SF_GREEN_THRESHOLD:
+        return "high"
+    if sf >= SF_YELLOW_THRESHOLD:
+        return "mid"
+    return "low"
+
+
+def count_availability(rows: list[dict]) -> tuple[int, int, int]:
+    """`(plays, out, unknown)` across the rows."""
+    plays = out = unknown = 0
+    for row in rows:
+        state = availability(row.get("jp_player"))
+        plays += state == "plays"
+        out += state == "out"
+        unknown += state == "unknown"
+    return plays, out, unknown
+
+
+def count_bands(rows: list[dict]) -> tuple[int, int, int]:
+    """`(high, mid, low)` projected scores **among the players who can play**.
+
+    Counting the rest would drag the reading for no reason: a substitute
+    goalkeeper projects near zero every week of the season by design, and a
+    torn quadriceps is not a bad forecast.
+    """
+    high = mid = low = 0
+    for row in rows:
+        jp = row.get("jp_player")
+        if availability(jp) != "plays":
+            continue
+        band = sf_band(jp)
+        high += band == "high"
+        mid += band == "mid"
+        low += band == "low"
+    return high, mid, low
+
+
 def status_emoji(jp_player: dict | None) -> str:
     """Traffic-light status for a player.
 

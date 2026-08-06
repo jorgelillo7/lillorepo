@@ -16,17 +16,32 @@ the SF of the best captain that both starts and survives price drift. Raw
 effective points (any eligible captain) are reported alongside as the optimistic
 bound.
 
-    PYTHONPATH not needed. Run:
-      python3 .claude/skills/draft/scripts/archetypes.py --ranked draft-ranked.csv
+    PYTHONPATH=. python3 .claude/skills/draft/scripts/archetypes.py \
+        --ranked draft-ranked.csv
 """
 
 import argparse
 import csv
+import os
 import statistics
+import sys
 import unicodedata
 from collections import Counter
 
+from packages.biwenger_tools.api.logic.draft import composition_ok
+from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import paths  # noqa: E402
+
 POS = {"PT": "POR", "DF": "DEF", "MC": "MED", "DL": "DEL"}
+# Line codes as the api names them, so the shared composition check applies.
+_LINE_ID = {"PT": GK, "DF": DEF, "MC": MID, "DL": FWD}
+# Minimum per line to *build* a squad from. Not the legality rule: that is
+# `draft.composition_ok`, which only asks for a fieldable XI and counts a
+# multi-position player in every line he plays. These are the shape the
+# generator fills before it starts upgrading.
 NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
 CAPTAIN_CAP = 3_000_000
 CAPTAIN_SAFE = 2_500_000  # durable buffer below the cap
@@ -190,6 +205,7 @@ def load(
                     "name": r["name"],
                     "team": r["team"],
                     "pos": r["position"],
+                    "lines": (r.get("alt_positions") or r["position"]).split("/"),
                     "sf": int(r["sofascore"]),
                     "price": price,
                     "vm": float(r["value_per_m"]) if r["value_per_m"] else 0.0,
@@ -217,6 +233,24 @@ def load(
         dropped = []
     kept = [r for r in raw if r not in dropped]
     return kept, placeholder_sf, dropped
+
+
+def eligibility(row):
+    """Line ids this player can be fielded in, for `composition_ok`.
+
+    Falls back to his single position when the ranked CSV predates the
+    `alt_positions` column, so an old CSV still works — just without the
+    flexibility it cannot see.
+    """
+    return frozenset(
+        _LINE_ID[line] for line in row.get("lines", [row["pos"]]) if line in _LINE_ID
+    )
+
+
+def squad_is_legal(squad):
+    """True iff these players can field some legal XI — the api's own rule,
+    imported rather than restated so the two cannot drift apart."""
+    return composition_ok([eligibility(r) for c in POS for r in squad[c]])
 
 
 def price_band(price):
@@ -349,6 +383,8 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
             spent += pk["price"]
         if len(squad[c]) < NEED[c]:
             warnings.append(f"{POS[c]}: solo {len(squad[c])}/{NEED[c]} jugadores")
+    if not squad_is_legal(squad):
+        warnings.append("no puede alinear un once legal")
     if spent > budget:
         warnings.append(f"relleno mínimo ya excede el presupuesto ({spent / 1e6:.2f}M)")
     # The frozen substitute of each line: the cheapest pick, left untouched by
@@ -783,7 +819,10 @@ def render(
 
 def main():
     ap = argparse.ArgumentParser(description="Draft archetype generator")
-    ap.add_argument("--ranked", required=True, help="ranked CSV from draft_ranking.py")
+    ap.add_argument("--season", default="26-27", help="carpeta de salida")
+    ap.add_argument(
+        "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
+    )
     ap.add_argument(
         "--real-points",
         default="",
@@ -857,7 +896,7 @@ def main():
         action="store_true",
         help="keep unrated players instead of dropping them",
     )
-    ap.add_argument("--out", default="mi-arquetipos.md")
+    ap.add_argument("--out", default="", help="por defecto <temporada>/arquetipos.md")
     ap.add_argument(
         "--decision",
         default="",
@@ -875,8 +914,13 @@ def main():
     history = read_history(args.history) if args.history else None
 
     bets = [x.strip() for x in args.bets.split(",") if x.strip()]
+    ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
+    out_path = args.out or paths.season_path(args.season, paths.ARCHETYPES)
+    decision = args.decision
+    if decision == "":
+        decision = paths.season_path(args.season, paths.DECISION)
     rows, placeholder, dropped = load(
-        args.ranked,
+        ranked,
         excluded,
         args.placeholder_sf,
         args.keep_placeholder,
@@ -1013,7 +1057,7 @@ def main():
             f"`--keep-placeholder` entran igualmente: {names}\n"
         )
 
-    if args.decision:
+    if decision:
         # Forcing players is an explicit choice: the sheet follows it rather
         # than the leaderboard, which would quietly hand back a different plan.
         chosen = next(
@@ -1034,7 +1078,7 @@ def main():
             win_squad, win_spent, _ = repair_captain(
                 win_squad, win_spent, rows, budget, specs[win_idx][2].get("forced", ())
             )
-        with open(args.decision, "w", encoding="utf-8") as fh:
+        with open(decision, "w", encoding="utf-8") as fh:
             fh.write(
                 decision_sheet(
                     win_name,
@@ -1047,13 +1091,13 @@ def main():
                     history,
                 )
             )
-        print("Decisión:", args.decision)
+        print("Decisión:", decision)
 
     report = "\n".join(header) + "\n" + "\n".join(blocks) + "\n"
-    with open(args.out, "w", encoding="utf-8") as fh:
+    with open(out_path, "w", encoding="utf-8") as fh:
         fh.write(report)
     print("\n".join(header))
-    print("Escrito:", args.out)
+    print("Escrito:", out_path)
 
 
 if __name__ == "__main__":

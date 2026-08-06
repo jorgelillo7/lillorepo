@@ -27,6 +27,8 @@ Luismi Cruz       # [nadie] cero minutos en Primera (40 partidos fuera) — Depo
 Nsongo            # [nadie] cero partidos, sin historial que medir — Deportivo
 Einar Galilea     # [nadie] SF 240, cero minutos en Primera — Málaga recién ascendido
 Rafael Garrido    # [nadie] SF 270, cero minutos en Primera — Málaga recién ascendido
+Dotor             # [nadie] SF 264 y +111% de subida, cero minutos en Primera — Málaga
+Gijselhart        # [nadie] cero minutos en Primera — Deportivo
 Aubameyang        # [pick 39, Manu] sus 508 eran del Marsella, y fichaba por un ascendido
 
 # --- Trampa de titularidad: el total parece bueno y no se traslada a una plaza
@@ -47,9 +49,13 @@ Valverde          # [nadie] pelea con Mourinho y presión de salida, pese a 688 
                   # ha salido, es el primer nombre que hay que reevaluar del draft.
 Carlos Soler      # [nadie] lesión de rodilla desde diciembre, jugando en el filial
 Kike Salas        # [nadie] investigado por amañar tarjetas
-Fortuño           # [nadie] compite con el portero que iba a ser inclausulable
 Marcos Alonso     # [pick 22, Fabio] fuera de la lista de pretemporada esperando renovación
 
+# Fortuño estaba vetado (competía con el portero que iba a ser inclausulable) y
+# acabó siendo MI pick 101 como portero de descarte. Fuera de la lista por el
+# mismo motivo que Canales: un veto que ignoras no es un veto, y arrastrarlo
+# descartaría a un jugador propio. Lo que sí vale es el aviso.
+#
 # Canales estaba en el veto de noticias (vuelve a los 35 tras tres años en la Liga
 # MX) y aun así fue MI pick 17 por 6,15M. Se deja fuera de la lista a propósito:
 # un veto que tú mismo ignoras no es un veto, y meterlo aquí descartaría a un

@@ -21,17 +21,28 @@ import board  # noqa: E402
 import fetch_real_points as frp  # noqa: E402
 
 
-def player(name, pos="DL", price=1_000_000, sf=300, **extra):
+def player(name, pos="DL", price=1_000_000, sf=300, lines=None, **extra):
     return {
         "name": name,
         "team": extra.get("team", "Equipo"),
         "pos": pos,
+        "lines": lines or [pos],
         "price": price,
         "sf": sf,
         "placeholder": extra.get("placeholder", False),
         "real": extra.get("real"),
         "starts": None,
     }
+
+
+def held(**by_line):
+    """`{line: [rows]}` as `board.main` builds it, from counts or rows."""
+    out = {}
+    for code, value in by_line.items():
+        if isinstance(value, int):
+            value = [player(f"{code}{i}", code) for i in range(value)]
+        out[code] = [(None, row) for row in value]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -169,26 +180,36 @@ def test_the_cap_reserves_the_slots_you_still_have_to_fill():
         player("defensa", "DF", 150_000),
         player("medio", "MC", 150_000),
     ]
-    held = {"PT": [1], "DF": [1, 2, 3, 4], "MC": [1, 2, 3, 4], "DL": [1, 2]}
+    squad = held(PT=1, DF=4, MC=4, DL=2)
 
-    cap = board.spend_cap(free, held, "DL", 3_000_000)
+    cap = board.spend_cap(free, squad, "DL", 3_000_000)
 
     assert cap == 2_550_000  # 3M minus three 150k reservations
 
 
 def test_a_full_line_reserves_nothing_for_itself():
     free = [player("x", "PT", 900_000), player("y", "DF", 900_000)]
-    held = {"PT": [1, 2], "DF": [1, 2, 3, 4, 5], "MC": [1] * 5, "DL": [1, 2, 3]}
+    squad = held(PT=2, DF=5, MC=5, DL=3)
 
-    assert board.spend_cap(free, held, "DL", 1_000_000) == 1_000_000
+    assert board.spend_cap(free, squad, "DL", 1_000_000) == 1_000_000
 
 
 def test_the_cap_reserves_one_price_per_missing_slot():
     free = [player(f"df{i}", "DF", 100_000 * (i + 1)) for i in range(5)]
-    held = {"PT": [1, 2], "DF": [], "MC": [1] * 5, "DL": [1, 2, 3]}
+    squad = held(PT=2, DF=0, MC=5, DL=3)
 
     # Five defenders missing, cheapest five cost 100k+200k+300k+400k+500k.
-    assert board.spend_cap(free, held, "DL", 3_000_000) == 3_000_000 - 1_500_000
+    assert board.spend_cap(free, squad, "DL", 3_000_000) == 3_000_000 - 1_500_000
+
+
+def test_the_cap_counts_a_multi_position_player_in_every_line_he_covers():
+    """Five midfielders who also play at the back are not a defensive hole, and
+    reserving money to fill one refuses purchases that were affordable."""
+    free = [player(f"df{i}", "DF", 500_000) for i in range(5)]
+    hybrids = [player(f"h{i}", "MC", lines=["MC", "DF"]) for i in range(5)]
+    strict = held(PT=2, DF=0, MC=hybrids, DL=3)
+
+    assert board.spend_cap(free, strict, "DL", 3_000_000) == 3_000_000
 
 
 def test_your_picks_zigzag_with_the_snake():

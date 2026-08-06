@@ -42,6 +42,9 @@ def python_service(
     # ============================================================
     py_library(
         name = name + "_lib",
+        # The draft skill's scripts import the api's pure engine so the rule
+        # for a legal squad has one definition instead of two.
+        visibility = ["//visibility:public"],
         srcs = srcs,
         data = templates + static_files,
         deps = deps + [

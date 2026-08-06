@@ -52,6 +52,13 @@ def _upload(csv_path: str, url: str) -> str:
     return target
 
 
+def _league_chat() -> str:
+    """The supergroup the seven presidents read. Falls back to the owner's
+    private chat when the group is not configured, so a half-set-up
+    environment still gets the message instead of silently dropping it."""
+    return config.TELEGRAM_DRAFT_CHAT_ID or config.TELEGRAM_CHAT_ID
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Open the draft")
     ap.add_argument("--csv", required=True, help="frozen closed-market export")
@@ -93,7 +100,7 @@ def main() -> int:
     result = draft_service.open_draft(csv_url=config.DRAFT_MARKET_CSV_URL)
     print(f"Draft abierto: {result}")
 
-    token, chat = config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID
+    token, chat = config.TELEGRAM_BOT_TOKEN, _league_chat()
     if not (token and chat):
         print("Sin credenciales de Telegram — mensaje no enviado.", file=sys.stderr)
         return 1

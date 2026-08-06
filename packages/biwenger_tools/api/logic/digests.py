@@ -1,13 +1,18 @@
-"""Daily digest logic — sends "my team + market + auto-bid + offers inbox" to Telegram.
+"""Daily digest — "my team + market + lineup + auto-bid + offers inbox" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
-chain (squad → market → bids → offers) is fired in this order so the user
-gets a coherent morning briefing in guaranteed sequence, instead of
+chain (squad → market → lineup → bids → offers) is fired in this order so the
+user gets a coherent morning briefing in guaranteed sequence, instead of
 multiple independent Scheduler jobs racing.
 
-Every step (squad image, market image, auto-bid, offers inbox) is wrapped
-in a swallow-on-failure helper so one failing step doesn't lose the rest
-of the digest.
+Every step is wrapped in a swallow-on-failure helper so one failing step
+doesn't lose the rest of the digest.
+
+The lineup step exists so a player who arrives overnight is fielded without
+anyone opening the app. It runs at 09:00 like everything else, which is early:
+Biwenger locks each player at *his* kickoff, and a matchday can span days, so
+this is a floor and not the best possible lineup. `/alinear` is still the way
+to re-align closer to a match that matters.
 
 The auto-bid step honours `config.AUTO_BID_PAUSED_UNTIL`: while today
 (Madrid) is before that date the digest skips it and posts a short pause
@@ -20,7 +25,7 @@ from core.constants import MADRID_TZ
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import auto_bid, offers
+from packages.biwenger_tools.api.logic import actions, auto_bid, offers
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
@@ -98,6 +103,18 @@ def _safe_run_auto_bid() -> dict:
         return {"error": str(exc)}
 
 
+def _safe_run_auto_pick(ctx) -> dict:
+    """Set the lineup but never raise. Reuses the digest's ctx so the step
+    costs no second JP + Biwenger round-trip."""
+    if not config.DAILY_LINEUP_ENABLED:
+        return {"skipped": "disabled"}
+    try:
+        return actions.run_auto_pick_lineup(ctx=ctx)
+    except Exception as exc:
+        logger.exception("Lineup step failed inside daily digest.")
+        return {"error": str(exc)}
+
+
 def _safe_run_offers_inbox(ctx) -> dict:
     """Run the offers inbox step but never raise. Reuses the digest's ctx
     so we don't pay a second JP+Biwenger round-trip."""
@@ -137,8 +154,8 @@ def _notify_digest_failure(exc: Exception) -> None:
 def run_daily() -> dict:
     """Send my squad + market images, then chain the auto-bid summary.
 
-    Side effects: hits JP, hits Biwenger, sends 2 PNGs + 1 text message
-    to Telegram (via the auto-bid step). Top-level errors are surfaced
+    Side effects: hits JP, hits Biwenger, sets the lineup, sends 2 PNGs +
+    2 text messages to Telegram (lineup + auto-bid). Top-level errors are surfaced
     to Telegram before propagating so the user never gets silent
     failures like the 22/06–23/06 incidents.
     """
@@ -171,6 +188,8 @@ def _run_daily_inner() -> dict:
         token, chat_id, _market_rows, "Mercado"
     )
 
+    lineup_result = _safe_run_auto_pick(ctx)
+
     if _auto_bid_pause_active():
         _notify_auto_bid_paused(token, chat_id)
         auto_bid_result = {"paused_until": config.AUTO_BID_PAUSED_UNTIL}
@@ -185,6 +204,7 @@ def _run_daily_inner() -> dict:
             "my_team": team_count,
             "market": market_count,
             "images_sent": sent_count,
+            "lineup_applied": lineup_result.get("applied"),
             "auto_bid_placed": auto_bid_result.get("bid_count"),
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
             "offers_inbox": offers_result.get("offers"),
@@ -195,6 +215,7 @@ def _run_daily_inner() -> dict:
         "sent": sent_count,
         "my_team": team_count,
         "market": market_count,
+        "lineup": lineup_result,
         "auto_bid": auto_bid_result,
         "offers": offers_result,
     }
