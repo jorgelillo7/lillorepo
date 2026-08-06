@@ -19,6 +19,7 @@ import requests
 from core.constants import LEAGUE_MEMBERS
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service
+from packages.biwenger_tools.api.logic.draft_service import market, picks, store
 
 RUBEN_ID = 7727371  # first to pick, per draft.DEFAULT_ORDER
 JAVI_ID = 7728598  # second to pick
@@ -177,7 +178,8 @@ def _draft_config(tmp_path, monkeypatch):
 @pytest.fixture
 def fake_fs(monkeypatch):
     fake = FakeFirestore()
-    monkeypatch.setattr(draft_service, "fs", fake)
+    # One module owns the client, so one patch swaps persistence everywhere.
+    monkeypatch.setattr(store, "fs", fake)
     return fake
 
 
@@ -187,10 +189,10 @@ def biwenger(monkeypatch):
     # `login` counts how often a session was built — logging in is itself two
     # Biwenger requests, so tests assert on it, not just on the transfer.
     mock.login = MagicMock(return_value=mock)
-    monkeypatch.setattr(draft_service, "build_biwenger_session", mock.login)
+    monkeypatch.setattr(market.orchestration, "build_biwenger_session", mock.login)
     # The market load is session-free now, so it is stubbed on the class.
     monkeypatch.setattr(
-        draft_service.BiwengerClient,
+        market.BiwengerClient,
         "get_competition_maps",
         classmethod(lambda cls, url: (_biwenger_players_map(), {})),
     )
@@ -373,7 +375,7 @@ def test_gate_off_never_calls_biwenger_transfer_or_board(fake_fs, biwenger):
     biwenger.revert_transfer.assert_not_called()
     biwenger.get_all_clausulazos.assert_not_called()
 
-    state = draft_service._load_state()
+    state = draft_service.load_state()
     assert MESSI_ID in state.squads[RUBEN_ID]
 
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
@@ -445,7 +447,7 @@ def test_failed_transfer_frees_the_slot_when_it_did_not_land(
 
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["status"] == draft_service.PICK_STATUS_REVERTED
-    state = draft_service._load_state()
+    state = draft_service.load_state()
     assert state.squads[RUBEN_ID] == []  # never finalised
 
 
@@ -465,7 +467,7 @@ def test_failed_transfer_finalises_when_the_response_was_lost(
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["status"] == draft_service.PICK_STATUS_APPLIED
     assert pick_doc["applied_to_biwenger"] is True
-    assert MESSI_ID in draft_service._load_state().squads[RUBEN_ID]
+    assert MESSI_ID in draft_service.load_state().squads[RUBEN_ID]
 
 
 def test_failed_transfer_blocks_when_it_cannot_be_verified(
@@ -483,7 +485,7 @@ def test_failed_transfer_blocks_when_it_cannot_be_verified(
 
     pick_doc = fake_fs.get_document(draft_service._picks_path("test-season"), "R01P01")
     assert pick_doc["status"] == draft_service.PICK_STATUS_RESERVED
-    assert draft_service._load_state().squads[RUBEN_ID] == []
+    assert draft_service.load_state().squads[RUBEN_ID] == []
 
 
 # ---------------------------------------------------------------------------
@@ -660,19 +662,21 @@ def test_retried_submit_pick_after_reserve_before_finalize_skips_biwenger(
         # Compute the resulting state in memory (for the response) without
         # writing it to Firestore — simulates a crash right after the
         # Biwenger call succeeds but before `_finalize_pick`'s write lands.
-        state = draft_service._load_state()
+        state = draft_service.load_state()
         new_state, _ = draft.apply_pick(state, manager_id, player_id, players_by_id)
         return new_state, None
 
-    real_finalize = draft_service._finalize_pick
-    monkeypatch.setattr(draft_service, "_finalize_pick", _finalize_without_persisting)
+    # Patched on the module that calls it: the facade's name is a re-export,
+    # and rebinding a re-export leaves the caller's own reference untouched.
+    real_finalize = picks._finalize_pick
+    monkeypatch.setattr(picks, "_finalize_pick", _finalize_without_persisting)
     first = draft_service.submit_pick(TG_RUBEN, "messi")
     assert first["status"] == "applied"
     assert biwenger.transfer_player.call_count == 1
 
     # State was never advanced (finalize was stubbed out) — the retry reads
     # the same fresh state and lands on the same deterministic pick slot.
-    monkeypatch.setattr(draft_service, "_finalize_pick", real_finalize)
+    monkeypatch.setattr(picks, "_finalize_pick", real_finalize)
     second = draft_service.submit_pick(TG_RUBEN, "messi")
 
     assert biwenger.transfer_player.call_count == 1  # not called again
@@ -716,7 +720,7 @@ def test_undo_reverts_last_pick_gate_off(fake_fs, biwenger):
     assert result["status"] == "reverted"
     biwenger.revert_transfer.assert_not_called()
 
-    state = draft_service._load_state()
+    state = draft_service.load_state()
     assert state.squads[RUBEN_ID] == []
     assert state.spent[RUBEN_ID] == 0
     assert draft.whose_turn(state) == RUBEN_ID
@@ -934,19 +938,19 @@ def test_the_final_pick_closes_the_draft(fake_fs, biwenger, monkeypatch):
         draft_service.register_manager(telegram_id, LEAGUE_MEMBERS[manager_id])
 
     for i, telegram_id in enumerate(telegram_ids):
-        assert draft_service._lifecycle().get("closed") is not True
+        assert draft_service.lifecycle().get("closed") is not True
         result = draft_service.submit_pick(telegram_id, f"Filler MID {i}")
         assert result["status"] != "rejected", result
 
-    assert draft_service._lifecycle()["closed"] is True
-    assert draft_service._lifecycle()["closed_reason"] == "completed"
+    assert draft_service.lifecycle()["closed"] is True
+    assert draft_service.lifecycle()["closed_reason"] == "completed"
     assert "bloqueados" in result["message"]
 
 
 def test_a_draft_with_no_lifecycle_record_stays_open(fake_fs, biwenger):
     """Absence of the record means open — a draft that predates it must run."""
     draft_service.register_manager(TG_RUBEN, "Ruben")
-    assert draft_service._lifecycle() == {}
+    assert draft_service.lifecycle() == {}
     assert draft_service.submit_pick(TG_RUBEN, "messi")["status"] != "rejected"
 
 
@@ -957,7 +961,7 @@ def test_reopening_stamps_the_starting_instant(fake_fs, biwenger):
 
     state_doc = fake_fs.get_document("draft/test-season/state", "current")
     assert state_doc["turn_started_at"] == pytest.approx(result["opened_at"])
-    assert draft_service._lifecycle()["closed"] is False
+    assert draft_service.lifecycle()["closed"] is False
 
 
 def test_a_pick_does_not_wipe_the_lifecycle_record(fake_fs, biwenger):
@@ -966,4 +970,4 @@ def test_a_pick_does_not_wipe_the_lifecycle_record(fake_fs, biwenger):
     draft_service.open_draft()
     draft_service.submit_pick(TG_RUBEN, "messi")
 
-    assert draft_service._lifecycle().get("opened_at") is not None
+    assert draft_service.lifecycle().get("opened_at") is not None

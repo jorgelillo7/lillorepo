@@ -32,7 +32,7 @@ packages/*/scripts/ One-off Firestore surgery (see §7).
 | Layer | Example | May touch |
 |---|---|---|
 | Pure logic | `api/logic/draft.py` | nothing: no HTTP, no Firestore, no Telegram |
-| Service | `api/logic/draft_service.py` | persistence + clients, orchestrates the pure logic |
+| Service | `api/logic/draft_service/` | persistence + clients, orchestrates the pure logic |
 | HTTP route | `api/app.py` | request/response and calling the service |
 | Bot | `bot/app.py` | **zero business logic**: formats and forwards; the api answers with a ready-to-send `message` |
 
