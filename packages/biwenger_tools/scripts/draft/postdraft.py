@@ -1,10 +1,10 @@
-"""Draft post-mortem: the league's drafts compared, sent to the group.
+"""Post-draft report: the league's drafts compared, sent to the group.
 
 Runs once, after the draft closes. Two rankings the group actually argues
 about — what each squad is worth today against what it cost, and how much it
 projects — then one message per manager and a top three.
 
-    PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/postmortem.py \\
+    PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/postdraft.py \\
         --season 26-27 [--gif URL] [--write]
 
 Read-only by default: it prints every message it would send. `--write` sends.
@@ -32,6 +32,7 @@ from core.sdk import firestore as fs
 from core.sdk.jp import fetch_all_players, get_predict_rate
 from core.sdk.telegram import send_telegram_animation, send_telegram_message
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic.player_matching import (
     build_jp_index,
     find_player_match,
@@ -215,29 +216,22 @@ def render(summary, season, source):
     slowest = max(summary, key=lambda m: summary[m]["median_wait"] or 0)
     fastest = min(summary, key=lambda m: summary[m]["median_wait"] or 1e9)
 
-    value_table = "\n".join(
-        f"{i}. <b>{m}</b> — {_eur(summary[m]['value'])} "
-        f"({_eur(summary[m]['gain'])} sobre lo que pagó)"
-        for i, m in enumerate(sorted(summary, key=lambda m: -summary[m]["gain"]), 1)
-    )
-    projection_table = "\n".join(
-        f"{i}. <b>{m}</b> — {summary[m]['projection']:,} SF".replace(",", ".")
-        for i, m in enumerate(
-            sorted(summary, key=lambda m: -summary[m]["projection"]), 1
-        )
-    )
-
     messages = [
-        "🎬 🏆 <b>EL GRAN CIERRE DEL DRAFT "
-        f"{season}</b> 🏆 🎬\n"
-        "━━━━━━━━━━━━━━━━━━━━\n"
-        "Se apagan las luces, se recogen los cromos y alguien ya está "
-        "arrepintiéndose. Los números, que no perdonan:\n\n"
-        f"💰 <b>Quién compró mejor</b>\n{value_table}\n\n"
-        f"📈 <b>Quién proyecta más</b>\n{projection_table}\n\n"
-        "<i>El valor es el precio de hoy en Biwenger contra lo que pagaste. "
-        f"La proyección es la de Jornada Perfecta de {source}: ordena "
-        "plantillas, no adivina la temporada.</i>"
+        league_compare.render(
+            summary,
+            title=(
+                "🎬 🏆 <b>EL GRAN CIERRE DEL DRAFT "
+                f"{season}</b> 🏆 🎬\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                "Se apagan las luces, se recogen los cromos y alguien ya está "
+                "arrepintiéndose. Los números, que no perdonan:"
+            ),
+            note=(
+                "El valor es el precio de hoy en Biwenger contra lo que "
+                f"pagaste. La proyección es la de Jornada Perfecta de {source}: "
+                "ordena plantillas, no adivina la temporada."
+            ),
+        )
     ]
 
     for icon, manager in zip(ICONS, sorted(summary)):
@@ -325,7 +319,7 @@ def _league_chat() -> str:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Draft post-mortem to the group")
+    ap = argparse.ArgumentParser(description="Post-draft report to the group")
     ap.add_argument("--season", default="26-27")
     ap.add_argument("--gif", default=DEFAULT_GIF, help="'' para no mandar ninguno")
     ap.add_argument(

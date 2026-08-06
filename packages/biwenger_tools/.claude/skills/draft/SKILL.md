@@ -46,7 +46,7 @@ flowchart TD
     subgraph CLOSE["🏁 Cierre · ESCRIBE"]
         AUTO["último pick → close_draft()<br/>automático, pero solo si la api<br/>desplegada ya lo trae"]
         MAN["scripts/draft/close.py --write<br/>cierra · escribe la carpeta<br/>de temporada · despide"]
-        POST["scripts/draft/postmortem.py --write<br/>compara los siete drafts<br/>y los publica en el grupo"]
+        POST["scripts/draft/postdraft.py --write<br/>compara los siete drafts<br/>y los publica en el grupo"]
         MAN --> POST
     end
 

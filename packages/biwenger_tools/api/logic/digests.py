@@ -11,8 +11,13 @@ doesn't lose the rest of the digest.
 The lineup step exists so a player who arrives overnight is fielded without
 anyone opening the app. It runs at 09:00 like everything else, which is early:
 Biwenger locks each player at *his* kickoff, and a matchday can span days, so
-this is a floor and not the best possible lineup. `/alinear` is still the way
-to re-align closer to a match that matters.
+this is a floor and not the best possible lineup.
+
+One fixed hour is chosen over waking near each kickoff on purpose. The precise
+version needs a tick that reads the fixture list and self-gates, and the gain
+over "a decent lineup every morning, forced by hand before a match that
+matters" does not pay for it. What the floor buys is that forgetting costs a
+stale lineup instead of an empty one.
 
 The auto-bid step honours `config.AUTO_BID_PAUSED_UNTIL`: while today
 (Madrid) is before that date the digest skips it and posts a short pause

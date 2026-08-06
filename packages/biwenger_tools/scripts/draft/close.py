@@ -13,7 +13,7 @@ draft pick, it sells a player mid-season.
     python3 packages/biwenger_tools/scripts/draft/close.py [--write]
 
 Read-only by default. Pass `--write` to close, report and send. The league-wide
-post-mortem runs as the last step; `--skip-postmortem` leaves it out.
+post-mortem runs as the last step; `--skip-report` leaves it out.
 """
 
 import argparse
@@ -27,7 +27,7 @@ from packages.biwenger_tools.api.logic import draft, draft_service
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import postmortem  # noqa: E402
+import postdraft  # noqa: E402
 
 REPORT = os.path.join(
     os.path.dirname(__file__),
@@ -101,7 +101,7 @@ def main() -> int:
     )
     ap.add_argument("--skip-history", action="store_true", help="do not write history")
     ap.add_argument(
-        "--skip-postmortem",
+        "--skip-report",
         action="store_true",
         help="do not post the league-wide comparison to the group",
     )
@@ -127,8 +127,8 @@ def main() -> int:
             print("Ensayo — nada escrito ni enviado. Repite con --write.")
             return 0
         ok = args.skip_history or _write_history(season)
-        if not args.skip_postmortem:
-            ok = postmortem.run(season=season, write=True) == 0 and ok
+        if not args.skip_report:
+            ok = postdraft.run(season=season, write=True) == 0 and ok
         return 0 if ok else 1
     if pending is not None and not args.force:
         print(
@@ -169,9 +169,9 @@ def main() -> int:
 
     # The verdict is the same ceremony as the goodbye. Chained rather than left
     # as a second command, because a second command is one nobody runs.
-    if args.skip_postmortem:
+    if args.skip_report:
         return 0
-    return postmortem.run(season=season, write=True)
+    return postdraft.run(season=season, write=True)
 
 
 if __name__ == "__main__":

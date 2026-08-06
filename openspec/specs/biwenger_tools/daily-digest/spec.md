@@ -79,11 +79,16 @@ failures.
 ### Requirement: The morning lineup is a floor, not the best one
 
 Setting the lineup at 09:00 exists so a player who arrives overnight is fielded
-without anyone opening the app. It SHALL NOT be treated as the optimal moment:
+without anyone opening the app. **One fixed hour is the deliberate choice**: the
+alternative — waking near each kickoff — needs a tick that self-gates on the
+fixture list, and the value of that over a floor plus a manual override does not
+pay for the complexity. It SHALL NOT be treated as the optimal moment:
 Biwenger locks each player at *his* own kickoff, and under the league's
 "jornada única" configuration a matchday is not final until every match in it
 has been played — 2026/27 opened with a round spanning twelve days. The manual
-`/lineups/auto-pick` remains the way to re-align closer to a specific match.
+`/lineups/auto-pick` remains the way to re-align closer to a specific match —
+and the point of the floor is that forgetting to do so costs a stale lineup
+rather than an empty one.
 
 #### Scenario: lineup step
 - **WHEN** the digest runs and `DAILY_LINEUP_ENABLED` is on
