@@ -20,17 +20,25 @@ Run from the repo root with the JP token available (api `.env` or JP_AUTH_TOKEN)
 
 import argparse
 import csv
-import statistics
-from collections import Counter
 import os
+import statistics
 import sys
+from collections import Counter
+
+import requests
 
 from core.sdk.jp import fetch_all_players, get_predict_rate
 from packages.biwenger_tools.api.logic.player_matching import (
     build_jp_index,
     find_player_match,
+    normalize_name,
 )
+
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import paths  # noqa: E402
 
 # Biwenger export uses full Spanish position words; map to the reglamento's
 # line codes so Phase B can reason about squad composition.
@@ -74,6 +82,34 @@ def _jp_token() -> str:
     return token or os.getenv("JP_AUTH_TOKEN", "")
 
 
+COMPETITION_URL = "https://cf.biwenger.com/api/v2/competitions/la-liga/data?lang=es"
+# Without a browser User-Agent the endpoint answers JSONP, not JSON.
+_HEADERS = {"User-Agent": "Mozilla/5.0"}
+_LINE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
+
+
+def fetch_alt_positions() -> dict:
+    """`{normalised name: "DF/MC"}` — every line a player may be fielded in.
+
+    The Biwenger web export carries one position per player, so the ranked CSV
+    was blind to multi-position: 106 of 513 players also play a second line, and
+    reading a defender who also plays midfield as a pure defender made the
+    optimiser refuse squads that are perfectly legal. The competition endpoint
+    is public, costs one request, and is the only place `altPositions` exists.
+    """
+    response = requests.get(COMPETITION_URL, headers=_HEADERS, timeout=30)
+    response.raise_for_status()
+    data = (response.json().get("data")) or {}
+    out = {}
+    for player in (data.get("players") or {}).values():
+        lines = [_LINE.get(player.get("position"))]
+        lines += [_LINE.get(alt) for alt in (player.get("altPositions") or [])]
+        kept = [line for line in lines if line]
+        if kept:
+            out[normalize_name(player.get("name") or "")] = "/".join(kept)
+    return out
+
+
 def _read_market_csv(path: str) -> list[dict]:
     """Rows from the Biwenger export (utf-8-sig, ';'). Keeps name, team,
     position (mapped) and the frozen price as an int."""
@@ -106,8 +142,10 @@ def rank(
     """Attach live JP SofaScore + value/M to each market row, ranked SF desc.
     Unmatched players (no JP data) sort last, flagged."""
     jp_index = build_jp_index(jp_players)
+    alt = fetch_alt_positions()
     out = []
     for row in _read_market_csv(csv_path):
+        row["alt_positions"] = alt.get(normalize_name(row["name"]), row["position"])
         jp = find_player_match(row["name"], jp_index)
         sf = get_predict_rate(jp, score_type) if jp else None
         price_m = row["price"] / 1_000_000 if row["price"] else None
@@ -164,6 +202,7 @@ def write_csv(rows: list[dict], path: str) -> None:
         "name",
         "team",
         "position",
+        "alt_positions",
         "price",
         "sofascore",
         "value_per_m",
@@ -182,7 +221,10 @@ def main() -> int:
         description="Draft Phase A — rank market by JP SofaScore"
     )
     ap.add_argument("--csv", required=True, help="Biwenger closed-market export")
-    ap.add_argument("--out", default="draft-ranked.csv", help="ranked output CSV")
+    ap.add_argument("--season", default="26-27", help="carpeta de salida")
+    ap.add_argument(
+        "--out", default="", help="por defecto <temporada>/draft-ranked.csv"
+    )
     args = ap.parse_args()
 
     token = _jp_token()
@@ -209,8 +251,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    destination = args.out or paths.season_path(args.season, paths.RANKED)
     rows = rank(args.csv, jp_players, score_type)
-    write_csv(rows, args.out)
+    write_csv(rows, destination)
 
     matched = [r for r in rows if not r["no_jp_data"]]
     missing = [r for r in rows if r["no_jp_data"]]
@@ -218,7 +261,7 @@ def main() -> int:
         f"Players: {len(rows)} | matched JP: {len(matched)} "
         f"| no JP data: {len(missing)}"
     )
-    print(f"Wrote {args.out}")
+    print(f"Wrote {destination}")
     print("\nTop 10 by SofaScore:")
     for r in rows[:10]:
         sf = r["sofascore"] if r["sofascore"] is not None else "--"

@@ -35,6 +35,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from board import _eur, _norm, board_state, load_market, load_picks  # noqa: E402
 
 from archetypes import POS  # noqa: E402
+import paths  # noqa: E402
 
 
 def load_prices(path):
@@ -53,7 +54,9 @@ def main():
     ap = argparse.ArgumentParser(description="Quién está subiendo en el mercado real")
     ap.add_argument("--before", required=True, help="market export, the earlier one")
     ap.add_argument("--after", required=True, help="market export, the later one")
-    ap.add_argument("--ranked", default="draft-ranked.csv")
+    ap.add_argument(
+        "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
+    )
     ap.add_argument("--season", default="26-27")
     ap.add_argument("--me", default="Jorge")
     ap.add_argument("--max", type=float, default=0, help="en millones, 0 = sin tope")
@@ -62,7 +65,8 @@ def main():
     args = ap.parse_args()
 
     before, after = load_prices(args.before), load_prices(args.after)
-    market = load_market(args.ranked)
+    ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
+    market = load_market(ranked)
     picks = load_picks(args.season)
     free, _ = board_state(market, picks)
     mine = [p for p in picks if _norm(p.get("manager_name")) == _norm(args.me)]
@@ -84,7 +88,7 @@ def main():
 
     print(f"# Subidas del mercado real · {len(rows)} libres comparados\n")
     print(
-        f"Pagas el precio congelado de `{os.path.basename(args.ranked)}`. La "
+        f"Pagas el precio congelado de `{os.path.basename(ranked)}`. La "
         "subida es del mercado de verdad entre las dos exportaciones — en "
         "pretemporada eso es demanda de mánagers, no rendimiento.\n"
     )

@@ -24,6 +24,10 @@ import unicodedata
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import paths  # noqa: E402
+
 CF_BASE = "https://cf.biwenger.com/api/v2"
 COMPETITION_URL = f"{CF_BASE}/competitions/la-liga/data?lang=es&score=2"
 PLAYER_URL = CF_BASE + "/players/la-liga/{slug}?fields=*,reports(*),seasons(*)"
@@ -164,7 +168,10 @@ def main() -> int:
     src = ap.add_mutually_exclusive_group(required=True)
     src.add_argument("--shortlist", help="CSV with a 'name' column")
     src.add_argument("--names", help="comma-separated player names")
-    ap.add_argument("--out", default="draft-real-points.csv")
+    ap.add_argument(
+        "--out", default="", help="por defecto <temporada>/draft-real-points.csv"
+    )
+    ap.add_argument("--draft-season", default="26-27", help="carpeta de salida")
     ap.add_argument("--season", default="2025-2026", help="season slug to report")
     ap.add_argument(
         "--max-requests",
@@ -175,7 +182,7 @@ def main() -> int:
     ap.add_argument("--delay", type=float, default=1.0, help="seconds between calls")
     ap.add_argument(
         "--cache-dir",
-        default=os.path.join(os.path.dirname(__file__), "..", ".cache", "players"),
+        default="",
     )
     args = ap.parse_args()
 
@@ -198,7 +205,11 @@ def main() -> int:
     teams = {int(k): v["name"] for k, v in (data.get("teams") or {}).items()}
     index = build_index(data.get("players") or {})
 
-    fetcher = Fetcher(args.cache_dir, args.delay, args.max_requests)
+    destination = args.out or paths.season_path(args.draft_season, paths.REAL_POINTS)
+    cache = args.cache_dir or os.path.join(
+        paths.season_dir(args.draft_season), paths.CACHE, "players"
+    )
+    fetcher = Fetcher(cache, args.delay, args.max_requests)
     rows, unmatched, no_history = [], [], []
     for name in names:
         entry = index.get(_norm(name))
@@ -281,14 +292,14 @@ def main() -> int:
         "clean_sheets",
         "biwenger_name",
     ]
-    with open(args.out, "w", encoding="utf-8", newline="") as fh:
+    with open(destination, "w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=cols)
         writer.writeheader()
         for row in sorted(rows, key=lambda r: r["points"], reverse=True):
             writer.writerow({c: row.get(c) for c in cols})
 
     print(f"{len(rows)} jugadores · {fetcher.requests_made} peticiones live")
-    print(f"Escrito {args.out}")
+    print(f"Escrito {destination}")
     print(
         f"\n{'Jugador':<22}{'Eq':<14}{'Pos':<5}{'Pts':>5}{'PJ':>4}"
         f"{'Tit':>7}{'min':>5}{'/PJ':>7}{'/M':>7}"
