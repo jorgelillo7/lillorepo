@@ -28,6 +28,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 |---|---|
 | [`technical/backend/python-best-practices.md`](technical/backend/python-best-practices.md) | Python standards guide (PEP 8/20 + team experience) |
 | [`technical/backend/python-conventions.md`](technical/backend/python-conventions.md) | This repo's own Python conventions (layers, errors, tests, stack traps) |
+| [`technical/backend/container-strategy.md`](technical/backend/container-strategy.md) | How service images are built, the two dependency universes, and why not distroless |
 | [`technical/reverse-engineering/frida-android-intercept.md`](technical/reverse-engineering/frida-android-intercept.md) | How the JP token was captured (Frida + Android JS bundle); scripts alongside |
 | [`technical/migration/retrofit-patterns.md`](technical/migration/retrofit-patterns.md) | Legacy-modernisation patterns (Strangler Fig, Branch by Abstraction…) |
 | [`technical/ai/claude-code-roadmap.md`](technical/ai/claude-code-roadmap.md) | Claude Code adoption roadmap for this repo |

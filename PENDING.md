@@ -33,6 +33,26 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   - *Parametrised `base_deps` / Dockerfile.base from the lock* —
     build-system surgery guarded today by the add-python-dep skill.
     Trigger: a package whose deps materially diverge from the base.
+  - *Distroless base image* (evaluated 2026-08-07; see
+    `docs/technical/backend/container-strategy.md`). Measured:
+    `python:3.13-slim` 41,0 MB vs
+    `distroless/python3-debian13` 21,4 MB — ~20 MB on a 159/512 MB free tier,
+    while the bulk (matplotlib, numpy, grpcio, google-cloud) is identical
+    either way. Costs a multi-stage rewrite of `Dockerfile.base` (distroless
+    has no pip), the death of every `entrypoint.sh` (no shell), and
+    revalidating the native wheels. The security win barely applies: Cloud Run
+    has no `exec`, so there is no shell to reach. Trigger: cold start starts
+    eating the 09:00 SLO, or the free tier gets tight.
+- **Validated structs instead of kwargs in `python_service`** (proposed
+  2026-08-07). The macro takes 9 loose
+  keyword arguments and validates none of them: a typo in `package` or a
+  string where a list belongs surfaces as an analysis error far from the call
+  site. The pattern: constructor functions returning `struct(_kind = "...")`,
+  keyword-only args, type checks in shared `ensure_*` helpers, and a `fail()`
+  with a readable message in the orchestrator. Pure build-system change, no
+  production surface. Trigger: the next new service, or the next time a
+  `BUILD.bazel` typo costs a debugging session.
+
 - **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
   to replace the OpenSpec npm CLI (deliberately not installed — no-installer
   preference), in three parts:
@@ -58,11 +78,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   `alt_positions` reaches the ranked CSV and `composition_ok` is imported from
   the api — but `build()` still fills a fixed shape. Worth doing before the
   27-28 draft, worthless after it.
-- **`bazel coverage` cannot see the draft skill's tests** (2026-08-06). The
-  package lives under `.claude/`, and coverage does not instrument a path with a
-  dot component; `--instrumentation_filter` does not help. The 32 tests run in
-  CI and contribute nothing to the measured 80%. Either accept it (and keep the
-  note in `STATUS.md`) or move the scripts out from under `.claude/`.
 - **The bot's `/comparar` and the lineup step have no end-to-end proof**
   (2026-08-06). Both are wired and unit-tested, but nothing exercises
   bot → api → Biwenger. The accepted-gaps table already parks integration
