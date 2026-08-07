@@ -1,0 +1,17 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
+
+# Cross-module tests. Everything else in this repo is tested inside its own
+# module; this target exists because the bug it guards lives *between* two —
+# the bot chose a path and method, and nothing checked the api answered them.
+py_test(
+    name = "integration_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]),
+    main = "tests/main.py",
+    deps = [
+        "//packages/biwenger_tools/api:api_lib",
+        "//packages/biwenger_tools/bot:bot_lib",
+        requirement("pytest"),
+    ],
+)
