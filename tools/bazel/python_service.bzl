@@ -1,35 +1,129 @@
+"""Bazel macro for the repo's Python services: library, binary, OCI image, push.
+
+The public API is three symbols. `python_service` orchestrates; `service` and
+`image` build the validated structs it takes:
+
+    python_service(
+        name = "api",
+        package = "biwenger_tools",
+        repository = "europe-southwest1-docker.pkg.dev/…/api",
+        service = service(
+            main = "app.py",
+            deps = ["@pypi//matplotlib"],
+            secrets = [".env"],
+        ),
+        image = image(env = {"PORT": "8080"}),
+    )
+
+Arguments are keyword-only and type-checked at load time, so a string where a
+list belongs fails with the parameter name instead of surfacing as an analysis
+error in a generated target several hundred lines away.
+"""
+
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
 
-def python_service(
-        name,
-        main,
-        repository,
-        package,
-        deps = [],
-        secrets = [],
-        srcs = None,
-        extra_env = {},
-        enable_tests = True):
-    """
-    Macro genérica para servicios Python con OCI images.
+# ---------------------------------------------------------------------------
+# Type checks — every failure names the parameter, so the message is actionable
+# from the BUILD file that caused it.
+# ---------------------------------------------------------------------------
+
+def _ensure_str(param, value, required = False):
+    if value == None:
+        if required:
+            fail("`{}` is required".format(param))
+        return None
+    if type(value) != "string":
+        fail("`{}` must be a string, got {}".format(param, type(value)))
+    return value
+
+def _ensure_str_list(param, value):
+    if type(value) != "list":
+        fail("`{}` must be a list, got {}".format(param, type(value)))
+    for item in value:
+        if type(item) != "string":
+            fail("`{}` must contain only strings, got a {}".format(param, type(item)))
+    return value
+
+def _ensure_str_dict(param, value):
+    if type(value) != "dict":
+        fail("`{}` must be a dict, got {}".format(param, type(value)))
+    for key, item in value.items():
+        if type(key) != "string" or type(item) != "string":
+            fail("`{}` must map strings to strings".format(param))
+    return value
+
+def _ensure_bool(param, value):
+    if type(value) != "bool":
+        fail("`{}` must be True or False, got {}".format(param, type(value)))
+    return value
+
+def _ensure_kind(param, value, kind):
+    if value == None:
+        fail("`{}` is required — build it with `{}(…)`".format(param, kind))
+    if not hasattr(value, "_kind") or value._kind != kind:
+        fail("`{}` must be a `{}(…)` struct".format(param, kind))
+    return value
+
+# ---------------------------------------------------------------------------
+# Constructors
+# ---------------------------------------------------------------------------
+
+def service(*, main, srcs = None, deps = [], secrets = [], enable_tests = True):
+    """What the service is made of.
 
     Args:
-        name:         Nombre del servicio (e.g. "web").
-        main:         Fichero de entrada (e.g. "app.py").
-        repository:   Repositorio OCI de destino para GCP.
-        package:      Nombre del paquete dentro de /packages/
-                      (e.g. "biwenger_tools", "otro_proyecto").
-        deps:         Dependencias adicionales al conjunto base.
-        secrets:      Ficheros de secretos (incluidos solo en la imagen local).
-        srcs:         Fuentes Python; por defecto todos los .py del módulo.
-        extra_env:    Variables de entorno adicionales para la imagen OCI.
-        enable_tests: Si True, genera el target *_tests cuando hay tests.
+        main:         Entry point (e.g. `"app.py"`).
+        srcs:         Python sources; defaults to every `.py` outside `tests/`.
+        deps:         Bazel deps beyond the base set every service gets.
+        secrets:      Files baked into the **local** image only, never into GCP's.
+        enable_tests: Generate `<name>_tests` when a `tests/` directory exists.
     """
+    return struct(
+        _kind = "service",
+        main = _ensure_str("service.main", main, required = True),
+        srcs = srcs if srcs == None else _ensure_str_list("service.srcs", srcs),
+        deps = _ensure_str_list("service.deps", deps),
+        secrets = _ensure_str_list("service.secrets", secrets),
+        enable_tests = _ensure_bool("service.enable_tests", enable_tests),
+    )
 
+def image(*, env = {}):
+    """Image-level settings.
+
+    Args:
+        env: Extra environment variables, merged over the defaults.
+    """
+    return struct(_kind = "image", env = _ensure_str_dict("image.env", env))
+
+# ---------------------------------------------------------------------------
+# Orchestrator
+# ---------------------------------------------------------------------------
+
+def python_service(*, name, package, repository, service, image = None):
+    """Library, local binary, OCI images (local + GCP), push target and tests.
+
+    Args:
+        name:       Service name, and the module directory (e.g. `"web"`).
+        package:    Directory under `/packages/` (e.g. `"biwenger_tools"`).
+        repository: Destination OCI repository in Artifact Registry.
+        service:    A `service(…)` struct.
+        image:      An `image(…)` struct; defaults to no extra environment.
+    """
+    name = _ensure_str("name", name, required = True)
+    package = _ensure_str("package", package, required = True)
+    repository = _ensure_str("repository", repository, required = True)
+    svc = _ensure_kind("service", service, "service")
+
+    # `image` the parameter shadows `image` the constructor inside this
+    # function, so the default is built literally rather than by calling it.
+    img = image if image != None else struct(_kind = "image", env = {})
+    img = _ensure_kind("image", img, "image")
+
+    srcs = svc.srcs
     if srcs == None:
         srcs = native.glob(["**/*.py"], exclude = ["tests/**/*.py"])
 
@@ -47,7 +141,7 @@ def python_service(
         visibility = ["//visibility:public"],
         srcs = srcs,
         data = templates + static_files,
-        deps = deps + [
+        deps = svc.deps + [
             requirement("flask"),
             requirement("gunicorn"),
             requirement("python-dateutil"),
@@ -63,9 +157,9 @@ def python_service(
     # ============================================================
     py_binary(
         name = name + "_local",
-        main = main,
-        srcs = [main],
-        data = templates + static_files + secrets,
+        main = svc.main,
+        srcs = [svc.main],
+        data = templates + static_files + svc.secrets,
         deps = [":" + name + "_lib"],
     )
 
@@ -104,7 +198,7 @@ def python_service(
     # Código + secretos (para imagen local)
     pkg_tar(
         name = name + "_code_with_secrets_layer",
-        srcs = [":" + name + "_code_files"] + secrets + ["entrypoint.sh"],
+        srcs = [":" + name + "_code_files"] + svc.secrets + ["entrypoint.sh"],
         files = dict(template_map, **static_map),
         package_dir = pkg_dir,
         mode = "0755",
@@ -125,7 +219,7 @@ def python_service(
                 "PORT": "8080",
                 "PYTHONUNBUFFERED": "1",
             },
-            **extra_env,
+            **img.env
         ),
         entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
@@ -153,7 +247,7 @@ def python_service(
                 "PYTHONPATH": "/app",
                 "PYTHONUNBUFFERED": "1",
             },
-            **extra_env,
+            **img.env
         ),
         entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
@@ -169,7 +263,7 @@ def python_service(
     # ============================================================
     # 6️⃣ TESTS
     # ============================================================
-    if enable_tests:
+    if svc.enable_tests:
         test_files = native.glob(["tests/**/*.py"])
         if test_files:
             py_test(
@@ -182,13 +276,3 @@ def python_service(
                     requirement("pytest"),
                 ],
             )
-
-
-def biwenger_service(**kwargs):
-    """
-    Alias de compatibilidad hacia atrás para python_service.
-    Establece package='biwenger_tools' si no se indica otro valor.
-    Usa python_service directamente en proyectos nuevos.
-    """
-    kwargs.setdefault("package", "biwenger_tools")
-    python_service(**kwargs)

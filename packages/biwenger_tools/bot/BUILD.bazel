@@ -1,13 +1,17 @@
-load("//tools/bazel:python_service.bzl", "python_service")
+load("//tools/bazel:python_service.bzl", "image", "python_service", "service")
 
 python_service(
     name = "bot",
     package = "biwenger_tools",
-    main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/bot",
-    secrets = [".env"],
-    extra_env = {
-        "PORT": "8080",
-        "PYTHONPATH": "/app",
-    },
+    service = service(
+        main = "app.py",
+        secrets = [".env"],
+    ),
+    image = image(
+        env = {
+            "PORT": "8080",
+            "PYTHONPATH": "/app",
+        },
+    ),
 )
