@@ -170,8 +170,10 @@ the project's constraints (single user, sub-euro/month, side-project scope):
 | Gap | Why skipped | Score it would unlock |
 |---|---|---|
 | **Real observability** (Cloud Monitoring alerts, SLI dashboards, error-rate tracking) | Would push past the free tier; Cloud Logging is enough for a human-driven workflow | +0.20 |
-| **Staging environment** | Local + prod is sufficient for one user; every merge deploys and the rollback path is fast | +0.15 |
+| **Staging environment** | Local + prod is sufficient for one user; every merge deploys, and recovery is a revert + redeploy (~10 min) since there is no revision rollback — see below | +0.15 |
+| **Revision rollback** | `clean-images-artifact.sh` keeps one digest per service, so the images the older Cloud Run revisions point to no longer exist (verified 2026-08-07: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred over rollback. Recovery from a bad deploy is revert + wait for CI | — |
 | **Integration tests** against Firestore emulator / Biwenger sandbox | Heavy setup for low marginal value at this traffic | +0.15 |
+| **Coverage for the draft skill's 32 tests** | They live under `.claude/`, and coverage does not instrument a path with a dot component (`--instrumentation_filter` does not help). Decided 2026-08-07 to accept: the tests **do** run in CI via `//...`, coverage is a manual on-demand measurement rather than a gate, and moving the code out would break the deliberate split between the skill's read-only scripts and `scripts/draft/`, which writes Firestore and the group chat | — |
 
 Not counted as an accepted gap but real: **bus factor 1**. Every service, SDK
 and runbook has a single author/operator. Fine for a side project, but it caps
