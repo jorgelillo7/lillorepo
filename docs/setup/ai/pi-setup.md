@@ -1,4 +1,4 @@
-# Pi Coding Agent Setup - MasOrange
+# Pi Coding Agent Setup
 
 > Requirements: Node.js 20+ on macOS, `jq` installed (`/usr/bin/jq`)
 
@@ -59,16 +59,16 @@ Prerequisite: Codex CLI must be installed and authenticated (`codex` → sign in
 
 ## 3. Route Providers Through The Internal Proxy
 
-Anthropic and Google must be routed through the internal MasOrange endpoint. Create `~/.pi/agent/models.json`:
+Anthropic and Google must be routed through the internal corporate endpoint. Create `~/.pi/agent/models.json`:
 
 ```json
 {
   "providers": {
     "anthropic": {
-      "baseUrl": "https://llm.tools.cloud.masorange.es"
+      "baseUrl": "https://llm.gateway.internal.example.com"
     },
     "google": {
-      "baseUrl": "https://llm.tools.cloud.masorange.es"
+      "baseUrl": "https://llm.gateway.internal.example.com"
     }
   }
 }
@@ -131,7 +131,7 @@ pi --list-models | grep google
 
 ## 7. Repository Integration
 
-Pi auto-loads `AGENTS.md` and `CLAUDE.md` from the project directory — no extra config needed in `retrofit`.
+Pi auto-loads `AGENTS.md` and `CLAUDE.md` from the project directory — no extra config needed.
 
 Skills are not auto-loaded; reference them explicitly:
 
