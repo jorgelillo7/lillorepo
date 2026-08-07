@@ -1,5 +1,8 @@
 """Tests for the Biwenger bot webhook."""
 
+import inspect
+import re
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -873,3 +876,27 @@ def test_soy_picker_tap_strips_the_keyboard(client):
     assert resp.status_code == 200
     assert mock_ack.call_args.kwargs.get("text"), "acknowledge with a visible toast"
     assert mock_edit.call_args.kwargs["reply_markup"] is None
+
+
+def test_every_menu_action_has_a_slash_command(client):
+    """Wiring an action into `_ACTION_ROUTES` and the menu is not enough — the
+    typed command goes through an explicit `elif` chain, and `/comparar`
+    shipped registered in Telegram, listed in the help and reachable by button,
+    while typing it did nothing at all."""
+    from packages.biwenger_tools.bot.app import _ACTION_ROUTES, _dispatch_action
+
+    source = inspect.getsource(sys.modules["packages.biwenger_tools.bot.app"])
+    dispatched = set(re.findall(r'_dispatch_action\(\s*"([a-z_]+)"', source))
+
+    # `analizar` opens the manager picker instead of dispatching directly.
+    missing = set(_ACTION_ROUTES) - dispatched - {"analizar"}
+    assert not missing, f"acciones sin comando: {sorted(missing)}"
+    assert _dispatch_action  # imported for the reader, not called here
+
+
+def test_comparar_command_dispatches(client):
+    with patch("packages.biwenger_tools.bot.app._dispatch_action") as mock:
+        resp = _post(client, _update(_VALID_CHAT, "/comparar"))
+    assert resp.status_code == 200
+    mock.assert_called_once()
+    assert mock.call_args[0][0] == "comparar"
