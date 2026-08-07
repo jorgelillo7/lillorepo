@@ -539,6 +539,8 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("scrapper", "🧹 Scraper")
     elif cmd == "/emergencia":
         _dispatch_action("emergencia", "🚨 Emergencia")
+    elif cmd == "/comparar":
+        _dispatch_action("comparar", "⚖️ Comparar")
     elif cmd == "/ofertas":
         _dispatch_action("ofertas", "📥 Ofertas")
     elif cmd == "/help":
