@@ -1,6 +1,6 @@
 # Mac Setup — Full Configuration
 
-> ⚠️ **Note for lillorepo:** This guide was copied from a corporate (Retrofit/MasOrange) environment. Sections covering Kubernetes clusters, Oracle DB, enterprise Jira, masmovil email accounts, and `mm-monorepo` are **not applicable** to this project. Use what is relevant (Homebrew, shell, git, gcloud, Docker, AI tools) and ignore the rest.
+> ⚠️ **Note for lillorepo:** this guide came from a corporate environment. The sections on Kubernetes clusters, Oracle DB, enterprise Jira and work email accounts do **not** apply here. Take what is relevant (Homebrew, shell, git, gcloud, Docker, AI tools) and ignore the rest.
 
 Guide for setting up a new Mac with all team tools.
 
@@ -105,13 +105,6 @@ chmod +x /opt/homebrew/bin/sops
 sops --version  # should say 3.9.1
 ```
 
-**ClaudeUsageTracker:** has its own tap, not in the main homebrew tap:
-
-```bash
-brew tap masorange/claudeusagetracker
-brew install --cask masorange/claudeusagetracker/claudeusagetracker
-```
-
 ---
 
 ## Keyboard and Mouse
@@ -154,7 +147,7 @@ Add in **iTerm2 → Settings → Keys → Key Bindings** (click `+`) with **Glob
 [ -f ~/.zshrc ] && cp ~/.zshrc ~/.zshrc.backup.$(date +%Y%m%d)
 
 # Generate from template (replace USERNAME and EMAIL)
-sed "s/{{USERNAME}}/$(whoami)/g; s/{{MASMOVIL_EMAIL}}/your.email@example.com/g" \
+sed "s/{{USERNAME}}/$(whoami)/g; s/{{WORK_EMAIL}}/your.email@example.com/g" \
   docs/setup/zshrc.template > ~/.zshrc
 ```
 

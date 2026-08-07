@@ -40,7 +40,6 @@ unindexed skill is one nobody remembers exists.
 | `docs-audit` | Hunt broken links and drifted cross-references across every doc. |
 | `release-notes` | Write a package's release-notes entry from recent commits. |
 | `rpi-research` · `rpi-plan` · `rpi-implement` · `rpi-common` | The research → plan → implement workflow. |
-| `jira-cli` | Anything Jira. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 
 ## Key References

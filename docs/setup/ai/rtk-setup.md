@@ -114,7 +114,7 @@ Bazel generates very verbose output. Replace the usual commands:
 ### Example — Tests with no failures
 
 ```bash
-$ rtk err bazel test //pkg/mas-stack/bss/mas-documents/core/scoring/...
+$ rtk err bazel test //pkg/my-domain/my-service/core/scoring/...
 
 ✅ Command completed successfully (no errors)
 ```
@@ -122,9 +122,9 @@ $ rtk err bazel test //pkg/mas-stack/bss/mas-documents/core/scoring/...
 ### Example — Tests with failures
 
 ```bash
-$ rtk err bazel test //pkg/mas-stack/bss/mas-documents/core/scoring/... 2>&1
+$ rtk err bazel test //pkg/my-domain/my-service/core/scoring/... 2>&1
 
-FAILED: //pkg/mas-stack/bss/.../ExpireScoringServiceTest
+FAILED: //pkg/my-domain/my-service/.../ExpireScoringServiceTest
 org.opentest4j.AssertionFailedError: expected: <999> but was: <1>
     at ...ExpireScoringServiceTest.should_expire_scoring_successfully(ExpireScoringServiceTest.java:57)
 ```

@@ -1,8 +1,8 @@
-# Claude Code Setup - MasOrange
+# Claude Code Setup
 
 > Requirements: Apple Silicon Mac recommended
 
-This guide installs Claude Code, configures the local environment, and points to the Claude-specific MCP and RTK guides used in `retrofit`.
+This guide installs Claude Code, configures the local environment, and points to the Claude-specific MCP and RTK guides.
 
 ## 1. Install Claude Code
 
@@ -55,7 +55,7 @@ Official reference:
 2. Request your personal API key.
 3. Expect it to expire every 90 days.
 
-## 3. Configure Environment Variables — MasOrange environment only
+## 3. Configure Environment Variables — corporate gateway only
 
 > **Do not set these on a personal machine.** They route every request through
 > the corporate gateway, which exposes only the models that gateway allows, and
@@ -68,7 +68,7 @@ Add these variables to `~/.zshrc`:
 
 ```bash
 export ANTHROPIC_AUTH_TOKEN=sk-XXXXXXXX
-export ANTHROPIC_BASE_URL=https://llm.tools.cloud.masorange.es
+export ANTHROPIC_BASE_URL=https://llm.gateway.internal.example.com
 export ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-6
 export CLAUDE_CODE_USE_VERTEX=0
 ```
@@ -88,22 +88,9 @@ source ~/.zshrc
 
 ## 5. Install Usage Monitoring
 
-Repository:
-
-- https://github.com/masorange/ClaudeUsageTracker
-
-Install with Homebrew:
-
-```bash
-brew tap masorange/claudeusagetracker
-brew install --cask masorange/claudeusagetracker/claudeusagetracker
-```
-
-Update later with:
-
-```bash
-brew update && brew upgrade --cask masorange/claudeusagetracker/claudeusagetracker
-```
+If your organisation ships a usage tracker, install it here — they are
+normally distributed as a private Homebrew tap. Nothing in this repo
+depends on one.
 
 ## 6. Verify Installation
 
@@ -154,17 +141,17 @@ Official status line reference:
 
 - https://code.claude.com/docs/en/statusline
 
-## 8. Available Tools In Retrofit
+## 8. Available Tools In A Corporate Setup
 
 Claude Code is expected to use:
 
 - `gh` for GitHub workflows
 - `kubectl` for Kubernetes operations
-- `jira-masorange` MCP for Jira and Confluence
-- `slack-masorange` MCP for Slack
-- `oracle-mysim-sta` for STA database access
-- `oracle-mysim-pro` for PROD database access with explicit confirmation
-- `oracle-mos` for Oracle My Support knowledge lookup
+- a Jira/Confluence MCP
+- a Slack MCP
+- `oracle-staging` for staging database access
+- `oracle-prod` for production database access with explicit confirmation
+- an Oracle support knowledge-base lookup
 
 ### Rules worth remembering
 

@@ -1,10 +1,8 @@
-# Python Best Practices - Retrofit Team
+# Python Best Practices
 
-> Python development standards guide based on PEP 8, PEP 20, and Retrofit team experience.
+> Python development standards guide based on PEP 8 and PEP 20.
 
 **Updated:** February 2026
-**Maintainer:** Retrofit Chapter - MasOrange
-**Based on:** MOS MCP Server v1.4.0 refactoring
 
 ---
 
@@ -31,7 +29,7 @@
 import this
 ```
 
-### Key Principles Applied in Retrofit
+### Key Principles Applied Here
 
 #### ✅ "Simple is better than complex"
 
@@ -112,7 +110,7 @@ class Client:
 
 ## 📦 Project Structure
 
-### Retrofit Standard Layout
+### Standard Layout
 
 ```
 project/
