@@ -20,9 +20,13 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 - **Parked by choice** (2026-07-19 review of the 2026-07-11 audit backlog;
   shipped from it: dependabot, docs index, scripts move, typed
   `BiwengerError`. Each survivor below waits for a trigger, not boredom):
-  - *Reusable deploy workflow* — deploy.yml is stable; refactoring it
-    risks prod for DRY aesthetics. Trigger: the next new service makes
-    the duplication actively painful.
+  - *Reusable deploy workflow* — **trigger is close to firing** (2026-08-07):
+    six near-identical ~90-line deploy blocks, and the duplication has
+    already cost something real — `chucknorris_bot` was missing from the
+    cleanup script's `SIMPLE_IMAGES` and quietly accumulated 8 digests until
+    2026-05-16. Still the riskiest refactor in the repo (YAML, untested,
+    failures surface in prod), so it waits for a seventh service rather than
+    for aesthetics.
   - *Ruff migration* — lint already runs hermetically via Bazel
     (black + flake8 from the lock, zero version drift, `scripts/lint.sh`).
     Trigger: flake8 blocks something real; speed is a non-issue here.
@@ -43,15 +47,14 @@ Long-running follow-ups that don't yet warrant a plan or PR.
     revalidating the native wheels. The security win barely applies: Cloud Run
     has no `exec`, so there is no shell to reach. Trigger: cold start starts
     eating the 09:00 SLO, or the free tier gets tight.
-- **Validated structs instead of kwargs in `python_service`** (proposed
-  2026-08-07). The macro takes 9 loose
-  keyword arguments and validates none of them: a typo in `package` or a
-  string where a list belongs surfaces as an analysis error far from the call
-  site. The pattern: constructor functions returning `struct(_kind = "...")`,
-  keyword-only args, type checks in shared `ensure_*` helpers, and a `fail()`
-  with a readable message in the orchestrator. Pure build-system change, no
-  production surface. Trigger: the next new service, or the next time a
-  `BUILD.bazel` typo costs a debugging session.
+- **`scraper_job` should adopt `python_service`** (2026-08-07). It hand-rolls
+  ~60 lines that the macro already generates — `core_layer`, code layers,
+  local image with secrets, GCP image without them, push. The only real
+  difference is that it is a **Cloud Run Job, not an HTTP service**, and the
+  macro injects `PORT=8080` unconditionally. Adopting it cleanly means the
+  macro distinguishing the two (a `job(…)` constructor beside `service(…)`),
+  not just moving the call. Deliberately excluded from the structs refactor,
+  which was provably byte-identical; this one would change an image.
 
 - **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
   to replace the OpenSpec npm CLI (deliberately not installed — no-installer
@@ -78,11 +81,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   `alt_positions` reaches the ranked CSV and `composition_ok` is imported from
   the api — but `build()` still fills a fixed shape. Worth doing before the
   27-28 draft, worthless after it.
-- **The bot's `/comparar` and the lineup step have no end-to-end proof**
-  (2026-08-06). Both are wired and unit-tested, but nothing exercises
-  bot → api → Biwenger. The accepted-gaps table already parks integration
-  tests; this is the first feature where that gap has teeth, since the lineup
-  step writes to Biwenger every morning.
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
