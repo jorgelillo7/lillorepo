@@ -7,6 +7,9 @@ google-cloud-firestore
 python-dateutil
 python-json-logger
 
+# dev-only — everything below this marker is deliberately NOT installed into
+# docker/Dockerfile.base (dead weight in Cloud Run). `scripts/check_base_sync.py`
+# reads this exact marker, so keep the line and add dev tools underneath it.
 # Herramientas de desarrollo (centralizadas aquí para todos los módulos)
 black
 flake8

@@ -37,4 +37,11 @@ echo "==> flake8…"
 bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:flake8 -- \
     "${TARGETS[@]/#/$REPO_ROOT/}"
 
+# Stdlib-only and offline, so it costs ~1 s and needs no toolchain. Guards the
+# gap the linters cannot see: Bazel tests run against requirements_lock.txt
+# while production runs docker/Dockerfile.base, and drift between them ships as
+# an ImportError at cold start.
+echo "==> dependency layers…"
+python3 "$REPO_ROOT/scripts/check_base_sync.py"
+
 echo "==> lint OK"
