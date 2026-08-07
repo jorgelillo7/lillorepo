@@ -13,7 +13,11 @@ from html import escape
 from core.sdk.jp import get_predict_rate
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
-# All supported formations as (label, def, mid, fwd). GK is always 1.
+# Every formation Biwenger's own "Estrategia" picker offers, as
+# (label, def, mid, fwd); GK is always 1. All fourteen, transcribed from the
+# app — the list was two short (3-2-5 and 5-1-4), so those XIs could never be
+# proposed even when a squad's best eleven wanted one. `test_lineup.py` pins
+# the set so a future edit cannot quietly drop one again.
 FORMATIONS = [
     ("3-4-3", 3, 4, 3),
     ("3-5-2", 3, 5, 2),
@@ -27,6 +31,8 @@ FORMATIONS = [
     ("4-2-4", 4, 2, 4),
     ("4-6-0", 4, 6, 0),
     ("5-2-3", 5, 2, 3),
+    ("3-2-5", 3, 2, 5),
+    ("5-1-4", 5, 1, 4),
 ]
 
 # Position IDs as Biwenger reports them.

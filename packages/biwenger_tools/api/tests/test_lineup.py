@@ -9,10 +9,12 @@ lineup without a captain when nobody qualifies.
 
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
+    FORMATIONS,
     FWD,
     GK,
     MID,
     _CAPTAIN_MAX_PRICE,
+    _POOL_PER_POSITION,
     _pick_captain,
     _pick_reserves,
     _sf,
@@ -258,3 +260,40 @@ def test_only_a_real_absence_counts_as_out():
         _player(3, 5, MID, fixture="break")["jp_player"],
     ):
         assert availability(jp) == "out"
+
+
+# --- The formation list must match Biwenger's own picker ---
+
+
+def test_formations_match_biwengers_strategy_picker():
+    """Transcribed from the app's "Estrategia" screen.
+
+    Pinned because the list is data the code cannot derive: a formation
+    missing here is an XI the optimizer will never propose, and nothing else
+    would notice. Two were missing until this test existed.
+    """
+    biwenger_offers = {
+        "3-4-3",
+        "3-5-2",
+        "4-3-3",
+        "4-4-2",
+        "4-5-1",
+        "5-3-2",
+        "5-4-1",
+        "3-6-1",
+        "3-3-4",
+        "4-2-4",
+        "4-6-0",
+        "5-2-3",
+        "3-2-5",
+        "5-1-4",
+    }
+    assert {label for label, *_ in FORMATIONS} == biwenger_offers
+
+
+def test_every_formation_fields_exactly_eleven():
+    for label, n_def, n_mid, n_fwd in FORMATIONS:
+        assert 1 + n_def + n_mid + n_fwd == 11, label
+        # The search caps its candidate pool per position; a formation needing
+        # more slots than the pool holds would silently lose the optimum.
+        assert max(n_def, n_mid, n_fwd) <= _POOL_PER_POSITION, label

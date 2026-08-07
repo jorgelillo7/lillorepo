@@ -1,26 +1,26 @@
 # Decisión final — Once de gala + estrella
 
-**Presupuesto 52M · gasto 51.51M · XI 1-4-4-2**
+**Presupuesto 52M · gasto 51.86M · XI 1-4-4-2**
 
 ## Los 15, en orden de pick
 
 | Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ | Pts/M | Fuente | Vaciado | XI | © |
 |--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|
-| 3 | DEL | Raphinha | Barcelona | 15.17M | 739 | — | — | — | — | 18 | ~ | — | ★ |  |
-| 12 | POR | Dmitrovic | Espanyol | 3.97M | 405 | 247 | 37 | 37/38 | 6.7 | 62 | ✅ | — | ★ |  |
-| 17 | DEF | Marcos Alonso | Celta | 3.32M | 466 | — | — | — | — | 64 | ~ | — | ★ |  |
-| 26 | DEF | Kike Salas | Sevilla | 3.08M | 459 | — | — | — | — | 68 | ~ | — | ★ |  |
-| 31 | MED | Expósito | Espanyol | 4.25M | 455 | 205 | 36 | 28/38 | 5.7 | 48 | ✅ | — | ★ |  |
-| 40 | DEF | Juan Iglesias | Sevilla | 2.60M | 409 | 201 | 37 | 35/38 | 5.4 | 77 | ✅ | — | ★ |  |
-| 45 | MED | Canales | Racing | 6.15M | 538 | — | — | — | — | 33 | ~ | — | ★ |  |
-| 54 | DEF | Yuri | Athletic | 2.20M | 415 | 193 | 32 | 29/38 | 6.0 | 88 | ✅ | — | ★ | © |
-| 59 | MED | Guido Rodríguez | Valencia | 4.23M | 502 | — | — | — | — | 44 | ~ | — | ★ |  |
-| 68 | DEL | Rioja | Valencia | 2.91M | 440 | 185 | 37 | 28/38 | 5.0 | 64 | ✅ | — | ★ |  |
-| 73 | MED | De Galarreta | Athletic | 3.03M | 428 | 174 | 34 | 23/38 | 5.1 | 57 | ✅ | — | ★ |  |
-| 82 | DEL | Lucas Cepeda | Elche | 0.15M | 164 | — | — | — | — | 407 | ~ | — |  |  |
-| 87 | MED | Iker Benito | Osasuna | 0.15M | 56 | — | — | — | — | 140 | ~ | — |  |  |
-| 96 | DEF | Moussa Diarra | Málaga | 0.15M | 27 | — | — | — | — | 80 | ~ | — |  |  |
-| 101 | POR | Álex Primo | Levante | 0.15M | 24 | — | — | — | — | 73 | ~ | — |  |  |
+| — | MED | Valverde | Real Madrid | 11.59M | — | — | — | — | — | 59 | ~ | — | ★ |  |
+| — | DEL | Gerard Moreno | Villarreal | 6.61M | — | — | — | — | — | 87 | ~ | — | ★ |  |
+| — | DEL | Aubameyang | Deportivo | 5.16M | — | — | — | — | — | 108 | ~ | — | ★ |  |
+| — | MED | Soler | Real Sociedad | 5.30M | — | — | — | — | — | 99 | ~ | — | ★ |  |
+| — | MED | Guido Rodríguez | Valencia | 4.23M | — | — | — | — | — | 119 | ~ | — | ★ |  |
+| — | DEF | Marcos Alonso | Celta | 3.32M | — | — | — | — | — | 140 | ~ | — | ★ |  |
+| — | DEF | Kike Salas | Sevilla | 3.08M | — | — | — | — | — | 149 | ~ | — | ★ |  |
+| — | MED | Pathé Ciss | Rayo Vallecano | 3.41M | — | — | — | — | — | 128 | ~ | — | ★ |  |
+| — | DEF | Tenaglia | Alavés | 3.24M | — | — | — | — | — | 134 | ~ | — | ★ |  |
+| — | POR | Dituro | Elche | 3.12M | — | — | — | — | — | 137 | ~ | — | ★ |  |
+| — | DEF | Yuri | Athletic | 2.20M | — | — | — | — | — | 189 | ~ | — | ★ | © |
+| — | DEL | Lucas Cepeda | Elche | 0.15M | — | — | — | — | — | 1093 | ~ | — |  |  |
+| — | MED | Iker Benito | Osasuna | 0.15M | — | — | — | — | — | 373 | ~ | — |  |  |
+| — | DEF | Nacho Pérez | Levante | 0.15M | — | — | — | — | — | 267 | ~ | — |  |  |
+| — | POR | Álex Primo | Levante | 0.15M | — | — | — | — | — | 160 | ~ | — |  |  |
 
 **Real** son los puntos Personalizado de la temporada pasada — la puntuación de esta liga, no la de SofaScore. **PJ** son los partidos que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 parecen lo mismo. **JP** es la proyección de la temporada que viene.
 
@@ -34,30 +34,30 @@ Fuente: ✅ titular con dato real · 🪑 real pero suplente (menos de 19/38) ·
 
 ## Alternativas para los primeros picks
 
-### Pick 3 — Raphinha (15.17M · 274)
-1. **Budimir** (Osasuna, 10.36M · 212) — -62 puntos
-2. **Antony** (Betis, 9.85M · 212) — -62 puntos
-3. **Oyarzabal** (Real Sociedad, 13.35M · 114) — -160 puntos
+### Pick — — Valverde (11.59M · 688)
+1. **Dani Olmo** (Barcelona, 11.25M · 659) — -29 puntos
+2. **Fornals** (Betis, 10.28M · 600) — -88 puntos
+3. **Febas** (Celta, 7.32M · 556) — -132 puntos
 
-### Pick 12 — Dmitrovic (3.97M · 247)
-1. **Leo Román** (Deportivo, 4.19M · 206) — -41 puntos
-2. **Sivera** (Alavés, 3.43M · 196) — -51 puntos
-3. **Dituro** (Elche, 3.12M · 196) — -51 puntos
+### Pick — — Gerard Moreno (6.61M · 578)
+1. **Cucho** (Betis, 6.64M · 510) — -68 puntos
+2. **Toni Martínez** (Alavés, 5.81M · 507) — -71 puntos
+3. **De Frutos** (Rayo Vallecano, 5.93M · 468) — -110 puntos
 
-### Pick 17 — Marcos Alonso (3.32M · 212)
-1. **Zaid Romero** (Getafe, 3.57M · 198) — -14 puntos
-2. **Tenaglia** (Alavés, 3.24M · 198) — -14 puntos
-3. **Sergio Gómez** (Real Sociedad, 3.34M · 196) — -16 puntos
+### Pick — — Aubameyang (5.16M · 558)
+1. **Toni Martínez** (Alavés, 5.81M · 507) — -51 puntos
+2. **De Frutos** (Rayo Vallecano, 5.93M · 468) — -90 puntos
+3. **Uche** (Getafe, 3.90M · 459) — -99 puntos
 
-### Pick 26 — Kike Salas (3.08M · 209)
-1. **Tenaglia** (Alavés, 3.24M · 198) — -11 puntos
-2. **Sergio Gómez** (Real Sociedad, 3.34M · 196) — -13 puntos
-3. **Catena** (Osasuna, 3.39M · 193) — -16 puntos
+### Pick — — Soler (5.30M · 524)
+1. **Barrios** (Atlético, 5.23M · 510) — -14 puntos
+2. **Germán Valera** (Elche, 5.77M · 456) — -68 puntos
+3. **Expósito** (Espanyol, 4.25M · 455) — -69 puntos
 
-### Pick 31 — Expósito (4.25M · 205)
-1. **Pathé Ciss** (Rayo Vallecano, 3.41M · 162) — -43 puntos
-2. **Kang-in Lee** (Atlético, 4.24M · 157) — -48 puntos
-3. **Carlos Álvarez** (Levante, 3.36M · 157) — -48 puntos
+### Pick — — Guido Rodríguez (4.23M · 502)
+1. **Expósito** (Espanyol, 4.25M · 455) — -47 puntos
+2. **De Galarreta** (Athletic, 3.03M · 428) — -74 puntos
+3. **Kang-in Lee** (Atlético, 4.24M · 424) — -78 puntos
 
 ## Reglas para ejecutarlo
 

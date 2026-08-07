@@ -29,6 +29,9 @@ def player(name, pos="DL", price=1_000_000, sf=300, lines=None, **extra):
         "lines": lines or [pos],
         "price": price,
         "sf": sf,
+        # Value per million, as `apply_real_points` derives it. Needed by
+        # anything that reaches the captain tiers.
+        "vm": extra.get("vm", sf / (price / 1_000_000) if price else 0.0),
         "placeholder": extra.get("placeholder", False),
         "real": extra.get("real"),
         "starts": None,
@@ -310,3 +313,71 @@ def test_the_star_flag_is_deliberately_ignored():
     starred = frp.personalizado([match(10, star=True)], MID)
 
     assert plain["points"] == starred["points"]
+
+
+# ---------------------------------------------------------------------------
+# Squad shapes — the generator used to fill one hardcoded 2-5-5-3
+# ---------------------------------------------------------------------------
+
+
+def test_formations_come_from_production_not_a_second_list():
+    """The two lists had drifted: this file knew seven, production knew more,
+    and the shapes the real squad plays were invisible to the generator."""
+    from packages.biwenger_tools.api.logic.lineup import FORMATIONS as prod
+
+    assert archetypes.FORMATIONS == tuple((d, m, f) for _label, d, m, f in prod)
+
+
+def test_every_viable_shape_holds_fifteen_and_fields_an_eleven():
+    for shape in archetypes.viable_shapes():
+        assert sum(shape.values()) == archetypes.SQUAD_SIZE
+        outfield = (shape["DF"], shape["MC"], shape["DL"])
+        assert any(
+            outfield[0] >= d and outfield[1] >= m and outfield[2] >= f
+            for d, m, f in archetypes.FORMATIONS
+        ), archetypes.shape_label(shape)
+
+
+def test_the_shapes_the_real_squads_play_are_reachable():
+    """2-5-5-3 is the classic; 2-5-7-1 is what the 26-27 squad actually is.
+    Only the first was ever proposable."""
+    shapes = archetypes.viable_shapes()
+    assert {"PT": 2, "DF": 5, "MC": 5, "DL": 3} in shapes
+    assert {"PT": 2, "DF": 5, "MC": 7, "DL": 1} in shapes
+
+
+def test_the_reserve_keeper_is_kept_unless_explicitly_dropped():
+    """A benched keeper scores nothing, so maximising points always strips him.
+    That is a risk decision, not an optimisation — it needs asking for."""
+    assert all(s["PT"] == 2 for s in archetypes.viable_shapes())
+    assert any(s["PT"] == 1 for s in archetypes.viable_shapes(keepers=(1, 2)))
+
+
+def test_searching_shapes_never_scores_below_the_fixed_one():
+    """The classic shape is in the search space, so the winner is at least as
+    good — the property that makes this refactor safe to adopt by default."""
+    rows = (
+        [player(f"P{i}", "PT", 1_000_000, 200 + i) for i in range(4)]
+        + [player(f"D{i}", "DF", 1_000_000, 300 + i) for i in range(9)]
+        + [player(f"M{i}", "MC", 1_000_000, 400 + i) for i in range(9)]
+        + [player(f"F{i}", "DL", 1_000_000, 350 + i) for i in range(9)]
+    )
+    budget = 20_000_000
+    fixed, _, _ = archetypes.build(rows, budget)
+    best, _, _, shape = archetypes.build_best_shape(rows, budget)
+
+    assert archetypes.xi_effective(best) >= archetypes.xi_effective(fixed)
+    assert sum(len(best[c]) for c in archetypes.POS) == archetypes.SQUAD_SIZE
+    assert archetypes.squad_is_legal(best), archetypes.shape_label(shape)
+
+
+def test_build_honours_a_requested_shape():
+    rows = (
+        [player(f"P{i}", "PT", 1_000_000, 200) for i in range(4)]
+        + [player(f"D{i}", "DF", 1_000_000, 300) for i in range(9)]
+        + [player(f"M{i}", "MC", 1_000_000, 400) for i in range(9)]
+        + [player(f"F{i}", "DL", 1_000_000, 350) for i in range(9)]
+    )
+    shape = {"PT": 2, "DF": 5, "MC": 7, "DL": 1}
+    squad, _, _ = archetypes.build(rows, 20_000_000, shape=shape)
+    assert {c: len(squad[c]) for c in archetypes.POS} == shape
