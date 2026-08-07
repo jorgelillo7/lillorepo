@@ -154,7 +154,8 @@ Run this command from the project root. It will pick up the changes you made in 
     packages/biwenger_tools/api/requirements.txt \
     packages/biwenger_tools/bot/requirements.txt \
     packages/biwenger_tools/web/requirements.txt \
-    packages/chucknorris_bot/bot/requirements.txt; do
+    packages/chucknorris_bot/bot/requirements.txt \
+    packages/be_water/web/requirements.txt; do
     echo; echo "# From: $req_file"; cat "$req_file"
   done
 } > requirements.in
