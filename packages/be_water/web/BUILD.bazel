@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary")
-load("//tools/bazel:python_service.bzl", "python_service")
+load("//tools/bazel:python_service.bzl", "image", "python_service", "service")
 
 # Expose web_lib (and the service targets) to sibling packages under
 # be_water — e.g. scripts/ reuses web_lib for the photo-audit tool.
@@ -17,18 +17,22 @@ py_binary(
 python_service(
     name = "web",
     package = "be_water",
-    main = "app.py",
     repository = "europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web",
-    secrets = [".env"],
-    deps = [
-        "@pypi//google_auth",
-        "@pypi//pillow",
-    ],
-    extra_env = {
-        "PORT": "8080",
-        "PYTHONPATH": "/app",
-        # be_water runs against its own GCP project; core.sdk.firestore
-        # honours FIRESTORE_PROJECT over ADC's default project.
-        "FIRESTORE_PROJECT": "be-water-app",
-    },
+    service = service(
+        main = "app.py",
+        secrets = [".env"],
+        deps = [
+            "@pypi//google_auth",
+            "@pypi//pillow",
+        ],
+    ),
+    image = image(
+        env = {
+            "PORT": "8080",
+            "PYTHONPATH": "/app",
+            # be_water runs against its own GCP project; core.sdk.firestore
+            # honours FIRESTORE_PROJECT over ADC's default project.
+            "FIRESTORE_PROJECT": "be-water-app",
+        },
+    ),
 )
