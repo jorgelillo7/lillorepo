@@ -72,7 +72,14 @@ def _ensure_kind(param, value, kind):
 # Constructors
 # ---------------------------------------------------------------------------
 
-def service(*, main, srcs = None, deps = [], secrets = [], enable_tests = True):
+def service(
+        *,
+        main,
+        srcs = None,
+        deps = [],
+        secrets = [],
+        test_deps = [],
+        enable_tests = True):
     """What the service is made of.
 
     Args:
@@ -80,6 +87,7 @@ def service(*, main, srcs = None, deps = [], secrets = [], enable_tests = True):
         srcs:         Python sources; defaults to every `.py` outside `tests/`.
         deps:         Bazel deps beyond the base set every service gets.
         secrets:      Files baked into the **local** image only, never into GCP's.
+        test_deps:    Extra deps for the test target, beyond the library and pytest.
         enable_tests: Generate `<name>_tests` when a `tests/` directory exists.
     """
     return struct(
@@ -88,7 +96,32 @@ def service(*, main, srcs = None, deps = [], secrets = [], enable_tests = True):
         srcs = srcs if srcs == None else _ensure_str_list("service.srcs", srcs),
         deps = _ensure_str_list("service.deps", deps),
         secrets = _ensure_str_list("service.secrets", secrets),
+        test_deps = _ensure_str_list("service.test_deps", test_deps),
         enable_tests = _ensure_bool("service.enable_tests", enable_tests),
+    )
+
+def job(
+        *,
+        main,
+        srcs = None,
+        deps = [],
+        secrets = [],
+        test_deps = [],
+        enable_tests = True):
+    """What a Cloud Run **Job** is made of. Same fields as `service`.
+
+    The difference is not cosmetic: a job runs to completion and never listens,
+    so its image gets no `PORT`. Declaring one on a workload that cannot serve
+    invites the reader to look for an HTTP handler that does not exist.
+    """
+    return struct(
+        _kind = "job",
+        main = _ensure_str("job.main", main, required = True),
+        srcs = srcs if srcs == None else _ensure_str_list("job.srcs", srcs),
+        deps = _ensure_str_list("job.deps", deps),
+        secrets = _ensure_str_list("job.secrets", secrets),
+        test_deps = _ensure_str_list("job.test_deps", test_deps),
+        enable_tests = _ensure_bool("job.enable_tests", enable_tests),
     )
 
 def image(*, env = {}):
@@ -104,7 +137,7 @@ def image(*, env = {}):
 # ---------------------------------------------------------------------------
 
 def python_service(*, name, package, repository, service, image = None):
-    """Library, local binary, OCI images (local + GCP), push target and tests.
+    """An HTTP service: library, local binary, OCI images, push target, tests.
 
     Args:
         name:       Service name, and the module directory (e.g. `"web"`).
@@ -113,15 +146,58 @@ def python_service(*, name, package, repository, service, image = None):
         service:    A `service(…)` struct.
         image:      An `image(…)` struct; defaults to no extra environment.
     """
+    _python_workload(
+        name = name,
+        package = package,
+        repository = repository,
+        spec = _ensure_kind("service", service, "service"),
+        image = image,
+        serves_http = True,
+    )
+
+def python_job(*, name, package, repository, job, image = None):
+    """A Cloud Run Job. Same targets as `python_service`, minus `PORT`.
+
+    Args:
+        name:       Job name, and the module directory (e.g. `"scraper_job"`).
+        package:    Directory under `/packages/` (e.g. `"biwenger_tools"`).
+        repository: Destination OCI repository in Artifact Registry.
+        job:        A `job(…)` struct.
+        image:      An `image(…)` struct; defaults to no extra environment.
+    """
+    _python_workload(
+        name = name,
+        package = package,
+        repository = repository,
+        spec = _ensure_kind("job", job, "job"),
+        image = image,
+        serves_http = False,
+    )
+
+def _python_workload(*, name, package, repository, spec, image, serves_http):
+    """Everything both workload kinds share. `serves_http` decides `PORT`."""
     name = _ensure_str("name", name, required = True)
     package = _ensure_str("package", package, required = True)
     repository = _ensure_str("repository", repository, required = True)
-    svc = _ensure_kind("service", service, "service")
+    svc = spec
 
     # `image` the parameter shadows `image` the constructor inside this
     # function, so the default is built literally rather than by calling it.
     img = image if image != None else struct(_kind = "image", env = {})
     img = _ensure_kind("image", img, "image")
+
+    # Built key by key rather than as a literal so `PORT` can be omitted for a
+    # job while the insertion order stays exactly what it was for a service —
+    # the OCI config records env as an ordered list, and reordering it would
+    # rewrite every service image for no reason.
+    local_env = {}
+    gcp_env = {}
+    if serves_http:
+        local_env["PORT"] = "8080"
+        gcp_env["PORT"] = "8080"
+    gcp_env["PYTHONPATH"] = "/app"
+    local_env["PYTHONUNBUFFERED"] = "1"
+    gcp_env["PYTHONUNBUFFERED"] = "1"
 
     srcs = svc.srcs
     if srcs == None:
@@ -214,13 +290,7 @@ def python_service(*, name, package, repository, service, image = None):
             ":" + name + "_core_layer",
             ":" + name + "_code_with_secrets_layer",
         ],
-        env = dict(
-            {
-                "PORT": "8080",
-                "PYTHONUNBUFFERED": "1",
-            },
-            **img.env
-        ),
+        env = dict(local_env, **img.env),
         entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
     )
@@ -241,14 +311,7 @@ def python_service(*, name, package, repository, service, image = None):
             ":" + name + "_core_layer",
             ":" + name + "_code_layer",
         ],
-        env = dict(
-            {
-                "PORT": "8080",
-                "PYTHONPATH": "/app",
-                "PYTHONUNBUFFERED": "1",
-            },
-            **img.env
-        ),
+        env = dict(gcp_env, **img.env),
         entrypoint = [pkg_dir + "/entrypoint.sh"],
         workdir = "/app",
     )
@@ -274,5 +337,5 @@ def python_service(*, name, package, repository, service, image = None):
                 deps = [
                     ":" + name + "_lib",
                     requirement("pytest"),
-                ],
+                ] + svc.test_deps,
             )
