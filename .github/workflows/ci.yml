@@ -7,8 +7,16 @@ name: CI
 on:
   pull_request:
     branches: [master]
+  # Manual trigger. `deploy.yml` has always had one; this did not, so when
+  # GitHub throttled webhook-triggered runs during the 2026-08-06 Actions
+  # outage the only way to re-fire CI was pushing an empty commit.
+  workflow_dispatch:
 
 # A new push to the PR obsoletes the previous run — cancel it.
+#
+# Note when re-running by hand: a manual re-run shares this group, so if it
+# overlaps another run for the same ref one of the two is cancelled. Re-running
+# in a loop cancels itself; wait for the attempt to finish before firing again.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -24,7 +32,16 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          # The external repositories are the bulk of a cold run: rules_python
+          # plus every pypi wheel (matplotlib, google-cloud-*, flask). Without
+          # these two the runner re-downloads them every single time — the disk
+          # cache alone was saving 4 KB, because it holds action outputs and
+          # almost nothing else.
+          repository-cache: true
+          external-cache: true
+          # One key across workflows, so the deploy inherits what CI just warmed
+          # instead of starting cold a minute after a green PR.
+          disk-cache: bazel
 
       - name: Lint
         run: bash scripts/lint.sh
@@ -39,17 +56,25 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          # The external repositories are the bulk of a cold run: rules_python
+          # plus every pypi wheel (matplotlib, google-cloud-*, flask). Without
+          # these two the runner re-downloads them every single time — the disk
+          # cache alone was saving 4 KB, because it holds action outputs and
+          # almost nothing else.
+          repository-cache: true
+          external-cache: true
+          # One key across workflows, so the deploy inherits what CI just warmed
+          # instead of starting cold a minute after a green PR.
+          disk-cache: bazel
 
       - name: Run all tests
         run: |
-          bazel test \
-            //core:core_tests \
-            //packages/biwenger_tools/web:web_tests \
-            //packages/biwenger_tools/scraper_job:scraper_job_tests \
-            //packages/biwenger_tools/bot:bot_tests \
-            //packages/biwenger_tools/api:api_tests \
-            //packages/chucknorris_bot/bot:bot_tests \
-            //packages/biwenger_tools/.claude/skills/draft/scripts:draft_skill_tests \
-            //packages/be_water/web:web_tests \
+          # `--build_tests_only` keeps this to the tests and their deps; without
+          # it `//...` would also build all 40 image and tar targets.
+          #
+          # `//...` rather than a hand-written list: the two workflows kept
+          # their own copy and had already drifted — `draft_skill_tests` ran on
+          # pull requests and never on master, which is the branch that
+          # deploys.
+          bazel test --build_tests_only //... \
             --test_output=streamed --test_arg=-v
