@@ -161,8 +161,19 @@ def test_a_squad_with_no_forward_is_legal():
 
 
 def test_composition_ok_false_when_a_line_can_never_be_filled():
-    # Every formation needs at least 2 MID (4-2-4); one can never clear it.
-    assert composition_ok(_lines(gk=1, d=5, m=1, f=4)) is False
+    # Defence is the only line with a floor above one: every formation
+    # Biwenger offers fields at least three, so two can never clear it.
+    assert composition_ok(_lines(gk=1, d=2, m=5, f=4)) is False
+
+
+def test_a_single_midfielder_is_legal_because_5_1_4_exists():
+    """This exact shape was rejected until the formation list was completed.
+
+    Biwenger's picker offers 5-1-4, so a squad with one midfielder fields a
+    legal XI. Declaring it impossible is how a draft pick gets blocked for a
+    rule the game does not have.
+    """
+    assert composition_ok(_lines(gk=1, d=5, m=1, f=4)) is True
 
 
 def test_multi_position_players_cover_the_line_that_is_short():

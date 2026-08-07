@@ -29,7 +29,13 @@ import unicodedata
 from collections import Counter
 
 from packages.biwenger_tools.api.logic.draft import composition_ok
-from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
+from packages.biwenger_tools.api.logic.lineup import (
+    DEF,
+    FORMATIONS as _API_FORMATIONS,
+    FWD,
+    GK,
+    MID,
+)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -43,6 +49,7 @@ _LINE_ID = {"PT": GK, "DF": DEF, "MC": MID, "DL": FWD}
 # multi-position player in every line he plays. These are the shape the
 # generator fills before it starts upgrading.
 NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
+SQUAD_SIZE = sum(NEED.values())
 CAPTAIN_CAP = 3_000_000
 CAPTAIN_SAFE = 2_500_000  # durable buffer below the cap
 ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
@@ -59,16 +66,11 @@ STARTER_THRESHOLD = 19
 # Price bands, matching the ones `availability_report.py` writes.
 BANDS = ((6_000_000, "≥ 6M"), (3_000_000, "3–6M"), (1_500_000, "1,5–3M"), (0, "< 1,5M"))
 
-# (DF, MC, DL) — the XI shapes Biwenger accepts, all fieldable from a 2-5-5-3.
-FORMATIONS = (
-    (3, 4, 3),
-    (3, 5, 2),
-    (4, 3, 3),
-    (4, 4, 2),
-    (4, 5, 1),
-    (5, 3, 2),
-    (5, 4, 1),
-)
+# (DF, MC, DL) — imported from the api rather than restated, for the reason
+# `squad_is_legal` gives. The two lists had already drifted: this file knew
+# seven formations and production knew twelve, so the generator could not see
+# the 4-6-0 the 26-27 squad actually fields.
+FORMATIONS = tuple((d, m, f) for _label, d, m, f in _API_FORMATIONS)
 TIER_RANK = {"durable": 0, "safe": 1, "fragile": 2}
 
 
@@ -247,6 +249,44 @@ def eligibility(row):
     )
 
 
+def viable_shapes(keepers=(2,)):
+    """Every 15-man shape that can field one of Biwenger's formations.
+
+    The generator used to fill a single hardcoded 2-5-5-3, which is why it
+    could never propose the 2-5-7-1 the 26-27 squad actually plays. A shape is
+    kept when some formation fits inside it; the rest of the fifteen are
+    substitutes, and where they sit is what the search decides.
+
+    `keepers` defaults to two, and that is a judgement the score cannot make.
+    A benched keeper contributes nothing to the XI, so maximising points always
+    strips him — and the run that follows is worth ~50 points more on paper
+    while risking a matchday fielding ten men and an empty slot at -4. Sole
+    keeper is offered as an explicit choice (`--allow-sole-keeper`), the same
+    way `thin_bench` is, rather than chosen silently on the optimiser's behalf.
+    """
+    shapes = []
+    for pt in keepers:
+        for df, mc, dl in FORMATIONS:
+            for extra_df in range(0, SQUAD_SIZE):
+                for extra_mc in range(0, SQUAD_SIZE):
+                    extra_dl = SQUAD_SIZE - pt - (df + extra_df) - (mc + extra_mc) - dl
+                    if extra_dl < 0:
+                        continue
+                    shape = {
+                        "PT": pt,
+                        "DF": df + extra_df,
+                        "MC": mc + extra_mc,
+                        "DL": dl + extra_dl,
+                    }
+                    if sum(shape.values()) == SQUAD_SIZE and shape not in shapes:
+                        shapes.append(shape)
+    return shapes
+
+
+def shape_label(shape):
+    return "-".join(str(shape[c]) for c in ("PT", "DF", "MC", "DL"))
+
+
 def squad_is_legal(squad):
     """True iff these players can field some legal XI — the api's own rule,
     imported rather than restated so the two cannot drift apart."""
@@ -320,7 +360,15 @@ def drain_cell(got):
     return f"**{gone}/{total}**" if gone >= total else f"{gone}/{total}"
 
 
-def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=None):
+def build(
+    rows,
+    budget,
+    forced=(),
+    band=None,
+    thin_bench=False,
+    max_per_team=None,
+    shape=None,
+):
     """Force `forced` (names), fill the cheapest per line from the (optionally
     band-restricted) pool, then greedily upgrade non-forced picks to spend the
     budget while maximising SofaScore. Returns (squad, spent, warnings).
@@ -332,7 +380,11 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
     `max_per_team` caps players per club. The score cannot see concentration,
     but the league's win/clean-sheet bonuses are club-wide: teammates gain and
     lose them on the same weekends. `forced` picks bypass the cap.
+
+    `shape` is how many to take per line, defaulting to the classic 2-5-5-3.
+    Any of `viable_shapes()` works; the caller searches them.
     """
+    shape = dict(NEED) if shape is None else shape
 
     def team_count(sq, team):
         return sum(1 for c in POS for r in sq[c] if r["team"] == team)
@@ -360,7 +412,7 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
         )
         if pick is None or pick["name"] in used:
             continue
-        if len(squad[pick["pos"]]) >= NEED[pick["pos"]]:
+        if len(squad[pick["pos"]]) >= shape[pick["pos"]]:
             warnings.append(f"{f}: línea {POS[pick['pos']]} llena, no forzado")
             continue
         if spent + pick["price"] > budget:
@@ -374,15 +426,15 @@ def build(rows, budget, forced=(), band=None, thin_bench=False, max_per_team=Non
         cheap = sorted(
             [r for r in pool if r["name"] not in used], key=lambda x: x["price"]
         )
-        while len(squad[c]) < NEED[c] and cheap:
+        while len(squad[c]) < shape[c] and cheap:
             pk = cheap.pop(0)
             if not team_ok(squad, pk):
                 continue
             squad[c].append(pk)
             used.add(pk["name"])
             spent += pk["price"]
-        if len(squad[c]) < NEED[c]:
-            warnings.append(f"{POS[c]}: solo {len(squad[c])}/{NEED[c]} jugadores")
+        if len(squad[c]) < shape[c]:
+            warnings.append(f"{POS[c]}: solo {len(squad[c])}/{shape[c]} jugadores")
     if not squad_is_legal(squad):
         warnings.append("no puede alinear un once legal")
     if spent > budget:
@@ -471,6 +523,49 @@ def total_sf(squad):
 def durable_eff(squad):
     _, _, _, dur = lineup(squad)
     return total_sf(squad) + (dur["sf"] if dur else 0)
+
+
+def xi_effective(squad):
+    """XI SF plus the durable captain — the number the comparison ranks by.
+
+    Only the eleven score on a matchday, so a shape is judged on what it can
+    field, never on the fifteen's total.
+    """
+    _, xi, _, dur = lineup(squad)
+    return sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
+
+
+def build_best_shape(rows, budget, shapes=None, **kw):
+    """`build` over every viable shape, keeping the strongest XI.
+
+    The generator used to fill a hardcoded 2-5-5-3 and hand back whatever that
+    produced. Searching instead means the archetype describes a *strategy*
+    (thin bench, forced star, price band) and the shape that serves it best is
+    found rather than assumed — which is how a 2-5-7-1 becomes proposable.
+
+    Returns `(squad, spent, warnings, shape)`.
+    """
+    best = None
+    for shape in shapes if shapes is not None else viable_shapes():
+        squad, spent, warnings = build(rows, budget, shape=shape, **kw)
+        if not squad_is_legal(squad) or spent > budget:
+            continue
+        score = xi_effective(squad)
+        # Ties go to the cheaper squad, then to the shape closest to the
+        # classic 2-5-5-3 — a coin-flip that at least reads as familiar.
+        key = (-score, spent, _shape_distance(shape))
+        if best is None or key < best[0]:
+            best = (key, squad, spent, warnings, shape)
+    if best is None:
+        # Nothing legal under this strategy: fall back to the classic shape so
+        # the caller still gets a squad and its warnings explain the problem.
+        squad, spent, warnings = build(rows, budget, **kw)
+        return squad, spent, warnings, dict(NEED)
+    return best[1], best[2], best[3], best[4]
+
+
+def _shape_distance(shape):
+    return sum(abs(shape[c] - NEED[c]) for c in POS)
 
 
 def repair_captain(squad, spent, rows, budget, forced):
@@ -866,6 +961,22 @@ def main():
         help="cap players per club (the win/clean-sheet bonuses are club-wide)",
     )
     ap.add_argument(
+        "--allow-sole-keeper",
+        action="store_true",
+        help=(
+            "let the search drop the reserve keeper. Scores higher on paper "
+            "and risks a matchday with ten men and an empty slot at -4"
+        ),
+    )
+    ap.add_argument(
+        "--fixed-shape",
+        action="store_true",
+        help=(
+            "build every archetype as a 2-5-5-3 instead of searching the "
+            "shapes (faster, and what the generator did before 26-27)"
+        ),
+    )
+    ap.add_argument(
         "--force",
         default="",
         help="comma-separated names to build a bespoke archetype around",
@@ -1001,12 +1112,19 @@ def main():
                 {"thin_bench": True, "forced": [thin_star["name"]]},
             )
         )
+    # Computed once: the shape list depends only on the formations, not on the
+    # players, and each archetype would otherwise re-derive the same 82.
+    shapes = (
+        [dict(NEED)]
+        if args.fixed_shape
+        else viable_shapes(keepers=(1, 2) if args.allow_sole_keeper else (2,))
+    )
     blocks = []
     ranking = []
     seen = {}
     for idx, (name, desc, kw) in enumerate(specs):
-        squad, spent, warnings = build(
-            rows, budget, max_per_team=args.max_per_team, **kw
+        squad, spent, warnings, shape = build_best_shape(
+            rows, budget, shapes=shapes, max_per_team=args.max_per_team, **kw
         )
         if kw.get("band") is None and not kw.get("thin_bench"):
             squad, spent, note = repair_captain(
@@ -1014,6 +1132,7 @@ def main():
             )
             if note:
                 warnings = warnings + [note]
+        desc = f"{desc} · plantilla {shape_label(shape)}"
         sig = frozenset(r["name"] for c in POS for r in squad[c])
         twin = seen.setdefault(sig, name)
         if twin != name:
@@ -1069,8 +1188,14 @@ def main():
             (ranking[0][4], ranking[0][5]),
         )
         win_idx, win_name = chosen
-        win_squad, win_spent, _ = build(
-            rows, budget, max_per_team=args.max_per_team, **specs[win_idx][2]
+        # Same search as the comparison, or the sheet would hand back a
+        # different fifteen from the one the table just ranked first.
+        win_squad, win_spent, _, _ = build_best_shape(
+            rows,
+            budget,
+            shapes=shapes,
+            max_per_team=args.max_per_team,
+            **specs[win_idx][2],
         )
         if specs[win_idx][2].get("band") is None and not specs[win_idx][2].get(
             "thin_bench"
