@@ -6,14 +6,16 @@ claim about the project.
 For the feature-by-feature story read `packages/*/release-notes.md`; for the
 GCP inventory read `INFRA.md`; for open follow-ups read `PENDING.md`.
 
-**Score: 9.2 / 10.** Cap under current constraints: **~9.5**.
+**Score: 9.3 / 10.** Cap under current constraints: **~9.5**.
 
-Down from 9.4 (2026-07-26). Nothing regressed — an audit on 2026-08-08 found a
-defect class that had been there all along and was not being counted: **facts
-about Biwenger and Jornada Perfecta are transcribed into constants and never
-checked against the source.** Two of those cost real user actions this month.
-The engineering around the code is strong; the code's model of the game has
-holes nobody was looking for.
+Was 9.4, dropped to 9.2 on 2026-08-08 when an audit found a defect class that
+had been there all along and was not being counted: **facts about Biwenger and
+Jornada Perfecta transcribed into constants and never checked against the
+source.** On 2026-08-09 most of that class was closed by actually asking the
+providers — the league settings and the live JP payload answered nearly every
+open question in two calls, and one dead branch was fixed. Back to 9.3; the
+remaining 0.2 is the rollback gap, the open incident, and the handful of facts
+still unconfirmed.
 
 ---
 
@@ -78,16 +80,17 @@ and facts merely believed. The second table is the useful one.
 | Positions 1–4 = GK/DEF/MID/FWD | Live competition payload |
 | Position 5 = coaches, correctly excluded from the draft | Live payload (20 of them, 0 points); absent from the ranked CSV |
 | Runtime deps match the production image | `scripts/check_base_sync.py`, every CI run |
+| 25-player squad cap; 3M captain cap; multi-position on; coaches disabled; **no** team-value cap | League `settings` read live 2026-08-08: `teamMaxSize: 25`, `lineupCaptainMaxValue: 3`, `lineupMultiPos: true`, `lineupCoach: false`, `teamMaxValue: 0` |
+| JP's status vocabulary | Live `fitness-daily`, 533 players: `ok`, `ok-available`, `injured`, `doubt`, `sanctioned`, `other`. The code tested for `suspended`, which JP never sends |
+| Draft budget 50M with a 52M override | `DEFAULT_BUDGET` plus `BUDGET_OVERRIDES` — the Copa Castolo prize, as the reglamento says. Not a drift |
 
 ### Assumed — believed, never checked
 
 | Assumption | Why it is shaky |
 |---|---|
-| **JP's player `status` vocabulary** | Code branches on `injured` and `suspended`. The live Biwenger payload uses `sanctioned`, not `suspended`, and 32 cached JP payloads contain only `ok` and `injured`. The `suspended` branch may be dead code that silently fields banned players. |
-| **`extraStatus` is not worth reading** | Never read anywhere. 4 of 32 cached JP payloads carry `extraStatus: "doubt"`, so the optimizer treats doubtful players as fully available. |
-| **Biwenger's own `status` / `statusInfo` add nothing** | Never read. The live payload currently marks 24 injured, 11 doubt, 2 sanctioned and 1 discarded, with human-readable notes and expected return dates we do not use. |
-| **15-man squad, 25-player cap, 50M budget** | League rules held as constants. The draft actually ran at 52M via a CLI flag, so at least one is not the operating value. |
-| **Scoring conversion factors** | Measured once (0.225–0.610 by line) and frozen. Nothing re-measures them as the season progresses. |
+| **`nextMatch.status == "break"`** | The optimizer reads it as "no fixture this week" and scores 0. All 533 players currently report `pending`; `break` has never been observed, so neither the value nor the behaviour behind it is confirmed. |
+| **The scoring conversion factors** | Measured once (0.225–0.610 by line) and frozen. The league's exact formula is now known to be available — `settings.customScore`, a readable expression over minutes, goals, assists, clean sheets and MVP — so this is approximating something computable. |
+| **Biwenger's own `status` / `statusInfo`** | Never read; JP is the only source. Biwenger currently marks 24 injured, 11 doubt and 2 sanctioned with expected return dates, which would corroborate JP rather than replace it. |
 
 ---
 
@@ -95,7 +98,7 @@ and facts merely believed. The second table is the useful one.
 
 | Problem | Cost |
 |---|---|
-| **Unverified provider facts** (table above). Two shipped defects this month blocked real actions: a legal pick rejected mid-draft, and a legal XI declared impossible. Both were the code holding a rule the game does not have. | **−0.20** |
+| **Unverified provider facts** (table above). Three shipped defects: a legal pick rejected mid-draft, a legal XI declared impossible, and a status branch that never fired because JP spells it `sanctioned`, not `suspended`. All three were the code holding a rule the game does not have. The 2026-08-09 audit closed most of the class by reading the league settings and the live JP payload; what remains is narrower. | **−0.10** |
 | **No revision rollback.** `clean-images-artifact.sh` keeps one digest per service, so the images older Cloud Run revisions point at are gone (verified: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred. Recovery from a bad deploy is revert + wait for CI, ~10 min. | **−0.10** |
 | **Open incident: Lloros Awards.** Both Awards tabs render empty; the Sheets SA key is disabled. Root-caused, not fixed — blocked on a league decision about whether Sheets stays. | **−0.05** |
 | **Bus factor 1.** Every service, SDK and runbook has one author and one operator. Not fixable with engineering. | caps the rest |

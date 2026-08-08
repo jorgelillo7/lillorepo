@@ -13,6 +13,7 @@ from packages.biwenger_tools.api.logic.lineup import (
     FWD,
     GK,
     MID,
+    CANNOT_PLAY,
     _CAPTAIN_MAX_PRICE,
     _POOL_PER_POSITION,
     _pick_captain,
@@ -256,10 +257,40 @@ def test_a_projected_substitute_is_available_not_out():
 def test_only_a_real_absence_counts_as_out():
     for jp in (
         _player(1, 5, MID, status="injured")["jp_player"],
-        _player(2, 5, MID, status="suspended")["jp_player"],
+        _player(2, 5, MID, status="sanctioned")["jp_player"],
         _player(3, 5, MID, fixture="break")["jp_player"],
     ):
         assert availability(jp) == "out"
+
+
+def test_the_status_vocabulary_is_jps_own():
+    """Measured against the live `fitness-daily` payload, 533 players.
+
+    The code tested for "suspended" for months; JP never sends it. The word is
+    `sanctioned`, so the branch was dead — hidden because JP also drops those
+    players from its projected XI, where `playerInLineup` caught them one rung
+    lower. Pinned so the next guess at this vocabulary has to be checked.
+    """
+    assert "sanctioned" in CANNOT_PLAY
+    assert "injured" in CANNOT_PLAY
+    assert "suspended" not in CANNOT_PLAY
+
+    # `doubt` stays playable on purpose: JP prices the doubt into the rate
+    # (the ten currently doubtful score 2-16 SF) rather than flagging them out.
+    assert "doubt" not in CANNOT_PLAY
+    assert availability(_player(4, 5, MID, status="doubt")["jp_player"]) == "plays"
+
+
+def test_a_sanctioned_player_scores_below_an_uncalled_one():
+    """The bug this vocabulary fix closes.
+
+    A sanctioned player used to fall through to the `playerInLineup` rung and
+    score 1 — level with someone merely left out of the projected XI. He cannot
+    play at all, so he must rank below.
+    """
+    banned = _player(5, 5, MID, status="sanctioned")
+    uncalled = _player(6, 5, MID, called=False)
+    assert _sf(banned) < _sf(uncalled)
 
 
 # --- The formation list must match Biwenger's own picker ---
