@@ -1,151 +1,28 @@
 # scraper_job/BUILD.bazel
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load("@rules_pkg//pkg:mappings.bzl", "strip_prefix")
-load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+load("//tools/bazel:python_service.bzl", "image", "job", "python_job")
 
-# =================================================================
-# 1️⃣ LIBRERÍA PRINCIPAL
-# =================================================================
-py_library(
-    name = "scraper_job_lib",
-    srcs = glob(
-        ["**/*.py"],
-        # ✅ CORREGIDO: Excluimos los tests de la librería.
-        exclude = ["tests/**/*.py"],
-    ),
-    deps = [
-        "//core",
-        "@pypi//unidecode",
-        "@pypi//beautifulsoup4",
-        "@pypi//python_dotenv",
-    ],
-)
-
-# =================================================================
-# 2️⃣ EJECUCIÓN LOCAL (SIN DOCKER)
-# =================================================================
-py_binary(
-    name = "scraper_job_local",
-    main = "main.py",
-    srcs = ["main.py"],
-    data = [".env"],
-    deps = [":scraper_job_lib"],
-)
-
-# =================================================================
-# 3️⃣ CAPAS PARA LA IMAGEN DOCKER
-# =================================================================
-pkg_tar(
-    name = "core_layer",
-    files = {
-        "//core:core_srcs": "core_srcs.tar",
-    },
-    package_dir = "/app",
-)
-
-# Ficheros raíz del paquete (sin subdirectorios)
-pkg_tar(
-    name = "_code_root",
-    srcs = glob(["*.py"]) + ["entrypoint.sh"],
-    package_dir = "/app/packages/biwenger_tools/scraper_job",
-    strip_prefix = strip_prefix.from_pkg(),
-    mode = "0755",
-)
-
-# Subdirectorio logic/
-pkg_tar(
-    name = "_code_logic",
-    srcs = glob(["logic/*.py"]),
-    package_dir = "/app/packages/biwenger_tools/scraper_job/logic",
-    strip_prefix = strip_prefix.from_pkg("logic"),
-    mode = "0755",
-)
-
-# Secretos (solo local)
-pkg_tar(
-    name = "_secrets",
-    srcs = [".env"],
-    package_dir = "/app/packages/biwenger_tools/scraper_job",
-    strip_prefix = strip_prefix.from_pkg(),
-)
-
-# Capa base sin secretos (para GCP)
-pkg_tar(
-    name = "scraper_job_base_layer",
-    deps = [":_code_root", ":_code_logic"],
-)
-
-# Capa con secretos (para local)
-pkg_tar(
-    name = "scraper_job_local_layer",
-    deps = [":_code_root", ":_code_logic", ":_secrets"],
-)
-
-# =================================================================
-# 4️⃣ IMÁGENES DOCKER (LOCAL Y GCP)
-# =================================================================
-
-# Imagen LOCAL con secretos
-oci_image(
-    name = "scraper_job_image_local",
-    base = "@python_with_deps",
-    tars = [
-        ":core_layer",
-        ":scraper_job_local_layer",
-    ],
-    env = {
-        "PYTHONPATH": "/app",
-        "PYTHONUNBUFFERED": "1",
-    },
-    entrypoint = ["/app/packages/biwenger_tools/scraper_job/entrypoint.sh"],
-)
-
-# Imagen GCP sin secretos
-oci_image(
-    name = "scraper_job_image_gcp",
-    base = "@python_with_deps",
-    tars = [
-        ":core_layer",
-        ":scraper_job_base_layer",
-    ],
-    env = {
-        "PYTHONPATH": "/app",
-        "PYTHONUNBUFFERED": "1",
-    },
-    entrypoint = ["/app/packages/biwenger_tools/scraper_job/entrypoint.sh"],
-)
-
-# =================================================================
-# 5️⃣ COMANDOS PARA DOCKER Y GCP
-# =================================================================
-
-oci_load(
-    name = "load_image_to_docker_local",
-    image = ":scraper_job_image_local",
-    repo_tags = ["bazel/scraper_job:local"],
-)
-
-oci_push(
-    name = "push_image_to_gcp",
-    image = ":scraper_job_image_gcp",
+# A Cloud Run **Job**, not a service: it scrapes the league board and exits.
+# `python_job` generates the same targets as `python_service` minus `PORT` —
+# see tools/bazel/python_service.bzl.
+python_job(
+    name = "scraper_job",
+    package = "biwenger_tools",
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job",
-    remote_tags = ["latest"],
-)
-
-# =================================================================
-# 6️⃣ TESTS UNITARIOS (PYTEST)
-# =================================================================
-py_test(
-    name = "scraper_job_tests",
-    timeout = "short",
-    main = "tests/main.py",
-    srcs = glob(["tests/**/*.py"]),
-    deps = [
-        ":scraper_job_lib",
-        "//core",
-        "@pypi//pytest",
-        "@pypi//requests_mock",
-        "@pypi//freezegun",
-    ],
+    job = job(
+        main = "main.py",
+        secrets = [".env"],
+        deps = [
+            "@pypi//unidecode",
+            "@pypi//beautifulsoup4",
+            "@pypi//python_dotenv",
+        ],
+        test_deps = [
+            "//core",
+            "@pypi//requests_mock",
+            "@pypi//freezegun",
+        ],
+    ),
+    image = image(
+        env = {"PYTHONPATH": "/app"},
+    ),
 )
