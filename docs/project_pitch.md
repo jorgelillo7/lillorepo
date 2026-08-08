@@ -44,4 +44,4 @@ That line frames the project correctly: not a one-off side project but deliberat
 
 ## Overall assessment
 
-For a cover-letter signal: solid. Shows that you can build real infrastructure around a Python project: build system, cross-project cloud deployment, secrets, CI/CD, tests, documentation, and automated reasoning under hard cost constraints — and that the setup scaled to a second product. Current maturity (2026-07-25): **9.3 / 10** (see `STATUS.md` for the full rationale and the ~9.5 cap).
+For a cover-letter signal: solid. Shows that you can build real infrastructure around a Python project: build system, cross-project cloud deployment, secrets, CI/CD, tests, documentation, and automated reasoning under hard cost constraints — and that the setup scaled to a second product. Current maturity, its rationale and the cap live in `STATUS.md` — stated once, so the two cannot drift.

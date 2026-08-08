@@ -35,7 +35,7 @@ graph TD
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run Service |
 | `biwenger_tools/scraper_job` | League board scraper → Firestore (deterministic doc IDs, idempotent) | Cloud Run Job (weekly cron) |
 | `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, `/managers`, `/draft/*` (annual snake draft), etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
-| `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/recomendar`, `/scrapper`, `/help` plus inline-keyboard callbacks — calls the api with an ID token. Also arbitrates the annual draft (`/soy`, `/pick`, `/estado`, `/deshacer`, `/exportar`) from a separate Telegram group. | Cloud Run Service |
+| `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/preview`, `/recomendar`, `/comparar`, `/pujar`, `/ofertas`, `/emergencia`, `/scrapper`, `/version`, `/help` plus inline-keyboard callbacks — calls the api with an ID token. Also arbitrates the annual draft (`/soy`, `/pick`, `/estado`, `/deshacer`, `/exportar`) from a separate Telegram group. | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 
@@ -45,9 +45,9 @@ graph TD
 /core           Shared library: Biwenger SDK, JP SDK, GCP, Telegram, domain models
 /packages       Self-contained services (one subdirectory per package)
 /docker         Pre-built Python base image (all deps pre-installed)
-/tools          Custom Bazel macros (python_service)
+/tools          Custom Bazel macros (python_service, python_job)
 /platforms      Platform definitions (linux/amd64, linux/arm64)
-/scripts        GCP cost monitoring and Artifact Registry cleanup
+/scripts        CI guards (dependency-layer sync, test selection), GCP cost and cleanup
 /docs           Operations runbook, setup guides, technical audit notes
 ```
 
