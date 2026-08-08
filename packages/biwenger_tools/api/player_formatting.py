@@ -6,6 +6,16 @@ POSITION_SHORT = {1: "POR", 2: "DEF", 3: "MED", 4: "DEL"}
 
 # Score type 2 = "SF" (SofaScore-based Automanager rate).
 # Used wherever we read predictions from JP.
+# The statuses that mean "cannot be fielded at all", as Jornada Perfecta
+# spells them. Measured against the live `fitness-daily` payload (533 players
+# on 2026-08-08): ok, ok-available, injured, doubt, sanctioned, other. The code
+# used to test for "suspended", which JP never sends — the word is `sanctioned`,
+# so the branch was dead. It went unnoticed because JP also drops those players
+# from its projected XI, and `playerInLineup` caught them one rung lower.
+# `doubt` is deliberately absent: JP already prices the doubt into the rate
+# (the ten currently doubtful score 2-16 SF) and drops them from the XI.
+CANNOT_PLAY = frozenset({"injured", "sanctioned"})
+
 SCORE_SF = 2
 
 # Traffic-light thresholds based on the predicted SF score.
@@ -23,7 +33,7 @@ def short_position(position_id) -> str:
 # the same news, and the old traffic light gave them the same colour.
 OUT_REASONS = {
     "lesionado": "injured",
-    "sancionado": "suspended",
+    "sancionado": "sanctioned",
     "sin partido": "no match",
 }
 
@@ -42,7 +52,7 @@ def availability(jp_player: dict | None) -> str:
     """
     if jp_player is None:
         return "unknown"
-    if jp_player.get("status") in ("injured", "suspended"):
+    if jp_player.get("status") in CANNOT_PLAY:
         return "out"
     next_match = jp_player.get("nextMatch") or {}
     if next_match.get("status") == "break":
@@ -104,7 +114,7 @@ def status_emoji(jp_player: dict | None) -> str:
     """
     if jp_player is None:
         return "⚪"
-    if jp_player.get("status") in ("injured", "suspended"):
+    if jp_player.get("status") in CANNOT_PLAY:
         return "🔴"
     next_match = jp_player.get("nextMatch") or {}
     if next_match.get("status") == "break":

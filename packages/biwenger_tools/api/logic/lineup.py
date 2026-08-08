@@ -11,7 +11,7 @@ example that motivated exhaustive backtracking), see the
 from html import escape
 
 from core.sdk.jp import get_predict_rate
-from packages.biwenger_tools.api.player_formatting import SCORE_SF
+from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
 
 # Every formation Biwenger's own "Estrategia" picker offers, as
 # (label, def, mid, fwd); GK is always 1. All fourteen, transcribed from the
@@ -188,13 +188,13 @@ def _sf(row: dict) -> int:
 
     - the real prediction for a player who is expected to play,
     - `_UNCALLED_SF` (1) for "no convocado",
-    - `_DOUBTFUL_SF` (0) for injured, suspended, no fixture, or no JP data.
+    - `_DOUBTFUL_SF` (0) for injured, sanctioned, no fixture, or no JP data.
 
     Any player with a real prediction beats all of these outright, so the
     fallbacks never displace someone who is actually going to play.
     """
     jp = row.get("jp_player") or {}
-    if jp.get("status") in ("injured", "suspended"):
+    if jp.get("status") in CANNOT_PLAY:
         return _DOUBTFUL_SF
     next_match = jp.get("nextMatch") or {}
     if next_match.get("status") == "break":

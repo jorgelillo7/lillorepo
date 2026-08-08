@@ -67,22 +67,26 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
-- **Verify the domain constants against the provider** (2026-08-08 audit; see
-  the "what we assume" table in `STATUS.md`). The highest-value one first:
-  nothing reads Jornada Perfecta's `extraStatus`, which carries `doubt`, so the
-  lineup optimizer scores a doubtful player as fully available. Then: confirm
-  JP's status vocabulary — the code branches on `suspended` while Biwenger's
-  word is `sanctioned`, and no cached payload contains either, so that branch
-  may never fire for a banned player. Then decide whether Biwenger's own
-  `status`/`statusInfo` (24 injured, 11 doubt, 2 sanctioned right now, with
-  expected return dates) should back JP up rather than being ignored.
-  Also unverified in the same family: `nextMatch.status == "break"`, which
-  the optimizer reads as "no fixture this week" and scores 0. No cached
-  payload contains a `nextMatch` at all, so neither the field nor the value
-  has ever been seen — a wrong guess there benches a player who does play.
-  Finally, confirm the league rules held as constants — 15-man squad, 25-player
-  cap, `DEFAULT_BUDGET` of 50M when the draft actually ran at 52M.
+- **Compute the league's real points instead of calibrating to them**
+  (2026-08-09). The league's exact scoring lives in its own settings as
+  `settings.customScore` — a readable expression over minutes played, goals,
+  assists, clean sheets, cards and MVP, with the >65-minute gate the draft
+  analysis already reverse-engineered by hand. Today the rankings multiply a
+  Jornada Perfecta projection by per-line factors measured once (0.225-0.610)
+  because the two scoring systems differ; with the formula in hand that
+  approximation is replaceable by a computation. Biggest remaining accuracy
+  win, and it removes a constant that silently ages.
 
+- **`nextMatch.status == "break"` is still a guess** (2026-08-09). The
+  optimizer reads it as "no fixture this week" and scores the player 0. All
+  533 players currently report `pending`; `break` has never been observed.
+  Confirm during an international break, when the value should appear — or
+  find it never does and delete the branch, as happened with `suspended`.
+
+- **Consider reading Biwenger's own player status** (2026-08-09). Nothing
+  reads it; JP is the only source. Biwenger currently marks 24 injured, 11
+  doubt and 2 sanctioned, with human-readable notes and expected return dates.
+  Worth it as corroboration when the two disagree, not as a replacement.
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
