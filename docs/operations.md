@@ -23,6 +23,7 @@ the `biwenger_tools` runbook above. For the Firestore data model itself, see
 - [📦 How to Add or Update Python Dependencies](#-how-to-add-or-update-python-dependencies)
 - [🔐 Secrets Management](#-secrets-management)
 - [💅 Linter and Auto-formatter](#-linter-and-auto-formatter)
+- [🎯 Which tests CI runs](#-which-tests-ci-runs)
 - [🧹 GCP Cleanup and Cost Control](#-gcp-cleanup-and-cost-control)
 - [⚠️ Important Notes](#️-important-notes)
 
@@ -275,6 +276,42 @@ bash scripts/lint.sh --fix   # apply black in place
 Under the hood: `bazel run //tools/lint:black -- ...` and `//tools/lint:flake8`.
 The first invocation is slow (Bazel resolves the lint targets); subsequent
 calls are cached.
+
+`scripts/lint.sh` also runs **`scripts/check_base_sync.py`**, which is not a
+linter but guards the same class of mistake. Bazel resolves
+`requirements_lock.txt` for tests while production runs whatever
+`docker/Dockerfile.base` pip-installs; drift between them ships as green tests
+and an `ImportError` at cold start. It checks that every module's
+`requirements.txt` reaches `requirements.in`, that every runtime package in the
+lock is installed in the image, and that the versions match. Runtime versus dev
+is read from pip-compile's own `# via` annotations and the `# dev-only` marker
+in `core/requirements.txt` — never from a list in the script, which would rot
+exactly like the thing it guards.
+
+## 🎯 Which tests CI runs
+
+Pull requests run only the suites a change can break;
+`.github/workflows/deploy.yml` still runs `//...` on `master`, so the branch
+that deploys always verifies everything.
+
+The selection comes from the build graph, not from a list:
+
+```bash
+python3 scripts/affected_tests.py origin/master   # prints the targets CI would run
+```
+
+It maps each changed file to its Bazel label and asks
+`rdeps` which tests reach it. So a change under `packages/be_water/` runs
+be_water's suite alone, a change under `core/` runs all of them, and a
+documentation change runs none.
+
+Two things it cannot see, both falling back to `//...`:
+
+  * **Build files** — `.bzl`, `BUILD.bazel`, `MODULE.bazel` and the lock are
+    not targets, so `rdeps` would report a change to the macro every service
+    loads as affecting nothing.
+  * **CI itself** — editing the workflow or the selector re-runs everything,
+    or the decision goes unverified.
 
 ## 🧹 GCP Cleanup and Cost Control
 
