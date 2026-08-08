@@ -105,7 +105,7 @@ constrained; the four on the bench may be anything. A pick SHALL be rejected
 when it would leave no formation reachable with the slots that remain.
 
 The bench is deliberately unconstrained. Requiring a substitute in every line
-rejects picks that are perfectly legal — Biwenger accepts twelve formations
+rejects picks that are perfectly legal — Biwenger accepts fourteen formations
 including `4-6-0`, so a squad with no forward at all is a shape, not a fault.
 
 Multi-position players SHALL count for every line they can play. Biwenger gives
@@ -206,7 +206,7 @@ player ids stay identical between a rehearsal and the live session.
 - **WHEN** the Biwenger call fails **THEN** the pick is never finalised blindly
 - *Verifies:* `test_gate_off_never_calls_biwenger_transfer_or_board`,
   `test_submit_pick_applies_with_gate_off`,
-  `test_gate_on_calls_biwenger_transfer_and_resolves_offer_id`
+  `test_gate_on_calls_biwenger_transfer`
 
 ---
 
