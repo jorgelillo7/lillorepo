@@ -47,14 +47,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
     revalidating the native wheels. The security win barely applies: Cloud Run
     has no `exec`, so there is no shell to reach. Trigger: cold start starts
     eating the 09:00 SLO, or the free tier gets tight.
-- **`scraper_job` should adopt `python_service`** (2026-08-07). It hand-rolls
-  ~60 lines that the macro already generates — `core_layer`, code layers,
-  local image with secrets, GCP image without them, push. The only real
-  difference is that it is a **Cloud Run Job, not an HTTP service**, and the
-  macro injects `PORT=8080` unconditionally. Adopting it cleanly means the
-  macro distinguishing the two (a `job(…)` constructor beside `service(…)`),
-  not just moving the call. Deliberately excluded from the structs refactor,
-  which was provably byte-identical; this one would change an image.
 
 - **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
   to replace the OpenSpec npm CLI (deliberately not installed — no-installer
@@ -75,12 +67,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
-- **The draft skill's generator only explores 2-5-5-3** (2026-08-06). It builds
-  the ideal fifteen from that one shape, so it would never have proposed the
-  4-6-0 the 26-27 squad actually plays. The data no longer blocks the fix —
-  `alt_positions` reaches the ranked CSV and `composition_ok` is imported from
-  the api — but `build()` still fills a fixed shape. Worth doing before the
-  27-28 draft, worthless after it.
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
