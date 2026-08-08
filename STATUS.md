@@ -91,7 +91,7 @@ SA-repoint work. Root-caused and fix documented in `PENDING.md`
 | **Container registry** | Artifact Registry `biwenger-docker` + `be-water-docker` | Multi-arch `python-base` + per-service images; concurrency-gated cleanup post-deploy covers both repos |
 | **CI/CD** | GitHub Actions `deploy.yml` | Detect changed → lint → test → per-module deploy (incl. cross-project `be-water` via WIF) → cleanup; `workflow_dispatch` fallback |
 | **Lint / format** | flake8 + black (88 cols), hermetic via Bazel | CI gate before tests |
-| **Tests** | pytest + requests-mock + MagicMock — 8 suites (core + 4 biwenger + the draft skill's scripts + chucknorris + be_water) | See _Test coverage_ below |
+| **Tests** | pytest + requests-mock + MagicMock — 10 suites (core · 4 biwenger modules · the draft skill's scripts · a cross-module bot↔api integration suite · the CI test-selector · chucknorris · be_water) | See _Test coverage_ below |
 | **Domain models** | `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares` (biwenger); `Water`, per-field provenance (be_water) | Symmetric `from_firestore` / `to_firestore` |
 | **Image rendering** | Squad / market tables → PNG; be_water studio photos | matplotlib (biwenger) · Gemini image gen (be_water) |
 | **Security** | webhook secret HMAC, OIDC service-to-service, ADC for Firestore, HTML sanitisation (bleach), CSRF tokens + per-IP rate limits (be_water), timing-safe admin login | Zero key files in the Firestore code path |

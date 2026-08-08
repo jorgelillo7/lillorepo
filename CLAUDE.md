@@ -37,12 +37,21 @@ for per-package build/test/deploy detail. Quick summary:
 # Full build
 bazel build //...
 
-# Tests (any module)
-bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
+# Tests — all ten suites, or one module
+bazel test --build_tests_only //... --test_output=streamed --test_arg=-v
+bazel test //core:core_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/bot:bot_tests --test_output=streamed --test_arg=-v
-bazel test //core:core_tests --test_output=streamed --test_arg=-v
+bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
+bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
+bazel test //packages/biwenger_tools:integration_tests            # bot → api, in process
+bazel test //packages/biwenger_tools/.claude/skills/draft/scripts:draft_skill_tests
+bazel test //packages/be_water/web:web_tests
+bazel test //packages/chucknorris_bot/bot:bot_tests
+bazel test //scripts:scripts_tests                                # the CI test-selector
+
+# What CI would run for the current branch (see docs/operations.md)
+python3 scripts/affected_tests.py origin/master
 
 # Run locally
 bazel run //packages/biwenger_tools/web:web_local

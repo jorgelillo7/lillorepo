@@ -1,6 +1,56 @@
-# CI/CD — deploy.yml
+# CI/CD
 
-Workflow that runs on every push to `master` when files under `core/`, `packages/`, `tools/`, `docker/`, `MODULE.bazel` or `.github/workflows/` change.
+Two workflows, and they deliberately do **not** run the same tests.
+
+| Workflow | Runs on | Tests |
+|---|---|---|
+| [`ci.yml`](#ciyml--the-pull-request-gate) | every pull request | only the suites the change can break |
+| [`deploy.yml`](#deployyml) | every push to `master` | `//...`, always |
+
+Scoping is a pull-request optimisation. The branch that deploys keeps verifying
+everything, so nothing reaches production having been tested selectively.
+
+---
+
+## `ci.yml` — the pull-request gate
+
+Two parallel jobs, `Lint` and `Test`, both required by branch protection.
+
+**Lint** runs flake8 and `black --check` through Bazel's hermetic toolchain
+(`scripts/lint.sh`), plus `scripts/check_base_sync.py`, which guards the gap
+between the lock Bazel resolves and the image production runs.
+
+**Test** picks its targets from the build graph rather than from a list in this
+file:
+
+```
+scripts/affected_tests.py  →  changed files → Bazel labels → rdeps → test targets
+```
+
+So a change under `packages/be_water/` runs be_water's suite alone, a change
+under `core/` runs all ten, and a documentation change runs none. An earlier
+version of this idea kept a per-module target list in each workflow; the two
+copies drifted until `draft_skill_tests` ran on pull requests and never on
+master. A list of "what belongs to what" rots because nothing checks it —
+`rdeps` cannot, because it asks the same graph Bazel builds from.
+
+Two things it cannot see, both falling back to `//...`:
+
+- **Build files** — `.bzl`, `BUILD.bazel`, `MODULE.bazel` and the lock are not
+  targets, so `rdeps` would report a change to the macro every service loads as
+  affecting nothing.
+- **CI itself** — editing a workflow or the selector re-runs everything, or the
+  decision goes unverified.
+
+The `Test` job **always runs and always reports**, with an empty target list
+short-circuiting the Bazel call. Gating the job with `if:` would leave a
+required check permanently pending and block every documentation PR.
+
+---
+
+## `deploy.yml`
+
+Runs on every push to `master` when files under `core/`, `packages/`, `tools/`, `docker/`, `MODULE.bazel` or `.github/workflows/` change.
 
 ## Stages
 
@@ -15,7 +65,7 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
 
 1. **Lint** — flake8 + `black --check`.
 2. **Detect changed modules** — `paths-filter` per service decides which deploys to run. `core/`, `tools/`, `docker/` or `MODULE.bazel` triggers all of them; a package-only change only its own deploy.
-3. **Run tests** — full Bazel test sweep for all packages.
+3. **Run tests** — `//...`, the full sweep. Unlike `ci.yml`, master never scopes.
 4. **Deploy (parallel)** — each service builds and pushes its OCI image, then deploys/updates the matching Cloud Run resource:
    - **web** → `biwenger-summary` Cloud Run Service
    - **scraper_job** → `biwenger-scraper-data` Cloud Run Job
