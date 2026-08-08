@@ -42,6 +42,11 @@ def build_row(biwenger_player: dict, jp_index: dict) -> dict:
         "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
         "jp_player": find_player_match(name, jp_index),
+        # Biwenger's own read on the player. No decision uses it — JP is
+        # the source of truth — but carrying it lets `provider_watch`
+        # notice when the two disagree.
+        "bw_status": biwenger_player.get("status"),
+        "bw_status_info": biwenger_player.get("statusInfo"),
     }
 
 
