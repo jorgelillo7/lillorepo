@@ -288,6 +288,13 @@ is read from pip-compile's own `# via` annotations and the `# dev-only` marker
 in `core/requirements.txt` — never from a list in the script, which would rot
 exactly like the thing it guards.
 
+`scripts/lint.sh` also runs **`scripts/check_specs.py`**, which keeps
+`openspec/` honest. Each scenario names the test that verifies it, and nothing
+checked that wiring — a spec naming a renamed test claims coverage that is not
+there. A broken reference **fails**; a scenario with no test only **warns**,
+because whether one is worth writing is a judgement and a gate would invite a
+test written to satisfy the gate.
+
 ## 🎯 Which tests CI runs
 
 Pull requests run only the suites a change can break;

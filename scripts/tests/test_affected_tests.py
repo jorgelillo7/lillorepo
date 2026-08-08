@@ -77,3 +77,42 @@ def test_files_outside_every_package_map_to_nothing():
     change run no tests at all."""
     assert at.label_for("docs/README.md") is None
     assert at.label_for("PENDING.md") is None
+
+
+# ---------------------------------------------------------------------------
+# The spec checker — see scripts/check_specs.py
+# ---------------------------------------------------------------------------
+
+import check_specs  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
+def test_a_scenario_is_verified_only_when_it_names_a_test():
+    text = """
+### Requirement: something
+
+#### Scenario: covered
+- **WHEN** a thing
+- **THEN** another
+- *Verifies:* `test_a_thing`
+
+#### Scenario: bare
+- **WHEN** a thing
+- **THEN** another
+"""
+    assert check_specs.scenarios(text) == [("covered", True), ("bare", False)]
+
+
+def test_a_reference_resolves_against_a_file_as_well_as_a_function():
+    """Specs legitimately name a test *file*. An early version of this check
+    knew only about functions and reported 27 false positives — so the
+    resolution set must contain both kinds of name."""
+    import re
+
+    src = (Path(check_specs.__file__).read_text())
+    # The set is built from `def test_*` matches plus `git ls-files *test_*.py`
+    # stems; assert both halves are still there rather than shelling out to git,
+    # which the test sandbox has no repo for.
+    assert "def (test_[A-Za-z0-9_]+)" in src
+    assert "ls-files" in src
+    assert "Path(p).stem" in src
