@@ -44,4 +44,11 @@ bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:flake8 -- \
 echo "==> dependency layers…"
 python3 "$REPO_ROOT/scripts/check_base_sync.py"
 
+# Also stdlib-only. The specs and the tests are wired together by name, and
+# nothing checked the wiring: a spec naming a renamed test claims coverage
+# that is not there. Broken references fail; a scenario with no test only
+# warns, because whether one is worth writing is a judgement.
+echo "==> behaviour specs…"
+python3 "$REPO_ROOT/scripts/check_specs.py"
+
 echo "==> lint OK"

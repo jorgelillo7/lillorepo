@@ -1,13 +1,17 @@
 load("@rules_python//python:defs.bzl", "py_test")
 load("@pypi//:requirements.bzl", "requirement")
 
-# `affected_tests.py` decides which suites CI runs. Untested, a bug in it
-# reports "nothing to test" and the PR goes green having verified less than
-# it appears to.
+# The scripts that decide what CI verifies, and that the specs still describe
+# real tests. Untested, both fail quietly: one reports "nothing to test" and the
+# PR goes green having checked less than it appears to; the other stops noticing
+# that a spec claims coverage which no longer exists.
 py_test(
     name = "scripts_tests",
     timeout = "short",
-    srcs = glob(["tests/**/*.py"]) + ["affected_tests.py"],
+    srcs = glob(["tests/**/*.py"]) + [
+        "affected_tests.py",
+        "check_specs.py",
+    ],
     main = "tests/main.py",
     deps = [requirement("pytest")],
 )

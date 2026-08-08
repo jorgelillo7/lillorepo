@@ -31,11 +31,15 @@ Long-running follow-ups that don't yet warrant a plan or PR.
     (black + flake8 from the lock, zero version drift, `scripts/lint.sh`).
     Trigger: flake8 blocks something real; speed is a non-issue here.
   - *Coverage in CI* — Bazel + pytest-cov plumbing (lock + every test
-    target) outweighs the visibility gain at 7 suites / 0.65 ratio.
-    Trigger: a shipped regression that coverage would have caught.
+    target) outweighs the visibility gain. Trigger: a shipped regression that
+    coverage would have caught — and the 2026-08-08/09 defects were **not**
+    that. `/comparar` had the code written and unwired; the dead `suspended`
+    branch *was* executed by tests, with a value JP never sends. Coverage sees
+    neither.
   - *Gradual mypy* — start the day a type bug actually bites.
   - *Parametrised `base_deps` / Dockerfile.base from the lock* —
-    build-system surgery guarded today by the add-python-dep skill.
+    build-system surgery, and **further away since #293**: the sync guard now
+    catches the drift this would have prevented, at a fraction of the risk.
     Trigger: a package whose deps materially diverge from the base.
   - *Distroless base image* (evaluated 2026-08-07; see
     `docs/technical/backend/container-strategy.md`). Measured:
@@ -50,7 +54,8 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 - **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
   to replace the OpenSpec npm CLI (deliberately not installed — no-installer
-  preference), in three parts:
+  preference). The third part, spec-lint, shipped as `scripts/check_specs.py`;
+  these two remain:
   1. *Backfill mode* — point at a module → generate its
      `openspec/specs/<pkg>/<cap>/spec.md` from source + tests (Requirement /
      WHEN-THEN Scenario, scenario↔test links, GAP markers). Derives from code,
@@ -60,10 +65,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
      (proposal + spec deltas) → approve → archive into `specs/`. Must delegate
      the *how* (implementation plan) to the existing `rpi-plan` skill — spec is
      the *what*, don't duplicate rpi.
-  3. *(optional) spec-lint* — a `docs-audit`-style check: every `test_*` a
-     scenario references still exists, every capability has a spec, closed GAPs
-     are marked. This is what institutionalises openspec — an audit that warns,
-     not a CI gate. (Mutmut stays on-demand by the same reasoning.)
 
 ## biwenger_tools
 
