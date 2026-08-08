@@ -54,3 +54,40 @@ and offers reason over.
 - **THEN** `row["price"]` stays the cf-base price
 - *Verifies:* `test_build_squad_rows_keeps_cf_base_price_ignoring_owner`,
   `test_build_squad_rows_keeps_cf_base_price_without_owner`
+
+### Requirement: the formations the optimizer may field
+
+`FORMATIONS` SHALL hold every formation Biwenger's own *Estrategia* picker
+offers, and no others. The list is transcribed from the app: it is data the
+code cannot derive, and a missing entry is an XI the optimizer will never
+propose while nothing else notices. It was two short — `3-2-5` and `5-1-4` —
+which also made `draft.composition_ok` reject a squad with a single midfielder
+as unable to field a legal eleven.
+
+#### Scenario: the set matches the app
+- **WHEN** the fourteen labels Biwenger offers are compared against `FORMATIONS`
+- **THEN** the sets are equal
+- *Verifies:* `test_formations_match_biwengers_strategy_picker`
+
+#### Scenario: every formation is fieldable
+- **WHEN** any formation is read
+- **THEN** it totals eleven with the keeper, and needs no more slots in one
+  line than the candidate pool holds
+- *Verifies:* `test_every_formation_fields_exactly_eleven`
+
+### Requirement: a full bench beats an empty slot
+
+`_pick_reserves` SHALL fill every bench slot the squad can fill, drawing from
+the **whole squad** rather than the trimmed starter pool, and SHALL NOT exclude
+a player for being injured, suspended, unlisted or without data.
+
+An empty slot scores -4; a player who does not play scores 0. Excluding the
+doubtful therefore costs points it cannot win back — and a postponed fixture or
+a late recovery turns the excluded player into points.
+
+#### Scenario: doubtful players still sit on the bench
+- **WHEN** the squad contains injured or unlisted players and bench slots remain
+- **THEN** they are benched rather than left out
+- *Verifies:* `test_an_injured_player_fills_a_bench_slot_rather_than_leaving_it_empty`,
+  `test_the_bench_is_drawn_from_the_whole_squad_not_the_trimmed_pool`,
+  `test_a_projected_substitute_is_available_not_out`

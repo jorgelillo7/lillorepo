@@ -1,185 +1,113 @@
 # Project status
 
-Living maturity report for `lillorepo`. Updated as items from `PENDING.md` ship.
-For feature-by-feature timelines read `packages/biwenger_tools/release-notes.md`
-and `packages/be_water/release-notes.md`. For the GCP inventory at a glance,
-read `INFRA.md`.
+Where `lillorepo` actually stands. Read this before believing any other doc's
+claim about the project.
 
-**Current score: 9.4 / 10** (2026-07-26 review). **Cap under current
-constraints: ~9.5 / 10** (see _Accepted gaps_). The repo is now genuinely
-**multi-product**; the score tracks the whole estate, weighted toward the
-mature biwenger platform. The July quality-hardening pass (26 Jul) closed the
-be_water coverage drag that held the previous review at 9.3 — measured line
-coverage now sits at **80% repo-wide**, be_water among the best-covered. The
-only thing between here and the cap is the open Lloros Awards incident (below).
+For the feature-by-feature story read `packages/*/release-notes.md`; for the
+GCP inventory read `INFRA.md`; for open follow-ups read `PENDING.md`.
 
----
+**Score: 9.2 / 10.** Cap under current constraints: **~9.5**.
 
-## Since the May audit — what changed
-
-The May 2026 audit scored the (then single-product) biwenger platform 9.4.
-Two months of work turned the repo into a small product estate:
-
-- **Be Water: 0 → v1.4 in seven weeks.** June README → public URL in 48 h,
-  then productized across June–July on its **own GCP project**
-  (`be-water-app`): open catalog of Spanish bottled waters, Firestore-backed,
-  photo adds with Gemini label OCR, admin-gated AI photo studio (nano banana +
-  watermark), similarity recommender, public community ranking + achievements.
-  The July arc added real depth: the **official AESAN registry** (160
-  recognised waters, parsed from the PDF, refresh script in-repo) driving the
-  coverage mission bar and provenance autofill; **per-field provenance**
-  (`✓ etiqueta` / `fabricante` / `a mano`) replacing the blanket "unverified"
-  banner; **admin verification sign-off**; **catalog-curation tools**
-  (fuzzy-duplicate + suspicious-value audits) and a **photo audit/repair**
-  tool; a **monthly `catalog_sync` Cloud Run Job** reporting to Telegram; and a
-  **Google Sign-In + admin flow shipped dormant**, waiting on one OAuth secret
-  to flip to v2.0. ~44 fichas, OCU top-11 covered.
-- **biwenger web kept growing** — season-agnostic **league calendar viewer**
-  (month navigation, category colour-coding + filter, event detail modal) and
-  **special-cup winner images on Palmarés**.
-- **Cross-project CI** — one `deploy.yml` deploys both GCP projects via the
-  shared WIF service account (keyless), per-module change detection; the
-  cleanup job garbage-collects both Artifact Registry repos.
-- **Cost model: strict €0 → sub-euro with hard caps.** The only paid call is
-  the be_water studio photo (~$0.04, prepaid AI-Studio credits = impossible to
-  overspend) plus Artifact Registry egress dust on deploy bursts. Guardrails:
-  one €1 budget per project + one for Gemini, `scripts/check-gcp-costs.sh`
-  audits both projects and the account-wide free tiers.
-- **`chucknorris_bot`** keeps running unchanged; **`my_photos`** is a validated
-  plan only (`packages/my_photos/README.md`), no code — blocked on user-side
-  disk work.
-- **Claude memory strategy inverted** — the memory directory is deliberately
-  empty; durable knowledge lives in repo docs, skills and CLAUDE.md where any
-  agent or human finds it.
-
-### Open production incident (honest flag)
-
-The **Lloros Awards** pages (biwenger web) render empty in prod: the Sheets
-read throws `invalid_grant: Invalid JWT Signature` because the SA key backing
-`biwenger-tools-sa-regional` was disabled during the Drive-cleanup /
-SA-repoint work. Root-caused and fix documented in `PENDING.md`
-(biwenger_tools); not yet applied. The daily-digest SLO is unaffected.
+Down from 9.4 (2026-07-26). Nothing regressed — an audit on 2026-08-08 found a
+defect class that had been there all along and was not being counted: **facts
+about Biwenger and Jornada Perfecta are transcribed into constants and never
+checked against the source.** Two of those cost real user actions this month.
+The engineering around the code is strong; the code's model of the game has
+holes nobody was looking for.
 
 ---
 
-## Inventory — what is built
+## The top — what is genuinely good
 
-| Layer | Component | Stack / GCP |
-|---|---|---|
-| **HTTP services** | `biwenger-api` — Biwenger business logic over REST | Cloud Run · Flask + gunicorn · `--no-allow-unauthenticated` (OIDC) |
-| | `biwenger-bot` — Telegram webhook → calls api | Cloud Run · Flask · webhook secret validation |
-| | `biwenger-summary` — analytics web (tables, calendar, Palmarés, Awards) | Cloud Run · Flask · Tailwind CDN + vanilla JS |
-| | `chucknorris-bot` — joke bot, resurrected 2015 side project | Cloud Run · Flask · `chucknorris.io` |
-| | `be-water` — public waters catalog (project `be-water-app`) | Cloud Run · Flask · Firestore + GCS photos · Gemini OCR/studio |
-| **Jobs / workers** | `biwenger-scraper-data` — weekly board scraper | Cloud Run Job · Sun 22:00 · BeautifulSoup + Biwenger SDK |
-| | `be-water-catalog-sync` — monthly catalog reconcile → Telegram | Cloud Run Job · day 1 09:00 · reuses the `web` image with a command override |
-| **Schedulers** | 3 Cloud Scheduler jobs (**at 3/3 account free-tier quota**) | daily digest `0 9 * * *`, weekly scraper, monthly catalog-sync — all `europe-west1` (Scheduler not offered in Madrid) |
-| **Auto-bid engine** | `/market/auto-bid` + bot `/pujar` command | Tier table `min(price × multiplier, price + cap)` + jitter, Firestore idempotency, HTML-safe summary |
-| **Lineup optimizer** | `/lineups/auto-pick` (+ `?dry_run=1`) | Memoised backtracking, captain MV cap, transient retry on Biwenger PUT |
-| **Recommender** | `/budget/recommendations` (clausulazo targets) | `clause ≤ cash + dynamic margin`, sole-GK house rule |
-| **Bot UX** | `/menu` inline keyboard + `/analizar` manager picker | Telegram callback_query dispatch |
-| **Database** | Firestore native (`europe-southwest1`) ×2 projects | biwenger: `comunicados`, `participacion`, `clausulazos`, `tabla_justicia`, `palmares`, `auto_bid_log` (TTL 90d) · be-water: `waters`, `users` |
-| | Composite index | `messages` by `categoria ASC + fecha DESC` |
-| | TTL policy | `bids` collection-group via `expires_at` |
-| **Sheets** | LIGAS_ESPECIALES + TROFEOS | Google Sheets API via SA mount (`biwenger-tools-sa-regional`) — **currently failing auth, see incident above** |
-| **Object storage** | `be-water-photos` bucket (`us-central1` — deliberate: always-free tier is US-only) | Bottle photos, public read, EXIF stripped, 7-day tmp lifecycle |
-| **Reference data** | AESAN registry (160 recognised waters) parsed from the official PDF | In-repo snapshot + refresh script; drives coverage + provenance autofill |
-| **Secret management** | 6 JSON regional secrets across 2 projects (account free tier: 6/6) | biwenger: credentials, telegram-bot-config, chucknorris-bot-config, tools-sa, flask-web-config · be-water: flask-web-config (Flask + Telegram + Gemini, consolidated) |
-| **Reverse-engineered APIs** | Biwenger `/api/v2/*` | DevTools capture, documented in SDK |
-| | Jornada Perfecta `/api/fitness-daily` | Token via Frida + Android JS bundle (see `frida-android-intercept.md`) |
-| **Build system** | Bazel + bzlmod + rules_python + rules_oci + rules_pkg | `python_service` macro, shared layers, hermetic |
-| **Container registry** | Artifact Registry `biwenger-docker` + `be-water-docker` | Multi-arch `python-base` + per-service images; concurrency-gated cleanup post-deploy covers both repos |
-| **CI/CD** | GitHub Actions `deploy.yml` | Detect changed → lint → test → per-module deploy (incl. cross-project `be-water` via WIF) → cleanup; `workflow_dispatch` fallback |
-| **Lint / format** | flake8 + black (88 cols), hermetic via Bazel | CI gate before tests |
-| **Tests** | pytest + requests-mock + MagicMock — 10 suites (core · 4 biwenger modules · the draft skill's scripts · a cross-module bot↔api integration suite · the CI test-selector · chucknorris · be_water) | See _Test coverage_ below |
-| **Domain models** | `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares` (biwenger); `Water`, per-field provenance (be_water) | Symmetric `from_firestore` / `to_firestore` |
-| **Image rendering** | Squad / market tables → PNG; be_water studio photos | matplotlib (biwenger) · Gemini image gen (be_water) |
-| **Security** | webhook secret HMAC, OIDC service-to-service, ADC for Firestore, HTML sanitisation (bleach), CSRF tokens + per-IP rate limits (be_water), timing-safe admin login | Zero key files in the Firestore code path |
-| **Cost controls** | €1 budget per project (+1 for Gemini), log retention 7d, `min-instances=0`, free-tier ceilings respected, AR cleanup script, prepaid Gemini credits (hard cap) | `scripts/check-gcp-costs.sh` audits both projects + account totals |
-| **Observability** | Structured JSON logs via `core.utils.get_logger` | Cloud Logging only — alerts intentionally out of scope (see below) |
-| **Documentation** | repo-wide `operations.md` + per-package `OPERATIONS.md`, `gcp.md`, `firestore.md` (both projects), `INFRA.md`, per-package DESIGN.md + release-notes, `frida-android-intercept.md` | Maintained, no orphan docs |
-| **AI / agents** | `.claude/skills/` (generic) + per-package `packages/*/.claude/skills/` (domain), `.claude/hooks/`, AGENTS.md; memory deliberately empty | Claude Code workflow integrated; scoped skills win inside their package |
-| **AI in product** | `core/sdk/gemini.py` — label OCR (free tier) + image generation (prepaid), retries on 429/503 | be_water photo-first add flow + admin studio |
+1. **Cost discipline that is enforced, not intended.** Sub-euro/month across
+   two GCP projects, with €1 budget alarms, prepaid AI credits that cannot
+   overspend, and a cost script auditing both projects' free tiers.
+2. **Keyless deploys.** Workload Identity Federation end to end, including the
+   cross-project be_water deploy. No service-account key exists to leak.
+3. **One source of truth, and it holds.** The 2026-08-08 docs audit found
+   **zero broken links across 49 documents**. Facts had drifted; structure had
+   not.
+4. **Behaviour specs wired to tests.** 22 specs, 129 scenarios, every one
+   naming a test that exists — checked, not assumed.
+5. **CI that reasons about the graph.** Pull requests run only the suites a
+   change can break, derived from `rdeps` rather than a list that would rot;
+   `master` always runs everything. A docs PR's test job: 89s → 21s.
+6. **The draft, which is the hardest thing here.** A 105-pick snake draft
+   arbitrated from Telegram, budget and composition validated per pick,
+   multi-position players handled, squad shapes searched rather than assumed.
+7. **Failures get written down.** The container strategy, the distroless
+   decision and the absence of rollback are all recorded with their
+   measurements and the trigger that would reopen them.
 
 ---
 
-## Test coverage
+## What is built
 
-**Real line coverage is measured now** (`bazel coverage //...` — the
-`rules_python` toolchain reported `LF:0` for every file until the 26-Jul
-`configure_coverage_tool` fix; see `docs/operations.md`). Repo-wide: **80.2%**
-(3510/4375 lines). The suite validates behaviour, not call patterns (regression
-tests pinned to specific incidents, e.g. the 2026-05-24 HTML-escape silent
-fail), and behaviour is now also written down as specs in `openspec/` (what
-must be true) that each scenario links back to its test.
+Infrastructure inventory lives in `INFRA.md`; this is the capability list.
 
-| Scope | line coverage | Note |
-|---|---|---|
-| biwenger scraper | 93% | highest |
-| **be_water web** | **89%** | was the drag; the 26-Jul pass tested the photo pipeline (34→82%) + `recommend_nearby` |
-| biwenger web | 81% | mature |
-| core | 77% | SDK boundaries; rest is network I/O |
-| chucknorris bot | 76% | small surface, fully behaviour-covered |
-| biwenger api / bot | ~75% | load-bearing logic covered; uncovered is I/O + one-shot scripts |
-| draft skill scripts | **not measured** | 32 tests run in CI, but `bazel coverage` does not instrument a package under a dot directory (`.claude/`), so these lines are outside the percentages above |
+- **Services** — `biwenger-api` (business logic over REST, OIDC-only),
+  `biwenger-bot` (Telegram webhook), `biwenger-summary` (analytics web),
+  `chucknorris-bot`, `be-water` (own GCP project).
+- **Jobs** — weekly league-board scraper, monthly be_water catalog sync.
+- **Auto-bid engine** — tiered `min(price × multiplier, price + cap)` with
+  jitter and Firestore idempotency.
+- **Lineup optimizer** — memoised backtracking over 14 formations, captain MV
+  cap, full bench, applied every morning at 09:00.
+- **Draft** — 105-pick snake draft arbitrated from Telegram, per-pick budget
+  and composition validation, plus an offline squad-shape search.
+- **Recommender** — clausulazo targets under `clause ≤ cash + dynamic margin`.
+- **Reverse-engineered APIs** — Biwenger `/api/v2/*` and Jornada Perfecta
+  `fitness-daily` (token captured with Frida; see `docs/external/`).
+- **Rendering** — squad and market tables to PNG (matplotlib); be_water studio
+  photos (Gemini).
+- **Security** — webhook HMAC, service-to-service OIDC, ADC for Firestore,
+  HTML sanitisation, CSRF + per-IP rate limits on be_water. No key files in the
+  Firestore path.
 
-Beyond line coverage, a **mutation-testing** pilot on the auto-bid engine
-(259 mutants, ~70% killed after closing three real boundary gaps) confirms the
-tests bite where it matters; the ad-hoc runbook is in `docs/operations.md`.
-be_water's fast-shipped coverage debt — the honest reason the repo sat at 9.3 —
-is paid.
+## What we know vs what we assume
 
----
+The audit split the domain constants into facts verified against the provider
+and facts merely believed. The second table is the useful one.
 
-## Strengths
+### Verified
 
-1. **Multi-product without multiplying the machinery** — a second GCP project,
-   a second product surface and a third cron rode the *same* Bazel macros, CI
-   pipeline and cost model. Adding be_water cost almost no new infrastructure
-   concepts; it reused `python_service`, WIF deploy, the cleanup job and the
-   consolidated-secret pattern.
-2. **CI/CD maturity** — per-module change detection, cross-project keyless
-   (WIF) deploy, OIDC service-to-service, cleanup race fixed with a GH Actions
-   `concurrency` group, `workflow_dispatch` as a manual safety net.
-3. **Verifiable cost discipline** — sub-euro/month is real and hard-capped:
-   free tiers respected on Secret Manager (6/6), Scheduler (3/3), Artifact
-   Registry, Cloud Run and Firestore; the one paid API (Gemini image gen) runs
-   on prepaid credits that cannot overspend. €1 budget alert per project.
-4. **Idempotency by design** — SHA-256 doc IDs in the scraper, Firestore log
-   keyed by `(date, player_id)` in auto-bid, provenance-aware upserts that
-   never overwrite verified fields in be_water's monthly sync.
-5. **Single-source-of-truth doctrine** — `CLAUDE.md` (charter), `openspec/`
-   (behaviour contracts, per capability), `PENDING.md` (follow-ups), per-package
-   `release-notes.md` (history), `INFRA.md` (GCP), this file (maturity). Claude
-   memory deliberately empty. No duplication.
-6. **Security hygiene** — webhook HMAC, OIDC bot↔api, regional secrets, ADC
-   for Firestore (no key files in the request path), HTML sanitisation, plus
-   be_water's public-facing armor (CSRF, per-IP rate limits, timing-safe admin
-   login).
-7. **Reverse engineering documented** — `frida-android-intercept.md` records
-   how the JP token was captured; the Biwenger `/offers` endpoint was
-   reverse-engineered from a live curl capture.
+| Fact | How |
+|---|---|
+| 14 formations (`FORMATIONS`) | Transcribed from the app's *Estrategia* picker, pinned by `test_formations_match_biwengers_strategy_picker` |
+| Captain cap 3M is cf-base, not `owner.price` | Biwenger returned HTTP 403 on a real attempt |
+| Positions 1–4 = GK/DEF/MID/FWD | Live competition payload |
+| Position 5 = coaches, correctly excluded from the draft | Live payload (20 of them, 0 points); absent from the ranked CSV |
+| Runtime deps match the production image | `scripts/check_base_sync.py`, every CI run |
+
+### Assumed — believed, never checked
+
+| Assumption | Why it is shaky |
+|---|---|
+| **JP's player `status` vocabulary** | Code branches on `injured` and `suspended`. The live Biwenger payload uses `sanctioned`, not `suspended`, and 32 cached JP payloads contain only `ok` and `injured`. The `suspended` branch may be dead code that silently fields banned players. |
+| **`extraStatus` is not worth reading** | Never read anywhere. 4 of 32 cached JP payloads carry `extraStatus: "doubt"`, so the optimizer treats doubtful players as fully available. |
+| **Biwenger's own `status` / `statusInfo` add nothing** | Never read. The live payload currently marks 24 injured, 11 doubt, 2 sanctioned and 1 discarded, with human-readable notes and expected return dates we do not use. |
+| **15-man squad, 25-player cap, 50M budget** | League rules held as constants. The draft actually ran at 52M via a CLI flag, so at least one is not the operating value. |
+| **Scoring conversion factors** | Measured once (0.225–0.610 by line) and frozen. Nothing re-measures them as the season progresses. |
 
 ---
 
-## Accepted gaps (intentional — they cap the score)
+## What lowers the score
 
-Improvements that would push above ~9.5 but were explicitly skipped to preserve
-the project's constraints (single user, sub-euro/month, side-project scope):
+| Problem | Cost |
+|---|---|
+| **Unverified provider facts** (table above). Two shipped defects this month blocked real actions: a legal pick rejected mid-draft, and a legal XI declared impossible. Both were the code holding a rule the game does not have. | **−0.20** |
+| **No revision rollback.** `clean-images-artifact.sh` keeps one digest per service, so the images older Cloud Run revisions point at are gone (verified: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred. Recovery from a bad deploy is revert + wait for CI, ~10 min. | **−0.10** |
+| **Open incident: Lloros Awards.** Both Awards tabs render empty; the Sheets SA key is disabled. Root-caused, not fixed — blocked on a league decision about whether Sheets stays. | **−0.05** |
+| **Bus factor 1.** Every service, SDK and runbook has one author and one operator. Not fixable with engineering. | caps the rest |
 
-| Gap | Why skipped | Score it would unlock |
-|---|---|---|
-| **Real observability** (Cloud Monitoring alerts, SLI dashboards, error-rate tracking) | Would push past the free tier; Cloud Logging is enough for a human-driven workflow | +0.20 |
-| **Staging environment** | Local + prod is sufficient for one user; every merge deploys, and recovery is a revert + redeploy (~10 min) since there is no revision rollback — see below | +0.15 |
-| **Revision rollback** | `clean-images-artifact.sh` keeps one digest per service, so the images the older Cloud Run revisions point to no longer exist (verified 2026-08-07: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred over rollback. Recovery from a bad deploy is revert + wait for CI | — |
-| **Integration tests** against Firestore emulator / Biwenger sandbox | Heavy setup for low marginal value at this traffic | +0.15 |
-| **Coverage for the draft skill's 32 tests** | They live under `.claude/`, and coverage does not instrument a path with a dot component (`--instrumentation_filter` does not help). Decided 2026-08-07 to accept: the tests **do** run in CI via `//...`, coverage is a manual on-demand measurement rather than a gate, and moving the code out would break the deliberate split between the skill's read-only scripts and `scripts/draft/`, which writes Firestore and the group chat | — |
+### Accepted gaps — skipped on purpose, not oversights
 
-Not counted as an accepted gap but real: **bus factor 1**. Every service, SDK
-and runbook has a single author/operator. Fine for a side project, but it caps
-how far "maturity" can honestly be claimed.
-
-Total cap under the stated constraints: **~9.5 / 10**.
+| Gap | Why |
+|---|---|
+| Real observability (alerts, SLI dashboards) | Would leave the free tier; Cloud Logging suits a human-driven workflow |
+| Staging environment | Local + prod is enough for one user |
+| Integration tests against a Firestore emulator / Biwenger sandbox | Heavy setup for the marginal value at this traffic. A cheaper in-process bot↔api suite covers the contract that actually broke |
+| Coverage for the draft skill's 32 tests | They live under `.claude/`, which coverage cannot instrument. The tests **do** run in CI; only the percentage misses them, and moving the code would blur the split between the skill's read-only scripts and the ones that write Firestore |
 
 ---
 
@@ -188,15 +116,13 @@ Total cap under the stated constraints: **~9.5 / 10**.
 | Milestone | Score |
 |---|---|
 | Baseline (pre-Firestore, May 2026) | 7.5 |
-| All biwenger PENDING follow-ups shipped (2026-05-24 audit) | 9.4 |
+| All biwenger follow-ups shipped (2026-05-24) | 9.4 |
 | Multi-product estate + be_water v1.4 (2026-07-25) | 9.3 |
-| Quality-hardening pass — specs, real coverage, refactor (2026-07-26) | 9.4 |
+| Quality-hardening pass — specs, coverage, refactor (2026-07-26) | 9.4 |
+| **Domain-constants audit (2026-08-08)** | **9.2** |
 | Theoretical max under current constraints | ~9.5 |
 
-The 26-Jul pass recovered the coverage half of the earlier 9.4→9.3 dip:
-behaviour specs across every package (`openspec/`), a fixed coverage gauge
-(80% repo-wide, measured), the be_water photo-pipeline and `recommend_nearby`
-tested, a mutation-tested auto-bid engine, and the 677-line be_water `app.py`
-monolith split into a `routes/` package. What still separates the repo from the
-~9.5 cap is the **open Lloros Awards incident** (Sheets JWT auth) plus the
-intentional gaps below. Close the incident and it's at the cap.
+The way back up is not more infrastructure — that part is done. It is
+**verifying the domain model against the provider**: reading the statuses both
+APIs already send, confirming the league rules held as constants, and putting a
+check on the handful of facts a season can change underneath us.

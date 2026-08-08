@@ -67,6 +67,18 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
+- **Verify the domain constants against the provider** (2026-08-08 audit; see
+  the "what we assume" table in `STATUS.md`). The highest-value one first:
+  nothing reads Jornada Perfecta's `extraStatus`, which carries `doubt`, so the
+  lineup optimizer scores a doubtful player as fully available. Then: confirm
+  JP's status vocabulary — the code branches on `suspended` while Biwenger's
+  word is `sanctioned`, and no cached payload contains either, so that branch
+  may never fire for a banned player. Then decide whether Biwenger's own
+  `status`/`statusInfo` (24 injured, 11 doubt, 2 sanctioned right now, with
+  expected return dates) should back JP up rather than being ignored.
+  Finally, confirm the league rules held as constants — 15-man squad, 25-player
+  cap, `DEFAULT_BUDGET` of 50M when the draft actually ran at 52M.
+
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
