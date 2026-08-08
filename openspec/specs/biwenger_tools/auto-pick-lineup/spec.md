@@ -91,3 +91,42 @@ a late recovery turns the excluded player into points.
 - *Verifies:* `test_an_injured_player_fills_a_bench_slot_rather_than_leaving_it_empty`,
   `test_the_bench_is_drawn_from_the_whole_squad_not_the_trimmed_pool`,
   `test_a_projected_substitute_is_available_not_out`
+
+### Requirement: notice what the providers send that this code does not model
+
+`provider_watch.observe` SHALL run before any lineup decision and SHALL log —
+never raise, never decide — when Biwenger or Jornada Perfecta send a value
+outside what has been observed.
+
+The tracked sets are named for what has been **seen in the wild**, not for what
+the code handles. `break` is handled by `_sf` and has never appeared in 533
+players; its first sighting must still be reported, because that sighting is
+the only thing that can confirm what the branch is for.
+
+Three defects in August 2026 shared one shape — the code holding a rule the
+game does not have — and each was found months late by someone happening to
+notice. This exists so the next one is dated instead.
+
+#### Scenario: an unmodelled player status
+- **WHEN** Jornada Perfecta reports a status outside the six observed
+- **THEN** it is logged with the player, and the lineup is unaffected
+- *Verifies:* `test_an_unknown_jp_status_is_logged`,
+  `test_a_known_jp_status_is_silent`
+
+#### Scenario: the first fixture status that is not `pending`
+- **WHEN** a player's `nextMatch.status` is anything else, `break` included
+- **THEN** it is logged as never seen before
+- *Verifies:* `test_the_first_break_fixture_is_logged`
+
+#### Scenario: the two providers disagree on whether a player can be fielded
+- **WHEN** Jornada Perfecta and Biwenger differ on availability
+- **THEN** both statuses and Biwenger's note are logged, and Jornada Perfecta
+  still decides — the evidence is collected, not acted on
+- *Verifies:* `test_providers_disagreeing_on_availability_is_logged`,
+  `test_providers_agreeing_is_silent`
+
+#### Scenario: the observer itself fails
+- **WHEN** `observe` raises for any reason
+- **THEN** it is swallowed and logged; an observer that can break the lineup it
+  watches is worse than none
+- *Verifies:* `test_the_watcher_never_breaks_a_lineup`

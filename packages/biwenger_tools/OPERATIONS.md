@@ -264,6 +264,34 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/league/compare` | Every squad ranked by value and projection — bot's `/comparar`, owner's chat only |
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
+  * **Provider watch — reading it, and what silence means:**
+
+    Every lineup pick (the 09:00 digest, `/alinear`, `/preview`) runs
+    `logic/provider_watch.py` over the squad first. It **decides nothing**: it
+    writes a log line when Biwenger or Jornada Perfecta send something this
+    code does not model, and swallows its own errors so it can never break a
+    lineup.
+
+    ```bash
+      gcloud logging read \
+        'resource.labels.service_name="biwenger-api" AND
+         jsonPayload.name="packages.biwenger_tools.api.logic.provider_watch"' \
+        --project=biwenger-tools --limit=20 --freshness=7d
+    ```
+
+    **Silence is the normal state.** Three things break it, and each means
+    something different:
+
+    | Log line | What it means | What to do |
+    |---|---|---|
+    | *JP status never seen before* | JP invented a status outside the six measured on 2026-08-08 (`ok`, `ok-available`, `injured`, `doubt`, `sanctioned`, `other`). It is being treated as playable | Decide whether it belongs in `CANNOT_PLAY`, then add it to `OBSERVED_JP_STATUS` |
+    | *Fixture status never seen before* | A `nextMatch.status` other than `pending`. **This is the one worth waiting for**: `_sf` has scored `break` as 0 for months and the value has never been observed in 533 players | Confirm the player really had no fixture. If `break` never appears, delete the branch — as happened with `suspended` |
+    | *Providers disagree on availability* | One says the player can be fielded and the other does not. Two cases in 533 on 2026-08-08: JP `ok` vs Biwenger `injured` (indefinite return), and JP `other` vs Biwenger `discarded` ("Sanción FIFA") | Nothing automatic. JP remains the only source a decision reads. Collect these until there are enough to justify a rule |
+
+    The constants are named `OBSERVED_*` rather than `HANDLED_*` on purpose:
+    they record what has been **seen in the wild**, so a value the code handles
+    but has never encountered still reports its first sighting.
+
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
     default in `api/config.py`) — pause semantics are specified in
     [`daily-digest`](../../openspec/specs/biwenger_tools/daily-digest/spec.md)
