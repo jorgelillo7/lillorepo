@@ -76,6 +76,10 @@ Long-running follow-ups that don't yet warrant a plan or PR.
   may never fire for a banned player. Then decide whether Biwenger's own
   `status`/`statusInfo` (24 injured, 11 doubt, 2 sanctioned right now, with
   expected return dates) should back JP up rather than being ignored.
+  Also unverified in the same family: `nextMatch.status == "break"`, which
+  the optimizer reads as "no fixture this week" and scores 0. No cached
+  payload contains a `nextMatch` at all, so neither the field nor the value
+  has ever been seen — a wrong guess there benches a player who does play.
   Finally, confirm the league rules held as constants — 15-man squad, 25-player
   cap, `DEFAULT_BUDGET` of 50M when the draft actually ran at 52M.
 
