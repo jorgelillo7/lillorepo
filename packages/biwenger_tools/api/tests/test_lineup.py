@@ -7,6 +7,8 @@ check. A row with `price=0` ("unknown") is excluded; the caller applies the
 lineup without a captain when nobody qualifies.
 """
 
+import logging
+
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
     FORMATIONS,
@@ -23,6 +25,7 @@ from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
     pick_lineup,
 )
+from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import (
     availability,
@@ -328,3 +331,58 @@ def test_every_formation_fields_exactly_eleven():
         # The search caps its candidate pool per position; a formation needing
         # more slots than the pool holds would silently lose the optimum.
         assert max(n_def, n_mid, n_fwd) <= _POOL_PER_POSITION, label
+
+
+# --- Watching the providers for values this code does not model ---
+
+
+def _watched(**jp):
+    return {"name": "P", "jp_player": {"status": "ok", "nextMatch": {}, **jp}}
+
+
+def test_an_unknown_jp_status_is_logged(caplog):
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe([_watched(status="loaned-out")])
+    assert "never seen before" in caplog.text
+
+
+def test_a_known_jp_status_is_silent(caplog):
+    with caplog.at_level(logging.WARNING):
+        for status in provider_watch.OBSERVED_JP_STATUS:
+            provider_watch.observe([_watched(status=status)])
+    assert caplog.text == ""
+
+
+def test_the_first_break_fixture_is_logged(caplog):
+    """`break` is handled by `_sf` and has never been observed in 533 players.
+    Its first appearance answers a standing question about what it means."""
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe([_watched(nextMatch={"status": "break"})])
+    assert "Fixture status never seen before" in caplog.text
+
+
+def test_providers_disagreeing_on_availability_is_logged(caplog):
+    """The Moussa Diarra case: JP says ok, Biwenger says injured. One in 481,
+    and the one that gets an unavailable player fielded."""
+    row = _watched(status="ok")
+    row["bw_status"] = "injured"
+    row["bw_status_info"] = "Lesión muscular."
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe([row])
+    assert "disagree on availability" in caplog.text
+
+
+def test_providers_agreeing_is_silent(caplog):
+    with caplog.at_level(logging.WARNING):
+        for jp, bw in (("ok", "ok"), ("injured", "injured"), ("doubt", "doubt")):
+            row = _watched(status=jp)
+            row["bw_status"] = bw
+            provider_watch.observe([row])
+    assert caplog.text == ""
+
+
+def test_the_watcher_never_breaks_a_lineup(caplog):
+    """An observer that can fail the thing it observes is worse than none."""
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe([{"jp_player": "not-a-dict"}])
+    assert "lineup unaffected" in caplog.text

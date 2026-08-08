@@ -11,6 +11,7 @@ example that motivated exhaustive backtracking), see the
 from html import escape
 
 from core.sdk.jp import get_predict_rate
+from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
 
 # Every formation Biwenger's own "Estrategia" picker offers, as
@@ -94,6 +95,10 @@ def pick_lineup(squad_rows: list) -> dict | None:
             "total_sf": int,
         }
     """
+    # Before deciding anything: note whatever the providers sent that this
+    # code does not model. Observation only — it changes no pick.
+    provider_watch.observe(squad_rows)
+
     available = [r for r in squad_rows if _is_available(r)]
     available.sort(key=_sf, reverse=True)
     available = _trim_pool_by_position(available)
