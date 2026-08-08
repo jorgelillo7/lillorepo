@@ -67,16 +67,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
-- **Compute the league's real points instead of calibrating to them**
-  (2026-08-09). The league's exact scoring lives in its own settings as
-  `settings.customScore` — a readable expression over minutes played, goals,
-  assists, clean sheets, cards and MVP, with the >65-minute gate the draft
-  analysis already reverse-engineered by hand. Today the rankings multiply a
-  Jornada Perfecta projection by per-line factors measured once (0.225-0.610)
-  because the two scoring systems differ; with the formula in hand that
-  approximation is replaceable by a computation. Biggest remaining accuracy
-  win, and it removes a constant that silently ages.
-
 - **`nextMatch.status == "break"` is still a guess** (2026-08-09). The
   optimizer reads it as "no fixture this week" and scores the player 0. All
   533 players currently report `pending`; `break` has never been observed.
