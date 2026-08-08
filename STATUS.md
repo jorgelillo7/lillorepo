@@ -89,7 +89,7 @@ and facts merely believed. The second table is the useful one.
 | Assumption | Why it is shaky |
 |---|---|
 | **`nextMatch.status == "break"`** | The optimizer reads it as "no fixture this week" and scores 0. All 533 players currently report `pending`; `break` has never been observed, so neither the value nor the behaviour behind it is confirmed. |
-| **The scoring conversion factors** | Measured once (0.225–0.610 by line) and frozen. The league's exact formula is now known to be available — `settings.customScore`, a readable expression over minutes, goals, assists, clean sheets and MVP — so this is approximating something computable. |
+| **The scoring conversion factors** | Measured once (0.225–0.610 by line) and frozen. They rescale a *projection* for a future matchday, which no formula can replace: the league's `customScore` needs match events, and a fixture that has not been played has none. Last season's real points are already computed from the formula in `fetch_real_points.py`. |
 | **Biwenger's own `status` / `statusInfo`** | Never read; JP is the only source. Biwenger currently marks 24 injured, 11 doubt and 2 sanctioned with expected return dates, which would corroborate JP rather than replace it. |
 
 ---
