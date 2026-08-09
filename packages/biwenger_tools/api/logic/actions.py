@@ -51,7 +51,7 @@ def _squad_breakdown(rows: list[dict]) -> dict:
     counts = {
         "no_jp": 0,
         "injured": 0,
-        "suspended": 0,
+        "sanctioned": 0,
         "doubt": 0,
         "no_match": 0,
         "not_in_lineup": 0,
@@ -66,8 +66,8 @@ def _squad_breakdown(rows: list[dict]) -> dict:
         if status == "injured":
             counts["injured"] += 1
             continue
-        if status == "suspended":
-            counts["suspended"] += 1
+        if status == "sanctioned":
+            counts["sanctioned"] += 1
             continue
         next_match = jp.get("nextMatch") or {}
         if next_match.get("status") == "break":

@@ -159,11 +159,23 @@ def test_build_squad_rows_keeps_cf_base_price_without_owner():
 # --- filling every slot: an empty one scores -4, a player who does not play 0 --
 
 
-def _player(bw_id, sf, position, alts=(), status="ok", called=True, fixture="pending"):
+def _player(
+    bw_id,
+    sf,
+    position,
+    alts=(),
+    status="ok",
+    called=True,
+    fixture="pending",
+    price=2_500_000,
+):
+    # Below `_CAPTAIN_MAX_PRICE`, not exactly on it. At 3M every player is
+    # excluded from the captaincy, so a squad built from this helper used to
+    # return `captain: None` and hide every regression in `_pick_captain`.
     return {
         "bw_id": bw_id,
         "name": f"P{bw_id}",
-        "price": 3_000_000,
+        "price": price,
         "position_id": position,
         "alt_positions": list(alts),
         "jp_player": {
@@ -386,3 +398,101 @@ def test_the_watcher_never_breaks_a_lineup(caplog):
     with caplog.at_level(logging.WARNING):
         provider_watch.observe([{"jp_player": "not-a-dict"}])
     assert "lineup unaffected" in caplog.text
+
+
+# --- A projected substitute worth starting ---
+
+
+def test_a_strong_substitute_keeps_his_projection():
+    """JP predicts the XI; it does not report it. Dani Olmo projected 659 and
+    was left out of JP's eleven, so the old flat penalty scored him 1 — level
+    with a 12-rated reserve keeper — and he was benched behind a 228 starter."""
+    strong = _player(1, 659, MID, called=False)
+    assert _sf(strong) == 659
+
+
+def test_a_weak_substitute_still_ranks_below_everyone_playing():
+    weak = _player(2, 81, MID, called=False)
+    certain = _player(3, 228, MID)
+    assert _sf(weak) == 1
+    assert _sf(weak) < _sf(certain)
+
+
+def test_the_threshold_is_tunable_without_a_deploy():
+    import packages.biwenger_tools.api.config as api_cfg
+
+    original = api_cfg.LINEUP_SUB_STARTS_ABOVE
+    try:
+        api_cfg.LINEUP_SUB_STARTS_ABOVE = 700
+        assert _sf(_player(4, 659, MID, called=False)) == 1
+        api_cfg.LINEUP_SUB_STARTS_ABOVE = 100
+        assert _sf(_player(5, 659, MID, called=False)) == 659
+    finally:
+        api_cfg.LINEUP_SUB_STARTS_ABOVE = original
+
+
+def test_an_unavailable_player_is_still_out_however_high_he_projects():
+    """The threshold lifts a *substitute*, never someone who cannot play."""
+    assert _sf(_player(6, 900, MID, status="injured")) == 0
+    assert _sf(_player(7, 900, MID, status="sanctioned")) == 0
+    assert _sf(_player(8, 900, MID, fixture="break")) == 0
+
+
+def test_the_squad_that_prompted_this_now_starts_its_best_player():
+    """The 2026-08-09 lineup: Olmo (659) benched and Danjuma (369) started,
+    both scored 1, so the tie broke arbitrarily against the better player."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 523, DEF),
+        _player(3, 433, DEF),
+        _player(4, 415, DEF),
+        _player(5, 409, DEF),
+        _player(6, 228, DEF),
+        _player(7, 538, MID),
+        _player(8, 455, MID),
+        _player(9, 428, MID),
+        _player(10, 659, MID, called=False),  # Dani Olmo
+        _player(11, 369, FWD, called=False),  # Danjuma
+        _player(12, 416, FWD),
+    ]
+    result = pick_lineup(squad)
+    starters = {r["bw_id"] for r, _ in result["starters"]}
+    assert 10 in starters, "the 659 substitute must start"
+    assert 11 in starters, "the 369 substitute clears the threshold too"
+
+
+def test_a_promoted_substitute_never_gets_the_armband():
+    """Starting him is a bet with the bench as insurance; captaining him
+    doubles the bet and has none. Found by review after the threshold shipped:
+    the flat penalty used to make this impossible, and the threshold quietly
+    made it reachable for any cheap player with a high projection."""
+    certain = _player(1, 380, MID, price=2_500_000)
+    promoted = _player(2, 400, MID, called=False, price=2_900_000)
+    captain = _pick_captain([certain, promoted])
+    assert captain is not None
+    assert captain["bw_id"] == 1, "the uncalled player must not be captain"
+
+
+def test_no_captain_at_all_beats_an_uncalled_one():
+    only_uncalled = [_player(3, 900, MID, called=False, price=2_000_000)]
+    assert _pick_captain(only_uncalled) is None
+
+
+def test_format_lineup_message_separates_promoted_from_hole_fillers():
+    """One warning for both told the reader the opposite of the truth: a
+    promoted 659 was reported as filling a hole while the starter he displaced
+    sat on the bench two lines above."""
+    promoted = _player(1, 659, MID, called=False)
+    filler = _player(2, 10, MID, called=False)
+    result = {
+        "formation": "4-4-2",
+        "starters": [(promoted, MID), (filler, MID)],
+        "reserves": [],
+        "captain": None,
+        "total_sf": 660,
+    }
+    message = format_lineup_message(result)
+    promo_block, _, filler_block = message.partition("⚠️ Aviso")
+    assert "alineados por proyección" in promo_block
+    assert "P1" in promo_block and "P1" not in filler_block
+    assert "P2" in filler_block

@@ -11,6 +11,7 @@ example that motivated exhaustive backtracking), see the
 from html import escape
 
 from core.sdk.jp import get_predict_rate
+from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
 
@@ -48,10 +49,11 @@ GK, DEF, MID, FWD = 1, 2, 3, 4
 _CAPTAIN_MAX_PRICE = 3_000_000
 
 # Score we attribute to a player JP has explicitly marked as not in the lineup.
-# Big enough to keep the picker honest (positive, so it still beats an empty
-# slot), small enough that any other eligible player wins on SF. The user
-# prefers filling the slot with someone unlikely to play (0 points) over
-# leaving a hole and losing the -4 "empty slot" penalty Biwenger applies.
+# What a player scores when JP leaves him out of its projected XI *and* his
+# projection does not clear `LINEUP_SUB_STARTS_ABOVE`. Positive, so he still
+# beats an empty slot: filling it with someone unlikely to play (0 points)
+# beats leaving a hole and taking Biwenger's -4. Above the threshold this does
+# not apply — see `_sf`.
 _UNCALLED_SF = 1
 # Injured, suspended, no fixture or no data. Still ahead of an empty slot.
 _DOUBTFUL_SF = 0
@@ -170,11 +172,26 @@ def format_lineup_message(result: dict) -> str:
         for label, r in filled:
             lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)})")
 
+    # Two different things happened to two different kinds of uncalled player,
+    # and one warning for both told the reader the opposite of the truth: a
+    # promoted 659 was reported as a hole-filler while the starter he displaced
+    # sat on the bench two lines above.
     uncalled = [r for r, _ in starters if _is_uncalled(r)]
-    if uncalled:
+    promoted = [r for r in uncalled if _sf(r) > _UNCALLED_SF]
+    fillers = [r for r in uncalled if _sf(r) <= _UNCALLED_SF]
+
+    if promoted:
+        lines.append("\n<b>💪 Suplentes de JP alineados por proyección</b>")
+        lines.append(
+            f"  (JP no los pone de titulares, pero proyectan más de "
+            f"{config.LINEUP_SUB_STARTS_ABOVE}):"
+        )
+        for r in promoted:
+            lines.append(f"  · {escape(r['name'])} (SF:{_sf(r)})")
+    if fillers:
         lines.append("\n<b>⚠️ Aviso — alineados sin estar convocados</b>")
         lines.append("  (mejor 0 puntos que dejar hueco y perder -4):")
-        for r in uncalled:
+        for r in fillers:
             lines.append(f"  · {escape(r['name'])}")
 
     return "\n".join(lines)
@@ -192,11 +209,14 @@ def _sf(row: dict) -> int:
     empty when the squad genuinely has nobody for it:
 
     - the real prediction for a player who is expected to play,
-    - `_UNCALLED_SF` (1) for "no convocado",
+    - the projection for a "no convocado" whose rate clears
+      `LINEUP_SUB_STARTS_ABOVE`, then `_UNCALLED_SF` (1) below it,
     - `_DOUBTFUL_SF` (0) for injured, sanctioned, no fixture, or no JP data.
 
-    Any player with a real prediction beats all of these outright, so the
-    fallbacks never displace someone who is actually going to play.
+    Below the threshold the fallbacks never displace someone who is actually
+    going to play. Above it that is exactly what they do, and the point: a
+    projection of 659 outranks a certain starter on 228, because JP is
+    predicting the XI rather than reporting it.
     """
     jp = row.get("jp_player") or {}
     if jp.get("status") in CANNOT_PLAY:
@@ -204,9 +224,14 @@ def _sf(row: dict) -> int:
     next_match = jp.get("nextMatch") or {}
     if next_match.get("status") == "break":
         return _DOUBTFUL_SF
+    rate = get_predict_rate(jp, SCORE_SF) or 0
     if next_match.get("playerInLineup") is False:
-        return _UNCALLED_SF
-    return get_predict_rate(jp, SCORE_SF) or _DOUBTFUL_SF
+        # JP is predicting the XI, not reporting it. Above the threshold the
+        # projection outweighs the prediction: benching a 659 because someone
+        # guessed he starts on the bench costs more than starting him and
+        # being wrong.
+        return rate if rate > config.LINEUP_SUB_STARTS_ABOVE else _UNCALLED_SF
+    return rate or _DOUBTFUL_SF
 
 
 def _is_uncalled(row: dict) -> bool:
@@ -438,8 +463,18 @@ def _pick_captain(starters: list) -> dict | None:
     A `price` of 0 means "unknown" and is excluded — gambling a 403 on a
     player whose price could be anything is worse than returning `None` and
     letting the caller apply the lineup without a captain.
+
+    A player JP left out of its projected XI is excluded even when
+    `LINEUP_SUB_STARTS_ABOVE` promoted him into the eleven. Starting him is a
+    bet with the bench as insurance; captaining him doubles the bet and has
+    none. Returning `None` is the better outcome when the only candidates are
+    players the provider says are starting on the bench.
     """
-    eligible = [r for r in starters if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE]
+    eligible = [
+        r
+        for r in starters
+        if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE and not _is_uncalled(r)
+    ]
     if not eligible:
         return None
     return max(eligible, key=_sf)

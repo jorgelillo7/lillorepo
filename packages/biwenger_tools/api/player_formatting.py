@@ -107,7 +107,7 @@ def count_bands(rows: list[dict]) -> tuple[int, int, int]:
 def status_emoji(jp_player: dict | None) -> str:
     """Traffic-light status for a player.
 
-    🔴 injured / suspended / no match / not in lineup / SF < 100
+    🔴 injured / sanctioned / no match / not in lineup / SF < 100
     🟡 100 ≤ SF < 300
     🟢 SF ≥ 300
     ⚪ no JP data
@@ -137,7 +137,7 @@ def play_status_label(jp_player: dict | None) -> str:
     status = jp_player.get("status", "ok")
     if status == "injured":
         return "lesionado"
-    if status == "suspended":
+    if status == "sanctioned":
         return "sancionado"
     if status == "doubt":
         return "duda"

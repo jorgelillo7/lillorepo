@@ -65,6 +65,15 @@ AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
 # /alinear) is never affected, and stays the way to re-align closer to kickoff.
 DAILY_LINEUP_ENABLED = os.getenv("DAILY_LINEUP_ENABLED", "true").lower() != "false"
 
+# A player Jornada Perfecta leaves out of its projected XI still starts when
+# his projection clears this, because JP is guessing the lineup and a guess
+# about a 659 is worth less than the 659. Below it he keeps the old treatment:
+# ranked under everyone certain to play, but still ahead of an empty slot.
+# Tunable without a deploy — the right value is a judgement, not a measurement:
+#   gcloud run services update biwenger-api \
+#     --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
+LINEUP_SUB_STARTS_ABOVE = int(os.getenv("LINEUP_SUB_STARTS_ABOVE", "350"))
+
 # --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")
