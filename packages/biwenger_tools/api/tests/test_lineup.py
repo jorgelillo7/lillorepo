@@ -496,3 +496,15 @@ def test_format_lineup_message_separates_promoted_from_hole_fillers():
     assert "alineados por proyección" in promo_block
     assert "P1" in promo_block and "P1" not in filler_block
     assert "P2" in filler_block
+
+
+def test_a_promoted_substitute_is_not_painted_red():
+    """Three surfaces were telling three stories about the same player: the
+    lineup started Olmo at 659, the message explained why, and the squad image
+    marked him red for not being in JP's XI."""
+    from packages.biwenger_tools.api.player_formatting import status_emoji
+
+    promoted = _player(1, 659, MID, called=False)["jp_player"]
+    weak_sub = _player(2, 81, MID, called=False)["jp_player"]
+    assert status_emoji(promoted) == "🟢"
+    assert status_emoji(weak_sub) == "🔴"

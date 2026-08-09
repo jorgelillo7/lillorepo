@@ -151,6 +151,11 @@ JP's predicted XI is right. It sits in config so it can move without a deploy.
 - **THEN** the same player crosses or fails the bar accordingly
 - *Verifies:* `test_the_threshold_is_tunable_without_a_deploy`
 
+#### Scenario: every surface tells the same story about a promoted player
+- **WHEN** a player above the threshold is started despite JP leaving him out
+- **THEN** the squad image does not mark him unavailable
+- *Verifies:* `test_a_promoted_substitute_is_not_painted_red`
+
 #### Scenario: the message distinguishes a promotion from a hole-filler
 - **WHEN** the XI contains both an uncalled player above the threshold and one
   below it
