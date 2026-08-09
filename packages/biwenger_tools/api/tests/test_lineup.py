@@ -159,11 +159,23 @@ def test_build_squad_rows_keeps_cf_base_price_without_owner():
 # --- filling every slot: an empty one scores -4, a player who does not play 0 --
 
 
-def _player(bw_id, sf, position, alts=(), status="ok", called=True, fixture="pending"):
+def _player(
+    bw_id,
+    sf,
+    position,
+    alts=(),
+    status="ok",
+    called=True,
+    fixture="pending",
+    price=2_500_000,
+):
+    # Below `_CAPTAIN_MAX_PRICE`, not exactly on it. At 3M every player is
+    # excluded from the captaincy, so a squad built from this helper used to
+    # return `captain: None` and hide every regression in `_pick_captain`.
     return {
         "bw_id": bw_id,
         "name": f"P{bw_id}",
-        "price": 3_000_000,
+        "price": price,
         "position_id": position,
         "alt_positions": list(alts),
         "jp_player": {
@@ -447,3 +459,40 @@ def test_the_squad_that_prompted_this_now_starts_its_best_player():
     starters = {r["bw_id"] for r, _ in result["starters"]}
     assert 10 in starters, "the 659 substitute must start"
     assert 11 in starters, "the 369 substitute clears the threshold too"
+
+
+def test_a_promoted_substitute_never_gets_the_armband():
+    """Starting him is a bet with the bench as insurance; captaining him
+    doubles the bet and has none. Found by review after the threshold shipped:
+    the flat penalty used to make this impossible, and the threshold quietly
+    made it reachable for any cheap player with a high projection."""
+    certain = _player(1, 380, MID, price=2_500_000)
+    promoted = _player(2, 400, MID, called=False, price=2_900_000)
+    captain = _pick_captain([certain, promoted])
+    assert captain is not None
+    assert captain["bw_id"] == 1, "the uncalled player must not be captain"
+
+
+def test_no_captain_at_all_beats_an_uncalled_one():
+    only_uncalled = [_player(3, 900, MID, called=False, price=2_000_000)]
+    assert _pick_captain(only_uncalled) is None
+
+
+def test_format_lineup_message_separates_promoted_from_hole_fillers():
+    """One warning for both told the reader the opposite of the truth: a
+    promoted 659 was reported as filling a hole while the starter he displaced
+    sat on the bench two lines above."""
+    promoted = _player(1, 659, MID, called=False)
+    filler = _player(2, 10, MID, called=False)
+    result = {
+        "formation": "4-4-2",
+        "starters": [(promoted, MID), (filler, MID)],
+        "reserves": [],
+        "captain": None,
+        "total_sf": 660,
+    }
+    message = format_lineup_message(result)
+    promo_block, _, filler_block = message.partition("⚠️ Aviso")
+    assert "alineados por proyección" in promo_block
+    assert "P1" in promo_block and "P1" not in filler_block
+    assert "P2" in filler_block

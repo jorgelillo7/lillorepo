@@ -92,6 +92,28 @@ a late recovery turns the excluded player into points.
   `test_the_bench_is_drawn_from_the_whole_squad_not_the_trimmed_pool`,
   `test_a_projected_substitute_is_available_not_out`
 
+### Requirement: the captain must be someone the provider expects to play
+
+`_pick_captain` SHALL exclude any starter Jornada Perfecta left out of its
+projected XI, even one `LINEUP_SUB_STARTS_ABOVE` promoted into the eleven, and
+SHALL return `None` rather than hand the armband to one.
+
+Starting such a player is a bet with the bench as insurance. Captaining him
+doubles the bet and has none — Biwenger's auto-substitution replaces a starter,
+never the captaincy. The flat penalty made this impossible by accident; the
+threshold made it reachable for exactly the profile the 3M cap otherwise
+selects for, a cheap player with a high projection.
+
+#### Scenario: a promoted substitute is passed over
+- **WHEN** an uncalled starter under the cap outranks every called one
+- **THEN** the armband goes to the best called starter instead
+- *Verifies:* `test_a_promoted_substitute_never_gets_the_armband`
+
+#### Scenario: nobody eligible
+- **WHEN** every affordable starter was left out of JP's XI
+- **THEN** no captain is picked
+- *Verifies:* `test_no_captain_at_all_beats_an_uncalled_one`
+
 ### Requirement: a projected substitute strong enough to start, starts
 
 `_sf` SHALL return the full projection for a player Jornada Perfecta leaves out
@@ -128,6 +150,13 @@ JP's predicted XI is right. It sits in config so it can move without a deploy.
 - **WHEN** `LINEUP_SUB_STARTS_ABOVE` changes
 - **THEN** the same player crosses or fails the bar accordingly
 - *Verifies:* `test_the_threshold_is_tunable_without_a_deploy`
+
+#### Scenario: the message distinguishes a promotion from a hole-filler
+- **WHEN** the XI contains both an uncalled player above the threshold and one
+  below it
+- **THEN** the promoted player is reported as chosen on projection, and only
+  the other carries the "better 0 points than an empty slot" warning
+- *Verifies:* `test_format_lineup_message_separates_promoted_from_hole_fillers`
 
 ### Requirement: notice what the providers send that this code does not model
 

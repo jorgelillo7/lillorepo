@@ -270,9 +270,18 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     to trust the projection more — no deploy needed:
 
     ```bash
+      # takes effect now, and lasts until the next deploy
       gcloud run services update biwenger-api --region europe-southwest1 \
         --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
+
+      # to keep it, set the repository variable the deploy reads
+      gh variable set LINEUP_SUB_STARTS_ABOVE --body 400
     ```
+
+    Both, in that order: `gcloud` for this matchday, `gh variable` so the next
+    deploy does not put it back to 350. The same rule as
+    `DRAFT_APPLY_TO_BIWENGER` — `deploy.yml` rewrites the whole env block, so an
+    env var set only on Cloud Run survives exactly until someone merges.
 
     Set too high, a benched star costs a matchday; too low, a genuine reserve
     displaces someone who is actually playing. The 350 default is a judgement —
