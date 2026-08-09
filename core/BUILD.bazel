@@ -112,6 +112,19 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "serving",
+    srcs = [
+        "serving/__init__.py",
+        "serving/gunicorn.py",
+    ],
+    deps = [
+        ":_init",
+        "@pypi//gunicorn",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # ------------------------------------------------------------------
 # Umbrella target — backward compat for existing //core references
 # ------------------------------------------------------------------
@@ -124,6 +137,7 @@ py_library(
         ":gemini",
         ":http",
         ":jp",
+        ":serving",
         ":telegram",
         ":web",
     ],
