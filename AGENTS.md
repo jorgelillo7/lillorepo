@@ -54,6 +54,37 @@ Three things are not:
   what its pasted output is worth. This is why every role returns evidence
   rather than a verdict.
 
+### Running more than one at a time
+
+Parallel agents are cheap and usually right. The rule that makes them safe:
+
+**Two agents must never work the same files.** Split by path before you spawn,
+and say the paths in each brief. One agent editing a file while another reads it
+produces findings about a state that never existed — the reviewer reports a
+defect the other agent introduced on purpose and reverted a minute later.
+
+The trap is not obvious, because "reviewing" sounds read-only and therefore
+harmless. It is the *other* agent's writes that break it.
+
+When overlap is genuinely unavoidable:
+
+- Give the writer its own git worktree (`isolation: "worktree"`), or
+- Point the reader at a snapshot instead of the working tree —
+  `git show :<path>` reads the staged blob, which an agent editing the working
+  tree cannot move under it — and tell it not to run the suite.
+
+**Assume an agent can die mid-write.** Session limits and API errors kill agents
+between two tool calls, so an agent that was halfway through editing a file
+leaves it halfway edited. Before trusting a tree an agent has touched, check it:
+
+```bash
+git status --porcelain
+git diff --stat            # empty against the staged snapshot = nothing survived
+```
+
+That check costs one command and is the difference between a clean branch and
+committing someone's abandoned scaffolding.
+
 ### When not to reach for one
 
 If writing the brief costs more than doing the work, do the work. A subagent
