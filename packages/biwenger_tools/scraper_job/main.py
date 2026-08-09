@@ -194,7 +194,10 @@ def main() -> None:
         # include_non_playing: the cronista's messages must resolve an author
         # and count in participación, even though they never compete.
         user_map = biwenger.get_league_users(
-            config.LEAGUE_USERS_URL, include_non_playing=True
+            # Everyone: board-message authors and participación must still
+            # count accounts that do not compete.
+            config.LEAGUE_USERS_URL,
+            frozenset(),
         )
 
         new_messages = _process_new_messages(

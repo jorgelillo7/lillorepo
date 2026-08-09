@@ -19,7 +19,8 @@ from flask import (
     url_for,
 )
 
-from core.constants import DRAFT_ORDER_NAMES, MADRID_TZ
+from core.constants import MADRID_TZ
+from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES
 from core.sdk.gcp import get_sheets_data
 from core.sdk.http import retry_http_request
 from core.utils import get_logger

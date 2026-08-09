@@ -10,11 +10,13 @@ python_job(
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job",
     job = job(
         main = "main.py",
+        package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = [".env"],
         deps = [
             "@pypi//unidecode",
             "@pypi//beautifulsoup4",
             "@pypi//python_dotenv",
+            "//packages/biwenger_tools:constants",
         ],
         test_deps = [
             "//core",

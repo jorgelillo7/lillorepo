@@ -234,8 +234,8 @@ class SeasonStanding:
 
     Captured at season close. ``team_name`` is the Biwenger team name at
     capture time (it can drift later if the user renames). ``real_name``
-    is resolved via ``LEAGUE_MEMBERS`` from the stable numeric ``user_id``,
-    so it survives renames.
+    is resolved by the caller from the stable numeric ``user_id``, so it
+    survives renames.
 
     For accounts deleted mid-season the user_id is no longer resolvable
     via Biwenger — emit ``user_id=0`` and fill ``real_name`` and ``note``

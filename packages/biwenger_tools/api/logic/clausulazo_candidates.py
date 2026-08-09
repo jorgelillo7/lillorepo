@@ -45,7 +45,9 @@ def gather_rivals(
     - `owner_gk_count` — used by `filter_affordable` to enforce the
       "don't leave a rival with zero GKs" house rule.
     """
-    managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
     rivals: list[dict] = []
     for manager_id, manager_name in managers.items():
         if manager_id == biwenger.user_id:

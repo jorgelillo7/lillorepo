@@ -31,15 +31,15 @@ def test_authentication_success(biwenger_client_authenticated):
 
 
 def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
-    """Parses the standings into id→name and drops NON_PLAYING_MEMBER_IDS —
-    the fixture includes the cronista (13945871), which must not appear."""
+    """Parses the standings into id→name and drops every excluded id — the
+    fixture includes an account (13945871) the caller asks to leave out."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m:
         # Carga la respuesta de usuarios desde el archivo JSON
         mock_response = load_json_fixture("league_users.json")
         m.get(TEST_LEAGUE_USERS_URL, json=mock_response, status_code=200)
 
-        user_map = client.get_league_users(TEST_LEAGUE_USERS_URL)
+        user_map = client.get_league_users(TEST_LEAGUE_USERS_URL, frozenset({13945871}))
         expected_map = {
             1: "Farolillo Oracle United",
             2: "Rayo Entrebirras",
@@ -49,19 +49,17 @@ def test_get_league_users(biwenger_client_authenticated, load_json_fixture):
         assert 13945871 not in user_map
 
 
-def test_get_league_users_include_non_playing(
+def test_get_league_users_excluding_nobody_returns_everyone(
     biwenger_client_authenticated, load_json_fixture
 ):
     """The scraper needs the full map — author resolution and participación
-    must still see the cronista."""
+    must still see accounts that do not compete."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m:
         mock_response = load_json_fixture("league_users.json")
         m.get(TEST_LEAGUE_USERS_URL, json=mock_response, status_code=200)
 
-        user_map = client.get_league_users(
-            TEST_LEAGUE_USERS_URL, include_non_playing=True
-        )
+        user_map = client.get_league_users(TEST_LEAGUE_USERS_URL, frozenset())
         assert user_map[13945871] == "Reportajes Lloriquin"
         assert len(user_map) == 4
 

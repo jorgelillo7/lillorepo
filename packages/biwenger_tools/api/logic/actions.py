@@ -115,7 +115,9 @@ def run_teams(manager_id: int | None = None) -> dict:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram
 
-    managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
 
     if manager_id is not None:
         # Single-manager mode: one image, no market.
@@ -223,7 +225,9 @@ def list_managers() -> dict:
     Mine is flagged so the bot can present it as "🛡️ Mi equipo".
     """
     biwenger = build_biwenger_session()
-    managers = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
     items = [
         {"id": mgr_id, "name": name, "is_me": mgr_id == biwenger.user_id}
         for mgr_id, name in managers.items()
