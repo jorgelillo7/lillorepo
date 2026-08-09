@@ -12,6 +12,15 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## infra
 
+- **Stacked PRs do not work in this repo** (2026-08-09, learned the hard way).
+  `ci.yml` triggers on `pull_request: branches: [master]`, so a PR based on
+  another branch gets **no checks at all** — it looks unverified because it is.
+  Worse, merging the base with `--delete-branch` **closes** the stacked PR, and
+  a closed PR can be neither retargeted nor reopened; the work has to be
+  rebased and opened again under a new number. Either widen the CI trigger or
+  keep sequencing branches off `master`. Sequencing is free; the trigger change
+  is not obviously safe.
+
 - **Drive folder cleanup** (USER-OWNED, actionable since the 2026-07-14 league
   restart) — the old scraper CSVs are DELETED (done 2026-07-24); the shared Drive
   now holds only the `ligas_especiales` / `trofeos` Sheets. Remaining step:
@@ -52,6 +61,43 @@ Long-running follow-ups that don't yet warrant a plan or PR.
     has no `exec`, so there is no shell to reach. Trigger: cold start starts
     eating the 09:00 SLO, or the free tier gets tight.
 
+
+## core
+
+- **The Biwenger SDK's write path is almost untested** (2026-08-09, found by
+  backfilling `openspec/specs/core/biwenger-{session,reads,writes}/`). Twelve
+  GAPs are marked in those specs; four are on the path that moves money and
+  are worth doing in one sitting:
+  1. *`set_lineup` has no test at all* — not the payload, not the
+     `captain=None → 0` fallback. It is the only call that writes the XI, and
+     it runs unattended every morning. Start here.
+  2. *`decide_offer` has no test at all* — not the `ValueError` guard, not the
+     URL, not the echoed status.
+  3. *Nothing pins that `place_market_bid` / `place_clausulazo` go through
+     `retry_http_request`.* `test_http_retry.py` proves the helper retries;
+     no test proves the bid uses it. Deleting the wrapper breaks nothing
+     visible and turns a Biwenger hiccup into a lost bid.
+  4. *`release_player` has no body test* — it is the money-free variant
+     (`to: 0, amount: 0`), and that zero is the whole safety property.
+  The remaining eight are read-path and listed in the specs themselves.
+
+- **`decide_offer` has no stated position on retrying** (2026-08-09, same
+  backfill). Every other mutation in the SDK states one: offers and lineup are
+  wrapped in `retry_http_request`, admin operations deliberately are not, with
+  a comment saying a retry charges twice. `decide_offer` does a bare
+  `session.put` and says nothing. Accepting an offer twice is not obviously
+  safe, so this is a decision to make rather than a bug to fix — then write it
+  down where the others are.
+
+- **Two thirds of `core` has exactly one consumer** (2026-08-09 folder audit).
+  Shared by ≥2 packages: `telegram`, `utils`, `firestore`, `web/{csrf,ratelimit}`
+  (~730 lines). Used by `biwenger_tools` alone: `sdk/biwenger` (824),
+  `domain/models` (364), `sdk/jp` (203), `sdk/gcp` (99). Used by `be_water`
+  alone: `sdk/gemini` (168). The league constants already moved out; the rest
+  stays, because it is a large refactor with no runtime gain and the README has
+  defined `core` this way since before the packages existed. Triggers to
+  revisit: a second package needing a domain-model layer, or a package that
+  wants none of the Biwenger SDK and has to justify carrying it.
 
 ## biwenger_tools
 

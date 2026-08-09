@@ -94,27 +94,35 @@ the catalogue and the squad are two separate downloads and can disagree.
   `test_get_account_state_handles_missing_prices`,
   `test_get_account_state_unknown_league_returns_zeros`
 
-### Requirement: The member list hides accounts that do not compete
+### Requirement: The caller names the accounts the member list must hide
 
-`get_league_users` SHALL map user id → name from the standings, dropping
-`NON_PLAYING_MEMBER_IDS` unless the caller explicitly asks for them.
+`get_league_users` SHALL map user id → name from the standings, dropping every
+id in the **required** `excluded_ids` argument.
 
-The league contains an account that posts board messages and plays no football
-(the cronista). Left in, it becomes an empty squad in every iteration, a
+Some leagues contain an account that posts board messages and plays no football
+(here, the cronista). Left in, it becomes an empty squad in every iteration, a
 pickable manager in every menu, a clausulazo candidate with nothing to buy, and
 a line in the palmarés. Filtering at the single point where the member list is
 built is what keeps every downstream feature from having to remember.
 
-The scraper is the exception and asks for the full map: board-message author
-resolution and the participación count must still see the cronista — see
+Which accounts those are is a property of a **league**, not of Biwenger, so the
+SDK does not know them — the caller passes them. The argument is required and
+has no default on purpose: a default would let a new call site silently
+re-include them, and the failure is invisible until a menu shows a manager with
+no squad. The league's own list lives in
+`packages/biwenger_tools/constants.py`.
+
+Passing an empty set asks for everyone, which is what the scraper needs:
+board-message author resolution and the participación count must still see
+non-competing accounts — see
 [`league-scraper`](../../biwenger_tools/league-scraper/spec.md).
 
-#### Scenario: the default map and the scraper's map
-- **WHEN** the standings include a non-competing member
-- **THEN** the default map omits it
-- **WHEN** the caller opts in **THEN** the same member appears with its name
+#### Scenario: excluded ids are dropped, an empty set keeps everyone
+- **WHEN** the standings include an account named in `excluded_ids`
+- **THEN** the map omits it
+- **WHEN** `excluded_ids` is empty **THEN** the same member appears with its name
 - *Verifies:* `test_get_league_users`,
-  `test_get_league_users_include_non_playing`
+  `test_get_league_users_excluding_nobody_returns_everyone`
 
 ### Requirement: Reports are keyed by the label the app shows
 
