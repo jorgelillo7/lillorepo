@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 import requests
 import requests_mock
@@ -9,6 +11,7 @@ from .constants import (
     TEST_EMAIL,
     TEST_LEAGUE_ID,
     TEST_LEAGUE_USERS_URL,
+    TEST_LINEUP_URL,
     TEST_LOGIN_URL,
     TEST_MANAGER_SQUAD_URL_TEMPLATE,
     TEST_MARKET_URL,
@@ -629,4 +632,252 @@ def test_apply_bonus_not_retried_on_failure(biwenger_client_authenticated):
         m.post(TEST_BONUS_URL, status_code=500, text="boom")
         with pytest.raises(requests.HTTPError):
             client.apply_bonus(amounts={1: -1_000_000}, reason="test")
+    assert m.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# The write path — the calls that move money or decide how the squad plays.
+#
+# Every test below covers something that had no test at all, or a retry
+# stance stated only in a docstring. The distinction they pin is the one
+# that costs money if it drifts: reads and idempotent writes retry, admin
+# mutations must not, because Biwenger answers them 204 with no body and no
+# idempotency key.
+# ---------------------------------------------------------------------------
+
+
+def _no_backoff():
+    """Skip `retry_http_request`'s real sleeps (2 + 5 + 10 s)."""
+    return patch("core.sdk.http.time.sleep")
+
+
+def test_set_lineup_sends_the_formation_starters_reserves_and_captain(
+    biwenger_client_authenticated,
+):
+    """The only call that writes the XI. Biwenger reads `playersID` and
+    `reservesID` positionally, so their order is part of the contract."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(TEST_LINEUP_URL, json={"status": 200}, status_code=200)
+
+        client.set_lineup(
+            TEST_LINEUP_URL,
+            formation="4-4-2",
+            players_id=[1, 2, 3],
+            reserves_id=[7, 8],
+            captain=3,
+        )
+
+    assert m.last_request.json() == {
+        "lineup": {
+            "type": "4-4-2",
+            "playersID": [1, 2, 3],
+            "reservesID": [7, 8],
+            "captain": 3,
+        }
+    }
+
+
+@pytest.mark.parametrize("captain", [None, 0])
+def test_set_lineup_sends_zero_when_no_starter_can_wear_the_armband(
+    biwenger_client_authenticated, captain
+):
+    """No starter under the 3M MV cap must still apply the lineup. Biwenger
+    spells "no captain" as 0; sending null would reject the whole payload and
+    the squad would keep yesterday's XI."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(TEST_LINEUP_URL, json={"status": 200}, status_code=200)
+
+        client.set_lineup(
+            TEST_LINEUP_URL,
+            formation="4-4-2",
+            players_id=[1],
+            reserves_id=[],
+            captain=captain,
+        )
+
+    assert m.last_request.json()["lineup"]["captain"] == 0
+
+
+def test_set_lineup_retries_a_transient_failure(biwenger_client_authenticated):
+    """A Biwenger 5xx at 09:00 must not cost the matchday. The retry is the
+    difference between a lineup applied and a squad left as it was."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m, _no_backoff():
+        m.put(
+            TEST_LINEUP_URL,
+            [{"status_code": 502}, {"json": {"status": 200}, "status_code": 200}],
+        )
+
+        result = client.set_lineup(
+            TEST_LINEUP_URL,
+            formation="4-4-2",
+            players_id=[1],
+            reserves_id=[],
+            captain=1,
+        )
+
+    assert result == {"status": 200}
+    assert m.call_count == 2
+
+
+def test_set_lineup_does_not_retry_a_payload_biwenger_refused(
+    biwenger_client_authenticated,
+):
+    """A 4xx means the payload is wrong (invalid captain, bad formation).
+    Retrying it just fails three more times and delays the error."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m, _no_backoff():
+        m.put(TEST_LINEUP_URL, status_code=403, json={"message": "Invalid captain"})
+
+        with pytest.raises(requests.HTTPError):
+            client.set_lineup(
+                TEST_LINEUP_URL,
+                formation="4-4-2",
+                players_id=[1],
+                reserves_id=[],
+                captain=1,
+            )
+
+    assert m.call_count == 1
+
+
+def test_decide_offer_refuses_a_decision_biwenger_does_not_understand(
+    biwenger_client_authenticated,
+):
+    """Guard before the request, not after: an unknown verb must never reach
+    the API, where its meaning would be Biwenger's guess rather than ours."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        with pytest.raises(ValueError):
+            client.decide_offer(1, "maybe", offers_url=TEST_OFFERS_URL)
+
+    assert m.call_count == 0
+
+
+def test_decide_offer_puts_the_decision_to_the_offer_and_returns_its_data(
+    biwenger_client_authenticated,
+):
+    """The id goes in the path, the verdict in the body."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(
+            f"{TEST_OFFERS_URL}/42",
+            json={"status": 200, "data": {"id": 42, "status": "processed"}},
+        )
+
+        data = client.decide_offer(42, "accepted", offers_url=TEST_OFFERS_URL)
+
+    assert m.last_request.json() == {"status": "accepted"}
+    assert data == {"id": 42, "status": "processed"}
+
+
+def test_decide_offer_returns_the_status_biwenger_settled_on(
+    biwenger_client_authenticated,
+):
+    """What the caller asked for and what happened are different things: an
+    accept comes back `processed` once Biwenger has executed the transfer.
+    The confirmation sent to the chat must quote the settled status."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(
+            f"{TEST_OFFERS_URL}/7",
+            json={"status": 200, "data": {"id": 7, "status": "rejected"}},
+        )
+
+        data = client.decide_offer(7, "rejected", offers_url=TEST_OFFERS_URL)
+
+    assert data["status"] == "rejected"
+
+
+def test_decide_offer_raises_when_biwenger_refuses(biwenger_client_authenticated):
+    """An offer already withdrawn or decided elsewhere must surface, not be
+    reported to the user as done."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(f"{TEST_OFFERS_URL}/9", status_code=404)
+
+        with pytest.raises(requests.HTTPError):
+            client.decide_offer(9, "accepted", offers_url=TEST_OFFERS_URL)
+
+
+def test_place_market_bid_retries_a_transient_failure(biwenger_client_authenticated):
+    """The retry is why auto-bid does not lose a bid it already decided to
+    place. Nothing pinned it before — deleting the wrapper broke no test."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m, _no_backoff():
+        m.post(
+            TEST_OFFERS_URL,
+            [
+                {"status_code": 500},
+                {"json": {"data": {"id": 1, "status": "pending"}}, "status_code": 200},
+            ],
+        )
+
+        data = client.place_market_bid(
+            player_id=10, amount=5_000_000, offers_url=TEST_OFFERS_URL
+        )
+
+    assert data == {"id": 1, "status": "pending"}
+    assert m.call_count == 2
+
+
+def test_place_clausulazo_retries_a_transient_failure(biwenger_client_authenticated):
+    """Same stance as the market bid: the clause window is short, and a 5xx
+    inside it is a lost buyout rather than a refused one."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m, _no_backoff():
+        m.post(
+            TEST_OFFERS_URL,
+            [
+                {"status_code": 503},
+                {
+                    "json": {"data": {"id": 2, "status": "processed"}},
+                    "status_code": 200,
+                },
+            ],
+        )
+
+        data = client.place_clausulazo(
+            player_id=10,
+            amount=9_000_000,
+            seller_user_id=5,
+            offers_url=TEST_OFFERS_URL,
+        )
+
+    assert data == {"id": 2, "status": "processed"}
+    assert m.call_count == 2
+
+
+def test_release_player_moves_no_money(biwenger_client_authenticated):
+    """The undo path for a transfer we made ourselves. `amount: 0` is the
+    whole safety property — a non-zero value here charges somebody for a
+    player being taken away from them."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_TRANSFER_URL, status_code=204)
+
+        client.release_player(player_id=77, transfer_url=TEST_TRANSFER_URL)
+
+    assert m.last_request.json() == {
+        "to": 0,
+        "amount": 0,
+        "player": 77,
+        "operation": "transfer",
+    }
+
+
+def test_release_player_does_not_retry(biwenger_client_authenticated):
+    """Admin mutations answer 204 with an empty body and carry no idempotency
+    key, so a retry after a lost response applies the operation twice. One
+    attempt, then the error — the caller re-reads Biwenger to find out what
+    actually happened."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m, _no_backoff():
+        m.post(TEST_TRANSFER_URL, status_code=500)
+
+        with pytest.raises(requests.HTTPError):
+            client.release_player(player_id=77, transfer_url=TEST_TRANSFER_URL)
+
     assert m.call_count == 1
