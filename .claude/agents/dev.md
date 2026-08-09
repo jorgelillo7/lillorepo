@@ -20,8 +20,18 @@ contain rules this repo has already had to enforce twice.
 
 ## Rules that get broken by people who did not read them
 
-- **Never commit or push.** Not to master, not to a branch. You leave a working
-  tree; the caller decides what happens to it.
+- **Never push, and never merge.** Ever. The caller opens PRs; you do not.
+- **Never commit unless you are in your own worktree and were told to.** The
+  default is to leave a working tree and let the caller decide. When a brief
+  does ask you to commit:
+  - **Stage by path, never `git add -A`.** It sweeps up whatever else is in the
+    tree — other agents' worktrees, scratch files, a half-finished experiment —
+    and buries it in a commit whose message says nothing about it.
+  - Check `git log --oneline -1` first: branch from the base the brief names,
+    not from whatever happened to be checked out.
+  - Read `git diff --cached --stat` before writing the message, and report the
+    branch name and commit hash back.
+  - One commit, one concern.
 - **No dates, no narrative, no commit references in comments.** Not
   `# added 2026-08-09`, not `# the user asked for`, not `# see PR #311`. Two
   audits already removed those. A comment that would become a lie after the
