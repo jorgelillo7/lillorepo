@@ -21,7 +21,9 @@ py_library(
 )
 
 # ------------------------------------------------------------------
-# Granular public targets — use these in new packages to scope deps
+# Granular public targets. Reachable through `core_deps` on `service(…)` /
+# `job(…)`; they scope the build graph, not the image, while
+# Dockerfile.base installs every dependency anyway.
 # ------------------------------------------------------------------
 
 py_library(
@@ -113,7 +115,8 @@ py_library(
 )
 
 # ------------------------------------------------------------------
-# Umbrella target — backward compat for existing //core references
+# Umbrella target — the default `core_deps`, so a service that says nothing
+# gets everything and no existing package had to change.
 # ------------------------------------------------------------------
 py_library(
     name = "core",
