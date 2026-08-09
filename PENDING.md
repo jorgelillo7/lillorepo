@@ -52,19 +52,6 @@ Long-running follow-ups that don't yet warrant a plan or PR.
     has no `exec`, so there is no shell to reach. Trigger: cold start starts
     eating the 09:00 SLO, or the free tier gets tight.
 
-- **OpenSpec authoring skill** (proposed 2026-07-27). A `.claude/skills/` skill
-  to replace the OpenSpec npm CLI (deliberately not installed — no-installer
-  preference). The third part, spec-lint, shipped as `scripts/check_specs.py`;
-  these two remain:
-  1. *Backfill mode* — point at a module → generate its
-     `openspec/specs/<pkg>/<cap>/spec.md` from source + tests (Requirement /
-     WHEN-THEN Scenario, scenario↔test links, GAP markers). Derives from code,
-     asks nothing. This is how the current 21 specs were written by hand.
-  2. *Propose mode* (spec-first / SDD) — describe a new feature →
-     AskUserQuestion interview → draft `openspec/changes/<feature>/`
-     (proposal + spec deltas) → approve → archive into `specs/`. Must delegate
-     the *how* (implementation plan) to the existing `rpi-plan` skill — spec is
-     the *what*, don't duplicate rpi.
 
 ## biwenger_tools
 
