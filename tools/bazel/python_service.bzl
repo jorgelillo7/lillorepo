@@ -22,7 +22,7 @@ error in a generated target several hundred lines away.
 
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
 
@@ -284,18 +284,40 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
     # Van a /app/packages/<package>/, que es donde los resuelven los imports
     # del módulo: la capa de código de arriba sólo copia el módulo, así que sin
     # esta capa un fichero compartido pasa los tests y rompe el contenedor.
+    # A dep on a package-level label without the matching `package_srcs` is
+    # the one direction that fails silently: the sandbox resolves it and the
+    # image does not, so tests pass and the container dies at import. The
+    # reverse (shipped but not linked) fails loudly in the tests. Catch the
+    # quiet one at analysis time.
+    package_label = "//packages/" + package + ":"
+    if not svc.package_srcs:
+        for dep in svc.deps:
+            if dep.startswith(package_label):
+                fail(
+                    ("`{}` depends on {} but declares no `package_srcs`. " +
+                     "The code layer copies this module's directory alone, so " +
+                     "that file would be missing from the image and the " +
+                     "container would fail at import while every test passes. " +
+                     "Add the file to `package_srcs` as well as `deps`.")
+                        .format(name, dep),
+                )
+
     package_layers = []
     if svc.package_srcs:
         pkg_files(
             name = name + "_package_files",
             srcs = svc.package_srcs,
             strip_prefix = strip_prefix.from_root("packages/" + package),
+            # On `pkg_files`, not on the enclosing `pkg_tar`: these attributes
+            # win over the tar's `mode`, so setting it there silently ships
+            # everything 0644 and a shared shell helper dies on Permission
+            # denied.
+            attributes = pkg_attributes(mode = "0755"),
         )
         pkg_tar(
             name = name + "_package_layer",
             srcs = [":" + name + "_package_files"],
             package_dir = "/app/packages/" + package,
-            mode = "0755",
         )
         package_layers = [":" + name + "_package_layer"]
 

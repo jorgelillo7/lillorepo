@@ -36,3 +36,6 @@ draft-ranked*.csv
 # Claude Code per-machine permission allow-list. Local by nature, and it
 # accumulates whole command lines — which is how an API key ends up in it.
 .claude/settings.local.json
+
+# Agent worktrees — transient checkouts, never part of a commit.
+.claude/worktrees/

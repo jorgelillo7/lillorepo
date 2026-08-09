@@ -8,13 +8,18 @@ Read this before proposing a change to `docker/Dockerfile.base`,
 
 ## What we build
 
-A service image is **one shared fat base plus two thin source layers**:
+A service image is **one shared fat base plus thin source layers**:
 
 ```
 python-base (python:3.13-slim + every runtime dep pre-installed, pinned by digest)
   └── core_layer      — the shared library, as a tar of .py files
+  └── package_layer   — files shared by the package's modules (only when the
+                        service declares `package_srcs`; absent otherwise)
   └── code_layer      — the module's own .py, templates/, static/, entrypoint.sh
 ```
+
+Order matters: the code layer is applied last, so a module's own file always
+wins a path collision with a package-level one.
 
 There is **no `py_binary` inside the image**. Bazel is the build system and the
 test runner, but the container runs the base image's own CPython over plain
