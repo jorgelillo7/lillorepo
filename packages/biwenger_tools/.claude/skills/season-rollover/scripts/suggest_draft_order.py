@@ -9,7 +9,7 @@ fifteen rounds.
 
 It is a *suggestion*: the reglamento adjusts the order for newcomers, and that
 adjustment cannot be derived from the standings. Confirm with the user before
-editing `core.constants.DRAFT_ORDER_NAMES`.
+editing `packages.biwenger_tools.constants.DRAFT_ORDER_NAMES`.
 
 Needs ADC against the project hosting the palmarés Firestore:
 
@@ -23,7 +23,10 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../"))
 
-from core.constants import LEAGUE_MEMBERS, NON_PLAYING_MEMBER_IDS  # noqa: E402
+from packages.biwenger_tools.constants import (  # noqa: E402
+    LEAGUE_MEMBERS,
+    NON_PLAYING_MEMBER_IDS,
+)  # noqa: E402
 from core.sdk.firestore import get_document  # noqa: E402
 
 

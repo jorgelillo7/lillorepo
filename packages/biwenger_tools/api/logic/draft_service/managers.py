@@ -1,7 +1,7 @@
 """Who is allowed to pick: the `/soy` roll-call and its Telegram bindings."""
 
 from typing import Optional
-from core.constants import LEAGUE_MEMBERS
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft

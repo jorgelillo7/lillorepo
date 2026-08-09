@@ -26,7 +26,7 @@ from archetypes import BANDS, NEED, POS, eligibility, price_band  # noqa: E402
 from packages.biwenger_tools.api.logic.draft import composition_ok  # noqa: E402
 import paths  # noqa: E402
 
-from core.constants import DRAFT_ORDER_NAMES  # noqa: E402
+from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES  # noqa: E402
 
 # Median measured `real/projection`. Orders a list; does not compare magnitudes
 # across players — the ratio ranges from 0.225 to 0.610.

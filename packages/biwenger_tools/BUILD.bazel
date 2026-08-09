@@ -1,5 +1,18 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@pypi//:requirements.bzl", "requirement")
+
+# The league itself: ids, members, draft order. Shared by api, web and
+# scraper_job, so it sits at the package level rather than inside one of
+# them. Two wirings are needed and they are not interchangeable — this
+# library for the build graph, and `package_srcs` on each service for the
+# image, because the code layer copies the module directory alone.
+py_library(
+    name = "constants",
+    srcs = ["constants.py"],
+    visibility = ["//packages/biwenger_tools:__subpackages__"],
+)
+
+exports_files(["constants.py"])
 
 # Cross-module tests. Everything else in this repo is tested inside its own
 # module; this target exists because the bug it guards lives *between* two —

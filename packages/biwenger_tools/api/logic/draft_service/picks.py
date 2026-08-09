@@ -3,7 +3,7 @@ player in Biwenger, and the public entry points the bot calls."""
 
 import time
 from typing import Optional
-from core.constants import LEAGUE_MEMBERS
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft

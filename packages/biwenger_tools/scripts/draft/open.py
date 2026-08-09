@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 
-from core.constants import LEAGUE_MEMBERS
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from core.sdk.telegram import send_telegram_message
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service

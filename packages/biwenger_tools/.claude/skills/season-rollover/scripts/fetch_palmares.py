@@ -6,7 +6,7 @@ Combines three Biwenger endpoints for the current season:
   * report/rounds    — jornadas ganadas + posición media (per user)
   * report/roundPoints — total points, mejor jornada, peor jornada (per user)
 
-Resolves real names by user_id via ``core.constants.LEAGUE_MEMBERS``. Emits:
+Resolves real names by user_id via the package's ``LEAGUE_MEMBERS``. Emits:
 
   * A pretty-printed Firestore document preview (the doc the web reads from)
   * A per-user summary table for terminal review
@@ -19,7 +19,7 @@ Usage::
         [--write-firestore]
 
 Required env (Biwenger): BIWENGER_EMAIL, BIWENGER_PASSWORD.
-``LEAGUE_ID`` defaults to ``core.constants.LEAGUE_ID``.
+``LEAGUE_ID`` defaults to the package's ``LEAGUE_ID`` constant.
 Required env (--write-firestore): GOOGLE_CLOUD_PROJECT (e.g. biwenger-tools).
 
 The --abandoned-user flag injects a row at the bottom of the standings table
@@ -37,8 +37,13 @@ import sys
 # Allow running from repo root without installing packages.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../"))
 
-from core.constants import LEAGUE_ID as DEFAULT_LEAGUE_ID  # noqa: E402
-from core.constants import LEAGUE_MEMBERS, NON_PLAYING_MEMBER_IDS  # noqa: E402
+from packages.biwenger_tools.constants import (  # noqa: E402
+    LEAGUE_ID as DEFAULT_LEAGUE_ID,
+)
+from packages.biwenger_tools.constants import (  # noqa: E402
+    LEAGUE_MEMBERS,
+    NON_PLAYING_MEMBER_IDS,
+)  # noqa: E402
 from core.domain.models import Palmares, SeasonStanding  # noqa: E402
 from core.sdk.biwenger import (  # noqa: E402
     ACCOUNT_URL,
@@ -344,7 +349,7 @@ def main() -> None:
     if not all([email, password, league_id]):
         print(
             "ERROR: BIWENGER_EMAIL and BIWENGER_PASSWORD must be set "
-            "(LEAGUE_ID defaults to core.constants.LEAGUE_ID).",
+            "(LEAGUE_ID defaults to packages.biwenger_tools.constants.LEAGUE_ID).",
             file=sys.stderr,
         )
         sys.exit(1)

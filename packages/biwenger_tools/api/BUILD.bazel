@@ -6,11 +6,13 @@ python_service(
     repository = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/api",
     service = service(
         main = "app.py",
+        package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = [".env"],
         deps = [
             "@pypi//matplotlib",
             "@pypi//requests",
             "@pypi//unidecode",
+            "//packages/biwenger_tools:constants",
         ],
     ),
     image = image(

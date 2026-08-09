@@ -42,7 +42,9 @@ def collect(ctx) -> dict:
     Reuses the caller's context so a report chained onto something else pays
     for no second round-trip.
     """
-    managers = ctx.biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    managers = ctx.biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
     out = {}
     for manager_id, name in managers.items():
         squad = ctx.biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
