@@ -53,6 +53,32 @@ def observe(rows: list) -> None:
         logger.warning("Provider watch failed; lineup unaffected.", exc_info=True)
 
 
+def log_promotions(promotions: list) -> None:
+    """Log every promoted substitute who made the starting XI.
+
+    Neither provider exposes whether a promoted bet actually paid off on the
+    paths this code walks, so this records the bet rather than grading it:
+    one line per promotion, with the certain starter he displaced from his
+    line — the counterfactual a later audit needs to check the promotion
+    against the round's real points. Never raises, never decides.
+    """
+    try:
+        for promo in promotions:
+            logger.warning(
+                "Uncalled substitute promoted into the lineup.",
+                extra={
+                    "player": promo.get("player"),
+                    "projection": promo.get("projection"),
+                    "threshold": promo.get("threshold"),
+                    "position": promo.get("position"),
+                    "displaced_player": promo.get("displaced_player"),
+                    "displaced_sf": promo.get("displaced_sf"),
+                },
+            )
+    except Exception:  # pragma: no cover - an observer must never break a lineup
+        logger.warning("Provider watch failed; lineup unaffected.", exc_info=True)
+
+
 def _watch_status(row: dict, jp: dict) -> None:
     status = jp.get("status")
     if status is not None and status not in OBSERVED_JP_STATUS:

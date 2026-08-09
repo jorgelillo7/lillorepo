@@ -498,6 +498,225 @@ def test_format_lineup_message_separates_promoted_from_hole_fillers():
     assert "P2" in filler_block
 
 
+# --- Capping promotions to one per position line ---
+
+
+def test_only_the_top_promotion_in_a_line_keeps_his_projection():
+    """Two promoted midfielders in the same line: Biwenger's auto-substitution
+    insures at most one absent starter per line, so a second promotion there
+    has no insurance if the bet is wrong. The lower one must fall back to
+    `_UNCALLED_SF` and be outranked by a certain midfielder below the
+    threshold."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 300, MID),  # certain, below threshold
+        _player(9, 700, MID, called=False),  # top promotion, keeps projection
+        _player(10, 600, MID, called=False),  # capped, falls to _UNCALLED_SF
+        _player(11, 500, FWD),
+        _player(12, 480, FWD),
+    ]
+    pick_lineup(squad)
+
+    top = next(r for r in squad if r["bw_id"] == 9)
+    second = next(r for r in squad if r["bw_id"] == 10)
+    assert _sf(top) == 700
+    assert _sf(second) == 1
+    assert _sf(second) < _sf(next(r for r in squad if r["bw_id"] == 8))
+
+
+def test_promotions_in_different_lines_are_both_kept():
+    """The cap is per line, not global: a promoted MID and a promoted FWD
+    must both keep their projection."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 380, MID),
+        _player(9, 700, MID, called=False),
+        _player(10, 360, FWD),
+        _player(11, 650, FWD, called=False),
+    ]
+    pick_lineup(squad)
+
+    promoted_mid = next(r for r in squad if r["bw_id"] == 9)
+    promoted_fwd = next(r for r in squad if r["bw_id"] == 11)
+    assert _sf(promoted_mid) == 700
+    assert _sf(promoted_fwd) == 650
+
+
+def test_a_capped_player_still_starts_when_his_line_has_no_certain_alternative():
+    """The only two candidates for the MID line are both promoted. Capping
+    the second to `_UNCALLED_SF` (1) still leaves him ahead of an empty
+    slot, so the formation that needs two midfielders starts him anyway —
+    the exact `4-2-4` squad (no DEF/FWD depth beyond the formation, no
+    other MID at all) makes it the only feasible formation."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 700, MID, called=False),
+        _player(7, 600, MID, called=False),
+        _player(8, 500, FWD),
+        _player(9, 480, FWD),
+        _player(10, 460, FWD),
+        _player(11, 440, FWD),
+    ]
+    result = pick_lineup(squad)
+
+    assert result["formation"] == "4-2-4"
+    starters = {r["bw_id"] for r, _ in result["starters"]}
+    assert {6, 7} <= starters
+    top = next(r for r in squad if r["bw_id"] == 6)
+    capped = next(r for r in squad if r["bw_id"] == 7)
+    assert top["_promotion_capped"] is False
+    assert capped["_promotion_capped"] is True
+    assert _sf(capped) == 1
+
+
+def test_the_promotion_mark_is_not_stale_across_calls():
+    """`pick_lineup` runs more than once per process on the same reused row
+    dicts. Two promoted midfielders, called twice: if the mark were only
+    ever set to `True` (never reset), the surviving promotion from the first
+    call would stay capped on the second and both calls would disagree on
+    who starts."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 300, MID),
+        _player(9, 700, MID, called=False),
+        _player(10, 600, MID, called=False),
+        _player(11, 500, FWD),
+        _player(12, 480, FWD),
+    ]
+    first = pick_lineup(squad)
+    second = pick_lineup(squad)
+
+    first_starters = {r["bw_id"] for r, _ in first["starters"]}
+    second_starters = {r["bw_id"] for r, _ in second["starters"]}
+    assert first_starters == second_starters
+    top = next(r for r in squad if r["bw_id"] == 9)
+    second_promo = next(r for r in squad if r["bw_id"] == 10)
+    assert top["_promotion_capped"] is False
+    assert second_promo["_promotion_capped"] is True
+
+
+# --- Logging the bet: a promotion that starts, and its displaced starter ---
+
+_PROMOTION_LOG_MESSAGE = "Uncalled substitute promoted into the lineup."
+
+
+def _promo_records(caplog):
+    return [r for r in caplog.records if r.getMessage() == _PROMOTION_LOG_MESSAGE]
+
+
+def test_a_promotion_that_starts_is_logged_with_its_displaced_starter(caplog):
+    """Five MID candidates for four MID slots: the certain player with the
+    lowest SF is the one who ends up on the bench, and that is who the
+    promotion must name as displaced — the counterfactual a later audit
+    grades against the round's real points."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 350, MID),
+        _player(9, 228, MID),  # certain, lowest SF — displaced from the XI
+        _player(10, 700, MID, called=False),
+        _player(11, 500, FWD),
+        _player(12, 480, FWD),
+    ]
+    with caplog.at_level(logging.WARNING):
+        result = pick_lineup(squad)
+
+    assert result["formation"] == "4-4-2"
+    starters = {r["bw_id"] for r, _ in result["starters"]}
+    assert 9 not in starters
+    promo_records = _promo_records(caplog)
+    assert len(promo_records) == 1
+    record = promo_records[0]
+    assert record.player == "P10"
+    assert record.projection == 700
+    assert record.position == "MED"
+    assert record.displaced_player == "P9"
+    assert record.displaced_sf == 228
+
+
+def test_a_promotion_with_no_certain_alternative_is_logged_with_displaced_none(caplog):
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 380, MID),
+        _player(9, 700, MID, called=False),
+        _player(10, 360, FWD),
+        _player(11, 340, FWD),
+    ]
+    with caplog.at_level(logging.WARNING):
+        pick_lineup(squad)
+
+    promo_records = _promo_records(caplog)
+    assert len(promo_records) == 1
+    assert promo_records[0].displaced_player is None
+    assert promo_records[0].displaced_sf is None
+
+
+def test_a_promotion_that_does_not_start_is_not_logged(caplog):
+    """The second promotion in a capped line loses out and never reaches the
+    XI at full projection — no bet was placed, so nothing is logged for it."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 500, DEF),
+        _player(3, 480, DEF),
+        _player(4, 460, DEF),
+        _player(5, 440, DEF),
+        _player(6, 420, MID),
+        _player(7, 400, MID),
+        _player(8, 300, MID),
+        _player(9, 700, MID, called=False),
+        _player(10, 600, MID, called=False),
+        _player(11, 500, FWD),
+        _player(12, 480, FWD),
+    ]
+    with caplog.at_level(logging.WARNING):
+        pick_lineup(squad)
+
+    logged_names = {r.player for r in _promo_records(caplog)}
+    assert "P9" in logged_names
+    assert "P10" not in logged_names
+
+
+def test_log_promotions_never_raises(caplog):
+    """Mirrors `test_the_watcher_never_breaks_a_lineup`: malformed promotion
+    entries must not propagate into the lineup path."""
+    with caplog.at_level(logging.WARNING):
+        provider_watch.log_promotions(["not-a-dict"])
+    assert "lineup unaffected" in caplog.text
+
+
 def test_a_promoted_substitute_is_not_painted_red():
     """Three surfaces were telling three stories about the same player: the
     lineup started Olmo at 659, the message explained why, and the squad image
@@ -508,3 +727,41 @@ def test_a_promoted_substitute_is_not_painted_red():
     weak_sub = _player(2, 81, MID, called=False)["jp_player"]
     assert status_emoji(promoted) == "🟢"
     assert status_emoji(weak_sub) == "🔴"
+
+
+def test_the_cap_holds_for_the_line_a_player_is_actually_assigned_to():
+    """A multi-position promotion must not smuggle a second bet into a line.
+
+    The cap groups by primary position, but the optimizer assigns by any
+    position a player covers. P9 is a promoted defender who plays midfield:
+    five stronger certain defenders keep him out of his own line, so he lands
+    in midfield next to P10, the promotion the cap already allowed there.
+    Two bets, one midfield bench slot — the exact exposure the cap exists to
+    prevent.
+    """
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 520, DEF),
+        _player(3, 515, DEF),
+        _player(4, 510, DEF),
+        _player(5, 505, DEF),
+        _player(6, 502, DEF),
+        _player(7, 200, MID),
+        _player(8, 190, MID),
+        _player(12, 180, MID),
+        _player(9, 500, DEF, alts=(MID,), called=False),
+        _player(10, 450, MID, called=False),
+        _player(11, 300, FWD),
+        _player(13, 290, FWD),
+    ]
+    result = pick_lineup(squad)
+    assert result is not None
+
+    promoted_per_line: dict[int, int] = {}
+    for row, pos_id in result["starters"]:
+        if row["jp_player"]["nextMatch"]["playerInLineup"] is False and _sf(row) > 1:
+            promoted_per_line[pos_id] = promoted_per_line.get(pos_id, 0) + 1
+
+    assert not [
+        line for line, n in promoted_per_line.items() if n > 1
+    ], f"a line started more than one promoted substitute: {promoted_per_line}"
