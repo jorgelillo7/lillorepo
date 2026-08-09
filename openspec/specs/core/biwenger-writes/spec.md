@@ -73,10 +73,15 @@ moving the wrong way in a real league.
   `test_revert_transfer_posts_expected_body`,
   `test_apply_bonus_posts_expected_body`
 
-> **GAP — unverified.** `release_player` has no test of its own. It is the
-> money-free variant — `to: 0, amount: 0` — and the one operation whose whole
-> point is that nothing is charged; a body test would pin the zero amount that
-> makes it safe.
+#### Scenario: releasing a player charges nobody
+- **WHEN** a player is sent back to free agency
+- **THEN** the body carries `to: 0` and `amount: 0` — the zero is the whole
+  safety property, since a non-zero value charges someone for a player being
+  taken away from them
+- **WHEN** the endpoint answers 5xx **THEN** it is raised after a single
+  attempt, never retried
+- *Verifies:* `test_release_player_moves_no_money`,
+  `test_release_player_does_not_retry`
 
 ### Requirement: An admin transfer cannot be undone by reference
 
@@ -170,12 +175,16 @@ carries the human message:
   candidate
 - *Verifies:* `test_place_market_bid_raises_on_4xx`
 
-> **GAP — unverified.** Nothing asserts that these two call sites are actually
-> wrapped in the retry helper — [`http-retry`](../http-retry/spec.md) proves
-> the helper retries, not that the bid uses it. Removing the wrapper would
-> break no test while quietly turning a Biwenger hiccup into a lost bid. Nor is
-> the clausulazo's 4xx path covered, which is the one whose refusals carry the
-> table above.
+#### Scenario: a transient failure does not lose a bid
+- **WHEN** Biwenger answers 5xx and then succeeds
+- **THEN** the bid is placed and the caller sees the accepted offer — the
+  wrapper is pinned at the call site, not merely in the helper
+- *Verifies:* `test_place_market_bid_retries_a_transient_failure`,
+  `test_place_clausulazo_retries_a_transient_failure`
+
+> **GAP — partially verified.** The clausulazo's own 4xx path is still
+> uncovered — the refusals carrying the table above (`Invalid amount`,
+> `Invalid clause`, `Clause locked`) are only exercised for the market bid.
 
 ### Requirement: A lineup is saved with or without a captain
 
@@ -193,11 +202,20 @@ is idempotent — the same eleven written twice is the same eleven — so a 5xx 
 worth retrying, while a 4xx (rejected captain, malformed payload) is a verdict
 and surfaces at once.
 
-> **GAP — unverified.** `set_lineup` has no test. The captain fallback is the
-> part that matters: `None` and `0` must both leave the wire as `0`, and a
-> truthy captain must survive unchanged. Neither the payload shape nor the
-> retry wrapping is pinned anywhere, in the one call that decides how the
-> squad plays every matchday.
+#### Scenario: the payload, with and without a captain
+- **WHEN** a lineup is saved **THEN** formation, `playersID` and `reservesID`
+  go out in the order given — Biwenger reads them positionally
+- **WHEN** no starter clears the 3M cap (`None`, or `0`)
+- **THEN** the wire carries `0`; sending null would reject the whole payload
+  and leave yesterday's XI standing
+- *Verifies:* `test_set_lineup_sends_the_formation_starters_reserves_and_captain`,
+  `test_set_lineup_sends_zero_when_no_starter_can_wear_the_armband`
+
+#### Scenario: a 5xx is retried, a refusal is not
+- **WHEN** Biwenger answers 5xx and then succeeds **THEN** the lineup is applied
+- **WHEN** Biwenger answers 4xx **THEN** it surfaces after one attempt
+- *Verifies:* `test_set_lineup_retries_a_transient_failure`,
+  `test_set_lineup_does_not_retry_a_payload_biwenger_refused`
 
 ### Requirement: An offer decision is checked before it is sent
 
@@ -211,8 +229,22 @@ the confirmation the caller reports back: an accepted offer comes back
 `processed` — Biwenger has already executed the transaction — while a rejected
 one stays `rejected`.
 
-> **GAP — unverified.** No test covers `decide_offer` at SDK level: not the
-> `ValueError` guard, not the URL, not the returned status. It is also the one
-> mutation here with no explicit position on retrying — it is neither wrapped
-> nor commented as deliberately unwrapped, and accepting an offer is not an
-> operation anyone should discover the answer to in production.
+#### Scenario: the guard, the route and the settled status
+- **WHEN** the decision is anything but `accepted` or `rejected`
+- **THEN** `ValueError` is raised and no request is made
+- **WHEN** a valid decision is sent **THEN** it goes to `/offers/{id}` as
+  `{"status": decision}` and Biwenger's echoed offer is returned
+- **WHEN** an accept settles **THEN** the returned status is what Biwenger
+  concluded (`processed`), not what was asked for
+- **WHEN** Biwenger answers 4xx **THEN** it is raised rather than reported to
+  the user as done
+- *Verifies:* `test_decide_offer_refuses_a_decision_biwenger_does_not_understand`,
+  `test_decide_offer_puts_the_decision_to_the_offer_and_returns_its_data`,
+  `test_decide_offer_returns_the_status_biwenger_settled_on`,
+  `test_decide_offer_raises_when_biwenger_refuses`
+
+> **GAP — decision, not coverage.** `decide_offer` still has no stated position
+> on retrying: neither wrapped nor commented as deliberately unwrapped. The
+> tests pin what it does today, which is a bare PUT. Whether accepting an offer
+> is safe to repeat is a question for a person, and it is recorded in
+> `PENDING.md` rather than settled here.

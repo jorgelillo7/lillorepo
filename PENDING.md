@@ -64,22 +64,23 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## core
 
-- **The Biwenger SDK's write path is almost untested** (2026-08-09, found by
-  backfilling `openspec/specs/core/biwenger-{session,reads,writes}/`). Twelve
-  GAPs are marked in those specs; four are on the path that moves money and
-  are worth doing in one sitting:
-  1. *`set_lineup` has no test at all* — not the payload, not the
-     `captain=None → 0` fallback. It is the only call that writes the XI, and
-     it runs unattended every morning. Start here.
-  2. *`decide_offer` has no test at all* — not the `ValueError` guard, not the
-     URL, not the echoed status.
-  3. *Nothing pins that `place_market_bid` / `place_clausulazo` go through
-     `retry_http_request`.* `test_http_retry.py` proves the helper retries;
-     no test proves the bid uses it. Deleting the wrapper breaks nothing
-     visible and turns a Biwenger hiccup into a lost bid.
-  4. *`release_player` has no body test* — it is the money-free variant
-     (`to: 0, amount: 0`), and that zero is the whole safety property.
-  The remaining eight are read-path and listed in the specs themselves.
+- **The Biwenger SDK's read path is still thinly tested** (2026-08-09, found by
+  backfilling `openspec/specs/core/biwenger-{session,reads,writes}/`). The four
+  money-path gaps are closed; the remaining GAP blockquotes live in those specs
+  and are all reads, so a failure degrades a message rather than a balance.
+  Worth a pass when something there actually misbehaves:
+  - `get_standings_full` has no test at all, and palmarés plus the season
+    rollover both read it.
+  - Null-envelope defence is verified only for the market and the reports,
+    though five other calls carry the same code.
+  - Nothing pins the `type` each board URL builder emits. The failure mode is
+    silence — a wrong type returns 200 and an empty list, which is exactly how
+    the draft's `adminTransfer` bug stayed hidden.
+  - `get_all_clausulazos`' dict-shaped-page branch is unreachable from any
+    test: pin which feed returns it, or delete it.
+  One write-path gap survives on purpose: the clausulazo's own 4xx refusals
+  (`Invalid amount`, `Invalid clause`, `Clause locked`) are only exercised for
+  the market bid.
 
 - **`decide_offer` has no stated position on retrying** (2026-08-09, same
   backfill). Every other mutation in the SDK states one: offers and lineup are
