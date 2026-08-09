@@ -22,7 +22,7 @@ error in a generated target several hundred lines away.
 
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
 
@@ -77,6 +77,8 @@ def service(
         main,
         srcs = None,
         deps = [],
+        core_deps = ["//core"],
+        package_srcs = [],
         secrets = [],
         test_deps = [],
         enable_tests = True):
@@ -86,6 +88,17 @@ def service(
         main:         Entry point (e.g. `"app.py"`).
         srcs:         Python sources; defaults to every `.py` outside `tests/`.
         deps:         Bazel deps beyond the base set every service gets.
+        core_deps:    Which slices of `//core` to link. Defaults to the whole
+                      umbrella so nothing moves unless a package asks; name the
+                      granular targets (`//core:telegram`) to link only those.
+                      This does NOT shrink the image while `Dockerfile.base`
+                      pip-installs every dependency — it scopes the build graph.
+        package_srcs: Files one level up, shared by the package's modules. They
+                      ship at `/app/packages/<package>/`, which is where the
+                      module's own imports of them resolve. Without this a
+                      Bazel-only dep passes the tests and the container fails
+                      at import, because the code layer copies the module
+                      directory alone.
         secrets:      Files baked into the **local** image only, never into GCP's.
         test_deps:    Extra deps for the test target, beyond the library and pytest.
         enable_tests: Generate `<name>_tests` when a `tests/` directory exists.
@@ -95,6 +108,8 @@ def service(
         main = _ensure_str("service.main", main, required = True),
         srcs = srcs if srcs == None else _ensure_str_list("service.srcs", srcs),
         deps = _ensure_str_list("service.deps", deps),
+        core_deps = _ensure_str_list("service.core_deps", core_deps),
+        package_srcs = _ensure_str_list("service.package_srcs", package_srcs),
         secrets = _ensure_str_list("service.secrets", secrets),
         test_deps = _ensure_str_list("service.test_deps", test_deps),
         enable_tests = _ensure_bool("service.enable_tests", enable_tests),
@@ -105,6 +120,8 @@ def job(
         main,
         srcs = None,
         deps = [],
+        core_deps = ["//core"],
+        package_srcs = [],
         secrets = [],
         test_deps = [],
         enable_tests = True):
@@ -119,6 +136,8 @@ def job(
         main = _ensure_str("job.main", main, required = True),
         srcs = srcs if srcs == None else _ensure_str_list("job.srcs", srcs),
         deps = _ensure_str_list("job.deps", deps),
+        core_deps = _ensure_str_list("job.core_deps", core_deps),
+        package_srcs = _ensure_str_list("job.package_srcs", package_srcs),
         secrets = _ensure_str_list("job.secrets", secrets),
         test_deps = _ensure_str_list("job.test_deps", test_deps),
         enable_tests = _ensure_bool("job.enable_tests", enable_tests),
@@ -224,8 +243,7 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
             requirement("python-dotenv"),
             requirement("beautifulsoup4"),
             requirement("unidecode"),
-            "//core",
-        ],
+        ] + svc.core_deps,
     )
 
     # ============================================================
@@ -262,6 +280,47 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
         strip_prefix = strip_prefix.from_pkg(),
     )
 
+    # Ficheros compartidos a nivel de paquete (un nivel por encima del módulo).
+    # Van a /app/packages/<package>/, que es donde los resuelven los imports
+    # del módulo: la capa de código de arriba sólo copia el módulo, así que sin
+    # esta capa un fichero compartido pasa los tests y rompe el contenedor.
+    # A dep on a package-level label without the matching `package_srcs` is
+    # the one direction that fails silently: the sandbox resolves it and the
+    # image does not, so tests pass and the container dies at import. The
+    # reverse (shipped but not linked) fails loudly in the tests. Catch the
+    # quiet one at analysis time.
+    package_label = "//packages/" + package + ":"
+    if not svc.package_srcs:
+        for dep in svc.deps:
+            if dep.startswith(package_label):
+                fail(
+                    ("`{}` depends on {} but declares no `package_srcs`. " +
+                     "The code layer copies this module's directory alone, so " +
+                     "that file would be missing from the image and the " +
+                     "container would fail at import while every test passes. " +
+                     "Add the file to `package_srcs` as well as `deps`.")
+                        .format(name, dep),
+                )
+
+    package_layers = []
+    if svc.package_srcs:
+        pkg_files(
+            name = name + "_package_files",
+            srcs = svc.package_srcs,
+            strip_prefix = strip_prefix.from_root("packages/" + package),
+            # On `pkg_files`, not on the enclosing `pkg_tar`: these attributes
+            # win over the tar's `mode`, so setting it there silently ships
+            # everything 0644 and a shared shell helper dies on Permission
+            # denied.
+            attributes = pkg_attributes(mode = "0755"),
+        )
+        pkg_tar(
+            name = name + "_package_layer",
+            srcs = [":" + name + "_package_files"],
+            package_dir = "/app/packages/" + package,
+        )
+        package_layers = [":" + name + "_package_layer"]
+
     # Código de la aplicación (sin secretos, para GCP)
     pkg_tar(
         name = name + "_code_layer",
@@ -288,6 +347,7 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
         base = "@python_with_deps",
         tars = [
             ":" + name + "_core_layer",
+        ] + package_layers + [
             ":" + name + "_code_with_secrets_layer",
         ],
         env = dict(local_env, **img.env),
@@ -309,6 +369,7 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
         base = "@python_with_deps",
         tars = [
             ":" + name + "_core_layer",
+        ] + package_layers + [
             ":" + name + "_code_layer",
         ],
         env = dict(gcp_env, **img.env),

@@ -87,7 +87,13 @@ for its build/test/deploy commands.
 
 ## Core Library
 
-`//core` exposes granular Bazel targets — use the specific target to avoid pulling in unneeded deps:
+`//core` exposes granular Bazel targets. A service links the umbrella by default; pass `core_deps` to `service(…)` / `job(…)` to link only the slices it uses:
+
+```starlark
+service(main = "app.py", core_deps = ["//core:telegram"])
+```
+
+This scopes the **build graph**, not the image: `docker/Dockerfile.base` pip-installs every dependency regardless, so narrowing `core_deps` does not make a container smaller. Nor does it shrink `core_srcs.tar`, which ships all of `core/` unconditionally. A size win needs two more things that do not exist yet — that base image generated from the lock (see `PENDING.md`) **and** a per-service base, since today all six images share one.
 
 | Target | Contains |
 |--------|----------|
