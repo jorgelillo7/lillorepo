@@ -6,11 +6,15 @@ Claude-specific notes for this repository.
 
 1. Read `CLAUDE.md` as the canonical repository-wide guide.
 2. Read `.claude/skills/<skill>/SKILL.md` when a task maps to a skill.
+   Read `.claude/agents/<role>.md` before delegating to that role — it says
+   what the role is for and, more usefully, what it must not do.
 3. Use `.claude/` only for Claude-specific commands, hooks, and runtime config.
 
 ## Claude-Specific Surface
 
 - Skills: `.claude/skills/` — **generic only** (see below)
+- Agents: `.claude/agents/` — the four subagent roles, documented in
+  [`../AGENTS.md`](../AGENTS.md)
 - Hooks: `.claude/hooks/`
 - Runtime config: `.claude/settings.json`
 
@@ -41,6 +45,20 @@ unindexed skill is one nobody remembers exists.
 | `release-notes` | Write a package's release-notes entry from recent commits. |
 | `rpi-research` · `rpi-plan` · `rpi-implement` · `rpi-common` | The research → plan → implement workflow. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
+
+## Agents vs skills
+
+A **skill** is a procedure: the same steps every time, for a task you do
+rarely enough to forget. An **agent** is a worker with a role, its own model
+and its own context — you delegate to it and read what it returns.
+
+Reach for an agent when the work is long, noisy, or better judged by someone
+who did not write the code. Not when writing the brief costs more than doing
+the job.
+
+Agents are repo-wide and not package-scoped, unlike skills: a reviewer that
+only knew one package would miss the interactions that produce most defects
+here.
 
 ## Key References
 
