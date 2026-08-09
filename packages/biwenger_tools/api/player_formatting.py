@@ -1,6 +1,7 @@
 """Player formatting helpers (status, position, play status) shared across renderers."""
 
 from core.sdk.jp import get_predict_rate
+from packages.biwenger_tools.api import config
 
 POSITION_SHORT = {1: "POR", 2: "DEF", 3: "MED", 4: "DEL"}
 
@@ -111,6 +112,11 @@ def status_emoji(jp_player: dict | None) -> str:
     🟡 100 ≤ SF < 300
     🟢 SF ≥ 300
     ⚪ no JP data
+
+    A player JP leaves out of its XI is red only below
+    `LINEUP_SUB_STARTS_ABOVE` — above it the optimizer starts him, and an
+    image marking him red while the lineup fields him tells the reader two
+    different things about the same player on the same morning.
     """
     if jp_player is None:
         return "⚪"
@@ -119,9 +125,11 @@ def status_emoji(jp_player: dict | None) -> str:
     next_match = jp_player.get("nextMatch") or {}
     if next_match.get("status") == "break":
         return "🔴"
-    if next_match.get("playerInLineup") is False:
-        return "🔴"
     sf = get_predict_rate(jp_player, SCORE_SF)
+    if next_match.get("playerInLineup") is False and (
+        sf is None or sf <= config.LINEUP_SUB_STARTS_ABOVE
+    ):
+        return "🔴"
     if sf is None:
         return "🔴"
     if sf >= SF_GREEN_THRESHOLD:

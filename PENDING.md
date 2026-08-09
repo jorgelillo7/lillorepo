@@ -68,16 +68,34 @@ Long-running follow-ups that don't yet warrant a plan or PR.
 
 ## biwenger_tools
 
-- **`nextMatch.status == "break"` is still a guess** (2026-08-09). The
-  optimizer reads it as "no fixture this week" and scores the player 0. All
-  533 players currently report `pending`; `break` has never been observed.
-  Confirm during an international break, when the value should appear — or
-  find it never does and delete the branch, as happened with `suspended`.
+- **`nextMatch.status == "break"` — now waiting on itself** (2026-08-09). The
+  optimizer reads it as "no fixture this week" and scores the player 0, and the
+  value has never been observed: all 533 players report `pending`.
+  `provider_watch` logs the first sighting, so this no longer needs anyone to
+  remember to check — read the log after the first international break. If it
+  never fires, delete the branch, as happened with `suspended`.
 
-- **Consider reading Biwenger's own player status** (2026-08-09). Nothing
-  reads it; JP is the only source. Biwenger currently marks 24 injured, 11
-  doubt and 2 sanctioned, with human-readable notes and expected return dates.
-  Worth it as corroboration when the two disagree, not as a replacement.
+- **Decide what to do when the two providers disagree** (2026-08-09). No longer
+  "nothing reads Biwenger's status" — rows carry it and `provider_watch` logs
+  every disagreement. Two in 533 the day it shipped: JP `ok` vs Biwenger
+  `injured` with an indefinite return, and JP `other` vs Biwenger `discarded`
+  ("Sanción FIFA"). Still far too thin to override one provider with the other.
+  Revisit once the log has a season's worth, which is the point of collecting
+  them.
+
+- **Nothing records whether a promoted substitute actually played**
+  (2026-08-09, raised by the review of #311). `LINEUP_SUB_STARTS_ABOVE` decides
+  every morning whether JP's predicted XI outranks its own projection, and the
+  350 default is a judgement nobody can improve without knowing how often JP is
+  right. The mechanism that makes the question urgent shipped; the log line
+  that could answer it did not. `provider_watch` is the natural home.
+
+- **A promotion can leave a line without bench cover** (2026-08-09, same
+  review). Nothing bounds how many uncalled players clear the threshold at
+  once. Three uncalled midfielders above it and three certain ones below, and
+  all three start with an empty midfield bench slot — Biwenger's auto-sub
+  replaces at most one per position. Not seen in a real squad yet; the shape
+  is reachable, and a cap would be a policy decision rather than a fix.
 
 - **Season 26-27 award sheets** (USER-OWNED first step) — the Lloros Awards pages
   only have 25-26 sheets. When the user creates the 26-27 Ligas Especiales /
