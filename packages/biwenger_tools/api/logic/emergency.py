@@ -230,7 +230,9 @@ def preview_clausulazo(
     my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
     cash = int(biwenger.get_account_state(my_squad, ctx.biwenger_players)["cash"])
 
-    league_users = biwenger.get_league_users(config.LEAGUE_DATA_URL)
+    league_users = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
     my_manager_name = league_users.get(int(biwenger.user_id), "")
 
     losses = recent_lost_players(

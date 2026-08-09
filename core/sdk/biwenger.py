@@ -6,7 +6,6 @@ from typing import Optional, Tuple, Union
 
 import requests
 
-from core.constants import NON_PLAYING_MEMBER_IDS
 from core.sdk.http import retry_http_request
 from core.utils import get_logger
 
@@ -199,15 +198,19 @@ class BiwengerClient:
         return {"cash": 0, "max_bid": 0}
 
     def get_league_users(
-        self, league_users_url: str, include_non_playing: bool = False
+        self, league_users_url: str, excluded_ids: frozenset[int]
     ) -> dict:
         """Returns a mapping of user ID → name for the league.
 
-        Playing members only by default — `NON_PLAYING_MEMBER_IDS` (the
-        cronista) are filtered out so squad iteration, manager pickers and
-        clausulazo candidates never see them. The scraper passes
-        `include_non_playing=True`: board-message author resolution and
-        participación must still count the cronista.
+        `excluded_ids` drops accounts that do not compete, so squad
+        iteration, manager pickers and clausulazo candidates never see them.
+        Pass an empty set to get everyone — what the scraper needs, since
+        board-message author resolution and participación must still count
+        non-playing accounts.
+
+        Required rather than defaulted on purpose: which accounts sit out is
+        a property of a league, not of Biwenger, and a default here would let
+        a new caller silently include them.
         """
         logger.info("Fetching league users...")
         response = self.session.get(league_users_url)
@@ -218,8 +221,7 @@ class BiwengerClient:
         user_map = {
             int(user["id"]): user["name"]
             for user in standings
-            if user.get("id")
-            and (include_non_playing or int(user["id"]) not in NON_PLAYING_MEMBER_IDS)
+            if user.get("id") and int(user["id"]) not in excluded_ids
         }
         logger.info("User map built.", extra={"count": len(user_map)})
         return user_map

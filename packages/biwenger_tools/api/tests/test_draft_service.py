@@ -16,7 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from core.constants import LEAGUE_MEMBERS
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service
 from packages.biwenger_tools.api.logic.draft_service import market, picks, store

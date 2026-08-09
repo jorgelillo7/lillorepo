@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
-from core.constants import DRAFT_ORDER_NAMES, LEAGUE_MEMBERS
+from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES, LEAGUE_MEMBERS
 from packages.biwenger_tools.api.logic.lineup import DEF, FORMATIONS, FWD, GK, MID
 from packages.biwenger_tools.api.logic.player_matching import normalize_name
 

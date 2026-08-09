@@ -2,7 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
-from core.constants import LEAGUE_ID  # re-exported for callers
+from packages.biwenger_tools.constants import LEAGUE_ID  # re-exported for callers
 from core.sdk import biwenger as biwenger_sdk
 from core.utils import load_json_secret
 

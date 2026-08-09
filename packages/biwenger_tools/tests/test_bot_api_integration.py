@@ -75,7 +75,7 @@ def _jp_index() -> dict:
 
 
 class _FakeBiwenger:
-    def get_league_users(self, _url):
+    def get_league_users(self, _url, _excluded_ids):
         return dict(_MANAGERS)
 
     def get_manager_squad(self, _url, manager_id):
