@@ -24,7 +24,7 @@ state beyond Firestore and Google Secret Manager.
 | `biwenger_tools` | `web` | [`web-dataviz`](specs/biwenger_tools/web-dataviz/spec.md) on Cloud Run |
 | `be_water` | `web` | [`water-similarity`](specs/be_water/water-similarity/spec.md), [`provenance`](specs/be_water/provenance/spec.md), [`aesan-registry`](specs/be_water/aesan-registry/spec.md), [`community`](specs/be_water/community/spec.md), [`catalog-sync`](specs/be_water/catalog-sync/spec.md), [`data-curation`](specs/be_water/data-curation/spec.md), [`photos`](specs/be_water/photos/spec.md) |
 | `chucknorris_bot` | `bot` | [`chuck-jokes`](specs/chucknorris_bot/chuck-jokes/spec.md) Telegram bot |
-| `core` | — | [`http-retry`](specs/core/http-retry/spec.md), [`gemini-client`](specs/core/gemini-client/spec.md), [`telegram-sdk`](specs/core/telegram-sdk/spec.md); Biwenger/JP/Firestore SDKs + domain models |
+| `core` | — | [`http-retry`](specs/core/http-retry/spec.md), [`gemini-client`](specs/core/gemini-client/spec.md), [`telegram-sdk`](specs/core/telegram-sdk/spec.md), [`biwenger-session`](specs/core/biwenger-session/spec.md), [`biwenger-reads`](specs/core/biwenger-reads/spec.md), [`biwenger-writes`](specs/core/biwenger-writes/spec.md); JP/Firestore SDKs + domain models |
 
 ## How behaviour is pinned
 
