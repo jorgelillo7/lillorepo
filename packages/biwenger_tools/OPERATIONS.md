@@ -264,6 +264,20 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `POST` | `/league/compare` | Every squad ranked by value and projection — bot's `/comparar`, owner's chat only |
     | `POST` | `/market/auto-bid` | Tiered auto-bid on the daily market — chained into `/digests/daily` at 09:00 Madrid; also exposed standalone for the bot's `/pujar` manual trigger |
 
+  * **Substitutes strong enough to start:** JP predicts the XI rather than
+    reporting it, so a player it leaves out still starts when his projection
+    clears `LINEUP_SUB_STARTS_ABOVE` (350). Raise it to trust JP more, lower it
+    to trust the projection more — no deploy needed:
+
+    ```bash
+      gcloud run services update biwenger-api --region europe-southwest1 \
+        --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
+    ```
+
+    Set too high, a benched star costs a matchday; too low, a genuine reserve
+    displaces someone who is actually playing. The 350 default is a judgement —
+    nothing measures how often JP's predicted eleven is right.
+
   * **Provider watch — reading it, and what silence means:**
 
     Every lineup pick (the 09:00 digest, `/alinear`, `/preview`) runs

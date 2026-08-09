@@ -11,6 +11,7 @@ example that motivated exhaustive backtracking), see the
 from html import escape
 
 from core.sdk.jp import get_predict_rate
+from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
 
@@ -192,7 +193,8 @@ def _sf(row: dict) -> int:
     empty when the squad genuinely has nobody for it:
 
     - the real prediction for a player who is expected to play,
-    - `_UNCALLED_SF` (1) for "no convocado",
+    - the projection for a "no convocado" whose rate clears
+      `LINEUP_SUB_STARTS_ABOVE`, then `_UNCALLED_SF` (1) below it,
     - `_DOUBTFUL_SF` (0) for injured, sanctioned, no fixture, or no JP data.
 
     Any player with a real prediction beats all of these outright, so the
@@ -204,9 +206,14 @@ def _sf(row: dict) -> int:
     next_match = jp.get("nextMatch") or {}
     if next_match.get("status") == "break":
         return _DOUBTFUL_SF
+    rate = get_predict_rate(jp, SCORE_SF) or 0
     if next_match.get("playerInLineup") is False:
-        return _UNCALLED_SF
-    return get_predict_rate(jp, SCORE_SF) or _DOUBTFUL_SF
+        # JP is predicting the XI, not reporting it. Above the threshold the
+        # projection outweighs the prediction: benching a 659 because someone
+        # guessed he starts on the bench costs more than starting him and
+        # being wrong.
+        return rate if rate > config.LINEUP_SUB_STARTS_ABOVE else _UNCALLED_SF
+    return rate or _DOUBTFUL_SF
 
 
 def _is_uncalled(row: dict) -> bool:

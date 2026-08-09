@@ -92,6 +92,43 @@ a late recovery turns the excluded player into points.
   `test_the_bench_is_drawn_from_the_whole_squad_not_the_trimmed_pool`,
   `test_a_projected_substitute_is_available_not_out`
 
+### Requirement: a projected substitute strong enough to start, starts
+
+`_sf` SHALL return the full projection for a player Jornada Perfecta leaves out
+of its projected XI when that projection exceeds `LINEUP_SUB_STARTS_ABOVE`
+(350 by default, tunable by environment variable). Below it he keeps the flat
+`_UNCALLED_SF`, ranked under everyone certain to play and still ahead of an
+empty slot.
+
+JP **predicts** the eleven, it does not report it. The flat penalty treated the
+prediction as fact and threw the projection away: on 2026-08-09 Dani Olmo (659,
+the squad's best) and Danjuma (369) both scored 1, so the tie between them
+broke arbitrarily — Danjuma started and Olmo was benched behind a 228 starter.
+
+The threshold is a judgement, not a measurement: nothing yet records how often
+JP's predicted XI is right. It sits in config so it can move without a deploy.
+
+#### Scenario: a substitute above the threshold
+- **WHEN** JP leaves out a player projecting above `LINEUP_SUB_STARTS_ABOVE`
+- **THEN** he scores his full projection and competes for the XI
+- *Verifies:* `test_a_strong_substitute_keeps_his_projection`,
+  `test_the_squad_that_prompted_this_now_starts_its_best_player`
+
+#### Scenario: a substitute below the threshold
+- **WHEN** the projection does not clear it
+- **THEN** he keeps the flat penalty, below anyone certain to play
+- *Verifies:* `test_a_weak_substitute_still_ranks_below_everyone_playing`
+
+#### Scenario: the threshold never resurrects the unavailable
+- **WHEN** an injured, sanctioned or fixtureless player projects above it
+- **THEN** he still scores zero — the rule lifts substitutes, not absentees
+- *Verifies:* `test_an_unavailable_player_is_still_out_however_high_he_projects`
+
+#### Scenario: retuned without a deploy
+- **WHEN** `LINEUP_SUB_STARTS_ABOVE` changes
+- **THEN** the same player crosses or fails the bar accordingly
+- *Verifies:* `test_the_threshold_is_tunable_without_a_deploy`
+
 ### Requirement: notice what the providers send that this code does not model
 
 `provider_watch.observe` SHALL run before any lineup decision and SHALL log —
