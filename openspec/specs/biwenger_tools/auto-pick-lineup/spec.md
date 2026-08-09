@@ -163,6 +163,103 @@ JP's predicted XI is right. It sits in config so it can move without a deploy.
   the other carries the "better 0 points than an empty slot" warning
 - *Verifies:* `test_format_lineup_message_separates_promoted_from_hole_fillers`
 
+### Requirement: one promoted substitute per line, never two
+
+`pick_lineup` SHALL promote at most **one** player per position line, keeping
+the highest projection in each and returning every other candidate in that line
+to the flat `_UNCALLED_SF`.
+
+Biwenger's auto-substitution replaces at most one absent starter per position.
+A second promoted substitute in the same line therefore starts with no
+insurance: if both bets are wrong, only one is covered. Nothing bounded this —
+three uncalled midfielders above the threshold and three certain ones below
+could all start behind a single midfield bench slot.
+
+The cap is not a filter. A capped player keeps `_UNCALLED_SF` (1), still beats
+an empty slot, and still starts when his line has nobody certain — where he is
+reported under the existing "sin estar convocados" warning, which is the truth:
+he is there because nothing better exists.
+
+The line that counts is the one a player is **assigned** to, not his primary —
+a promoted defender who also covers midfield spends a midfield bench slot. That
+is only knowable once the XI exists, so the search runs to a fixpoint: solve,
+demote any surplus promotion, solve again. Each pass demotes at least one player
+and never restores one, so it terminates in at most one pass per promotion.
+
+Capping on primary position alone would miss exactly this case, and capping a
+multi-position player against every line he could cover would demote players who
+would have been assigned elsewhere.
+
+#### Scenario: two candidates in one line
+- **WHEN** two uncalled players in the same line both clear the threshold
+- **THEN** only the higher projection keeps it; the other drops below anyone
+  certain to play
+- *Verifies:* `test_only_the_top_promotion_in_a_line_keeps_his_projection`
+
+#### Scenario: the cap is per line, not per XI
+- **WHEN** two lines each hold a promoted candidate
+- **THEN** both are promoted — the exposure is per position, so the limit is too
+- *Verifies:* `test_promotions_in_different_lines_are_both_kept`
+
+#### Scenario: a capped player with no alternative still plays
+- **WHEN** a capped player's line has no certain starter to fall back on
+- **THEN** he starts anyway, ahead of the empty slot and its -4
+- *Verifies:* `test_a_capped_player_still_starts_when_his_line_has_no_certain_alternative`
+
+#### Scenario: a multi-position promotion cannot smuggle in a second bet
+- **WHEN** a promoted player whose own line is full of stronger certain
+  starters is assigned to a second line that already holds a promotion
+- **THEN** one of the two is demoted — the limit follows the assignment, not
+  the primary position
+- *Verifies:* `test_the_cap_holds_for_the_line_a_player_is_actually_assigned_to`
+
+#### Scenario: the mark never outlives the call that set it
+- **WHEN** `pick_lineup` runs twice on the same row dicts
+- **THEN** the second run decides from scratch — a mark from the first can
+  neither survive nor accumulate
+- *Verifies:* `test_the_promotion_mark_is_not_stale_across_calls`
+
+### Requirement: every promotion that starts is recorded with what it displaced
+
+`provider_watch.log_promotions` SHALL log one line per promoted player who
+**reaches the starting XI**, carrying his projection, the threshold in force,
+his line, and the highest-SF certain squad member he kept out of it.
+
+`LINEUP_SUB_STARTS_ABOVE` decides every morning whether the projection outranks
+the provider's own predicted XI, and the 350 default is a judgement nobody can
+improve without knowing how often that bet pays. Neither provider exposes
+whether a player featured: Jornada Perfecta's payload is forward-looking, and
+the Biwenger competition data these rows are built from carries no per-round
+points. So this records the bet rather than grading it — the verdict comes from
+reading a round's real points against the lines logged that morning.
+
+The displaced player is the point. *"659 started instead of 228"* can be graded
+later; *"659 started"* cannot.
+
+A promotion that loses its place to a better assignment is not logged: no bet
+was placed. Like everything in `provider_watch`, this decides nothing and
+SHALL NOT raise into the lineup path.
+
+#### Scenario: a promotion that starts
+- **WHEN** a promoted player makes the XI over a certain starter
+- **THEN** both names and both scores are logged, with the threshold in force
+- *Verifies:* `test_a_promotion_that_starts_is_logged_with_its_displaced_starter`
+
+#### Scenario: nobody was displaced
+- **WHEN** the line held no certain alternative
+- **THEN** the line is still logged, saying so explicitly rather than omitting it
+- *Verifies:* `test_a_promotion_with_no_certain_alternative_is_logged_with_displaced_none`
+
+#### Scenario: a promotion that never started
+- **WHEN** a promoted candidate does not make the XI
+- **THEN** nothing is logged for him
+- *Verifies:* `test_a_promotion_that_does_not_start_is_not_logged`
+
+#### Scenario: the recorder cannot break the lineup
+- **WHEN** `log_promotions` is handed malformed input
+- **THEN** it is swallowed and logged
+- *Verifies:* `test_log_promotions_never_raises`
+
 ### Requirement: notice what the providers send that this code does not model
 
 `provider_watch.observe` SHALL run before any lineup decision and SHALL log —

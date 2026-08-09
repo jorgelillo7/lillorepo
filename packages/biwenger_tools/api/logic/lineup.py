@@ -40,6 +40,9 @@ FORMATIONS = [
 # Position IDs as Biwenger reports them.
 GK, DEF, MID, FWD = 1, 2, 3, 4
 
+# Display labels for the applied-lineup message and the promotion log.
+_POSITION_LABELS = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
+
 # Biwenger refuses (HTTP 403, "Captain over max MV: <X> > 3000000") any
 # captain whose cf-base price is ≥ 3M. The check is against the
 # competition-level `price` from cf.biwenger.com — NOT the per-league live
@@ -101,41 +104,23 @@ def pick_lineup(squad_rows: list) -> dict | None:
     # code does not model. Observation only — it changes no pick.
     provider_watch.observe(squad_rows)
 
-    available = [r for r in squad_rows if _is_available(r)]
-    available.sort(key=_sf, reverse=True)
-    available = _trim_pool_by_position(available)
+    _reset_promotion_cap(squad_rows)
 
-    best: dict | None = None
-    # Lexicographic (sum_sf, back_bias). Same tiebreaker as `_try_fill`, so
-    # ties between formations (3-4-3 vs 4-4-2 with the same SF) are broken in
-    # favour of the one that places more players further back than their
-    # primary position.
-    best_score: tuple[int, int] = (-1, -(10**9))
+    # The cap is enforced against the line a player is actually ASSIGNED to,
+    # which is only known once the XI exists — a promoted defender who covers
+    # midfield can land beside the promotion his own line already allowed.
+    # So: solve, demote the surplus, solve again. Each pass caps at least one
+    # more player and never uncaps, so it terminates in at most one pass per
+    # promotion.
+    while True:
+        best = _best_eleven(squad_rows)
+        if best is None or not _demote_surplus_promotions(best["starters"]):
+            break
 
-    for label, n_def, n_mid, n_fwd in FORMATIONS:
-        slots = {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
-        assignment = _try_fill(available, slots)
-        if assignment is None:
-            continue
-
-        total_sf = sum(_sf(r) for r, _ in assignment)
-        total_bias = _back_bias(assignment)
-        score = (total_sf, total_bias)
-        if score <= best_score:
-            continue
-
-        starter_ids = {r["bw_id"] for r, _ in assignment}
-        reserves = _pick_reserves(squad_rows, starter_ids)
-        captain = _pick_captain([r for r, _ in assignment])
-
-        best_score = score
-        best = {
-            "formation": label,
-            "starters": assignment,
-            "reserves": reserves,
-            "captain": captain,
-            "total_sf": total_sf,
-        }
+    # Only a promotion that actually starts is a bet that was placed; one
+    # that lost out to a better assignment never reached the pitch.
+    if best is not None:
+        provider_watch.log_promotions(_promoted_starters(squad_rows, best["starters"]))
 
     return best
 
@@ -149,7 +134,7 @@ def format_lineup_message(result: dict) -> str:
     captain_bw_id = captain["bw_id"] if captain else None
     total_sf = result["total_sf"]
 
-    pos_name = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
+    pos_name = _POSITION_LABELS
     lines = [f"<b>✅ Alineación aplicada — {formation}</b> (SF total: {total_sf})\n"]
 
     for pos_id in (GK, DEF, MID, FWD):
@@ -210,7 +195,8 @@ def _sf(row: dict) -> int:
 
     - the real prediction for a player who is expected to play,
     - the projection for a "no convocado" whose rate clears
-      `LINEUP_SUB_STARTS_ABOVE`, then `_UNCALLED_SF` (1) below it,
+      `LINEUP_SUB_STARTS_ABOVE`, then `_UNCALLED_SF` (1) below it — or when
+      `_apply_promotion_cap` capped him to keep his line's bet singular,
     - `_DOUBTFUL_SF` (0) for injured, sanctioned, no fixture, or no JP data.
 
     Below the threshold the fallbacks never displace someone who is actually
@@ -226,6 +212,8 @@ def _sf(row: dict) -> int:
         return _DOUBTFUL_SF
     rate = get_predict_rate(jp, SCORE_SF) or 0
     if next_match.get("playerInLineup") is False:
+        if row.get("_promotion_capped"):
+            return _UNCALLED_SF
         # JP is predicting the XI, not reporting it. Above the threshold the
         # projection outweighs the prediction: benching a 659 because someone
         # guessed he starts on the bench costs more than starting him and
@@ -239,6 +227,126 @@ def _is_uncalled(row: dict) -> bool:
     jp = row.get("jp_player") or {}
     next_match = jp.get("nextMatch") or {}
     return next_match.get("playerInLineup") is False
+
+
+def _reset_promotion_cap(squad_rows: list) -> None:
+    """Clear every `_promotion_capped` mark before a fresh search.
+
+    `pick_lineup` runs more than once per process on the same reused row
+    dicts, and a mark left by a previous call would silently bench a player
+    the current squad has every reason to start.
+    """
+    for row in squad_rows:
+        row["_promotion_capped"] = False
+
+
+def _is_promoted(row: dict) -> bool:
+    """True if this row is currently starting-eligible on its projection
+    alone, i.e. JP left him out and the threshold lifted him back."""
+    return _is_uncalled(row) and _sf(row) > _UNCALLED_SF
+
+
+def _best_eleven(squad_rows: list) -> dict | None:
+    """Best (formation, starters, reserves, captain) at the current marks."""
+    available = [r for r in squad_rows if _is_available(r)]
+    available.sort(key=_sf, reverse=True)
+    available = _trim_pool_by_position(available)
+
+    best: dict | None = None
+    # Lexicographic (sum_sf, back_bias). Same tiebreaker as `_try_fill`, so
+    # ties between formations (3-4-3 vs 4-4-2 with the same SF) are broken in
+    # favour of the one that places more players further back than their
+    # primary position.
+    best_score: tuple[int, int] = (-1, -(10**9))
+
+    for label, n_def, n_mid, n_fwd in FORMATIONS:
+        slots = {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
+        assignment = _try_fill(available, slots)
+        if assignment is None:
+            continue
+
+        total_sf = sum(_sf(r) for r, _ in assignment)
+        total_bias = _back_bias(assignment)
+        score = (total_sf, total_bias)
+        if score <= best_score:
+            continue
+
+        starter_ids = {r["bw_id"] for r, _ in assignment}
+        reserves = _pick_reserves(squad_rows, starter_ids)
+        captain = _pick_captain([r for r, _ in assignment])
+
+        best_score = score
+        best = {
+            "formation": label,
+            "starters": assignment,
+            "reserves": reserves,
+            "captain": captain,
+            "total_sf": total_sf,
+        }
+
+    return best
+
+
+def _demote_surplus_promotions(starters: list) -> bool:
+    """Mark every promotion beyond the first in any assigned line. Returns
+    whether anything was marked, i.e. whether the XI must be solved again.
+
+    Biwenger's auto-substitution replaces at most one absent starter per
+    line, so the second promotion in a line starts uninsured. The line that
+    counts is the one a player is **assigned** to, not his primary: a
+    promoted defender who covers midfield spends a midfield bench slot.
+
+    The survivor is the highest projection, ties broken on `bw_id` so the
+    same squad always yields the same eleven.
+    """
+    by_line: dict[int, list[dict]] = {}
+    for row, pos_id in starters:
+        if _is_promoted(row):
+            by_line.setdefault(pos_id, []).append(row)
+
+    demoted = False
+    for rows in by_line.values():
+        rows.sort(key=lambda r: (-_sf(r), r["bw_id"]))
+        for loser in rows[1:]:
+            loser["_promotion_capped"] = True
+            demoted = True
+    return demoted
+
+
+def _promoted_starters(squad_rows: list, starters: list) -> list[dict]:
+    """Build `provider_watch.log_promotions` payloads for the promotions
+    that made the XI.
+
+    "Displaced" is the highest-SF certain (`not _is_uncalled`) squad member
+    in the promoted player's assigned line who did not start — `None` when
+    the line has nobody else to displace. Computed from `squad_rows`, not
+    the trimmed candidate pool, so a certain starter dropped before
+    `_try_fill` still counts as the insurance that was bypassed.
+    """
+    starter_ids = {r["bw_id"] for r, _ in starters}
+    promotions = []
+    for row, pos_id in starters:
+        if not _is_promoted(row):
+            continue
+        certain_in_line = [
+            r
+            for r in squad_rows
+            if r["bw_id"] not in starter_ids
+            and r["position_id"] == pos_id
+            and not _is_uncalled(r)
+        ]
+        displaced = max(certain_in_line, key=_sf, default=None)
+        promotions.append(
+            {
+                "player": row.get("name"),
+                "projection": _sf(row),
+                "threshold": config.LINEUP_SUB_STARTS_ABOVE,
+                "position": _POSITION_LABELS.get(pos_id, pos_id),
+                "displaced_player": displaced.get("name") if displaced else None,
+                "displaced_sf": _sf(displaced) if displaced else None,
+            }
+        )
+    return promotions
 
 
 def _positions(row: dict) -> set:
