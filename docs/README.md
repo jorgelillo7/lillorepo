@@ -47,6 +47,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 - [`README.md`](../README.md) — project overview and architecture
 - [`STATUS.md`](../STATUS.md) — living maturity report
 - [`INFRA.md`](../INFRA.md) — GCP inventory at a glance
-- [`PENDING.md`](../PENDING.md) — long-running follow-ups
+- [`PENDING.md`](../PENDING.md) — long-running follow-ups, one line each
+- [`technical/parked-work.md`](technical/parked-work.md) — why parked items are parked, and their triggers
 - `packages/*/release-notes.md` — per-package history
 - [`docs/project_pitch.md`](project_pitch.md) — the original pitch

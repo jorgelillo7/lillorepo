@@ -173,9 +173,22 @@ still relevant, keep it. If the code exists and works, the plan is redundant —
 
 ## Pending work
 
-Long-running follow-ups live in `PENDING.md` at the repo root. That file is
-never deleted; lines get pruned as items ship. For "what has shipped", read
-`packages/biwenger_tools/release-notes.md`.
+Long-running follow-ups live in `PENDING.md` at the repo root. It is an
+**index, not a notebook: one line per item**, grouped by area, with a marker
+for whether it needs the owner, waits on a trigger, or is ready to pick up.
+
+If an item needs more than a line, the reasoning goes where it belongs and
+`PENDING.md` links to it:
+
+- behaviour and decisions → `openspec/`
+- technical evaluations and parked work → `docs/technical/parked-work.md`
+- anything else → the PR that closed it, and `git log`
+
+That split exists because the file had grown to 232 lines for 13 items and
+stopped being scannable, which is the only job it has. The file is never
+deleted; lines get pruned as items ship. For "what has shipped" read
+`packages/biwenger_tools/release-notes.md`, and for the state of the repo
+`STATUS.md` — neither belongs in `PENDING.md`.
 
 ## Service-level objectives
 

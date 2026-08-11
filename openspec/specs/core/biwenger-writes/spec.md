@@ -245,6 +245,28 @@ one stays `rejected`.
 
 > **GAP — decision, not coverage.** `decide_offer` still has no stated position
 > on retrying: neither wrapped nor commented as deliberately unwrapped. The
-> tests pin what it does today, which is a bare PUT. Whether accepting an offer
-> is safe to repeat is a question for a person, and it is recorded in
-> `PENDING.md` rather than settled here.
+> tests pin what it does today, which is a bare PUT.
+>
+> What the flow is, so the decision is not taken blind: a human taps an inline
+> button, the keyboard is cleared before the call fires, and the webhook answers
+> 200 at once because the api call runs in a background thread — so Telegram
+> does not redeliver either. Nothing retries anywhere. The cost of a transient
+> 5xx today is a lost decision and a second `/ofertas`.
+>
+> The argument from shape: this is `PUT /offers/{id}` with `{"status": …}` — it
+> sets a **state** on an identified resource, the same shape as `set_lineup`,
+> which is wrapped precisely because writing the same eleven twice is the same
+> eleven. What must never retry is the opposite shape: an admin operation POSTs
+> a **delta** with no idempotency key and an empty 204, so a repeat charges
+> twice.
+>
+> The awkward part, and why this deserves a decision rather than a default:
+> `place_market_bid` POSTs to **create** a new offer and *is* wrapped, so a lost
+> response there could leave two bids standing. By first principles the policy
+> is backwards — the most idempotent of the three writes is the only one
+> unprotected. That reads like nobody decided, not like somebody decided
+> against.
+>
+> The one missing fact is what Biwenger answers to a second `accepted` on an
+> offer already `processed`. Cheap to settle: on the next real offer, repeat the
+> same PUT by hand and read the response.
