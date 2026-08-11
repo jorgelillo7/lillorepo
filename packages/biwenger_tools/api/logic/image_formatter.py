@@ -81,9 +81,23 @@ _BASE_COLUMNS: list[tuple[str, float]] = [
 _EXTRA_COL_WIDTH = 0.18
 
 
+# Modifiers that only exist to decorate an adjacent emoji: variation
+# selectors, the zero-width joiner and the combining keycap. They sit inside
+# the BMP, so dropping only the astral plane leaves them orphaned — and an
+# orphaned modifier is what matplotlib draws as a dotted-circle placeholder.
+_EMOJI_MODIFIERS = frozenset([0x200D, 0x20E3] + list(range(0xFE00, 0xFE10)))
+
+
 def _strip_emoji(text: str) -> str:
-    """Remove characters outside the Basic Multilingual Plane (emoji, etc.)."""
-    return "".join(c for c in text if ord(c) <= 0xFFFF).strip()
+    """Remove emoji and anything left behind that only decorated one.
+
+    `🛡️` is two codepoints — the shield above the BMP plus U+FE0F. Removing
+    the shield alone left the selector standing, which is why the squad image
+    carried a stray glyph where its icon should have been.
+    """
+    return "".join(
+        c for c in text if ord(c) <= 0xFFFF and ord(c) not in _EMOJI_MODIFIERS
+    ).strip()
 
 
 def _price_exact(price) -> str:

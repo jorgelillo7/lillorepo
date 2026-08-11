@@ -1,6 +1,7 @@
 """Unit tests for `api/logic/image_formatter.build_table_image`."""
 
 from packages.biwenger_tools.api.logic.image_formatter import (
+    _strip_emoji,
     build_table_image,
     total_value,
 )
@@ -47,3 +48,23 @@ def test_build_table_image_renders_with_the_total_shown():
     assert build_table_image(rows, "Mi equipo", show_total_value=True).startswith(
         PNG_MAGIC
     )
+
+
+def test_strip_emoji_leaves_nothing_of_a_two_codepoint_icon():
+    """`🛡️` is the shield (above the BMP) plus U+FE0F. Dropping only the
+    astral half left the selector orphaned, and matplotlib draws an orphaned
+    modifier as a dotted-circle placeholder — the stray glyph that used to sit
+    where the squad image's icon should have been."""
+    assert _strip_emoji("🛡️ Mi equipo") == "Mi equipo"
+
+
+def test_strip_emoji_handles_the_icons_that_never_broke():
+    """`👤` and `🛒` carry no variation selector, which is why only the squad
+    title showed the artefact. They must keep working."""
+    assert _strip_emoji("👤 Ruben") == "Ruben"
+    assert _strip_emoji("🛒 Mercado") == "Mercado"
+
+
+def test_strip_emoji_keeps_accented_text():
+    """Stripping must not reach ordinary Latin-1 — manager names carry it."""
+    assert _strip_emoji("👤 Expósito") == "Expósito"
