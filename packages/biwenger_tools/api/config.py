@@ -69,6 +69,13 @@ AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
 # /alinear) is never affected, and stays the way to re-align closer to kickoff.
 DAILY_LINEUP_ENABLED = os.getenv("DAILY_LINEUP_ENABLED", "true").lower() != "false"
 
+# The league value snapshot chained after the lineup. Costs one squad read
+# per manager, so it is the first thing to turn off if the 09:00 budget gets
+# tight.
+DAILY_LEAGUE_VALUES_ENABLED = (
+    os.getenv("DAILY_LEAGUE_VALUES_ENABLED", "true").lower() != "false"
+)
+
 # A player Jornada Perfecta leaves out of its projected XI still starts when
 # his projection clears this, because JP is guessing the lineup and a guess
 # about a 659 is worth less than the 659. Below it he keeps the old treatment:

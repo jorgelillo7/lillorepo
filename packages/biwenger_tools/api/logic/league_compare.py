@@ -90,6 +90,27 @@ def rank(summary: dict, key: str) -> list:
     return sorted(summary, key=lambda m: -summary[m].get(key, 0))
 
 
+def render_values(summary: dict) -> str:
+    """The value ranking alone, as one compact Telegram message.
+
+    The daily digest wants a snapshot of what every squad is worth, not the
+    two-ranking comparison `/comparar` gives on demand. Projection is left
+    out on purpose: it changes every matchday and is already the subject of
+    the lineup message sent moments earlier, while value moves slowly and is
+    the thing worth having a daily photograph of.
+    """
+    rows = "\n".join(
+        f"{i}. <b>{m}</b> — {_eur(summary[m]['value'])}"
+        for i, m in enumerate(rank(summary, "value"), 1)
+    )
+    total = sum(record.get("value", 0) for record in summary.values())
+    return (
+        "💰 <b>Valor de las plantillas</b>\n\n"
+        f"{rows}\n\n"
+        f"<i>Total de la liga: {_eur(total)}</i>"
+    )
+
+
 def render(summary: dict, title: str, note: str = "") -> str:
     """The two rankings as one Telegram message.
 

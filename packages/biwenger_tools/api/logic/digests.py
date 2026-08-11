@@ -30,7 +30,7 @@ from core.constants import MADRID_TZ
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, auto_bid, offers
+from packages.biwenger_tools.api.logic import actions, auto_bid, league_compare, offers
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
@@ -72,7 +72,9 @@ def _notify_auto_bid_paused(token: str, chat_id: str) -> None:
     )
 
 
-def _safe_send_section(token: str, chat_id: str, build_rows, title: str):
+def _safe_send_section(
+    token: str, chat_id: str, build_rows, title: str, show_total_value: bool = False
+):
     """Build and send one digest table; never raises.
 
     Returns `(image_sent, row_count)`. On any failure (Biwenger fetch,
@@ -83,7 +85,10 @@ def _safe_send_section(token: str, chat_id: str, build_rows, title: str):
     try:
         rows = build_rows()
         sent = send_image_or_text_fallback(
-            token, chat_id, build_table_image(rows, title), title
+            token,
+            chat_id,
+            build_table_image(rows, title, show_total_value=show_total_value),
+            title,
         )
         return sent, len(rows)
     except Exception:
@@ -117,6 +122,33 @@ def _safe_run_auto_pick(ctx) -> dict:
         return actions.run_auto_pick_lineup(ctx=ctx)
     except Exception as exc:
         logger.exception("Lineup step failed inside daily digest.")
+        return {"error": str(exc)}
+
+
+def _safe_send_league_values(ctx, token: str, chat_id: str) -> dict:
+    """Send the daily snapshot of what every squad is worth. Never raises.
+
+    Chained after the lineup because it answers a different question and must
+    not be able to disturb the one write of the morning. Reuses the digest's
+    ctx, but still costs one squad read per manager — see
+    `DAILY_LEAGUE_VALUES_ENABLED` when the 09:00 budget gets tight.
+    """
+    if not config.DAILY_LEAGUE_VALUES_ENABLED:
+        return {"skipped": "disabled"}
+    try:
+        summary = league_compare.collect_cached(ctx)
+        if not summary:
+            # No managers means the league read came back empty; an empty
+            # ranking in the chat says less than nothing.
+            return {"sent": 0, "reason": "no_managers"}
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text=league_compare.render_values(summary),
+        )
+        return {"sent": 1, "managers": len(summary)}
+    except Exception as exc:
+        logger.exception("League value step failed inside daily digest.")
         return {"error": str(exc)}
 
 
@@ -188,12 +220,15 @@ def _run_daily_inner() -> dict:
         market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
         return build_market_rows(market_players, ctx.biwenger_players, ctx.jp_index)
 
-    team_sent, team_count = _safe_send_section(token, chat_id, _team_rows, "Mi equipo")
+    team_sent, team_count = _safe_send_section(
+        token, chat_id, _team_rows, "Mi equipo", show_total_value=True
+    )
     market_sent, market_count = _safe_send_section(
         token, chat_id, _market_rows, "Mercado"
     )
 
     lineup_result = _safe_run_auto_pick(ctx)
+    league_values_result = _safe_send_league_values(ctx, token, chat_id)
 
     if _auto_bid_pause_active():
         _notify_auto_bid_paused(token, chat_id)
@@ -212,6 +247,7 @@ def _run_daily_inner() -> dict:
             "lineup_applied": lineup_result.get("applied"),
             "auto_bid_placed": auto_bid_result.get("bid_count"),
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
+            "league_values": league_values_result.get("managers"),
             "offers_inbox": offers_result.get("offers"),
             "offers_sent": offers_result.get("sent"),
         },
@@ -221,6 +257,7 @@ def _run_daily_inner() -> dict:
         "my_team": team_count,
         "market": market_count,
         "lineup": lineup_result,
+        "league_values": league_values_result,
         "auto_bid": auto_bid_result,
         "offers": offers_result,
     }

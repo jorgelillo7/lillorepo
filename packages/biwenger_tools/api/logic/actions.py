@@ -139,7 +139,12 @@ def run_teams(manager_id: int | None = None) -> dict:
         title = "🛡️ Mi equipo" if is_me else f"👤 {manager_name}"
         extra_cols = None if is_me else ["Clausulable", "Cláusula"]
         _send_image(
-            token, chat_id, build_table_image(rows, title, extra_cols=extra_cols), title
+            token,
+            chat_id,
+            build_table_image(
+                rows, title, extra_cols=extra_cols, show_total_value=True
+            ),
+            title,
         )
         logger.info(
             "Single-manager analysis sent.",
@@ -171,12 +176,18 @@ def run_teams(manager_id: int | None = None) -> dict:
 
     sent_count = 0
     if send_image_or_text_fallback(
-        token, chat_id, build_table_image(my_team, "🛡️ Mi equipo"), "🛡️ Mi equipo"
+        token,
+        chat_id,
+        build_table_image(my_team, "🛡️ Mi equipo", show_total_value=True),
+        "🛡️ Mi equipo",
     ):
         sent_count += 1
     for manager_name, rows in rivals.items():
         img = build_table_image(
-            rows, f"👤 {manager_name}", extra_cols=["Clausulable", "Cláusula"]
+            rows,
+            f"👤 {manager_name}",
+            extra_cols=["Clausulable", "Cláusula"],
+            show_total_value=True,
         )
         if send_image_or_text_fallback(token, chat_id, img, f"👤 {manager_name}"):
             sent_count += 1
