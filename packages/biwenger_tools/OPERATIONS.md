@@ -335,6 +335,15 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
       --update-env-vars DAILY_LINEUP_ENABLED=false
     ```
 
+    The league value snapshot chained after it has its own switch, and is the
+    first thing to drop if the 09:00 budget gets tight — it pays one squad
+    read per manager:
+
+    ```bash
+    gcloud run services update biwenger-api --region europe-southwest1 \
+      --update-env-vars DAILY_LEAGUE_VALUES_ENABLED=false
+    ```
+
     09:00 is deliberately early and deliberately not optimal: Biwenger locks
     each player at *his* kickoff and a matchday can span twelve days, so this
     is a floor. `/alinear` stays the way to re-align closer to a match that

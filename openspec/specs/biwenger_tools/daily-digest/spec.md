@@ -43,6 +43,66 @@ sends.
   `telegram_credentials_missing`
 - *Verifies:* `test_run_daily_skips_send_when_telegram_creds_missing`
 
+### Requirement: A daily photograph of what every squad is worth
+
+`run_daily` SHALL send the league's squad values as a message **after** the
+lineup, ranked and with the league total, and SHALL be switchable off by
+`DAILY_LEAGUE_VALUES_ENABLED`.
+
+Value only, no projection: projection changes every matchday and the lineup
+message sent moments earlier already speaks to it, while value moves slowly and
+is the number worth having a dated snapshot of. `/comparar` remains the on-
+demand view that shows both.
+
+It costs one squad read per manager on top of the digest, which is why it has a
+switch — it is the first step to drop if the 09:00 budget gets tight. It runs
+after the lineup because it answers a different question and must not be able
+to disturb the one write of the morning.
+
+An empty summary SHALL send nothing: a league read that comes back with no
+managers means the fetch failed, not that everyone owns nothing.
+
+#### Scenario: the snapshot goes out ranked
+- **WHEN** the league summary has managers
+- **THEN** one message ranks them by value and carries the league total
+- *Verifies:* `test_run_daily_sends_the_league_value_snapshot`,
+  `test_render_values_ranks_every_squad_and_totals_the_league`
+
+#### Scenario: it cannot disturb the lineup
+- **WHEN** the league read fails
+- **THEN** the digest records the error and every other step stands
+- *Verifies:* `test_the_league_value_step_cannot_break_the_lineup`
+
+#### Scenario: nothing to rank, nothing sent
+- **WHEN** the summary is empty
+- **THEN** no ranking is sent and the reason is recorded
+- *Verifies:* `test_an_empty_league_sends_no_ranking`
+
+#### Scenario: switchable without a deploy
+- **WHEN** `DAILY_LEAGUE_VALUES_ENABLED` is false
+- **THEN** the step is skipped and no squad reads are paid for
+- *Verifies:* `test_the_league_value_step_can_be_turned_off`
+
+### Requirement: A squad image carries what the squad is worth
+
+`build_table_image` SHALL add the summed cf-base price of its rows to the
+header when asked, and SHALL NOT do so by default.
+
+The same renderer draws the market, where the rows are other people's players
+and a total would answer a question nobody asked. Squad views opt in: "Mi
+equipo", each rival in `/analizar`, and the digest's team section.
+
+The figure is the same cf-base price the Precio column shows and `/comparar`
+ranks by, so the header and the table can never disagree.
+
+#### Scenario: the total, and rows that lack a price
+- **WHEN** rows carry prices **THEN** the header shows their sum
+- **WHEN** a row has no price **THEN** it counts as zero rather than raising
+- *Verifies:* `test_total_value_sums_the_cf_base_prices`,
+  `test_total_value_keeps_one_decimal_when_there_is_one`,
+  `test_total_value_survives_rows_without_a_price`,
+  `test_build_table_image_renders_with_the_total_shown`
+
 ### Requirement: A failing step never sinks the digest
 
 An image failure SHALL fall back to a text note per-image and the digest SHALL

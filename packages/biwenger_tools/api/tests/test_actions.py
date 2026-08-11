@@ -150,3 +150,20 @@ def test_the_comparison_is_cached_so_a_second_tap_costs_nothing():
 
     collect.assert_called_once()
     league_compare.reset_cache()
+
+
+def test_render_values_ranks_every_squad_and_totals_the_league():
+    """The daily snapshot: value only. Projection is deliberately absent —
+    it changes every matchday and the lineup message sent moments earlier
+    already covers it, while value is the slow number worth photographing."""
+    summary = {
+        "Jorge": {"value": 57_700_000, "projection": 4_326},
+        "Ruben": {"value": 61_200_000, "projection": 4_100},
+        "Javi": {"value": 49_050_000, "projection": 3_900},
+    }
+    msg = league_compare.render_values(summary)
+
+    assert msg.index("Ruben") < msg.index("Jorge") < msg.index("Javi")
+    assert "57,70M" in msg
+    assert "Total de la liga: 167,95M" in msg
+    assert "SF" not in msg

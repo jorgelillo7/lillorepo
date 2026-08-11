@@ -218,7 +218,7 @@ def test_run_daily_market_survives_team_section_failure():
     the market image nor the auto-bid step — the chat gets a short
     failure note for the dead section and the digest continues."""
 
-    def _boom_on_team(rows, title, extra_cols=None):
+    def _boom_on_team(rows, title, extra_cols=None, show_total_value=False):
         if title == "Mi equipo":
             raise RuntimeError("render boom")
         return b""
@@ -240,8 +240,8 @@ def test_run_daily_market_survives_team_section_failure():
     assert mock_send.call_args.args[3] == "Mercado"
     mock_auto_bid.assert_called_once()
     assert result["sent"] == 1
-    note = mock_text.call_args.kwargs.get("text", "")
-    assert "Mi equipo" in note
+    notes = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
+    assert any("Mi equipo" in n for n in notes)
 
 
 # --- auto-bid pause ----------------------------------------------------------
@@ -339,3 +339,98 @@ def test_run_daily_swallows_offers_inbox_failure():
     mock_offers.assert_called_once()
     assert "error" in result["offers"]
     assert "offers boom" in result["offers"]["error"]
+
+
+# --- league value snapshot ---------------------------------------------------
+
+
+def _league_values_env(*, collect_result=None, collect_raises=None, enabled=True):
+    """`run_daily` wired so only the league-value step varies."""
+    stack, mock_send, _, _ = _digest_env(
+        auto_bid_result={"bid_count": 0, "skipped_count": 0}
+    )
+    from packages.biwenger_tools.api.logic import digests
+
+    digests.config.DAILY_LEAGUE_VALUES_ENABLED = enabled
+    if collect_raises is not None:
+        stack.enter_context(
+            patch(_patches("league_compare.collect_cached"), side_effect=collect_raises)
+        )
+    else:
+        stack.enter_context(
+            patch(
+                _patches("league_compare.collect_cached"),
+                return_value=collect_result if collect_result is not None else {},
+            )
+        )
+    mock_text = stack.enter_context(patch(_patches("send_telegram_message")))
+    return stack, mock_text
+
+
+def test_run_daily_sends_the_league_value_snapshot():
+    """The daily photograph of what every squad is worth."""
+    stack, mock_text = _league_values_env(
+        collect_result={"Jorge": {"value": 57_700_000}, "Ruben": {"value": 61_200_000}}
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    texts = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
+    assert any("Valor de las plantillas" in t for t in texts)
+    assert result["league_values"]["managers"] == 2
+
+
+def test_the_league_value_step_cannot_break_the_lineup():
+    """It is chained after the one write of the morning and answers a
+    different question, so a failure there must cost a log line and nothing
+    else — the lineup has already been applied."""
+    stack, _ = _league_values_env(collect_raises=RuntimeError("biwenger down"))
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    assert "error" in result["league_values"]
+    assert result["lineup"] is not None
+    assert result["auto_bid"] == {"bid_count": 0, "skipped_count": 0}
+
+
+def test_an_empty_league_sends_no_ranking():
+    """A league read that comes back empty means the fetch failed, not that
+    everyone owns nothing. An empty ranking in the chat says less than
+    nothing."""
+    stack, mock_text = _league_values_env(collect_result={})
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    texts = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
+    assert not any("Valor de las plantillas" in t for t in texts)
+    assert result["league_values"]["reason"] == "no_managers"
+
+
+def test_the_league_value_step_can_be_turned_off():
+    """One squad read per manager hangs off this step, so it is the first
+    thing to drop if the 09:00 budget gets tight."""
+    stack, mock_text = _league_values_env(
+        collect_result={"Jorge": {"value": 1}}, enabled=False
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    texts = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
+    assert not any("Valor de las plantillas" in t for t in texts)
+    assert result["league_values"] == {"skipped": "disabled"}
