@@ -167,3 +167,31 @@ def test_render_values_ranks_every_squad_and_totals_the_league():
     assert "57,70M" in msg
     assert "Total de la liga: 167,95M" in msg
     assert "SF" not in msg
+
+
+def test_collect_survives_a_player_jornada_perfecta_does_not_carry():
+    """A squad can hold a player with no JP match — a fresh signing JP has
+    not listed yet. That squad must still be measured: its value is known
+    from Biwenger alone, and the missing projection counts as zero rather
+    than taking the whole league ranking down."""
+    from unittest.mock import MagicMock, patch
+
+    biwenger = MagicMock()
+    biwenger.get_league_users.return_value = {1: "Jorge"}
+    biwenger.get_manager_squad.return_value = [{"id": 10}, {"id": 11}]
+    ctx = MagicMock(biwenger=biwenger, biwenger_players={}, jp_index={})
+
+    rows = [
+        {"price": 7_400_000, "jp_player": {"predict": [{"type": 2, "rate": 538}]}},
+        {"price": 2_200_000, "jp_player": None},  # signed, not in JP yet
+    ]
+    league_compare.reset_cache()
+    with patch(
+        "packages.biwenger_tools.api.logic.league_compare.build_squad_rows",
+        return_value=rows,
+    ):
+        summary = league_compare.collect(ctx)
+
+    assert summary["Jorge"]["value"] == 9_600_000
+    assert summary["Jorge"]["projection"] == 538
+    league_compare.reset_cache()

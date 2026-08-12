@@ -130,6 +130,18 @@ def test_get_predict_rate_returns_none_when_missing():
     assert get_predict_rate({"predict": [{"type": 1, "rate": 100}]}, 2) is None
 
 
+def test_get_predict_rate_treats_a_missing_player_as_no_projection():
+    """`find_player_match` returns None for a Biwenger player Jornada
+    Perfecta does not carry — someone signing a player JP has not listed yet.
+    That is a state, not a caller error, and it reads the same as a player
+    with no scheduled match: no projection.
+
+    Nine of the ten call sites guarded for it and the tenth did not, which
+    took the league value ranking down on the first morning it ran.
+    """
+    assert get_predict_rate(None, 2) is None
+
+
 def test_check_api_health_raises_on_empty_players():
     with requests_mock.Mocker() as m:
         m.get(JP_URL, json={"players": []})

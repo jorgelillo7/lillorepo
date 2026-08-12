@@ -73,6 +73,13 @@ managers means the fetch failed, not that everyone owns nothing.
 - **THEN** the digest records the error and every other step stands
 - *Verifies:* `test_the_league_value_step_cannot_break_the_lineup`
 
+#### Scenario: a squad holding a player JP does not carry
+- **WHEN** a manager owns a player with no Jornada Perfecta match
+- **THEN** the squad is still measured — value from Biwenger alone, the
+  missing projection counted as zero
+- *Verifies:* `test_collect_survives_a_player_jornada_perfecta_does_not_carry`,
+  `test_get_predict_rate_treats_a_missing_player_as_no_projection`
+
 #### Scenario: nothing to rank, nothing sent
 - **WHEN** the summary is empty
 - **THEN** no ranking is sent and the reason is recorded
@@ -112,6 +119,12 @@ be swallowed into the summary (`error` key) while the route stays 200 OK. A
 top-level failure SHALL send a Telegram alert before propagating — no silent
 failures.
 
+A step that produces a **message of its own** SHALL also say in the chat that
+it died, the way a dead image section does. Swallowing is about protecting the
+rest of the digest, not about hiding: the league value step logged and said
+nothing on its first real failure, and the silence read as a feature that had
+never shipped.
+
 #### Scenario: photo fails, digest continues (22–23/06 regression)
 - **WHEN** both `sendPhoto` calls fail
 - **THEN** each degrades to a text fallback, auto-bid still runs, `sent = 0`
@@ -129,6 +142,13 @@ failures.
 - **THEN** the error is captured in the summary and the digest is not lost
 - *Verifies:* `test_run_daily_swallows_auto_bid_failure_and_still_returns_digest_summary`,
   `test_run_daily_swallows_offers_inbox_failure`
+
+#### Scenario: a dead step is visible in the chat
+- **WHEN** the league value step raises
+- **THEN** the chat gets the same short note a dead image section gets, and
+  every other step still runs
+- *Verifies:* `test_a_failed_league_value_step_says_so_in_the_chat`,
+  `test_the_league_value_step_cannot_break_the_lineup`
 
 #### Scenario: top-level failure alerts
 - **WHEN** the inner run raises (e.g. Biwenger 5xx during build_context)

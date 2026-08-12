@@ -125,6 +125,25 @@ def _safe_run_auto_pick(ctx) -> dict:
         return {"error": str(exc)}
 
 
+def _notify_step_failed(token: str, chat_id: str, title: str) -> None:
+    """Tell the chat a step died, best effort.
+
+    Swallows its own failure: if Telegram is what broke, there is nothing
+    left to say it with, and the digest must still finish.
+    """
+    try:
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text=(
+                f"⚠️ <b>{title}</b> no pudo generarse hoy. "
+                "Continúo con el resto del digest."
+            ),
+        )
+    except Exception:  # pragma: no cover - nothing left to report with
+        logger.exception("Could not notify a failed digest step.")
+
+
 def _safe_send_league_values(ctx, token: str, chat_id: str) -> dict:
     """Send the daily snapshot of what every squad is worth. Never raises.
 
@@ -149,6 +168,10 @@ def _safe_send_league_values(ctx, token: str, chat_id: str) -> dict:
         return {"sent": 1, "managers": len(summary)}
     except Exception as exc:
         logger.exception("League value step failed inside daily digest.")
+        # Say so in the chat, the way a failed image section does. Logging
+        # alone made the first failure look like the feature had never
+        # shipped: nothing arrived and nothing said why.
+        _notify_step_failed(token, chat_id, "Valor de las plantillas")
         return {"error": str(exc)}
 
 
