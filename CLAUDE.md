@@ -2,6 +2,29 @@
 
 Bazel monorepo with Python projects targeting Google Cloud. Currently contains `biwenger_tools`; the architecture is designed to grow with more packages.
 
+## Ground rules
+
+Three habits that cost real time when they were missing. Each one is here
+because it went wrong, not because it sounds sensible.
+
+- **Never say something does not exist from memory.** Versions, model names,
+  package releases, API capabilities — check first (`WebSearch`, `npm view`,
+  `brew info`, `gcloud components list`). Two separate sessions were spent
+  insisting "Opus 5" was not a real model until a screenshot forced a search;
+  the actual cause was a Homebrew cask lagging behind npm. The user's
+  information about a moving target is newer than the model's, always.
+
+- **Restate a list before working it, and account for every line at the end.**
+  Given a review, a set of `PENDING.md` items or any backlog, echo it as a
+  checklist first and close with the status of each item. Stopping after the
+  first few and reporting done has happened more than once, and it is invisible
+  to whoever asked.
+
+- **Everything written down is in English** — READMEs, runbooks, release notes,
+  specs, code comments, commit messages, PR descriptions — regardless of the
+  language of the conversation. A README once shipped in Spanish against this
+  rule and had to be rewritten.
+
 ## Structure
 
 ```
@@ -134,6 +157,45 @@ Rationale:
 - PRs give a natural review checkpoint and keep master always deployable.
 
 For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
+
+### Always branch off `master` — never stack
+
+`ci.yml` triggers on `pull_request: branches: [master]`, so **a PR based on
+another branch gets no checks at all**. It looks unverified because it is.
+And merging the base with `--delete-branch` **closes** the stacked PR; a
+closed PR can be neither reopened nor retargeted, so the work has to be
+rebased and opened again under a new number. Both happened in one afternoon.
+
+Sequencing branches off `master` costs nothing. Stacking costs a PR.
+
+### Before merging, check the head you are merging
+
+Green checks belong to a **pushed** commit, not to your working tree. Confirm
+they are the same thing:
+
+```bash
+git rev-parse HEAD && git rev-parse origin/<branch>   # identical, or stop
+```
+
+A merge once went through on a branch whose last fix had never reached
+GitHub. The checks were green — for the previous push — and `master` broke.
+
+### Merged is not deployed
+
+A merge starts `deploy.yml`; it does not finish it. Watch the run, then
+confirm the revisions are actually serving:
+
+```bash
+gh run watch <id>
+gcloud run services list --project biwenger-tools --region europe-southwest1 \
+  --format="value(metadata.name,status.conditions[0].status)"
+gcloud run services list --project be-water-app --region europe-southwest1 \
+  --format="value(metadata.name,status.conditions[0].status)"
+```
+
+`be_water` is a **different GCP project**. A docs-only change may legitimately
+trigger no deploy at all — the `paths-filter` decides — so check whether one
+was expected before waiting for it.
 
 ## Specs (`openspec/`)
 
