@@ -45,12 +45,33 @@ def observe(rows: list) -> None:
         for row in rows:
             jp = row.get("jp_player") or {}
             if not jp:
+                _watch_unmatched(row)
                 continue
             _watch_status(row, jp)
             _watch_fixture(row, jp)
             _watch_disagreement(row, jp)
     except Exception:  # pragma: no cover - an observer must never break a lineup
         logger.warning("Provider watch failed; lineup unaffected.", exc_info=True)
+
+
+def _watch_unmatched(row: dict) -> None:
+    """A player Biwenger has and Jornada Perfecta does not.
+
+    This module skipped the case it was best placed to catch: the whole file
+    watches for values a provider sends that the code does not model, and
+    said nothing about a provider not carrying the player at all. Such a
+    player scores zero, so an owner quietly fields someone the optimizer
+    cannot see — and when it took the league ranking down, nothing in the
+    logs could name him and the state had healed by the time anyone looked.
+
+    JP lists what it projects; Biwenger keeps long-term absentees and players
+    who have left, so a gap of a couple of dozen names is normal and a squad
+    holding one of them is not. Named here, the next one dates itself.
+    """
+    logger.warning(
+        "No Jornada Perfecta entry for this player.",
+        extra={"player": row.get("name"), "bw_id": row.get("bw_id")},
+    )
 
 
 def log_promotions(promotions: list) -> None:
