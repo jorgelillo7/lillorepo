@@ -45,6 +45,7 @@ unindexed skill is one nobody remembers exists.
 | `openspec-backfill` | Write the `openspec/` spec for code that already ships without one. |
 | `openspec-propose` | Agree the behaviour of a feature that does not exist yet, before writing it. |
 | `release-notes` | Write a package's release-notes entry from recent commits. |
+| `ship` | Merge a PR and prove it reached production — head check, no stacking, deploy watch, revisions serving. |
 | `rpi-research` · `rpi-plan` · `rpi-implement` · `rpi-common` | The research → plan → implement workflow. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 
