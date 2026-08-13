@@ -356,33 +356,40 @@ def _positions(row: dict) -> set:
     return {primary} | set(alts)
 
 
+# Biwenger's goal bonus by the position a player is FIELDED in. JP's SF is a
+# single per-player number that does not model it, so it is what breaks ties
+# between assignments that project the same.
+GOAL_BONUS = {GK: 10, DEF: 7, MID: 5, FWD: 4}
+
+
 def _back_bias_one(player: dict, slot: int) -> int:
-    """Score how "back" a player ends up vs their primary position.
+    """What playing this player out of position is worth, in bonus points.
 
-    Biwenger gives a bigger goal-scoring bonus the further back the slot:
-    POR +10, DEF +7, MED +5, DEL +4. JP's SF is a single per-player number
-    that does NOT model the slot bonus, so when two assignments tie on SF
-    we still prefer the one that places more players further back than
-    their natural position.
+    The difference between the goal bonus of the slot he fills and of his
+    natural one: a FWD played as MID gains +1 (4 → 5), a DEF pushed to MID
+    loses -2 (7 → 5), a player in his own position scores 0.
 
-    Returns +1 if the slot is strictly behind the player's primary
-    (e.g. a FWD/MID played as MID), 0 if exactly the primary, -1 if the
-    slot is ahead of the primary.
+    It used to return only the **direction** — +1 back, -1 forward — which
+    made those two look like they cancelled out. They do not: moving one
+    player back to make room by moving another forward is usually a loss,
+    because the bonus grows faster the further back you go. With magnitudes
+    the two candidate elevens of a real squad stopped tying at +1 and split,
+    which also removed a tiebreak that had fallen through to the order of
+    `FORMATIONS` — a list transcribed from the app, in no meaningful order.
 
-    Position IDs increase as you move forward: GK=1 < DEF=2 < MID=3 < FWD=4.
+    Deltas, not absolute bonuses: summing the slots' own values would score
+    the *formation* rather than the placement, and would always prefer five
+    defenders even with nobody out of position.
     """
     primary = player.get("position_id")
-    if primary is None:
+    if primary is None or primary not in GOAL_BONUS or slot not in GOAL_BONUS:
         return 0
-    if slot < primary:
-        return 1
-    if slot > primary:
-        return -1
-    return 0
+    return GOAL_BONUS[slot] - GOAL_BONUS[primary]
 
 
 def _back_bias(assignment: list) -> int:
-    """Sum of `_back_bias_one` across an assignment. Higher = more "back"."""
+    """Bonus points gained or lost across an assignment by playing people out
+    of position. Higher is better; 0 means nobody was moved."""
     return sum(_back_bias_one(p, slot) for p, slot in assignment)
 
 
