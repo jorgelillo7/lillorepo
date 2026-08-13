@@ -266,6 +266,12 @@ SHALL NOT raise into the lineup path.
 never raise, never decide — when Biwenger or Jornada Perfecta send a value
 outside what has been observed.
 
+A player Jornada Perfecta does not carry at all SHALL be named too. The
+module skipped that row entirely, which is the one case it was best placed to
+catch: such a player scores zero and is fielded unseen, and when it took the
+league value ranking down nothing in the logs could name him — the state had
+healed by the time anyone looked.
+
 The tracked sets are named for what has been **seen in the wild**, not for what
 the code handles. `break` is handled by `_sf` and has never appeared in 533
 players; its first sighting must still be reported, because that sighting is
@@ -292,6 +298,13 @@ notice. This exists so the next one is dated instead.
   still decides — the evidence is collected, not acted on
 - *Verifies:* `test_providers_disagreeing_on_availability_is_logged`,
   `test_providers_agreeing_is_silent`
+
+#### Scenario: a player the provider does not carry at all
+- **WHEN** Jornada Perfecta has no entry for a squad player
+- **THEN** he is named in the log — the sets above watch for values a
+  provider sends, and this is the provider not sending the player
+- *Verifies:* `test_a_player_jornada_perfecta_does_not_carry_is_logged`,
+  `test_a_matched_player_is_not_reported_as_missing`
 
 #### Scenario: the observer itself fails
 - **WHEN** `observe` raises for any reason

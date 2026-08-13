@@ -434,3 +434,21 @@ def test_the_league_value_step_can_be_turned_off():
     texts = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
     assert not any("Valor de las plantillas" in t for t in texts)
     assert result["league_values"] == {"skipped": "disabled"}
+
+
+def test_a_failed_league_value_step_says_so_in_the_chat():
+    """Logging alone made the first real failure look like the feature had
+    never shipped: nothing arrived and nothing said why. A dead step gets
+    the same short note a dead image section gets."""
+    stack, mock_text = _league_values_env(collect_raises=RuntimeError("jp gone"))
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        digests.run_daily()
+    finally:
+        stack.close()
+
+    texts = [c.kwargs.get("text", "") for c in mock_text.call_args_list]
+    assert any(
+        "Valor de las plantillas" in t and "no pudo generarse" in t for t in texts
+    )

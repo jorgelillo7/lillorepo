@@ -178,13 +178,21 @@ def fetch_all_players(
     return players
 
 
-def get_predict_rate(player: dict, score_type: int = 2) -> Optional[int]:
+def get_predict_rate(player: Optional[dict], score_type: int = 2) -> Optional[int]:
     """Return the prediction rate for the requested scoring system.
 
-    Returns None when the player has no scheduled match (empty `predict`)
-    or the requested score_type is not present.
+    Returns None when there is no player at all, when the player has no
+    scheduled match (empty `predict`), or when the requested score_type is
+    absent — three different ways of having no projection, and no caller has
+    ever distinguished them.
+
+    `None` is a real state, not a caller error: `find_player_match` returns
+    it for a Biwenger player Jornada Perfecta does not carry, which happens
+    whenever someone signs a player JP has not listed yet. Nine of the ten
+    call sites guarded for it and the tenth did not, which took the league
+    ranking down; the guard belongs here, once.
     """
-    for entry in player.get("predict") or []:
+    for entry in (player or {}).get("predict") or []:
         if entry.get("type") == score_type:
             return entry.get("rate")
     return None

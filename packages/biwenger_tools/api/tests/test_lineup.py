@@ -765,3 +765,36 @@ def test_the_cap_holds_for_the_line_a_player_is_actually_assigned_to():
     assert not [
         line for line, n in promoted_per_line.items() if n > 1
     ], f"a line started more than one promoted substitute: {promoted_per_line}"
+
+
+def test_a_player_jornada_perfecta_does_not_carry_is_logged(caplog):
+    """The observer skipped the one case it was best placed to catch. A
+    player JP has no entry for scores zero, so his owner fields someone the
+    optimizer cannot see — and when that took the league ranking down,
+    nothing in the logs could name him."""
+    rows = [{"name": "Ter Stegen", "bw_id": 99, "jp_player": None}]
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe(rows)
+
+    assert "No Jornada Perfecta entry" in caplog.text
+    assert "Ter Stegen" in str(caplog.records[0].player)
+
+
+def test_a_matched_player_is_not_reported_as_missing(caplog):
+    """The gap is a couple of dozen names league-wide; a squad of matched
+    players must stay silent or the signal drowns."""
+    rows = [
+        {
+            "name": "Canales",
+            "bw_id": 1,
+            "jp_player": {
+                "status": "ok",
+                "nextMatch": {"status": "pending", "playerInLineup": True},
+                "predict": [{"type": 2, "rate": 538}],
+            },
+        }
+    ]
+    with caplog.at_level(logging.WARNING):
+        provider_watch.observe(rows)
+
+    assert "No Jornada Perfecta entry" not in caplog.text
