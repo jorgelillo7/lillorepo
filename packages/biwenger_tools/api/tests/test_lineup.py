@@ -852,3 +852,56 @@ def test_the_two_candidate_elevens_no_longer_tie():
     assert _back_bias(as_5_4_1) == 1
     assert _back_bias(as_4_6_0) == 0
     assert _back_bias(as_5_4_1) > _back_bias(as_4_6_0)
+
+
+def test_between_two_fallbacks_the_better_projection_starts():
+    """`_sf` floors every uncalled player below the threshold to the same
+    value, which threw away that one projects 316 and the other 197. If a
+    slot must go to someone JP does not expect on the pitch, it goes to the
+    one most likely to be worth something."""
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 523, DEF),
+        _player(3, 433, DEF),
+        _player(4, 415, DEF),
+        _player(5, 409, DEF),
+        _player(6, 538, MID),
+        _player(7, 455, MID),
+        _player(9, 428, MID),
+        _player(10, 416, FWD),
+        _player(11, 380, FWD),
+        # the fourth midfield slot has only these two, and both are floored
+        _player(12, 316, MID, (FWD,), called=False),  # the better gamble
+        _player(13, 197, FWD, (MID,), called=False),  # gains +1 dropping back
+    ]
+    result = pick_lineup(squad)
+    assert result is not None
+    names = [r["name"] for r, _ in result["starters"]]
+    assert "P12" in names
+    assert "P13" not in names
+
+
+def test_the_projection_gap_outranks_the_bonus_it_could_gain():
+    """The two are orders of magnitude apart: the bias is worth a point or
+    two of goal bonus, the gap between fallbacks is hundreds of projected
+    points. Ranked the other way round — as it was — a 197 who gains +1 by
+    dropping back beat a 316 who gains nothing, and an 11.2M substitute sat
+    on the bench behind him."""
+    better = _player(7, 316, MID, (FWD,), called=False)  # MID at MID: bias 0
+    worse = _player(8, 197, FWD, (MID,), called=False)  # FWD at MID: bias +1
+
+    from packages.biwenger_tools.api.logic.lineup import _back_bias_one, _fallback_rate
+
+    assert _back_bias_one(worse, MID) > _back_bias_one(better, MID)
+    assert _fallback_rate(better) > _fallback_rate(worse)
+
+
+def test_an_injured_player_is_never_the_better_gamble():
+    """An injured 400 is not a better bet than an uncalled 200 — he is not
+    expected on the pitch at all, and ranking him first would field him."""
+    from packages.biwenger_tools.api.logic.lineup import _fallback_rate
+
+    injured = _player(1, 400, MID, status="injured")
+    uncalled = _player(2, 200, MID, called=False)
+    assert _fallback_rate(injured) == 0
+    assert _fallback_rate(uncalled) == 200

@@ -257,7 +257,12 @@ def _best_eleven(squad_rows: list) -> dict | None:
     # ties between formations (3-4-3 vs 4-4-2 with the same SF) are broken in
     # favour of the one that places more players further back than their
     # primary position.
-    best_score: tuple[int, int] = (-1, -(10**9))
+    # Lexicographic (sum_sf, fallback projection, back_bias). The fallback
+    # projection outranks the bias deliberately: the bias is worth a point or
+    # two of goal bonus, while the gap between two fallbacks is hundreds of
+    # projected points. Ranked the other way round, a 197 who gains +1 by
+    # dropping back beat a 316 who does not.
+    best_score: tuple[int, int, int] = (-1, -1, -(10**9))
 
     for label, n_def, n_mid, n_fwd in FORMATIONS:
         slots = {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
@@ -267,7 +272,7 @@ def _best_eleven(squad_rows: list) -> dict | None:
 
         total_sf = sum(_sf(r) for r, _ in assignment)
         total_bias = _back_bias(assignment)
-        score = (total_sf, total_bias)
+        score = (total_sf, _fallback_total(assignment), total_bias)
         if score <= best_score:
             continue
 
@@ -385,6 +390,34 @@ def _back_bias_one(player: dict, slot: int) -> int:
     if primary is None or primary not in GOAL_BONUS or slot not in GOAL_BONUS:
         return 0
     return GOAL_BONUS[slot] - GOAL_BONUS[primary]
+
+
+def _fallback_rate(row: dict) -> int:
+    """The projection hiding behind a floored score, used only to rank
+    fallbacks against each other.
+
+    `_sf` flattens every uncalled player below the threshold to the same
+    `_UNCALLED_SF`, which threw away the fact that one projects 316 and
+    another 197. With the scores equal the tie fell to the back-bias, and
+    that favoured whichever fallback happened to gain a bonus by dropping
+    back — so the cheaper, worse-projected player started and an 11.2M
+    substitute sat on the bench.
+
+    Zero for anyone who genuinely cannot play: an injured 400 is not a
+    better gamble than an uncalled 200, and ranking him first would field a
+    player nobody expects on the pitch.
+    """
+    jp = row.get("jp_player") or {}
+    if jp.get("status") in CANNOT_PLAY:
+        return 0
+    if (jp.get("nextMatch") or {}).get("status") == "break":
+        return 0
+    return get_predict_rate(jp, SCORE_SF) or 0
+
+
+def _fallback_total(assignment: list) -> int:
+    """Summed projection of the starters who are only there as fallbacks."""
+    return sum(_fallback_rate(r) for r, _ in assignment if _sf(r) <= _UNCALLED_SF)
 
 
 def _back_bias(assignment: list) -> int:
@@ -508,7 +541,7 @@ def _try_fill(players: list, slots: dict) -> list | None:
         )[:_CANDIDATES_PER_SLOT]
 
         best: tuple | None = None
-        best_score = (-1, -(10**9))
+        best_score = (-1, -1, -(10**9))
         for pid in candidates:
             sub = _solve(player_ids - {pid}, new_slots_t)
             if sub is None:
@@ -517,7 +550,10 @@ def _try_fill(players: list, slots: dict) -> list | None:
             here_bias = _back_bias_one(lookup[pid], pos_to_fill) + sum(
                 _back_bias_one(lookup[s_pid], slot) for s_pid, slot in sub
             )
-            score = (here_sf, here_bias)
+            here_fallback = _fallback_total(
+                [(lookup[pid], pos_to_fill)] + [(lookup[s], sl) for s, sl in sub]
+            )
+            score = (here_sf, here_fallback, here_bias)
             if score > best_score:
                 best_score = score
                 best = ((pid, pos_to_fill),) + sub
