@@ -40,7 +40,6 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | Lloros Awards render empty for 25-26 | The league settling how awards get maintained · [root cause and options](docs/technical/parked-work.md#lloros-awards) |
 | 👤 | Season 26-27 award sheets | You creating them and sharing the IDs |
-| 🔨 | Formation ties are settled by `FORMATIONS` list order, which has no meaning | A tiebreaker with a reason behind it |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 350 the right bar? | A few rounds of `log_promotions` read against real points |
 | ⏳ | What to do when JP and Biwenger disagree on availability | A season of `provider_watch` disagreements to count |
 | ⏳ | `nextMatch.status == "break"` has never been observed | The first international break — `provider_watch` logs the sighting |

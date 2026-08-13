@@ -798,3 +798,57 @@ def test_a_matched_player_is_not_reported_as_missing(caplog):
         provider_watch.observe(rows)
 
     assert "No Jornada Perfecta entry" not in caplog.text
+
+
+def test_playing_a_forward_in_midfield_is_worth_one_bonus_point():
+    """Biwenger pays more for a goal the further back it is scored: DEL 4,
+    MED 5. A DEL/MED covering midfield gains that difference."""
+    from packages.biwenger_tools.api.logic.lineup import _back_bias_one
+
+    assert _back_bias_one(_player(1, 400, FWD, (MID,)), MID) == 1
+
+
+def test_pushing_a_defender_into_midfield_costs_two():
+    """DEF 7 → MED 5. This is why moving one player back to make room by
+    moving another forward is usually a loss, not a wash."""
+    from packages.biwenger_tools.api.logic.lineup import _back_bias_one
+
+    assert _back_bias_one(_player(1, 400, DEF, (MID,)), MID) == -2
+
+
+def test_a_player_in_his_own_position_is_worth_nothing_either_way():
+    """The measure is displacement, not formation. Summing the slots' own
+    bonuses would always prefer five defenders even with nobody moved."""
+    from packages.biwenger_tools.api.logic.lineup import _back_bias_one
+
+    for pos in (GK, DEF, MID, FWD):
+        assert _back_bias_one(_player(1, 400, pos), pos) == 0
+
+
+def test_the_two_candidate_elevens_no_longer_tie():
+    """The squad that raised this: 5-4-1 and 4-6-0 projected the same 4326,
+    and under a direction-only bias both scored +1 — so the winner was
+    whichever came first in `FORMATIONS`, a list transcribed from the app in
+    no meaningful order.
+
+    Asserted on the bias itself rather than on the formation `pick_lineup`
+    returns: the old code also returned 5-4-1, by accident of list position,
+    so asserting the formation proves nothing about why.
+
+    Fielding Iván Romero in midfield gains 1 (DEL 4 → MED 5), but frees the
+    slot only by pushing Bretones out of defence, which costs 2 (DEF 7 → MED
+    5). The eleven that leaves both where they belong is worth more.
+    """
+    from packages.biwenger_tools.api.logic.lineup import _back_bias
+
+    romero = _player(10, 416, FWD, (MID,))
+    bretones = _player(6, 303, DEF, (MID,))
+    danjuma = _player(11, 197, FWD, (MID,), called=False)
+    keeper = _player(1, 405, GK)
+
+    as_5_4_1 = [(keeper, GK), (bretones, DEF), (romero, FWD), (danjuma, MID)]
+    as_4_6_0 = [(keeper, GK), (bretones, MID), (romero, MID), (danjuma, MID)]
+
+    assert _back_bias(as_5_4_1) == 1
+    assert _back_bias(as_4_6_0) == 0
+    assert _back_bias(as_5_4_1) > _back_bias(as_4_6_0)

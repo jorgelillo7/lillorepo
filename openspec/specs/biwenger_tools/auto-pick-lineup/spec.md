@@ -75,6 +75,38 @@ as unable to field a legal eleven.
   line than the candidate pool holds
 - *Verifies:* `test_every_formation_fields_exactly_eleven`
 
+### Requirement: ties are broken by what playing out of position is worth
+
+When two elevens project the same total SF, `_back_bias` SHALL decide between
+them with the **difference in Biwenger's goal bonus** for each player moved
+from his natural position — `GOAL_BONUS = {POR 10, DEF 7, MED 5, DEL 4}` — and
+not merely with the direction of the move.
+
+JP's SF is one number per player and does not model the slot bonus, so this is
+the only thing left to compare on. Direction alone made a gain and a loss
+cancel: a forward covering midfield gains 1, and the defender pushed out to
+free that slot loses 2. Two candidate elevens of a real squad therefore tied at
++1, and the winner fell through to the order of `FORMATIONS` — a list
+transcribed from the app, in no meaningful order.
+
+Deltas rather than the slots' own bonuses: summing those would score the
+*formation* instead of the placement, and would always prefer five defenders
+even with nobody out of position.
+
+#### Scenario: what a move is worth
+- **WHEN** a forward fills a midfield slot **THEN** it is worth +1
+- **WHEN** a defender is pushed into midfield **THEN** it costs -2
+- **WHEN** a player fills his own position **THEN** it is worth nothing
+- *Verifies:* `test_playing_a_forward_in_midfield_is_worth_one_bonus_point`,
+  `test_pushing_a_defender_into_midfield_costs_two`,
+  `test_a_player_in_his_own_position_is_worth_nothing_either_way`
+
+#### Scenario: the elevens that used to tie
+- **WHEN** one eleven moves only a forward back and the other also pushes a
+  defender forward to make room
+- **THEN** the first is strictly better, and no list order is consulted
+- *Verifies:* `test_the_two_candidate_elevens_no_longer_tie`
+
 ### Requirement: a full bench beats an empty slot
 
 `_pick_reserves` SHALL fill every bench slot the squad can fill, drawing from
