@@ -574,6 +574,22 @@ def _try_fill(players: list, slots: dict) -> list | None:
 # ---------------------------------------------------------------------------
 
 
+def _bench_rank(row: dict) -> tuple:
+    """How good a substitute is, most important first.
+
+    `_sf` alone left the bench deciding ties by squad order. A doubtful
+    forward projecting 63 and a fit one projecting 197 both floor to
+    `_UNCALLED_SF`, and the wrong one took the slot — the bench exists for
+    the day a starter does not play, so the substitute most likely to be
+    worth something is the whole point.
+
+    Versatility breaks what is left: Biwenger's auto-substitution replaces a
+    starter with a bench player who covers that position, so a DEL/MED
+    reaches two lines where a MED-only reaches one.
+    """
+    return (_sf(row), _fallback_rate(row), len(_positions(row)))
+
+
 def _pick_reserves(squad: list, starter_ids: set) -> list:
     """Pick up to 4 reserves in Biwenger's positional order: GK → DEF → MID → FWD.
 
@@ -593,7 +609,7 @@ def _pick_reserves(squad: list, starter_ids: set) -> list:
                 for r in bench_pool
                 if r["bw_id"] not in used_ids and slot_pos in _positions(r)
             ),
-            key=_sf,
+            key=_bench_rank,
             reverse=True,
         )
         if candidates:
