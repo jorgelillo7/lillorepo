@@ -75,6 +75,38 @@ as unable to field a legal eleven.
   line than the candidate pool holds
 - *Verifies:* `test_every_formation_fields_exactly_eleven`
 
+### Requirement: the better gamble starts
+
+When a slot can only go to players `_sf` has floored, `pick_lineup` SHALL
+prefer the one with the higher underlying projection, and SHALL rank that
+above the goal-bonus tiebreaker.
+
+The floor collapses every uncalled player below the threshold to the same
+`_UNCALLED_SF`, throwing away that one projects 316 and another 197. With the
+scores equal the decision fell to the bias, which favours whoever gains a
+bonus by dropping back — so a 197 who happened to be a forward beat a 316 who
+did not, and the squad's most expensive player watched from the bench.
+
+The two quantities are orders of magnitude apart: the bias is worth a point or
+two of goal bonus, the gap between fallbacks is hundreds of projected points.
+Ordering them the other way round is what produced the defect.
+
+A player who **cannot play at all** contributes nothing to this ranking. An
+injured 400 is not a better gamble than an uncalled 200 — nobody expects him
+on the pitch, and ranking him first would field him.
+
+#### Scenario: two fallbacks for one slot
+- **WHEN** a slot can only be filled by players scoring the floor
+- **THEN** the higher projection starts, even when the other gains bonus by
+  dropping back
+- *Verifies:* `test_between_two_fallbacks_the_better_projection_starts`,
+  `test_the_projection_gap_outranks_the_bonus_it_could_gain`
+
+#### Scenario: the unavailable are not gambles
+- **WHEN** an injured player projects higher than an uncalled one
+- **THEN** he still ranks last
+- *Verifies:* `test_an_injured_player_is_never_the_better_gamble`
+
 ### Requirement: ties are broken by what playing out of position is worth
 
 When two elevens project the same total SF, `_back_bias` SHALL decide between
