@@ -43,12 +43,19 @@ Orden: {order}
 
 
 def _upload(csv_path: str, url: str) -> str:
-    """Copy the CSV to the public bucket object the API reads."""
+    """Copy the CSV to the public bucket object the API reads.
+
+    No per-object ACL: the bucket has uniform bucket-level access, which
+    rejects them outright, and `allUsers` already holds `objectViewer` on the
+    bucket — so the upload is public the moment it lands. The call that used
+    to follow this one (`gsutil acl ch -u AllUsers:R`) fails with
+    `CommandException`, and with `check=True` it took the whole script down
+    after the CSV had already been copied.
+    """
     if not url.startswith("https://storage.googleapis.com/"):
         raise SystemExit(f"DRAFT_MARKET_CSV_URL is not a bucket URL: {url}")
     target = "gs://" + url[len("https://storage.googleapis.com/") :]
     subprocess.run(["gsutil", "cp", csv_path, target], check=True)
-    subprocess.run(["gsutil", "acl", "ch", "-u", "AllUsers:R", target], check=True)
     return target
 
 
