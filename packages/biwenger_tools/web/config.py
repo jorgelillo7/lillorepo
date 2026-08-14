@@ -78,5 +78,15 @@ ADMIN_PASSWORD = _FLASK_CFG.get("admin_password") or os.getenv("ADMIN_PASSWORD")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
+# --- League newspaper covers (Salseo) ---
+# The league publishes an occasional front page. They live in the same public
+# bucket as the cup graphics, named by the date printed on the masthead —
+# the edition numbers the generator prints are not consistent (it went from
+# "Año 1 Número 001" to "Año 2 Número 026" in six days), while the dates are.
+# An `index.json` alongside them carries date + headline, so publishing a new
+# one is two uploads and no deploy. The web only ever reads public URLs; it
+# holds no bucket credentials and cannot list.
+PERIODICO_BUCKET = os.getenv("PERIODICO_BUCKET", "biwenger")
+
 # --- Non-critical configuration (hardcoded defaults) ---
 MESSAGES_PER_PAGE = 7
