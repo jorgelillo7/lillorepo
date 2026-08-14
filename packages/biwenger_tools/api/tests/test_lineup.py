@@ -905,3 +905,59 @@ def test_an_injured_player_is_never_the_better_gamble():
     uncalled = _player(2, 200, MID, called=False)
     assert _fallback_rate(injured) == 0
     assert _fallback_rate(uncalled) == 200
+
+
+def test_the_bench_prefers_the_substitute_most_likely_to_be_worth_something():
+    """A doubtful forward projecting 63 and a fit one projecting 197 both
+    floor to `_UNCALLED_SF`, and the bench was choosing between them by squad
+    order — it picked the doubtful one on a real squad. The bench exists for
+    the day a starter does not play, so the slot goes to whoever has
+    something behind him.
+
+    Asserted on the slot, not on membership: with two bench places free both
+    players are benched either way, and only the order tells them apart.
+    """
+    squad = [
+        _player(1, 405, GK),
+        _player(2, 523, DEF),
+        _player(3, 433, DEF),
+        _player(4, 415, DEF),
+        _player(5, 409, DEF),
+        _player(6, 538, MID),
+        _player(7, 455, MID),
+        _player(8, 428, MID),
+        _player(9, 300, MID),
+        _player(10, 416, FWD),
+        _player(11, 380, FWD),
+        _player(12, 183, MID),  # takes the midfield bench slot on merit
+        _player(13, 63, FWD, (MID,), status="doubt", called=False),  # Rioja
+        _player(14, 197, FWD, (MID,), called=False),  # Danjuma
+    ]
+    result = pick_lineup(squad)
+    assert result is not None
+
+    _gk, _df, mid_sub, fwd_sub = result["reserves"]
+    assert mid_sub is not None and mid_sub["name"] == "P12"
+    assert fwd_sub is not None and fwd_sub["name"] == "P14"
+
+
+def test_a_versatile_substitute_covers_more_than_a_narrow_one():
+    """Biwenger's auto-substitution replaces a starter with a bench player
+    who covers that position, so a DEL/MED reaches two lines where a
+    MED-only reaches one. It is the last thing consulted, after the score
+    and the projection."""
+    from packages.biwenger_tools.api.logic.lineup import _bench_rank
+
+    versatile = _player(1, 200, FWD, (MID,), called=False)
+    narrow = _player(2, 200, FWD, called=False)
+    assert _bench_rank(versatile) > _bench_rank(narrow)
+
+
+def test_the_bench_never_outranks_a_player_who_is_actually_playing():
+    """Projection breaks ties among the floored; it must not lift one above
+    a substitute JP expects on the pitch."""
+    from packages.biwenger_tools.api.logic.lineup import _bench_rank
+
+    playing = _player(1, 183, MID)
+    floored = _player(2, 197, MID, called=False)
+    assert _bench_rank(playing) > _bench_rank(floored)

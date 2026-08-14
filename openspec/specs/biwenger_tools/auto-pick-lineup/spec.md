@@ -149,6 +149,27 @@ An empty slot scores -4; a player who does not play scores 0. Excluding the
 doubtful therefore costs points it cannot win back — and a postponed fixture or
 a late recovery turns the excluded player into points.
 
+The slot SHALL go to the substitute most likely to be worth something:
+highest `_sf`, then the projection behind a floored score, then how many
+positions he covers.
+
+Sorting on `_sf` alone left the bench deciding ties by squad order. On a real
+squad a doubtful forward projecting 63 took the place of a fit one projecting
+197 — both floored to `_UNCALLED_SF`, and the wrong one was first in the list.
+Versatility comes last because Biwenger's auto-substitution replaces a starter
+with a bench player who covers that position, so a DEL/MED reaches two lines
+where a MED-only reaches one.
+
+#### Scenario: two floored substitutes for one slot
+- **WHEN** a bench slot can only go to players scoring the floor
+- **THEN** the higher projection takes it, and a doubtful one does not
+- **WHEN** they also project the same **THEN** the one covering more
+  positions takes it
+- **WHEN** a substitute is expected to play at all **THEN** he outranks both
+- *Verifies:* `test_the_bench_prefers_the_substitute_most_likely_to_be_worth_something`,
+  `test_a_versatile_substitute_covers_more_than_a_narrow_one`,
+  `test_the_bench_never_outranks_a_player_who_is_actually_playing`
+
 #### Scenario: doubtful players still sit on the bench
 - **WHEN** the squad contains injured or unlisted players and bench slots remain
 - **THEN** they are benched rather than left out
