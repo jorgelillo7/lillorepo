@@ -141,7 +141,13 @@ def test_comunicados_general_exception(mock_count, client):
 
 @patch("packages.biwenger_tools.web.routes.season.repository.get_messages_by_category")
 def test_salseo_success(mock_get, client):
-    """Salseo renders datos + crónicas + clausulazos + tabla."""
+    """Salseo renders datos + crónicas, and reads nothing else.
+
+    It used to fetch clausulazos and the tabla de justicia as well and hand
+    them to a template that renders neither — they live on `/mercado`. Two
+    Firestore reads per visit went straight to the bin. This test patches
+    both so a reintroduction shows up as a call, not as a slower page.
+    """
 
     def _by_categoria(season, categoria):
         if categoria == "dato":
@@ -152,16 +158,16 @@ def test_salseo_success(mock_get, client):
 
     mock_get.side_effect = _by_categoria
     with patch(
-        "packages.biwenger_tools.web.routes.season.repository.get_clausulazos",
-        return_value=[],
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
-        return_value=[],
-    ):
+        "packages.biwenger_tools.web.routes.season.repository.get_clausulazos"
+    ) as mock_clausulazos, patch(
+        "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia"
+    ) as mock_tabla:
         response = client.get("/24-25/salseo")
     assert response.status_code == 200
     assert b"D1" in response.data
     assert b"CR1" in response.data
+    mock_clausulazos.assert_not_called()
+    mock_tabla.assert_not_called()
     # Comunicados must NOT leak into salseo
     assert b"cuerpo de C1" not in response.data
 
@@ -892,3 +898,41 @@ def test_reglamento_renders_every_chapter(client):
     # Both scoring tables are the reader's reference for how points work.
     assert "nota_sofascore" in body
     assert "puntuacion_personalizada" in body
+
+
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_messages_by_category",
+    return_value=[],
+)
+def test_nav_names_the_rulebook_by_its_name(mock_get, client):
+    """The entry pointed at `/reglamento` while reading "Fair Play" — the
+    least descriptive half of that page's own title. Someone looking for the
+    rules does not click Fair Play."""
+    response = client.get("/24-25/salseo")
+    assert b"Reglamento" in response.data
+    assert b"Fair Play" not in response.data
+
+
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_messages_by_category",
+    return_value=[],
+)
+def test_nav_separates_what_the_season_selector_governs(mock_get, client):
+    """Five entries are season-scoped and three are not, and the flat list
+    hid it: pick 24-25, click Palmarés, and the season is silently ignored.
+    Both layouts have to say so — the labels carry it on mobile, a hairline
+    on the desktop bar, which cannot stack."""
+    response = client.get("/24-25/salseo")
+    body = response.data.decode()
+
+    assert "Temporada 24-25" in body  # mobile group header
+    assert "La liga" in body  # mobile group header
+    # Ordering is checked inside the desktop bar alone: the mobile panel is
+    # emitted first, so a whole-document index finds its copies instead.
+    desktop = body[body.index("hidden md:flex") :]
+    assert 'class="self-center h-4 w-px' in desktop
+    assert (
+        desktop.index("Participación")
+        < desktop.index("h-4 w-px")
+        < desktop.index("Palmarés")
+    )
