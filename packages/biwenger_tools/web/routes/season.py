@@ -9,7 +9,10 @@ Data flow:
   Sheets — hand-edited by the user, not part of the Firestore data set.
 """
 
+import time
 from dataclasses import asdict
+
+import requests
 
 from flask import Blueprint, Response, g, jsonify, render_template, request
 
@@ -119,6 +122,48 @@ def comunicados_search_data(season: str) -> Response:
         return jsonify([]), 500
 
 
+# Front pages change a handful of times a season; the manifest is small and
+# public. Cached like the calendar feed so a burst of visits costs one fetch.
+_PORTADAS_CACHE_TTL_SECONDS = 600
+_portadas_cache: dict[str, tuple[float, list]] = {}
+
+
+def _fetch_portadas(season: str) -> list:
+    """Front pages for a season, newest first. Never raises.
+
+    Reads `periodico/{season}/index.json` from the public bucket — no
+    credentials, no listing permission, and no deploy when a new edition is
+    published. A missing or malformed manifest means the section simply does
+    not render: a league that has not published any is the normal case, and
+    is indistinguishable here from one whose manifest is briefly unreachable.
+    """
+    cached = _portadas_cache.get(season)
+    if cached and time.monotonic() - cached[0] < _PORTADAS_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    base = f"https://storage.googleapis.com/{config.PERIODICO_BUCKET}/periodico"
+    try:
+        response = requests.get(f"{base}/{season}/index.json", timeout=5)
+        response.raise_for_status()
+        entries = response.json()
+        portadas = [
+            {
+                "fecha": e["fecha"],
+                "titulo": e.get("titulo", ""),
+                "url": f"{base}/{season}/{e['fecha']}.jpg",
+            }
+            for e in entries
+            if e.get("fecha")
+        ]
+        portadas.sort(key=lambda e: e["fecha"], reverse=True)
+    except Exception:
+        logger.info("No front pages for this season.", extra={"season": season})
+        return []
+
+    _portadas_cache[season] = (time.monotonic(), portadas)
+    return portadas
+
+
 @bp.route("/<season>/salseo")
 def salseo(season: str) -> str:
     """Display datos curiosos + crónicas.
@@ -149,6 +194,7 @@ def salseo(season: str) -> str:
         "salseo.html",
         datos=datos_curiosos,
         cronicas=cronicas,
+        portadas=_fetch_portadas(season),
         error=error,
         active_page="salseo",
     )

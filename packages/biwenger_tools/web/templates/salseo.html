@@ -7,6 +7,30 @@
     <div class="card p-6 text-center text-red-500 rounded-xl mb-6">{{ error }}</div>
 {% endif %}
 
+{% if portadas %}
+<!-- Portadas del periódico de la liga.
+     A scroll strip on mobile and a grid on desktop: the covers are portrait
+     and tall, so stacking them full-width would push the tabs below the fold
+     on every visit. No JS — they are links to the full image. -->
+<section class="mb-6">
+    <h2 class="font-header text-lg font-bold text-gray-900 tracking-wide mb-3">🗞️ Portadas</h2>
+    <div class="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4
+                md:mx-0 md:px-0 md:overflow-visible md:grid md:grid-cols-4 md:gap-4">
+        {% for portada in portadas %}
+        <a href="{{ portada.url }}" target="_blank" rel="noopener"
+           class="card rounded-xl overflow-hidden flex-shrink-0 w-36 md:w-auto transition hover:shadow-md">
+            <img src="{{ portada.url }}" alt="Portada del {{ portada.fecha }}"
+                 loading="lazy" class="w-full aspect-[3/4] object-cover object-top bg-gray-100">
+            <div class="p-2">
+                <p class="text-xs font-semibold text-gray-900 leading-tight">{{ portada.titulo }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ portada.fecha }}</p>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <!-- Tabs -->
 <div class="flex gap-2 mb-6">
     <button id="btn-cronicas" onclick="setTab('cronicas')"

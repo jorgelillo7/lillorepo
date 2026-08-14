@@ -35,6 +35,26 @@ def mock_services():
     services.sheets_service = None
 
 
+@pytest.fixture(autouse=True)
+def no_network():
+    """No test may reach the network.
+
+    `/salseo` fetches the front-page manifest from the public bucket, and
+    `_fetch_portadas` swallows every failure — so a real call would make the
+    suite quietly depend on the internet and pass anyway, slower and
+    flakier. Tests that care about the manifest patch this themselves.
+    """
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes._portadas_cache.clear()
+    with patch(
+        "packages.biwenger_tools.web.routes.season.requests.get",
+        side_effect=AssertionError("a test reached the network"),
+    ):
+        yield
+    season_routes._portadas_cache.clear()
+
+
 @pytest.fixture
 def client():
     """Create a Flask test client."""
@@ -936,3 +956,54 @@ def test_nav_separates_what_the_season_selector_governs(mock_get, client):
         < desktop.index("h-4 w-px")
         < desktop.index("Palmarés")
     )
+
+
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_messages_by_category",
+    return_value=[],
+)
+@patch("packages.biwenger_tools.web.routes.season.requests.get")
+def test_salseo_shows_the_league_front_pages(mock_http, mock_get, client):
+    """Covers are named by the date printed on the masthead — the edition
+    numbers the generator prints are not consistent, the dates are. Newest
+    first, and the image URL is derived from the date so the manifest never
+    has to repeat it."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes._portadas_cache.clear()
+    mock_http.return_value = MagicMock(
+        status_code=200,
+        json=lambda: [
+            {"fecha": "2026-07-31", "titulo": "Hoy empieza el draft"},
+            {"fecha": "2026-08-14", "titulo": "Mañana empieza la guerra"},
+        ],
+    )
+    response = client.get("/24-25/salseo")
+    body = response.data.decode()
+
+    assert "Mañana empieza la guerra" in body
+    assert "periodico/24-25/2026-08-14.jpg" in body
+    # newest first, whatever order the manifest happens to be in
+    assert body.index("2026-08-14.jpg") < body.index("2026-07-31.jpg")
+    season_routes._portadas_cache.clear()
+
+
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_messages_by_category",
+    return_value=[],
+)
+@patch(
+    "packages.biwenger_tools.web.routes.season.requests.get",
+    side_effect=Exception("bucket unreachable"),
+)
+def test_salseo_survives_a_season_with_no_front_pages(mock_http, mock_get, client):
+    """A season nobody published for is the normal case, and reads exactly
+    like a manifest that is briefly unreachable. Neither may break the page:
+    the section just does not render."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes._portadas_cache.clear()
+    response = client.get("/24-25/salseo")
+    assert response.status_code == 200
+    assert "Portadas" not in response.data.decode()
+    season_routes._portadas_cache.clear()
