@@ -74,6 +74,7 @@
         <!-- Mobile menu panel -->
         <nav id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white divide-y divide-gray-100">
             <div class="px-2 py-2 space-y-0.5">
+                <p class="px-3 pt-1 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Temporada {{ season }}</p>
                 <a href="{{ url_for('season.comunicados', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'comunicados' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Comunicados</a>
@@ -89,12 +90,13 @@
                 <a href="{{ url_for('season.participacion', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'participacion' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Participación</a>
+                <p class="px-3 pt-3 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">La liga</p>
                 <a href="{{ url_for('main.palmares') }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'palmares' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Palmarés</a>
                 <a href="{{ url_for('main.reglamento') }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'reglamento' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
-                    Fair Play</a>
+                    Reglamento</a>
                 <a href="{{ url_for('main.calendario') }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'calendario' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Calendario</a>
@@ -131,10 +133,11 @@
                    class="nav-link {% if active_page == 'lloros_awards' %}active{% endif %}">Lloros Awards</a>
                 <a href="{{ url_for('season.participacion', season=season) }}"
                    class="nav-link {% if active_page == 'participacion' %}active{% endif %}">Participación</a>
+                <span class="self-center h-4 w-px bg-gray-200 mx-2 flex-shrink-0" aria-hidden="true"></span>
                 <a href="{{ url_for('main.palmares') }}"
                    class="nav-link {% if active_page == 'palmares' %}active{% endif %}">Palmarés</a>
                 <a href="{{ url_for('main.reglamento') }}"
-                   class="nav-link {% if active_page == 'reglamento' %}active{% endif %}">Fair Play</a>
+                   class="nav-link {% if active_page == 'reglamento' %}active{% endif %}">Reglamento</a>
                 <a href="{{ url_for('main.calendario') }}"
                    class="nav-link {% if active_page == 'calendario' %}active{% endif %}">Calendario</a>
             </nav>

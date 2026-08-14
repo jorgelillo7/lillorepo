@@ -121,16 +121,18 @@ def comunicados_search_data(season: str) -> Response:
 
 @bp.route("/<season>/salseo")
 def salseo(season: str) -> str:
-    """Display datos curiosos + crónicas + clausulazos + tabla de justicia.
+    """Display datos curiosos + crónicas.
 
     One Firestore query per content type — no full-collection scan.
+
+    Clausulazos and the tabla de justicia used to be read here too and handed
+    to a template that renders neither: they live on `/mercado`. Two reads per
+    visit went straight to the bin, with an error branch that could never
+    surface anything.
     """
     error = None
-    clausulazos_error = None
     datos_curiosos: list = []
     cronicas: list = []
-    clausulazos: list = []
-    tabla_justicia: list = []
     try:
         datos_curiosos = _sanitize_contenido(
             repository.get_messages_by_category(season, "dato")
@@ -143,21 +145,10 @@ def salseo(season: str) -> str:
         logger.exception(
             "Error loading salseo from Firestore.", extra={"season": season}
         )
-    try:
-        clausulazos = repository.get_clausulazos(season)
-        tabla_justicia = [asdict(e) for e in repository.get_tabla_justicia(season)]
-    except Exception:
-        clausulazos_error = "Error al cargar clausulazos."
-        logger.exception(
-            "Error loading clausulazos from Firestore.", extra={"season": season}
-        )
     return render_template(
         "salseo.html",
         datos=datos_curiosos,
         cronicas=cronicas,
-        clausulazos=clausulazos,
-        tabla_justicia=tabla_justicia,
-        clausulazos_error=clausulazos_error,
         error=error,
         active_page="salseo",
     )
