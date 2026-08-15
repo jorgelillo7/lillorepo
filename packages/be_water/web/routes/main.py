@@ -65,9 +65,17 @@ def recommend():
     results = (
         similarity.recommend(favorites, catalog, place) if place and favorites else []
     )
+    # The neighbour fallback is for a province the catalogue simply does not
+    # cover — Madrid, which has no bottled brand of its own. It must not fire
+    # merely because the scored list came back short, or a province whose only
+    # water is already a favorite gets told to look next door.
+    place_has_waters = bool(place) and any(
+        place.strip().lower() in (w.province.lower(), w.community.lower())
+        for w in catalog
+    )
     nearby = (
         similarity.recommend_nearby(favorites, catalog, place)
-        if place and favorites and not results
+        if place and favorites and not place_has_waters
         else []
     )
     return render_template(
@@ -133,7 +141,9 @@ def profile():
     catalog = repository.get_all_waters()
     favorites = repository.get_favorites(nickname, catalog) if nickname else []
     centroid = similarity.favorites_centroid(favorites)
-    traits = similarity.profile_traits(centroid, catalog) if centroid else []
+    # Mean to match against, median to describe with — see `favorites_profile`.
+    described = similarity.favorites_profile(favorites)
+    traits = similarity.profile_traits(described, catalog) if described else []
     matches = []
     if centroid:
         fav_ids = {w.id for w in favorites}
@@ -153,6 +163,7 @@ def profile():
         mineralization=(
             mineralization_label(centroid.get("tds")) if centroid else None
         ),
+        spread=similarity.mineralization_spread(favorites),
         matches=matches,
         meta_description=(
             "Tu perfil de agua: qué composición te gusta y qué aguas encajan "

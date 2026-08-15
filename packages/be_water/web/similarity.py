@@ -72,6 +72,42 @@ def favorites_centroid(favorites: list[Water]) -> Optional[dict]:
     return centroid
 
 
+def favorites_profile(favorites: list[Water]) -> Optional[dict]:
+    """Median mineral profile of the user's favorites.
+
+    The mean is what the recommender needs — a centre of mass to measure
+    distance from. It is the wrong thing to *describe* a taste with: one
+    unusual favorite drags it. A single strong water nearly tripled the
+    sulfate mean of a seven-water set (22 → 60 mg/L) and became the first
+    trait the profile page announced, describing that one bottle rather than
+    the six others.
+
+    The median says what a typical favorite looks like, which is the claim
+    the page is actually making.
+    """
+    if not favorites:
+        return None
+    profile: dict = {}
+    for field, _ in _VECTOR_FIELDS:
+        values = sorted(
+            w.minerals[field] for w in favorites if w.minerals.get(field) is not None
+        )
+        profile[field] = values[len(values) // 2] if values else None
+    return profile
+
+
+def mineralization_spread(favorites: list[Water]) -> Optional[tuple]:
+    """`(min, max)` dry residue across the favorites, or None.
+
+    The headline class comes from the mean and cannot move: with six waters
+    near 250 mg/L, even a seventh at 1400 leaves the average under the 500
+    boundary. True of the average, misleading about the collection — so the
+    page shows the range beside it.
+    """
+    values = [w.minerals["tds"] for w in favorites if w.minerals.get("tds") is not None]
+    return (min(values), max(values)) if values else None
+
+
 _TRAIT_LABELS = {
     "bicarbonates": ("rica en bicarbonatos", "baja en bicarbonatos"),
     "chlorides": ("con carácter salino", "casi sin cloruros"),
@@ -115,17 +151,20 @@ def recommend(
     top_n: int = 5,
 ) -> list[tuple[Water, float]]:
     """Waters from `place` (province or community), closest to the user's
-    favorites centroid. Excludes the favorites themselves."""
+    favorites centroid.
+
+    Favorites are **included**. This answers "what do I drink where I am",
+    and the most useful answer for a place whose only bottled water is
+    already yours is exactly that. Excluding them emptied the result for
+    La Rioja — whose single catalogue water is Peñaclara — and the neighbour
+    fallback then offered Zaragoza, as if the province had none.
+    """
     centroid = favorites_centroid(favorites)
     if centroid is None:
         return []
-    fav_ids = {w.id for w in favorites}
     place_lower = place.strip().lower()
     candidates = [
-        w
-        for w in catalog
-        if w.id not in fav_ids
-        and place_lower in (w.province.lower(), w.community.lower())
+        w for w in catalog if place_lower in (w.province.lower(), w.community.lower())
     ]
     scored = [(w, distance(centroid, w.minerals)) for w in candidates]
     scored = [(w, d) for w, d in scored if math.isfinite(d)]
