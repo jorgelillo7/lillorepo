@@ -166,3 +166,61 @@ def test_recommend_nearby_without_favorites_is_empty():
 def test_recommend_nearby_empty_when_place_has_no_neighbours():
     """An island province (no land border) yields no neighbour candidates."""
     assert recommend_nearby([SOLAN], [BEZOYA], place="Illes Balears") == []
+
+
+def test_a_place_whose_only_water_is_already_a_favorite_still_returns_it():
+    """ "Where am I drinking" is not "show me something new". La Rioja's only
+    catalogue water is Peñaclara; excluding favorites emptied the result and
+    the neighbour fallback then offered Zaragoza, as if the province had
+    none."""
+    penaclara = _water("penaclara", 649, province="La Rioja", community="La Rioja")
+    catalog = [penaclara, SOLAN, LIVIANA]
+
+    results = recommend([penaclara, SOLAN], catalog, "La Rioja")
+
+    assert [w.id for w, _ in results] == ["penaclara"]
+
+
+def test_favorites_profile_ignores_the_one_unusual_favorite():
+    """The mean is the centre of mass the recommender needs; it is the wrong
+    thing to describe a taste with. Six waters near 20 mg/L of sulfates and
+    one at 287 average to 60 — quadruple the catalogue median — and that one
+    bottle became the first trait the page announced."""
+    from packages.be_water.web.similarity import favorites_centroid, favorites_profile
+
+    favorites = [
+        Water(
+            id=str(i),
+            name=str(i),
+            brand="",
+            spring="",
+            province="",
+            community="",
+            minerals={"tds": 250, "sulfates": v},
+        )
+        for i, v in enumerate([9.3, 14.0, 21.3, 23.2, 25.0, 39.1, 287.0])
+    ]
+
+    assert favorites_centroid(favorites)["sulfates"] > 55  # dragged by the 287
+    assert favorites_profile(favorites)["sulfates"] == 23.2  # the typical one
+
+
+def test_the_spread_shows_what_the_headline_class_cannot():
+    """The class comes from the mean and one strong favorite cannot move it:
+    six near 250 plus one at 649 still averages 305, still `débil`. The range
+    is what says the collection is not uniform."""
+    from packages.be_water.web.similarity import mineralization_spread
+
+    favorites = [_water("a", 197), _water("b", 261), _water("c", 649)]
+
+    assert mineralization_spread(favorites) == (197, 649)
+    assert mineralization_label(sum([197, 261, 649]) / 3) == "débil"
+
+
+def test_the_spread_is_none_without_declared_values():
+    from packages.be_water.web.similarity import mineralization_spread
+
+    blank = Water(
+        id="x", name="x", brand="", spring="", province="", community="", minerals={}
+    )
+    assert mineralization_spread([blank]) is None

@@ -32,6 +32,12 @@
     <section class="max-w-2xl mx-auto bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl ring-1 ring-{{ tone }}-200/60 p-8 text-center mb-8">
         <p class="text-xs uppercase tracking-widest font-semibold text-{{ tone }}-600/70 mb-2">tu agua ideal es de</p>
         <p class="text-3xl sm:text-4xl font-extrabold text-{{ tone }}-800">mineralización {{ mineralization }}</p>
+        {% if spread and spread[0] != spread[1] %}
+        {# The class comes from the mean and cannot be moved by one unusual
+           favorite. True of the average, quiet about the collection — the
+           range says the rest. #}
+        <p class="mt-1 text-xs text-{{ tone }}-700/70">de {{ spread[0] | round | int }} a {{ spread[1] | round | int }} mg/L de residuo seco</p>
+        {% endif %}
         {% if traits %}
         <div class="mt-4 flex flex-wrap justify-center gap-2">
             {% for trait in traits %}
@@ -39,10 +45,17 @@
             {% endfor %}
         </div>
         {% endif %}
-        <p class="mt-5 text-xs text-slate-500">
-            según tus favoritas:
-            {% for w in favorites %}<a href="{{ url_for('water_detail', water_id=w.id) }}" class="font-semibold text-slate-600 hover:text-sky-700">{{ w.name }}</a>{{ " · " if not loop.last }}{% endfor %}
-        </p>
+        {# Every favorite keeps its own link — a "y N más" would drop them.
+           `details` bounds the height instead, and needs no JS. #}
+        <details class="mt-5 group" {% if favorites | length <= 8 %}open{% endif %}>
+            <summary class="text-xs text-slate-500 cursor-pointer list-none marker:content-none">
+                según tus {{ favorites | length }} favoritas
+                <span class="ml-1 text-slate-400 group-open:hidden">— ver todas</span>
+            </summary>
+            <p class="mt-2 text-xs text-slate-500 leading-relaxed">
+                {% for w in favorites %}<a href="{{ url_for('water_detail', water_id=w.id) }}" class="font-semibold text-slate-600 hover:text-sky-700">{{ w.name }}</a>{{ " · " if not loop.last }}{% endfor %}
+            </p>
+        </details>
         {% if favorites | length < 2 %}
         <p class="mt-2 text-[11px] text-slate-400">con 2-3 favoritas el perfil afina más 😉</p>
         {% endif %}
