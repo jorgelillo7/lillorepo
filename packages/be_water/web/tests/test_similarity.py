@@ -2,13 +2,22 @@
 
 from packages.be_water.web.domain import Water, mineralization_label
 from packages.be_water.web.similarity import (
+    by_mineralization,
     distance,
     favorites_centroid,
     profile_traits,
-    recommend,
-    recommend_nearby,
+    rank_by_centroid,
     similar_waters,
+    waters_in_place,
+    waters_near_place,
 )
+
+
+def _ranked(favorites, catalog, place):
+    """The region listing as the route builds it: filter, then rank."""
+    return rank_by_centroid(
+        waters_in_place(catalog, place), favorites_centroid(favorites)
+    )
 
 
 def _water(wid, tds, na=5, province="Cuenca", community="Castilla-La Mancha"):
@@ -57,24 +66,77 @@ def test_similar_waters_excludes_self_and_sorts():
     assert ids[0] == "liviana"
 
 
-def test_recommend_filters_by_place_and_ranks_by_centroid():
+def test_place_filter_then_centroid_ranking():
     """Favorites = Solán → in Girona the pick must be Ribes (weak-medium
     profile), never Vichy despite both being from Girona."""
     catalog = [SOLAN, LIVIANA, BEZOYA, VICHY, RIBES]
-    result = recommend([SOLAN], catalog, place="Girona")
-    ids = [w.id for w, _ in result]
+    ids = [w.id for w in _ranked([SOLAN], catalog, "Girona")]
     assert ids[0] == "ribes"
-    assert set(ids) <= {"ribes", "vichy"}  # only Girona waters
+    assert set(ids) == {"ribes", "vichy"}  # only Girona waters, all of them
 
 
-def test_recommend_matches_community_too():
+def test_place_matches_community_too():
     catalog = [SOLAN, LIVIANA, BEZOYA, VICHY, RIBES]
-    result = recommend([SOLAN], catalog, place="Cataluña")
-    assert [w.id for w, _ in result][0] == "ribes"
+    assert [w.id for w in _ranked([SOLAN], catalog, "Cataluña")][0] == "ribes"
 
 
-def test_recommend_without_favorites_is_empty():
-    assert recommend([], [SOLAN, RIBES], place="Girona") == []
+def test_place_matching_ignores_accents_and_case():
+    """A hand-typed or shared `?lugar=cadiz` must find Cádiz."""
+    cadiz = _water("penafiel", 300, province="Cádiz", community="Andalucía")
+    assert [w.id for w in waters_in_place([cadiz, SOLAN], "cadiz")] == ["penafiel"]
+    assert [w.id for w in waters_in_place([cadiz, SOLAN], "ANDALUCIA")] == ["penafiel"]
+
+
+def test_an_empty_place_matches_nothing():
+    """`place_key("")` equals a blank community field, so an unguarded filter
+    would answer an empty search with every water that has no community."""
+    homeless = Water(
+        id="neval", name="Neval", brand="", spring="", province="", community=""
+    )
+    assert waters_in_place([homeless, SOLAN], "") == []
+    assert waters_in_place([homeless, SOLAN], "   ") == []
+
+
+def test_the_region_listing_does_not_depend_on_who_asks():
+    """The invariant the whole page rests on: the two orders are permutations
+    of one another. Identity reorders a region, it never redraws it."""
+    catalog = [SOLAN, LIVIANA, BEZOYA, VICHY, RIBES]
+    region = waters_in_place(catalog, "Cataluña")
+    # A strong-water taste: Vichy leads for this visitor, Ribes leads for
+    # everyone else — same two waters either way.
+    personalized = rank_by_centroid(region, favorites_centroid([VICHY]))
+    neutral = by_mineralization(region)
+    assert {w.id for w in personalized} == {w.id for w in neutral}
+    assert [w.id for w in personalized] == ["vichy", "ribes"]
+    assert [w.id for w in neutral] == ["ribes", "vichy"]
+
+
+def test_neutral_order_is_weakest_first_with_unknown_tds_last():
+    unknown = Water(
+        id="sin-datos", name="Sin datos", brand="", spring="", province="", community=""
+    )
+    assert [w.id for w in by_mineralization([VICHY, unknown, BEZOYA, SOLAN])] == [
+        "bezoya",
+        "solan",
+        "vichy",
+        "sin-datos",
+    ]
+
+
+def test_a_water_too_sparse_to_rank_still_appears_last():
+    """Dropping it is right for "aguas parecidas" and wrong for a list that
+    claims to show a whole region."""
+    sparse = Water(
+        id="misteriosa",
+        name="Misteriosa",
+        brand="",
+        spring="",
+        province="Girona",
+        community="Cataluña",
+        minerals={"tds": 260},  # one field → incomparable with everyone
+    )
+    ids = [w.id for w in _ranked([SOLAN], [RIBES, sparse, VICHY], "Girona")]
+    assert ids == ["ribes", "vichy", "misteriosa"]
 
 
 def test_centroid_averages_fields():
@@ -139,33 +201,38 @@ def test_distance_normalizes_by_shared_coverage():
     assert distance(full, same_minus_one) < distance(full, different)
 
 
-# --- recommend_nearby (geo fallback, real adjacency) ------------------------
+# --- waters_near_place (real adjacency) -------------------------------------
 
 
-def test_recommend_nearby_pulls_from_adjacent_provinces():
-    """Madrid has no bottled water of its own → recommend from bordering
-    provinces. Segovia borders Madrid, so Bezoya (Segovia) is a candidate;
-    Girona does not border Madrid, so Vichy is excluded."""
+def test_nearby_pulls_from_adjacent_provinces():
+    """Madrid has no bottled water of its own. Segovia borders Madrid, so
+    Bezoya is a candidate; Girona does not, so Vichy is excluded."""
     catalog = [SOLAN, BEZOYA, VICHY]  # Cuenca, Segovia, Girona
-    result = recommend_nearby([SOLAN], catalog, place="Madrid")
-    ids = [w.id for w, _ in result]
+    ids = [w.id for w in waters_near_place(catalog, "Madrid")]
     assert "bezoya" in ids
     assert "vichy" not in ids
 
 
-def test_recommend_nearby_excludes_favorites():
-    """A neighbour water that is already a favourite is not recommended back."""
-    result = recommend_nearby([SOLAN, BEZOYA], [SOLAN, BEZOYA], place="Madrid")
-    assert all(w.id != "bezoya" for w, _ in result)
+def test_nearby_excludes_the_places_own_waters():
+    """The section answers "what else is around" — a Girona water is not
+    "near Girona", it is Girona."""
+    ids = [w.id for w in waters_near_place([RIBES, VICHY, SOLAN], "Girona")]
+    assert "ribes" not in ids and "vichy" not in ids
 
 
-def test_recommend_nearby_without_favorites_is_empty():
-    assert recommend_nearby([], [SOLAN, BEZOYA], place="Madrid") == []
-
-
-def test_recommend_nearby_empty_when_place_has_no_neighbours():
+def test_nearby_is_empty_when_the_place_has_no_neighbours():
     """An island province (no land border) yields no neighbour candidates."""
-    assert recommend_nearby([SOLAN], [BEZOYA], place="Illes Balears") == []
+    assert waters_near_place([BEZOYA], "Illes Balears") == []
+
+
+def test_nearby_works_for_a_community_not_only_a_province():
+    """`adjacent_provinces` returns [] for every community, which silently
+    emptied this section for half the selector. Segovia borders Madrid, so it
+    is a neighbour of Comunidad de Madrid too."""
+    catalog = [SOLAN, BEZOYA, VICHY]
+    ids = [w.id for w in waters_near_place(catalog, "Comunidad de Madrid")]
+    assert "bezoya" in ids
+    assert "vichy" not in ids
 
 
 def test_a_place_whose_only_water_is_already_a_favorite_still_returns_it():
@@ -176,9 +243,9 @@ def test_a_place_whose_only_water_is_already_a_favorite_still_returns_it():
     penaclara = _water("penaclara", 649, province="La Rioja", community="La Rioja")
     catalog = [penaclara, SOLAN, LIVIANA]
 
-    results = recommend([penaclara, SOLAN], catalog, "La Rioja")
-
-    assert [w.id for w, _ in results] == ["penaclara"]
+    assert [w.id for w in _ranked([penaclara, SOLAN], catalog, "La Rioja")] == [
+        "penaclara"
+    ]
 
 
 def test_favorites_profile_ignores_the_one_unusual_favorite():

@@ -1,5 +1,6 @@
 """Route smoke tests with the repository patched (no Firestore)."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -139,7 +140,9 @@ def test_favorite_without_login_is_noop(client):
     mock_toggle.assert_not_called()
 
 
-def test_recommend_needs_place_and_favorites(client):
+def test_recommend_without_a_place_offers_the_selector_and_a_cta(client):
+    """No place chosen yet: the invitation to log in is all there is to show,
+    but it is a call to action, not a wall — nothing was searched."""
     with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         resp = client.get("/recomendar")
     assert resp.status_code == 200
@@ -156,6 +159,102 @@ def test_recommend_with_favorites(client):
         resp = client.get("/recomendar?lugar=Segovia")
     assert resp.status_code == 200
     assert "Bezoya" in resp.get_data(as_text=True)
+
+
+# --- /recomendar is public: the place decides the set, identity the order ----
+
+
+def _search(client, query, *, favorites=None, catalog=None):
+    catalog = _catalog() if catalog is None else catalog
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.get_favorites", return_value=favorites or []
+    ):
+        return client.get(f"/recomendar?{query}").get_data(as_text=True)
+
+
+def _listed(body: str) -> list[str]:
+    """The water ids the page rendered, in order — every card is a link to
+    its ficha."""
+    return re.findall(r'href="/agua/([^"]+)"', body)
+
+
+def test_an_anonymous_visitor_gets_the_waters_not_a_login_wall(client):
+    """The catalogue is public on / and /agua/<id>; a region search answered
+    with "entra con tu nick" was the page contradicting the rest of the site.
+    """
+    body = _search(client, "lugar=Cuenca")
+    assert "Solán de Cabras" in body
+    # The CTA survives, below the results — never instead of them.
+    assert body.index("Solán de Cabras") < body.index("Entra con tu nick")
+
+
+def test_a_registered_visitor_without_favorites_sees_the_same_set(client):
+    """Signing in without marking anything must not change what a region
+    holds — it was the second of the three dead ends this page had."""
+    anonymous = _listed(_search(client, "lugar=Castilla y León"))
+    _login(client)  # the session persists on this client from here on
+    registered = _listed(_search(client, "lugar=Castilla y León"))
+    assert anonymous == registered != []
+    assert "Según tus favoritas" not in _search(client, "lugar=Castilla y León")
+
+
+def test_favorites_personalize_the_order_and_perfil_0_opts_out(client):
+    """Same waters both ways — that invariant is what makes the toggle
+    honest."""
+    catalog = _catalog()
+    _login(client)
+    personalized = _search(client, "lugar=Castilla y León", favorites=[catalog[0]])
+    neutral = _search(client, "lugar=Castilla y León&perfil=0", favorites=[catalog[0]])
+    assert "Según tus favoritas" in personalized
+    assert "Según tus favoritas" not in neutral
+    assert set(_listed(personalized)) == set(_listed(neutral)) != set()
+
+
+def test_a_place_with_no_waters_and_no_neighbours_invites_the_first(client):
+    body = _search(client, "lugar=Illes Balears")
+    assert "¿añades tú la primera?" in body
+    assert "Cerca de" not in body  # absent, not an empty heading
+
+
+def test_a_hand_typed_unaccented_place_still_finds_its_waters(client):
+    """Unreachable from the dropdown, reachable from a shared link."""
+    catalog = _catalog() + [
+        Water(
+            id="fuensanta",
+            name="Fuensanta",
+            brand="Fuensanta",
+            spring="",
+            province="Cádiz",
+            community="Andalucía",
+            minerals={"tds": 200, "sodium": 4, "calcium": 40},
+        )
+    ]
+    assert "Fuensanta" in _search(client, "lugar=cadiz", catalog=catalog)
+
+
+def test_a_community_search_offers_its_neighbours(client):
+    """`adjacent_provinces` returns [] for a community, so this section was
+    empty for half the selector. Segovia (Bezoya) borders Madrid."""
+    body = _search(client, "lugar=Comunidad de Madrid")
+    assert "Bezoya" in body
+    # Madrid has no water of its own, so this is the empty-region wording
+    # specifically — an `or` across both branches could not tell them apart.
+    assert "provincias vecinas" in body
+
+
+def test_the_selector_offers_every_community(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/recomendar").get_data(as_text=True)
+    for community in ("Comunidad de Madrid", "Región de Murcia", "Canarias"):
+        assert f'value="{community}"' in body
+
+
+def test_sitemap_lists_place_pages_percent_encoded(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/sitemap.xml").get_data(as_text=True)
+    assert "/recomendar?lugar=Cuenca" in body
+    # Accented and spaced names must survive as a valid URL in valid XML.
+    assert "/recomendar?lugar=Castilla%20y%20Le%C3%B3n" in body
 
 
 def test_login_rejected_without_csrf(client):
@@ -220,8 +319,8 @@ def test_absurd_mineral_values_are_dropped(client):
     assert saved.minerals == {"tds": 250.0}
 
 
-def test_recommend_falls_back_to_bordering_provinces(client):
-    """Madrid has no catalog waters: neighbors' waters are offered instead."""
+def test_recommend_offers_bordering_provinces_when_the_place_has_none(client):
+    """Madrid has no catalog waters: neighbors' waters are the answer."""
     catalog = _catalog()  # Cuenca + Segovia — both border Madrid
     with patch(f"{_REPO}.touch_user"):
         client.post("/login", data={"nickname": "jorge"})
@@ -232,6 +331,26 @@ def test_recommend_falls_back_to_bordering_provinces(client):
     body = resp.get_data(as_text=True)
     assert "provincias vecinas" in body
     assert "Bezoya" in body  # Segovia water, only non-favorite candidate
+
+
+def test_nearby_is_offered_even_when_the_place_has_its_own_waters(client):
+    """It used to fire only when the region was empty, so the "region +
+    nearby" promise was invisible unless you searched Madrid."""
+    catalog = _catalog() + [
+        Water(
+            id="alhama",
+            name="Alhama",
+            brand="Alhama",
+            spring="",
+            province="Guadalajara",  # borders Segovia
+            community="Castilla-La Mancha",
+            minerals={"tds": 300, "sodium": 6, "calcium": 50},
+        )
+    ]
+    body = _search(client, "lugar=Segovia", catalog=catalog)
+    assert "Bezoya" in body  # the region itself
+    assert "Alhama" in body  # a neighbour, offered alongside — not instead
+    assert "Cerca de" in body
 
 
 def test_places_selector_offers_waterless_provinces(client):
