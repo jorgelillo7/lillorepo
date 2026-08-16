@@ -2,13 +2,8 @@
 
 {% block title %}{{ water.name }} · Be Water{% endblock %}
 
-{% block og_extra %}
-{% if water.photo_url %}
-<meta property="og:image" content="{{ water.photo_url }}">
-<meta name="twitter:card" content="summary_large_image">
-{% else %}
-<meta name="twitter:card" content="summary">
-{% endif %}
+{% block structured_data %}
+<script type="application/ld+json">{{ structured_data | tojson }}</script>
 {% endblock %}
 
 {% block content %}
@@ -20,6 +15,10 @@
 <nav class="text-sm text-slate-400 mb-4" aria-label="breadcrumb">
     <a href="{{ url_for('index') }}" class="hover:text-sky-600">Catálogo</a>
     <span class="mx-1">/</span>
+    {% if water.province %}
+    <a href="{{ url_for('recommend', lugar=water.province) }}" class="hover:text-sky-600">{{ water.province }}</a>
+    <span class="mx-1">/</span>
+    {% endif %}
     <span class="text-slate-600">{{ water.name }}</span>
 </nav>
 

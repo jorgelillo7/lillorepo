@@ -21,6 +21,7 @@ from packages.be_water.web import (
     config,
     helpers,
     repository,
+    seo,
     similarity,
 )
 from packages.be_water.web.domain import mineralization_label
@@ -33,6 +34,8 @@ def index():
         waters=catalog,
         places=helpers.places(catalog),
         favorite_ids=helpers.favorite_ids(),
+        structured_data=seo.site(helpers.base_url()),
+        og_image=seo.first_photo(catalog),
         meta_description=(
             "Catálogo abierto de aguas minerales españolas: composición, "
             "procedencia y aguas parecidas a la tuya estés donde estés."
@@ -46,11 +49,19 @@ def water_detail(water_id: str):
     if water is None:
         abort(404)
     similar = similarity.similar_waters(water, catalog, top_n=3)
+    home = helpers.base_url()
     return render_template(
         "water.html",
         water=water,
         similar=similar,
         favorite_ids=helpers.favorite_ids(),
+        og_image=water.photo_url,
+        structured_data=seo.water_page(
+            water,
+            url=f"{home}/agua/{water.id}",
+            home_url=home,
+            place_url=f"{home}/recomendar?lugar={quote(water.province)}",
+        ),
         meta_description=(
             f"{water.name} ({water.province}): residuo seco "
             f"{water.tds or '?'} mg/L, mineralización {water.mineralization}. "
@@ -99,6 +110,17 @@ def recommend():
         favorite_ids=fav_ids,
         page_title=(f"Aguas minerales de {place}" if place else "Estoy de viaje"),
         meta_description=_recommend_description(place, region, nearby),
+        og_image=seo.first_photo(region, nearby),
+        structured_data=(
+            seo.place_page(
+                place,
+                region,
+                url=f"{helpers.base_url()}/recomendar?lugar={quote(place)}",
+                home_url=helpers.base_url(),
+            )
+            if place and region
+            else None
+        ),
     )
 
 
@@ -230,20 +252,35 @@ def version():
 
 
 def robots():
-    return Response("User-agent: *\nAllow: /\n", mimetype="text/plain")
+    # The Sitemap line is how a crawler finds the file without being told:
+    # /robots.txt is the one URL every crawler fetches unprompted.
+    body = f"User-agent: *\nAllow: /\n\nSitemap: {helpers.base_url()}/sitemap.xml\n"
+    return Response(body, mimetype="text/plain")
 
 
 def sitemap():
-    base = config.BASE_URL or request.url_root.rstrip("/")
+    base = helpers.base_url()
     catalog = repository.get_all_waters()
-    urls = [f"{base}/", f"{base}/recomendar", f"{base}/comunidad", f"{base}/acerca"]
-    urls += [f"{base}/agua/{w.id}" for w in catalog]
+    # (url, lastmod) — lastmod only where a real date exists. Inventing one
+    # for every page on every request teaches a crawler to ignore the field.
+    urls = [
+        (f"{base}/", ""),
+        (f"{base}/recomendar", ""),
+        (f"{base}/comunidad", ""),
+        (f"{base}/acerca", ""),
+    ]
+    urls += [(f"{base}/agua/{w.id}", (w.added_at or "")[:10]) for w in catalog]
     # Place pages serve real content to an anonymous crawler now, so they are
     # worth indexing. Only places the catalogue actually covers: a page whose
     # answer is "we know of none here" is not one to invite Google to.
     places = sorted({w.province for w in catalog} | {w.community for w in catalog})
-    urls += [f"{base}/recomendar?lugar={quote(place)}" for place in places if place]
-    body = "".join(f"<url><loc>{escape(u)}</loc></url>" for u in urls)
+    urls += [(f"{base}/recomendar?lugar={quote(p)}", "") for p in places if p]
+    body = "".join(
+        f"<url><loc>{escape(u)}</loc>"
+        + (f"<lastmod>{escape(mod)}</lastmod>" if mod else "")
+        + "</url>"
+        for u, mod in urls
+    )
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
