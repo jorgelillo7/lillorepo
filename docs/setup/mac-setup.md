@@ -245,8 +245,8 @@ brew install --cask the-unarchiver
 # granola (automatic AI meeting notes — https://www.granola.ai)
 brew install --cask granola
 
-# caffeine (prevents Mac from sleeping)
-brew install --cask caffeine
+# byobu (keeps a session alive across disconnects — see long-running-sessions.md)
+brew install byobu
 
 # telegram
 brew install --cask telegram
@@ -282,6 +282,7 @@ mkdir -p ~/.local/bin
 
 ## AI Tools
 
+- Surviving long agent runs (byobu + caffeinate): [long-running-sessions.md](long-running-sessions.md)
 - AI agent setup: [ai/claude-code-setup.md](ai/claude-code-setup.md)
 - Token reduction proxy: [ai/rtk-setup.md](ai/rtk-setup.md)
 - Pi coding agent: [ai/pi-setup.md](ai/pi-setup.md)

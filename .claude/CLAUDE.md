@@ -40,6 +40,7 @@ unindexed skill is one nobody remembers exists.
 | Skill | When |
 |---|---|
 | `add-python-dep` | Adding a PyPI dependency — keeps the five dependency layers in sync. |
+| `audit-mac-tools` | Audit the machine's toolchain — what is stale, what is abandoned, what only looks stale. |
 | `check-deps` | Snapshot the pinned versions (Bazel, Python, modules, Actions). |
 | `docs-audit` | Hunt broken links and drifted cross-references across every doc. |
 | `openspec-backfill` | Write the `openspec/` spec for code that already ships without one. |
