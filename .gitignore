@@ -28,6 +28,9 @@ photo_audit.json
 bazel-*
 # Session-scoped Claude plans (see CLAUDE.md → ## Plans)
 .claude/plans/
+# Machine audit reports: an inventory of installed software and its versions
+# is reconnaissance, and this repo is public. Owner's eyes only.
+.claude/skills/audit-mac-tools/reports/
 # Draft skill Phase-B output — the skill's own .gitignore only covers its
 # directory, but the generator writes to the repo root by default.
 mi-*.md

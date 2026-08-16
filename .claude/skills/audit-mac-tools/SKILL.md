@@ -1,21 +1,34 @@
 ---
 name: audit-mac-tools
-description: Audit the Mac's developer toolchain — what is installed, what is genuinely stale, what is abandoned upstream and should be replaced. Separates the tools this repo actually builds with from everything else, and filters the false positives `brew outdated --greedy` produces for self-updating apps.
+description: Audit the Mac's developer toolchain — what is installed, what is genuinely stale, what is abandoned upstream and should be replaced — then suggest tools worth adopting based on what is already there. Writes a dated report to reports/ and filters the false positives `brew outdated --greedy` produces for self-updating apps.
 model-invocable: false
 allowed-tools:
   - Bash
   - WebFetch
   - WebSearch
   - Read
+  - Write
 ---
 
 # Goal
 
 Tell the user which of their installed tools are actually out of date, which
-are abandoned and want replacing, and which look stale but are not.
+are abandoned and want replacing, which look stale but are not — and what is
+worth adopting given how they already work.
 
 This is the machine-level counterpart to `check-deps`, which audits what the
-*project* pins. Nothing here touches the repo.
+*project* pins. Nothing here touches the repo's own dependencies.
+
+# Where the report goes, and why it is git-ignored
+
+Write the report to `reports/YYYY-MM-DD.md` **inside this skill's directory**.
+`reports/` is in `.gitignore` and must stay there.
+
+**lillorepo is a public repository.** A full inventory of installed software
+with versions is reconnaissance: it tells anyone reading exactly which
+outdated builds this machine runs. The report is for its owner, not for
+GitHub. If a future edit moves it somewhere tracked, that is a regression, not
+a tidy-up.
 
 # The trap this skill exists for
 
@@ -93,12 +106,53 @@ stronger signal than a version gap.
 - ⚫️ **Replace** — abandoned upstream; name the replacement.
 - 🟢 **Fine** — including "brew's record is stale, the app is current".
 
-# Step 5 — Output
+# Step 5 — Suggest what is worth adopting
+
+The audit answers "what is broken". This step answers "what is missing", and
+it is the part with actual judgement in it.
+
+**Derive suggestions from the inventory, not from a list of popular tools.**
+Read what is installed and infer how the user works, then propose the few
+things that fit that. Concretely, look for:
+
+- **A gap next to something already relied on.** They use `gh` heavily but
+  have no `git-delta`; they run Bazel but have no `bazel-watcher`. The
+  adjacency is the argument.
+- **A modern replacement for something being tolerated.** Not novelty for its
+  own sake — only when the replacement is meaningfully better *for their use*,
+  and say what specifically.
+- **Something the repo's own workflows imply.** If `docs/` or a runbook
+  describes doing a thing by hand that a tool automates, that is a real find.
+- **What they already tried and dropped.** A cask installed and never updated
+  since 2021 is a tool that did not stick. Do not re-recommend it.
+
+Rules for this section, because it is the easiest place to waste the user's
+time:
+
+- **Three suggestions maximum**, ranked. A long list is ignored wholesale.
+- Each one states: what it does, *why it fits this machine specifically*, the
+  install command, and the honest cost (another daemon, another config file,
+  another thing to keep updated).
+- **Confirm the tool is alive** before suggesting it — check the last release.
+  Recommending an abandoned tool in the same report that flags abandoned tools
+  is self-defeating.
+- If nothing genuinely fits, **say nothing fits**. "Your setup is complete for
+  what you do" is a valid and useful answer, and far better than padding.
+- Never suggest something that duplicates what is installed and working.
+
+# Step 6 — Output
+
+Write the report to `reports/YYYY-MM-DD.md` and summarise it in chat. Both
+carry the same four sections:
 
 1. **What is installed** — the toolchain versions, verbatim.
 2. **Findings** — grouped by the three buckets, 🔴 first, each with current →
    latest and a one-line reason.
 3. **The commands** — a copy-pasteable block for the 🔴 and 🟡 items only.
+4. **Worth adopting** — Step 5, or an explicit "nothing".
+
+Overwrite the day's file if it already exists; keep older dates, they are the
+history of what was stale when.
 
 # Rules
 
@@ -112,3 +166,5 @@ stronger signal than a version gap.
   `MODULE.bazel` / `.bazelversion` before calling a build tool stale — the
   version in CI is the one that matters.
 - Verify version claims. Never state "X is the latest" from memory; fetch it.
+- The report goes in `reports/` and nowhere else. It is git-ignored on
+  purpose — see the note at the top.
