@@ -1,5 +1,6 @@
 """Route smoke tests with the repository patched (no Firestore)."""
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -171,6 +172,12 @@ def _search(client, query, *, favorites=None, catalog=None):
         return client.get(f"/recomendar?{query}").get_data(as_text=True)
 
 
+def _listed(body: str) -> list[str]:
+    """The water ids the page rendered, in order — every card is a link to
+    its ficha."""
+    return re.findall(r'href="/agua/([^"]+)"', body)
+
+
 def test_an_anonymous_visitor_gets_the_waters_not_a_login_wall(client):
     """The catalogue is public on / and /agua/<id>; a region search answered
     with "entra con tu nick" was the page contradicting the rest of the site.
@@ -182,13 +189,13 @@ def test_an_anonymous_visitor_gets_the_waters_not_a_login_wall(client):
 
 
 def test_a_registered_visitor_without_favorites_sees_the_same_set(client):
-    _login(client)
-    anonymous = _search(client, "lugar=Cuenca")
-    with patch(f"{_REPO}.get_user", return_value={"nickname": "jorge"}):
-        registered = _search(client, "lugar=Cuenca")
-    assert "Solán de Cabras" in registered
-    assert ("Según tus favoritas" in anonymous) is False
-    assert ("Según tus favoritas" in registered) is False
+    """Signing in without marking anything must not change what a region
+    holds — it was the second of the three dead ends this page had."""
+    anonymous = _listed(_search(client, "lugar=Castilla y León"))
+    _login(client)  # the session persists on this client from here on
+    registered = _listed(_search(client, "lugar=Castilla y León"))
+    assert anonymous == registered != []
+    assert "Según tus favoritas" not in _search(client, "lugar=Castilla y León")
 
 
 def test_favorites_personalize_the_order_and_perfil_0_opts_out(client):
@@ -200,7 +207,7 @@ def test_favorites_personalize_the_order_and_perfil_0_opts_out(client):
     neutral = _search(client, "lugar=Castilla y León&perfil=0", favorites=[catalog[0]])
     assert "Según tus favoritas" in personalized
     assert "Según tus favoritas" not in neutral
-    assert "Bezoya" in personalized and "Bezoya" in neutral
+    assert set(_listed(personalized)) == set(_listed(neutral)) != set()
 
 
 def test_a_place_with_no_waters_and_no_neighbours_invites_the_first(client):
@@ -230,7 +237,9 @@ def test_a_community_search_offers_its_neighbours(client):
     empty for half the selector. Segovia (Bezoya) borders Madrid."""
     body = _search(client, "lugar=Comunidad de Madrid")
     assert "Bezoya" in body
-    assert "Cerca de" in body or "provincias vecinas" in body
+    # Madrid has no water of its own, so this is the empty-region wording
+    # specifically — an `or` across both branches could not tell them apart.
+    assert "provincias vecinas" in body
 
 
 def test_the_selector_offers_every_community(client):
