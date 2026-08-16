@@ -18,6 +18,14 @@ py_binary(
     deps = ["//packages/be_water/web:web_lib"],
 )
 
+# One-shot backfill of Water.community from the province. Dry-run by default.
+py_binary(
+    name = "backfill_communities",
+    srcs = ["backfill_communities.py"],
+    main = "backfill_communities.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)
+
 # Interactive data curation (local, uses ADC): verification sign-off now,
 # duplicate/anomaly review later. Reuses the web curation engine.
 py_binary(

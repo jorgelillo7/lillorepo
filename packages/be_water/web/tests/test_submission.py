@@ -79,6 +79,37 @@ def test_build_water_defaults_brand_to_name():
     assert water.added_at  # timestamp set
 
 
+def _submitted(form):
+    return submission.build_water(
+        form,
+        water_id="w",
+        name="Agua",
+        minerals={},
+        verified_fields=[],
+        photo_url=None,
+        label_photo_url=None,
+        added_by="jorge",
+    )
+
+
+def test_build_water_derives_the_community_from_the_province():
+    """A ficha with a province and no community is invisible to a
+    community-level place search — derive it rather than store the gap."""
+    water = _submitted({"province": "Valencia"})
+    assert water.community == "Comunidad Valenciana"
+
+
+def test_build_water_keeps_a_stated_community():
+    water = _submitted({"province": "Valencia", "community": "Cataluña"})
+    assert water.community == "Cataluña"
+
+
+def test_build_water_leaves_an_unknown_province_without_a_community():
+    """Nonsense in, empty out — never a raise, and never a guess."""
+    water = _submitted({"province": "Tatooine"})
+    assert water.community == ""
+
+
 # --- merge semantics --------------------------------------------------------
 
 
@@ -163,3 +194,22 @@ def test_finalize_does_not_verify_without_full_label_backing():
     submission.finalize_provenance(water, existing=None)
     assert water.verified is False
     assert water.sources["calcium"] == "manual"
+
+
+# --- the narrow write the backfill uses -------------------------------------
+
+
+def test_set_water_community_merges_instead_of_rewriting_the_doc():
+    """The backfill fills one field on documents it has not fully parsed —
+    a whole-document write would drop whatever `to_firestore` does not carry.
+    """
+    from unittest.mock import patch
+
+    from packages.be_water.web import repository
+
+    with patch("packages.be_water.web.repository.firestore") as fs:
+        repository.set_water_community("neval", "Castilla-La Mancha")
+
+    fs.set_document.assert_called_once_with(
+        repository.WATERS, "neval", {"community": "Castilla-La Mancha"}, merge=True
+    )

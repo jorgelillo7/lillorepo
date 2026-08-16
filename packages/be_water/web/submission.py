@@ -13,7 +13,7 @@ from typing import Mapping, Optional
 
 from unidecode import unidecode
 
-from packages.be_water.web import provenance
+from packages.be_water.web import geo, provenance
 from packages.be_water.web.domain import MINERAL_FIELDS, Water
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -99,13 +99,18 @@ def build_water(
     added_by: str,
 ) -> Water:
     """The submitted water before any merge with an existing doc."""
+    province = form_field(form, "province")
     return Water(
         id=water_id,
         name=name,
         brand=form_field(form, "brand") or name,
         spring=form_field(form, "spring"),
-        province=form_field(form, "province"),
-        community=form_field(form, "community"),
+        province=province,
+        # Derived when the form leaves it blank: the place search matches
+        # province *or* community, so a water with only a province is
+        # invisible to a community search. An unknown province yields "",
+        # same as before.
+        community=form_field(form, "community") or geo.community_of(province),
         sparkling=form.get("sparkling") == "on",
         minerals=minerals,
         photo_url=photo_url,
