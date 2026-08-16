@@ -105,6 +105,7 @@ py_library(
     srcs = [
         "web/__init__.py",
         "web/csrf.py",
+        "web/proxy.py",
         "web/ratelimit.py",
     ],
     deps = [

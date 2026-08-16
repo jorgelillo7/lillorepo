@@ -1124,3 +1124,75 @@ def test_seo_plumbing(client):
     assert sitemap.status_code == 200
     assert b"/agua/solan-de-cabras" in sitemap.data
     assert health.get_json()["status"] == "ok"
+
+
+# --- SEO: what a crawler is handed ------------------------------------------
+
+
+def test_robots_points_at_the_sitemap(client):
+    """/robots.txt is the one URL every crawler fetches unprompted, so it is
+    where the sitemap has to be announced."""
+    body = client.get("/robots.txt").get_data(as_text=True)
+    assert "Sitemap: http://localhost/sitemap.xml" in body
+
+
+def test_absolute_urls_follow_the_forwarded_scheme(client):
+    """Cloud Run terminates TLS and forwards the scheme. Without honouring it
+    the sitemap advertised 82 http:// URLs that each answered a 302."""
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get(
+            "/sitemap.xml", headers={"X-Forwarded-Proto": "https"}
+        ).get_data(as_text=True)
+    assert "https://localhost/agua/solan-de-cabras" in body
+    assert "http://localhost" not in body
+
+
+def test_sitemap_dates_only_what_it_knows(client):
+    catalog = _catalog()
+    catalog[0].added_at = "2026-03-04T10:00:00+00:00"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        body = client.get("/sitemap.xml").get_data(as_text=True)
+    assert "<lastmod>2026-03-04</lastmod>" in body
+    # The static pages carry no date rather than today's — a lastmod that
+    # changes on every fetch is one a crawler learns to ignore.
+    assert body.count("<lastmod>") == 1
+
+
+def test_canonical_drops_the_parameters_that_only_reorder(client):
+    """`?perfil=0` returns the same waters in another order. Left canonical,
+    it would compete with the plain URL for the same content."""
+    body = _search(client, "lugar=Cuenca&perfil=0")
+    assert (
+        '<link rel="canonical" href="http://localhost/recomendar?lugar=Cuenca">' in body
+    )
+    assert "perfil" not in body.split("</head>")[0]
+
+
+def test_every_public_page_declares_a_canonical_and_an_og_url(client):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        for path in ("/", "/agua/bezoya", "/recomendar?lugar=Cuenca", "/acerca"):
+            head = client.get(path).get_data(as_text=True).split("</head>")[0]
+            assert 'rel="canonical"' in head, path
+            assert 'property="og:url"' in head, path
+            assert 'property="og:site_name"' in head, path
+
+
+def test_a_ficha_serves_valid_json_ld(client):
+    import json
+
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+    blob = re.search(
+        r'<script type="application/ld\+json">(.*?)</script>', body, re.S
+    ).group(1)
+    graph = json.loads(blob)["@graph"]  # parses, or the page ships broken markup
+    assert graph[0]["@type"] == "Product" and graph[0]["name"] == "Bezoya"
+    assert graph[1]["@type"] == "BreadcrumbList"
+
+
+def test_a_shared_place_link_previews_a_real_bottle(client):
+    catalog = _catalog()
+    catalog[0].photo_url = "https://cdn.example/solan.jpg"
+    body = _search(client, "lugar=Cuenca", catalog=catalog)
+    assert '<meta property="og:image" content="https://cdn.example/solan.jpg">' in body
+    assert "summary_large_image" in body

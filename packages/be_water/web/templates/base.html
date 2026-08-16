@@ -6,12 +6,22 @@
     <title>{% block title %}Be Water — encuentra tu agua{% endblock %}</title>
     <meta name="description" content="{{ meta_description | default('Catálogo abierto de aguas minerales españolas: composición, procedencia y recomendaciones.') }}">
     <meta name="theme-color" content="#0ea5e9">
+    <link rel="canonical" href="{{ canonical_url() }}">
     <meta property="og:title" content="{{ self.title() }}">
     <meta property="og:description" content="{{ meta_description | default('Encuentra tu agua estés donde estés.') }}">
     <meta property="og:type" content="website">
-    {% block og_extra %}
+    <meta property="og:url" content="{{ canonical_url() }}">
+    <meta property="og:site_name" content="Be Water">
+    <meta property="og:locale" content="es_ES">
+    {# The route passes the photo its page is actually about, so a shared
+       link previews real content instead of nothing. #}
+    {% if og_image %}
+    <meta property="og:image" content="{{ og_image }}">
+    <meta name="twitter:card" content="summary_large_image">
+    {% else %}
     <meta name="twitter:card" content="summary">
-    {% endblock %}
+    {% endif %}
+    {% block structured_data %}{% endblock %}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💧</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">

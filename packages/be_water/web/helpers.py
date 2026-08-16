@@ -3,6 +3,7 @@ routes. Kept app-free (no Flask app import) so the `routes/` modules can share
 them without a circular import."""
 
 import re
+from urllib.parse import urlencode
 
 from flask import request, session
 
@@ -53,6 +54,33 @@ def places(catalog: list[Water]) -> list[str]:
     return sorted(p for p in names if p)
 
 
+# Parameters that reorder or filter a page without changing what it is about.
+# A canonical URL drops them so the variants consolidate into one indexed page.
+_NON_CANONICAL_ARGS = {"perfil", "periodo"}
+
+
+def base_url() -> str:
+    """Absolute site root, no trailing slash.
+
+    `BASE_URL` when a public domain is configured; otherwise whatever the
+    request came in on — correct only because `trust_proxy` makes Flask read
+    Cloud Run's `X-Forwarded-Proto`, without which this yields `http://`.
+    """
+    return config.BASE_URL or request.url_root.rstrip("/")
+
+
+def canonical_url() -> str:
+    """Absolute URL of the current page, minus the parameters that only
+    reorder it."""
+    query = {
+        key: value
+        for key, value in request.args.items()
+        if key not in _NON_CANONICAL_ARGS and value
+    }
+    suffix = f"?{urlencode(query)}" if query else ""
+    return f"{base_url()}{request.path}{suffix}"
+
+
 def favorite_ids() -> set[str]:
     nickname = session.get("nickname")
     if not nickname:
@@ -65,6 +93,7 @@ def context_data() -> dict:
     """Template globals injected on every render (registered as a context
     processor by `app.py`)."""
     return {
+        "canonical_url": canonical_url,
         "nickname": session.get("nickname"),
         "google_email": session.get("google_email"),
         "google_client_id": config.GOOGLE_CLIENT_ID,

@@ -2,6 +2,10 @@
 
 {% block title %}Be Water — encuentra tu agua{% endblock %}
 
+{% block structured_data %}
+{% if structured_data %}<script type="application/ld+json">{{ structured_data | tojson }}</script>{% endif %}
+{% endblock %}
+
 {% block content %}
 <header class="text-center mb-8 sm:mb-10">
     <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900">
