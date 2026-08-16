@@ -194,3 +194,22 @@ def test_finalize_does_not_verify_without_full_label_backing():
     submission.finalize_provenance(water, existing=None)
     assert water.verified is False
     assert water.sources["calcium"] == "manual"
+
+
+# --- the narrow write the backfill uses -------------------------------------
+
+
+def test_set_water_community_merges_instead_of_rewriting_the_doc():
+    """The backfill fills one field on documents it has not fully parsed —
+    a whole-document write would drop whatever `to_firestore` does not carry.
+    """
+    from unittest.mock import patch
+
+    from packages.be_water.web import repository
+
+    with patch("packages.be_water.web.repository.firestore") as fs:
+        repository.set_water_community("neval", "Castilla-La Mancha")
+
+    fs.set_document.assert_called_once_with(
+        repository.WATERS, "neval", {"community": "Castilla-La Mancha"}, merge=True
+    )
