@@ -47,6 +47,10 @@ Before you start, make sure you have the following installed:
     gcloud auth configure-docker europe-southwest1-docker.pkg.dev
   ```
 
+Full machine setup lives in [`setup/mac-setup.md`](setup/mac-setup.md). If you
+run long Claude Code sessions, [`setup/long-running-sessions.md`](setup/long-running-sessions.md)
+covers keeping them alive across a dropped connection or an idle Mac.
+
 **Important note:** Bazel manages all Python dependencies hermetically — no venv is needed to run, test, or build. A venv is only required for `pip-tools` (used to regenerate the lock file) and for IDE integration (linting, autocomplete).
 
   ```bash
