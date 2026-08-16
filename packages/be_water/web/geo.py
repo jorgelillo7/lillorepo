@@ -163,6 +163,8 @@ _COMMUNITY_PROVINCES = {
     "Región de Murcia": ["Murcia"],
 }
 
+ALL_COMMUNITIES = sorted(_COMMUNITY_PROVINCES)
+
 # Older sources (the AESAN PDF included) use pre-normalization spellings.
 _PROVINCE_ALIASES = {
     "la coruna": "A Coruña",
@@ -178,29 +180,65 @@ _PROVINCE_ALIASES = {
 }
 
 
-def _key(name: str) -> str:
-    return unidecode(name).strip().lower()
+def place_key(name: str) -> str:
+    """Normalised form a place is compared by: accent- and case-insensitive.
+
+    The single normalisation for the whole app — `similarity` and the routes
+    import this instead of lowercasing on their own, which is how `?lugar=cadiz`
+    used to miss Cádiz on one code path and hit it on another.
+    """
+    return unidecode(name or "").strip().lower()
 
 
 _PROVINCE_COMMUNITY = {
-    _key(province): community
+    place_key(province): community
     for community, provinces in _COMMUNITY_PROVINCES.items()
     for province in provinces
 }
 for _alias, _canonical in _PROVINCE_ALIASES.items():
-    _PROVINCE_COMMUNITY[_alias] = _PROVINCE_COMMUNITY[_key(_canonical)]
+    _PROVINCE_COMMUNITY[_alias] = _PROVINCE_COMMUNITY[place_key(_canonical)]
 
 
 def community_of(province: str) -> str:
     """Autonomous community of a province, alias/accent tolerant; '' when
     unknown."""
-    return _PROVINCE_COMMUNITY.get(_key(province), "")
+    return _PROVINCE_COMMUNITY.get(place_key(province), "")
 
 
-_INDEX = {_key(p): neighbors for p, neighbors in PROVINCE_ADJACENCY.items()}
+_INDEX = {place_key(p): neighbors for p, neighbors in PROVINCE_ADJACENCY.items()}
+
+_COMMUNITY_INDEX = {
+    place_key(c): provinces for c, provinces in _COMMUNITY_PROVINCES.items()
+}
 
 
 def adjacent_provinces(place: str) -> list[str]:
     """Bordering provinces of `place` (accent-insensitive); [] when the
     place is unknown, an island, or a community rather than a province."""
-    return list(_INDEX.get(_key(place), []))
+    return list(_INDEX.get(place_key(place), []))
+
+
+def provinces_of(community: str) -> list[str]:
+    """Provinces making up `community`; [] when it is not a community."""
+    return list(_COMMUNITY_INDEX.get(place_key(community), []))
+
+
+def adjacent_places(place: str) -> list[str]:
+    """Bordering provinces of `place`, whether it names a province or a
+    community.
+
+    A community's neighbours are the union of its provinces' neighbours minus
+    its own — `adjacent_provinces` alone returns [] for every community, which
+    silently emptied the "nearby" section for half the selector.
+    """
+    own = provinces_of(place)
+    if not own:
+        return adjacent_provinces(place)
+    own_keys = {place_key(p) for p in own}
+    neighbors = {
+        n
+        for province in own
+        for n in adjacent_provinces(province)
+        if place_key(n) not in own_keys
+    }
+    return sorted(neighbors)

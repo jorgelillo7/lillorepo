@@ -8,8 +8,6 @@ TDS weighs double — it is the one-number summary of a water's character.
 import math
 from typing import Optional
 
-from unidecode import unidecode
-
 from packages.be_water.web import geo
 from packages.be_water.web.domain import Water
 
@@ -144,56 +142,63 @@ def profile_traits(centroid: dict, catalog: list[Water], top_n: int = 3) -> list
     return [label for _, label in deviations[:top_n]]
 
 
-def recommend(
-    favorites: list[Water],
-    catalog: list[Water],
-    place: str,
-    top_n: int = 5,
-) -> list[tuple[Water, float]]:
-    """Waters from `place` (province or community), closest to the user's
-    favorites centroid.
+def waters_in_place(catalog: list[Water], place: str) -> list[Water]:
+    """Every catalog water from `place`, matched against province or community.
 
-    Favorites are **included**. This answers "what do I drink where I am",
-    and the most useful answer for a place whose only bottled water is
-    already yours is exactly that. Excluding them emptied the result for
-    La Rioja — whose single catalogue water is Peñaclara — and the neighbour
-    fallback then offered Zaragoza, as if the province had none.
+    A pure filter: no favourites, no scoring, no cap. What a region holds does
+    not depend on who is asking — identity reorders this list, it never
+    changes it.
+
+    An empty `place` yields nothing. It would otherwise match every water
+    whose community is blank, since `place_key("")` equals a missing field.
     """
-    centroid = favorites_centroid(favorites)
-    if centroid is None:
+    key = geo.place_key(place)
+    if not key:
         return []
-    place_lower = place.strip().lower()
-    candidates = [
-        w for w in catalog if place_lower in (w.province.lower(), w.community.lower())
-    ]
-    scored = [(w, distance(centroid, w.minerals)) for w in candidates]
-    scored = [(w, d) for w, d in scored if math.isfinite(d)]
-    scored.sort(key=lambda t: t[1])
-    return scored[:top_n]
-
-
-def recommend_nearby(
-    favorites: list[Water],
-    catalog: list[Water],
-    place: str,
-    top_n: int = 5,
-) -> list[tuple[Water, float]]:
-    """Fallback when `place` itself has no catalog waters: same scoring over
-    candidates from bordering provinces (Madrid is the canonical case — no
-    big bottled brand of its own)."""
-    centroid = favorites_centroid(favorites)
-    if centroid is None:
-        return []
-    neighbor_keys = {unidecode(n).lower() for n in geo.adjacent_provinces(place)}
-    if not neighbor_keys:
-        return []
-    fav_ids = {w.id for w in favorites}
-    candidates = [
+    return [
         w
         for w in catalog
-        if w.id not in fav_ids and unidecode(w.province).lower() in neighbor_keys
+        if key in (geo.place_key(w.province), geo.place_key(w.community))
     ]
-    scored = [(w, distance(centroid, w.minerals)) for w in candidates]
-    scored = [(w, d) for w, d in scored if math.isfinite(d)]
-    scored.sort(key=lambda t: t[1])
-    return scored[:top_n]
+
+
+def waters_near_place(catalog: list[Water], place: str) -> list[Water]:
+    """Waters from the provinces bordering `place`, excluding the place's own.
+
+    "What else is around" — so unlike `waters_in_place`, a water of the
+    searched region never appears here, and the caller drops the favourites
+    on top of that.
+    """
+    neighbor_keys = {geo.place_key(n) for n in geo.adjacent_places(place)}
+    if not neighbor_keys:
+        return []
+    own = {w.id for w in waters_in_place(catalog, place)}
+    return [
+        w
+        for w in catalog
+        if w.id not in own and geo.place_key(w.province) in neighbor_keys
+    ]
+
+
+def by_mineralization(waters: list[Water]) -> list[Water]:
+    """Neutral order: ascending dry residue, undeclared TDS last, name to break
+    ties so the page does not reshuffle between requests.
+
+    `None` and a float do not compare, so "last" has to be its own leading
+    term rather than a sentinel value.
+    """
+    return sorted(waters, key=lambda w: (w.tds is None, w.tds or 0, w.name))
+
+
+def rank_by_centroid(waters: list[Water], centroid: dict) -> list[Water]:
+    """`waters` closest-first to a favourites centroid.
+
+    Waters too sparse to compare (`inf` distance) are appended in neutral
+    order rather than dropped: this ranks a list that claims to be a whole
+    region, and a region's water disappearing from it is a worse answer than
+    an unranked one.
+    """
+    scored = [(w, distance(centroid, w.minerals)) for w in waters]
+    comparable = sorted((t for t in scored if math.isfinite(t[1])), key=lambda t: t[1])
+    incomparable = by_mineralization([w for w, d in scored if not math.isfinite(d)])
+    return [w for w, _ in comparable] + incomparable

@@ -1,0 +1,6 @@
+{# The nearby-waters grid. Expects: nearby (list[Water]), favorite_ids (set) #}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+    {% for w in nearby %}
+        {% include "_water_card.html" %}
+    {% endfor %}
+</div>

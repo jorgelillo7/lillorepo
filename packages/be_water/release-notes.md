@@ -2,6 +2,17 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.6 - Everyone Gets an Answer (16 August 2026)**
+
+`/recomendar` asked where you are, let you pick a region, kept the selection in the URL — and then answered with a login prompt. The search visibly happened and produced nothing. Three different visitors hit three different dead ends, and only one of them ever saw a water. One rule replaces all three: **the region decides the set, identity only decides the order.**
+
+* **🗺️ The region listing is public**: pick Valencia and you get the waters of Valencia, session or no session, favourites or none. The catalogue was already open on the home page and on every `/agua/<id>`; the one page that asks where you are was the one page that refused to say. The login card survives as a call to action *below* the results, where it reads as an offer rather than a toll.
+* **🎚️ Según mi perfil / Todas**: with favourites, the listing is ordered by how close each water sits to your mineral profile; `?perfil=0` — the **Todas** toggle — falls back to weakest-first. Two links, no JavaScript. Both orders return **the same waters**, and nothing is truncated: that invariant is the whole point, and it also retires a quiet lie, since nine of the twelve covered communities hold five waters or fewer and the old "top 5" was often the entire region wearing a recommendation's label.
+* **🧭 Nearby, for communities too, and always**: bordering provinces used to be a fallback that fired only when a region had *no* waters at all — invisible unless you searched Madrid. It is now offered alongside the region, and it works for communities, which previously got no neighbours at all because the adjacency map only knew provinces. That was half the entries in the selector. The section is *absent*, not empty, for Baleares and Canarias.
+* **💧 No water disappears from its own region**: a water with fewer than three comparable minerals used to be dropped from the results entirely. It now sorts last instead. A region's water vanishing from a list that claims to show the region is the bug, not the tidy output.
+* **🔍 Findable**: every province and community is in the selector now (Comunidad de Madrid, Región de Murcia and Canarias were missing), and each covered place is in the sitemap with its own title and description — pages Googlebot can finally read, since it crawls anonymously and used to receive the login prompt too.
+* **🏷️ Community filled on save**: a ficha added with a province and no community answered a *Valencia* search and vanished from a *Comunidad Valenciana* one. It is now derived from the province, with a backfill script that reports what it *cannot* resolve as loudly as what it fixed.
+
 ### **v1.5 - The Grown-Up Sprint (26 July 2026)**
 
 Be Water shipped four features in seven weeks and left its coverage — and its biggest file — behind. This release pays that debt: no new drops in the catalog, but the code around them is honest now. The composition-photo pipeline, always faked in tests, finally runs for real; the 677-line `app.py` monolith is gone; and every capability has a written contract.

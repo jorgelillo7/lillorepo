@@ -1,6 +1,8 @@
 """Public pages, favourites, and SEO/plumbing endpoints."""
 
 from datetime import datetime, timezone
+from urllib.parse import quote
+from xml.sax.saxutils import escape
 
 from flask import (
     Response,
@@ -58,39 +60,72 @@ def water_detail(water_id: str):
 
 
 def recommend():
+    """What to drink in a place. The listing is public: `lugar` decides the
+    set, identity only decides the order."""
     catalog = repository.get_all_waters()
     place = (request.args.get("lugar") or "").strip()
     nickname = session.get("nickname")
     favorites = repository.get_favorites(nickname, catalog) if nickname else []
-    results = (
-        similarity.recommend(favorites, catalog, place) if place and favorites else []
-    )
-    # The neighbour fallback is for a province the catalogue simply does not
-    # cover — Madrid, which has no bottled brand of its own. It must not fire
-    # merely because the scored list came back short, or a province whose only
-    # water is already a favorite gets told to look next door.
-    place_has_waters = bool(place) and any(
-        place.strip().lower() in (w.province.lower(), w.community.lower())
-        for w in catalog
-    )
-    nearby = (
-        similarity.recommend_nearby(favorites, catalog, place)
-        if place and favorites and not place_has_waters
-        else []
-    )
+    # Personalised by default for anyone with favourites; `?perfil=0` opts out.
+    # Written as an opt-out so a stray param in a shared URL degrades to the
+    # neutral view instead of needing a case of its own.
+    personalized = bool(favorites) and request.args.get("perfil") != "0"
+
+    region = similarity.waters_in_place(catalog, place)
+    fav_ids = {w.id for w in favorites}
+    # The region keeps your favourites — "what do I drink here" is best
+    # answered by your own water when it is from here. "What else is around"
+    # is not, so nearby drops them.
+    nearby = [
+        w for w in similarity.waters_near_place(catalog, place) if w.id not in fav_ids
+    ]
+
+    if personalized:
+        centroid = similarity.favorites_centroid(favorites)
+        region = similarity.rank_by_centroid(region, centroid)
+        nearby = similarity.rank_by_centroid(nearby, centroid)
+    else:
+        region = similarity.by_mineralization(region)
+        nearby = similarity.by_mineralization(nearby)
+
     return render_template(
         "recommend.html",
         places=helpers.places(catalog),
         place=place,
         favorites=favorites,
-        results=results,
+        personalized=personalized,
+        region=region,
         nearby=nearby,
-        favorite_ids={w.id for w in favorites},
-        meta_description=(
-            "Dinos dónde estás y te recomendamos aguas de la zona parecidas "
-            "a tus favoritas."
-        ),
+        favorite_ids=fav_ids,
+        page_title=(f"Aguas minerales de {place}" if place else "Estoy de viaje"),
+        meta_description=_recommend_description(place, region, nearby),
     )
+
+
+def _recommend_description(place: str, region: list, nearby: list) -> str:
+    """Per-place meta description — these URLs are in the sitemap, and a set of
+    pages sharing one description is a set of pages indexed as duplicates."""
+    if not place:
+        return (
+            "Dinos dónde estás y te decimos qué aguas minerales hay en la "
+            "zona, con su composición."
+        )
+    if len(region) == 1:
+        return (
+            f"{region[0].name}, el agua mineral de {place}: residuo seco, "
+            "composición y aguas parecidas."
+        )
+    if region:
+        return (
+            f"Las {len(region)} aguas minerales de {place}: residuo seco, "
+            "composición y cuál se parece más a tu gusto."
+        )
+    if nearby:
+        return (
+            f"No conocemos aguas embotelladas de {place}. Las "
+            f"{len(nearby)} más cercanas, con su composición."
+        )
+    return f"Aguas minerales de {place} en el catálogo abierto de Be Water."
 
 
 def community_page():
@@ -200,9 +235,15 @@ def robots():
 
 def sitemap():
     base = config.BASE_URL or request.url_root.rstrip("/")
+    catalog = repository.get_all_waters()
     urls = [f"{base}/", f"{base}/recomendar", f"{base}/comunidad", f"{base}/acerca"]
-    urls += [f"{base}/agua/{w.id}" for w in repository.get_all_waters()]
-    body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
+    urls += [f"{base}/agua/{w.id}" for w in catalog]
+    # Place pages serve real content to an anonymous crawler now, so they are
+    # worth indexing. Only places the catalogue actually covers: a page whose
+    # answer is "we know of none here" is not one to invite Google to.
+    places = sorted({w.province for w in catalog} | {w.community for w in catalog})
+    urls += [f"{base}/recomendar?lugar={quote(place)}" for place in places if place]
+    body = "".join(f"<url><loc>{escape(u)}</loc></url>" for u in urls)
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'

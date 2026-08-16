@@ -41,11 +41,15 @@ def client_ip() -> str:
 
 
 def places(catalog: list[Water]) -> list[str]:
-    """Every province plus the catalog's communities, for the '¿dónde estás?'
-    selector — provinces without waters resolve via the nearby-province
-    fallback."""
+    """Every province and every community, for the '¿dónde estás?' selector.
+
+    The full geography, not the part the catalogue happens to mention: a place
+    with no water of its own answers with its neighbours', and one with
+    neither invites you to add the first. Listing only the covered communities
+    hid Comunidad de Madrid, Región de Murcia and Canarias from the selector.
+    """
     names = {w.province for w in catalog} | {w.community for w in catalog}
-    names |= set(geo.ALL_PROVINCES)
+    names |= set(geo.ALL_PROVINCES) | set(geo.ALL_COMMUNITIES)
     return sorted(p for p in names if p)
 
 
