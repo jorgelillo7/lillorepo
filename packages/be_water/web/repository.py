@@ -43,6 +43,11 @@ def set_water_sources(water_id: str, sources: dict) -> None:
     firestore.set_document(WATERS, water_id, {"sources": sources}, merge=True)
 
 
+def set_water_community(water_id: str, community: str) -> None:
+    """Update only the community, leaving the rest of the doc untouched."""
+    firestore.set_document(WATERS, water_id, {"community": community}, merge=True)
+
+
 def delete_water(water_id: str) -> None:
     firestore.delete_document(WATERS, water_id)
     logger.info("Water deleted.", extra={"water_id": water_id})

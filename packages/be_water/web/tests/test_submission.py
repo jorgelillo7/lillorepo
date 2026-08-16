@@ -79,6 +79,37 @@ def test_build_water_defaults_brand_to_name():
     assert water.added_at  # timestamp set
 
 
+def _submitted(form):
+    return submission.build_water(
+        form,
+        water_id="w",
+        name="Agua",
+        minerals={},
+        verified_fields=[],
+        photo_url=None,
+        label_photo_url=None,
+        added_by="jorge",
+    )
+
+
+def test_build_water_derives_the_community_from_the_province():
+    """A ficha with a province and no community is invisible to a
+    community-level place search — derive it rather than store the gap."""
+    water = _submitted({"province": "Valencia"})
+    assert water.community == "Comunidad Valenciana"
+
+
+def test_build_water_keeps_a_stated_community():
+    water = _submitted({"province": "Valencia", "community": "Cataluña"})
+    assert water.community == "Cataluña"
+
+
+def test_build_water_leaves_an_unknown_province_without_a_community():
+    """Nonsense in, empty out — never a raise, and never a guess."""
+    water = _submitted({"province": "Tatooine"})
+    assert water.community == ""
+
+
 # --- merge semantics --------------------------------------------------------
 
 
