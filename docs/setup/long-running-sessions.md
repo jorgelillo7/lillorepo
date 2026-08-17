@@ -39,6 +39,62 @@ from.
 Running `byobu` locally and then SSH-ing out of it protects nothing: the work
 is happening on the far end, and that is where the session needs to survive.
 
+### Why this matters inside VS Code's terminal
+
+An agent started in VS Code's integrated terminal is a **child of VS Code**:
+
+```
+zsh → claude → zsh → Code Helper → Code
+```
+
+Quit VS Code — or upgrade it, which quits it — and the whole branch dies. It
+happened here: a `brew upgrade --cask visual-studio-code` killed the session
+running the upgrade, returning exit code 137 mid-command.
+
+`byobu` breaks that chain. tmux starts a **server detached from the terminal
+that launched it**, so the processes inside belong to the server rather than
+to VS Code. The editor can quit, crash or update, and reopening a terminal and
+typing `byobu` returns you to a session that never stopped.
+
+The narrower rule, which costs nothing: **never upgrade the app you are
+running inside.** Do it from a different terminal, or from within byobu.
+
+### The recipe, for the usual VS Code flow
+
+Open the repo in VS Code as always, then in the integrated terminal:
+
+```bash
+byobu new -A -s claude     # attach if it exists, create if it does not
+claude                     # then /rc, or whatever you normally do
+```
+
+`-A` is what makes it a single command worth memorising: the same line starts
+the session the first time and reattaches every time after, so there is no
+"did I already have one open?" branch to think about.
+
+When VS Code dies — crash, accidental quit, or an upgrade — reopen it, open a
+terminal, and run the exact same line. You land back in the session that never
+stopped.
+
+An alias is worth it. Pick your own name — just check it is free first, since
+the obvious short ones are taken (`cc` is the C compiler, `bc` the
+calculator):
+
+```bash
+type <name> || echo free
+echo "alias <name>='byobu new -A -s claude'" >> ~/.zshrc
+```
+
+**Detaching:** `F6`, or `Ctrl-a d` if the function keys are captured. VS Code
+and Claude Code both bind function keys, so `F2`–`F6` may not reach byobu from
+the integrated terminal. That only costs you byobu's tab management — the
+persistence, which is the whole point, does not depend on any keybinding. If
+the shortcuts get in the way rather than help:
+
+```bash
+byobu-keybindings          # toggles byobu's F-key bindings off
+```
+
 ### The shortcuts you will actually use
 
 | Key | Does |
