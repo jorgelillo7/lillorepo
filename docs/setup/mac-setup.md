@@ -1,288 +1,163 @@
-# Mac Setup — Full Configuration
+# Mac Setup
 
-> ⚠️ **Note for lillorepo:** this guide came from a corporate environment. The sections on Kubernetes clusters, Oracle DB, enterprise Jira and work email accounts do **not** apply here. Take what is relevant (Homebrew, shell, git, gcloud, Docker, AI tools) and ignore the rest.
+Getting a Mac ready to build, test and deploy lillorepo.
 
-Guide for setting up a new Mac with all team tools.
-
-> You can use the `/mac-setup` command in Claude Code to run the setup interactively and guided.
-> Reference files are in `docs/setup/`: `Brewfile`, `zshrc.template`, and `secrets.template`.
-
----
-
-## Before You Start
-
-### If you are coming from a previous Mac
-
-If you have access to the previous Mac, run the backup script first:
-
-```bash
-bash tools/backup-mac.sh backup
-```
-
-This copies to `private/mac-backup/` (git-ignored): secrets, tokens, Claude config, MCPs, Oracle tnsnames, and DBeaver connections. Take that directory to the new Mac (Google Drive, USB, etc.) along with the repo.
-
-On the new Mac, once you have the repo:
-
-```bash
-bash tools/backup-mac.sh restore
-```
-
-This restores: `.zshrc.secrets`, `github.pat`, `jira.pat`, `.mcp-atlassian.env`, `.mcp-atlassian-cloud.env`, `.mcp-slack.env`, `.claude/settings.json`, `.claude.json`, Claude memory, Oracle `tnsnames.ora`, and DBeaver `data-sources.json`.
-
-> **DBeaver passwords:** passwords are in the macOS Keychain and **are not portable**. Connections will appear but you will need to re-enter the password the first time you connect to each one.
-
-### If it is a completely new Mac (no backup)
-
-The minimum needed to start working:
-
-1. Install **Chrome** (required to authenticate with gcloud)
-2. Install **Slack** (to recover Jira/Atlassian tokens if not saved)
-3. Copy the repo to the Mac (Google Drive, clone with HTTPS if no SSH yet, etc.)
+> This guide used to carry a corporate environment's setup — Kubernetes, Oracle
+> DB, enterprise Jira, `sops`, Temurin — and pointed at reference files
+> (`Brewfile`, `zshrc.template`, `secrets.template`, `tools/backup-mac.sh`) that
+> never existed in this repo, so half its commands failed if you ran them. It is
+> now scoped to what this repo actually needs. The old content is in
+> `git log -- docs/setup/mac-setup.md` if you ever want it back.
 
 ---
 
-## Steps Requiring Manual Intervention
-
-These steps **cannot be automated** — you have to do them yourself in the terminal or browser:
+## Steps that cannot be automated
 
 | Step | Why it is manual |
 |------|-----------------|
-| `brew install --cask temurin@17` | Requires system password (interactive sudo) |
-| `brew install --cask zoom` | Uses pkg installer — requires interactive sudo |
 | Add SSH key to GitHub | Browser action (Settings → SSH keys) |
-| `gcloud auth login` | Opens browser for OAuth authentication |
-| `gh auth login` | Opens browser for OAuth authentication |
-| `jira init` | Requires your Jira token interactively |
-| Fill in `~/.zshrc.secrets` | Contains passwords/tokens — never automated |
+| `gcloud auth login` | Opens a browser for OAuth |
+| `gh auth login` | Opens a browser for OAuth |
+
+Everything else below is scriptable.
 
 ---
 
-## Homebrew
+## 1. Homebrew
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Add to PATH (Apple Silicon):
-
-```bash
 echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
 
----
-
-## Base Installation (brew bundle)
-
-The fastest way is to use the Brewfile:
+## 2. Everything else, in one command
 
 ```bash
 brew bundle --file=docs/setup/Brewfile --no-upgrade
 ```
 
-This installs everything except `temurin@17`, which you need to install manually:
+[`Brewfile`](Brewfile) holds what the repo needs and nothing personal. Check
+what is missing without installing anything:
 
 ```bash
-brew install --cask temurin@17
-# will ask for your password
+brew bundle check --file=docs/setup/Brewfile --verbose
 ```
 
-### Known quirks
+> **`google-cloud-sdk`:** if you already installed gcloud with Google's own
+> installer, skip that line — two copies on the `PATH` shadow each other and
+> the failure is confusing.
 
-**sops:** brew installs 3.12.x by default, which breaks the setup. After the bundle verify:
+## 3. git and SSH
 
-```bash
-sops --version
-```
-
-If it shows 3.12.x, do a manual downgrade (no versioned formula in brew):
-
-```bash
-brew uninstall sops
-curl -Lo /opt/homebrew/bin/sops \
-  https://github.com/getsops/sops/releases/download/v3.9.1/sops-v3.9.1.darwin.arm64
-chmod +x /opt/homebrew/bin/sops
-sops --version  # should say 3.9.1
-```
-
----
-
-## Keyboard and Mouse
-
-### System Preferences (System Settings)
-
-**Keyboard** (System Settings → Keyboard):
-
-- Key repeat rate: **Fast** (slider to maximum)
-- Delay until repeat: **Short** (slider to minimum)
-- Adjust brightness in low light: **ON**
-- Turn off backlight after inactivity: **Never**
-- Press 🌐 key to: **Show Emoji & Symbols**
-- Keyboard navigation: **ON** (moves focus between controls with Tab)
-
-**Mouse** (System Settings → Mouse):
-
-- Tracking speed: **Fast** (slider to maximum)
-- Natural scrolling: **ON**
-- Secondary click: **Click Right Side**
-- Smart zoom: **ON**
-
-### iTerm2: terminal key bindings
-
-Add in **iTerm2 → Settings → Keys → Key Bindings** (click `+`) with **Global** scope:
-
-| Shortcut | Action | Value | Effect |
-|----------|--------|-------|--------|
-| `⌥ ←` | Send Escape Sequence | `b` | Move cursor one word backward |
-| `⌥ →` | Send Escape Sequence | `f` | Move cursor one word forward |
-| `⌘ ⌫` | Send Hex Code | `0x15` | Delete from cursor to beginning of line |
-| `⌥ ⌫` | Send Hex Code | `0x17` | Delete previous word |
-
----
-
-## Shell Configuration
-
-```bash
-# Backup .zshrc if something already exists
-[ -f ~/.zshrc ] && cp ~/.zshrc ~/.zshrc.backup.$(date +%Y%m%d)
-
-# Generate from template (replace USERNAME and EMAIL)
-sed "s/{{USERNAME}}/$(whoami)/g; s/{{WORK_EMAIL}}/your.email@example.com/g" \
-  docs/setup/zshrc.template > ~/.zshrc
-```
-
-Verify no placeholders remain:
-
-```bash
-grep "{{" ~/.zshrc  # should return nothing
-```
-
-If you don't have a backup of `.zshrc.secrets`, create one from the template:
-
-```bash
-cp docs/setup/secrets.template ~/.zshrc.secrets
-chmod 600 ~/.zshrc.secrets
-# edit manually with your real tokens
-```
-
----
-
-## git + ssh
-
-New Mac = new SSH key. GitHub allows multiple keys per account.
+A new Mac means a new SSH key; GitHub accepts several per account.
 
 ```bash
 git config --global user.name "Your Name"
 git config --global user.email "your.email@example.com"
-git config --global init.defaultBranch main
 
-# generate new key
 ssh-keygen -t ed25519 -C "your.email@example.com"
-cat ~/.ssh/id_ed25519.pub | pbcopy
+pbcopy < ~/.ssh/id_ed25519.pub
 ```
 
-Paste the key in GitHub: **Settings → SSH and GPG keys → New SSH key**.
-
-Then register GitHub in known_hosts and verify:
+Paste it into **GitHub → Settings → SSH and GPG keys → New SSH key**, then:
 
 ```bash
 ssh-keyscan github.com >> ~/.ssh/known_hosts
-ssh -T git@github.com
-# should respond: Hi <user>! You've successfully authenticated...
-```
-
-```bash
+ssh -T git@github.com     # "Hi <user>! You've successfully authenticated"
 gh auth login
-# follow the prompts, opens the browser
 ```
 
----
+> Use brew's `git`, not Xcode's. Apple ships a build years behind — a fresh
+> machine reported `2.39.3 (Apple Git-146)`, from 2022.
 
-## Google Cloud
+## 4. Google Cloud
+
+This repo deploys to **two** projects. `biwenger-tools` is the default;
+`be_water` overrides it per service, so you do not need to switch.
 
 ```bash
-# authenticate (opens browser)
 gcloud auth login
-
-# install gke plugin
-gcloud components install gke-gcloud-auth-plugin --quiet
-
-# configure docker for artifact registry
-gcloud auth configure-docker europe-docker.pkg.dev
+gcloud config set project biwenger-tools
+gcloud auth configure-docker europe-southwest1-docker.pkg.dev
 ```
 
-> **Note:** if `gcloud` fails with "python3.9: No such file or directory", verify that `~/.zshrc` has `CLOUDSDK_PYTHON="/opt/homebrew/bin/python3"` (not python3.9).
+> If gcloud fails with "python3.9: No such file or directory", set
+> `CLOUDSDK_PYTHON="/opt/homebrew/bin/python3"` in `~/.zshrc`.
 
----
+## 5. Terminal tools worth wiring up
 
-## Docker (colima)
+Installed by the Brewfile, but each needs one step before it does anything.
+
+**fzf** — fuzzy `Ctrl-R`. The reason it pays off here is that this repo's daily
+commands are long and near-identical (`gcloud run services list --project …
+--region … --format=…`), and hunting for them with arrow keys is the tax.
 
 ```bash
-colima start
-docker ps  # verify
+$(brew --prefix)/opt/fzf/install    # adds one line to ~/.zshrc, rebinds ^R and ^T
 ```
 
----
-
-## Optional Tools
+**git-delta** — syntax-highlighted, word-level diffs. It hooks into git itself,
+so every `git diff`, `git show` and `git log -p` improves without changing how
+you invoke them.
 
 ```bash
-# intellij idea community (java)
-brew install --cask intellij-idea-ce
-
-# visual studio code
-brew install --cask visual-studio-code
-
-# bruno (api testing, postman alternative)
-brew install --cask bruno
-
-# dbeaver (universal sql client)
-brew install --cask dbeaver-community
-
-# the unarchiver (decompressor with more format support than native)
-brew install --cask the-unarchiver
-
-# granola (automatic AI meeting notes — https://www.granola.ai)
-brew install --cask granola
-
-# byobu (keeps a session alive across disconnects — see long-running-sessions.md)
-brew install byobu
-
-# telegram
-brew install --cask telegram
+git config --global core.pager delta
+git config --global interactive.diffFilter "delta --color-only"
+git config --global delta.navigate true
+git config --global delta.line-numbers true
+git config --global merge.conflictstyle zdiff3
 ```
 
-> **zoom:** requires interactive `sudo` (pkg installer), cannot be installed from brew bundle or unattended scripts. Install manually:
-> ```bash
-> brew install --cask zoom
-> ```
+**byobu** — keeps a long session alive across a dropped connection or a closed
+window. See [`long-running-sessions.md`](long-running-sessions.md), which also
+covers sleep.
 
----
+**ripgrep** — `rg` honours `.gitignore`, so it skips the `bazel-*` symlink farms
+that make `grep -r` slow and noisy here. Nothing to configure.
 
-## Final Verification
+## 6. Keeping the Mac awake
+
+Native, nothing to install:
 
 ```bash
-git --version && gh --version
-docker --version
+caffeinate -i byobu     # awake only while that command runs
+```
+
+`keepingyouawake` (in the Brewfile) is the menu-bar equivalent if you prefer
+clicking. **Do not install `caffeine`** — unmaintained and older than Apple
+Silicon. Full reasoning in [`long-running-sessions.md`](long-running-sessions.md).
+
+## 7. Secrets
+
+Nothing in this repo needs a secrets file to build or test. Production secrets
+live in Google Secret Manager; local runs read a per-module `.env` that is
+git-ignored. See [`../operations.md`](../operations.md) → Secrets Management.
+
+## 8. Verify
+
+```bash
+bazelisk --version          # launches the Bazel pinned in .bazelversion
+gh --version && git --version
 gcloud --version | head -1
-python3 --version
-[ -f ~/.zshrc.secrets ] && echo "zshrc.secrets OK" || echo "MISSING zshrc.secrets"
+docker --version
+bazel test //core:core_tests    # the real proof: a green suite
 ```
 
 ---
 
-## Directory Structure
+## Keeping it current
 
-```bash
-mkdir -p ~/Projects
-mkdir -p ~/.local/bin
-```
+Two skills audit versions, and they answer different questions:
 
----
+| Skill | Audits |
+|---|---|
+| `check-deps` | what the **repo** pins — Bazel, Python, modules, Actions |
+| `audit-mac-tools` | what the **machine** has installed |
 
-## AI Tools
+## AI tools
 
-- Surviving long agent runs (byobu + caffeinate): [long-running-sessions.md](long-running-sessions.md)
-- AI agent setup: [ai/claude-code-setup.md](ai/claude-code-setup.md)
-- Token reduction proxy: [ai/rtk-setup.md](ai/rtk-setup.md)
-- Pi coding agent: [ai/pi-setup.md](ai/pi-setup.md)
+- Surviving long agent runs: [`long-running-sessions.md`](long-running-sessions.md)
+- Claude Code setup: [`ai/claude-code-setup.md`](ai/claude-code-setup.md)
+- Token reduction proxy: [`ai/rtk-setup.md`](ai/rtk-setup.md)
+- Pi coding agent: [`ai/pi-setup.md`](ai/pi-setup.md)

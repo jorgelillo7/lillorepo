@@ -1,0 +1,42 @@
+# lillorepo — Brewfile
+#
+#   brew bundle --file=docs/setup/Brewfile --no-upgrade
+#
+# What a machine needs to build, test and deploy this repo, plus the terminal
+# tools the workflow leans on. Deliberately short: everything here is either
+# required or earns its place daily. Personal apps are not in scope.
+
+# --- Build and test -----------------------------------------------------
+# Bazel is never installed directly: bazelisk reads .bazelversion and fetches
+# the pinned release, so CI and this machine run the same Bazel.
+brew "bazelisk"
+brew "buildifier"     # BUILD/bzl formatter — the lint job runs it
+
+# --- Version control and GitHub -----------------------------------------
+brew "git"            # newer than Xcode's, which ships years behind
+brew "gh"             # the PR workflow lives here
+
+# --- Cloud ---------------------------------------------------------------
+cask "google-cloud-sdk"
+
+# --- Shell and search ----------------------------------------------------
+brew "jq"             # JSON in scripts; see the rtk truncation caveat in RTK.md
+brew "ripgrep"        # honours .gitignore, so it skips the bazel-* symlink farms
+brew "fzf"            # fuzzy Ctrl-R — run `$(brew --prefix)/opt/fzf/install` after
+brew "git-delta"      # readable diffs; needs the core.pager config, see mac-setup.md
+brew "byobu"          # keeps long agent sessions alive — long-running-sessions.md
+
+# --- Containers ----------------------------------------------------------
+# The deploy builds images through Bazel/rules_oci; a local daemon is only
+# needed to run or inspect them by hand.
+cask "docker-desktop"
+
+# --- Editors -------------------------------------------------------------
+cask "visual-studio-code"
+cask "iterm2"
+
+# --- Keeping the Mac awake ----------------------------------------------
+# Native `caffeinate -i` covers this with no install. KeepingYouAwake is the
+# menu-bar equivalent for people who would rather click. Do NOT add `caffeine`:
+# unmaintained, predates Apple Silicon.
+cask "keepingyouawake"
