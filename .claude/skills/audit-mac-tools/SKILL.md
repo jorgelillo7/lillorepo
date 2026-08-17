@@ -43,7 +43,7 @@ writing a guide about keeping long sessions alive.
 **Detect the host before touching any cask:**
 
 ```bash
-echo "$TERM_PROGRAM"          # vscode | iTerm.app | Apple_Terminal
+echo "$TERM_PROGRAM"          # vscode | iTerm.app | Apple_Terminal | tmux
 ps -o comm= -p $PPID          # walk up if unsure
 ```
 
@@ -52,11 +52,18 @@ ps -o comm= -p $PPID          # walk up if unsure
 | `vscode` | `visual-studio-code`, `cursor`, `windsurf` |
 | `iTerm.app` | `iterm2` |
 | `Apple_Terminal` | (Terminal.app is not a cask — safe) |
+| `tmux` | nothing — every cask is safe, host included |
 
-Exclude the host from every upgrade command, list it separately under **"do
-this yourself"**, and say why. If the user insists, tell them to run it from a
-different terminal app, or from inside `byobu` — tmux's server is detached
-from the terminal that started it, so the session survives the host quitting.
+`tmux` (which is what `byobu` reports) hides the real host and does not need to
+name it: the tmux server is detached from the terminal that started it, so the
+session outlives that terminal quitting. Upgrading the host app from here is
+safe and has been done — VS Code replaced under a live session that kept
+running. Do not read an unrecognised value as "never upgrade anything", or the
+one setup that removes the hazard becomes the most restricted one.
+
+Otherwise, exclude the host from every upgrade command, list it separately
+under **"do this yourself"**, and say why. If the user insists, tell them to
+run it from a different terminal app, or from inside `byobu`.
 
 The same applies to any app the session depends on: never upgrade the terminal
 emulator you are printing to.
@@ -225,8 +232,9 @@ history of what was stale when.
 
 # Rules
 
-- **Never upgrade the app hosting the session.** Check `TERM_PROGRAM` first.
-  Exit code 137 mid-audit is this rule being broken.
+- **Never upgrade the app hosting the session.** Check `TERM_PROGRAM` first;
+  `tmux` is the one value that lifts the rule. Exit code 137 mid-audit is this
+  rule being broken.
 - **Never report a `--greedy` cask without checking the bundle version.** That
   check is the entire value of this skill.
 - Never bundle `[dev]` and `[personal]` upgrades into one command.
