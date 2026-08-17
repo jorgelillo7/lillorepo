@@ -30,6 +30,37 @@ outdated builds this machine runs. The report is for its owner, not for
 GitHub. If a future edit moves it somewhere tracked, that is a regression, not
 a tidy-up.
 
+# NEVER upgrade the app hosting this session
+
+Upgrading an app quits it. If that app is the one the agent is running inside,
+the upgrade kills the session mid-command — the tool call comes back as exit
+code 137 and everything after it is lost.
+
+This has happened. A session running in VS Code's integrated terminal ran
+`brew upgrade --cask visual-studio-code` and killed itself, one turn after
+writing a guide about keeping long sessions alive.
+
+**Detect the host before touching any cask:**
+
+```bash
+echo "$TERM_PROGRAM"          # vscode | iTerm.app | Apple_Terminal
+ps -o comm= -p $PPID          # walk up if unsure
+```
+
+| `TERM_PROGRAM` | Never upgrade |
+|---|---|
+| `vscode` | `visual-studio-code`, `cursor`, `windsurf` |
+| `iTerm.app` | `iterm2` |
+| `Apple_Terminal` | (Terminal.app is not a cask — safe) |
+
+Exclude the host from every upgrade command, list it separately under **"do
+this yourself"**, and say why. If the user insists, tell them to run it from a
+different terminal app, or from inside `byobu` — tmux's server is detached
+from the terminal that started it, so the session survives the host quitting.
+
+The same applies to any app the session depends on: never upgrade the terminal
+emulator you are printing to.
+
 # The trap this skill exists for
 
 **`brew outdated --cask --greedy` lies.** Homebrew only knows the version it
@@ -70,20 +101,44 @@ python3 --version; git --version; claude --version
 gcloud --version | head -3
 ```
 
-# Step 2 — Split into three groups
+# Step 2 — Split into groups, and keep dev separate from the rest
 
-Order the report by what breaks if it is wrong, not alphabetically.
+Order the report by what breaks if it is wrong, not alphabetically. Tag every
+item **`[dev]`** or **`[personal]`** and never mix them in one command: the
+first group affects whether this repo builds, the second is housekeeping the
+user may not want touched at all.
 
-1. **Toolchain this repo depends on** — `bazelisk`, `buildifier`, `gh`,
-   `gcloud`, `python3`, `git`, `claude`. A stale one here costs build time or
-   CI parity.
-2. **System libraries with a security surface** — `ca-certificates`, `openssl`,
-   `curl`, `libpng`/`libtiff`/`freetype` and friends. `ca-certificates` is the
-   one that bites hardest and quietest: a stale bundle makes HTTPS calls fail
-   with `CERTIFICATE_VERIFY_FAILED` against perfectly valid sites, and the
-   error blames the site.
-3. **Everything else** — apps. Mostly noise; report only the genuinely stale
-   ones after the bundle-version check above.
+1. **`[dev]` Toolchain this repo depends on** — `bazelisk`, `buildifier`,
+   `gh`, `gcloud`, `python3`, `git`, `claude`, plus the terminal tools the
+   workflow leans on (`fzf`, `git-delta`, `ripgrep`, `byobu`, `jq`). A stale
+   one here costs build time or CI parity.
+2. **`[dev]` System libraries with a security surface** — `ca-certificates`,
+   `openssl`, `curl`, `libpng`/`libtiff`/`freetype` and friends.
+   `ca-certificates` is the one that bites hardest and quietest: a stale
+   bundle makes HTTPS calls fail with `CERTIFICATE_VERIFY_FAILED` against
+   perfectly valid sites, and the error blames the site.
+3. **`[personal]` Everything else** — media players, chat clients, IDEs,
+   database GUIs. Nothing here affects the repo. Report only the ones that are
+   genuinely stale after the bundle-version check, and never upgrade them
+   without being asked: a major version of a GUI app can migrate a profile or
+   change a workflow, which is the user's call and not a maintenance detail.
+
+The Brewfile is the reference for what counts as `[dev]`:
+[`docs/setup/Brewfile`](../../../docs/setup/Brewfile). Anything installed but
+absent from it is `[personal]` by definition.
+
+## Orphaned cask records
+
+An app deleted by dragging it to the Trash leaves brew's record behind, and it
+then reports as outdated forever. The symptom is
+`Error: <name>: It seems the App source '/Applications/<App>.app' is not there.`
+
+Do not treat these as upgrades. List them as **orphans** and offer the
+cleanup, which removes only brew's bookkeeping:
+
+```bash
+brew uninstall --cask --force <name>
+```
 
 # Step 3 — Check for abandonment, not just staleness
 
@@ -146,9 +201,23 @@ Write the report to `reports/YYYY-MM-DD.md` and summarise it in chat. Both
 carry the same four sections:
 
 1. **What is installed** — the toolchain versions, verbatim.
-2. **Findings** — grouped by the three buckets, 🔴 first, each with current →
-   latest and a one-line reason.
-3. **The commands** — a copy-pasteable block for the 🔴 and 🟡 items only.
+2. **Findings** — grouped by the buckets above, 🔴 first, each tagged `[dev]`
+   or `[personal]`, with current → latest and a one-line reason.
+3. **The commands** — **three separate blocks**, never one:
+
+   ```bash
+   # [dev] — affects whether this repo builds
+   brew upgrade <formulae>
+
+   # [personal] — housekeeping, only if you want it
+   brew upgrade --cask <apps>
+
+   # do this yourself: upgrading these quits the session
+   brew upgrade --cask visual-studio-code
+   ```
+
+   The split is the point. Someone should be able to run the first block
+   without thinking and leave the second for later.
 4. **Worth adopting** — Step 5, or an explicit "nothing".
 
 Overwrite the day's file if it already exists; keep older dates, they are the
@@ -156,8 +225,15 @@ history of what was stale when.
 
 # Rules
 
+- **Never upgrade the app hosting the session.** Check `TERM_PROGRAM` first.
+  Exit code 137 mid-audit is this rule being broken.
 - **Never report a `--greedy` cask without checking the bundle version.** That
   check is the entire value of this skill.
+- Never bundle `[dev]` and `[personal]` upgrades into one command.
+- A `brew upgrade --cask` of several apps **aborts the whole batch** on the
+  first bad name (`Cask 'claude-code' is not installed` — the real name was
+  `claude-code@latest`). Verify names against `brew list --cask` first, or run
+  them one at a time so one typo does not skip the rest.
 - Do not run `brew upgrade` — this skill is read-only. Hand the user the
   commands and let them choose.
 - `brew upgrade` with no arguments upgrades everything, including things the

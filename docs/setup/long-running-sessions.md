@@ -39,6 +39,26 @@ from.
 Running `byobu` locally and then SSH-ing out of it protects nothing: the work
 is happening on the far end, and that is where the session needs to survive.
 
+### Why this matters inside VS Code's terminal
+
+An agent started in VS Code's integrated terminal is a **child of VS Code**:
+
+```
+zsh → claude → zsh → Code Helper → Code
+```
+
+Quit VS Code — or upgrade it, which quits it — and the whole branch dies. It
+happened here: a `brew upgrade --cask visual-studio-code` killed the session
+running the upgrade, returning exit code 137 mid-command.
+
+`byobu` breaks that chain. tmux starts a **server detached from the terminal
+that launched it**, so the processes inside belong to the server rather than
+to VS Code. The editor can quit, crash or update, and reopening a terminal and
+typing `byobu` returns you to a session that never stopped.
+
+The narrower rule, which costs nothing: **never upgrade the app you are
+running inside.** Do it from a different terminal, or from within byobu.
+
 ### The shortcuts you will actually use
 
 | Key | Does |
