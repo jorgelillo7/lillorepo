@@ -76,11 +76,13 @@ When VS Code dies — crash, accidental quit, or an upgrade — reopen it, open 
 terminal, and run the exact same line. You land back in the session that never
 stopped.
 
-An alias is worth it. Note `cc` and `bc` are already taken (the C compiler and
-the calculator); `ccx` is free:
+An alias is worth it. Pick your own name — just check it is free first, since
+the obvious short ones are taken (`cc` is the C compiler, `bc` the
+calculator):
 
 ```bash
-echo "alias ccx='byobu new -A -s claude'" >> ~/.zshrc
+type <name> || echo free
+echo "alias <name>='byobu new -A -s claude'" >> ~/.zshrc
 ```
 
 **Detaching:** `F6`, or `Ctrl-a d` if the function keys are captured. VS Code
