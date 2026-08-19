@@ -180,6 +180,15 @@ Every one of these cost a real failure. None is theoretical.
 - zsh does **not** word-split an unquoted variable, so `for f in $files` runs
   once with everything glued. Wrong results, no error.
 
+# Known limits
+
+- **No grouping.** A rewrite rule can move a tag into the company field, which
+  keeps it visible on the card and reachable from search. It cannot put the
+  cards in a list. That was dropped rather than decided, and it turned out not
+  to be missed: a list is invisible from the card and does not answer a search,
+  so the company field covered the need better. Worth adding only for someone
+  who actually browses by list.
+
 # Rules
 
 - Never write to the address book before phase 3, and never import before the
