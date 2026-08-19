@@ -62,10 +62,26 @@ def load_records(path, source):
     return records
 
 
-def action_id(kind, ref, before):
+def identity(record):
+    """A key that survives re-exporting the book.
+
+    The positional ref does not: deleting one card shifts every index after
+    it, so an id built on the ref quietly points at a different person the
+    next time the audit runs. Apple's own id is stable; a book that has none
+    is keyed on what it does have.
+    """
+    if record.get("apple_id"):
+        return record["apple_id"]
+    seed = "|".join([record.get("source", ""), record.get("full_name", "")]
+                    + sorted(record.get("phone_keys", []))
+                    + sorted(record.get("emails", [])))
+    return f"{record.get('source', '')}:{hashlib.sha1(seed.encode()).hexdigest()[:12]}"
+
+
+def action_id(kind, key, before):
     """Stable across regeneration: a counter would renumber and invalidate
     decisions already taken."""
-    seed = f"{kind}|{ref}|{before}".encode()
+    seed = f"{kind}|{key}|{before}".encode()
     return f"{kind}-{hashlib.sha1(seed).hexdigest()[:8]}"
 
 
@@ -84,7 +100,8 @@ def build(primary, secondary, config):
     def add(kind, record, before, after, note=""):
         actions.append(
             {
-                "id": action_id(kind, record.get("ref", "-"), before),
+                "id": action_id(kind, identity(record), before),
+                "identity": identity(record),
                 "kind": kind,
                 "source": record.get("source", "-"),
                 "ref": record.get("ref", "-"),

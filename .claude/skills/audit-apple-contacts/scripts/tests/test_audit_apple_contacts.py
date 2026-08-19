@@ -279,3 +279,32 @@ class TestStructuredName:
 
         record = self._record("Jorge Lillo Cobacho", "Lillo Cobacho", "Jorge", "")
         assert not [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"]
+
+
+class TestStableIdentity:
+    def test_the_id_survives_a_card_being_deleted_before_it(self):
+        import audit
+
+        # Deleting one card shifts every ref after it. An id built on the ref
+        # would move with it and point a saved decision at someone else.
+        def record(index, apple_id):
+            return {"source": "icloud", "index": index, "ref": f"icloud#{index}",
+                    "full_name": "Ana", "given": "", "surname": "", "middle": "",
+                    "organisation": "", "phones": [], "emails": [], "phone_keys": [],
+                    "name_key": "ana", "uid": "", "apple_id": apple_id,
+                    "local_only": False, "extras": {}}
+
+        before = audit.build([record(39, "AAA:ABPerson")], [], {})[0]["id"]
+        after = audit.build([record(12, "AAA:ABPerson")], [], {})[0]["id"]
+        assert before == after
+
+    def test_a_book_without_apple_ids_is_keyed_on_its_content(self):
+        import audit
+
+        base = {"source": "gmail", "index": 0, "ref": "gmail#0", "full_name": "Ana",
+                "given": "", "surname": "", "middle": "", "organisation": "",
+                "phones": ["600111222"], "emails": [], "phone_keys": ["600111222"],
+                "name_key": "ana", "uid": "", "apple_id": "", "local_only": False,
+                "extras": {}}
+        moved = dict(base, index=7, ref="gmail#7")
+        assert audit.identity(base) == audit.identity(moved)
