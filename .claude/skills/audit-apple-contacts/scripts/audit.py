@@ -161,10 +161,21 @@ def build(primary, secondary, config):
                 "which one is the same person?",
                 "a shared household landline matches people who are not the same")
         elif not hits and (record["phones"] or record["emails"]):
+            carried = {
+                "tel": [vcard.normalize_phone(p, prefix, length) for p in record["phones"]],
+                "mail": record["emails"],
+                "org": [record["organisation"]] if record["organisation"] else [],
+            }
+            carried.update({k.lower(): v for k, v in record["extras"].items()})
+            # Notes and addresses are frequently the only place a street
+            # address is written down, so the import carries every field and
+            # says which, rather than quietly creating a name and a number.
+            summary = " · ".join(f"{k}={v}" for k, v in carried.items() if v)
             add("IMPORT", record,
                 f"tel={record['phones'] or '—'} mail={record['emails'] or '—'} "
-                f"org={record['organisation'] or '—'}",
-                f"create · tel={[vcard.normalize_phone(p, prefix, length) for p in record['phones']] or '—'}")
+                f"org={record['organisation'] or '—'}"
+                + (f" · also {list(record['extras'])}" if record["extras"] else ""),
+                f"create · {summary}")
     return actions
 
 

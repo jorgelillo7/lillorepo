@@ -39,7 +39,13 @@ def parse(text):
             if ":" not in line:
                 continue
             head, value = line.split(":", 1)
-            props[head.split(";")[0].upper()].append((head, value))
+            name = head.split(";")[0].upper()
+            # A property may carry a group prefix («item1.TEL»), which Apple
+            # uses whenever a custom label is attached. Reading the prefixed
+            # form as the property name silently drops the value.
+            if "." in name:
+                name = name.split(".", 1)[1]
+            props[name].append((head, value))
         cards.append(dict(props))
     return cards
 

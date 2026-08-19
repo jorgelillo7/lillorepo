@@ -168,3 +168,49 @@ class TestEmptyCards:
                   "extras": {"NOTE": ["Torrelavega 3 C"]}}
         empty = [a for a in audit.build([record], [], {}) if a["kind"] == "EMPTY"]
         assert "Torrelavega 3 C" in empty[0]["note"]
+
+
+class TestGroupedProperties:
+    def test_a_grouped_property_is_read_under_its_real_name(self):
+        # Apple writes «item1.TEL» whenever the number carries a custom label.
+        # Reading the prefixed form as the name loses the number entirely.
+        payload = (
+            "BEGIN:VCARD\r\nFN:Javi\r\n"
+            "item1.TEL;type=pref:+34616475528\r\n"
+            "item1.X-ABLabel:Móvil\r\nEND:VCARD\r\n"
+        )
+        card = vcard.parse(payload)[0]
+        assert [v for _, v in card["TEL"]] == ["+34616475528"]
+
+    def test_the_group_prefix_survives_in_the_raw_head_for_labels(self):
+        payload = "BEGIN:VCARD\r\nitem1.TEL:+34616475528\r\nEND:VCARD\r\n"
+        assert vcard.parse(payload)[0]["TEL"][0][0] == "item1.TEL"
+
+    def test_grouped_and_plain_properties_land_together(self):
+        payload = (
+            "BEGIN:VCARD\r\nTEL;type=HOME:919311062\r\n"
+            "item1.TEL;type=pref:+34616475528\r\nEND:VCARD\r\n"
+        )
+        assert len(vcard.parse(payload)[0]["TEL"]) == 2
+
+
+class TestImportCarriesEverything:
+    def test_a_note_holding_an_address_is_carried_into_the_import(self):
+        import audit
+
+        record = {"source": "g", "index": 0, "ref": "g#0", "full_name": "Ana",
+                  "given": "", "surname": "", "organisation": "", "phones": ["600111222"],
+                  "emails": [], "phone_keys": ["600111222"], "name_key": "ana", "uid": "",
+                  "extras": {"NOTE": ["Torrelavega 3 C"]}}
+        imports = [a for a in audit.build([], [record], {}) if a["kind"] == "IMPORT"]
+        assert "Torrelavega 3 C" in imports[0]["after"]
+
+    def test_the_before_names_the_extra_fields_so_nothing_is_silent(self):
+        import audit
+
+        record = {"source": "g", "index": 0, "ref": "g#0", "full_name": "Ana",
+                  "given": "", "surname": "", "organisation": "", "phones": ["600111222"],
+                  "emails": [], "phone_keys": ["600111222"], "name_key": "ana", "uid": "",
+                  "extras": {"ADR": [";;Calle X;Madrid;;;"]}}
+        imports = [a for a in audit.build([], [record], {}) if a["kind"] == "IMPORT"]
+        assert "ADR" in imports[0]["before"]
