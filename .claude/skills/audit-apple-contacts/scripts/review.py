@@ -16,7 +16,7 @@ import json
 import os
 
 ORDER = ["EMPTY", "REWRITE", "KIN", "FLIP", "ORG", "PHONE", "SPLIT", "SPLIT3", "ASK",
-         "CLASH", "IMPORT"]
+         "NFIELD", "CLASH", "IMPORT"]
 TITLES = {
     "EMPTY": "Cards with no phone and no email",
     "REWRITE": "Names matching a rewrite rule from the config",
@@ -27,6 +27,7 @@ TITLES = {
     "SPLIT": "Split given name and surname (two words)",
     "SPLIT3": "Split given name and surname (three or more)",
     "ASK": "Surname missing — needs the owner",
+    "NFIELD": "Structured name holds a tag, so the card sorts under #",
     "CLASH": "Needs judgement, no automatic answer",
     "IMPORT": "Create in the destination book",
 }

@@ -31,6 +31,7 @@ def load_records(path, source):
                 "full_name": full,
                 "given": given.strip(),
                 "surname": surname.strip(),
+                "middle": (name + ["", "", ""])[2].strip(),
                 "organisation": (props.get("ORG") or [("", "")])[0][1].strip(";").strip(),
                 "phones": phones,
                 "emails": [v.strip().lower() for _, v in props.get("EMAIL", [])],
@@ -69,6 +70,13 @@ def action_id(kind, ref, before):
 
 
 def build(primary, secondary, config):
+    # Records may arrive from a caller that predates a field. Filling the
+    # defaults once here keeps every rule below free of .get() noise.
+    for record in list(primary) + list(secondary):
+        for key, empty in (("middle", ""), ("apple_id", ""),
+                           ("local_only", False), ("extras", {})):
+            record.setdefault(key, empty)
+
     prefix = config.get("country_prefix", "+34")
     length = config.get("local_length", 9)
     actions = []
@@ -142,6 +150,21 @@ def build(primary, secondary, config):
                 f"name «{record['full_name']}» · org={record['organisation'] or '—'}",
                 f"name «{name}» · org={org}", rule.get("note", ""))
             break
+
+    for record in primary + secondary:
+        # A tag typed into the structured name pushes the real surname into
+        # the middle-name slot. The card then sorts under «#» instead of its
+        # letter, which is how this usually gets noticed.
+        tagged = re.search(r"[<>()\[\]]", record["surname"])
+        if tagged or (record["middle"] and not record["surname"]):
+            clean = re.sub(r"[<(\[].*?[>)\]]", "", record["full_name"])
+            tokens = re.sub(r"\s+", " ", clean).strip().split()
+            proposal = (f"given=«{tokens[0]}» surname=«{' '.join(tokens[1:])}»"
+                        if len(tokens) > 1 else f"given=«{clean.strip()}» surname=«»")
+            add("NFIELD", record,
+                f"N={record['surname']};{record['given']};{record['middle']}",
+                proposal,
+                "the tag in the name field belongs in the company field or the note")
 
     for record in primary + secondary:
         flipped = vcard.flip_inverted(record["full_name"])

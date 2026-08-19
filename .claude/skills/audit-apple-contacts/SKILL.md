@@ -71,6 +71,17 @@ end timeout' > icloud.vcf
 Then **repair it** — see the AppleScript traps below — and confirm the card
 count matches what the app reports before trusting anything derived from it.
 
+**The Mac's copy can be behind iCloud.** Contacts on a Mac shows both the
+iCloud account and a local *On My Mac* account in one list, and a card in the
+local one exists on that machine and nowhere else. Worse, the Mac may simply
+not have pulled everything: here it held 113 of the 115 cards the phone
+listed. Compare the count against a device before trusting the export, and if
+they differ, export from `icloud.com` instead — that is the authority.
+
+A card with no `UID` and no `CATEGORIES:card` came from the local account;
+`audit.py` flags those as `local_only`, which is what explains a contact the
+phone cannot find.
+
 Get the secondary book from `contacts.google.com` → Export → **vCard**. Prefer
 exporting over configuring the Google account inside Contacts: it keeps the
 source book strictly read-only, so every write this skill makes lands in one

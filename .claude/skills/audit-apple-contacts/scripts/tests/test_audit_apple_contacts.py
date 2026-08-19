@@ -257,3 +257,25 @@ class TestLocalCards:
                                          encoding="utf-8") as handle:
             handle.write(payload)
         assert not audit.load_records(handle.name, "gmail")[0]["local_only"]
+
+
+class TestStructuredName:
+    def _record(self, full, surname, given, middle):
+        return {"source": "i", "index": 0, "ref": "i#0", "full_name": full,
+                "given": given, "surname": surname, "middle": middle,
+                "organisation": "", "phones": ["600111222"], "emails": [],
+                "phone_keys": ["600111222"], "name_key": full.lower(), "uid": "",
+                "apple_id": "", "local_only": False, "extras": {}}
+
+    def test_a_company_in_the_surname_slot_is_reported(self):
+        import audit
+
+        record = self._record("Javi Griñan <Accenture>", "<Accenture>", "Javi", "Griñan")
+        found = [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"]
+        assert found and "given=«Javi» surname=«Griñan»" in found[0]["after"]
+
+    def test_a_well_formed_name_produces_nothing(self):
+        import audit
+
+        record = self._record("Jorge Lillo Cobacho", "Lillo Cobacho", "Jorge", "")
+        assert not [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"]
