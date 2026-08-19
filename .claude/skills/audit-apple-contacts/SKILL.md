@@ -34,21 +34,35 @@ Run them in this order. The order is the safety property, not a preference.
 | 1 | read both books, build the action queue | nothing written |
 | 2 | the owner approves each action | nothing written |
 | 3 | apply everything that edits existing cards | yes, from the vCard dump |
-| 4 | apply the imports | **only from the `.abbu`** |
+| 4 | apply the imports | yes, from the journal in `applied.json` |
 | 5 | verify, then the owner deletes the source book by hand | — |
 
 **Everything before phase 4 touches cards that already exist. Phase 4 creates
-new ones that propagate to every synced device within seconds, and without the
-`.abbu` the only undo is deleting them one at a time.**
+new ones that propagate to every synced device within seconds — reversible,
+but only because every created id is journalled as it goes.**
 
-## Phase 0 — the archive
+## Phase 0 — being able to go back
 
-Contacts → File → Export → **Contacts Archive**.
+Three things can undo a mistake here, and they are good at different mistakes.
+Reaching for the wrong one is how a small error becomes a large one.
 
-A vCard export is a fine snapshot and a useless restore: re-importing **adds**
-records rather than replacing them, so restoring from one duplicates everything
-on top of the mess it was meant to undo. Take the `.abbu` before phase 4. The
-owner does this in the GUI; it is two clicks and it is theirs to own.
+**The journal is the undo for imports.** `apply.py` records the id of every
+card it creates in `applied.json`. Reversing a batch is then deleting exactly
+those ids — surgical, and it leaves everything else alone. Restoring an
+archive to undo one batch reverts every change made since, which is almost
+never what was wanted.
+
+**The vCard export is a complete snapshot**, and worth keeping for that: every
+field of every card, diffable, and the evidence for what a card held before.
+It is a poor *restore*, because importing **adds** rather than replaces — going
+back through it means deleting the book and re-importing, which regenerates
+every id and breaks whatever referred to them.
+
+**The Contacts Archive (`.abbu`) is the only in-place restore.** Contacts →
+File → Export → Contacts Archive. It earns its two clicks against the failure
+the other two cannot cover: something going wrong with the cards that already
+existed. Recommended before a large edit; not a gate on imports, which the
+journal already covers.
 
 ## Phase 1 — read
 

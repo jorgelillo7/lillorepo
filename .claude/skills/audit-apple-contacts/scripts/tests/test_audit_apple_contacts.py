@@ -308,3 +308,36 @@ class TestStableIdentity:
                 "extras": {}}
         moved = dict(base, index=7, ref="gmail#7")
         assert audit.identity(base) == audit.identity(moved)
+
+
+class TestPersonScript:
+    def _script(self, **overrides):
+        import apply
+
+        record = {"given": "Ana", "surname": "Ruiz", "full_name": "Ana Ruiz",
+                  "organisation": "", "phones": [], "emails": [], "extras": {}}
+        record.update(overrides)
+        return apply.build_person_script(record)
+
+    def test_a_quote_in_a_note_cannot_break_out_of_the_string(self):
+        # An unescaped quote turns a create into a syntax error at best, and
+        # into a different command at worst.
+        script = self._script(extras={"NOTE": ['dijo "hola" y se fue']})
+        assert '\\"hola\\"' in script
+        assert script.count('set note of p to "') == 1
+
+    def test_a_backslash_is_escaped_before_the_quotes(self):
+        script = self._script(surname="O\\Brien")
+        assert "O\\\\Brien" in script
+
+    def test_every_phone_and_email_is_created(self):
+        script = self._script(phones=["+34600111222", "+34911111111"],
+                              emails=["a@example.com"])
+        assert script.count("make new phone") == 2
+        assert script.count("make new email") == 1
+
+    def test_the_script_returns_the_new_id_so_it_can_be_undone(self):
+        assert "return id of p" in self._script()
+
+    def test_a_card_with_no_organisation_sets_none(self):
+        assert "set organization" not in self._script()

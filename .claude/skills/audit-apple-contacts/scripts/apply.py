@@ -7,11 +7,44 @@ has gone stale silently points at a different person.
 """
 
 import argparse
+import datetime
 import json
 import os
 import subprocess
 
 APPLESCRIPT_TIMEOUT = 900
+
+
+def quote(text):
+    """Escape a value for embedding in an AppleScript string literal."""
+    return (text or "").replace("\\", "\\\\").replace('"', '\\"')
+
+
+def build_person_script(record):
+    """AppleScript that creates one card with everything the record holds.
+
+    Kept pure so the escaping can be tested without a Mac: a stray quote in a
+    note is the kind of thing that turns a create into a syntax error, or
+    worse, into a different command.
+    """
+    lines = ['tell application "Contacts"', "  set p to make new person with properties "
+             + "{{first name:\"{}\", last name:\"{}\"}}".format(
+                 quote(record.get("given") or record.get("full_name", "")),
+                 quote(record.get("surname", "")))]
+    if record.get("organisation"):
+        lines.append(f'  set organization of p to "{quote(record["organisation"])}"')
+    for phone in record.get("phones", []):
+        lines.append('  make new phone at end of phones of p with properties '
+                     f'{{label:"móvil", value:"{quote(phone)}"}}')
+    for mail in record.get("emails", []):
+        lines.append('  make new email at end of emails of p with properties '
+                     f'{{label:"casa", value:"{quote(mail)}"}}')
+    for note in record.get("extras", {}).get("NOTE", []):
+        lines.append(f'  set note of p to "{quote(note)}"')
+    lines.append("  save")
+    lines.append("  return id of p")
+    lines.append("end tell")
+    return "\n".join(lines)
 
 
 def osascript(body):
@@ -48,6 +81,20 @@ def delete_person(apple_id):
         "  save\n"
         "end tell"
     )
+
+
+def journal_append(directory, entry):
+    """Append-only record of what was written, so undo is surgical.
+
+    Restoring a whole archive to reverse one batch is the wrong shape: it
+    reverts everything else with it. Knowing the id of each card that was
+    created reverses exactly the batch and nothing more.
+    """
+    path = os.path.join(directory, "applied.json")
+    entries = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else []
+    entry["at"] = datetime.datetime.now().isoformat(timespec="seconds")
+    entries.append(entry)
+    json.dump(entries, open(path, "w"), ensure_ascii=False, indent=1)
 
 
 def main():
@@ -91,6 +138,9 @@ def main():
             continue
         if args.commit:
             delete_person(apple_id)
+            journal_append(args.dir, {"action": action["id"], "kind": action["kind"],
+                                      "operation": "delete", "apple_id": apple_id,
+                                      "record": record})
             print(f"  DELETED  «{live}»")
         else:
             print(f"  would delete  «{live}»   ({apple_id})")
