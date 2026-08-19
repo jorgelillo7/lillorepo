@@ -98,6 +98,21 @@ def build(primary, secondary, config):
                 break
 
     for record in primary + secondary:
+        for rule in config.get("rewrites", []):
+            match = re.match(rule["match"], vcard.strip_accents(record["full_name"]), re.I)
+            if not match:
+                continue
+            groups = [vcard.pretty(g, config.get("spelling", {})) for g in match.groups()]
+            name = rule["name"]
+            for position, group in enumerate(groups, 1):
+                name = name.replace(f"\\{position}", group)
+            org = rule.get("organisation", record["organisation"])
+            add("REWRITE", record,
+                f"name «{record['full_name']}» · org={record['organisation'] or '—'}",
+                f"name «{name}» · org={org}", rule.get("note", ""))
+            break
+
+    for record in primary + secondary:
         flipped = vcard.flip_inverted(record["full_name"])
         if flipped != record["full_name"]:
             add("FLIP", record, record["full_name"], flipped, "inherited from a Google export")

@@ -15,9 +15,11 @@ import collections
 import json
 import os
 
-ORDER = ["EMPTY", "KIN", "FLIP", "ORG", "PHONE", "SPLIT", "SPLIT3", "ASK", "CLASH", "IMPORT"]
+ORDER = ["EMPTY", "REWRITE", "KIN", "FLIP", "ORG", "PHONE", "SPLIT", "SPLIT3", "ASK",
+         "CLASH", "IMPORT"]
 TITLES = {
     "EMPTY": "Cards with no phone and no email",
+    "REWRITE": "Names matching a rewrite rule from the config",
     "KIN": "Kinship word trailing the name",
     "FLIP": "Name stored as «Surname, Given»",
     "ORG": "Company embedded in the name",
@@ -73,7 +75,7 @@ def status(store):
     print(f"{len(store.decisions)}/{len(store.actions)} decided")
     for kind in ORDER:
         if counts[kind]:
-            print(f"  {kind:8s} {done[kind]:4d}/{counts[kind]:<4d}  {TITLES[kind]}")
+            print(f"  {kind:8s} {done[kind]:4d}/{counts[kind]:<4d}  {TITLES.get(kind, kind)}")
     verdicts = collections.Counter(v["verdict"] for v in store.decisions.values())
     if verdicts:
         print(f"  verdicts: {dict(verdicts)}")
@@ -92,7 +94,7 @@ def interactive(store):
         pending = store.pending(kind)
         if not pending:
             continue
-        print(f"\n{'=' * 68}\n{TITLES[kind]} — {len(pending)} pending\n{'=' * 68}")
+        print(f"\n{'=' * 68}\n{TITLES.get(kind, kind)} — {len(pending)} pending\n{'=' * 68}")
         bulk = False
         for position, action in enumerate(pending, 1):
             if bulk:
@@ -156,7 +158,7 @@ def main():
             pending = store.pending(kind)
             if not pending:
                 continue
-            print(f"\n### {kind} — {len(pending)} pending — {TITLES[kind]}")
+            print(f"\n### {kind} — {len(pending)} pending — {TITLES.get(kind, kind)}")
             for action in pending[: args.limit]:
                 show(action)
             if len(pending) > args.limit:

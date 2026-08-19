@@ -157,3 +157,17 @@ def relationship_at_end(name, vocabulary=_REL_DEFAULT):
     if len(tokens) < 2:
         return False
     return bool(re.fullmatch(vocabulary, strip_accents(tokens[-1])))
+
+
+def pretty(word, spelling=None):
+    """Capitalise a name, applying any spelling the owner has corrected.
+
+    Address books are full of lowercase, unaccented entries typed in a hurry.
+    The map is supplied by the owner because inventing an accent is inventing
+    data — «Jose» and «José» are both real names.
+    """
+    spelling = spelling or {}
+    fixed = spelling.get(strip_accents(word))
+    if fixed:
+        return fixed
+    return word.capitalize() if word.islower() else word

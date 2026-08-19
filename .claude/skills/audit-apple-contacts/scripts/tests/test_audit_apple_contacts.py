@@ -115,3 +115,33 @@ class TestNames:
 
     def test_accented_kinship_word_is_detected(self):
         assert vcard.relationship_at_end("Juan Carlos Tío")
+
+
+class TestPretty:
+    def test_lowercase_word_is_capitalised(self):
+        assert vcard.pretty("bea") == "Bea"
+
+    def test_owner_supplied_spelling_wins(self):
+        assert vcard.pretty("sofia", {"sofia": "Sofía"}) == "Sofía"
+
+    def test_an_already_capitalised_word_is_left_alone(self):
+        assert vcard.pretty("McDonald") == "McDonald"
+
+
+class TestQueueContract:
+    def test_every_kind_the_builder_emits_is_known_to_the_reviewer(self):
+        # An unknown kind used to crash the reviewer with a KeyError, which
+        # hides the whole block instead of showing it.
+        import ast
+        import pathlib
+
+        here = pathlib.Path(__file__).resolve().parent.parent
+        emitted = set()
+        tree = ast.parse((here / "audit.py").read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            is_add = isinstance(node, ast.Call) and getattr(node.func, "id", "") == "add"
+            if is_add and node.args and isinstance(node.args[0], ast.Constant):
+                emitted.add(node.args[0].value)
+        source = (here / "review.py").read_text(encoding="utf-8")
+        known = set(ast.literal_eval(source.split("ORDER = ", 1)[1].split("\nTITLES", 1)[0]))
+        assert emitted <= known, f"reviewer does not know: {sorted(emitted - known)}"
