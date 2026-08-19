@@ -214,3 +214,46 @@ class TestImportCarriesEverything:
                   "extras": {"ADR": [";;Calle X;Madrid;;;"]}}
         imports = [a for a in audit.build([], [record], {}) if a["kind"] == "IMPORT"]
         assert "ADR" in imports[0]["before"]
+
+
+class TestLocalCards:
+    def test_a_card_without_uid_or_category_is_flagged_local(self):
+        import audit
+        import tempfile
+
+        payload = (
+            "BEGIN:VCARD\r\nFN:Apple España SA\r\nORG:Apple España SA;\r\n"
+            "X-ABUID:C2D26598-6F59-460B-B6A6-D026551C6687:ABPerson\r\nEND:VCARD\r\n"
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".vcf", delete=False,
+                                         encoding="utf-8") as handle:
+            handle.write(payload)
+        record = audit.load_records(handle.name, "icloud")[0]
+        assert record["local_only"]
+        assert record["apple_id"] == "C2D26598-6F59-460B-B6A6-D026551C6687:ABPerson"
+
+    def test_a_synced_card_is_not_flagged(self):
+        import audit
+        import tempfile
+
+        payload = (
+            "BEGIN:VCARD\r\nFN:Javi\r\nCATEGORIES:card\r\n"
+            "UID:DC997E23-D97D-4E90-B00B-E9FD4F7771E7\r\n"
+            "X-ABUID:BA84EE53-DFC2-4A13-969D-850D0ADAB3DB:ABPerson\r\nEND:VCARD\r\n"
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".vcf", delete=False,
+                                         encoding="utf-8") as handle:
+            handle.write(payload)
+        assert not audit.load_records(handle.name, "icloud")[0]["local_only"]
+
+    def test_a_card_from_another_exporter_is_never_called_local(self):
+        import audit
+        import tempfile
+
+        # A Google export carries neither UID nor CATEGORIES either; calling
+        # it «local to this Mac» would be nonsense.
+        payload = "BEGIN:VCARD\r\nFN:Rodrigo\r\nORG:bq\r\nEND:VCARD\r\n"
+        with tempfile.NamedTemporaryFile("w", suffix=".vcf", delete=False,
+                                         encoding="utf-8") as handle:
+            handle.write(payload)
+        assert not audit.load_records(handle.name, "gmail")[0]["local_only"]

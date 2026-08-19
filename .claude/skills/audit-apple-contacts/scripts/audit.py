@@ -37,6 +37,20 @@ def load_records(path, source):
                 "phone_keys": [k for k in (vcard.phone_key(p) for p in phones) if k],
                 "name_key": vcard.strip_accents(full),
                 "uid": (props.get("UID") or [("", "")])[0][1].strip(),
+                # X-ABUID is what AppleScript returns as «id of person», so it
+                # is the only key an apply step can address a card by. The
+                # vCard UID is a different namespace and finds nothing.
+                "apple_id": (props.get("X-ABUID") or [("", "")])[0][1].strip(),
+                # A card with neither UID nor the «card» category was created
+                # locally and never reached iCloud, so it exists on this Mac
+                # and on no other device. Heuristic, but it matched every case.
+                # Only meaningful for cards that came out of Apple Contacts,
+                # which is what X-ABUID identifies. Another exporter omits UID
+                # for reasons of its own and would be flagged wrongly.
+                "local_only": bool(props.get("X-ABUID")) and not (
+                    props.get("UID")
+                    and any(v.strip() == "card" for _, v in props.get("CATEGORIES", []))
+                ),
                 "extras": {
                     key: [v.strip(" ;") for _, v in props[key] if v.strip(" ;")]
                     for key in ("NOTE", "ADR", "BDAY", "URL", "TITLE")
@@ -83,6 +97,8 @@ def build(primary, secondary, config):
         if record["organisation"]:
             keeps["ORG"] = [record["organisation"]]
         note = "no phone and no email"
+        if record.get("local_only"):
+            note += " · local to this Mac, never synced to iCloud"
         if keeps:
             note += " — but it holds " + ", ".join(
                 f"{key} {value}" for key, value in keeps.items())
