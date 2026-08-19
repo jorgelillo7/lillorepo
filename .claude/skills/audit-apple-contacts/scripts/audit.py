@@ -37,6 +37,11 @@ def load_records(path, source):
                 "phone_keys": [k for k in (vcard.phone_key(p) for p in phones) if k],
                 "name_key": vcard.strip_accents(full),
                 "uid": (props.get("UID") or [("", "")])[0][1].strip(),
+                "extras": {
+                    key: [v.strip(" ;") for _, v in props[key] if v.strip(" ;")]
+                    for key in ("NOTE", "ADR", "BDAY", "URL", "TITLE")
+                    if key in props and any(v.strip(" ;") for _, v in props[key])
+                },
             }
         )
     return records
@@ -69,9 +74,19 @@ def build(primary, secondary, config):
         )
 
     for record in primary + secondary:
-        if not record["phones"] and not record["emails"]:
-            add("EMPTY", record, f"org={record['organisation'] or '—'}",
-                "delete the card", "no phone and no email")
+        if record["phones"] or record["emails"]:
+            continue
+        # A card with no phone and no email can still be the only place an
+        # address or a birthday is written down. Deleting it silently loses
+        # that, so whatever it holds goes in the note the owner reads.
+        keeps = dict(record["extras"])
+        if record["organisation"]:
+            keeps["ORG"] = [record["organisation"]]
+        note = "no phone and no email"
+        if keeps:
+            note += " — but it holds " + ", ".join(
+                f"{key} {value}" for key, value in keeps.items())
+        add("EMPTY", record, f"org={record['organisation'] or '—'}", "delete the card", note)
 
     for record in primary:
         for phone in record["phones"]:

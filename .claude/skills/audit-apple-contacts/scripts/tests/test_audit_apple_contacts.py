@@ -145,3 +145,26 @@ class TestQueueContract:
         source = (here / "review.py").read_text(encoding="utf-8")
         known = set(ast.literal_eval(source.split("ORDER = ", 1)[1].split("\nTITLES", 1)[0]))
         assert emitted <= known, f"reviewer does not know: {sorted(emitted - known)}"
+
+
+class TestEmptyCards:
+    def test_a_card_with_only_a_name_is_proposed_for_deletion(self):
+        import audit
+
+        record = {"source": "s", "index": 0, "ref": "s#0", "full_name": "Ana",
+                  "given": "", "surname": "", "organisation": "", "phones": [],
+                  "emails": [], "phone_keys": [], "name_key": "ana", "uid": "",
+                  "extras": {}}
+        actions = audit.build([record], [], {})
+        empty = [a for a in actions if a["kind"] == "EMPTY"]
+        assert len(empty) == 1 and "holds" not in empty[0]["note"]
+
+    def test_a_note_the_deletion_would_lose_is_named_in_the_action(self):
+        import audit
+
+        record = {"source": "s", "index": 0, "ref": "s#0", "full_name": "Ana",
+                  "given": "", "surname": "", "organisation": "", "phones": [],
+                  "emails": [], "phone_keys": [], "name_key": "ana", "uid": "",
+                  "extras": {"NOTE": ["Torrelavega 3 C"]}}
+        empty = [a for a in audit.build([record], [], {}) if a["kind"] == "EMPTY"]
+        assert "Torrelavega 3 C" in empty[0]["note"]
