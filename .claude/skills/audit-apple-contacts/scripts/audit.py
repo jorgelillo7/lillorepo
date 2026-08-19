@@ -97,7 +97,7 @@ def build(primary, secondary, config):
     length = config.get("local_length", 9)
     actions = []
 
-    def add(kind, record, before, after, note=""):
+    def add(kind, record, before, after, note="", changes=None):
         actions.append(
             {
                 "id": action_id(kind, identity(record), before),
@@ -109,6 +109,10 @@ def build(primary, secondary, config):
                 "before": before,
                 "after": after,
                 "note": note,
+                # What to write, field by field. Parsing it back out of the
+                # human-readable «after» would break the moment that string is
+                # reworded.
+                "changes": changes or {},
             }
         )
 
@@ -165,7 +169,8 @@ def build(primary, secondary, config):
             org = rule.get("organisation", record["organisation"])
             add("REWRITE", record,
                 f"name «{record['full_name']}» · org={record['organisation'] or '—'}",
-                f"name «{name}» · org={org}", rule.get("note", ""))
+                f"name «{name}» · org={org}", rule.get("note", ""),
+                changes={"first_name": name, "last_name": "", "organisation": org})
             break
 
     for record in primary + secondary:

@@ -341,3 +341,42 @@ class TestPersonScript:
 
     def test_a_card_with_no_organisation_sets_none(self):
         assert "set organization" not in self._script()
+
+
+class TestEditScript:
+    def test_only_the_named_fields_are_written(self):
+        import apply
+
+        # A change that mentions the name must not blank the organisation.
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.write_fields("X:ABPerson", {"first_name": "Bea (Irene)"})
+        assert "set first name" in calls[0]
+        assert "set organization" not in calls[0]
+        assert "set last name" not in calls[0]
+
+    def test_a_quote_in_a_value_is_escaped(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.write_fields("X:ABPerson", {"first_name": 'Bar "El Rincón"'})
+        assert '\\"El Rincón\\"' in calls[0]
+
+    def test_the_card_is_saved_after_writing(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.write_fields("X:ABPerson", {"organisation": "Mi Casita Guarde"})
+        assert calls[0].strip().endswith("end tell")
+        assert "save" in calls[0]
+
+
+class TestMissingValue:
+    def test_an_empty_field_reads_as_empty_not_as_the_literal(self):
+        import apply
+
+        apply.osascript = lambda body: "Bea|missing value|missing value"
+        assert apply.read_fields("X:ABPerson") == {
+            "first_name": "Bea", "last_name": "", "organisation": ""}

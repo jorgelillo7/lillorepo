@@ -73,6 +73,39 @@ def read_name(apple_id):
     )
 
 
+def read_fields(apple_id):
+    """Current first name, last name and organisation, for the journal."""
+    quoted = quote(apple_id)
+    raw = osascript(
+        'tell application "Contacts"\n'
+        f'  set m to (every person whose id is "{quoted}")\n'
+        '  if (count of m) is 0 then return ""\n'
+        "  set p to item 1 of m\n"
+        '  return (first name of p as text) & "|" & (last name of p as text) '
+        '& "|" & (organization of p as text)\n'
+        "end tell"
+    )
+    # AppleScript renders an empty field as the literal «missing value», which
+    # would read as a difference against the empty string it was just given.
+    parts = [("" if p.strip() == "missing value" else p)
+             for p in (raw.split("|") + ["", "", ""])[:3]]
+    return {"first_name": parts[0], "last_name": parts[1], "organisation": parts[2]}
+
+
+def write_fields(apple_id, changes):
+    quoted = quote(apple_id)
+    lines = ['tell application "Contacts"',
+             f'  set p to first person whose id is "{quoted}"']
+    if "first_name" in changes:
+        lines.append(f'  set first name of p to "{quote(changes["first_name"])}"')
+    if "last_name" in changes:
+        lines.append(f'  set last name of p to "{quote(changes["last_name"])}"')
+    if "organisation" in changes:
+        lines.append(f'  set organization of p to "{quote(changes["organisation"])}"')
+    lines += ["  save", "end tell"]
+    osascript("\n".join(lines))
+
+
 def delete_person(apple_id):
     quoted = apple_id.replace('"', '\\"')
     osascript(
@@ -136,7 +169,30 @@ def main():
             print(f"  SKIP  {action['who']} — the card now reads «{live}», refusing")
             skipped += 1
             continue
-        if args.commit:
+        if action.get("changes"):
+            previous = read_fields(apple_id)
+            # Writing a field that already holds the value is a needless write
+            # on a synced record, so only the real differences are sent.
+            wanted = {k: v for k, v in action["changes"].items() if previous.get(k, "") != v}
+            if not wanted:
+                print(f"  already right  «{live}»")
+                continue
+            if args.commit:
+                write_fields(apple_id, wanted)
+                confirmed = read_fields(apple_id)
+                if confirmed != {**previous, **wanted}:
+                    print(f"  MISMATCH  «{live}» — wrote {wanted}, card now {confirmed}")
+                journal_append(args.dir, {"action": action["id"], "kind": action["kind"],
+                                          "operation": "edit", "apple_id": apple_id,
+                                          "before": previous, "after": confirmed})
+                print(f"  EDITED   «{live}» → «{wanted.get('first_name', live)}»"
+                      + (f" · org «{wanted['organisation']}»" if wanted.get("organisation") else ""))
+            else:
+                print(f"  would edit  «{live}»")
+                for field, value in wanted.items():
+                    if previous.get(field, "") != value:
+                        print(f"      {field}: «{previous.get(field, '')}» → «{value}»")
+        elif args.commit:
             delete_person(apple_id)
             journal_append(args.dir, {"action": action["id"], "kind": action["kind"],
                                       "operation": "delete", "apple_id": apple_id,
