@@ -42,3 +42,13 @@ draft-ranked*.csv
 
 # Agent worktrees — transient checkouts, never part of a commit.
 .claude/worktrees/
+
+# Address-book audit output: real contact data, and this repository is public.
+# The skill's --out should point outside the tree; this is the second line of
+# defence for anything that lands inside it anyway.
+.claude/skills/audit-apple-contacts/reports/
+.claude/skills/audit-apple-contacts/**/*.vcf
+.claude/skills/audit-apple-contacts/**/records.json
+.claude/skills/audit-apple-contacts/**/actions.json
+.claude/skills/audit-apple-contacts/**/decisions.json
+.claude/skills/audit-apple-contacts/scripts/config.json

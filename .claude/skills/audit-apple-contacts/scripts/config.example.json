@@ -1,0 +1,14 @@
+{
+  "country_prefix": "+34",
+  "local_length": 9,
+  "local_first_digits": "6789",
+  "organisations": {
+    "\\bACME\\b|\\backme\\b": "ACME Corp",
+    "\\bexample\\b": "Example Ltd"
+  },
+  "context_words": {
+    "\\bgym\\b": "gym",
+    "\\bschool\\b": "school"
+  },
+  "kinship": "primo|prima|tio|tia|madre|padre|abuelo|abuela|hermano|hermana|cunado|cunada|sobrino|sobrina|vecino|vecina"
+}
