@@ -146,7 +146,10 @@ def build(primary, secondary, config):
         for pattern, canonical in config.get("organisations", {}).items():
             if re.search(pattern, vcard.strip_accents(record["full_name"]), re.I):
                 cleaned = re.sub(pattern, "", record["full_name"], flags=re.I)
-                cleaned = re.sub(r"\s+", " ", cleaned).strip(" -,[]")
+                # Removing «Accenture» from «Javi Griñan <Accenture>» leaves the
+                # brackets behind; an empty pair reads as a typo, not a name.
+                cleaned = re.sub(r"[<(\[]\s*[>)\]]", "", cleaned)
+                cleaned = re.sub(r"\s+", " ", cleaned).strip(" -,[]()<>")
                 clash = record["organisation"] and vcard.strip_accents(
                     record["organisation"]
                 ) != vcard.strip_accents(canonical)
@@ -214,6 +217,23 @@ def build(primary, secondary, config):
                 f"A) «{' '.join(tokens[:-1])}»+«{tokens[-1]}»   "
                 f"B) «{' '.join(tokens[:-2])}»+«{' '.join(tokens[-2:])}»",
                 "two surnames is the norm here, so usually B")
+
+    # Several rules can match one card — a company tag and a two-word name, or
+    # a rewrite and a split. They all write the same field, so the last one
+    # applied wins and silently undoes the others. Only the most specific is
+    # kept, and the rest are dropped rather than offered.
+    precedence = ["REWRITE", "ORG", "NFIELD", "FLIP", "KIN", "SPLIT3", "SPLIT", "ASK"]
+    best = {}
+    for action in actions:
+        if action["kind"] not in precedence:
+            continue
+        key = action["identity"]
+        rank = precedence.index(action["kind"])
+        if key not in best or rank < best[key][0]:
+            best[key] = (rank, action["id"])
+    keep = {action_id for _, action_id in best.values()}
+    actions = [a for a in actions
+               if a["kind"] not in precedence or a["id"] in keep]
 
     matched = vcard.match(secondary, primary)
     for record, hits in matched:

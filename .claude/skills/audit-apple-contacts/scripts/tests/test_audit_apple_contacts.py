@@ -380,3 +380,39 @@ class TestMissingValue:
         apply.osascript = lambda body: "Bea|missing value|missing value"
         assert apply.read_fields("X:ABPerson") == {
             "first_name": "Bea", "last_name": "", "organisation": ""}
+
+
+class TestOneWritePerField:
+    def _card(self, full, surname="", given="", middle="", org=""):
+        return {"source": "icloud", "index": 0, "ref": "icloud#0", "full_name": full,
+                "given": given, "surname": surname, "middle": middle,
+                "organisation": org, "phones": ["600111222"], "emails": [],
+                "phone_keys": ["600111222"], "name_key": full.lower(), "uid": "",
+                "apple_id": "A:ABPerson", "local_only": False, "extras": {}}
+
+    def test_a_company_tag_and_a_two_word_name_yield_one_action(self):
+        import audit
+
+        # Both rules match «julio bq»: the company tag and the two-word split.
+        # They write the same field, so the second applied would undo the first.
+        config = {"organisations": {r"\bbq\b": "bq"}}
+        actions = audit.build([self._card("julio bq")], [], config)
+        naming = [a for a in actions
+                  if a["kind"] in {"ORG", "SPLIT", "SPLIT3", "NFIELD", "KIN", "FLIP"}]
+        assert len(naming) == 1 and naming[0]["kind"] == "ORG"
+
+    def test_the_emptied_brackets_do_not_survive_the_company_removal(self):
+        import audit
+
+        config = {"organisations": {r"\baccenture\b": "Accenture"}}
+        actions = audit.build([self._card("Javi Griñan <Accenture>")], [], config)
+        org = [a for a in actions if a["kind"] == "ORG"][0]
+        assert "«Javi Griñan»" in org["after"]
+        assert "<>" not in org["after"] and "()" not in org["after"]
+
+    def test_a_phone_action_is_not_dropped_by_a_naming_action(self):
+        import audit
+
+        config = {"organisations": {r"\bbq\b": "bq"}}
+        kinds = {a["kind"] for a in audit.build([self._card("julio bq")], [], config)}
+        assert "PHONE" in kinds
