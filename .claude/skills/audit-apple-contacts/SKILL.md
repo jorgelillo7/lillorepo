@@ -147,6 +147,16 @@ Every one of these cost a real failure. None is theoretical.
   commits half the change, so make each chunk save-or-nothing.
 - Address individual `phone` elements when rewriting a number. Rebuilding the
   list drops labels and reorders.
+- **Writing to a value makes Contacts materialise its default label.** A number
+  stored with no label at all comes back carrying an explicit one — «Teléfono»
+  in Spanish — after any write to it. Nothing visible changes, since that is
+  what the app displayed for an unlabelled number anyway, but the record does
+  change and it will show in a diff. A test that only asserts the script never
+  mentions `label` does not catch this: the app does it, not the script.
+- **Read the label; never invent one.** Apple keeps a custom label in a sibling
+  `group.X-ABLabel` line and a plain vCard uses TYPE parameters. Code that
+  hardcodes «móvil» turns a home landline into a mobile, and nobody notices
+  until they dial it.
 
 ## Data
 
@@ -195,6 +205,9 @@ Every one of these cost a real failure. None is theoretical.
   `.abbu` exists.
 - Never write contact data into the repository. `--out` goes outside it.
 - Never merge two cards on a phone match alone.
+- Never drop a record from the import because it already exists. It exists, but
+  the other book may hold an address, a note or a second number that this one
+  does not — offer the merge instead.
 - Never present a proposal the owner has to correct in the common case — a
   review that is mostly wrong is a review that gets rubber-stamped.
 - Report what was applied against what was approved, and name any difference.
