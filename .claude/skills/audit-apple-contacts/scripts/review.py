@@ -15,13 +15,14 @@ import collections
 import json
 import os
 
-ORDER = ["EMPTY", "KNOWN", "REWRITE", "KIN", "FLIP", "ORG", "PHONE", "SPLIT", "SPLIT3", "ASK",
+ORDER = ["EMPTY", "KNOWN", "REWRITE", "KINHEAD", "KIN", "FLIP", "ORG", "PHONE", "SPLIT", "SPLIT3", "ASK",
          "NFIELD", "MERGE", "CLASH", "IMPORT"]
 TITLES = {
     "EMPTY": "Cards with no phone and no email",
     "KNOWN": "What the owner told me, as a proposal to confirm",
     "REWRITE": "Names matching a rewrite rule from the config",
     "KIN": "Kinship word trailing the name",
+    "KINHEAD": "Kinship word leading the name, split into the surname",
     "FLIP": "Name stored as «Surname, Given»",
     "ORG": "Company embedded in the name",
     "PHONE": "Phone numbers to normalise",

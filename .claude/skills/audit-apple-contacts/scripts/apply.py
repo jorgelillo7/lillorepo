@@ -50,7 +50,13 @@ def creation_record(record, identity, actions, decisions):
     # middle-name slot. It belongs with the family name, not with the given
     # one: «Álvaro | Gómez | Jiménez» is Álvaro Gómez Jiménez, not «Álvaro
     # Gómez» Jiménez. Either way the text survives; only this way is it right.
-    prepared["given"] = record.get("given", "") or record.get("full_name", "")
+    surname = " ".join(
+        part for part in (record.get("middle", ""), record.get("surname", "")) if part
+    ).strip()
+    # Falling back to the display name is only right when there is nothing
+    # else: a card holding «Morata» in the family name and nothing in the given
+    # one came out as «Morata Morata».
+    prepared["given"] = record.get("given", "") or ("" if surname else record.get("full_name", ""))
     prepared["surname"] = " ".join(
         part for part in (record.get("middle", ""), record.get("surname", "")) if part
     ).strip()

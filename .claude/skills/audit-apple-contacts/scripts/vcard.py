@@ -96,8 +96,20 @@ def shared_numbers(records):
     return {key for key, names in owners.items() if len(names) > 1}
 
 
+_SHARED = {"primo", "prima", "tio", "tia", "madre", "padre", "abuelo", "abuela",
+           "hermano", "hermana", "amigo", "amiga", "vecino", "vecina", "taller",
+           "karate", "tienda", "trabajo", "guardias", "movil"}
+
+
 def name_tokens(name):
-    return {t for t in re.split(r"\W+", strip_accents(name)) if len(t) > 2}
+    """Tokens that identify a person, for judging whether two names agree.
+
+    A relationship word is not one of them. Once «Primo Guille» and «Primo Juan
+    Carlos» are both in the book, sharing «primo» is not evidence they are the
+    same person — and it was enough to make every cousin match every other.
+    """
+    tokens = {t for t in re.split(r"\W+", strip_accents(name)) if len(t) > 2}
+    return tokens - _SHARED
 
 
 def match(source, target):

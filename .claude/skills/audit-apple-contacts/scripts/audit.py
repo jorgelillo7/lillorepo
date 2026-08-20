@@ -213,6 +213,22 @@ def build(primary, secondary, config):
             break
 
     for record in primary + secondary:
+        # A name that opens with a kinship word is not «given: Prima, family:
+        # María» — it is «Prima María», one label for one person. The exporter
+        # splits it on the first space like any other name, which files the
+        # relationship as the given name and the person as the surname.
+        first = record["full_name"].split()[:1]
+        if first and re.fullmatch(config.get("kinship", ""), vcard.strip_accents(first[0]), re.I):
+            if record["surname"]:
+                add("KINHEAD", record,
+                    f"nombre=«{record['given']}» apellido=«{record['surname']}»",
+                    f"given=«{record['full_name']}» surname=«»",
+                    "the relationship word belongs with the name, not in the surname field",
+                    changes={"first_name": record["full_name"], "last_name": "",
+                             "middle_name": ""})
+                continue
+
+    for record in primary + secondary:
         # A tag typed into the structured name pushes the real surname into
         # the middle-name slot. The card then sorts under «#» instead of its
         # letter, which is how this usually gets noticed.
@@ -262,8 +278,11 @@ def build(primary, secondary, config):
     # a rewrite and a split. They all write the same field, so the last one
     # applied wins and silently undoes the others. Only the most specific is
     # kept, and the rest are dropped rather than offered.
-    precedence = ["KNOWN", "REWRITE", "ORG", "NFIELD", "FLIP", "KIN",
-                  "SPLIT3", "SPLIT", "ASK"]
+    # CLASH is in the list so a fact the owner gave settles it: «Emilio bq» with
+    # the company MásMóvil is a decision, not a conflict to be raised again on
+    # every run.
+    precedence = ["KNOWN", "REWRITE", "ORG", "KINHEAD", "NFIELD", "FLIP", "KIN",
+                  "SPLIT3", "SPLIT", "ASK", "CLASH"]
     best = {}
     for action in actions:
         if action["kind"] not in precedence:
@@ -294,6 +313,15 @@ def build(primary, secondary, config):
                         if value.lower() not in have_mail]
             new_extras = {k: v for k, v in record["extras"].items()
                           if k not in target["extras"]}
+            # An address the import would refuse to write is not missing data.
+            # Comparing on the field's presence proposed re-adding exactly the
+            # junk that had been decided against.
+            if "ADR" in new_extras:
+                kept = [v for v in new_extras["ADR"] if vcard.readable_address(v)]
+                if kept:
+                    new_extras["ADR"] = kept
+                else:
+                    del new_extras["ADR"]
             if not (new_tel or new_mail or new_extras):
                 continue
             summary = " · ".join(

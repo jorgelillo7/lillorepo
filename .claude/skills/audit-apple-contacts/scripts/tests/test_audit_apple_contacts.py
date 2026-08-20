@@ -755,3 +755,108 @@ class TestAddressesWorthKeeping:
                   "phones": [], "emails": [], "phone_labels": [], "email_labels": [],
                   "extras": {"ADR": ["37 Camino Perales;;M;;ES;Camino Perales 37"]}}
         assert 'label:"casa"' in apply.build_person_script(record)
+
+
+class TestKinshipLeadingTheName:
+    def _card(self, full, given, surname):
+        return {"source": "g", "index": 0, "ref": "g#0", "full_name": full,
+                "given": given, "surname": surname, "middle": "", "organisation": "",
+                "phones": ["600111222"], "emails": [], "phone_keys": ["600111222"],
+                "name_key": full.lower(), "uid": "", "apple_id": "", "local_only": False,
+                "extras": {}}
+
+    KIN = {"kinship": "primo|prima|tio|tia|madre|padre|abuelo|abuela|hermano|hermana"}
+
+    def test_the_relationship_does_not_become_the_given_name(self):
+        import audit
+
+        # «Prima María» is one label for one person, not a given name «Prima»
+        # with the surname «María».
+        record = self._card("Prima María", "Prima", "María")
+        found = [a for a in audit.build([record], [], self.KIN) if a["kind"] == "KINHEAD"]
+        assert found and found[0]["changes"]["first_name"] == "Prima María"
+        assert found[0]["changes"]["last_name"] == ""
+
+    def test_it_matches_without_the_accent(self):
+        import audit
+
+        record = self._card("Tia Conchi", "Tia", "Conchi")
+        assert any(a["kind"] == "KINHEAD" for a in audit.build([record], [], self.KIN))
+
+    def test_a_name_merely_containing_a_kinship_word_is_left_alone(self):
+        import audit
+
+        record = self._card("Primo Ricardo Tiago", "Primo Ricardo", "Tiago")
+        found = [a for a in audit.build([record], [], self.KIN) if a["kind"] == "KINHEAD"]
+        assert found  # it still leads, so it still applies
+
+    def test_an_ordinary_name_produces_nothing(self):
+        import audit
+
+        record = self._card("Aurora Soria Magano", "Aurora", "Soria Magano")
+        assert not [a for a in audit.build([record], [], self.KIN) if a["kind"] == "KINHEAD"]
+
+
+class TestAgreementIgnoresSharedWords:
+    def test_two_cousins_do_not_match_each_other(self):
+        import vcard
+
+        # Standardising on «Primo Nombre» gave every cousin a token in common,
+        # which was enough to read as the same person.
+        a = vcard.name_tokens("Primo Guille")
+        b = vcard.name_tokens("Primo Juan Carlos")
+        assert not (a & b)
+
+    def test_a_real_name_still_matches_itself(self):
+        import vcard
+
+        assert vcard.name_tokens("Primo Guille") & vcard.name_tokens("Guille Primo")
+
+
+class TestMergeDoesNotReAddRefusedData:
+    def _pair(self, extras):
+        source = {"source": "g", "index": 0, "ref": "g#0", "full_name": "Elena Garcia",
+                  "given": "Elena", "surname": "Garcia", "middle": "", "organisation": "",
+                  "phones": ["600111222"], "emails": [], "phone_keys": ["600111222"],
+                  "name_key": "elena garcia", "uid": "", "apple_id": "",
+                  "local_only": False, "extras": extras}
+        target = dict(source, source="icloud", ref="icloud#0", apple_id="A:ABPerson",
+                      extras={})
+        return target, source
+
+    def test_a_town_only_address_is_not_proposed_for_merging(self):
+        import audit
+
+        target, source = self._pair({"ADR": ["coslada;;;España;coslada España"]})
+        assert not [a for a in audit.build([target], [source], {}) if a["kind"] == "MERGE"]
+
+    def test_an_address_with_a_street_still_is(self):
+        import audit
+
+        target, source = self._pair({"ADR": ["37 Camino Perales;;M;;ES;Camino Perales 37"]})
+        found = [a for a in audit.build([target], [source], {}) if a["kind"] == "MERGE"]
+        assert found and found[0]["changes"]["add_extras"]["ADR"]
+
+
+class TestDisplayNameFallback:
+    def _record(self, **kw):
+        base = {"identity": "g:1", "full_name": "", "given": "", "middle": "",
+                "surname": "", "organisation": "", "phones": [], "emails": [],
+                "extras": {}, "phone_labels": [], "email_labels": []}
+        base.update(kw)
+        return base
+
+    def test_a_card_with_only_a_family_name_is_not_doubled(self):
+        import apply
+
+        # «Morata» in the family name and nothing in the given one came out as
+        # «Morata Morata», because the fallback fired regardless.
+        got = apply.creation_record(self._record(surname="Morata", full_name="Morata"),
+                                    "g:1", {}, {})
+        assert got["given"] == "" and got["surname"] == "Morata"
+
+    def test_a_card_with_nothing_structured_still_uses_the_display_name(self):
+        import apply
+
+        got = apply.creation_record(self._record(full_name="Kano"), "g:1", {}, {})
+        assert got["given"] == "Kano"
