@@ -270,9 +270,13 @@ class TestStructuredName:
     def test_a_company_in_the_surname_slot_is_reported(self):
         import audit
 
+        # The tag is preserved, not stripped: it is often the only thing
+        # identifying the card, and it is read from the list.
         record = self._record("Javi Griñan <Accenture>", "<Accenture>", "Javi", "Griñan")
         found = [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"]
-        assert found and "given=«Javi» surname=«Griñan»" in found[0]["after"]
+        assert found
+        assert found[0]["changes"]["first_name"] == "Javi Griñan <Accenture>"
+        assert found[0]["changes"]["last_name"] == ""
 
     def test_a_well_formed_name_produces_nothing(self):
         import audit
@@ -377,9 +381,10 @@ class TestMissingValue:
     def test_an_empty_field_reads_as_empty_not_as_the_literal(self):
         import apply
 
-        apply.osascript = lambda body: "Bea|missing value|missing value"
+        apply.osascript = lambda body: "Bea|missing value|missing value|missing value"
         assert apply.read_fields("X:ABPerson") == {
-            "first_name": "Bea", "last_name": "", "organisation": ""}
+            "first_name": "Bea", "last_name": "", "organisation": "",
+            "middle_name": ""}
 
 
 class TestOneWritePerField:
@@ -416,3 +421,175 @@ class TestOneWritePerField:
         config = {"organisations": {r"\bbq\b": "bq"}}
         kinds = {a["kind"] for a in audit.build([self._card("julio bq")], [], config)}
         assert "PHONE" in kinds
+
+
+class TestTagStaysVisible:
+    def _card(self, full, surname, given, middle=""):
+        return {"source": "icloud", "index": 0, "ref": "icloud#0", "full_name": full,
+                "given": given, "surname": surname, "middle": middle,
+                "organisation": "", "phones": ["600111222"], "emails": [],
+                "phone_keys": ["600111222"], "name_key": full.lower(), "uid": "",
+                "apple_id": "A:ABPerson", "local_only": False, "extras": {}}
+
+    def test_the_displayed_name_is_not_changed_only_its_field(self):
+        import audit
+
+        # «(rebe)» may be the only thing that identifies this Rober. Dropping
+        # it, or moving it to a note, removes it from the list where it is read.
+        record = self._card("Rober (rebe)", "(rebe)", "Rober")
+        action = [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"][0]
+        assert action["changes"]["first_name"] == "Rober (rebe)"
+        assert action["changes"]["last_name"] == ""
+
+    def test_the_middle_name_is_cleared_so_it_is_not_shown_twice(self):
+        import audit
+
+        record = self._card("Peluquería Sebastián Martín (Dehesa)", "(Dehesa)",
+                            "Peluquería Sebastián", "Martín")
+        action = [a for a in audit.build([record], [], {}) if a["kind"] == "NFIELD"][0]
+        assert action["changes"]["middle_name"] == ""
+
+    def test_the_middle_name_is_written_when_asked(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.write_fields("X:ABPerson", {"middle_name": ""})
+        assert "set middle name" in calls[0]
+
+
+class TestEditIsAnApproval:
+    ACTIONS = {"a": {"id": "a", "kind": "NFIELD"}, "b": {"id": "b", "kind": "NFIELD"},
+               "c": {"id": "c", "kind": "NFIELD"}, "d": {"id": "d", "kind": "PHONE"}}
+
+    def test_a_corrected_proposal_counts_as_approved(self):
+        # «edit» is the owner overriding the proposal — the answer they took
+        # most care over. Accepting only «yes» discards it silently.
+        import apply
+
+        decisions = {"a": {"verdict": "yes"}, "b": {"verdict": "edit", "value": "{}"}}
+        got = apply.approved_actions(self.ACTIONS, decisions, "NFIELD")
+        assert {x["id"] for x in got} == {"a", "b"}
+
+    def test_a_refusal_and_an_unknown_are_left_out(self):
+        import apply
+
+        decisions = {"a": {"verdict": "no"}, "b": {"verdict": "unknown"},
+                     "c": {"verdict": "yes"}}
+        got = apply.approved_actions(self.ACTIONS, decisions, "NFIELD")
+        assert [x["id"] for x in got] == ["c"]
+
+    def test_another_kind_is_not_picked_up(self):
+        import apply
+
+        decisions = {"d": {"verdict": "yes"}}
+        assert apply.approved_actions(self.ACTIONS, decisions, "NFIELD") == []
+
+
+class TestOwnerFacts:
+    def _card(self, full, org=""):
+        return {"source": "icloud", "index": 0, "ref": "icloud#0", "full_name": full,
+                "given": full, "surname": "", "middle": "", "organisation": org,
+                "phones": ["600111222"], "emails": [], "phone_keys": ["600111222"],
+                "name_key": full.lower(), "uid": "", "apple_id": "A:ABPerson",
+                "local_only": False, "extras": {}}
+
+    def test_a_fact_outranks_every_guess(self):
+        import audit
+
+        # A rule guesses; the owner does not. «julio bq» would otherwise get a
+        # company action that leaves the surname unknown.
+        config = {"organisations": {r"\bbq\b": "bq"},
+                  "known": [{"name": "julio bq", "given": "julio",
+                             "surname": "gonzalez", "organisation": "bq"}]}
+        actions = audit.build([self._card("julio bq")], [], config)
+        naming = [a for a in actions if a["kind"] in {"KNOWN", "ORG", "SPLIT"}]
+        assert len(naming) == 1 and naming[0]["kind"] == "KNOWN"
+        assert naming[0]["changes"]["last_name"] == "gonzalez"
+
+    def test_a_fact_reaches_a_card_no_rule_would_touch(self):
+        import audit
+
+        # A card with an organisation already set is skipped by the split rule,
+        # so a missing surname there is otherwise never offered for fixing.
+        config = {"known": [{"name": "juan carlos", "given": "Juan Carlos",
+                             "surname": "Rico"}]}
+        actions = audit.build([self._card("juan carlos", org="oracle")], [], config)
+        assert [a["kind"] for a in actions if a["kind"] == "KNOWN"] == ["KNOWN"]
+
+    def test_a_fact_matches_regardless_of_accents_and_case(self):
+        import audit
+
+        config = {"known": [{"name": "JAVI GRIÑAN <ACCENTURE>", "given": "Javi",
+                             "surname": "Griñan"}]}
+        actions = audit.build([self._card("Javi Griñan <Accenture>")], [], config)
+        assert any(a["kind"] == "KNOWN" for a in actions)
+
+
+class TestPhoneTargeting:
+    def test_the_number_is_found_despite_spaces_and_controls(self):
+        import apply
+
+        phones = ["+34 628 45 73 03", "‪+34919311062‬"]
+        assert apply.find_phone_index(phones, "919311062") == 2
+
+    def test_a_prefixed_and_a_bare_form_are_the_same_number(self):
+        import apply
+
+        assert apply.find_phone_index(["+34628457303"], "628457303") == 1
+
+    def test_two_identical_numbers_are_refused_rather_than_guessed(self):
+        import apply
+
+        # Editing the wrong element of a card with several numbers is worse
+        # than doing nothing, so an ambiguous match is not resolved.
+        assert apply.find_phone_index(["600111222", "600 111 222"], "600111222") is None
+
+    def test_a_number_that_is_not_there_returns_nothing(self):
+        import apply
+
+        assert apply.find_phone_index(["600111222"], "699999999") is None
+
+    def test_the_label_is_never_part_of_the_rewrite(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.write_phone_value("X:ABPerson", 2, "+34600111222")
+        assert "set value of phone 2" in calls[0]
+        assert "label" not in calls[0]
+
+
+class TestMergeCarriesEverything:
+    def test_a_url_is_written_and_unescaped(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.merge_into("X:ABPerson", {"add_extras": {"URL": ["http\\://example.com"]}})
+        assert "make new url" in calls[0]
+        assert "http://example.com" in calls[0]
+
+    def test_a_field_it_cannot_write_is_reported_not_dropped(self):
+        import apply
+
+        apply.osascript = lambda body: ""
+        left = apply.merge_into("X:ABPerson", {"add_extras": {"BDAY": ["1980-01-01"]}})
+        assert left == {"BDAY": ["1980-01-01"]}
+
+    def test_each_added_value_keeps_its_own_label(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.merge_into("X:ABPerson", {"add_phones": [["casa", "+34919311062"]],
+                                        "add_emails": [["Personal", "a@b.com"]]})
+        assert 'label:"casa"' in calls[0] and 'label:"Personal"' in calls[0]
+
+    def test_a_value_with_no_label_gets_a_neutral_one(self):
+        import apply
+
+        calls = []
+        apply.osascript = lambda body: calls.append(body) or ""
+        apply.merge_into("X:ABPerson", {"add_emails": [["", "a@b.com"]]})
+        assert 'label:"otro"' in calls[0]

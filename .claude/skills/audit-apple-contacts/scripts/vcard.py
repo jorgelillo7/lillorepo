@@ -177,3 +177,42 @@ def pretty(word, spelling=None):
     if fixed:
         return fixed
     return word.capitalize() if word.islower() else word
+
+
+def labelled(props, name):
+    """Values of a property with the label each one carries.
+
+    Apple stores a custom label in a sibling «group.X-ABLabel» line, while a
+    plain vCard uses TYPE parameters. Reading only the value throws the label
+    away, and then an import invents one — a work number becomes «home» and
+    nobody notices until they call it.
+    """
+    groups = {head.split(".", 1)[0]: value
+              for head, value in props.get("X-ABLABEL", [])
+              if "." in head}
+    out = []
+    for head, value in props.get(name, []):
+        group = head.split(".", 1)[0] if "." in head else None
+        if group and group in groups:
+            label = groups[group].strip()
+        else:
+            types = re.findall(r"type=([A-Za-z]+)", head, re.I)
+            types = [t for t in types if t.lower() not in ("pref", "internet", "voice")]
+            label = types[0].lower() if types else ""
+        out.append((_APPLE_LABELS.get(label.lower(), label), value))
+    return out
+
+
+_APPLE_LABELS = {
+    "cell": "móvil", "iphone": "iPhone", "home": "casa", "work": "trabajo",
+    "main": "principal", "other": "otro", "fax": "fax",
+    "_$!<home>!$_": "casa", "_$!<work>!$_": "trabajo", "_$!<mobile>!$_": "móvil",
+    "_$!<homepage>!$_": "página web", "_$!<other>!$_": "otro",
+}
+
+
+def unescape(value):
+    """Undo vCard escaping. A URL arrives as «http\\://…» and must not be
+    stored with the backslash."""
+    return re.sub(r"\\([\\,;:nN])",
+                  lambda m: "\n" if m.group(1) in "nN" else m.group(1), value or "")
