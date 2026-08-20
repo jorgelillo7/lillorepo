@@ -593,3 +593,165 @@ class TestMergeCarriesEverything:
         apply.osascript = lambda body: calls.append(body) or ""
         apply.merge_into("X:ABPerson", {"add_emails": [["", "a@b.com"]]})
         assert 'label:"otro"' in calls[0]
+
+
+class TestCreateCarriesEverything:
+    def _record(self, **overrides):
+        record = {"given": "Ana", "surname": "Ruiz", "full_name": "Ana Ruiz",
+                  "organisation": "", "phones": [], "emails": [], "extras": {},
+                  "phone_labels": [], "email_labels": []}
+        record.update(overrides)
+        import apply
+
+        return apply.build_person_script(record)
+
+    def test_an_address_naming_a_street_is_kept_in_its_readable_form(self):
+        # Reading the components by position invents a city called «España»,
+        # so the readable line is used whole instead.
+        script = self._record(extras={"ADR": ["37 Camino Perales;;M;;ES;Camino Perales 37"]})
+        assert 'street:"Camino Perales 37"' in script
+        assert "city:" not in script
+
+    def test_a_birthday_becomes_a_real_date(self):
+        script = self._record(extras={"BDAY": ["19910525"]})
+        assert "set year of d to 1991" in script
+        assert "set month of d to May" in script
+        assert "set day of d to 25" in script
+
+    def test_the_day_is_reset_before_the_month_is_set(self):
+        # Setting the month while the day is 31 rolls into the next month.
+        script = self._record(extras={"BDAY": ["19910525"]})
+        assert script.index("set day of d to 1") < script.index("set month of d to")
+
+    def test_a_malformed_birthday_is_skipped_not_guessed(self):
+        assert "birth date" not in self._record(extras={"BDAY": ["1991"]})
+
+    def test_labels_come_from_the_record(self):
+        script = self._record(phone_labels=[["casa", "+34919311062"]],
+                              email_labels=[["Personal", "a@b.com"]])
+        assert 'label:"casa"' in script and 'label:"Personal"' in script
+
+    def test_the_new_id_is_returned_so_the_creation_can_be_undone(self):
+        assert "return id of p" in self._record()
+
+
+class TestCreationFoldsInDecisions:
+    def _record(self, **kw):
+        base = {"identity": "g:1", "full_name": "X", "given": "", "middle": "",
+                "surname": "", "organisation": "", "phones": [], "emails": [],
+                "extras": {}, "phone_labels": [], "email_labels": []}
+        base.update(kw)
+        return base
+
+    def test_the_first_surname_joins_the_family_name_not_the_given_one(self):
+        import apply
+
+        # «Álvaro | Gómez | Jiménez» is Álvaro Gómez Jiménez: two surnames, one
+        # given name. Attaching Gómez to the given name keeps the text and
+        # still gets the person's name wrong.
+        record = self._record(given="Álvaro", middle="Gómez", surname="Jiménez")
+        got = apply.creation_record(record, "g:1", {}, {})
+        assert got["given"] == "Álvaro"
+        assert got["surname"] == "Gómez Jiménez"
+
+    def test_the_middle_name_is_not_dropped(self):
+        import apply
+
+        # Google puts the first surname there. Writing only given and family
+        # loses it, and «Guevara» disappears from the middle of a name.
+        record = self._record(given="Joaquín Miguel Ladrón de", middle="Guevara",
+                              surname="Mesonero")
+        got = apply.creation_record(record, "g:1", {}, {})
+        assert got["given"] == "Joaquín Miguel Ladrón de"
+        assert got["surname"] == "Guevara Mesonero"
+
+    def test_an_approved_action_overrides_the_source_fields(self):
+        import apply
+
+        # Google made «MM» the surname. The company action already said what
+        # this name should be, so creating it raw would undo that answer.
+        record = self._record(given="Andrés", middle="Reyes", surname="MM")
+        actions = {"a": {"id": "a", "identity": "g:1", "kind": "ORG",
+                         "changes": {"first_name": "Andrés Reyes", "last_name": "",
+                                     "organisation": "MásMóvil"}}}
+        got = apply.creation_record(record, "g:1", actions, {"a": {"verdict": "yes"}})
+        assert got["given"] == "Andrés Reyes"
+        assert got["surname"] == ""
+        assert got["organisation"] == "MásMóvil"
+
+    def test_a_refused_action_does_not_apply(self):
+        import apply
+
+        record = self._record(given="Emilio", surname="Bq", organisation="MásMóvil")
+        actions = {"a": {"id": "a", "identity": "g:1", "kind": "CLASH",
+                         "changes": {"first_name": "Emilio"}}}
+        got = apply.creation_record(record, "g:1", actions, {"a": {"verdict": "no"}})
+        assert got["surname"] == "Bq"
+
+    def test_a_correction_wins_over_the_proposal(self):
+        import apply
+
+        record = self._record(given="Alfonso")
+        actions = {"a": {"id": "a", "identity": "g:1", "kind": "KNOWN",
+                         "changes": {"first_name": "Alfonso"}}}
+        decisions = {"a": {"verdict": "edit",
+                           "value": '{"first_name": "Primo Alfonso", "last_name": "Mancheño"}'}}
+        got = apply.creation_record(record, "g:1", actions, decisions)
+        assert got["given"] == "Primo Alfonso" and got["surname"] == "Mancheño"
+
+
+class TestCreatedNumbersAreNormalised:
+    def test_a_created_card_does_not_arrive_unformatted(self):
+        import apply
+
+        record = {"identity": "g:1", "full_name": "Ana", "given": "Ana", "middle": "",
+                  "surname": "", "organisation": "", "phones": ["916712918"],
+                  "emails": [], "extras": {},
+                  "phone_labels": [["casa", "916712918"]], "email_labels": []}
+        actions = {"i": {"id": "i", "identity": "g:1", "kind": "IMPORT",
+                         "changes": {"phone_labels": [["casa", "+34916712918"]]}}}
+        got = apply.creation_record(record, "g:1", actions, {})
+        assert got["phone_labels"] == [["casa", "+34916712918"]]
+
+    def test_the_identity_comes_from_the_action_not_the_record(self):
+        import apply
+
+        # records.json has no identity field; matching on it silently found
+        # nothing and every created card arrived unformatted.
+        record = {"full_name": "Ana", "given": "Ana", "middle": "", "surname": "",
+                  "organisation": "", "phones": ["916712918"], "emails": [],
+                  "extras": {}, "phone_labels": [["casa", "916712918"]],
+                  "email_labels": []}
+        actions = {"i": {"id": "i", "identity": "g:1", "kind": "IMPORT",
+                         "changes": {"phone_labels": [["casa", "+34916712918"]]}}}
+        got = apply.creation_record(record, "g:1", actions, {})
+        assert got["phone_labels"] == [["casa", "+34916712918"]]
+
+
+class TestAddressesWorthKeeping:
+    def test_a_town_only_entry_is_skipped(self):
+        import vcard
+
+        assert vcard.readable_address("coslada;;;España;coslada España") is None
+
+    def test_an_entry_naming_a_street_is_kept_in_its_readable_form(self):
+        import vcard
+
+        got = vcard.readable_address("37 Camino Perales;;M;;ES;Camino Perales 37")
+        assert got == "Camino Perales 37"
+
+    def test_the_skipped_ones_do_not_reach_the_script(self):
+        import apply
+
+        record = {"given": "Ana", "surname": "", "full_name": "Ana", "organisation": "",
+                  "phones": [], "emails": [], "phone_labels": [], "email_labels": [],
+                  "extras": {"ADR": ["Madrid;;;España;Madrid España"]}}
+        assert "make new address" not in apply.build_person_script(record)
+
+    def test_an_imported_address_is_labelled_home_not_other(self):
+        import apply
+
+        record = {"given": "Ana", "surname": "", "full_name": "Ana", "organisation": "",
+                  "phones": [], "emails": [], "phone_labels": [], "email_labels": [],
+                  "extras": {"ADR": ["37 Camino Perales;;M;;ES;Camino Perales 37"]}}
+        assert 'label:"casa"' in apply.build_person_script(record)

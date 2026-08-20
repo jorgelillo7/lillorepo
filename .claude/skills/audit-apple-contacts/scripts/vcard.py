@@ -216,3 +216,21 @@ def unescape(value):
     stored with the backslash."""
     return re.sub(r"\\([\\,;:nN])",
                   lambda m: "\n" if m.group(1) in "nN" else m.group(1), value or "")
+
+
+_STREET = re.compile(r"\d|\bcalle\b|\bavda\b|\bavenida\b|\bcamino\b|\bplaza\b"
+                     r"|\bpaseo\b|\bc/|\bstreet\b|\broad\b|\bvia\b", re.I)
+
+
+def readable_address(value):
+    """The human-readable line of an ADR, or None when it holds no street.
+
+    Google exports the components in the wrong slots and repeats a readable
+    form in the last one. Many carry only a town, which says nothing the card
+    does not already say; those are not worth importing. One that names a
+    street is real data and is the only record of it.
+    """
+    parts = [p.strip() for p in unescape(value or "").split(";") if p.strip()]
+    if not parts or not _STREET.search(" ".join(parts)):
+        return None
+    return parts[-1]

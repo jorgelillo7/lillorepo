@@ -26,6 +26,55 @@ def quote(text):
     return (text or "").replace("\\", "\\\\").replace('"', '\\"')
 
 
+def creation_record(record, identity, actions, decisions):
+    """The record as it should be created, with the owner's answers folded in.
+
+    Two things go wrong when the source book's name fields are copied as they
+    stand. Google files the first surname in the middle-name slot, so writing
+    only given and family drops it. And it takes the last word as the surname
+    whatever it is, so «Andrés Reyes MM» acquires the surname «MM».
+    The approved actions for this same card already say what the name should
+    be, so they are applied here instead of after the fact.
+    """
+    prepared = dict(record)
+    # The numbers are normalised in the action, not in the source record: a
+    # card created from the raw export would arrive unformatted and need the
+    # whole phone pass run over it again.
+    for candidate in actions.values():
+        if (candidate.get("identity") == identity
+                and candidate["kind"] == "IMPORT"
+                and candidate.get("changes", {}).get("phone_labels")):
+            prepared["phone_labels"] = candidate["changes"]["phone_labels"]
+            break
+    # Spanish names carry two surnames, and Google files the first one in the
+    # middle-name slot. It belongs with the family name, not with the given
+    # one: «Álvaro | Gómez | Jiménez» is Álvaro Gómez Jiménez, not «Álvaro
+    # Gómez» Jiménez. Either way the text survives; only this way is it right.
+    prepared["given"] = record.get("given", "") or record.get("full_name", "")
+    prepared["surname"] = " ".join(
+        part for part in (record.get("middle", ""), record.get("surname", "")) if part
+    ).strip()
+    for action in actions.values():
+        if action.get("identity") != identity:
+            continue
+        if decisions.get(action["id"], {}).get("verdict") not in ("yes", "edit"):
+            continue
+        override = decisions[action["id"]].get("value")
+        changes = action.get("changes") or {}
+        if override:
+            try:
+                changes = json.loads(override)
+            except json.JSONDecodeError:
+                pass
+        if "first_name" in changes:
+            prepared["given"] = changes["first_name"]
+        if "last_name" in changes:
+            prepared["surname"] = changes["last_name"]
+        if changes.get("organisation"):
+            prepared["organisation"] = changes["organisation"]
+    return prepared
+
+
 def build_person_script(record):
     """AppleScript that creates one card with everything the record holds.
 
@@ -33,24 +82,60 @@ def build_person_script(record):
     note is the kind of thing that turns a create into a syntax error, or
     worse, into a different command.
     """
-    lines = ['tell application "Contacts"', "  set p to make new person with properties "
-             + "{{first name:\"{}\", last name:\"{}\"}}".format(
+    lines = ['tell application "Contacts"',
+             "  set p to make new person with properties "
+             + '{{first name:"{}", last name:"{}"}}'.format(
                  quote(record.get("given") or record.get("full_name", "")),
                  quote(record.get("surname", "")))]
     if record.get("organisation"):
         lines.append(f'  set organization of p to "{quote(record["organisation"])}"')
-    for label, value in record.get("phone_labels") or [["otro", p] for p in record.get("phones", [])]:
+    phones = record.get("phone_labels") or [["", p] for p in record.get("phones", [])]
+    for label, value in phones:
         lines.append('  make new phone at end of phones of p with properties '
                      f'{{label:"{quote(label or "otro")}", value:"{quote(value)}"}}')
-    for label, value in record.get("email_labels") or [["otro", m] for m in record.get("emails", [])]:
+    emails = record.get("email_labels") or [["", m] for m in record.get("emails", [])]
+    for label, value in emails:
         lines.append('  make new email at end of emails of p with properties '
                      f'{{label:"{quote(label or "otro")}", value:"{quote(value)}"}}')
-    for note in record.get("extras", {}).get("NOTE", []):
-        lines.append(f'  set note of p to "{quote(note)}"')
+    extras = record.get("extras", {})
+    for note in extras.get("NOTE", []):
+        lines.append(f'  set note of p to "{quote(vcard.unescape(note))}"')
+    for url in extras.get("URL", []):
+        lines.append('  make new url at end of urls of p with properties '
+                     f'{{label:"página web", value:"{quote(vcard.unescape(url))}"}}')
+    for address in extras.get("ADR", []):
+        # The components arrive in the wrong slots, so reading them positionally
+        # invents a city called «España». The readable line is used whole, and
+        # an entry that names no street is skipped: it holds a town and nothing
+        # else, which the card already says.
+        readable = vcard.readable_address(address)
+        if not readable:
+            continue
+        # «otro» says nothing. In a personal address book an address is a home
+        # far more often than not, and a wrong-but-meaningful default is easier
+        # to spot and correct than a meaningless one.
+        lines.append('  make new address at end of addresses of p with properties '
+                     f'{{label:"casa", street:"{quote(readable)}"}}')
+    for birthday in extras.get("BDAY", []):
+        digits = re.sub(r"\D", "", birthday)
+        if len(digits) == 8:
+            year, month, day = digits[:4], int(digits[4:6]), int(digits[6:])
+            lines += ["  set d to current date",
+                      "  set day of d to 1",
+                      f"  set year of d to {year}",
+                      f"  set month of d to {MONTHS[month]}",
+                      f"  set day of d to {day}",
+                      "  set time of d to 0",
+                      "  set birth date of p to d"]
     lines.append("  save")
     lines.append("  return id of p")
     lines.append("end tell")
     return "\n".join(lines)
+
+
+MONTHS = {1: "January", 2: "February", 3: "March", 4: "April", 5: "May",
+          6: "June", 7: "July", 8: "August", 9: "September", 10: "October",
+          11: "November", 12: "December"}
 
 
 def osascript(body):
@@ -223,6 +308,7 @@ def main():
     parser.add_argument("--dir", required=True)
     parser.add_argument("--kind", default="EMPTY", help="only this kind of action")
     parser.add_argument("--commit", action="store_true", help="actually write")
+    parser.add_argument("--limit", type=int, help="apply at most this many, for a first batch")
     args = parser.parse_args()
 
     actions = {a["id"]: a for a in json.load(
@@ -233,6 +319,8 @@ def main():
     by_ref = {r["ref"]: r for book in records.values() for r in book}
 
     approved = approved_actions(actions, decisions, args.kind)
+    if args.limit:
+        approved = approved[: args.limit]
     if not approved:
         print(f"nothing approved for {args.kind}")
         return
@@ -241,6 +329,25 @@ def main():
     applied, skipped = 0, 0
     for action in approved:
         record = by_ref.get(action["ref"], {})
+        if action["kind"] == "IMPORT":
+            record = creation_record(record, action["identity"], actions, decisions)
+            name = f"{record.get('given', '')} {record.get('surname', '')}".strip() \
+                or record.get("full_name", "")
+            if args.commit:
+                new_id = osascript(build_person_script(record)).strip()
+                journal_append(args.dir, {"action": action["id"], "kind": "IMPORT",
+                                          "operation": "create", "apple_id": new_id,
+                                          "record": record})
+                print(f"  CREATED  «{name}»  {new_id}")
+            else:
+                bits = [f"{len(record.get('phones', []))} tel",
+                        f"{len(record.get('emails', []))} mail"]
+                bits += [k.lower() for k in record.get("extras", {})]
+                if record.get("organisation"):
+                    bits.append(f"org «{record['organisation']}»")
+                print(f"  would create  «{name}»  ({', '.join(bits)})")
+            applied += 1
+            continue
         # A merge writes into the destination card, not into the record the
         # action came from, so it must not be filtered by that record having no
         # id of its own — the whole point is that it lives in the other book.

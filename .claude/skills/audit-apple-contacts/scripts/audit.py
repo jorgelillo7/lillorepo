@@ -331,7 +331,10 @@ def build(primary, secondary, config):
                 f"tel={record['phones'] or '—'} mail={record['emails'] or '—'} "
                 f"org={record['organisation'] or '—'}"
                 + (f" · also {list(record['extras'])}" if record["extras"] else ""),
-                f"create · {summary}")
+                f"create · {summary}",
+                changes={"phone_labels": [
+                    [label, vcard.normalize_phone(value, prefix, length)]
+                    for label, value in record["phone_labels"]]})
     return actions
 
 
