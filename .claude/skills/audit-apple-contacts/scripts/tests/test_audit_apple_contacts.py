@@ -860,3 +860,48 @@ class TestDisplayNameFallback:
 
         got = apply.creation_record(self._record(full_name="Kano"), "g:1", {}, {})
         assert got["given"] == "Kano"
+
+
+class TestNoteAfterMovingAnAddress:
+    def test_the_moved_line_is_removed_and_the_rest_kept(self):
+        import address
+
+        note = "Calle Mercurio 74 bloque 1 3°C\nantigua:\nCalle David 7 4*8 Almería"
+        assert address.note_without(note, [1]) == "antigua:\nCalle David 7 4*8 Almería"
+
+    def test_several_lines_can_go_at_once(self):
+        import address
+
+        note = "C/ Arratia 20\n28802. Alcalá\nPlaza Mar Caspio\n1°A"
+        assert address.note_without(note, [1, 2]) == "Plaza Mar Caspio\n1°A"
+
+    def test_a_note_that_was_only_the_address_ends_up_empty(self):
+        import address
+
+        assert address.note_without("Torrelavega 3 C", [1]) == ""
+
+    def test_blank_lines_left_at_the_edges_are_collapsed(self):
+        import address
+
+        # Removing the middle of «addr\n\nrest» must not leave a leading blank,
+        # which some clients show as content and others as nothing.
+        assert address.note_without("Calle X 1\n\nresto", [1]) == "resto"
+
+    def test_nothing_is_dropped_when_no_lines_are_named(self):
+        import address
+
+        assert address.note_without("una\ndos", []) == "una\ndos"
+
+    def test_blank_lines_do_not_take_a_number(self):
+        import address
+
+        # The reader numbers what they can see. Counting the raw lines removed
+        # the blank between two entries and left the address in place.
+        note = "6 C\n\nCalle Francisco Umbral 8\n\n25 campana"
+        assert address.note_without(note, [2]) == "6 C\n\n\n25 campana"
+
+    def test_the_last_visible_line_can_be_dropped(self):
+        import address
+
+        note = "uno\naparcar\n\ndos \ntres"
+        assert address.note_without(note, [1, 3, 4]) == "aparcar"
