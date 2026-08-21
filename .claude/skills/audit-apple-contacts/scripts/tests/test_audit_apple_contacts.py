@@ -905,3 +905,31 @@ class TestNoteAfterMovingAnAddress:
 
         note = "uno\naparcar\n\ndos \ntres"
         assert address.note_without(note, [1, 3, 4]) == "aparcar"
+
+
+class TestClashStillOffersTheImport:
+    def _card(self, name, phones, source, apple_id=""):
+        return {"source": source, "index": 0, "ref": f"{source}#0", "full_name": name,
+                "given": name, "surname": "", "middle": "", "organisation": "",
+                "phones": phones, "emails": [], "extras": {},
+                "phone_labels": [["móvil", p] for p in phones], "email_labels": [],
+                "phone_keys": [k for k in (vcard.phone_key(p) for p in phones) if k],
+                "name_key": name.lower(), "uid": "", "apple_id": apple_id,
+                "local_only": False}
+
+    def test_a_household_landline_clash_does_not_drop_the_record(self):
+        import audit
+
+        # Four people share one landline. Saying «they are not the same» has to
+        # leave a way to migrate them; before, it left them out of the book.
+        target = [self._card("Tía Tere", ["913062058"], "icloud", "A:ABPerson")]
+        source = [self._card("Alfonso", ["654235912", "913062058"], "gmail")]
+        kinds = [a["kind"] for a in audit.build(target, source, {})]
+        assert "CLASH" in kinds and "IMPORT" in kinds
+
+    def test_a_clean_new_record_still_gets_one_import_only(self):
+        import audit
+
+        source = [self._card("Nadie", ["600111222"], "gmail")]
+        kinds = [a["kind"] for a in audit.build([], source, {})]
+        assert kinds.count("IMPORT") == 1 and "CLASH" not in kinds

@@ -343,6 +343,18 @@ def build(primary, secondary, config):
             add("CLASH", record, f"matches {[h[0]['full_name'] for h in hits]}",
                 "which one is the same person?",
                 "a shared household landline matches people who are not the same")
+            # And offer the import as well. A clash says «I cannot tell», not
+            # «do not migrate»: answering that these are different people left
+            # the record out of the book entirely, silently, because no import
+            # was ever proposed for it.
+            if record["phones"] or record["emails"]:
+                add("IMPORT", record,
+                    f"tel={record['phones'] or '—'} mail={record['emails'] or '—'}",
+                    "create as a separate card, if the clash says they are not the same",
+                    "answer this too: refusing the clash alone does not migrate anything",
+                    changes={"phone_labels": [
+                        [label, vcard.normalize_phone(value, prefix, length)]
+                        for label, value in record["phone_labels"]]})
         elif not hits and (record["phones"] or record["emails"]):
             carried = {
                 "tel": [f"{label or 'otro'}:{vcard.normalize_phone(value, prefix, length)}"
