@@ -56,6 +56,10 @@ def load_records(path, source):
                     props.get("UID")
                     and any(v.strip() == "card" for _, v in props.get("CATEGORIES", []))
                 ),
+                "raw_addresses": [
+                    (head, vcard.strip_accents(value))
+                    for head, value in props.get("ADR", [])
+                ],
                 "extras": {
                     key: [v.strip(" ;") for _, v in props[key] if v.strip(" ;")]
                     for key in ("NOTE", "ADR", "BDAY", "URL", "TITLE")
@@ -337,6 +341,25 @@ def build(primary, secondary, config):
             # An address the import would refuse to write is not missing data.
             # Comparing on the field's presence proposed re-adding exactly the
             # junk that had been decided against.
+            # A note whose content was promoted into the address field is not
+            # missing data. Comparing on the field's presence proposed putting
+            # every address back in the note it had just been moved out of.
+            if "NOTE" in new_extras:
+                written = " ".join(
+                    " ".join(v for _, v in target.get("raw_addresses", []))
+                    for _ in [0]).lower()
+                kept = []
+                for note in new_extras["NOTE"]:
+                    lines = [line.strip() for line in vcard.unescape(note).split("\n")
+                             if line.strip()]
+                    left = [line for line in lines
+                            if vcard.strip_accents(line) not in written]
+                    if left:
+                        kept.append("\n".join(left))
+                if kept:
+                    new_extras["NOTE"] = kept
+                else:
+                    del new_extras["NOTE"]
             if "ADR" in new_extras:
                 kept = [v for v in new_extras["ADR"] if vcard.readable_address(v)]
                 if kept:
