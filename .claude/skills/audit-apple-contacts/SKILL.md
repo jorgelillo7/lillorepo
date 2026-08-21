@@ -198,6 +198,33 @@ with the reason it is known. It outranks every rule, because a rule is guessing
 and the owner is not. It is also what makes the next run cheap: those questions
 are already answered.
 
+# Write the standard down
+
+An address book has a standard whether anyone states it or not, and the second
+pass is where that shows: a rule you cannot recall is one you will contradict.
+Keep a one-page summary next to the config — not in the repository, since the
+examples name people — with a table per decision:
+
+| decides | example of a filled-in answer |
+|---|---|
+| a person's name | given name in «first», **both surnames** in «last» |
+| a relative of yours | relationship first, whole thing in «first» |
+| a relative of someone else | name · relationship · whose |
+| a label rather than a name | whole thing in «first», surname left empty |
+| the company field | where they work — or where you met them, if that is what you use it for |
+| a phone | one format, everywhere, labels kept as they were |
+| an address | the address field with street and town apart, never the note |
+| the note | whatever the card does not already say |
+
+The rule that pays for itself: **the surname field is for surnames.** A trade,
+a town, a relationship or a nickname put there sorts the card under the wrong
+letter and reads as a name it is not.
+
+Two more worth stating explicitly, because both were reached the hard way. A
+shared landline does not merge two people. And when the tag in the name and the
+company field disagree, that can be deliberate — one says where you met them,
+the other where they are.
+
 # Running it again
 
 The second run is a different job from the first. Most of the book is already
