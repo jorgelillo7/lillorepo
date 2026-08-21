@@ -273,7 +273,12 @@ def build(primary, secondary, config):
         plain = vcard.strip_accents(record["full_name"])
         if "(" in record["full_name"] or ")" in record["full_name"]:
             continue
-        if kinship and tokens and re.fullmatch(kinship, vcard.strip_accents(tokens[0]), re.I):
+        # A relationship word anywhere makes this a label, not a name. The
+        # convention «Nombre Parentesco Referente» — «Javi Primo Patri», whose
+        # cousin he is — puts it in the middle, where looking only at the first
+        # word never finds it.
+        if kinship and any(re.fullmatch(kinship, vcard.strip_accents(t), re.I)
+                           for t in tokens):
             continue
         if any(re.search(pattern, plain, re.I) for pattern in context):
             continue

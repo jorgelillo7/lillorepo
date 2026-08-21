@@ -966,6 +966,22 @@ class TestSplitLeavesLabelsAlone:
         assert not [a for a in audit.build([self._card("Rober (rebe)")], [], self.CFG)
                     if a["kind"] == "SPLIT"]
 
+    def test_a_relationship_in_the_middle_is_still_a_label(self):
+        import audit
+
+        # «Javi Primo Patri» is Patri's cousin Javi — one label. Looking only
+        # at the first word never finds the relationship.
+        cfg = {"kinship": "primo|prima|tio|tia|amigo|amiga", "context_words": {}}
+        assert not [a for a in audit.build([self._card("Javi Primo Patri")], [], cfg)
+                    if a["kind"] in ("SPLIT", "SPLIT3")]
+
+    def test_a_three_word_person_is_still_offered(self):
+        import audit
+
+        cfg = {"kinship": "primo|prima", "context_words": {}}
+        assert [a for a in audit.build([self._card("Daniel Pascual Romera")], [], cfg)
+                if a["kind"] == "SPLIT3"]
+
     def test_an_ordinary_two_word_name_is_still_offered(self):
         import audit
 
