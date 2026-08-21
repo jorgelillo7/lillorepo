@@ -33,6 +33,7 @@ outside the working tree entirely.
 | `review.py` | the owner's answers, interactively or relayed by an agent |
 | `apply.py` | writes what was approved; rehearsal unless `--commit` |
 | `address.py` | promotes one address out of a note into the address field |
+| `vcard.py` | the parsing, phone and matching rules — no I/O, so they are tested without a Mac |
 
 Nothing writes without `--commit`. The output directory holds real contact
 data and belongs outside any repository.
@@ -286,6 +287,12 @@ Every one of these cost a real failure. None is theoretical.
   hardcodes «móvil» turns a home landline into a mobile, and nobody notices
   until they dial it.
 
+- **String comparison is case-insensitive.** `every person whose organization
+  is "innovae"` returns the ones spelled «Innovae» too, so it cannot be used to
+  check that a spelling was unified. Verify from an export, not from the app.
+- **Re-export after applying.** Auditing yesterday's file proposes changes that
+  were made this morning, and they look exactly like real ones.
+
 ## Data
 
 - **A shared landline is not a duplicate.** Four people in one house share one
@@ -300,12 +307,34 @@ Every one of these cost a real failure. None is theoretical.
   re-run after any new export.
 - Flip `Surname, Given` **before** composing anything on top, or a kinship
   prefix produces «Prima Mancheño, Ire».
+- **The exporter files the first surname in the middle-name slot.** Writing
+  only the given and family names drops it; attaching it to the given name
+  keeps the text and still gets the person's name wrong.
+- **A relationship word can be anywhere in the name.** «Prima Gema» opens with
+  it, «Javi Primo Patri» — whose cousin he is — puts it in the middle. Looking
+  only at the first word finds the first and files «Patri» as a surname.
 - Splitting a full name on the last space is wrong wherever two surnames are
   normal. Offer the buckets and let the owner choose; do not auto-propose a
   split that is wrong in the common case.
 
 ## The queue
 
+- **Ask whether the information is present, not whether the field is.** This
+  cost two separate bugs. A merge proposed re-adding addresses the import had
+  refused, and later proposed putting every address back in the note it had
+  just been promoted out of. Both times the check was «does the target have
+  this field», and both times the answer was yes and irrelevant.
+- **An action with nothing to write is not a deletion.** The apply step read
+  «no instructions» as «remove the card», because deletions were the only block
+  that had ever reached that branch. Rehearsing name splits offered to remove
+  three people. Nothing outside the deletion block may delete.
+- **A clash is «I cannot tell», not «do not migrate».** Answering that two
+  cards are different people has to leave a way to import the record; without
+  one, the answer silently migrates nothing.
+- **A rule that is wrong in the common case is worse than no rule.** A block of
+  near-identical rows is what invites approving in bulk, so the damage scales
+  with how plausible the rows look. Ninety-three of ninety-nine name proposals
+  here were wrong for a single reason, and every one of them read as routine.
 - **Action ids must be stable** — hash the content, never a counter. A counter
   renumbers on regeneration and silently points existing decisions at other
   contacts.
