@@ -933,3 +933,65 @@ class TestClashStillOffersTheImport:
         source = [self._card("Nadie", ["600111222"], "gmail")]
         kinds = [a["kind"] for a in audit.build([], source, {})]
         assert kinds.count("IMPORT") == 1 and "CLASH" not in kinds
+
+
+class TestSplitLeavesLabelsAlone:
+    def _card(self, name):
+        return {"source": "icloud", "index": 0, "ref": "icloud#0", "full_name": name,
+                "given": name, "surname": "", "middle": "", "organisation": "",
+                "phones": ["600111222"], "emails": [], "phone_keys": ["600111222"],
+                "name_key": name.lower(), "uid": "", "apple_id": "A:ABPerson",
+                "local_only": False, "extras": {}}
+
+    CFG = {"kinship": "primo|prima|tio|tia|madre|padre",
+           "context_words": {r"\bkarate\b": "karate"}}
+
+    def test_a_kinship_label_is_not_split(self):
+        import audit
+
+        # «Prima Gema» is one label for one person. Splitting it files the
+        # relationship as the given name — and undoes a decision already taken.
+        assert not [a for a in audit.build([self._card("Prima Gema")], [], self.CFG)
+                    if a["kind"] == "SPLIT"]
+
+    def test_a_context_word_is_not_a_surname(self):
+        import audit
+
+        assert not [a for a in audit.build([self._card("Lorena karate")], [], self.CFG)
+                    if a["kind"] == "SPLIT"]
+
+    def test_a_parenthesis_says_whose_it_is_not_a_surname(self):
+        import audit
+
+        assert not [a for a in audit.build([self._card("Rober (rebe)")], [], self.CFG)
+                    if a["kind"] == "SPLIT"]
+
+    def test_an_ordinary_two_word_name_is_still_offered(self):
+        import audit
+
+        found = [a for a in audit.build([self._card("Jesús Avilés")], [], self.CFG)
+                 if a["kind"] == "SPLIT"]
+        assert found and "surname=«Avilés»" in found[0]["after"]
+
+
+class TestOnlyTheDeletionBlockDeletes:
+    def test_an_action_without_changes_is_refused_not_deleted(self):
+        import apply
+
+        # «No instructions» is not «remove the card». Reading it that way
+        # turned three name splits into three people removed from the book.
+        source = open(apply.__file__.replace(".pyc", ".py"), encoding="utf-8").read()
+        guard = source.split('elif action["kind"] not in', 1)[1].split("\n", 1)[0]
+        assert '"EMPTY", "DELETE"' in guard
+
+    def test_a_split_carries_the_fields_to_write(self):
+        import audit
+
+        record = {"source": "icloud", "index": 0, "ref": "icloud#0",
+                  "full_name": "Jesús Avilés", "given": "Jesús Avilés", "surname": "",
+                  "middle": "", "organisation": "", "phones": ["600111222"],
+                  "emails": [], "phone_keys": ["600111222"], "name_key": "jesús avilés",
+                  "uid": "", "apple_id": "A:ABPerson", "local_only": False, "extras": {}}
+        found = [a for a in audit.build([record], [], {}) if a["kind"] == "SPLIT"][0]
+        assert found["changes"] == {"first_name": "Jesús", "last_name": "Avilés",
+                                    "middle_name": ""}

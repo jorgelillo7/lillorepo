@@ -455,6 +455,14 @@ def main():
                 for field, value in wanted.items():
                     if previous.get(field, "") != value:
                         print(f"      {field}: «{previous.get(field, '')}» → «{value}»")
+        elif action["kind"] not in ("EMPTY", "DELETE"):
+            # Only the block that proposes deletions may delete. Treating «no
+            # instructions» as «remove the card» turned three name splits into
+            # three people removed from the address book.
+            print(f"  SKIP  {action['who']} — {action['kind']} carries no change to write; "
+                  "refusing to guess")
+            skipped += 1
+            continue
         elif args.commit:
             delete_person(apple_id)
             journal_append(args.dir, {"action": action["id"], "kind": action["kind"],

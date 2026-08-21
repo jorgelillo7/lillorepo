@@ -259,15 +259,31 @@ def build(primary, secondary, config):
                 f"{tokens[-1].capitalize()} {' '.join(tokens[:-1])}",
                 "moves to the majority form «Kinship Name»")
 
+    context = config.get("context_words", {})
+    kinship = config.get("kinship", "")
     for record in primary:
         if record["surname"] or not record["full_name"] or record["organisation"]:
             continue
         tokens = record["full_name"].split()
+        # A name is not always a name. «Prima Gema» is one label for one
+        # person, «Lorena karate» says where she is from, «Rober (rebe)» says
+        # whose Rober he is. Splitting any of them puts a relationship or a
+        # place in the surname field — and worse, undoes a decision already
+        # taken, since these were deliberately left whole.
+        plain = vcard.strip_accents(record["full_name"])
+        if "(" in record["full_name"] or ")" in record["full_name"]:
+            continue
+        if kinship and tokens and re.fullmatch(kinship, vcard.strip_accents(tokens[0]), re.I):
+            continue
+        if any(re.search(pattern, plain, re.I) for pattern in context):
+            continue
         if len(tokens) == 1:
             add("ASK", record, f"only «{record['full_name']}»", "surname?", "tell me if you know it")
         elif len(tokens) == 2:
             add("SPLIT", record, record["full_name"],
-                f"given=«{tokens[0]}» surname=«{tokens[1]}»", "safe split")
+                f"given=«{tokens[0]}» surname=«{tokens[1]}»", "safe split",
+                changes={"first_name": tokens[0], "last_name": tokens[1],
+                         "middle_name": ""})
         else:
             add("SPLIT3", record, record["full_name"],
                 f"A) «{' '.join(tokens[:-1])}»+«{tokens[-1]}»   "
