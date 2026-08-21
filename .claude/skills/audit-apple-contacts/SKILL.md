@@ -287,6 +287,16 @@ Every one of these cost a real failure. None is theoretical.
   hardcodes «móvil» turns a home landline into a mobile, and nobody notices
   until they dial it.
 
+- **One phone per card is `type=pref`, and the phone renders it differently.**
+  A number added programmatically does not get the marker, so the same value
+  shows as «693 480 024» on one line and «+34 660 917 983» on the next. The
+  data is identical; only the drawing differs, and it is the kind of difference
+  an owner notices and reports as a bug.
+- **Editing a number on the device rewrites it in display format.** Opening a
+  card to check that `+34693480024` was stored correctly returns it as
+  `+34 693 480 024`, spaces and all. A normalised book drifts back one edit at
+  a time, which is one more reason the audit is worth re-running rather than
+  being a thing you do once.
 - **String comparison is case-insensitive.** `every person whose organization
   is "innovae"` returns the ones spelled «Innovae» too, so it cannot be used to
   check that a spelling was unified. Verify from an export, not from the app.
