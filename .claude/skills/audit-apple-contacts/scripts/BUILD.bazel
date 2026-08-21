@@ -1,0 +1,18 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# These scripts run from a laptop against a personal address book, not from any
+# image. They are tested because a matching rule that is subtly wrong looks
+# exactly like one that is right: a shared household landline reads as a
+# duplicate, and merging on it silently destroys a contact.
+py_test(
+    name = "audit_apple_contacts_tests",
+    timeout = "short",
+    main = "tests/main.py",
+    srcs = glob([
+        "*.py",
+        "tests/*.py",
+    ]),
+    deps = [
+        "@pypi//pytest",
+    ],
+)
