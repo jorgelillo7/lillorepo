@@ -24,6 +24,19 @@ public-repo constraint. **The output contains real contact data and never goes
 in the repository** — `reports/` is git-ignored, and `--out` should point
 outside the working tree entirely.
 
+# The scripts
+
+| script | what it does |
+|---|---|
+| `export.py` | gets the destination book out as valid vCard, refusing a partial read |
+| `audit.py` | reads both books and writes the action queue |
+| `review.py` | the owner's answers, interactively or relayed by an agent |
+| `apply.py` | writes what was approved; rehearsal unless `--commit` |
+| `address.py` | promotes one address out of a note into the address field |
+
+Nothing writes without `--commit`. The output directory holds real contact
+data and belongs outside any repository.
+
 # Phases
 
 Run them in this order. The order is the safety property, not a preference.
@@ -114,6 +127,94 @@ Both modes share one decisions file and can be mixed freely.
 Do not decide anything on the owner's behalf. Facts they mention in passing — a
 surname, who someone is — belong in the queue as a **proposal** carrying that
 fact, not as a decision already taken.
+
+## Phase 3 and 4 — apply
+
+```bash
+python3 scripts/apply.py --dir ~/contacts-audit --kind PHONE            # rehearsal
+python3 scripts/apply.py --dir ~/contacts-audit --kind PHONE --commit   # write
+python3 scripts/apply.py --dir ~/contacts-audit --kind IMPORT --limit 30 --commit
+```
+
+One kind at a time, rehearsal first, always. `--limit` exists so the first
+batch of imports can be small and checked on the phone before the rest follow;
+choose the awkward records for it — birthdays, several addresses, a compound
+surname, one with no phone — so that what breaks, breaks on ten and not on
+two hundred.
+
+Every write is journalled to `applied.json` with the state the card held
+before, and every card is read back afterwards and compared with what was
+asked for. A `MISMATCH` line means the write did not take.
+
+## Phase 5 — compare before deleting anything
+
+**Do not skip this, and do not replace it with counting.** Before the owner
+deletes the source book, check every phone number and address in it against
+the destination:
+
+```python
+tel_missing = {phone_key(v) for v in source} - {phone_key(v) for v in destination}
+```
+
+Anything the destination lacks is about to be lost. Here it found three people
+whose records had been left out — a clash was raised for them and answered, but
+no import had ever been proposed, so the answer migrated nothing. Every count
+agreed; the address book was simply missing a family.
+
+## Addresses that live in notes
+
+```bash
+python3 scripts/address.py --dir ~/contacts-audit --name "Ana Ruiz" \
+    --street "Calle Mayor 1" --city "Madrid" --drop 1
+```
+
+Most street addresses in a real address book are written in the note, where
+they are text: no map pin, no search by place. This promotes one into the
+address field and removes exactly the lines it came from.
+
+Which address is the right one is not derivable — a note may hold three, or
+mark one «antigua», or give a floor and door with no street — so the street and
+town are arguments, and the owner supplies them. `--note-only` drops lines
+without creating anything, for an address they have moved away from.
+
+# Configuration
+
+Everything specific to one address book lives in a config file, and that file
+**stays outside the repository**: it names employers, relatives and the places
+someone lives.
+
+| key | what it holds |
+|---|---|
+| `country_prefix`, `local_length`, `local_first_digits` | the local numbering rules |
+| `organisations` | pattern → company, for tags stuck in names |
+| `rewrites` | a regex over the display name, with a replacement and a company |
+| `kinship` | the relationship words this language uses |
+| `spelling` | corrections the owner has confirmed, so no accent is invented |
+| `known` | **facts the owner supplied**, keyed on the current name |
+
+`known` is the important one. Every answer that cannot be derived — a surname,
+which company is current, that two names are one person — is recorded there
+with the reason it is known. It outranks every rule, because a rule is guessing
+and the owner is not. It is also what makes the next run cheap: those questions
+are already answered.
+
+# Running it again
+
+The second run is a different job from the first. Most of the book is already
+right; what is wanted is what has drifted since.
+
+1. Export the destination book again (`export.py`) and the source, if there
+   still is one.
+2. Run `audit.py` with the **same config**. The answers already recorded in
+   `known` apply themselves, so the queue holds only what is new.
+3. Action ids are content-hashed on a stable identity, so a decision taken
+   months ago still points at the same card. Deleting a card does not renumber
+   the rest.
+4. Work the queue as before.
+
+What tends to have drifted: numbers added on the phone without the country
+prefix, names typed in a hurry, notes that have acquired an address, and cards
+created by an app rather than by a person.
 
 # The traps
 
