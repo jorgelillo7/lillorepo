@@ -10,10 +10,14 @@ still has are the label photos in GCS — so the backfill re-reads those:
 
 Reach is bounded by what was photographed: fichas without a label photo, and
 those that already have a date, are skipped. Labels are not required to print
-the date at all, so "no encontrada" is a legitimate outcome, not a failure."""
+the date at all, so "no encontrada" is a legitimate outcome, not a failure.
+
+The batch is paced: a dozen back-to-back OCR calls trip the Gemini free tier
+(429/503) and most fichas come back unread. Use --only to check one cheaply."""
 
 import argparse
 import os
+import time
 
 import requests
 
@@ -36,13 +40,40 @@ def _label_bytes(url: str) -> bytes:
     return response.content
 
 
+def _read_label(url: str, attempts: int, delay: float) -> dict:
+    """OCR one label, backing off on Gemini's transient overload responses.
+
+    The SDK retries once, which is right for the web flow (a human is waiting)
+    and far too little for a batch: the free tier throttles after a handful of
+    images. Raises the last error when it never gets through."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return label_ocr.extract_label(_label_bytes(url))
+        except GeminiError as exc:
+            if exc.status_code not in (429, 503) or attempt == attempts:
+                raise
+            wait = delay * 2 ** (attempt - 1)
+            print(f"    · Gemini {exc.status_code}, reintento en {wait:.0f}s")
+            time.sleep(wait)
+    raise AssertionError("unreachable")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true", help="save, asking first")
+    parser.add_argument("--only", help="a single water id")
+    parser.add_argument(
+        "--delay", type=float, default=6.0, help="seconds between labels (default 6)"
+    )
+    parser.add_argument(
+        "--attempts", type=int, default=4, help="tries per label (default 4)"
+    )
     args = parser.parse_args()
 
     catalog = repository.get_all_waters()
     todo = [w for w in catalog if w.label_photo_url and not w.analysis_date]
+    if args.only:
+        todo = [w for w in todo if w.id == args.only]
     skipped = len(catalog) - len(todo)
     print(
         f"\n{len(catalog)} fichas · {len(todo)} con etiqueta y sin fecha "
@@ -50,9 +81,11 @@ def main() -> None:
     )
 
     for i, water in enumerate(todo, 1):
+        if i > 1:
+            time.sleep(args.delay)
         print(f"[{i}/{len(todo)}] {water.id} — {water.name}")
         try:
-            extracted = label_ocr.extract_label(_label_bytes(water.label_photo_url))
+            extracted = _read_label(water.label_photo_url, args.attempts, args.delay)
         except (GeminiError, requests.RequestException) as exc:
             print(f"    ✗ no se pudo leer: {str(exc)[:120]}\n")
             continue
