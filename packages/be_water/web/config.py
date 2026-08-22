@@ -6,7 +6,14 @@ from dotenv import load_dotenv
 from core.utils import load_json_secret
 
 # Pulls vars from a local .env when present (used for local dev).
+# Under `bazel run` the process starts inside the runfiles tree, where the
+# gitignored .env cannot be: the bare search finds nothing and the module
+# silently falls back to whatever the shell exports. BUILD_WORKSPACE_DIRECTORY
+# is set by `bazel run` only, so this is a no-op on Cloud Run.
 load_dotenv()
+_WORKSPACE = os.getenv("BUILD_WORKSPACE_DIRECTORY")
+if _WORKSPACE:
+    load_dotenv(os.path.join(_WORKSPACE, "packages", "be_water", "web", ".env"))
 
 # --- Firestore ---
 # be_water deploys to its own GCP project; core.sdk.firestore honours this.
