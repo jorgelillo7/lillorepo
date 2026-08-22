@@ -114,3 +114,30 @@ def test_merge_waters_folds_and_deletes_drop():
     assert keep.sources["calcium"] == "manufacturer"
     save.assert_called_once_with(keep)
     delete.assert_called_once_with("drop")
+
+
+# --- dataset drift ----------------------------------------------------------
+
+_DATASET = [{"id": "w", "minerals": {"tds": 490, "calcium": 120.0, "sodium": 5.0}}]
+
+
+def test_dataset_drift_reports_where_the_repo_disagrees_with_the_catalog():
+    live = _water(minerals={"tds": 649, "calcium": 120.0}, verified_fields=["tds"])
+    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
+        ((water, differences),) = data_audit.dataset_drift([live])
+    assert water is live
+    # Only the moved field, tagged so a stale dataset is told from a bad value;
+    # `sodium` is absent from the ficha, so there is nothing to compare.
+    assert differences == ["Residuo seco: dataset 490 vs ficha 649 [etiqueta]"]
+
+
+def test_dataset_drift_is_silent_when_the_dataset_agrees():
+    live = _water(minerals={"tds": 490, "calcium": 120.0})
+    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
+        assert data_audit.dataset_drift([live]) == []
+
+
+def test_dataset_drift_ignores_waters_the_dataset_never_seeded():
+    live = _water(id="user-added", minerals={"tds": 10})
+    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
+        assert data_audit.dataset_drift([live]) == []

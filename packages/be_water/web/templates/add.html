@@ -125,9 +125,25 @@
             </div>
             {% endfor %}
         </div>
+        <div class="mt-3">
+            <label class="block text-xs text-slate-500 mb-1" for="analysis_date">Fecha del análisis <span class="text-slate-400">(«CNTA, Febrero 2025» → 2025-02)</span></label>
+            <input id="analysis_date" name="analysis_date" placeholder="2025-02"
+                   value="{{ prefill.get('analysis_date', '') }}"
+                   class="w-full sm:w-48 px-3 py-2 rounded-xl border border-slate-300 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <p class="text-xs text-slate-400 mt-1">Sirve para saber qué etiqueta manda cuando dos no coinciden. No todas la imprimen.</p>
+        </div>
     </fieldset>
 
-    {% if similar %}
+    {% if stale_warning %}
+    <div class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm text-amber-800">
+        ⏳ {{ stale_warning }}
+    </div>
+    {% if merge_into %}<input type="hidden" name="merge_into" value="{{ merge_into }}">{% endif %}
+    <button name="confirm_stale" value="1"
+            class="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition">
+        Guardar igualmente
+    </button>
+    {% elif similar %}
     <div class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm text-amber-800">
         🤔 Se parece a <strong>{{ similar.name }}</strong> ({{ similar.province }}), que ya está en el catálogo.
         Ojo: las marcas de súper embotellan desde varios manantiales — si el manantial de tu etiqueta

@@ -40,12 +40,13 @@ SEED_WATERS = [
         "spring": "Manantial Salud",
         "province": "Granada",
         "community": "Andalucía",
-        # HCO3/Ca/Mg/Na confirmed from a bottle label (CNTA 2023 analysis);
-        # the label prints nothing else, so the rest stays approximate and
-        # the water remains unverified.
+        # HCO3/Ca/Mg/Na confirmed from a bottle label; the label prints
+        # nothing else, so the rest stays approximate and the water remains
+        # unverified. No `label_photo_url`: the object that served as proof is
+        # a byte-identical copy of the display studio shot, not a composition
+        # label, so there is nothing to sign the ficha off against.
         "photo_url": "https://storage.googleapis.com/be-water-photos/lanjaron.jpg",
-        "label_photo_url": "https://storage.googleapis.com/be-water-photos"
-        "/originals/lanjaron.jpg",
+        "analysis_date": "2023",
         "verified_fields": ["bicarbonates", "calcium", "magnesium", "sodium"],
         "minerals": {
             "tds": 205,
@@ -94,6 +95,7 @@ SEED_WATERS = [
         "spring": "Font Vella Sacalm (Sant Hilari Sacalm)",
         "province": "Girona",
         "community": "Cataluña",
+        "analysis_date": "2023",
         "minerals": {
             "tds": 197,
             "bicarbonates": 158.0,
@@ -462,6 +464,7 @@ SEED_WATERS = [
         "spring": "Peñaclara (Torrecilla en Cameros)",
         "province": "La Rioja",
         "community": "La Rioja",
+        "analysis_date": "2025-02",
         "minerals": {
             "tds": 649,
             "bicarbonates": 222.0,

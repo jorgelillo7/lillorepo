@@ -68,9 +68,23 @@ operational how-to; the specs are the single source of *what must be true*.
       bazel run //packages/be_water/scripts:audit_data -- --duplicates
       bazel run //packages/be_water/scripts:audit_data -- --suspicious
 
+      # Drift — where the in-repo dataset and the live catalog disagree.
+      # Read-only: the fix is a PR against seed_data.py, not a Firestore write.
+      bazel run //packages/be_water/scripts:audit_data -- --drift
+
+      # Revert — undo a contribution that overwrote a composition, from the
+      # snapshot the add flow stores in water_revisions.
+      bazel run //packages/be_water/scripts:revert_water               # list all
+      bazel run //packages/be_water/scripts:revert_water -- penaclara  # one water
+
       # Provenance — one-shot backfill of Water.sources; dry-run by default.
       bazel run //packages/be_water/scripts:backfill_sources           # preview
       bazel run //packages/be_water/scripts:backfill_sources -- --apply
+
+      # Analysis date — re-read the stored label photos to fill
+      # Water.analysis_date. Only reaches fichas that have a label photo.
+      bazel run //packages/be_water/scripts:backfill_analysis_date            # preview
+      bazel run //packages/be_water/scripts:backfill_analysis_date -- --write
     ```
 
     > Provenance model: each mineral's source is `label` (in `verified_fields`,
@@ -78,6 +92,13 @@ operational how-to; the specs are the single source of *what must be true*.
     > is `verified` either by auto-promotion (every value label-backed) or by an
     > admin sign-off via `audit_data`; verified fichas are frozen against
     > overwrite.
+    >
+    > `analysis_date` dates the whole composition block ("CNTA, Febrero 2025"
+    > → `2025-02`). Labels need not print it, so null is normal and never
+    > outranks a dated analysis. Saving an older (or undated) label over a
+    > dated one warns and asks the contributor to confirm; any save that moves
+    > an existing composition snapshots the previous doc to `water_revisions`
+    > first, which is what `revert_water` reads.
 
   * **☁️ Deploy to production:**
 

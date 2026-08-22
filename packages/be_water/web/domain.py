@@ -13,6 +13,7 @@ MINERAL_FIELDS = [
     "magnesium",
     "sodium",
     "potassium",
+    "fluoride",
     "silica",
     "nitrates",
     "ph",
@@ -41,6 +42,7 @@ MINERAL_LABELS = {
     "magnesium": "Magnesio",
     "sodium": "Sodio",
     "potassium": "Potasio",
+    "fluoride": "Flúor",
     "silica": "Sílice",
     "nitrates": "Nitratos",
     "ph": "pH",
@@ -58,6 +60,20 @@ def mineralization_label(tds: Optional[float]) -> str:
     if tds < 1500:
         return "fuerte"
     return "muy fuerte"
+
+
+def analysis_is_older(incoming: Optional[str], existing: Optional[str]) -> bool:
+    """True when `incoming` predates `existing`, or carries no date while
+    `existing` does. An undated analysis never outranks a dated one: the label
+    need not print the date, so absence means unknown, and unknown must not
+    silently replace a known-newer composition. Dates are "YYYY-MM" or "YYYY",
+    so a plain year loses to a month within the same year — less precision
+    yields."""
+    if not existing:
+        return False
+    if not incoming:
+        return True
+    return incoming < existing
 
 
 @dataclass
@@ -87,6 +103,12 @@ class Water:
     # "url": ...}. Mention-and-link only — never reproduce third-party
     # scores wholesale.
     mentions: list = field(default_factory=list)
+    # Date of the lab analysis the label declares ("CNTA Febrero 2025" →
+    # "2025-02"), year-only when that is all it prints. Not a mineral: it
+    # dates the whole composition block. Labels are not required to carry it
+    # (RD 1798/2010 art. 9.2.b mandates the values, not their date), so None
+    # is common and never outranks a dated analysis.
+    analysis_date: Optional[str] = None
     added_by: str = ""
     added_at: Optional[str] = None  # ISO timestamp; None for seeded waters
     verified: bool = False
@@ -125,6 +147,7 @@ class Water:
             verified_fields=list(data.get("verified_fields", []) or []),
             sources=dict(data.get("sources", {}) or {}),
             mentions=list(data.get("mentions", []) or []),
+            analysis_date=data.get("analysis_date"),
             added_by=data.get("added_by", ""),
             added_at=data.get("added_at"),
             verified=bool(data.get("verified", False)),
@@ -146,6 +169,7 @@ class Water:
             "verified_fields": self.verified_fields,
             "sources": self.sources,
             "mentions": self.mentions,
+            "analysis_date": self.analysis_date,
             "added_by": self.added_by,
             "added_at": self.added_at,
             "verified": self.verified,

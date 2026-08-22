@@ -6,6 +6,7 @@ Three read-then-repair passes over the live catalog (ADC, be-water-app):
     bazel run //packages/be_water/scripts:audit_data                 # verify sign-off
     bazel run //packages/be_water/scripts:audit_data -- --duplicates # merge dupes
     bazel run //packages/be_water/scripts:audit_data -- --suspicious # fix bad values
+    bazel run //packages/be_water/scripts:audit_data -- --drift       # dataset vs live
 
 Sign-off freezes a ficha as verified (label photo + ≥1 label-confirmed value);
 non-label values keep their "fabricante" / "a mano" provenance. Every write is
@@ -143,11 +144,29 @@ def suspicious(catalog) -> None:
         print()
 
 
+def drift(catalog) -> None:
+    """Read-only: where the in-repo dataset and the live catalog disagree.
+
+    A `[etiqueta]` difference means seed_data.py is stale and should be
+    updated in a PR — the fix belongs in the repo, not in Firestore, so this
+    pass never writes."""
+    findings = data_audit.dataset_drift(catalog)
+    print(f"\n{len(findings)} fichas difieren del dataset del repo.\n")
+    for water, differences in findings:
+        print(f"{water.id} — {water.name}")
+        for difference in differences:
+            print(f"    ≠ {difference}")
+        print()
+    if findings:
+        print("Actualiza packages/be_water/web/seed_data.py en una PR.\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--duplicates", action="store_true", help="review dupes")
     mode.add_argument("--suspicious", action="store_true", help="review bad values")
+    mode.add_argument("--drift", action="store_true", help="dataset vs live catalog")
     parser.add_argument("--no-open", action="store_true", help="don't open photos")
     args = parser.parse_args()
 
@@ -156,6 +175,8 @@ def main() -> None:
         duplicates(catalog)
     elif args.suspicious:
         suspicious(catalog)
+    elif args.drift:
+        drift(catalog)
     else:
         sign_off(catalog, open_photos=not args.no_open)
 
