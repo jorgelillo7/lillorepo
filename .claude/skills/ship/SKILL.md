@@ -34,13 +34,13 @@ remote has.
 gh pr list --base <branch>
 ```
 
-Must be empty. `ci.yml` triggers on `pull_request: branches: [master]`, so a PR
-based on anything else **gets no checks at all**, and merging this branch with
-`--delete-branch` **closes** it — a closed PR can be neither reopened nor
-retargeted, and the work has to be rebased and opened under a new number.
+Must be empty. A stacked PR does get checks now — `ci.yml` triggers on every
+pull request and diffs against its own base — but merging this branch with
+`--delete-branch` still **closes** it, and a closed PR can be neither reopened
+nor retargeted: the work has to be rebased and opened under a new number.
 
-If something is stacked, rebase it onto `master` and open it fresh **before**
-merging this one.
+If something is stacked, retarget it to `master` (`gh pr edit <n> --base
+master`) **before** merging this one.
 
 # Step 3 — Checks, on that head
 

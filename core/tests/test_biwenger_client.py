@@ -4,7 +4,13 @@ import pytest
 import requests
 import requests_mock
 
-from core.sdk.biwenger import BiwengerError, BiwengerClient
+from core.sdk.biwenger import (
+    BiwengerError,
+    BiwengerClient,
+    admin_transfers_url,
+    clausulazos_url,
+    league_board_url,
+)
 
 from .constants import (
     TEST_ACCOUNT_URL,
@@ -881,3 +887,104 @@ def test_release_player_does_not_retry(biwenger_client_authenticated):
             client.release_player(player_id=77, transfer_url=TEST_TRANSFER_URL)
 
     assert m.call_count == 1
+
+
+# --- read-path gaps the spec had flagged ---------------------------------
+#
+# Biwenger answers `{"data": null}` when it has nothing to say — a closed
+# market, a league mid-maintenance. Every reader below already defends against
+# it; only two of them proved it. A maintenance window exercises all of them at
+# once, which is the worst moment to find out.
+
+TEST_STANDINGS_URL = "http://api.biwenger.com/league/123456?fields=standings"
+TEST_USER_OFFERS_URL = "http://api.biwenger.com/user?fields=offers"
+TEST_USER_LINEUP_URL = "http://api.biwenger.com/user?fields=lineup"
+
+
+@pytest.mark.parametrize(
+    "url, call, empty",
+    [
+        (
+            TEST_LEAGUE_USERS_URL,
+            lambda c, u: c.get_league_users(u, frozenset()),
+            {},
+        ),
+        (TEST_STANDINGS_URL, lambda c, u: c.get_standings_full(u), []),
+        (
+            TEST_MANAGER_SQUAD_URL_TEMPLATE.format(manager_id=42),
+            lambda c, _: c.get_manager_squad(TEST_MANAGER_SQUAD_URL_TEMPLATE, 42),
+            [],
+        ),
+        (TEST_USER_OFFERS_URL, lambda c, u: c.get_received_offers(u), []),
+        (
+            TEST_USER_LINEUP_URL,
+            lambda c, u: c.get_current_lineup_player_ids(u),
+            set(),
+        ),
+    ],
+)
+def test_a_null_envelope_reads_as_empty_not_as_a_crash(
+    biwenger_client_authenticated, url, call, empty
+):
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200, "data": None}, status_code=200)
+        assert call(biwenger_client_authenticated, url) == empty
+
+
+def test_get_standings_full_returns_the_table_in_order(biwenger_client_authenticated):
+    """The palmarés and the season rollover read this and nothing tested it."""
+    payload = {
+        "status": 200,
+        "data": {
+            "standings": [
+                {"position": 1, "name": "Farolillo Oracle United", "points": 1420},
+                {"position": 2, "name": "Los Lloros CF", "points": 1388},
+            ]
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.get(TEST_STANDINGS_URL, json=payload, status_code=200)
+        standings = biwenger_client_authenticated.get_standings_full(TEST_STANDINGS_URL)
+    # Biwenger's own order is the ranking; the SDK must not re-sort it.
+    assert [row["position"] for row in standings] == [1, 2]
+    assert standings[0]["name"] == "Farolillo Oracle United"
+    assert standings[1]["points"] == 1388
+
+
+def test_get_all_clausulazos_accepts_a_dict_shaped_page(
+    biwenger_client_authenticated,
+):
+    """`data` as a dict, values taken in order.
+
+    Pinned rather than removed: no test produced this shape, but nobody has
+    established that Biwenger never sends it either, and a defence that only
+    fires during a format change is exactly the one you cannot delete on a
+    hunch. If a feed is ever seen returning it, name the feed here.
+    """
+    base = "http://api.biwenger.com/league/123456/board?type=transfer"
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{base}&limit=50&offset=0",
+            json={"data": {"a": {"id": 1}, "b": {"id": 2}}},
+            status_code=200,
+        )
+        m.get(f"{base}&limit=50&offset=50", json={"data": []}, status_code=200)
+        result = client.get_all_clausulazos(base, limit=50)
+    assert result == {"data": [{"id": 1}, {"id": 2}]}
+
+
+# --- board feeds are chosen by `type`, and the wrong one fails silently ---
+#
+# A mismatched type returns 200 and an empty list, indistinguishable from a
+# quiet league: the draft polled `transfer` for its own movements and was
+# blind for a whole season without a single error.
+
+
+def test_each_board_builder_pins_its_own_type():
+    assert "type=text" in league_board_url(TEST_LEAGUE_ID)
+    assert "type=transfer" in league_board_url(TEST_LEAGUE_ID, "transfer")
+    assert "type=transfer" in clausulazos_url(TEST_LEAGUE_ID)
+    # An admin transfer is not a clause and never shows up in `transfer`.
+    assert "type=adminTransfer" in admin_transfers_url(TEST_LEAGUE_ID)
+    assert "type=transfer&" not in admin_transfers_url(TEST_LEAGUE_ID)

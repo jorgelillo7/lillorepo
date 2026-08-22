@@ -159,15 +159,18 @@ Rationale:
 
 For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
 
-### Always branch off `master` — never stack
+### Prefer branching off `master`
 
-`ci.yml` triggers on `pull_request: branches: [master]`, so **a PR based on
-another branch gets no checks at all**. It looks unverified because it is.
-And merging the base with `--delete-branch` **closes** the stacked PR; a
-closed PR can be neither reopened nor retargeted, so the work has to be
-rebased and opened again under a new number. Both happened in one afternoon.
+Stacked PRs **do** get checks now — `ci.yml` triggers on every pull request,
+and the affected-test selector diffs against `github.base_ref`, so a stacked
+PR tests its own delta. That was not always true, and the afternoon it was
+not cost a PR.
 
-Sequencing branches off `master` costs nothing. Stacking costs a PR.
+The other half of the trap is still there: merging the base with
+`--delete-branch` **closes** the stacked PR, and a closed PR can be neither
+reopened nor retargeted — the work has to be rebased and opened under a new
+number. Retarget the stacked PR to `master` *before* merging its base, or
+sequence off `master` and skip the question.
 
 ### Before merging, check the head you are merging
 
