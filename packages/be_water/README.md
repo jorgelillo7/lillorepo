@@ -73,9 +73,13 @@ label, the legal source.
 
 ## Data sources
 
-- [Official AESAN list](https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm)
-  ([PDF](https://www.aesan.gob.es/AECOSAN/docs/documentos/seguridad_alimentaria/gestion_riesgos/lista_espanola.pdf))
-  — official identity (name + spring + location); basis of the in-repo snapshot.
+- [EU list of recognised natural mineral waters](https://food.ec.europa.eu/food-safety/labelling-and-nutrition/natural-mineral-waters-and-spring-water_en)
+  ([PDF](https://food.ec.europa.eu/document/download/ec4fbcc0-7185-4dce-820a-27f7e2653dad_en?filename=labelling-nutrition_mineral-waters_list_eu-recognised.pdf))
+  — official identity (name + spring + location) from its "recognised by
+  Spain" section; basis of the in-repo snapshot. AESAN's own PDF was the
+  source until the agency retired it, and
+  [its page on bottled water](https://www.aesan.gob.es/seguridad-alimentaria/alimentos-especificos/aguas-envasadas)
+  now points here too.
 - [IGME — recognised mineral waters](https://aguasmineralesytermales.igme.es/introduccion/aguas-minerales-reconocidas)
   — geological inventory with a map viewer.
 - **Real labels** (photos + Gemini) — the composition, always from the bottle.

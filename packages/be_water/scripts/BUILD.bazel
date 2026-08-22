@@ -1,4 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
 
 # Interactive photo audit (local, uses ADC). Read-only by default; --fix
 # mutates GCS + Firestore behind confirmations. Reuses the web library so it
@@ -51,4 +52,15 @@ py_binary(
     srcs = ["backfill_analysis_date.py"],
     main = "backfill_analysis_date.py",
     deps = ["//packages/be_water/web:web_lib"],
+)
+
+# The recognised-waters parser. Not a py_binary: it needs a local-only pypdf
+# and runs by hand. Only the column and cell-wrapping rules are tested — they
+# are where every regression this script has had actually lived.
+py_test(
+    name = "scripts_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]) + ["refresh_aesan_snapshot.py"],
+    main = "tests/main.py",
+    deps = [requirement("pytest")],
 )
