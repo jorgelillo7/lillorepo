@@ -5,7 +5,8 @@ mineral waters (a generated snapshot). Drives the "quedan N por cubrir" and the
 pending-waters list on the community page.
 
 - **Source:** `packages/be_water/web/aesan.py`, `aesan_snapshot.py`,
-  `packages/be_water/scripts/refresh_aesan_snapshot.py`
+  `packages/be_water/scripts/refresh_aesan_snapshot.py`,
+  `.github/workflows/aesan-refresh.yml`
 - **Verified by:** `packages/be_water/web/tests/test_aesan.py`,
   `packages/be_water/scripts/tests/test_refresh_aesan_snapshot.py`
 
@@ -76,3 +77,19 @@ answers with an HTML error page that a PDF reader reports as a corrupt stream.
 - **THEN** neither contributes entries
 - *Verifies:* `test_repeated_page_furniture_is_not_read_as_a_water`,
   `test_other_countries_and_third_country_tables_are_excluded`
+
+### Requirement: The refresh runs on a schedule and reports both outcomes
+
+The snapshot SHALL be regenerated monthly by `.github/workflows/aesan-refresh.yml`,
+which SHALL open a pull request when the list changed and SHALL fail loudly,
+with a Telegram message, when the generator refuses to write. It SHALL NOT
+merge anything on its own: the diff is the news, and a human reads it.
+
+No scenario: the verification is the scheduled run itself, and claiming a test
+that does not exist would be worse than claiming nothing. What the generator
+does with a bad parse is covered above; what CI does with a red run is CI's.
+
+This exists because neither failure announces itself. A registry that quietly
+stops changing looks identical to one nobody is refreshing — the snapshot sat
+eight years stale, on a URL that had begun answering 404, until an unrelated
+question about a bottle happened to expose it.
