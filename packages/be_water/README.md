@@ -26,6 +26,69 @@ Cloud Run. Anyone with the link photographs a bottle label and the entry fills
 itself in (OCR via Gemini); the catalog crosses **mineral profile × origin** to
 recommend waters similar to your favorites wherever you are.
 
+## Architecture
+
+```mermaid
+graph TD
+    USR(("Anyone with<br/>the link"))
+
+    subgraph REPO["lillorepo — reference data lives in git, not in Firestore"]
+        SEED["seed_data.py<br/>catalog dataset"]
+        SNAP["aesan_snapshot.py<br/>recognised-waters registry"]
+    end
+
+    subgraph CI["GitHub Actions"]
+        DEP["deploy.yml<br/>on push to master"]
+        REF["aesan-refresh.yml<br/>monthly · day 1"]
+    end
+
+    EU["EU Commission<br/>recognised-waters PDF"]
+
+    subgraph GCP["GCP · be-water-app"]
+        RUN["be-water · Cloud Run service<br/>europe-southwest1 · min 0 / max 20"]
+        JOB["be-water-catalog-sync · Cloud Run Job<br/>reuses the web image"]
+        SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid"]
+        FS[("Firestore · europe-southwest1<br/>waters · users · water_revisions")]
+        GCS[("be-water-photos · us-central1<br/>id.jpg · originals/ · uploads/ 3-day TTL")]
+        SEC["Secret Manager<br/>flask-web-config-regional"]
+    end
+
+    GEM["Gemini<br/>label OCR + studio photo"]
+    TG["Telegram<br/>@be_water_app_bot"]
+
+    USR -->|"browse · favourite · photograph a label"| RUN
+    RUN -->|"one call, structured JSON"| GEM
+    RUN -->|"reads + writes"| FS
+    RUN -->|"photos + label proof"| GCS
+    SNAP -->|"compiled into the image"| RUN
+    SEC --> RUN
+    SEC --> JOB
+    SCH --> JOB
+    SEED --> JOB
+    JOB -->|"dataset in, verified fichas untouched"| FS
+    JOB -->|"summary + coverage"| TG
+    DEP -->|"image"| RUN
+    DEP -->|"image refresh"| JOB
+    EU --> REF
+    REF -->|"PR with the diff"| SNAP
+    REF -->|"changed · or source dead"| TG
+```
+
+Two things the picture is meant to make obvious:
+
+- **Reference data is in git, runtime data is in Firestore.** The registry
+  (`aesan_snapshot.py`) and the dataset (`seed_data.py`) ship inside the image;
+  what users contribute lives in Firestore. That is why a registry refresh
+  arrives as a pull request you review, and why its `git diff` *is* the news.
+- **Nothing overwrites a verified ficha.** The monthly sync skips them
+  outright, and the add flow snapshots the previous document to
+  `water_revisions` before it changes a composition
+  (`scripts/revert_water.py` puts it back).
+
+`water_revisions` is listed above but does not exist in Firestore yet — the
+collection is created by the first contribution that changes an existing
+composition.
+
 ## Main pieces (under `web/`)
 
 - **App** (`app.py`) — catalog, water page, favorites, /comunidad (ranking +

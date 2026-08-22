@@ -34,7 +34,7 @@ The Be Water catalog (package `be_water`).
 | Cloud Run (services) | `be-water` | minScale=0, public |
 | Cloud Run (jobs) | `be-water-catalog-sync` | monthly via Scheduler; reuses the `web` image with a command override (extracts `core_srcs.tar`, runs `catalog_sync`) — CI refreshes its image on every be_water deploy |
 | Cloud Scheduler | `be-water-catalog-sync-monthly` — **`europe-west1`** | day 1, 09:00 Madrid |
-| Firestore | `(default)` — `europe-southwest1` | waters, users |
+| Firestore | `(default)` — `europe-southwest1` | waters, users, water_revisions (created on the first composition overwrite) |
 | Cloud Storage | `be-water-photos` — **`us-central1`** | bottle photos, public read. Deliberately US: Storage's 5 GB always-free tier only exists in US regions; Madrid would bill from byte one |
 | Artifact Registry | `be-water-docker` | `web` image (base pulled from `biwenger-docker`) |
 | Secret Manager | 1 secret ×1 version | `flask-web-config-regional` (JSON: flask key + Telegram bot + Gemini key — consolidated on purpose) |
@@ -43,7 +43,9 @@ The Be Water catalog (package `be_water`).
 Deploys to this project run from the shared WIF service account
 (`biwenger-tools-sa`), granted `run.admin` + `artifactregistry.writer` +
 actAs here, plus `artifactregistry.repoAdmin` on the `be-water-docker`
-repo so the CI cleanup job can delete old digests.
+repo so the CI cleanup job can delete old digests, plus
+`secretmanager.secretAccessor` on `flask-web-config-regional` so
+`aesan-refresh.yml` can notify with be_water's own bot rather than biwenger's.
 
 ## Outside GCP (but part of the picture)
 
