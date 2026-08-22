@@ -1,12 +1,12 @@
-"""AESAN recognised natural mineral waters — generated snapshot.
+"""Natural mineral waters recognised by Spain — generated snapshot.
 
 Do not edit by hand — regenerate with:
     python3 packages/be_water/scripts/refresh_aesan_snapshot.py
-A git diff here means AESAN recognised (or dropped) waters.
+A git diff here means Spain recognised (or dropped) waters.
 """
 
-AESAN_VERSION = "AMN/8"
-AESAN_DATE = "17/09/2018"
+AESAN_VERSION = "EU/2026-07-16"
+AESAN_DATE = "16/07/2026"
 
 AESAN_WATERS = [
     {
@@ -25,6 +25,12 @@ AESAN_WATERS = [
         "name": "Agua de Bejís",
         "spring": "Los Cloticos",
         "place": "Bejís",
+        "province": "Castellón",
+    },
+    {
+        "name": "Agua de Benassal",
+        "spring": "Fuente en Segures",
+        "place": "Benasal",
         "province": "Castellón",
     },
     {
@@ -52,16 +58,10 @@ AESAN_WATERS = [
         "province": "Asturias",
     },
     {
-        "name": "Agua de Quess",
-        "spring": "Manantial de Quess",
-        "place": "Quess-Piloña",
-        "province": "Asturias",
-    },
-    {
-        "name": "Agua de Sousas",
-        "spring": "Sousas II",
-        "place": "Verín",
-        "province": "Ourense",
+        "name": "Agua de Somiedo",
+        "spring": "FUENTE DEL OSO",
+        "place": "VEIGAS - SOMIEDO",
+        "province": "ASTURIAS",
     },
     {
         "name": "Agua de Teror",
@@ -76,12 +76,6 @@ AESAN_WATERS = [
         "province": "Toledo",
     },
     {
-        "name": "Agua Encaja Mejor",
-        "spring": "Castillo de Gormaz",
-        "place": "Gormaz",
-        "province": "Soria",
-    },
-    {
         "name": "Aguadoy",
         "spring": "Aguadoy",
         "place": "Calera y Chozas",
@@ -89,8 +83,8 @@ AESAN_WATERS = [
     },
     {
         "name": "Aguas de la Palma",
-        "spring": "Barbuzano Santa Cruz de la Palma",
-        "place": "",
+        "spring": "Barbuzano",
+        "place": "Santa Cruz de la Palma",
         "province": "Santa Cruz de Tenerife",
     },
     {
@@ -112,6 +106,12 @@ AESAN_WATERS = [
         "province": "Ourense",
     },
     {
+        "name": "Aguas El Barcial",
+        "spring": "El Barcial Nº 12",
+        "place": "Peleagonzalo",
+        "province": "Zamora",
+    },
+    {
         "name": "Aguasana",
         "spring": "A Granxa/La Granja",
         "place": "Belesar-Baiona",
@@ -124,21 +124,15 @@ AESAN_WATERS = [
         "province": "Girona",
     },
     {
-        "name": "Aigua de Vilajuïga",
-        "spring": "Vilajuïga",
-        "place": "Vilajuïga",
+        "name": "Aigua de Salenys",
+        "spring": "Salenys",
+        "place": "Llagostera",
         "province": "Girona",
     },
     {
-        "name": "Aigua del Montseny",
-        "spring": "Aigua del Montseny",
-        "place": "Sant Esteve de Palautordera",
-        "province": "Barcelona",
-    },
-    {
-        "name": "Aiguaneu",
-        "spring": "Aiguaneu",
-        "place": "Espinelves",
+        "name": "Aigua de Vilajuïga",
+        "spring": "Aigua de Vilajuïga",
+        "place": "Vilajuïga",
         "province": "Girona",
     },
     {
@@ -160,7 +154,7 @@ AESAN_WATERS = [
         "province": "Lugo",
     },
     {
-        "name": "Aquabona Fuen- Mayor",
+        "name": "Aquabona Fuen-Mayor",
         "spring": "Fuen-Mayor",
         "place": "Cañizar del Olivar",
         "province": "Teruel",
@@ -184,10 +178,10 @@ AESAN_WATERS = [
         "province": "Albacete",
     },
     {
-        "name": "Aquadomus",
-        "spring": "Aquadomus",
-        "place": "Saldaña",
-        "province": "Palencia",
+        "name": "Aquadeus",
+        "spring": "Sierra Nevada",
+        "place": "Dúrcal",
+        "province": "Granada",
     },
     {
         "name": "Aquarel",
@@ -202,10 +196,34 @@ AESAN_WATERS = [
         "province": "Badajoz",
     },
     {
-        "name": "Aquaservice Aquaservice Cogollos de Guadix",
-        "spring": "Cogollos de Guadix",
-        "place": "",
+        "name": "Aquaservice",
+        "spring": "Aquaservice Cogollos de Guadix",
+        "place": "Cogollos de Guadix",
         "province": "Granada",
+    },
+    {
+        "name": "Aquaservice",
+        "spring": "Camporrobles",
+        "place": "Camporrobles",
+        "province": "Valencia",
+    },
+    {
+        "name": "Aquaservice",
+        "spring": "Virgen del Camino",
+        "place": "San Miguel del Camino",
+        "province": "León",
+    },
+    {
+        "name": "Aquavia",
+        "spring": "Pozo Aquavia",
+        "place": "Valsendero, Valleseco",
+        "province": "Las Palmas",
+    },
+    {
+        "name": "Aquavia",
+        "spring": "Pozo Aquavia II",
+        "place": "Moya",
+        "province": "Las Palmas",
     },
     {
         "name": "Babilafuente",
@@ -213,7 +231,6 @@ AESAN_WATERS = [
         "place": "Babilafuente",
         "province": "Salamanca",
     },
-    {"name": "Bastida", "spring": "Bastida", "place": "Alaró", "province": "Baleares"},
     {
         "name": "Betelu",
         "spring": "Ama-Iturri",
@@ -233,16 +250,10 @@ AESAN_WATERS = [
         "province": "Segovia",
     },
     {
-        "name": "Binifaldó Font Des Pedregaret y Binifaldó",
-        "spring": "Escorca",
-        "place": "",
+        "name": "Binifaldó",
+        "spring": "Font Des Pedregaret y Binifaldó",
+        "place": "Escorca",
         "province": "Baleares",
-    },
-    {
-        "name": "Borines",
-        "spring": "Manantial La Victoria",
-        "place": "Borines-Piloña",
-        "province": "Asturias",
     },
     {
         "name": "Cabreiroá",
@@ -261,12 +272,6 @@ AESAN_WATERS = [
         "spring": "Calabor",
         "place": "Pedralba de la Pradería",
         "province": "Zamora",
-    },
-    {
-        "name": "Caldes de Bohi",
-        "spring": "Font del Bou",
-        "place": "Barruera",
-        "province": "Lleida",
     },
     {
         "name": "Cantalar",
@@ -300,22 +305,10 @@ AESAN_WATERS = [
         "province": "Castellón",
     },
     {
-        "name": "Don Pepe",
-        "spring": "Montalvo V",
-        "place": "Aldeatajada",
-        "province": "Salamanca",
-    },
-    {
         "name": "El Cañar",
         "spring": "El Cañar",
         "place": "Jaraba",
         "province": "Zaragoza",
-    },
-    {
-        "name": "El Portell, MP",
-        "spring": "El Portell",
-        "place": "Monserrat",
-        "province": "Valencia",
     },
     {
         "name": "Eliqua",
@@ -354,14 +347,8 @@ AESAN_WATERS = [
         "province": "Badajoz",
     },
     {
-        "name": "Fonsana",
-        "spring": "Fonsana",
-        "place": "La Cabrera",
-        "province": "Madrid",
-    },
-    {
         "name": "Font Agudes",
-        "spring": "Ballanes",
+        "spring": "Font Agudes",
         "place": "Arbúcies",
         "province": "Girona",
     },
@@ -375,12 +362,6 @@ AESAN_WATERS = [
         "name": "Font del Regàs",
         "spring": "Font del Regàs",
         "place": "Arbúcies",
-        "province": "Girona",
-    },
-    {
-        "name": "Font del Subirà",
-        "spring": "El Subirà",
-        "place": "Osor",
         "province": "Girona",
     },
     {
@@ -424,6 +405,12 @@ AESAN_WATERS = [
         "spring": "Font Sorda-Son Cocó",
         "place": "Alaró",
         "province": "Baleares",
+    },
+    {
+        "name": "Font Subirà",
+        "spring": "Font Subirà",
+        "place": "Osor",
+        "province": "Girona",
     },
     {
         "name": "Font Vella",
@@ -481,10 +468,16 @@ AESAN_WATERS = [
         "province": "Santa Cruz de Tenerife",
     },
     {
+        "name": "Fonteide",
+        "spring": "Fonteide II",
+        "place": "La Orotava",
+        "province": "Santa Cruz de Tenerife",
+    },
+    {
         "name": "Fontemilla",
-        "spring": "Fontemilla Moratilla de Henares",
-        "place": "",
-        "province": "Sigüenza",
+        "spring": "Fontemilla",
+        "place": "Moratilla de Henares (Sigüenza)",
+        "province": "Guadalajara",
     },
     {
         "name": "Fontenova",
@@ -492,13 +485,12 @@ AESAN_WATERS = [
         "place": "Verín",
         "province": "Ourense",
     },
-    {"name": "Fonter", "spring": "Fonter", "place": "Amer", "province": "Girona"},
     {"name": "Fonter", "spring": "Palatín", "place": "Amer", "province": "Girona"},
     {
-        "name": "Fonxesta",
-        "spring": "Fonxesta",
-        "place": "Vega de Anzuelos-Láncara",
-        "province": "Lugo",
+        "name": "Fontseny",
+        "spring": "Fontseny",
+        "place": "Espinelves",
+        "province": "Girona",
     },
     {
         "name": "Fuencisla",
@@ -508,7 +500,7 @@ AESAN_WATERS = [
     },
     {
         "name": "Fuensanta",
-        "spring": "Fuensanta de Buyeres",
+        "spring": "Fuensanta",
         "place": "Nava",
         "province": "Asturias",
     },
@@ -517,12 +509,6 @@ AESAN_WATERS = [
         "spring": "Fuente del Val 2",
         "place": "Mondariz",
         "province": "Pontevedra",
-    },
-    {
-        "name": "Fuente en Segures",
-        "spring": "Fuente en Segures",
-        "place": "Benasal",
-        "province": "Castellón",
     },
     {
         "name": "Fuente Madre",
@@ -543,16 +529,16 @@ AESAN_WATERS = [
         "province": "Valencia",
     },
     {
+        "name": "Fuente Selecta",
+        "spring": "Manantial Fuente Selecta",
+        "place": "Valleseco",
+        "province": "Las Palmas",
+    },
+    {
         "name": "Fuentebruma",
         "spring": "Fuentebruma",
         "place": "Gáldar",
         "province": "Las Palmas",
-    },
-    {
-        "name": "Fuentecilla",
-        "spring": "Fuente del Fraile",
-        "place": "Tarazona de la Mancha",
-        "province": "Albacete",
     },
     {
         "name": "Fuentedueñas",
@@ -577,6 +563,12 @@ AESAN_WATERS = [
         "spring": "Fuenteror",
         "place": "Teror",
         "province": "Las Palmas",
+    },
+    {
+        "name": "Fuentes de Lebanza",
+        "spring": "La Pernía (Palencia)",
+        "place": "Lebanza",
+        "province": "Palencia",
     },
     {
         "name": "Fuentevera",
@@ -624,8 +616,8 @@ AESAN_WATERS = [
     {
         "name": "La Serreta",
         "spring": "La Serreta",
-        "place": "La Font de la Figuera",
-        "province": "Valencia",
+        "place": "PARTIDA JUNCAREJOS. LA FONT DE LA FIGUERA",
+        "province": "VALENCIA",
     },
     {
         "name": "Lahoz",
@@ -656,12 +648,6 @@ AESAN_WATERS = [
         "spring": "Las Higueras",
         "place": "Valsequillo",
         "province": "Las Palmas",
-    },
-    {
-        "name": "Lebanza",
-        "spring": "La Cueva",
-        "place": "San Salvador de Cantamuda",
-        "province": "Palencia",
     },
     {
         "name": "Les Creus",
@@ -722,14 +708,20 @@ AESAN_WATERS = [
     {"name": "Natura", "spring": "Natura", "place": "Los Villares", "province": "Jaén"},
     {
         "name": "Nature Montes de León",
-        "spring": "Nature Montes de León",
+        "spring": "Castilla y León",
         "place": "La Ribera de Folgoso",
         "province": "León",
     },
+    {
+        "name": "Naturis",
+        "spring": "Santa Anna",
+        "place": "Espinelves",
+        "province": "Girona",
+    },
     {"name": "Neval", "spring": "Neval", "place": "Moratalla", "province": "Murcia"},
     {
-        "name": "Numen Premium Water",
-        "spring": "Numen",
+        "name": "Numen",
+        "spring": "Castilla-La Mancha",
         "place": "Villarubia de los Ojos",
         "province": "Ciudad Real",
     },
@@ -754,6 +746,12 @@ AESAN_WATERS = [
     {"name": "Pineo", "spring": "Pineo", "place": "Estamariu", "province": "Lleida"},
     {"name": "Pirinea", "spring": "Pirinea", "place": "Bisaurri", "province": "Huesca"},
     {
+        "name": "Quess",
+        "spring": "Manantial de Ques",
+        "place": "Sierra de Ques, Piloña",
+        "province": "Asturias",
+    },
+    {
         "name": "Rocallaura",
         "spring": "Agua de Rocallaura",
         "place": "Vallbona de les Monges",
@@ -770,12 +768,6 @@ AESAN_WATERS = [
         "spring": "San Andrés II",
         "place": "Cuadros",
         "province": "León",
-    },
-    {
-        "name": "San Antón II",
-        "spring": "San Antón II",
-        "place": "Firgas",
-        "province": "Las Palmas",
     },
     {
         "name": "San Joaquín",
@@ -850,12 +842,6 @@ AESAN_WATERS = [
         "province": "Zaragoza",
     },
     {
-        "name": "Sierra Dúrcal",
-        "spring": "Sierra Dúrcal",
-        "place": "Dúrcal",
-        "province": "Granada",
-    },
-    {
         "name": "Sierra Fría",
         "spring": "El Chumacero",
         "place": "Valencia de Alcántara",
@@ -897,12 +883,14 @@ AESAN_WATERS = [
         "place": "Beteta",
         "province": "Cuenca",
     },
+    {"name": "Sousas", "spring": "Sousas II", "place": "Verín", "province": "Ourense"},
     {
         "name": "Teleno",
         "spring": "Teleno",
         "place": "Palacios de la Valduerna",
         "province": "León",
     },
+    {"name": "Ursu9", "spring": "URSU9", "place": "El Oso", "province": "Ávila"},
     {
         "name": "Valtorre",
         "spring": "Valtorre",
@@ -910,6 +898,7 @@ AESAN_WATERS = [
         "province": "Toledo",
     },
     {"name": "Veri", "spring": "Veri 1", "place": "Bisaurri", "province": "Huesca"},
+    {"name": "Veri", "spring": "Veri 4", "place": "Bisaurri", "province": "Huesca"},
     {
         "name": "Veri",
         "spring": "Veri 5",
@@ -933,11 +922,5 @@ AESAN_WATERS = [
         "spring": "Vilas",
         "place": "Torrelaribera",
         "province": "Huesca",
-    },
-    {
-        "name": "Virgen del Camino",
-        "spring": "Virgen del Camino",
-        "place": "San Miguel del Camino",
-        "province": "León",
     },
 ]
