@@ -21,7 +21,6 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | Repoint `biwenger-tools-sa-regional` to a Sheets-only SA | The Awards decision below — **do not touch that SA or its keys until it exists** |
-| 🔨 | Stacked PRs get no CI here, and merging their base closes them | Widening `ci.yml`'s trigger, or always branching off `master` |
 | ⏳ | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | ⏳ | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | ⏳ | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
@@ -31,7 +30,6 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | `decide_offer`: wrap it in the retry helper, or not? | One repeated PUT on the next real offer · [analysis](openspec/specs/core/biwenger-writes/spec.md) |
-| 🔨 | Read-path test gaps in the Biwenger SDK | Nothing — the GAP blocks in `openspec/specs/core/biwenger-reads/spec.md` are the list |
 | ⏳ | Move the Biwenger-only two thirds of `core` into its package | A second package needing a domain-model layer · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
 
 ## biwenger_tools

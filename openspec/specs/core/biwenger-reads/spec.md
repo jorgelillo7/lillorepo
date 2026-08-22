@@ -35,12 +35,11 @@ rule for all of them rather than a fix in one.
 - **THEN** the result is an empty list
 - *Verifies:* `test_get_report_rows_empty_payload`
 
-> **GAP — partially verified.** Only the market and the report endpoints have a
-> null-envelope test. `get_league_users`, `get_standings_full`,
-> `get_manager_squad`, `get_received_offers` and
-> `get_current_lineup_player_ids` carry the same defence untested — the closed
-> market is not the only state that produces a null body, and a mid-season
-> Biwenger maintenance window would exercise all of them at once.
+#### Scenario: a null envelope on every reader that defends against one
+- **WHEN** `data` comes back `null` from the league users, standings, manager
+  squad, received offers or current lineup endpoint
+- **THEN** each reader hands back its own empty value rather than raising
+- *Verifies:* `test_a_null_envelope_reads_as_empty_not_as_a_crash`
 
 ### Requirement: Reads hand back Biwenger's own objects
 
@@ -59,8 +58,11 @@ belongs where the decision is made, not in the transport.
 - **THEN** the entries arrive as Biwenger sent them, in order
 - *Verifies:* `test_get_manager_squad`, `test_get_market_players`
 
-> **GAP — unverified.** `get_standings_full` — the palmarés and the season
-> rollover read it — has no test at all: neither its parse nor its empty case.
+#### Scenario: standings arrive in Biwenger's order
+- **WHEN** the standings endpoint answers with a ranked table
+- **THEN** the rows are handed back in that order, unsorted
+- *Verifies:* `test_get_standings_full_returns_the_table_in_order`,
+  `test_a_null_envelope_reads_as_empty_not_as_a_crash`
 
 ### Requirement: "Puja máxima" is computed on this side
 
@@ -169,10 +171,15 @@ every time.
   `test_get_all_clausulazos_paginates`,
   `test_get_all_clausulazos_stops_on_empty`
 
-> **GAP — unverified.** `get_all_clausulazos` also accepts a page whose `data`
-> is a **dict** and takes its values, a shape no test produces. Either Biwenger
-> really returns it for some feed, in which case a test should pin which, or
-> the branch is dead and should go.
+#### Scenario: a dict-shaped page is read by its values
+- **WHEN** a clausulazos page returns `data` as a dict rather than a list
+- **THEN** its values are taken, in order, and pagination continues
+- *Verifies:* `test_get_all_clausulazos_accepts_a_dict_shaped_page`
+
+> **Provenance unknown.** The branch is pinned, not endorsed: no feed has been
+> observed returning this shape. It stays because a defence that only fires
+> during a format change is the one you cannot delete on a hunch. If a feed is
+> ever seen sending it, name the feed in the test.
 
 ### Requirement: A board feed is chosen by type, and an admin transfer is not a transfer
 
@@ -184,10 +191,11 @@ movements an admin made by hand.
 polled `transfer` for its own movements and always found an empty feed —
 nothing errored, the feature was simply blind.
 
-> **GAP — unverified.** No test pins the `type` each builder emits, and the
-> failure mode is silence: the wrong type returns `200` with an empty list,
-> exactly like a quiet league. A test would assert the query string of each
-> builder.
+#### Scenario: each builder pins its own feed
+- **WHEN** the league board, clausulazos and admin-transfer URLs are built
+- **THEN** they carry `type=text`, `type=transfer` and `type=adminTransfer`
+  respectively, and the admin builder is not the transfer one
+- *Verifies:* `test_each_board_builder_pins_its_own_type`
 
 ### Requirement: The competition catalogue is public, unwrapped, and downloaded once
 

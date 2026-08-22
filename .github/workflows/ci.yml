@@ -5,8 +5,14 @@
 name: CI
 
 on:
+  # Every pull request, whatever it targets. Restricted to `master`, a PR
+  # stacked on another branch got no checks at all — and looked unverified
+  # because it was. Merging its base with --delete-branch then *closed* it,
+  # and a closed PR can be neither reopened nor retargeted, so the work had
+  # to be rebased and opened under a new number. The affected-test selector
+  # already diffs against `github.base_ref`, so a stacked PR tests exactly
+  # its own delta.
   pull_request:
-    branches: [master]
   # Manual trigger. `deploy.yml` has always had one; this did not, so when
   # GitHub throttled webhook-triggered runs during the 2026-08-06 Actions
   # outage the only way to re-fire CI was pushing an empty commit.
