@@ -71,14 +71,15 @@ def main() -> None:
     args = parser.parse_args()
 
     catalog = repository.get_all_waters()
-    todo = [w for w in catalog if w.label_photo_url and not w.analysis_date]
-    if args.only:
-        todo = [w for w in todo if w.id == args.only]
-    skipped = len(catalog) - len(todo)
+    eligible = [w for w in catalog if w.label_photo_url and not w.analysis_date]
     print(
-        f"\n{len(catalog)} fichas · {len(todo)} con etiqueta y sin fecha "
-        f"· {skipped} sin foto de etiqueta o ya fechadas\n"
+        f"\n{len(catalog)} fichas · {len(eligible)} con etiqueta y sin fecha "
+        f"· {len(catalog) - len(eligible)} sin foto de etiqueta o ya fechadas\n"
     )
+    todo = eligible
+    if args.only:
+        todo = [w for w in eligible if w.id == args.only]
+        print(f"--only {args.only}: {len(todo)} de esas {len(eligible)}\n")
 
     for i, water in enumerate(todo, 1):
         if i > 1:
