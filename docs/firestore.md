@@ -292,6 +292,9 @@ The Python models live in `packages/be_water/web/domain.py` (`Water`,
 ```
 waters/{water_id}   — one bottled water and its mineral vector
 users/{nickname}    — a contributor: favorites, activity, block flag
+water_revisions/{water_id}__{timestamp}
+                    — the previous state of a water, snapshotted just before a
+                      contribution changed its composition (undo trail)
 ```
 
 Both are flat, top-level collections — no season containers. There are **no
@@ -321,6 +324,7 @@ same doc and re-adds/updates are idempotent.
 | `sources` | map&lt;string,string&gt; | Provenance of **non-label** fields: `manufacturer` / `aesan` / `manual` (label fields are implied by `verified_fields`) |
 | `mentions` | array&lt;map&gt; | External recognitions, `{source, label, url}` — mention-and-link only |
 | `added_by` | string | Contributor nickname; `"seed"` for the seeded dataset |
+| `analysis_date` | string / null | Date of the label's lab analysis, `YYYY-MM` or `YYYY`; null when the label doesn't print one (it isn't legally required) |
 | `added_at` | string / null | ISO timestamp; null for seeded waters |
 | `verified` | bool | Whole-ficha verified — auto-promoted (every value label-backed) or admin sign-off; frozen against overwrite |
 
@@ -328,6 +332,22 @@ same doc and re-adds/updates are idempotent.
 whatever `sources` records (`Water.source_of`). This is what lets the UI say
 "✓ etiqueta" / "fabricante" / "registro AESAN" / "a mano" per value instead of
 a blanket "sin verificar".
+
+#### `water_revisions/{water_id}__{timestamp}` — undo trail
+
+Written by the add flow whenever a contribution changes an existing ficha's
+`minerals`, so a bad edit is reversible without digging through logs.
+
+| Field | Type | Notes |
+|---|---|---|
+| `water_id` | string | The ficha this snapshot belongs to |
+| `saved_at` | string | ISO timestamp of the snapshot |
+| `replaced_by` | string | Nickname of the contributor whose save triggered it |
+| `reason` | string | `older_analysis` (an older/undated label, confirmed past the warning) or `composition_changed` |
+| `previous` | map | The whole previous document — reverting is a single write |
+
+Read and reverted with `bazel run //packages/be_water/scripts:revert_water`.
+Nothing prunes it; at this catalog's write rate that is not yet a problem.
 
 #### `users/{nickname}` — contributor
 

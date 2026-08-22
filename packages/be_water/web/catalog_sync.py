@@ -46,6 +46,7 @@ def _dataset_water(raw: dict) -> Water:
         photo_url=raw.get("photo_url"),
         label_photo_url=raw.get("label_photo_url"),
         verified_fields=list(raw.get("verified_fields", [])),
+        analysis_date=raw.get("analysis_date"),
         mentions=list(raw.get("mentions", [])),
         added_by="seed",
         # Dataset entries backed by a bottle-label photo carry verified=True.
@@ -75,7 +76,12 @@ def sync_catalog() -> dict:
             # fill empty photo slots (enrichment, never replacement).
             enriched = dict(current)
             changed = False
-            for extra_field in ("photo_url", "label_photo_url", "mentions"):
+            for extra_field in (
+                "photo_url",
+                "label_photo_url",
+                "mentions",
+                "analysis_date",
+            ):
                 dataset_value = getattr(water, extra_field)
                 if dataset_value and not current.get(extra_field):
                     enriched[extra_field] = dataset_value
@@ -90,6 +96,10 @@ def sync_catalog() -> dict:
         merged["photo_url"] = current.get("photo_url") or merged["photo_url"]
         merged["label_photo_url"] = (
             current.get("label_photo_url") or merged["label_photo_url"]
+        )
+        # A date someone read off a bottle outlives the dataset's silence.
+        merged["analysis_date"] = (
+            current.get("analysis_date") or merged["analysis_date"]
         )
         merged["verified_fields"] = sorted(
             set(merged.get("verified_fields", []))

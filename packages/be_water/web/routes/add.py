@@ -32,6 +32,8 @@ def _render_add_form(
     error=None,
     notice=None,
     similar=None,
+    stale_warning=None,
+    merge_into=None,
 ):
     return render_template(
         "add.html",
@@ -43,6 +45,8 @@ def _render_add_form(
         error=error,
         notice=notice,
         similar=similar,
+        stale_warning=stale_warning,
+        merge_into=merge_into,
         meta_description="Añade una nueva agua al catálogo con su etiqueta.",
     )
 
@@ -157,6 +161,23 @@ def add_water():
     water_id, existing = resolution
 
     minerals = submission.parse_minerals(request.form)
+    analysis_date = submission.normalize_analysis_date(
+        request.form.get("analysis_date")
+    )
+
+    # An older (or undated) label replacing a dated one is allowed, but never
+    # silently: the contributor confirms, and the previous doc is snapshotted.
+    stale = submission.stale_analysis_warning(analysis_date, existing)
+    if stale and not request.form.get("confirm_stale"):
+        return _render_add_form(
+            prefill=dict(request.form),
+            photo_tmp=(request.form.get("photo_tmp") or "").strip() or None,
+            label_tmp=(request.form.get("label_tmp") or "").strip() or None,
+            ocr_fields=request.form.get("ocr_fields"),
+            stale_warning=stale,
+            merge_into=merge_into or None,
+        )
+
     photo_url, label_photo_url = _promote_photos(water_id)
     verified_fields = submission.verified_fields_from_ocr(
         request.form.get("ocr_fields") or "", minerals
@@ -169,6 +190,7 @@ def add_water():
         verified_fields=verified_fields,
         photo_url=photo_url,
         label_photo_url=label_photo_url,
+        analysis_date=analysis_date,
         added_by=session["nickname"],
     )
     if existing is not None:
@@ -179,6 +201,12 @@ def add_water():
             form_has_brand=bool(submission.form_field(request.form, "brand")),
         )
     submission.finalize_provenance(water, existing)
+    if existing is not None and existing.minerals != water.minerals:
+        repository.save_revision(
+            existing,
+            replaced_by=session["nickname"],
+            reason="older_analysis" if stale else "composition_changed",
+        )
     repository.save_water(water)
     repository.touch_user(session["nickname"])
     return redirect(url_for("water_detail", water_id=water_id))

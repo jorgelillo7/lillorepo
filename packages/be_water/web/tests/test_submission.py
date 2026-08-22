@@ -72,6 +72,7 @@ def test_build_water_defaults_brand_to_name():
         verified_fields=[],
         photo_url=None,
         label_photo_url=None,
+        analysis_date=None,
         added_by="jorge",
     )
     assert water.brand == "Bezoya"
@@ -88,6 +89,7 @@ def _submitted(form):
         verified_fields=[],
         photo_url=None,
         label_photo_url=None,
+        analysis_date=None,
         added_by="jorge",
     )
 
@@ -129,6 +131,7 @@ def test_apply_existing_form_wins_but_preserves_uncarried_fields():
         verified_fields=[],
         photo_url=None,  # no new photo
         label_photo_url=None,
+        analysis_date=None,
         added_by="jorge",
     )
     submission.apply_existing(water, existing, merge_into=False, form_has_brand=False)
@@ -149,6 +152,7 @@ def test_apply_existing_adopts_seed_water_for_the_new_contributor():
         verified_fields=[],
         photo_url=None,
         label_photo_url=None,
+        analysis_date=None,
         added_by="jorge",
     )
     submission.apply_existing(water, existing, merge_into=False, form_has_brand=False)
@@ -165,6 +169,7 @@ def test_apply_existing_merge_into_keeps_canonical_name():
         verified_fields=[],
         photo_url=None,
         label_photo_url=None,
+        analysis_date=None,
         added_by="jorge",
     )
     submission.apply_existing(water, existing, merge_into=True, form_has_brand=False)
@@ -213,3 +218,51 @@ def test_set_water_community_merges_instead_of_rewriting_the_doc():
     fs.set_document.assert_called_once_with(
         repository.WATERS, "neval", {"community": "Castilla-La Mancha"}, merge=True
     )
+
+
+# --- analysis date ----------------------------------------------------------
+
+
+def test_normalize_analysis_date_accepts_what_labels_and_ocr_produce():
+    assert submission.normalize_analysis_date("2025-02") == "2025-02"
+    assert submission.normalize_analysis_date("2025-2") == "2025-02"
+    assert submission.normalize_analysis_date("2023") == "2023"
+    assert submission.normalize_analysis_date("Febrero 2025") == "2025-02"
+    assert submission.normalize_analysis_date("febrero de 2025") == "2025-02"
+
+
+def test_normalize_analysis_date_rejects_rather_than_guesses():
+    # A malformed date is worse than none: it would order wrongly.
+    assert submission.normalize_analysis_date("") is None
+    assert submission.normalize_analysis_date(None) is None
+    assert submission.normalize_analysis_date("L6209-01") is None
+    assert submission.normalize_analysis_date("2025-13") == "2025"
+
+
+def test_older_or_undated_analysis_warns_newer_one_does_not():
+    existing = _water(analysis_date="2025-02")
+    assert submission.stale_analysis_warning("2024-01", existing)
+    assert submission.stale_analysis_warning(None, existing)
+    assert submission.stale_analysis_warning("2025-06", existing) is None
+    assert submission.stale_analysis_warning("2025-02", existing) is None
+
+
+def test_no_warning_when_there_is_nothing_to_protect():
+    assert submission.stale_analysis_warning("2024-01", None) is None
+    assert submission.stale_analysis_warning("2024-01", _water()) is None
+
+
+def test_a_dateless_submission_inherits_the_date_on_file():
+    water = _water(analysis_date=None)
+    submission.apply_existing(
+        water, _water(analysis_date="2025-02"), merge_into=False, form_has_brand=True
+    )
+    assert water.analysis_date == "2025-02"
+
+
+def test_a_dated_submission_keeps_its_own_date():
+    water = _water(analysis_date="2026-01")
+    submission.apply_existing(
+        water, _water(analysis_date="2025-02"), merge_into=False, form_has_brand=True
+    )
+    assert water.analysis_date == "2026-01"

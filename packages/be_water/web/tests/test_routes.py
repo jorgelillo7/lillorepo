@@ -592,7 +592,7 @@ def test_add_water_merges_into_unverified_duplicate(client):
     existing.added_by = "seed"
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"):
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
         resp = client.post(
             "/anadir",
             data={"name": "Bezoya", "tds": "26.5", "ocr_fields": "tds"},
@@ -615,7 +615,7 @@ def test_merge_keeps_original_author_for_user_waters(client):
     existing.added_at = "2026-07-01T00:00:00+00:00"
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"):
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
         client.post("/anadir", data={"name": "Bezoya", "tds": "26.5"})
     saved = mock_save.call_args.args[0]
     assert saved.added_by == "maria"
@@ -663,7 +663,7 @@ def test_merge_into_updates_the_confirmed_match(client):
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water",
         side_effect=lambda wid: existing if wid == "bezoya" else None,
-    ), patch(f"{_REPO}.touch_user"):
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
         resp = client.post(
             "/anadir",
             data={"name": "Naturis", "merge_into": "bezoya", "tds": "24"},
@@ -1196,3 +1196,85 @@ def test_a_shared_place_link_previews_a_real_bottle(client):
     body = _search(client, "lugar=Cuenca", catalog=catalog)
     assert '<meta property="og:image" content="https://cdn.example/solan.jpg">' in body
     assert "summary_large_image" in body
+
+
+# --- analysis date: stale-overwrite guard + revision trail ------------------
+
+
+def test_older_label_needs_confirming_and_saves_nothing_until_then(client):
+    """The dated ficha is protected by a warning, not by a refusal."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+        resp = client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2024-01",
+            },
+        )
+    assert resp.status_code == 200  # form re-rendered, not redirected
+    assert "2025-02" in resp.get_data(as_text=True)
+    mock_save.assert_not_called()
+    mock_revision.assert_not_called()
+
+
+def test_confirming_an_older_label_saves_and_snapshots_the_previous_state(client):
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+        resp = client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2024-01",
+                "confirm_stale": "1",
+            },
+        )
+    assert resp.status_code == 302
+    assert mock_save.call_args.args[0].analysis_date == "2024-01"
+    mock_revision.assert_called_once()
+    assert mock_revision.call_args.args[0] is existing
+    assert mock_revision.call_args.kwargs["reason"] == "older_analysis"
+
+
+def test_a_newer_label_saves_straight_through_but_still_snapshots(client):
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2024-01"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+        resp = client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2026-03",
+            },
+        )
+    assert resp.status_code == 302
+    assert mock_save.call_args.args[0].analysis_date == "2026-03"
+    # Reverting a bad edit must not depend on the edit being an older one.
+    assert mock_revision.call_args.kwargs["reason"] == "composition_changed"
+
+
+def test_no_snapshot_when_the_composition_did_not_move(client):
+    _login(client)
+    existing = _catalog()[1]
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+        client.post("/anadir", data={"name": "Bezoya", "spring": "Sierra"})
+    mock_revision.assert_not_called()

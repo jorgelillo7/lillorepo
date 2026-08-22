@@ -34,3 +34,21 @@ py_binary(
     main = "audit_data.py",
     deps = ["//packages/be_water/web:web_lib"],
 )
+
+# Undo a contribution that overwrote a composition, from the revision trail
+# the add flow writes. Local, uses ADC; every write behind a confirmation.
+py_binary(
+    name = "revert_water",
+    srcs = ["revert_water.py"],
+    main = "revert_water.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)
+
+# One-shot backfill of Water.analysis_date by re-reading the stored label
+# photos through the OCR. Dry-run by default.
+py_binary(
+    name = "backfill_analysis_date",
+    srcs = ["backfill_analysis_date.py"],
+    main = "backfill_analysis_date.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)

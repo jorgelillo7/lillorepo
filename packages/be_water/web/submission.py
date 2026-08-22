@@ -14,7 +14,7 @@ from typing import Mapping, Optional
 from unidecode import unidecode
 
 from packages.be_water.web import geo, provenance
-from packages.be_water.web.domain import MINERAL_FIELDS, Water
+from packages.be_water.web.domain import MINERAL_FIELDS, Water, analysis_is_older
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
@@ -82,6 +82,45 @@ def parse_minerals(form: Mapping) -> dict:
     return minerals
 
 
+_MONTHS = {
+    "enero": "01",
+    "febrero": "02",
+    "marzo": "03",
+    "abril": "04",
+    "mayo": "05",
+    "junio": "06",
+    "julio": "07",
+    "agosto": "08",
+    "septiembre": "09",
+    "setiembre": "09",
+    "octubre": "10",
+    "noviembre": "11",
+    "diciembre": "12",
+}
+_ISO_DATE = re.compile(r"^(\d{4})(?:-(\d{1,2}))?$")
+_ES_DATE = re.compile(r"^([a-zñ]+)\s+(\d{4})$")
+
+
+def normalize_analysis_date(raw: Optional[str]) -> Optional[str]:
+    """Label analysis date → "YYYY-MM", or "YYYY" when only a year is given.
+
+    Accepts what the OCR and the form actually produce ("2025-02", "2025",
+    "Febrero 2025") and returns None for anything else — a malformed date is
+    worse than no date, since it would order wrongly against a real one.
+    """
+    text = (raw or "").strip().lower()
+    if not text:
+        return None
+    iso = _ISO_DATE.match(text)
+    if iso:
+        year, month = iso.group(1), iso.group(2)
+        return f"{year}-{int(month):02d}" if month and 1 <= int(month) <= 12 else year
+    spanish = _ES_DATE.match(unidecode(text).replace("de ", "").strip())
+    if spanish and spanish.group(1) in _MONTHS:
+        return f"{spanish.group(2)}-{_MONTHS[spanish.group(1)]}"
+    return None
+
+
 def verified_fields_from_ocr(ocr_fields: str, minerals: dict) -> list[str]:
     """Label-declared mineral fields (human-reviewed) become verified_fields."""
     return sorted(f for f in ocr_fields.split(",") if f in minerals)
@@ -96,6 +135,7 @@ def build_water(
     verified_fields: list[str],
     photo_url: Optional[str],
     label_photo_url: Optional[str],
+    analysis_date: Optional[str],
     added_by: str,
 ) -> Water:
     """The submitted water before any merge with an existing doc."""
@@ -116,6 +156,7 @@ def build_water(
         photo_url=photo_url,
         label_photo_url=label_photo_url,
         verified_fields=verified_fields,
+        analysis_date=analysis_date,
         added_by=added_by,
         added_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -139,6 +180,9 @@ def apply_existing(
         water.brand = existing.brand or water.brand
     water.photo_url = water.photo_url or existing.photo_url
     water.label_photo_url = water.label_photo_url or existing.label_photo_url
+    # A submission that declares no date inherits the one already on file:
+    # dropping it would make the next comparison think the ficha is undated.
+    water.analysis_date = water.analysis_date or existing.analysis_date
     water.mentions = existing.mentions
     water.verified_fields = sorted(
         set(water.verified_fields) | set(existing.verified_fields)
@@ -148,6 +192,25 @@ def apply_existing(
     if existing.added_by and existing.added_by != "seed":
         water.added_by = existing.added_by
         water.added_at = existing.added_at
+
+
+def stale_analysis_warning(
+    incoming: Optional[str], existing: Optional[Water]
+) -> Optional[str]:
+    """Message to show when the submitted label is older than the stored one
+    (or undated against a dated one), else None. The submission is never
+    blocked — the contributor confirms and the previous state is snapshotted."""
+    if existing is None or not existing.analysis_date:
+        return None
+    if not analysis_is_older(incoming, existing.analysis_date):
+        return None
+    theirs = incoming or "sin fecha"
+    return (
+        f"Esta ficha ya tiene un análisis de {existing.analysis_date} y el de "
+        f"tu etiqueta es {theirs}. Guardar la sustituirá por datos más "
+        "antiguos. Puedes guardarla igualmente: se conserva una copia de los "
+        "valores actuales para poder revertirla."
+    )
 
 
 def finalize_provenance(water: Water, existing: Optional[Water]) -> None:

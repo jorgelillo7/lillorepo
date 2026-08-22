@@ -3,6 +3,10 @@
 Collections (project `be-water-app`):
     waters/{water_id}  — one doc per bottled water (see domain.Water)
     users/{nickname}   — {"favorites": [water_id, ...]}
+    water_revisions/{water_id}__{timestamp}
+                       — snapshot of a water taken just before a contribution
+                         overwrote its composition, so a bad edit can be undone
+                         (scripts/revert_water.py)
 """
 
 from datetime import datetime, timezone
@@ -15,6 +19,7 @@ logger = get_logger(__name__)
 
 WATERS = "waters"
 USERS = "users"
+REVISIONS = "water_revisions"
 
 
 def _now_iso() -> str:
@@ -36,6 +41,43 @@ def get_water(water_id: str) -> Water | None:
 def save_water(water: Water) -> None:
     firestore.set_document(WATERS, water.id, water.to_firestore())
     logger.info("Water saved.", extra={"water_id": water.id})
+
+
+def save_revision(previous: Water, *, replaced_by: str, reason: str) -> str:
+    """Snapshot a water as it stands before an overwrite. Returns the revision
+    id. The whole previous document is stored so a revert is a single write."""
+    revision_id = f"{previous.id}__{_now_iso()}"
+    firestore.set_document(
+        REVISIONS,
+        revision_id,
+        {
+            "water_id": previous.id,
+            "saved_at": _now_iso(),
+            "replaced_by": replaced_by,
+            "reason": reason,
+            "previous": previous.to_firestore(),
+        },
+    )
+    logger.info(
+        "Water revision stored.",
+        extra={"water_id": previous.id, "revision_id": revision_id, "reason": reason},
+    )
+    return revision_id
+
+
+def list_revisions(water_id: str | None = None) -> list[tuple[str, dict]]:
+    """(revision_id, data) newest first, optionally for a single water."""
+    revisions = [
+        (doc_id, data)
+        for doc_id, data in firestore.list_documents(REVISIONS)
+        if water_id is None or data.get("water_id") == water_id
+    ]
+    return sorted(revisions, key=lambda pair: pair[1].get("saved_at", ""), reverse=True)
+
+
+def delete_revision(revision_id: str) -> None:
+    firestore.delete_document(REVISIONS, revision_id)
+    logger.info("Water revision deleted.", extra={"revision_id": revision_id})
 
 
 def set_water_sources(water_id: str, sources: dict) -> None:
