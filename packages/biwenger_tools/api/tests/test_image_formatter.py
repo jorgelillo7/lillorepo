@@ -1,5 +1,7 @@
 """Unit tests for `api/logic/image_formatter.build_table_image`."""
 
+from datetime import datetime
+
 from packages.biwenger_tools.api.logic.image_formatter import (
     _BENCH,
     _BENCH_BG,
@@ -174,3 +176,22 @@ def test_bench_count_covers_both_ways_of_not_starting():
         {"jp_player": _jp(status="injured")},
     ]
     assert count_bench(rows) == 2
+
+
+def test_the_image_is_stamped_with_when_it_was_made():
+    """These arrive as photos in a chat and outlive the morning they
+    describe — scrolled back to a week later, an undated squad table is
+    indistinguishable from today's."""
+    from unittest.mock import MagicMock
+
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    ax = MagicMock()
+    imf._draw_generated_stamp(ax)
+
+    (x, y, text), kwargs = ax.text.call_args
+    assert (x, y) == (1.0, -0.02)  # below the last row, right-aligned
+    assert kwargs["ha"] == "right" and kwargs["va"] == "top"
+    assert kwargs["color"] == imf._INK_FAINT  # provenance, not data
+    assert kwargs["fontsize"] < 9  # smaller than any body cell
+    datetime.strptime(text, "%d/%m/%Y %H:%M")  # a real stamp, not a label

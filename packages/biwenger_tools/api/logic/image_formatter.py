@@ -1,6 +1,7 @@
 """Generates PNG table images for Telegram using matplotlib."""
 
 import io
+from datetime import datetime
 
 import matplotlib
 
@@ -13,6 +14,7 @@ from matplotlib.offsetbox import (  # noqa: E402
     VPacker,
 )
 
+from core.constants import MADRID_TZ  # noqa: E402
 from core.sdk.jp import get_predict_rate  # noqa: E402
 from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     SCORE_SF,
@@ -276,6 +278,31 @@ def _draw_status_summary(ax, rows: list[dict], show_total_value: bool) -> None:
     ax.add_artist(box)
 
 
+def _draw_generated_stamp(ax) -> None:
+    """When this picture was made, in the corner where nothing else lives.
+
+    Bottom right, under the last row and right-aligned: the table grows
+    downward and its rightmost column is the shortest text on the row, so
+    that corner is the one place a line can go without displacing anything.
+    Muted ink and small type — it is provenance, and provenance that competes
+    with the data has been put in the wrong place.
+
+    Worth having at all because these arrive as photos in a chat and outlive
+    the morning they describe: scrolled back to a week later, a squad table
+    with no date is indistinguishable from today's.
+    """
+    ax.text(
+        1.0,
+        -0.02,
+        datetime.now(MADRID_TZ).strftime("%d/%m/%Y %H:%M"),
+        transform=ax.transAxes,
+        fontsize=7,
+        ha="right",
+        va="top",
+        color=_INK_FAINT,
+    )
+
+
 def build_table_image(
     rows: list[dict],
     title: str,
@@ -406,6 +433,8 @@ def build_table_image(
         for j, width in enumerate(col_widths):
             for i in range(n_rows + 1):
                 table[i, j].set_width(width)
+
+    _draw_generated_stamp(ax)
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor=_SURFACE)

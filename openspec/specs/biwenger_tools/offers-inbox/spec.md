@@ -72,8 +72,8 @@ from the diff of the two elevens, so it is by construction the player the SF
 difference measures — not the best squad member at that position, who is usually
 already on the pitch.
 
-The search is exhaustive backtracking (~0.65 s per solve on a 15-man squad, ~3 s
-at 25 with many multi-position players) and `/ofertas` is chained onto
+The search is exhaustive backtracking (~0.13 s per solve on a 15-man squad,
+~3.2 s at `MAX_SQUAD_SIZE`) and `/ofertas` is chained onto
 `/digests/daily`, which holds a 5-minute end-to-end SLO. Two bounds SHALL apply:
 
 - The baseline eleven is solved **once per inbox**, not once per offer.

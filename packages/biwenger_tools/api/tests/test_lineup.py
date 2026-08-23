@@ -1041,3 +1041,40 @@ def test_an_exhausted_search_leaves_offers_on_the_money_rules():
     # A missing baseline means no depth signal, and breaks_xi stays false.
     impact = offers._xi_impact(_plain_squad(20), 1, None)
     assert impact["breaks_xi"] is False and impact["xi_loss"] is None
+
+
+def test_the_counter_actually_fires_the_ceiling():
+    """Every other ceiling test mocks `_try_fill` to raise, so none of them
+    would notice `visits` sitting on the wrong side of the cache hit or the
+    comparison being inverted. This one drives the real counter."""
+    with patch.object(lineup, "_MAX_SEARCH_NODES", 20):
+        with pytest.raises(lineup.LineupSearchExhausted):
+            lineup.pick_lineup(_plain_squad(20))
+
+
+def test_the_counter_measures_cache_misses_only():
+    """States and cache entries have to be the same number: the ceiling is
+    calibrated as a memory limit, and that equivalence is what makes it one.
+    A counter that also ticked on hits would abort far below its stated
+    memory bound."""
+    squad = _plain_squad(15)
+    # Generous enough that a miss-only counter never trips, small enough that
+    # a counter also ticking on hits certainly would.
+    with patch.object(lineup, "_MAX_SEARCH_NODES", 60_000):
+        assert lineup.pick_lineup(squad) is not None
+
+
+def test_the_digest_survives_an_exhausted_lineup_search():
+    """The chain is lineup → auto-bid → offers. A raise that skipped the rest
+    would turn one degraded step into no morning digest at all — on the
+    endpoint that carries the SLO."""
+    from packages.biwenger_tools.api.logic import digests
+
+    with patch.object(
+        digests.actions,
+        "run_auto_pick_lineup",
+        side_effect=lineup.LineupSearchExhausted("boom"),
+    ):
+        result = digests._safe_run_auto_pick(object())
+
+    assert isinstance(result, dict)  # degraded, not raised

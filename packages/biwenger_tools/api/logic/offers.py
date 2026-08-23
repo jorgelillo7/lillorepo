@@ -93,11 +93,11 @@ XI_LOSS_DOUBTFUL = 50
 # Wall-clock the depth signal is allowed to spend across one inbox.
 #
 # The optimizer is exhaustive backtracking, and `lineup.py` already carries the
-# scar of a search that ran 30 s and tripped gunicorn. Measured here: one solve
-# is ~0.65 s on a 15-man squad, ~1.5 s at 22, ~3 s at 25 with many
-# multi-position players. `/ofertas` is chained onto `/digests/daily`, whose
-# end-to-end SLO is 5 minutes with roughly 30 s of flake budget — an eight-offer
-# morning on a big squad would eat most of it.
+# scar of a search that ran 30 s and tripped gunicorn. Measured after that
+# module's own optimisation: a solve is ~0.13 s on a 15-man squad and ~3.2 s at
+# `MAX_SQUAD_SIZE`, worst case ~5.7 s. `/ofertas` is chained onto
+# `/digests/daily`, whose end-to-end SLO is 5 minutes with roughly 30 s of
+# flake budget — so a big squad and a busy inbox can still eat it between them.
 #
 # Two bounds, because either alone leaves a bad morning:
 #  - Only offers for players in the current eleven are solved at all. The depth

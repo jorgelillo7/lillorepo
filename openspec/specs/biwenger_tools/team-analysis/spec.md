@@ -55,6 +55,13 @@ something untrue about a player:
   answers the coarser question a reader asks first. Reserved: amber SHALL NOT
   appear in the projection ramp or the status hues.
 
+Every image SHALL carry the instant it was generated, bottom-right below the
+last row, in muted ink at a smaller size than any body cell. These arrive as
+photos in a chat and outlive the morning they describe: scrolled back to a
+week later, an undated squad table is indistinguishable from today's. The
+corner is chosen because the table grows downward and its rightmost column
+holds the shortest text, so nothing is displaced.
+
 Every body cell SHALL be given an explicit ink — matplotlib defaults to black,
 which is invisible on the dark surface for any column no other rule recolours.
 
@@ -75,7 +82,8 @@ matplotlib renders anything above the BMP as a dotted-circle placeholder.
   `test_build_table_image_renders_a_squad_with_substitutes`,
   `test_a_doubt_is_not_marked_as_a_certain_starter`,
   `test_a_doubt_still_counts_among_the_players_who_can_play`,
-  `test_bench_count_covers_both_ways_of_not_starting`
+  `test_bench_count_covers_both_ways_of_not_starting`,
+  `test_the_image_is_stamped_with_when_it_was_made`
 
 ### Requirement: One image failure never aborts the batch
 

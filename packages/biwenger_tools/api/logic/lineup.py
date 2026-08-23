@@ -92,15 +92,16 @@ MAX_SQUAD_SIZE = 25
 #
 # **The ceiling is really a memory limit.** The cache holds one entry per
 # state, so states and bytes are the same number in different units —
-# measured at roughly 260 B per state (57k states ≈ 15 MB). The service runs
+# measured at ~321 B per state, i.e. 150k states ≈ 48 MB. The service runs
 # 512Mi at concurrency 10, so what a pathological squad costs is not a slow
 # request but several holding caches at once, and an OOM kill takes the whole
-# container down rather than the one request. 150k states ≈ 38 MB caps that.
+# container down rather than the one request.
 #
-# Calibration: across 123 generated `MAX_SQUAD_SIZE` squads, including shapes
-# built to be adversarial, the worst single formation reached **57,235**
-# states. The ceiling sits 2.6x above that — high enough that an ordinary
-# morning cannot reach it, low enough to bound the memory.
+# Calibration: across generated `MAX_SQUAD_SIZE` squads, including shapes
+# built to be adversarial, the worst single formation reached **42,921**
+# states (13 MB, ~3.2 s for the whole solve). The ceiling sits 3.5x above
+# that — high enough that an ordinary morning cannot reach it, low enough
+# that one formation can never cost more than a tenth of the container.
 #
 # Note the search does not grow without limit anyway: `_trim_pool_by_position`
 # saturates the candidate pool around 17 players, which is why a 25-man squad
@@ -646,19 +647,72 @@ def _try_fill(players: list, slots: dict) -> list | None:
         for slot in (GK, DEF, MID, FWD)
     }
 
-    # We memoise on (frozenset of bw_ids, sorted tuple of (pos, count)).
-    # Both keys are hashable and capture exactly the state of the search.
-    # The value carries the sub-assignment *and its score*, so a parent adds
-    # one player's contribution instead of re-summing the whole subtree —
-    # that re-summation was the other 40%.
+    # We memoise on (bitmask of remaining players, sorted tuple of (pos,
+    # count)). Both are hashable and capture exactly the state of the search.
+    #
+    # The mask is an integer, one bit per player in the trimmed pool, and it
+    # is where `MAX_SQUAD_SIZE` earns its keep: 25 players is 25 bits, so
+    # every subset the search can reach is a small int. The obvious
+    # representation — a `frozenset` of ids — measures **728 bytes** at
+    # seventeen players against **28** for the int, and with one key per
+    # cached state that difference *was* the memory profile: 1260 B per state
+    # against roughly 90. Set difference becomes a mask-and, and hashing an
+    # int beats hashing a set, so it is faster as well.
+    #
+    # The value is `(chosen_player, score)` — one id and three ints — and NOT
+    # the sub-assignment it belongs to. Storing the whole eleven-long tuple in
+    # every entry measured 1370 B per state, so a 25-man squad's worst
+    # formation held 55 MB live and a ceiling meant to bound memory would have
+    # allowed 200. The assignment is rebuilt afterwards by walking the chosen
+    # players back down the states: eleven lookups instead of eleven copies
+    # kept in every one of forty thousand entries.
+    #
+    # The score still rides along so a parent adds one player's contribution
+    # rather than re-summing its subtree — that re-summation was 40% of the
+    # time before this.
+    # Bit i belongs to `players[i]`, which is already sorted by SF descending
+    # — so iterating bits low to high walks players best-first, which is the
+    # order the candidate sort then relies on to break ties the same way.
+    ids_by_bit = [p["bw_id"] for p in players]
+    positions_by_bit = [pos_by_id[pid] for pid in ids_by_bit]
+    sf_by_bit = [sf_by_id[pid] for pid in ids_by_bit]
+    fallback_by_bit = [fallback_by_id[pid] for pid in ids_by_bit]
+
+    def _bits(mask: int):
+        """The set bits of `mask`, lowest first (i.e. best SF first)."""
+        while mask:
+            low = mask & -mask
+            yield low.bit_length() - 1
+            mask ^= low
+
     cache: dict[tuple, tuple | None] = {}
     visits = 0
 
-    def _solve(player_ids: frozenset, slots_t: tuple) -> tuple | None:
+    def _next_slot(mask: int, slots_t: tuple) -> tuple:
+        """`(position_to_fill, remaining_slots)` for a state.
+
+        Fills the most-constrained position first — fewest eligible players.
+        That does not change which eleven wins, it only prunes earlier; and
+        being a pure function of the state is what lets the rebuild below
+        recompute it instead of the cache having to remember it.
+        """
+        slots_dict = dict(slots_t)
+        pos_to_fill = min(
+            slots_dict.keys(),
+            key=lambda pos: sum(1 for b in _bits(mask) if pos in positions_by_bit[b]),
+        )
+        remaining = dict(slots_dict)
+        if remaining[pos_to_fill] == 1:
+            del remaining[pos_to_fill]
+        else:
+            remaining[pos_to_fill] -= 1
+        return pos_to_fill, tuple(sorted(remaining.items()))
+
+    def _solve(mask: int, slots_t: tuple) -> tuple | None:
         nonlocal visits
         if not slots_t:
-            return (), (0, 0, 0)
-        key = (player_ids, slots_t)
+            return None, (0, 0, 0)
+        key = (mask, slots_t)
         if key in cache:
             return cache[key]
 
@@ -666,51 +720,48 @@ def _try_fill(players: list, slots: dict) -> list | None:
         if visits > _MAX_SEARCH_NODES:
             raise _SearchTooWide(f"formation exceeded {_MAX_SEARCH_NODES} states")
 
-        slots_dict = dict(slots_t)
-
-        def eligible(pos: int) -> int:
-            return sum(1 for pid in player_ids if pos in pos_by_id[pid])
-
-        pos_to_fill = min(slots_dict.keys(), key=eligible)
-        new_count = slots_dict[pos_to_fill] - 1
-        new_slots = dict(slots_dict)
-        if new_count == 0:
-            del new_slots[pos_to_fill]
-        else:
-            new_slots[pos_to_fill] = new_count
-        new_slots_t = tuple(sorted(new_slots.items()))
+        pos_to_fill, new_slots_t = _next_slot(mask, slots_t)
 
         candidates = sorted(
-            (pid for pid in player_ids if pos_to_fill in pos_by_id[pid]),
-            key=lambda pid: sf_by_id[pid],
+            (b for b in _bits(mask) if pos_to_fill in positions_by_bit[b]),
+            key=lambda b: sf_by_bit[b],
             reverse=True,
         )[:_CANDIDATES_PER_SLOT]
 
         best: tuple | None = None
         best_score = (-1, -1, -(10**9))
-        for pid in candidates:
-            sub = _solve(player_ids - {pid}, new_slots_t)
+        for bit in candidates:
+            sub = _solve(mask & ~(1 << bit), new_slots_t)
             if sub is None:
                 continue
-            sub_assignment, sub_score = sub
+            sub_score = sub[1]
             score = (
-                sf_by_id[pid] + sub_score[0],
-                fallback_by_id[pid] + sub_score[1],
-                bias_by_id_slot[(pid, pos_to_fill)] + sub_score[2],
+                sf_by_bit[bit] + sub_score[0],
+                fallback_by_bit[bit] + sub_score[1],
+                bias_by_id_slot[(ids_by_bit[bit], pos_to_fill)] + sub_score[2],
             )
             if score > best_score:
                 best_score = score
-                best = (((pid, pos_to_fill),) + sub_assignment, score)
+                best = (bit, score)
 
         cache[key] = best
         return best
 
-    initial_ids = frozenset(p["bw_id"] for p in players)
+    initial_mask = (1 << len(ids_by_bit)) - 1
     initial_slots = tuple(sorted((p, c) for p, c in slots.items() if c > 0))
-    solved = _solve(initial_ids, initial_slots)
-    if solved is None:
+    if _solve(initial_mask, initial_slots) is None:
         return None
-    return [(lookup[pid], slot) for pid, slot in solved[0]]
+
+    # Walk the winning chain: each state names its player, `_next_slot`
+    # recomputes the slot he fills.
+    assignment = []
+    mask, slots_t = initial_mask, initial_slots
+    while slots_t:
+        bit = cache[(mask, slots_t)][0]
+        pos_to_fill, slots_t = _next_slot(mask, slots_t)
+        assignment.append((lookup[ids_by_bit[bit]], pos_to_fill))
+        mask &= ~(1 << bit)
+    return assignment
 
 
 # ---------------------------------------------------------------------------
