@@ -11,9 +11,9 @@ buttons.
 
 ### Requirement: Sell recommendation algorithm
 
-`recommend` SHALL classify an offer as **RECHAZAR / DUDOSO / ACEPTAR** from the
-player's tier (shared with auto-bid), starter status, and the offer vs cf-base
-market value:
+`recommend` SHALL classify an offer as **RECHAZAR / DUDOSO / ACEPTAR** from two
+independent axes — what the offer is worth in money, and what the squad loses in
+football — never letting one stand in for the other:
 
 - T1 (star) is never sold by default; a star with an indecent over-market offer
   becomes DUDOSO.
@@ -23,7 +23,7 @@ market value:
   the market pays a strong premium over cf-base (loss-aversion override).
 - Bench/discard players with a profit, or any offer clearly above market, are
   accepted; offers clearly below market are rejected (sell publicly instead).
-- Ambiguous T4/no-tier or fair-market rotation cases fall through to DUDOSO.
+- Ambiguous T4/no-tier or fair-market projection cases fall through to DUDOSO.
 
 #### Scenario: representative decisions
 - **WHEN** a star / T2 starter / heavy-loss T3 / below-market offer is seen
@@ -42,9 +42,51 @@ market value:
   `test_recommend_catchall_returns_doubtful`
 
 #### Scenario: tier labels
-- **WHEN** labelling by SF **THEN** the auto-bid tier minimums map to T1–T4 and
-  below the T4 floor is "Descarte"
+- **WHEN** labelling by SF **THEN** each band names a *projection* ("Proyección
+  top / alta / media / baja", "Sin proyección") and never a squad role
 - *Verifies:* `test_tier_label_boundaries`
+
+### Requirement: Squad depth outranks the projection band
+
+A player's JP projection says how well he is expected to *score*; it does not say
+what the squad loses if he *leaves*. The recommendation SHALL price the second
+question separately, by re-running the auto-pick optimizer over the squad without
+the player under offer:
+
+- **WHEN** no legal eleven can be formed without him **THEN** RECHAZAR
+  regardless of the money — an unfilled slot is a flat -4 on the round.
+- **WHEN** he is in the current eleven and the best eleven loses at least
+  `XI_LOSS_REJECT` (150) projected SF without him **THEN** RECHAZAR, unless the
+  offer clears `STAR_OVERRIDE_OVER_MARKET_PCT`, which steps it back to DUDOSO.
+- **WHEN** the loss is smaller **THEN** the money rules decide, and the verdict
+  names the size of the hole and the replacement rather than offering
+  "decide según tu necesidad de cash" alone.
+- **WHEN** the signal cannot be computed **THEN** the money rules SHALL behave
+  exactly as they did without it.
+
+The optimizer SHALL be invoked through `lineup.xi_total_sf`, which runs the same
+search as `pick_lineup` with none of its observation side effects: `provider_watch`
+records the promotions actually bet on each morning, and counterfactual runs must
+not write to that audit trail.
+
+#### Scenario: an irreplaceable starter is not sold on good numbers
+- **WHEN** a first-choice goalkeeper projecting 404 is offered +20% over what was
+  paid and +2% over cf-base, and the only other keeper projects 12
+- **THEN** RECHAZAR, stating the SF the eleven would lose
+- *Verifies:* `test_recommend_rejects_starter_whose_replacement_cannot_cover`,
+  `test_recommend_rejects_when_selling_breaks_the_eleven`,
+  `test_recommend_downgrades_irreplaceable_starter_on_an_indecent_offer`,
+  `test_recommend_lets_replaceable_starter_be_sold`,
+  `test_recommend_without_depth_signal_keeps_old_behaviour`,
+  `test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one`,
+  `test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him`,
+  `test_xi_impact_survives_an_optimizer_failure`
+
+#### Scenario: the message names the replacement
+- **WHEN** an offer is rendered **THEN** it carries the player's role in the
+  squad, the SF the eleven would lose, and the name of the player who would take
+  his place
+- *Verifies:* `test_replacement_names_the_next_man_up_at_that_position`
 
 ### Requirement: Starter detection is resilient
 

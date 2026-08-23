@@ -128,15 +128,159 @@ def test_recommend_catchall_returns_doubtful():
     assert rec == offers.REC_DOUBTFUL
 
 
+# --- Squad depth: what the eleven loses if he goes -------------------------
+
+
+def test_recommend_rejects_starter_whose_replacement_cannot_cover():
+    """The reported case, with its real numbers.
+
+    Dmitrovic — first-choice keeper, SF 404, bought at 3.97M, offered 4.77M
+    (+20% ROI, +2% over cf-base), the only other keeper on the books
+    projecting 12. Every financial signal says "fine offer", his SF alone
+    says "rotación", and selling would have left the goal to a substitute who
+    does not play. Scored DUDOSO — `is_starter` was passed to `_recommend`
+    and read by no branch in it.
+    """
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=2.0,
+        is_starter=True,
+        xi_loss=390,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("390" in r for r in reasons)
+
+
+def test_recommend_rejects_when_selling_breaks_the_eleven():
+    """No valid XI without him → refuse regardless of the money.
+
+    An empty slot is a flat -4 on the round, so there is no offer that
+    makes this a good trade.
+    """
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=200.0,
+        vs_market_pct=50.0,
+        is_starter=True,
+        xi_loss=None,
+        breaks_xi=True,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("11 legal" in r for r in reasons)
+
+
+def test_recommend_downgrades_irreplaceable_starter_on_an_indecent_offer():
+    """Above the star-override bar the depth rule steps back to DUDOSO —
+    the user decides whether the money beats the hole."""
+    rec, _ = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=offers.STAR_OVERRIDE_OVER_MARKET_PCT + 5,
+        is_starter=True,
+        xi_loss=390,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_DOUBTFUL
+
+
+def test_recommend_lets_replaceable_starter_be_sold():
+    """Same SF, same money, but the squad covers the position: the depth
+    rule must not fire, or it would block every sale the user wants."""
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=2.0,
+        is_starter=True,
+        xi_loss=5,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_DOUBTFUL
+    assert any("recambio" in r for r in reasons)
+
+
+def test_recommend_without_depth_signal_keeps_old_behaviour():
+    """The signal is best-effort — a Biwenger/optimizer failure must leave
+    the money rules exactly as they were, not change the verdict."""
+    rec, _ = offers._recommend(
+        sf=404, roi_pct=20.0, vs_market_pct=2.0, is_starter=True, xi_loss=None
+    )
+    assert rec == offers.REC_DOUBTFUL
+
+
+def test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one():
+    """The whole point of running the optimizer instead of comparing SFs:
+    the same projection is worth different amounts at different positions."""
+    keeper = {"bw_id": 1, "name": "Titular POR", "position_id": 1, "jp_player": {}}
+    squad = [keeper]
+    # A full outfield plus one spare keeper who does not play.
+    squad.append(
+        {"bw_id": 2, "name": "Suplente POR", "position_id": 1, "jp_player": {}}
+    )
+    for i in range(3, 16):
+        squad.append(
+            {"bw_id": i, "name": f"J{i}", "position_id": 2 + (i % 3), "jp_player": {}}
+        )
+    impact = offers._xi_impact(squad, 1)
+    assert impact["breaks_xi"] is False
+    assert impact["xi_loss"] is not None
+
+
+def test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him():
+    """One keeper, and he is the one under offer."""
+    squad = [{"bw_id": 1, "name": "Único POR", "position_id": 1, "jp_player": {}}]
+    for i in range(2, 16):
+        squad.append(
+            {"bw_id": i, "name": f"J{i}", "position_id": 2 + (i % 3), "jp_player": {}}
+        )
+    impact = offers._xi_impact(squad, 1)
+    assert impact["breaks_xi"] is True
+
+
+def test_xi_impact_survives_an_optimizer_failure():
+    """Best-effort: the offer message must still go out."""
+    with patch(_p("lineup.xi_total_sf"), side_effect=RuntimeError("boom")):
+        impact = offers._xi_impact([{"bw_id": 1}], 1)
+    assert impact == {"xi_loss": None, "breaks_xi": False}
+
+
+def test_replacement_names_the_next_man_up_at_that_position():
+    """ "Pierdes 390 SF" is an abstraction; a name is the answer."""
+    squad = [
+        {"bw_id": 1, "name": "Titular", "position_id": 1, "jp_player": {}},
+        {
+            "bw_id": 2,
+            "name": "Fortuño",
+            "position_id": 1,
+            "jp_player": {"predictions": [{"type": 2, "rate": 12}]},
+        },
+        {"bw_id": 3, "name": "Un defensa", "position_id": 2, "jp_player": {}},
+    ]
+    replacement = offers._replacement(squad, 1, 1)
+    assert replacement["name"] == "Fortuño"
+
+
 # --- Tier label boundaries -------------------------------------------------
 
 
 def test_tier_label_boundaries():
-    assert "T1" in offers._tier_label(ab.TIER_ALL_IN_MIN)
-    assert "T2" in offers._tier_label(ab.TIER_T2_MIN)
-    assert "T3" in offers._tier_label(ab.TIER_T3_MIN)
-    assert "T4" in offers._tier_label(ab.TIER_T4_MIN)
-    assert "Descarte" in offers._tier_label(ab.TIER_T4_MIN - 1)
+    """Each band names a *projection*, never a squad role.
+
+    These read "Titular fijo" / "Rotación" / "Fondo de armario" — `auto_bid`'s
+    acquisition tiers — until a first-choice goalkeeper projecting 404 came
+    back labelled "⭐ Rotación" and was recommended for sale. Squad role is
+    now its own line, computed from the squad rather than from one number.
+    """
+    assert "Proyección top" in offers._tier_label(ab.TIER_ALL_IN_MIN)
+    assert "Proyección alta" in offers._tier_label(ab.TIER_T2_MIN)
+    assert "Proyección media" in offers._tier_label(ab.TIER_T3_MIN)
+    assert "Proyección baja" in offers._tier_label(ab.TIER_T4_MIN)
+    assert "Sin proyección" in offers._tier_label(ab.TIER_T4_MIN - 1)
+    for sf in (ab.TIER_ALL_IN_MIN, ab.TIER_T3_MIN, ab.TIER_T4_MIN - 1):
+        label = offers._tier_label(sf)
+        assert "Titular" not in label and "Rotación" not in label
+        assert str(sf) in label
 
 
 # --- run_offers_inbox: silent on empty + sends per offer -------------------

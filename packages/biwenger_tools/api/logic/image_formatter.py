@@ -19,59 +19,89 @@ from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     availability,
     count_availability,
     count_bands,
+    count_bench,
+    is_bench,
     play_status_label,
     sf_band,
     short_position,
     sort_key_sf_desc,
 )
 
-# Two colour jobs, and only two.
+# Three colour jobs, and only three. Dark surface: the table is read on a
+# phone, in Telegram, which is dark for most of the day.
 #
 # Availability is a *status*: reserved hues, never reused for anything else, and
 # never carrying meaning alone — the reason is spelled out beside it.
 #
-# The projection is *magnitude*, so it is one hue stepped light→dark. It used to
-# be green/amber/grey, which is a rainbow for a quantity: three hues imply three
-# kinds, not three amounts. The bar length carries the value and the number sits
-# beside it, so the lightest step needs no contrast of its own.
+# Being left out of the projected eleven is the third job, and it is a state
+# rather than a quantity or an injury. It gets amber, its own reserved hue: a
+# substitute is available (so he is not red) and his projection is whatever it
+# is (so he is not a step on the violet ramp). Amber measures normal-vision
+# ΔE 15.6 against the reserved red — the pair a reader must never confuse,
+# because "no juega" and "sale del banquillo" are different news.
+#
+# The projection is *magnitude*, so it is one hue stepped dark→light. Light is
+# the high end here: on a dark surface, brightness is what reads as "more". It
+# used to be green/amber/grey, which is a rainbow for a quantity: three hues
+# imply three kinds, not three amounts.
 #
 # Violet, not the more obvious green: green sits ΔE 4.1 from the reserved red
 # under deuteranopia, and both appear in this same table — a reader with the
 # commonest colour blindness could not tell "projects well" from "does not
-# play". Violet measures 21.6 against it. Ramp verified with the ordinal
-# validator: monotone lightness, adjacent dL >= 0.06, single hue (8 degrees).
-_SURFACE = "#fcfcfb"
-_INK = "#0b0b0b"
-_INK_SOFT = "#52514e"
-_INK_FAINT = "#8b8a85"
+# play". The ramp is monotone in lightness (relative luminance 0.12 → 0.19 →
+# 0.33 → 0.56), a single hue, and every step clears 3:1 on the surface. The
+# status trio clears the normal-vision floor as a set; the green↔red pair sits
+# in the CVD floor band, which is legal here precisely because neither ever
+# appears without its word beside it.
+_SURFACE = "#101317"
+_INK = "#eef0f6"
+_INK_SOFT = "#a8adbd"
+_INK_FAINT = "#7c8194"
 
+# Row tints are the faintest legible step off the surface: the row's job is to
+# group, and anything stronger competes with the data for the reader's eye.
 _ROW_BG = {
-    "plays": _SURFACE,
-    "out": "#fdeceb",
-    "unknown": "#f4f3f0",
+    "plays": "#161a20",
+    "out": "#241519",
+    "unknown": "#15171c",
 }
-_CRITICAL = "#d03b3b"
-_GOOD = "#0ca30c"
+_BENCH_BG = "#231d15"
+_CRITICAL = "#ff6b6b"
+_GOOD = "#3ddc84"
+_BENCH = "#f0a63a"
 
 # Projected score, low -> high.
 _BAND_FG = {
-    "low": "#a89fe6",
-    "mid": "#6f5fe3",
-    "high": "#3b3193",
-    "none": "#c8c7c2",
+    "low": "#7b6ad2",
+    "mid": "#a08cf5",
+    "high": "#cbbcff",
+    "none": "#5f6070",
 }
 
-# Chrome stays neutral so blue never means "header" and "high projection" at
+# Chrome stays neutral so a hue never means "header" and "high projection" at
 # once — a colour that labels furniture cannot also label data.
-_HEADER_BG = "#2b2456"
-_HEADER_FG = "#fcfcfb"
-_TITLE_FG = "#3b3193"
-_EDGE = "#e7e5e0"
+_HEADER_BG = "#1e2430"
+_HEADER_FG = "#eef0f6"
+_TITLE_FG = "#cbbcff"
+_EDGE = "#252a33"
+# The marker for a player with nothing to report. Deliberately near the
+# surface: eleven of these in a column of fifteen, and anything more legible
+# competes with the three that are the reason the column exists.
+_MARK_QUIET = "#3c4354"
+
+# The bench marker. A filled circle starts, a hollow one comes on later — the
+# shape carries it, so the amber is reinforcement rather than the only signal.
+# Both are BMP glyphs: `_strip_emoji` exists because matplotlib draws a
+# dotted-circle placeholder for anything above it, and a 🪑 would land there.
+_MARK_STARTS = "●"
+_MARK_BENCH = "○"
+_MARK_OUT = "\u2715"
 
 # Base columns: (header, relative_width). Keep header and width together so
 # adding/removing a column is a single-line edit instead of two parallel lists.
 _BASE_COLUMNS: list[tuple[str, float]] = [
-    ("Jugador", 0.30),
+    ("", 0.03),
+    ("Jugador", 0.28),
     ("Pos", 0.07),
     ("Precio", 0.09),
     ("Proyección", 0.15),
@@ -130,10 +160,31 @@ def _sf_bar(sf) -> str:
     return "\u25ae" * filled + "\u25af" * (5 - filled) + f" {sf}"
 
 
+def _mark(jp_player: dict | None) -> str:
+    """The marker glyph: he starts, he comes on, or he is not there at all.
+
+    Availability wins over the bench: an injured substitute is out, and two
+    marks for one player is how a reader stops trusting the column.
+    """
+    if availability(jp_player) == "out":
+        return _MARK_OUT
+    return _MARK_BENCH if is_bench(jp_player) else _MARK_STARTS
+
+
+def _row_bg(jp_player: dict | None) -> str:
+    """The row tint. Availability first — an injured substitute is out, and
+    saying "banquillo" about him would bury the news that matters."""
+    state = availability(jp_player)
+    if state == "plays" and is_bench(jp_player):
+        return _BENCH_BG
+    return _ROW_BG[state]
+
+
 def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
     jp = row.get("jp_player")
     sf = get_predict_rate(jp, SCORE_SF) if jp else None
     cells = [
+        _mark(jp),
         _strip_emoji(row.get("name", ""))[:22],
         _pos_str(row),
         _price_exact(row.get("price", 0)),
@@ -186,6 +237,11 @@ def _draw_status_summary(ax, rows: list[dict], show_total_value: bool) -> None:
         first += [("\u25cf", _CRITICAL), (f"{out} no juegan", _INK)]
     if unknown:
         first += [("\u25cf", _INK_FAINT), (f"{unknown} sin datos", _INK)]
+    bench = count_bench(rows)
+    if bench:
+        # Inside "juegan", not beside it: a substitute is fit and available,
+        # and moving him out of that count would contradict the row colour.
+        first += [(_MARK_BENCH, _BENCH), (f"{bench} al banquillo", _INK)]
     if show_total_value:
         first += [
             ("\u00b7", _INK_FAINT),
@@ -238,8 +294,7 @@ def build_table_image(
     sorted_rows = sorted(rows, key=sort_key_sf_desc, reverse=True)
     cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
     cell_colors = [
-        [_ROW_BG[availability(row.get("jp_player"))]] * len(headers)
-        for row in sorted_rows
+        [_row_bg(row.get("jp_player"))] * len(headers) for row in sorted_rows
     ]
 
     n_rows = len(cell_data)
@@ -308,6 +363,8 @@ def build_table_image(
             cell.get_text().set_fontsize(10)
             cell.set_edgecolor(_EDGE)
 
+        mark_col = 0
+        name_col = base_headers.index("Jugador")
         sf_col = base_headers.index("Proyección")
         plays_col = base_headers.index("Juega")
         # Squad size is a per-league setting, commonly up to 25, so that is the
@@ -320,10 +377,22 @@ def build_table_image(
                 cell = table[i, j]
                 cell.get_text().set_fontsize(body_size)
                 cell.set_edgecolor(_EDGE)
-            # Two independent signals, two independent colours.
+            # Three independent signals, three independent colours.
             table[i, sf_col].get_text().set_color(_BAND_FG[sf_band(jp)])
-            table[i, 0].get_text().set_color(_INK)
+            table[i, name_col].get_text().set_color(_INK)
+            table[i, mark_col].get_text().set_color(_MARK_QUIET)
+            if is_bench(jp):
+                # Marker, name and reason together: one glance down the
+                # marker column finds every substitute, and the reader who
+                # stops on the row gets the word rather than a colour to
+                # decode.
+                table[i, mark_col].get_text().set_color(_BENCH)
+                table[i, name_col].get_text().set_color(_BENCH)
+                bench_cell = table[i, plays_col].get_text()
+                bench_cell.set_color(_BENCH)
+                bench_cell.set_fontweight("bold")
             if availability(jp) == "out":
+                table[i, mark_col].get_text().set_color(_CRITICAL)
                 out_cell = table[i, plays_col].get_text()
                 out_cell.set_color(_CRITICAL)
                 out_cell.set_fontweight("bold")

@@ -61,6 +61,31 @@ def availability(jp_player: dict | None) -> str:
     return "plays"
 
 
+def is_bench(jp_player: dict | None) -> bool:
+    """Whether JP leaves him out of its projected eleven.
+
+    A third channel, deliberately independent of `availability` and
+    `sf_band`. He is available (he can be fielded) and his projection is
+    whatever it is; this answers neither of those questions, and folding it
+    into `availability` would corrupt the "14 juegan / 1 no juegan" count
+    that reports who is *fit* — the rationale that function already carries.
+
+    Read `playerInLineup` and only that: someone injured is not on the bench,
+    he is out, and reporting both about the same player is what makes a
+    reader stop trusting either.
+    """
+    if jp_player is None:
+        return False
+    if availability(jp_player) != "plays":
+        return False
+    return ((jp_player.get("nextMatch") or {}).get("playerInLineup")) is False
+
+
+def count_bench(rows: list[dict]) -> int:
+    """How many of these rows JP projects to start on the bench."""
+    return sum(is_bench(row.get("jp_player")) for row in rows)
+
+
 def sf_band(jp_player: dict | None) -> str:
     """`"high"`, `"mid"`, `"low"` or `"none"` for the projected score alone."""
     if jp_player is None:

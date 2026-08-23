@@ -104,6 +104,18 @@ def pick_lineup(squad_rows: list) -> dict | None:
     # code does not model. Observation only — it changes no pick.
     provider_watch.observe(squad_rows)
 
+    best = _solve(squad_rows)
+
+    # Only a promotion that actually starts is a bet that was placed; one
+    # that lost out to a better assignment never reached the pitch.
+    if best is not None:
+        provider_watch.log_promotions(_promoted_starters(squad_rows, best["starters"]))
+
+    return best
+
+
+def _solve(squad_rows: list) -> dict | None:
+    """The search itself, with none of the observation `pick_lineup` adds."""
     _reset_promotion_cap(squad_rows)
 
     # The cap is enforced against the line a player is actually ASSIGNED to,
@@ -116,13 +128,22 @@ def pick_lineup(squad_rows: list) -> dict | None:
         best = _best_eleven(squad_rows)
         if best is None or not _demote_surplus_promotions(best["starters"]):
             break
-
-    # Only a promotion that actually starts is a bet that was placed; one
-    # that lost out to a better assignment never reached the pitch.
-    if best is not None:
-        provider_watch.log_promotions(_promoted_starters(squad_rows, best["starters"]))
-
     return best
+
+
+def xi_total_sf(squad_rows: list) -> int | None:
+    """Projected total of the best XI these rows can field, or `None` if they
+    cannot field one at all.
+
+    The what-if twin of `pick_lineup`, for asking "how much worse is my XI
+    without this player" without any of the side effects: `provider_watch`
+    logs the promotions that were actually *bet on* every morning, and a
+    hypothetical squad that never reaches Biwenger must not write to that
+    audit trail. A dozen counterfactual runs per offers inbox would bury the
+    one line that records a real decision.
+    """
+    best = _solve(squad_rows)
+    return best["total_sf"] if best else None
 
 
 def format_lineup_message(result: dict) -> str:

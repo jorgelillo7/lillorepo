@@ -30,6 +30,15 @@ exceeds `remaining_cash` — we never go negative. The all-in tier bids
 the full cash regardless of price (a 26M player against 30M cash is
 still a ~30M bid).
 
+Before the ladder sees a candidate, two guards adjust what it reads. A
+player who cannot be fielded at all (injured, suspended, no fixture) is
+skipped outright, and one who would not make the pitch — JP leaves him out
+of its projected eleven, or the squad already has better cover at every
+position he plays — has his SF clamped to `BENCH_PRICED_SF` so he cannot
+reach the all-in tier. JP scores a benched star highly, and the ladder read
+that number alone; the wallet went all-in on players who were not going to
+play.
+
 Idempotency: Cloud Scheduler retries 5xx responses. We log placed bids
 to `auto_bid_log/{YYYY-MM-DD}` (one doc per player) and skip anything
 in that log before bidding, so a retry of a half-completed run does
@@ -51,7 +60,8 @@ from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.player_matching import find_player_match
-from packages.biwenger_tools.api.player_formatting import SCORE_SF
+from packages.biwenger_tools.api.logic.rows import build_squad_rows
+from packages.biwenger_tools.api.player_formatting import SCORE_SF, availability
 
 logger = get_logger(__name__)
 
@@ -69,6 +79,30 @@ TIER_T4_MULTIPLIER = 1.2
 TIER_T2_CAP_SURCHARGE = 5_000_000
 TIER_T3_CAP_SURCHARGE = 2_000_000
 TIER_T4_CAP_SURCHARGE = 500_000
+
+# How many players deep a position is considered covered. Roughly the most
+# any formation fields plus one: no shape uses more than 1 GK, 5 DEF, 6 MID
+# or 5 FWD, and carrying one spare of each is the squad you want. A
+# candidate who does not beat the Nth-best already owned at every position
+# he covers is a bench signing, and gets bid for as one.
+SQUAD_DEPTH_SLOTS = {1: 2, 2: 6, 3: 6, 4: 5}
+
+# What a bench signing (or a player JP leaves out of its projected XI) is
+# allowed to cost. Both are capped at the T3 ladder no matter how high the
+# raw SF is, because the two ways this loses real money are the all-in tier
+# and the T2 +5M surcharge:
+#
+#  - **All-in on a substitute.** The T1 tier bids the *entire wallet*. Doing
+#    that on a player the provider says starts on the bench is the single
+#    most expensive way to be wrong in this whole file.
+#  - **Paying a starter's premium for depth.** A fourth forward behind three
+#    better ones scores from the bench, which in Biwenger is zero.
+#
+# Capped rather than skipped: a strong player at a covered position is still
+# worth owning at the right price — squads change, and the market is the
+# only place to buy. The clamp lands one point under T2, i.e. the top of the
+# T3 ladder — the most a bench signing can cost.
+BENCH_PRICED_SF = TIER_T2_MIN - 1
 
 # Per-bid anti-pattern jitter. A bot that always bids in round euros
 # (10.000.000, 10.500.000, …) is a tell — humans dragging the slider
@@ -118,7 +152,9 @@ def _capped_multiplier_bid(price: int, multiplier: float, cap_surcharge: int) ->
     return min(by_multiplier, by_cap)
 
 
-def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], str]:
+def tier_bid(
+    sf: int, price: int, remaining_cash: int, label_sf: Optional[int] = None
+) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
     `target_bid` may exceed `remaining_cash` — the caller is in charge of
@@ -130,24 +166,50 @@ def tier_bid(sf: int, price: int, remaining_cash: int) -> tuple[Optional[int], s
     expensive player doesn't run away with the multiplier. Every tier
     adds (or, for T1 all-in, subtracts) a random 0-`BID_JITTER_MAX` €
     offset so the bid trail stops looking like a bot.
+
+    `label_sf` is the score to *print* when it differs from the one being
+    priced on — `bid_sf` clamps a substitute's SF to hold him below the
+    expensive tiers, and the summary must still report what JP actually
+    said about him rather than the clamp.
     """
     jitter = _jitter()
+    sf_shown = sf if label_sf is None else label_sf
     if sf >= TIER_ALL_IN_MIN:
         # All-in on the cash we have right now. Price is irrelevant — the
         # user accepts paying 30M for a 26M player rather than leaving cash
         # on the table. Jitter SUBTRACTS here (can't bid > cash); the result
         # stays strictly inside [remaining_cash - BID_JITTER_MAX, remaining_cash].
-        return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf})"
+        return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf_shown})"
     if sf >= TIER_T2_MIN:
         bid = _capped_multiplier_bid(price, TIER_T2_MULTIPLIER, TIER_T2_CAP_SURCHARGE)
-        return bid + jitter, f"T2 (SF {sf})"
+        return bid + jitter, f"T2 (SF {sf_shown})"
     if sf >= TIER_T3_MIN:
         bid = _capped_multiplier_bid(price, TIER_T3_MULTIPLIER, TIER_T3_CAP_SURCHARGE)
-        return bid + jitter, f"T3 (SF {sf})"
+        return bid + jitter, f"T3 (SF {sf_shown})"
     if sf >= TIER_T4_MIN:
         bid = _capped_multiplier_bid(price, TIER_T4_MULTIPLIER, TIER_T4_CAP_SURCHARGE)
-        return bid + jitter, f"T4 (SF {sf})"
-    return None, f"SF {sf} < {TIER_T4_MIN}"
+        return bid + jitter, f"T4 (SF {sf_shown})"
+    return None, f"SF {sf_shown} < {TIER_T4_MIN}"
+
+
+def bid_sf(candidate: dict, would_be_bench: bool) -> tuple[int, Optional[str]]:
+    """`(sf_for_pricing, reason)` — the SF the tier ladder should read.
+
+    Returns the raw SF and `None` for a candidate who is going to play and
+    would walk into the squad. Otherwise clamps him below `TIER_T2_MIN` so
+    the ladder prices him as T3 at most, and names which of the two reasons
+    applied. See `BENCH_TIER_CAP_MIN` for why capped and not skipped.
+    """
+    sf = candidate["sf"]
+    if sf < TIER_T2_MIN:
+        # Already at or below the cap — nothing to clamp, and saying so
+        # would put a bewildering note on a bid that never changed.
+        return sf, None
+    if candidate.get("uncalled"):
+        return BENCH_PRICED_SF, "suplente en su equipo"
+    if would_be_bench:
+        return BENCH_PRICED_SF, "sería suplente en tu plantilla"
+    return sf, None
 
 
 def _build_candidates(
@@ -161,6 +223,12 @@ def _build_candidates(
     user listings carry the seller's id and are out of scope. Anything
     we cannot price (no Biwenger lookup) or cannot score (no JP match)
     is dropped here so the tier loop only sees actionable rows.
+
+    Each candidate also carries `unavailable` (injured, suspended, no
+    fixture) and `uncalled` (JP leaves him out of its projected eleven).
+    The tier ladder reads a single SF number, and JP hands a high one to
+    players in both states — so without these two flags the all-in tier
+    would empty the wallet on a player who is not going to be on the pitch.
     """
     candidates: list[dict] = []
     for sale in market_players:
@@ -176,10 +244,70 @@ def _build_candidates(
         jp_player = find_player_match(name, jp_index)
         sf = get_predict_rate(jp_player or {}, SCORE_SF) or 0
         candidates.append(
-            {"player_id": player_id, "name": name, "price": price, "sf": sf}
+            {
+                "player_id": player_id,
+                "name": name,
+                "price": price,
+                "sf": sf,
+                "position_id": bw_player.get("position"),
+                "alt_positions": bw_player.get("altPositions") or [],
+                "unavailable": availability(jp_player) == "out",
+                "uncalled": ((jp_player or {}).get("nextMatch") or {}).get(
+                    "playerInLineup"
+                )
+                is False,
+            }
         )
     candidates.sort(key=lambda c: c["sf"], reverse=True)
     return candidates
+
+
+def _squad_sf_by_position(squad_rows: list) -> dict[int, list[int]]:
+    """Projections already owned at each position, best first.
+
+    What a market player is actually worth to this squad depends on who he
+    would have to displace. A 450 forward is a signing when the current
+    forwards project 200; he is a bench-warmer when they project 600, and
+    the tier ladder — which reads his SF and nothing else — prices both the
+    same.
+    """
+    by_pos: dict[int, list[int]] = {}
+    for row in squad_rows:
+        sf = get_predict_rate(row.get("jp_player") or {}, SCORE_SF) or 0
+        for pos in {row.get("position_id")} | set(row.get("alt_positions") or []):
+            if pos is not None:
+                by_pos.setdefault(pos, []).append(sf)
+    for sfs in by_pos.values():
+        sfs.sort(reverse=True)
+    return by_pos
+
+
+def _would_be_bench(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
+    """Whether this signing would sit behind the players already owned.
+
+    "Behind" is measured against `SQUAD_DEPTH_SLOTS` per position rather
+    than the starting eleven, because the eleven's shape moves week to week:
+    a squad carrying three forwards who all out-project him does not need a
+    fourth at any formation the optimizer might pick.
+
+    Unknown positions count as *not* bench — a signal we do not have must
+    not quietly suppress a bid.
+    """
+    positions = {candidate.get("position_id")} | set(
+        candidate.get("alt_positions") or []
+    )
+    positions = {p for p in positions if p is not None}
+    if not positions:
+        return False
+    # He is bench only if he fails to break into the depth chart at EVERY
+    # position he covers — a versatile player needs one door open, not all.
+    for pos in positions:
+        owned = by_pos.get(pos) or []
+        if len(owned) < SQUAD_DEPTH_SLOTS.get(pos, 4):
+            return False
+        if candidate["sf"] > owned[SQUAD_DEPTH_SLOTS.get(pos, 4) - 1]:
+            return False
+    return True
 
 
 def _already_bid_ids(day: str) -> set[int]:
@@ -226,6 +354,7 @@ def _format_skip_line(entry: dict, esc) -> str:
 
     - `no_cash`     → 💸 with SF + tier label so we can see what we missed.
     - `already_bid` → 🔁 (idempotency replay).
+    - `unavailable` → 🚑 (injured, suspended or no fixture).
     - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
     - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
 
@@ -247,6 +376,8 @@ def _format_skip_line(entry: dict, esc) -> str:
         )
     if kind == "already_bid":
         return f"🔁 Ya pujado <b>{name}</b>"
+    if kind == "unavailable":
+        return f"🚑 No disponible <b>{name}</b> · SF {esc(entry.get('sf', 0))}"
     if kind == "biwenger_reject":
         return f"⚠️ Biwenger rechazó <b>{name}</b>"
     reason = esc(entry.get("reason") or "saltado")
@@ -327,6 +458,18 @@ def run_auto_bid() -> dict:
     market_players = biwenger.get_market_players(config.MARKET_URL)
     candidates = _build_candidates(market_players, ctx.biwenger_players, ctx.jp_index)
 
+    # What we already own, so a bid can be priced against the squad instead
+    # of in a vacuum. Best-effort: without it every candidate simply prices
+    # off his own SF, which is the behaviour this used to have.
+    try:
+        my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
+        squad_by_pos = _squad_sf_by_position(
+            build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+        )
+    except Exception:
+        logger.exception("Squad fetch failed — bidding without the depth signal.")
+        squad_by_pos = {}
+
     remaining_cash = int(biwenger.get_account_state().get("cash") or 0)
 
     day = _today_madrid()
@@ -346,9 +489,27 @@ def run_auto_bid() -> dict:
             )
             continue
 
-        target_bid, label = tier_bid(
-            candidate["sf"], candidate["price"], remaining_cash
+        if candidate["unavailable"]:
+            skipped.append(
+                {
+                    "player_id": candidate["player_id"],
+                    "name": candidate["name"],
+                    "kind": "unavailable",
+                    "sf": candidate["sf"],
+                }
+            )
+            continue
+
+        # Price him against the squad before the ladder sees him, so a
+        # substitute cannot reach the all-in tier on his raw SF alone.
+        priced_sf, cap_reason = bid_sf(
+            candidate, _would_be_bench(candidate, squad_by_pos)
         )
+        target_bid, label = tier_bid(
+            priced_sf, candidate["price"], remaining_cash, label_sf=candidate["sf"]
+        )
+        if cap_reason:
+            label = f"{label} · rebajado: {cap_reason}"
         if target_bid is None:
             # Below the SF floor — record as skipped only if it's borderline
             # interesting (price < 30M and SF > 200) to keep the message short.

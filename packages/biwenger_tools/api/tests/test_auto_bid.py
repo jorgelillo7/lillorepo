@@ -387,6 +387,7 @@ def run_env():
         already_bid_ids=None,
         bid_side_effect=None,
         telegram=True,
+        squad=None,
     ):
         stack = ExitStack()
         mock_cfg = stack.enter_context(patch(_patches("config")))
@@ -420,10 +421,15 @@ def run_env():
         )
 
         mock_cfg.MARKET_URL = "x"
+        mock_cfg.USER_SQUAD_URL = "x"
         mock_cfg.TELEGRAM_BOT_TOKEN = "tok" if telegram else ""
         mock_cfg.TELEGRAM_CHAT_ID = "chat" if telegram else ""
 
         biwenger.get_market_players.return_value = market_players
+        # Default to an empty squad: the depth guard is exercised by its
+        # own tests, and a MagicMock here would make every other test log
+        # a swallowed TypeError from `build_squad_rows`.
+        biwenger.get_manager_squad.return_value = squad or []
         biwenger.get_account_state.return_value = {"cash": cash, "max_bid": cash}
         if bid_side_effect is not None:
             biwenger.place_market_bid.side_effect = bid_side_effect
@@ -704,3 +710,120 @@ def test_log_bid_writes_expected_document():
 
 # Quiet unused import warning when running just this file.
 _ = MagicMock
+
+
+# --- Suplentes: availability + squad depth guards -------------------------
+
+
+def _jp_bench(name, sf):
+    """A JP entry with a high score whom JP leaves out of its projected XI."""
+    jp = _jp_with_sf(name, sf)
+    jp["nextMatch"] = {"status": "pending", "playerInLineup": False}
+    return jp
+
+
+def _jp_injured(name, sf):
+    jp = _jp_with_sf(name, sf)
+    jp["status"] = "injured"
+    return jp
+
+
+def test_build_candidates_flags_bench_and_unavailable_players():
+    """The two states JP scores highly and the tier ladder could not see."""
+    market = [_sale(1), _sale(2), _sale(3)]
+    biwenger_players = {
+        1: _bw(1, "Titular", 5_000_000),
+        2: _bw(2, "Banquillo", 5_000_000),
+        3: _bw(3, "Lesionado", 5_000_000),
+    }
+    jp = {
+        "by_name": {
+            "titular": _jp_with_sf("Titular", 850),
+            "banquillo": _jp_bench("Banquillo", 850),
+            "lesionado": _jp_injured("Lesionado", 850),
+        },
+        "by_slug": {},
+    }
+    by_id = {
+        c["player_id"]: c
+        for c in auto_bid._build_candidates(market, biwenger_players, jp)
+    }
+    assert by_id[1]["uncalled"] is False and by_id[1]["unavailable"] is False
+    assert by_id[2]["uncalled"] is True
+    assert by_id[3]["unavailable"] is True
+
+
+def test_bid_sf_caps_a_benched_star_out_of_the_all_in_tier():
+    """The expensive half of the bug: `tier_bid` reads one number, and JP
+    gives a benched star a T1 number. All-in means the whole wallet."""
+    candidate = {"sf": 850, "uncalled": True}
+    priced, reason = auto_bid.bid_sf(candidate, would_be_bench=False)
+    assert priced < auto_bid.TIER_T2_MIN
+    assert "suplente" in reason
+    bid, label = auto_bid.tier_bid(priced, 5_000_000, 30_000_000, label_sf=850)
+    assert "T3" in label and "850" in label  # priced as depth, reported honestly
+    assert bid < 30_000_000
+
+
+def test_bid_sf_caps_a_signing_who_would_sit_on_our_bench():
+    candidate = {"sf": 850, "uncalled": False}
+    priced, reason = auto_bid.bid_sf(candidate, would_be_bench=True)
+    assert priced < auto_bid.TIER_T2_MIN
+    assert "tu plantilla" in reason
+
+
+def test_bid_sf_leaves_a_real_signing_alone():
+    candidate = {"sf": 850, "uncalled": False}
+    assert auto_bid.bid_sf(candidate, would_be_bench=False) == (850, None)
+
+
+def test_bid_sf_does_not_annotate_a_player_already_below_the_cap():
+    """Clamping a T3 to T3 changes no bid; saying so would put a
+    bewildering note on a bid that never moved."""
+    candidate = {"sf": 450, "uncalled": True}
+    assert auto_bid.bid_sf(candidate, would_be_bench=True) == (450, None)
+
+
+def test_would_be_bench_needs_every_position_covered():
+    """A versatile player needs one door open, not all of them."""
+    # DEF is stacked, MID is not.
+    by_pos = {2: [700] * 6, 3: [100] * 6}
+    versatile = {"sf": 400, "position_id": 2, "alt_positions": [3]}
+    assert auto_bid._would_be_bench(versatile, by_pos) is False
+    pure_def = {"sf": 400, "position_id": 2, "alt_positions": []}
+    assert auto_bid._would_be_bench(pure_def, by_pos) is True
+
+
+def test_would_be_bench_is_false_when_the_position_is_thin():
+    by_pos = {1: [700]}  # one keeper owned, slots say 2
+    assert auto_bid._would_be_bench({"sf": 10, "position_id": 1}, by_pos) is False
+
+
+def test_would_be_bench_is_false_without_a_position():
+    """A signal we do not have must not suppress a bid."""
+    assert auto_bid._would_be_bench({"sf": 800, "position_id": None}, {}) is False
+
+
+def test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched(run_env):
+    """End-to-end: the wallet survives a market of high-SF non-players."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {
+        1: _bw(1, "Lesionado", 5_000_000),
+        2: _bw(2, "Banquillo", 5_000_000),
+    }
+    jp_players = [_jp_injured("Lesionado", 900), _jp_bench("Banquillo", 900)]
+    biwenger, mock_send = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+    )
+    result = auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1  # only the benched one
+    bid = biwenger.place_market_bid.call_args.kwargs["amount"]
+    assert bid == 7_000_000  # T3 ladder: min(5M x 1.5, 5M + 2M)
+    assert result["remaining_cash_eur"] == 23_000_000
+    text = mock_send.call_args.kwargs["text"]
+    assert "🚑 No disponible" in text
+    assert "rebajado" in text
