@@ -8,7 +8,11 @@ lineup without a captain when nobody qualifies.
 """
 
 import logging
+from unittest.mock import patch
 
+import pytest
+
+from packages.biwenger_tools.api.logic import lineup
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
     FORMATIONS,
@@ -961,3 +965,116 @@ def test_the_bench_never_outranks_a_player_who_is_actually_playing():
     playing = _player(1, 183, MID)
     floored = _player(2, 197, MID, called=False)
     assert _bench_rank(playing) > _bench_rank(floored)
+
+
+# --- The search ceiling ---------------------------------------------------
+
+
+def _plain_squad(n, sf=400):
+    return [
+        {
+            "bw_id": i,
+            "name": f"P{i}",
+            "price": 1_000_000,
+            "position_id": 1 if i <= 2 else 2 + (i % 3),
+            "alt_positions": [],
+            "jp_player": {
+                "predict": [{"type": 2, "rate": sf - i}],
+                "nextMatch": {"status": "pending", "playerInLineup": True},
+            },
+        }
+        for i in range(1, n + 1)
+    ]
+
+
+def test_the_ceiling_sits_well_above_a_maximum_squad():
+    """A full 25-man squad — the most the game allows — must never come near
+    it, or the ceiling is a limiter rather than a safety net."""
+    assert lineup.MAX_SQUAD_SIZE == 25
+    # Worst single formation measured across 123 generated 25-man squads.
+    assert lineup._MAX_SEARCH_NODES > 57_235 * 2
+
+
+def test_a_squad_at_the_league_maximum_still_solves():
+    result = lineup.pick_lineup(_plain_squad(lineup.MAX_SQUAD_SIZE))
+    assert result is not None
+    assert len(result["starters"]) == 11
+
+
+def test_one_formation_hitting_the_ceiling_does_not_lose_the_lineup():
+    """Thirteen other formations are still searched. The eleven that comes
+    back is worse than the optimum only if the optimum lived in the shape
+    that was dropped."""
+    squad = _plain_squad(20)
+    real_try_fill = lineup._try_fill
+    calls = {"n": 0}
+
+    def flaky(players, slots):
+        calls["n"] += 1
+        if calls["n"] == 1:  # blow up the first formation only
+            raise lineup._SearchTooWide("boom")
+        return real_try_fill(players, slots)
+
+    with patch.object(lineup, "_try_fill", side_effect=flaky):
+        result = lineup.pick_lineup(squad)
+
+    assert result is not None
+    assert len(result["starters"]) == 11
+
+
+def test_every_formation_hitting_the_ceiling_is_not_reported_as_no_lineup():
+    """`None` means "this squad cannot field a legal eleven", which /ofertas
+    turns into a flat RECHAZAR. A search we abandoned is a different fact and
+    must not arrive wearing the same clothes."""
+    with patch.object(lineup, "_try_fill", side_effect=lineup._SearchTooWide("boom")):
+        with pytest.raises(lineup.LineupSearchExhausted):
+            lineup.pick_lineup(_plain_squad(20))
+
+
+def test_an_exhausted_search_leaves_offers_on_the_money_rules():
+    """The offers path must read it as "signal unavailable", never as
+    "selling him breaks your eleven"."""
+    from packages.biwenger_tools.api.logic import offers
+
+    with patch.object(lineup, "_try_fill", side_effect=lineup._SearchTooWide("boom")):
+        assert offers._xi_baseline(_plain_squad(20)) is None
+    # A missing baseline means no depth signal, and breaks_xi stays false.
+    impact = offers._xi_impact(_plain_squad(20), 1, None)
+    assert impact["breaks_xi"] is False and impact["xi_loss"] is None
+
+
+def test_the_counter_actually_fires_the_ceiling():
+    """Every other ceiling test mocks `_try_fill` to raise, so none of them
+    would notice `visits` sitting on the wrong side of the cache hit or the
+    comparison being inverted. This one drives the real counter."""
+    with patch.object(lineup, "_MAX_SEARCH_NODES", 20):
+        with pytest.raises(lineup.LineupSearchExhausted):
+            lineup.pick_lineup(_plain_squad(20))
+
+
+def test_the_counter_measures_cache_misses_only():
+    """States and cache entries have to be the same number: the ceiling is
+    calibrated as a memory limit, and that equivalence is what makes it one.
+    A counter that also ticked on hits would abort far below its stated
+    memory bound."""
+    squad = _plain_squad(15)
+    # Generous enough that a miss-only counter never trips, small enough that
+    # a counter also ticking on hits certainly would.
+    with patch.object(lineup, "_MAX_SEARCH_NODES", 60_000):
+        assert lineup.pick_lineup(squad) is not None
+
+
+def test_the_digest_survives_an_exhausted_lineup_search():
+    """The chain is lineup → auto-bid → offers. A raise that skipped the rest
+    would turn one degraded step into no morning digest at all — on the
+    endpoint that carries the SLO."""
+    from packages.biwenger_tools.api.logic import digests
+
+    with patch.object(
+        digests.actions,
+        "run_auto_pick_lineup",
+        side_effect=lineup.LineupSearchExhausted("boom"),
+    ):
+        result = digests._safe_run_auto_pick(object())
+
+    assert isinstance(result, dict)  # degraded, not raised

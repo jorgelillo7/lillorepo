@@ -8,6 +8,67 @@ cf-base player values.
 
 ---
 
+### Requirement: The search has a ceiling, and abandoning it is not "no lineup"
+
+`_try_fill` is memoised exhaustive backtracking. `_trim_pool_by_position`
+saturates the candidate pool around 17 players, so a `MAX_SQUAD_SIZE` (25)
+squad and a 30-man one cost the same — but that is a property of the current
+trimming, not a guarantee, and the cost of being wrong is not a slow request:
+the service runs 512Mi at concurrency 10, and the cache holds one entry per
+state (~260 B), so several pathological searches at once is an OOM kill that
+takes the container down rather than the request.
+
+- The cache SHALL key on a **bitmask** of remaining players, not a set of
+  ids. `MAX_SQUAD_SIZE` is what makes this possible — 25 players is 25 bits —
+  and it is the difference between 728 bytes per key and 28. With one key per
+  state that choice *is* the memory profile: 321 B per state rather than 1370.
+- The cache value SHALL be the chosen player and the score, never the
+  sub-assignment; the eleven is rebuilt afterwards by walking the chain.
+- The search SHALL count states per formation and abort at
+  `_MAX_SEARCH_NODES`, calibrated 3.5x above the worst single formation
+  observed across generated maximum-size squads (42,921 states, 13 MB).
+- **WHEN** one formation aborts **THEN** the other thirteen SHALL still be
+  searched, and a warning logged naming the formation and squad size. The
+  eleven returned is worse than the optimum only if the optimum lived in the
+  shape that was dropped.
+- **WHEN** every formation aborts **THEN** `LineupSearchExhausted` SHALL be
+  raised rather than `None` returned. `None` means "this squad cannot field a
+  legal eleven", which `/ofertas` turns into a flat RECHAZAR; a search that
+  was abandoned is a different fact and must not arrive wearing the same
+  clothes.
+
+Per-player reads (`_sf`, `_positions`, `_fallback_rate`, `_back_bias_one`) are
+tabled once per `_try_fill` call and the score accumulated incrementally
+through the cache. Those tables SHALL NOT be hoisted above the promotion-cap
+loop in `_solve`: `_demote_surplus_promotions` flips `_promotion_capped`
+between passes and `_sf` reads it, so a table built once per `pick_lineup`
+would score demoted players with their pre-demotion projection and pick a
+different eleven.
+
+#### Scenario: the ceiling is driven, not just mocked
+- **WHEN** the ceiling is lowered far enough **THEN** the real counter fires
+  it, and the counter SHALL tick on cache misses only — states and cache
+  entries being the same number is what makes the ceiling a memory bound
+- *Verifies:* `test_the_counter_actually_fires_the_ceiling`,
+  `test_the_counter_measures_cache_misses_only`
+
+#### Scenario: a lineup failure does not cost the whole digest
+- **WHEN** the lineup step raises inside `/digests/daily` **THEN** auto-bid
+  and offers still run — the chain wraps each step
+- *Verifies:* `test_the_digest_survives_an_exhausted_lineup_search`
+
+#### Scenario: a maximum squad, and a pathological one
+- **WHEN** a 25-man squad is solved **THEN** it completes, nowhere near the
+  ceiling
+- **WHEN** one formation exceeds the ceiling **THEN** a lineup still comes back
+- **WHEN** all of them do **THEN** `LineupSearchExhausted`, and `/ofertas`
+  reads it as an unavailable signal rather than a broken eleven
+- *Verifies:* `test_the_ceiling_sits_well_above_a_maximum_squad`,
+  `test_a_squad_at_the_league_maximum_still_solves`,
+  `test_one_formation_hitting_the_ceiling_does_not_lose_the_lineup`,
+  `test_every_formation_hitting_the_ceiling_is_not_reported_as_no_lineup`,
+  `test_an_exhausted_search_leaves_offers_on_the_money_rules`
+
 ### Requirement: Captain by highest SF under the 3M price cap
 
 `_pick_captain` SHALL choose the starter with the highest SF whose price is

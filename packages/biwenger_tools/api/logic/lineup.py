@@ -11,9 +11,12 @@ example that motivated exhaustive backtracking), see the
 from html import escape
 
 from core.sdk.jp import get_predict_rate
+from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
+
+logger = get_logger(__name__)
 
 # Every formation Biwenger's own "Estrategia" picker offers, as
 # (label, def, mid, fwd); GK is always 1. All fourteen, transcribed from the
@@ -77,6 +80,57 @@ _CANDIDATES_PER_SLOT = 4
 # top-N for any of their positions). N=8 leaves comfortable headroom over
 # the max 6 slots any formation uses for one position.
 _POOL_PER_POSITION = 8
+
+# The biggest squad the game allows, in this league and every other. Not used
+# to reject anything — it is the number the search ceiling below is calibrated
+# against, and the reason that ceiling can be a fixed constant rather than a
+# guess.
+MAX_SQUAD_SIZE = 25
+
+# Hard ceiling on states explored per formation: the last line of defence,
+# not a routine limiter.
+#
+# **The ceiling is really a memory limit.** The cache holds one entry per
+# state, so states and bytes are the same number in different units —
+# measured at ~321 B per state, i.e. 150k states ≈ 48 MB. The service runs
+# 512Mi at concurrency 10, so what a pathological squad costs is not a slow
+# request but several holding caches at once, and an OOM kill takes the whole
+# container down rather than the one request.
+#
+# Calibration: across generated `MAX_SQUAD_SIZE` squads, including shapes
+# built to be adversarial, the worst single formation reached **42,921**
+# states (13 MB, ~3.2 s for the whole solve). The ceiling sits 3.5x above
+# that — high enough that an ordinary morning cannot reach it, low enough
+# that one formation can never cost more than a tenth of the container.
+#
+# Note the search does not grow without limit anyway: `_trim_pool_by_position`
+# saturates the candidate pool around 17 players, which is why a 25-man squad
+# and a 30-man one cost the same. This ceiling exists for the shape that
+# defeats that assumption, not for the squads we can predict.
+#
+# A formation abandoned costs one of fourteen candidate elevens. A container
+# killed costs the morning.
+_MAX_SEARCH_NODES = 150_000
+
+
+class _SearchTooWide(Exception):
+    """One formation's search blew past `_MAX_SEARCH_NODES`.
+
+    Internal to this module: `_best_eleven` catches it, drops that formation
+    and keeps the other thirteen.
+    """
+
+
+class LineupSearchExhausted(Exception):
+    """Every formation blew past the ceiling, so there is no eleven to report.
+
+    Deliberately not `None`. `pick_lineup` returns `None` for "this squad
+    cannot field a legal eleven", which `/ofertas` reads as "selling him
+    leaves you without a team" and turns into a flat refusal. A search we
+    abandoned is not that, and must not be mistaken for it — callers that
+    treat it as "signal unavailable" get the right answer, and one that lets
+    it propagate fails loudly instead of lying.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +332,11 @@ def _is_promoted(row: dict) -> bool:
 
 
 def _best_eleven(squad_rows: list) -> dict | None:
-    """Best (formation, starters, reserves, captain) at the current marks."""
+    """Best (formation, starters, reserves, captain) at the current marks.
+
+    Raises `LineupSearchExhausted` when every formation hit the node ceiling —
+    see that exception for why it is not `None`.
+    """
     available = [r for r in squad_rows if _is_available(r)]
     available.sort(key=_sf, reverse=True)
     available = _trim_pool_by_position(available)
@@ -295,9 +353,26 @@ def _best_eleven(squad_rows: list) -> dict | None:
     # dropping back beat a 316 who does not.
     best_score: tuple[int, int, int] = (-1, -1, -(10**9))
 
+    abandoned = 0
     for label, n_def, n_mid, n_fwd in FORMATIONS:
         slots = {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
-        assignment = _try_fill(available, slots)
+        try:
+            assignment = _try_fill(available, slots)
+        except _SearchTooWide:
+            # One formation of fourteen. The others are searched normally, and
+            # the eleven that comes back is the best of those — worse than the
+            # true optimum only if the optimum lived in the shape we dropped.
+            logger.warning(
+                "Formation search abandoned at the node ceiling.",
+                extra={
+                    "formation": label,
+                    "squad_size": len(squad_rows),
+                    "pool_size": len(available),
+                    "ceiling": _MAX_SEARCH_NODES,
+                },
+            )
+            abandoned += 1
+            continue
         if assignment is None:
             continue
 
@@ -320,6 +395,13 @@ def _best_eleven(squad_rows: list) -> dict | None:
             "total_sf": total_sf,
         }
 
+    if best is None and abandoned == len(FORMATIONS):
+        # Nothing was searched to completion, so we know nothing about this
+        # squad — which is a different statement from "it cannot field a
+        # legal eleven", and must not arrive as the same `None`.
+        raise LineupSearchExhausted(
+            f"all {abandoned} formations hit the {_MAX_SEARCH_NODES}-state ceiling"
+        )
     return best
 
 
@@ -539,65 +621,147 @@ def _try_fill(players: list, slots: dict) -> list | None:
     if not players:
         return None
 
-    # We memoise on (frozenset of bw_ids, sorted tuple of (pos, count)).
-    # Both keys are hashable and capture exactly the state of the search.
     lookup = {p["bw_id"]: p for p in players}
-    cache: dict[tuple, tuple | None] = {}
 
-    def _solve(player_ids: frozenset, slots_t: tuple) -> tuple | None:
+    # Everything the search reads about a player, read once.
+    #
+    # `_sf` was called 2.2M times for a single 25-man solve and `_positions`
+    # 2.0M, both pure over a row that does not change while the search runs —
+    # together 60% of the time. They are tabled here rather than at
+    # `pick_lineup` scope on purpose: `_demote_surplus_promotions` flips
+    # `_promotion_capped` between passes and `_sf` reads it, so a table built
+    # above that loop would score demoted players with their pre-demotion
+    # projection and quietly pick a different eleven.
+    sf_by_id = {pid: _sf(row) for pid, row in lookup.items()}
+    pos_by_id = {pid: _positions(row) for pid, row in lookup.items()}
+    # A starter only there as a fallback contributes his hidden projection to
+    # the second tiebreak; everyone else contributes nothing. Same rule as
+    # `_fallback_total`, applied per player so it can be accumulated.
+    fallback_by_id = {
+        pid: (_fallback_rate(row) if sf_by_id[pid] <= _UNCALLED_SF else 0)
+        for pid, row in lookup.items()
+    }
+    bias_by_id_slot = {
+        (pid, slot): _back_bias_one(row, slot)
+        for pid, row in lookup.items()
+        for slot in (GK, DEF, MID, FWD)
+    }
+
+    # We memoise on (bitmask of remaining players, sorted tuple of (pos,
+    # count)). Both are hashable and capture exactly the state of the search.
+    #
+    # The mask is an integer, one bit per player in the trimmed pool, and it
+    # is where `MAX_SQUAD_SIZE` earns its keep: 25 players is 25 bits, so
+    # every subset the search can reach is a small int. The obvious
+    # representation — a `frozenset` of ids — measures **728 bytes** at
+    # seventeen players against **28** for the int, and with one key per
+    # cached state that difference *was* the memory profile: 1260 B per state
+    # against roughly 90. Set difference becomes a mask-and, and hashing an
+    # int beats hashing a set, so it is faster as well.
+    #
+    # The value is `(chosen_player, score)` — one id and three ints — and NOT
+    # the sub-assignment it belongs to. Storing the whole eleven-long tuple in
+    # every entry measured 1370 B per state, so a 25-man squad's worst
+    # formation held 55 MB live and a ceiling meant to bound memory would have
+    # allowed 200. The assignment is rebuilt afterwards by walking the chosen
+    # players back down the states: eleven lookups instead of eleven copies
+    # kept in every one of forty thousand entries.
+    #
+    # The score still rides along so a parent adds one player's contribution
+    # rather than re-summing its subtree — that re-summation was 40% of the
+    # time before this.
+    # Bit i belongs to `players[i]`, which is already sorted by SF descending
+    # — so iterating bits low to high walks players best-first, which is the
+    # order the candidate sort then relies on to break ties the same way.
+    ids_by_bit = [p["bw_id"] for p in players]
+    positions_by_bit = [pos_by_id[pid] for pid in ids_by_bit]
+    sf_by_bit = [sf_by_id[pid] for pid in ids_by_bit]
+    fallback_by_bit = [fallback_by_id[pid] for pid in ids_by_bit]
+
+    def _bits(mask: int):
+        """The set bits of `mask`, lowest first (i.e. best SF first)."""
+        while mask:
+            low = mask & -mask
+            yield low.bit_length() - 1
+            mask ^= low
+
+    cache: dict[tuple, tuple | None] = {}
+    visits = 0
+
+    def _next_slot(mask: int, slots_t: tuple) -> tuple:
+        """`(position_to_fill, remaining_slots)` for a state.
+
+        Fills the most-constrained position first — fewest eligible players.
+        That does not change which eleven wins, it only prunes earlier; and
+        being a pure function of the state is what lets the rebuild below
+        recompute it instead of the cache having to remember it.
+        """
+        slots_dict = dict(slots_t)
+        pos_to_fill = min(
+            slots_dict.keys(),
+            key=lambda pos: sum(1 for b in _bits(mask) if pos in positions_by_bit[b]),
+        )
+        remaining = dict(slots_dict)
+        if remaining[pos_to_fill] == 1:
+            del remaining[pos_to_fill]
+        else:
+            remaining[pos_to_fill] -= 1
+        return pos_to_fill, tuple(sorted(remaining.items()))
+
+    def _solve(mask: int, slots_t: tuple) -> tuple | None:
+        nonlocal visits
         if not slots_t:
-            return ()
-        key = (player_ids, slots_t)
+            return None, (0, 0, 0)
+        key = (mask, slots_t)
         if key in cache:
             return cache[key]
 
-        slots_dict = dict(slots_t)
+        visits += 1
+        if visits > _MAX_SEARCH_NODES:
+            raise _SearchTooWide(f"formation exceeded {_MAX_SEARCH_NODES} states")
 
-        def eligible(pos: int) -> int:
-            return sum(1 for pid in player_ids if pos in _positions(lookup[pid]))
-
-        pos_to_fill = min(slots_dict.keys(), key=eligible)
-        new_count = slots_dict[pos_to_fill] - 1
-        new_slots = dict(slots_dict)
-        if new_count == 0:
-            del new_slots[pos_to_fill]
-        else:
-            new_slots[pos_to_fill] = new_count
-        new_slots_t = tuple(sorted(new_slots.items()))
+        pos_to_fill, new_slots_t = _next_slot(mask, slots_t)
 
         candidates = sorted(
-            (pid for pid in player_ids if pos_to_fill in _positions(lookup[pid])),
-            key=lambda pid: _sf(lookup[pid]),
+            (b for b in _bits(mask) if pos_to_fill in positions_by_bit[b]),
+            key=lambda b: sf_by_bit[b],
             reverse=True,
         )[:_CANDIDATES_PER_SLOT]
 
         best: tuple | None = None
         best_score = (-1, -1, -(10**9))
-        for pid in candidates:
-            sub = _solve(player_ids - {pid}, new_slots_t)
+        for bit in candidates:
+            sub = _solve(mask & ~(1 << bit), new_slots_t)
             if sub is None:
                 continue
-            here_sf = _sf(lookup[pid]) + sum(_sf(lookup[s_pid]) for s_pid, _ in sub)
-            here_bias = _back_bias_one(lookup[pid], pos_to_fill) + sum(
-                _back_bias_one(lookup[s_pid], slot) for s_pid, slot in sub
+            sub_score = sub[1]
+            score = (
+                sf_by_bit[bit] + sub_score[0],
+                fallback_by_bit[bit] + sub_score[1],
+                bias_by_id_slot[(ids_by_bit[bit], pos_to_fill)] + sub_score[2],
             )
-            here_fallback = _fallback_total(
-                [(lookup[pid], pos_to_fill)] + [(lookup[s], sl) for s, sl in sub]
-            )
-            score = (here_sf, here_fallback, here_bias)
             if score > best_score:
                 best_score = score
-                best = ((pid, pos_to_fill),) + sub
+                best = (bit, score)
 
         cache[key] = best
         return best
 
-    initial_ids = frozenset(p["bw_id"] for p in players)
+    initial_mask = (1 << len(ids_by_bit)) - 1
     initial_slots = tuple(sorted((p, c) for p, c in slots.items() if c > 0))
-    solved = _solve(initial_ids, initial_slots)
-    if solved is None:
+    if _solve(initial_mask, initial_slots) is None:
         return None
-    return [(lookup[pid], slot) for pid, slot in solved]
+
+    # Walk the winning chain: each state names its player, `_next_slot`
+    # recomputes the slot he fills.
+    assignment = []
+    mask, slots_t = initial_mask, initial_slots
+    while slots_t:
+        bit = cache[(mask, slots_t)][0]
+        pos_to_fill, slots_t = _next_slot(mask, slots_t)
+        assignment.append((lookup[ids_by_bit[bit]], pos_to_fill))
+        mask &= ~(1 << bit)
+    return assignment
 
 
 # ---------------------------------------------------------------------------
