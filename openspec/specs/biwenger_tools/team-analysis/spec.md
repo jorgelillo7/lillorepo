@@ -47,9 +47,16 @@ something untrue about a player:
   dark→light, brightness rising with the projection. Violet rather than green
   because green is ΔE 4.1 from the reserved red under deuteranopia and both
   appear in this table.
-- **Will he start?** (`is_bench`) — amber, plus a marker glyph (`●` starts,
-  `○` bench, `✕` out) in its own leading column. Reserved: amber SHALL NOT
+- **Can I count on him starting?** (`is_bench`) — amber, plus a marker glyph
+  (`●` certain starter, `○` not certain, `✕` out) in its own leading column.
+  Both ways a fit player fails to start SHALL mark the same: JP leaving him
+  out of its projected eleven, and JP listing him as a `doubt`. The "Juega"
+  column carries which of the two it is ("suplente" / "duda"); the marker
+  answers the coarser question a reader asks first. Reserved: amber SHALL NOT
   appear in the projection ramp or the status hues.
+
+Every body cell SHALL be given an explicit ink — matplotlib defaults to black,
+which is invisible on the dark surface for any column no other rule recolours.
 
 Availability outranks the bench in both the marker and the row tint: an injured
 substitute is *out*, and two marks for one player is how a reader stops trusting
@@ -65,7 +72,10 @@ matplotlib renders anything above the BMP as a dotted-circle placeholder.
   `test_bench_row_gets_its_own_tint`,
   `test_bench_amber_is_not_reused_by_any_other_channel`,
   `test_markers_survive_the_emoji_stripper`,
-  `test_build_table_image_renders_a_squad_with_substitutes`
+  `test_build_table_image_renders_a_squad_with_substitutes`,
+  `test_a_doubt_is_not_marked_as_a_certain_starter`,
+  `test_a_doubt_still_counts_among_the_players_who_can_play`,
+  `test_bench_count_covers_both_ways_of_not_starting`
 
 ### Requirement: One image failure never aborts the batch
 

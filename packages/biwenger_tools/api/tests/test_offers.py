@@ -209,56 +209,124 @@ def test_recommend_without_depth_signal_keeps_old_behaviour():
     assert rec == offers.REC_DOUBTFUL
 
 
+def _sf_jp(rate):
+    return {"predict": [{"type": 2, "rate": rate}]}
+
+
+def _squad_with_two_keepers():
+    """A fieldable squad: two keepers and thirteen outfielders."""
+    squad = [
+        {"bw_id": 1, "name": "Titular POR", "position_id": 1, "jp_player": _sf_jp(402)},
+        {"bw_id": 2, "name": "Fortuño", "position_id": 1, "jp_player": _sf_jp(12)},
+    ]
+    for i in range(3, 16):
+        squad.append(
+            {
+                "bw_id": i,
+                "name": f"J{i}",
+                "position_id": 2 + (i % 3),
+                "jp_player": _sf_jp(300 + i),
+            }
+        )
+    return squad
+
+
 def test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one():
     """The whole point of running the optimizer instead of comparing SFs:
     the same projection is worth different amounts at different positions."""
-    keeper = {"bw_id": 1, "name": "Titular POR", "position_id": 1, "jp_player": {}}
-    squad = [keeper]
-    # A full outfield plus one spare keeper who does not play.
-    squad.append(
-        {"bw_id": 2, "name": "Suplente POR", "position_id": 1, "jp_player": {}}
-    )
-    for i in range(3, 16):
-        squad.append(
-            {"bw_id": i, "name": f"J{i}", "position_id": 2 + (i % 3), "jp_player": {}}
-        )
-    impact = offers._xi_impact(squad, 1)
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base)
     assert impact["breaks_xi"] is False
-    assert impact["xi_loss"] is not None
+    # Losing the keeper drops the eleven to a 12-SF substitute.
+    assert impact["xi_loss"] >= 300
+
+
+def test_xi_impact_names_the_player_who_actually_comes_in():
+    """The replacement is the man who enters the eleven, not the best squad
+    member at that position — that one is usually already on the pitch, and
+    naming him printed "tu 11 pierde 95 SF" above a current starter's name."""
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base)
+    assert impact["replacement_name"] == "Fortuño"
+    assert impact["replacement_sf"] == 12
+    assert impact["replacement_name"] not in [
+        row["name"] for row in squad if row["bw_id"] in base["starter_ids"]
+    ]
 
 
 def test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him():
     """One keeper, and he is the one under offer."""
-    squad = [{"bw_id": 1, "name": "Único POR", "position_id": 1, "jp_player": {}}]
+    squad = [
+        {"bw_id": 1, "name": "Único POR", "position_id": 1, "jp_player": _sf_jp(4)}
+    ]
     for i in range(2, 16):
         squad.append(
-            {"bw_id": i, "name": f"J{i}", "position_id": 2 + (i % 3), "jp_player": {}}
+            {
+                "bw_id": i,
+                "name": f"J{i}",
+                "position_id": 2 + (i % 3),
+                "jp_player": _sf_jp(300),
+            }
         )
-    impact = offers._xi_impact(squad, 1)
-    assert impact["breaks_xi"] is True
+    base = offers._xi_baseline(squad)
+    assert offers._xi_impact(squad, 1, base)["breaks_xi"] is True
 
 
 def test_xi_impact_survives_an_optimizer_failure():
     """Best-effort: the offer message must still go out."""
-    with patch(_p("lineup.xi_total_sf"), side_effect=RuntimeError("boom")):
-        impact = offers._xi_impact([{"bw_id": 1}], 1)
-    assert impact == {"xi_loss": None, "breaks_xi": False}
+    base = {"total_sf": 1, "starter_ids": set()}
+    with patch(_p("lineup.xi_snapshot"), side_effect=RuntimeError("boom")):
+        impact = offers._xi_impact([{"bw_id": 1}], 1, base)
+    assert impact["xi_loss"] is None and impact["breaks_xi"] is False
 
 
-def test_replacement_names_the_next_man_up_at_that_position():
-    """ "Pierdes 390 SF" is an abstraction; a name is the answer."""
-    squad = [
-        {"bw_id": 1, "name": "Titular", "position_id": 1, "jp_player": {}},
-        {
-            "bw_id": 2,
-            "name": "Fortuño",
-            "position_id": 1,
-            "jp_player": {"predictions": [{"type": 2, "rate": 12}]},
-        },
-        {"bw_id": 3, "name": "Un defensa", "position_id": 2, "jp_player": {}},
-    ]
-    replacement = offers._replacement(squad, 1, 1)
-    assert replacement["name"] == "Fortuño"
+def test_xi_impact_without_a_baseline_reports_nothing():
+    assert offers._xi_impact([{"bw_id": 1}], 1, None)["xi_loss"] is None
+
+
+def test_xi_impact_respects_the_deadline():
+    """Past the budget the signal degrades instead of eating the digest SLO."""
+    import time
+
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base, deadline=time.monotonic() - 1)
+    assert impact == offers._NO_XI_IMPACT
+
+
+def test_a_non_starter_offer_never_pays_for_the_search():
+    """The depth rules all require `is_starter`, so for anyone else the solve
+    cannot change the verdict — and it costs ~0.65-3 s each."""
+    with patch(_p("_xi_impact")) as impact:
+        offers._score_offer(
+            {"id": 1, "requestedPlayers": [{"id": 99}], "amount": 1_000_000},
+            MagicMock(biwenger_players={}, jp_index={}),
+            {},
+            starter_ids=set(),
+            my_team=[],
+            xi_base={"total_sf": 1, "starter_ids": set()},
+        )
+    impact.assert_not_called()
+
+
+def test_a_starter_offer_does_pay_for_the_search():
+    with patch(_p("_xi_impact"), return_value=dict(offers._NO_XI_IMPACT)) as impact:
+        offers._score_offer(
+            {"id": 1, "requestedPlayers": [{"id": 99}], "amount": 1_000_000},
+            MagicMock(biwenger_players={}, jp_index={}),
+            {},
+            starter_ids={99},
+            my_team=[],
+            xi_base={"total_sf": 1, "starter_ids": set()},
+        )
+    impact.assert_called_once()
+
+
+def test_xi_baseline_swallows_an_optimizer_failure():
+    with patch(_p("lineup.xi_snapshot"), side_effect=RuntimeError("boom")):
+        assert offers._xi_baseline([{"bw_id": 1}]) is None
 
 
 # --- Tier label boundaries -------------------------------------------------

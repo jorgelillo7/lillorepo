@@ -16,6 +16,7 @@ Decisions taken with `decide_offer(offer_id, "accepted"|"rejected")`
 message, never hits Biwenger).
 """
 
+import time
 from datetime import datetime
 from html import escape
 from typing import Optional
@@ -84,10 +85,27 @@ REJECT_LOSS_PCT = -25.0
 # The bands. A player's projection tops out around 700, so:
 #  - ≥ 150 lost is a hole the squad cannot cover — refuse.
 #  - 50–150 is a real but survivable dent — the user decides.
-#  - < 150 leaves the money rules in charge, which is the right outcome for
+#  - < 50 leaves the money rules in charge, which is the right outcome for
 #    depth nobody fields.
 XI_LOSS_REJECT = 150
 XI_LOSS_DOUBTFUL = 50
+
+# Wall-clock the depth signal is allowed to spend across one inbox.
+#
+# The optimizer is exhaustive backtracking, and `lineup.py` already carries the
+# scar of a search that ran 30 s and tripped gunicorn. Measured here: one solve
+# is ~0.65 s on a 15-man squad, ~1.5 s at 22, ~3 s at 25 with many
+# multi-position players. `/ofertas` is chained onto `/digests/daily`, whose
+# end-to-end SLO is 5 minutes with roughly 30 s of flake budget — an eight-offer
+# morning on a big squad would eat most of it.
+#
+# Two bounds, because either alone leaves a bad morning:
+#  - Only offers for players in the current eleven are solved at all. The depth
+#    rules all require `is_starter`, so for anyone else the work cannot change
+#    the verdict. That is typically nought to two offers, not eight.
+#  - Past this deadline the signal degrades to "unavailable" and the money
+#    rules decide alone, which is exactly the documented no-signal path.
+_DEPTH_BUDGET_S = 8.0
 
 
 # ---------------------------------------------------------------------------
@@ -140,10 +158,16 @@ def run_offers_inbox(
     )
     my_team = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
     acq_by_id = {row["bw_id"]: row for row in my_team}
+    # The baseline eleven is the same for every offer in the inbox — solve it
+    # once here rather than N times inside the loop.
+    xi_base = _xi_baseline(my_team)
+    deadline = time.monotonic() + _DEPTH_BUDGET_S
 
     sent = 0
     for offer in inbox:
-        scored = _score_offer(offer, ctx, acq_by_id, starter_ids, my_team)
+        scored = _score_offer(
+            offer, ctx, acq_by_id, starter_ids, my_team, xi_base, deadline
+        )
         if scored is None:
             logger.warning(
                 "Skipping malformed offer.", extra={"offer_id": offer.get("id")}
@@ -253,10 +277,36 @@ def _tier_label(sf: int) -> str:
     return f"❌ Sin proyección (SF {sf})"
 
 
-def _xi_impact(my_team: list, player_id: int) -> dict:
-    """What losing this player would do to the best eleven.
+# What the depth signal reports when it was not computed. Named rather than
+# inlined so "we did not look" and "we looked and found nothing" cannot drift
+# apart between the two callers.
+_NO_XI_IMPACT = {
+    "xi_loss": None,
+    "breaks_xi": False,
+    "replacement_name": None,
+    "replacement_sf": None,
+}
 
-    Returns `{"xi_loss": int | None, "breaks_xi": bool}`:
+
+def _xi_baseline(my_team: list) -> Optional[dict]:
+    """The current best eleven, solved once per inbox. `None` if unavailable —
+    the depth rules then stand down and the money rules decide alone."""
+    try:
+        return lineup.xi_snapshot(my_team)
+    except Exception:
+        logger.exception("Baseline XI failed — scoring without the depth signal.")
+        return None
+
+
+def _xi_impact(
+    my_team: list,
+    player_id: int,
+    base: Optional[dict] = None,
+    deadline: Optional[float] = None,
+) -> dict:
+    """What losing this player would do to the best eleven, and who replaces him.
+
+    Returns `{"xi_loss", "breaks_xi", "replacement_name", "replacement_sf"}`:
 
       - `breaks_xi` — the squad cannot field a legal eleven without him at
         all (he is the last player who can cover a slot). The strongest
@@ -264,46 +314,54 @@ def _xi_impact(my_team: list, player_id: int) -> dict:
         number: there is no SF total to subtract from.
       - `xi_loss` — projected SF the eleven gives up, `None` when the signal
         is unavailable (no baseline eleven, or the optimizer raised).
+      - the replacement — the player who appears in the eleven only once this
+        one is gone. Taken from the diff of the two elevens rather than from
+        "best squad member at that position", which named whoever tops the
+        line and is usually already on the pitch: the message would have read
+        "tu 11 pierde 95 SF" directly above "Recambio: <a current starter>",
+        two lines contradicting each other. By construction this names the man
+        the SF difference is actually measuring.
+
+    `base` is the baseline snapshot, identical for every offer in an inbox —
+    the caller computes it once. `deadline` is a `time.monotonic()` instant
+    past which the search is skipped; see `_DEPTH_BUDGET_S`.
 
     Best-effort throughout: a failure here costs the recommendation one
     input, and is never worth dropping the offer message over.
     """
+    blank = dict(_NO_XI_IMPACT)
     try:
-        base = lineup.xi_total_sf(my_team)
         if base is None:
-            return {"xi_loss": None, "breaks_xi": False}
-        without = lineup.xi_total_sf(
+            return blank
+        if deadline is not None and time.monotonic() > deadline:
+            logger.warning(
+                "Depth budget spent — scoring the rest on the money rules alone.",
+                extra={"player_id": player_id},
+            )
+            return blank
+        without = lineup.xi_snapshot(
             [row for row in my_team if row.get("bw_id") != player_id]
         )
         if without is None:
-            return {"xi_loss": None, "breaks_xi": True}
-        return {"xi_loss": max(0, base - without), "breaks_xi": False}
+            return {**blank, "breaks_xi": True}
+
+        entrant_ids = without["starter_ids"] - base["starter_ids"]
+        entrant = next(
+            (row for row in my_team if row.get("bw_id") in entrant_ids), None
+        )
+        return {
+            "xi_loss": max(0, base["total_sf"] - without["total_sf"]),
+            "breaks_xi": False,
+            "replacement_name": entrant.get("name") if entrant else None,
+            "replacement_sf": (
+                get_predict_rate(entrant.get("jp_player") or {}, 2) or 0
+                if entrant
+                else None
+            ),
+        }
     except Exception:
         logger.exception("XI impact failed — scoring without the depth signal.")
-        return {"xi_loss": None, "breaks_xi": False}
-
-
-def _replacement(my_team: list, player_id: int, position_id) -> Optional[dict]:
-    """The squad's next man up at that position — who actually covers the hole.
-
-    Names the player the XI-loss number is about, because "pierdes 390 SF" is
-    an abstraction and "tu recambio es Fortuño (SF 12)" is the answer to the
-    question the user asked out loud.
-    """
-    if position_id is None:
-        return None
-    pool = [
-        row
-        for row in my_team
-        if row.get("bw_id") != player_id
-        and position_id
-        in ({row.get("position_id")} | set(row.get("alt_positions") or []))
-    ]
-    if not pool:
-        return None
-    return max(
-        pool, key=lambda row: get_predict_rate(row.get("jp_player") or {}, 2) or 0
-    )
+        return blank
 
 
 def _score_offer(
@@ -312,6 +370,8 @@ def _score_offer(
     acq_by_id: dict,
     starter_ids: set,
     my_team: Optional[list] = None,
+    xi_base: Optional[dict] = None,
+    deadline: Optional[float] = None,
 ) -> Optional[dict]:
     """Enrich one offer with all the signals + a recommendation."""
     rp = offer.get("requestedPlayers") or []
@@ -341,13 +401,12 @@ def _score_offer(
     )
     is_starter = player_id in starter_ids
 
-    my_team = my_team or []
-    impact = _xi_impact(my_team, player_id)
-    replacement = _replacement(my_team, player_id, bw.get("position"))
-    replacement_sf = (
-        get_predict_rate(replacement.get("jp_player") or {}, 2) or 0
-        if replacement
-        else None
+    # Only a player in the current eleven can trigger a depth rule, so for
+    # anyone else the (expensive) search cannot change the verdict.
+    impact = (
+        _xi_impact(my_team or [], player_id, xi_base, deadline)
+        if is_starter
+        else _NO_XI_IMPACT
     )
 
     frm = offer.get("from")
@@ -384,8 +443,8 @@ def _score_offer(
         "is_starter": is_starter,
         "xi_loss": impact["xi_loss"],
         "breaks_xi": impact["breaks_xi"],
-        "replacement_name": replacement.get("name") if replacement else None,
-        "replacement_sf": replacement_sf,
+        "replacement_name": impact["replacement_name"],
+        "replacement_sf": impact["replacement_sf"],
         "offerer": offerer,
         "until": offer.get("until"),
         "recommendation": recommendation,
@@ -469,35 +528,36 @@ def _recommend(
         )
         return REC_REJECT, reasons
 
-    # 4. Descarte o fondo de armario con plusvalía → ACEPTAR.
-    if sf < ab.TIER_T3_MIN and roi_pct is not None and roi_pct > 0:
-        reasons.append(
-            f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"
-        )
-        return REC_ACCEPT, reasons
-
-    # 5. Oferta claramente por encima del valor cf-base → ACEPTAR.
-    if vs_market_pct is not None and vs_market_pct >= ACCEPT_OVER_MARKET_PCT:
-        reasons.append(f"Oferta {vs_market_pct:+.0f}% sobre cf-base — buen momento")
-        return REC_ACCEPT, reasons
-
-    # 6. Oferta claramente baja → RECHAZAR.
-    if vs_market_pct is not None and vs_market_pct <= REJECT_UNDER_MARKET_PCT:
-        reasons.append(
-            f"Oferta {vs_market_pct:+.0f}% bajo cf-base; aguanta o lánzalo al mercado"
-        )
-        return REC_REJECT, reasons
-
-    # 7. Titular con recambio mediocre → DUDOSO, pero diciendo qué se pierde.
-    # Below `XI_LOSS_REJECT` the squad survives the sale; the point of the
-    # branch is that "decide según tu necesidad de cash" is unhelpful advice
-    # when the size of the hole is already known.
+    # 4. Titular con un hueco real detrás → DUDOSO, diciendo su tamaño.
+    # Above the money rules, not below them: the squad survives this sale, but
+    # a bare "ACEPTAR — buen momento" over a 140-SF hole is the same silence
+    # that made the reported case wrong. Under `XI_LOSS_DOUBTFUL` it stays out
+    # of the way, which is what keeps depth sellable.
     if is_starter and xi_loss is not None and xi_loss >= XI_LOSS_DOUBTFUL:
         reasons.append(
             f"Titular, pero con recambio: tu 11 pierde {xi_loss} SF. "
             f"Vendible si necesitas cash"
         )
         return REC_DOUBTFUL, reasons
+
+    # 5. Descarte o fondo de armario con plusvalía → ACEPTAR.
+    if sf < ab.TIER_T3_MIN and roi_pct is not None and roi_pct > 0:
+        reasons.append(
+            f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"
+        )
+        return REC_ACCEPT, reasons
+
+    # 6. Oferta claramente por encima del valor cf-base → ACEPTAR.
+    if vs_market_pct is not None and vs_market_pct >= ACCEPT_OVER_MARKET_PCT:
+        reasons.append(f"Oferta {vs_market_pct:+.0f}% sobre cf-base — buen momento")
+        return REC_ACCEPT, reasons
+
+    # 7. Oferta claramente baja → RECHAZAR.
+    if vs_market_pct is not None and vs_market_pct <= REJECT_UNDER_MARKET_PCT:
+        reasons.append(
+            f"Oferta {vs_market_pct:+.0f}% bajo cf-base; aguanta o lánzalo al mercado"
+        )
+        return REC_REJECT, reasons
 
     # 8. Proyección media con oferta razonable → DUDOSO.
     if ab.TIER_T3_MIN <= sf < ab.TIER_T2_MIN:

@@ -141,3 +141,36 @@ def test_build_table_image_renders_a_squad_with_substitutes():
     assert build_table_image(rows, "Mi equipo", show_total_value=True).startswith(
         PNG_MAGIC
     )
+
+
+def test_a_doubt_is_not_marked_as_a_certain_starter():
+    """JP's `doubt` is not in CANNOT_PLAY — he may well play, so calling him
+    unavailable would be wrong. Marking him a certain starter is the opposite
+    error, and the one a reader acts on."""
+    doubtful = _jp(status="doubt")
+    assert _mark(doubtful) == _MARK_BENCH
+    assert _row_bg(doubtful) == _BENCH_BG
+
+
+def test_a_doubt_still_counts_among_the_players_who_can_play():
+    """He is fit; only the marker channel reports the uncertainty."""
+    from packages.biwenger_tools.api.player_formatting import (
+        availability,
+        count_availability,
+    )
+
+    assert availability(_jp(status="doubt")) == "plays"
+    plays, out, _ = count_availability([{"jp_player": _jp(status="doubt")}])
+    assert (plays, out) == (1, 0)
+
+
+def test_bench_count_covers_both_ways_of_not_starting():
+    from packages.biwenger_tools.api.player_formatting import count_bench
+
+    rows = [
+        {"jp_player": _jp()},
+        {"jp_player": _jp(in_xi=False)},
+        {"jp_player": _jp(status="doubt")},
+        {"jp_player": _jp(status="injured")},
+    ]
+    assert count_bench(rows) == 2

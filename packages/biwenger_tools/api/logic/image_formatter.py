@@ -33,10 +33,11 @@ from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
 # Availability is a *status*: reserved hues, never reused for anything else, and
 # never carrying meaning alone — the reason is spelled out beside it.
 #
-# Being left out of the projected eleven is the third job, and it is a state
-# rather than a quantity or an injury. It gets amber, its own reserved hue: a
-# substitute is available (so he is not red) and his projection is whatever it
-# is (so he is not a step on the violet ramp). Amber measures normal-vision
+# Not being a certain starter is the third job — left out of the projected
+# eleven, or listed as a doubt — and it is a state rather than a quantity or an
+# injury. It gets amber, its own reserved hue: such a player is available (so
+# he is not red) and his projection is whatever it is (so he is not a step on
+# the violet ramp). Amber measures normal-vision
 # ΔE 15.6 against the reserved red — the pair a reader must never confuse,
 # because "no juega" and "sale del banquillo" are different news.
 #
@@ -239,9 +240,10 @@ def _draw_status_summary(ax, rows: list[dict], show_total_value: bool) -> None:
         first += [("\u25cf", _INK_FAINT), (f"{unknown} sin datos", _INK)]
     bench = count_bench(rows)
     if bench:
-        # Inside "juegan", not beside it: a substitute is fit and available,
-        # and moving him out of that count would contradict the row colour.
-        first += [(_MARK_BENCH, _BENCH), (f"{bench} al banquillo", _INK)]
+        # Inside "juegan", not beside it: a substitute or a doubt is fit and
+        # available, and moving either out of that count would contradict the
+        # row colour.
+        first += [(_MARK_BENCH, _BENCH), (f"{bench} no salen de inicio", _INK)]
     if show_total_value:
         first += [
             ("\u00b7", _INK_FAINT),
@@ -377,6 +379,10 @@ def build_table_image(
                 cell = table[i, j]
                 cell.get_text().set_fontsize(body_size)
                 cell.set_edgecolor(_EDGE)
+                # Every cell gets an explicit ink. matplotlib's default is
+                # black, which was invisible on the dark surface for the four
+                # columns nothing else recolours (Pos, Precio, Racha, Juega).
+                cell.get_text().set_color(_INK_SOFT)
             # Three independent signals, three independent colours.
             table[i, sf_col].get_text().set_color(_BAND_FG[sf_band(jp)])
             table[i, name_col].get_text().set_color(_INK)

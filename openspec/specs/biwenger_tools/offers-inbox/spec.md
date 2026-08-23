@@ -64,10 +64,23 @@ the player under offer:
 - **WHEN** the signal cannot be computed **THEN** the money rules SHALL behave
   exactly as they did without it.
 
-The optimizer SHALL be invoked through `lineup.xi_total_sf`, which runs the same
+The optimizer SHALL be invoked through `lineup.xi_snapshot`, which runs the same
 search as `pick_lineup` with none of its observation side effects: `provider_watch`
 records the promotions actually bet on each morning, and counterfactual runs must
-not write to that audit trail.
+not write to that audit trail. The replacement named to the user SHALL be taken
+from the diff of the two elevens, so it is by construction the player the SF
+difference measures — not the best squad member at that position, who is usually
+already on the pitch.
+
+The search is exhaustive backtracking (~0.65 s per solve on a 15-man squad, ~3 s
+at 25 with many multi-position players) and `/ofertas` is chained onto
+`/digests/daily`, which holds a 5-minute end-to-end SLO. Two bounds SHALL apply:
+
+- The baseline eleven is solved **once per inbox**, not once per offer.
+- An offer for a player **not** in the current eleven SHALL NOT be solved at all
+  — every depth rule requires `is_starter`, so the work cannot change its verdict.
+- Past `_DEPTH_BUDGET_S` of wall-clock across the inbox, the signal SHALL degrade
+  to unavailable and the money rules SHALL decide alone.
 
 #### Scenario: an irreplaceable starter is not sold on good numbers
 - **WHEN** a first-choice goalkeeper projecting 404 is offered +20% over what was
@@ -80,13 +93,17 @@ not write to that audit trail.
   `test_recommend_without_depth_signal_keeps_old_behaviour`,
   `test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one`,
   `test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him`,
-  `test_xi_impact_survives_an_optimizer_failure`
+  `test_xi_impact_survives_an_optimizer_failure`,
+  `test_xi_impact_names_the_player_who_actually_comes_in`,
+  `test_xi_impact_respects_the_deadline`,
+  `test_a_non_starter_offer_never_pays_for_the_search`,
+  `test_a_starter_offer_does_pay_for_the_search`
 
 #### Scenario: the message names the replacement
 - **WHEN** an offer is rendered **THEN** it carries the player's role in the
   squad, the SF the eleven would lose, and the name of the player who would take
   his place
-- *Verifies:* `test_replacement_names_the_next_man_up_at_that_position`
+- *Verifies:* `test_xi_impact_names_the_player_who_actually_comes_in`
 
 ### Requirement: Starter detection is resilient
 
