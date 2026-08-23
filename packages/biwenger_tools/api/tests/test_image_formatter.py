@@ -1,5 +1,6 @@
 """Unit tests for `api/logic/image_formatter.build_table_image`."""
 
+import io
 from datetime import datetime
 
 from packages.biwenger_tools.api.logic.image_formatter import (
@@ -195,3 +196,40 @@ def test_the_image_is_stamped_with_when_it_was_made():
     assert kwargs["color"] == imf._INK_FAINT  # provenance, not data
     assert kwargs["fontsize"] < 9  # smaller than any body cell
     datetime.strptime(text, "%d/%m/%Y %H:%M")  # a real stamp, not a label
+
+
+def test_extra_columns_widen_the_canvas_instead_of_squeezing_the_others():
+    """Column widths are normalised over their total, so every column added
+    shrinks all the others. The canvas has to grow by what they weigh, or the
+    clause view comes out narrower per column than the plain one — which is
+    what made it unreadable when zoomed."""
+    from PIL import Image
+
+    rows = [
+        {
+            "name": f"P{i}",
+            "position_id": 2,
+            "price": 3_000_000,
+            "jp_player": _jp(),
+            "Clausulable": "Sí",
+            "Cláusula": "5.5M",
+        }
+        for i in range(15)
+    ]
+    plain = Image.open(io.BytesIO(build_table_image(rows, "T")))
+    clause = Image.open(
+        io.BytesIO(build_table_image(rows, "T", extra_cols=["Clausulable", "Cláusula"]))
+    )
+
+    plain_per_col = plain.width / 7  # the base column count
+    clause_per_col = clause.width / 9
+    # The extra columns are wider than the base average, so per-column space
+    # must not fall — before this it dropped by a third.
+    assert clause_per_col >= plain_per_col
+
+
+def test_the_render_is_dense_enough_to_zoom_into():
+    """These are read on a phone by zooming in on one row of fifteen."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._DPI >= 200

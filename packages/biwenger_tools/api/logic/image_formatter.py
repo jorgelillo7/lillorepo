@@ -113,6 +113,16 @@ _BASE_COLUMNS: list[tuple[str, float]] = [
 ]
 _EXTRA_COL_WIDTH = 0.18
 
+# Canvas width for a table with no extra columns; the clause views scale up
+# from it in proportion to what they add.
+_BASE_FIG_WIDTH_IN = 9
+
+# These are read on a phone, and read by zooming in — the row you care about
+# is one of fifteen at six-point type. 200 dpi over the old 150 is a third
+# more pixels on each axis for a file still well inside Telegram's limit
+# (the widest table here lands around 300 KB against a 10 MB cap).
+_DPI = 200
+
 
 # Modifiers that only exist to decorate an adjacent emoji: variation
 # selectors, the zero-width joiner and the combining keycap. They sit inside
@@ -328,8 +338,18 @@ def build_table_image(
 
     n_rows = len(cell_data)
     n_cols = len(headers)
-    extra_width = 0.20 * len(extra_cols)
-    fig_w = 9 + extra_width
+    # Widen the figure by exactly what the extra columns weigh.
+    #
+    # Column widths are normalised over their total, so every column added
+    # shrinks all the others. The figure used to grow a flat 0.2 in per extra
+    # column, which nowhere near covered it: the clause view carries two
+    # extras worth 0.36 against the base's 0.86, so the base columns lost 30%
+    # of their width while the canvas gained 4%. A fifteen-player squad came
+    # out 1122 px wide — narrower per column than the seven-column view — and
+    # unreadable as soon as anyone zoomed in.
+    base_weight = sum(base_widths)
+    total_weight = base_weight + _EXTRA_COL_WIDTH * len(extra_cols)
+    fig_w = _BASE_FIG_WIDTH_IN * total_weight / base_weight
     # Slow height growth so all images stay in the ~750–975 px range at 150 dpi.
     # This keeps Telegram's display-scale consistent across small and large squads.
     fig_h = min(6.5, max(3.5, 4.5 + 0.06 * n_rows))
@@ -437,7 +457,7 @@ def build_table_image(
     _draw_generated_stamp(ax)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor=_SURFACE)
+    fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight", facecolor=_SURFACE)
     plt.close(fig)
     buf.seek(0)
     return buf.read()

@@ -62,6 +62,12 @@ week later, an undated squad table is indistinguishable from today's. The
 corner is chosen because the table grows downward and its rightmost column
 holds the shortest text, so nothing is displaced.
 
+The canvas SHALL widen in proportion to what the extra columns weigh. Column
+widths are normalised over their total, so every column added shrinks all the
+others; a flat per-column allowance let the clause view come out **narrower per
+column** than the plain one, and unreadable when zoomed. Rendering SHALL be at
+`_DPI` ≥ 200 — these are read on a phone by zooming in on one row of fifteen.
+
 Every body cell SHALL be given an explicit ink — matplotlib defaults to black,
 which is invisible on the dark surface for any column no other rule recolours.
 
@@ -83,7 +89,9 @@ matplotlib renders anything above the BMP as a dotted-circle placeholder.
   `test_a_doubt_is_not_marked_as_a_certain_starter`,
   `test_a_doubt_still_counts_among_the_players_who_can_play`,
   `test_bench_count_covers_both_ways_of_not_starting`,
-  `test_the_image_is_stamped_with_when_it_was_made`
+  `test_the_image_is_stamped_with_when_it_was_made`,
+  `test_extra_columns_widen_the_canvas_instead_of_squeezing_the_others`,
+  `test_the_render_is_dense_enough_to_zoom_into`
 
 ### Requirement: One image failure never aborts the batch
 
