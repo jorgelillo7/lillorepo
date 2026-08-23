@@ -61,6 +61,45 @@ def availability(jp_player: dict | None) -> str:
     return "plays"
 
 
+# The two ways a fit player still does not start, out of JP's six statuses
+# (`ok`, `ok-available`, `injured`, `doubt`, `sanctioned`, `other`): the
+# provider leaves him out of its projected eleven, or lists him as a doubt.
+# `doubt` belongs here and not in `CANNOT_PLAY` — he may well play, so
+# calling him unavailable would be wrong — but marking him a certain starter
+# is the opposite error, and the one a reader acts on.
+_DOUBTFUL_STATUS = "doubt"
+
+
+def is_bench(jp_player: dict | None) -> bool:
+    """Whether he is anything other than a certain starter.
+
+    A third channel, deliberately independent of `availability` and
+    `sf_band`. He is available (he can be fielded) and his projection is
+    whatever it is; this answers neither of those questions, and folding it
+    into `availability` would corrupt the "14 juegan / 1 no juegan" count
+    that reports who is *fit* — the rationale that function already carries.
+
+    Availability is still checked first: someone injured is not on the bench,
+    he is out, and reporting both about the same player is what makes a
+    reader stop trusting either. Which of the two remaining cases applies is
+    spelled out in the "Juega" column ("suplente" / "duda") — the marker
+    answers the coarser question the reader asks first, *can I count on him
+    starting*, and the answer to that is the same either way.
+    """
+    if jp_player is None:
+        return False
+    if availability(jp_player) != "plays":
+        return False
+    if jp_player.get("status") == _DOUBTFUL_STATUS:
+        return True
+    return ((jp_player.get("nextMatch") or {}).get("playerInLineup")) is False
+
+
+def count_bench(rows: list[dict]) -> int:
+    """How many of these rows are anything other than a certain starter."""
+    return sum(is_bench(row.get("jp_player")) for row in rows)
+
+
 def sf_band(jp_player: dict | None) -> str:
     """`"high"`, `"mid"`, `"low"` or `"none"` for the projected score alone."""
     if jp_player is None:

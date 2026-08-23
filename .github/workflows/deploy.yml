@@ -472,6 +472,7 @@ jobs:
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           DRAFT_APPLY_TO_BIWENGER=${{ vars.DRAFT_APPLY_TO_BIWENGER || 'false' }},\
           LINEUP_SUB_STARTS_ABOVE=${{ vars.LINEUP_SUB_STARTS_ABOVE || '350' }},\
+          OFFERS_MUTE_REJECTED=${{ vars.OFFERS_MUTE_REJECTED || '1' }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 

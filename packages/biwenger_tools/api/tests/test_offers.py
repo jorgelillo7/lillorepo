@@ -128,15 +128,227 @@ def test_recommend_catchall_returns_doubtful():
     assert rec == offers.REC_DOUBTFUL
 
 
+# --- Squad depth: what the eleven loses if he goes -------------------------
+
+
+def test_recommend_rejects_starter_whose_replacement_cannot_cover():
+    """The reported case, with its real numbers.
+
+    Dmitrovic — first-choice keeper, SF 404, bought at 3.97M, offered 4.77M
+    (+20% ROI, +2% over cf-base), the only other keeper on the books
+    projecting 12. Every financial signal says "fine offer", his SF alone
+    says "rotación", and selling would have left the goal to a substitute who
+    does not play. Scored DUDOSO — `is_starter` was passed to `_recommend`
+    and read by no branch in it.
+    """
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=2.0,
+        is_starter=True,
+        xi_loss=390,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("390" in r for r in reasons)
+
+
+def test_recommend_rejects_when_selling_breaks_the_eleven():
+    """No valid XI without him → refuse regardless of the money.
+
+    An empty slot is a flat -4 on the round, so there is no offer that
+    makes this a good trade.
+    """
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=200.0,
+        vs_market_pct=50.0,
+        is_starter=True,
+        xi_loss=None,
+        breaks_xi=True,
+    )
+    assert rec == offers.REC_REJECT
+    assert any("11 legal" in r for r in reasons)
+
+
+def test_recommend_downgrades_irreplaceable_starter_on_an_indecent_offer():
+    """Above the star-override bar the depth rule steps back to DUDOSO —
+    the user decides whether the money beats the hole."""
+    rec, _ = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=offers.STAR_OVERRIDE_OVER_MARKET_PCT + 5,
+        is_starter=True,
+        xi_loss=390,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_DOUBTFUL
+
+
+def test_recommend_lets_replaceable_starter_be_sold():
+    """Same SF, same money, but the squad covers the position: the depth
+    rule must not fire, or it would block every sale the user wants."""
+    rec, reasons = offers._recommend(
+        sf=404,
+        roi_pct=20.0,
+        vs_market_pct=2.0,
+        is_starter=True,
+        xi_loss=5,
+        breaks_xi=False,
+    )
+    assert rec == offers.REC_DOUBTFUL
+    assert any("recambio" in r for r in reasons)
+
+
+def test_recommend_without_depth_signal_keeps_old_behaviour():
+    """The signal is best-effort — a Biwenger/optimizer failure must leave
+    the money rules exactly as they were, not change the verdict."""
+    rec, _ = offers._recommend(
+        sf=404, roi_pct=20.0, vs_market_pct=2.0, is_starter=True, xi_loss=None
+    )
+    assert rec == offers.REC_DOUBTFUL
+
+
+def _sf_jp(rate):
+    return {"predict": [{"type": 2, "rate": rate}]}
+
+
+def _squad_with_two_keepers():
+    """A fieldable squad: two keepers and thirteen outfielders."""
+    squad = [
+        {"bw_id": 1, "name": "Titular POR", "position_id": 1, "jp_player": _sf_jp(402)},
+        {"bw_id": 2, "name": "Fortuño", "position_id": 1, "jp_player": _sf_jp(12)},
+    ]
+    for i in range(3, 16):
+        squad.append(
+            {
+                "bw_id": i,
+                "name": f"J{i}",
+                "position_id": 2 + (i % 3),
+                "jp_player": _sf_jp(300 + i),
+            }
+        )
+    return squad
+
+
+def test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one():
+    """The whole point of running the optimizer instead of comparing SFs:
+    the same projection is worth different amounts at different positions."""
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base)
+    assert impact["breaks_xi"] is False
+    # Losing the keeper drops the eleven to a 12-SF substitute.
+    assert impact["xi_loss"] >= 300
+
+
+def test_xi_impact_names_the_player_who_actually_comes_in():
+    """The replacement is the man who enters the eleven, not the best squad
+    member at that position — that one is usually already on the pitch, and
+    naming him printed "tu 11 pierde 95 SF" above a current starter's name."""
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base)
+    assert impact["replacement_name"] == "Fortuño"
+    assert impact["replacement_sf"] == 12
+    assert impact["replacement_name"] not in [
+        row["name"] for row in squad if row["bw_id"] in base["starter_ids"]
+    ]
+
+
+def test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him():
+    """One keeper, and he is the one under offer."""
+    squad = [
+        {"bw_id": 1, "name": "Único POR", "position_id": 1, "jp_player": _sf_jp(4)}
+    ]
+    for i in range(2, 16):
+        squad.append(
+            {
+                "bw_id": i,
+                "name": f"J{i}",
+                "position_id": 2 + (i % 3),
+                "jp_player": _sf_jp(300),
+            }
+        )
+    base = offers._xi_baseline(squad)
+    assert offers._xi_impact(squad, 1, base)["breaks_xi"] is True
+
+
+def test_xi_impact_survives_an_optimizer_failure():
+    """Best-effort: the offer message must still go out."""
+    base = {"total_sf": 1, "starter_ids": set()}
+    with patch(_p("lineup.xi_snapshot"), side_effect=RuntimeError("boom")):
+        impact = offers._xi_impact([{"bw_id": 1}], 1, base)
+    assert impact["xi_loss"] is None and impact["breaks_xi"] is False
+
+
+def test_xi_impact_without_a_baseline_reports_nothing():
+    assert offers._xi_impact([{"bw_id": 1}], 1, None)["xi_loss"] is None
+
+
+def test_xi_impact_respects_the_deadline():
+    """Past the budget the signal degrades instead of eating the digest SLO."""
+    import time
+
+    squad = _squad_with_two_keepers()
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base, deadline=time.monotonic() - 1)
+    assert impact == offers._NO_XI_IMPACT
+
+
+def test_a_non_starter_offer_never_pays_for_the_search():
+    """The depth rules all require `is_starter`, so for anyone else the solve
+    cannot change the verdict — and it costs ~0.65-3 s each."""
+    with patch(_p("_xi_impact")) as impact:
+        offers._score_offer(
+            {"id": 1, "requestedPlayers": [{"id": 99}], "amount": 1_000_000},
+            MagicMock(biwenger_players={}, jp_index={}),
+            {},
+            starter_ids=set(),
+            my_team=[],
+            xi_base={"total_sf": 1, "starter_ids": set()},
+        )
+    impact.assert_not_called()
+
+
+def test_a_starter_offer_does_pay_for_the_search():
+    with patch(_p("_xi_impact"), return_value=dict(offers._NO_XI_IMPACT)) as impact:
+        offers._score_offer(
+            {"id": 1, "requestedPlayers": [{"id": 99}], "amount": 1_000_000},
+            MagicMock(biwenger_players={}, jp_index={}),
+            {},
+            starter_ids={99},
+            my_team=[],
+            xi_base={"total_sf": 1, "starter_ids": set()},
+        )
+    impact.assert_called_once()
+
+
+def test_xi_baseline_swallows_an_optimizer_failure():
+    with patch(_p("lineup.xi_snapshot"), side_effect=RuntimeError("boom")):
+        assert offers._xi_baseline([{"bw_id": 1}]) is None
+
+
 # --- Tier label boundaries -------------------------------------------------
 
 
 def test_tier_label_boundaries():
-    assert "T1" in offers._tier_label(ab.TIER_ALL_IN_MIN)
-    assert "T2" in offers._tier_label(ab.TIER_T2_MIN)
-    assert "T3" in offers._tier_label(ab.TIER_T3_MIN)
-    assert "T4" in offers._tier_label(ab.TIER_T4_MIN)
-    assert "Descarte" in offers._tier_label(ab.TIER_T4_MIN - 1)
+    """Each band names a *projection*, never a squad role.
+
+    These read "Titular fijo" / "Rotación" / "Fondo de armario" — `auto_bid`'s
+    acquisition tiers — until a first-choice goalkeeper projecting 404 came
+    back labelled "⭐ Rotación" and was recommended for sale. Squad role is
+    now its own line, computed from the squad rather than from one number.
+    """
+    assert "Proyección top" in offers._tier_label(ab.TIER_ALL_IN_MIN)
+    assert "Proyección alta" in offers._tier_label(ab.TIER_T2_MIN)
+    assert "Proyección media" in offers._tier_label(ab.TIER_T3_MIN)
+    assert "Proyección baja" in offers._tier_label(ab.TIER_T4_MIN)
+    assert "Sin proyección" in offers._tier_label(ab.TIER_T4_MIN - 1)
+    for sf in (ab.TIER_ALL_IN_MIN, ab.TIER_T3_MIN, ab.TIER_T4_MIN - 1):
+        label = offers._tier_label(sf)
+        assert "Titular" not in label and "Rotación" not in label
+        assert str(sf) in label
 
 
 # --- run_offers_inbox: silent on empty + sends per offer -------------------
@@ -189,7 +401,15 @@ def test_run_offers_inbox_notifies_when_empty_and_requested():
     assert result == {"sent": 1, "offers": 0}
 
 
-def test_run_offers_inbox_sends_one_message_per_offer():
+def test_run_offers_inbox_sends_one_message_per_actionable_offer():
+    """One message per offer *worth deciding on*.
+
+    It used to be one per offer full stop, which is what made listing a squad
+    on the market arrive as fifteen notifications. These two score RECHAZAR
+    (a 100K offer on a 1M player), so they collapse into a single digest —
+    `test_an_actionable_offer_still_arrives_with_its_buttons` covers the
+    other side.
+    """
     fake_offer = {
         "id": 99,
         "amount": 100_000,
@@ -205,8 +425,18 @@ def test_run_offers_inbox_sends_one_message_per_offer():
         _p("send_telegram_message")
     ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
         result = offers.run_offers_inbox(ctx)
+    assert mock_send.call_count == 1
+    assert result == {"sent": 1, "offers": 2, "actionable": 0, "muted": 2}
+
+    # With muting off, both arrive individually and carry their callbacks.
+    with patch.object(offers.config, "OFFERS_MUTE_REJECTED", False), patch(
+        _p("require_telegram"), return_value=("tok", "chat")
+    ), patch(_p("send_telegram_message")) as mock_send, patch(
+        _p("_starter_ids"), return_value=set()
+    ):
+        result = offers.run_offers_inbox(ctx)
     assert mock_send.call_count == 2
-    assert result == {"sent": 2, "offers": 2}
+    assert result == {"sent": 2, "offers": 2, "actionable": 2, "muted": 0}
     # The keyboard must carry the o:a/r/i callbacks for the offer id.
     markup = mock_send.call_args.kwargs.get("reply_markup")
     callbacks = [
@@ -232,7 +462,7 @@ def test_run_offers_inbox_skips_malformed_offer():
     ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
         result = offers.run_offers_inbox(ctx)
     mock_send.assert_not_called()
-    assert result == {"sent": 0, "offers": 1}
+    assert result == {"sent": 0, "offers": 1, "actionable": 0, "muted": 0}
 
 
 # --- run_offer_decision: forwards + posts confirmation ---------------------
@@ -298,3 +528,107 @@ def test_run_offer_decision_forwards_to_sdk_and_notifies():
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Aceptada" in text
     assert "processed" in text
+
+
+# --- Muting the offers that were already answered -------------------------
+
+
+def _scored(name, rec, amount=1_000_000, reasons=("porque no",)):
+    """A scored offer with every key the renderer reads."""
+    return {
+        "offer_id": abs(hash(name)) % 10000,
+        "name": name,
+        "position": "DEL",
+        "offer_amount": amount,
+        "acq_price": 900_000,
+        "acq_date": None,
+        "acq_from": None,
+        "roi": 100_000,
+        "roi_pct": 11.0,
+        "cf_price": 950_000,
+        "vs_market": 50_000,
+        "vs_market_pct": 5.0,
+        "sf": 400,
+        "tier_label": "⭐ Proyección media (SF 400)",
+        "is_starter": False,
+        "xi_loss": None,
+        "breaks_xi": False,
+        "replacement_name": None,
+        "replacement_sf": None,
+        "offerer": "🤖 Mercado público",
+        "until": None,
+        "recommendation": rec,
+        "reasons": list(reasons),
+    }
+
+
+def test_a_rejected_offer_does_not_get_its_own_message():
+    """Listing a squad returns one offer per player — fifteen notifications
+    to say "no" fourteen times."""
+    assert offers._is_muted(_scored("X", offers.REC_REJECT)) is True
+    assert offers._is_muted(_scored("X", offers.REC_DOUBTFUL)) is False
+    assert offers._is_muted(_scored("X", offers.REC_ACCEPT)) is False
+
+
+def test_muting_can_be_turned_off_without_a_deploy():
+    with patch.object(offers.config, "OFFERS_MUTE_REJECTED", False):
+        assert offers._is_muted(_scored("X", offers.REC_REJECT)) is False
+
+
+def test_the_muted_digest_still_names_every_offer_and_its_price():
+    """Muted, never dropped: an offer worth taking against the advice has to
+    stay visible, or the filter is hiding money."""
+    text = offers._format_muted_digest(
+        [
+            _scored("Fulano", offers.REC_REJECT, 4_000_000, ["es tu titular"]),
+            _scored("Mengano", offers.REC_REJECT, 9_000_000, ["pierdes 40%"]),
+        ]
+    )
+    assert "Fulano" in text and "Mengano" in text
+    assert "9.000.000" in text and "4.000.000" in text
+    assert "es tu titular" in text and "pierdes 40%" in text
+    # Highest offer first — the one most likely to be worth overriding.
+    assert text.index("Mengano") < text.index("Fulano")
+    assert "app de Biwenger" in text
+
+
+def test_the_muted_digest_replaces_the_per_offer_messages():
+    """Overriding a reasoned no should cost a trip to the app rather than a
+    mistap in a notification — so the digest carries no buttons."""
+    ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("_starter_ids"), return_value=set()
+    ), patch(_p("_xi_baseline"), return_value=None), patch(
+        _p("_score_offer"),
+        side_effect=[
+            _scored("A", offers.REC_REJECT),
+            _scored("B", offers.REC_REJECT),
+        ],
+    ), patch(
+        _p("send_telegram_message")
+    ) as send:
+        result = offers.run_offers_inbox(ctx)
+
+    assert result["muted"] == 2 and result["actionable"] == 0
+    assert send.call_count == 1  # one digest, not two offers
+    assert "reply_markup" not in send.call_args.kwargs
+
+
+def test_an_actionable_offer_still_arrives_with_its_buttons():
+    ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("_starter_ids"), return_value=set()
+    ), patch(_p("_xi_baseline"), return_value=None), patch(
+        _p("_score_offer"),
+        side_effect=[
+            _scored("Vendible", offers.REC_ACCEPT),
+            _scored("No", offers.REC_REJECT),
+        ],
+    ), patch(
+        _p("send_telegram_message")
+    ) as send:
+        result = offers.run_offers_inbox(ctx)
+
+    assert result == {"sent": 2, "offers": 2, "actionable": 1, "muted": 1}
+    with_buttons = [c for c in send.call_args_list if "reply_markup" in c.kwargs]
+    assert len(with_buttons) == 1

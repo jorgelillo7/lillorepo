@@ -85,6 +85,16 @@ DAILY_LEAGUE_VALUES_ENABLED = (
 #     --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
 LINEUP_SUB_STARTS_ABOVE = int(os.getenv("LINEUP_SUB_STARTS_ABOVE", "350"))
 
+# Whether an offer the algorithm rejects gets its own Telegram message.
+# Listing a squad on the market returns one offer per player, so the inbox
+# answers with fifteen notifications to say "no" fourteen times. Off by
+# default: rejected offers collapse into a single no-button digest, which
+# still names every one and its price. Set to 0 to get a message per offer
+# back — the same knob, no deploy:
+#   gcloud run services update biwenger-api \
+#     --update-env-vars OFFERS_MUTE_REJECTED=0
+OFFERS_MUTE_REJECTED = os.getenv("OFFERS_MUTE_REJECTED", "1") not in ("0", "false", "")
+
 # --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")

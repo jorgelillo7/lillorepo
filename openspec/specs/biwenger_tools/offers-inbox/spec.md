@@ -11,9 +11,9 @@ buttons.
 
 ### Requirement: Sell recommendation algorithm
 
-`recommend` SHALL classify an offer as **RECHAZAR / DUDOSO / ACEPTAR** from the
-player's tier (shared with auto-bid), starter status, and the offer vs cf-base
-market value:
+`recommend` SHALL classify an offer as **RECHAZAR / DUDOSO / ACEPTAR** from two
+independent axes — what the offer is worth in money, and what the squad loses in
+football — never letting one stand in for the other:
 
 - T1 (star) is never sold by default; a star with an indecent over-market offer
   becomes DUDOSO.
@@ -23,7 +23,7 @@ market value:
   the market pays a strong premium over cf-base (loss-aversion override).
 - Bench/discard players with a profit, or any offer clearly above market, are
   accepted; offers clearly below market are rejected (sell publicly instead).
-- Ambiguous T4/no-tier or fair-market rotation cases fall through to DUDOSO.
+- Ambiguous T4/no-tier or fair-market projection cases fall through to DUDOSO.
 
 #### Scenario: representative decisions
 - **WHEN** a star / T2 starter / heavy-loss T3 / below-market offer is seen
@@ -42,9 +42,68 @@ market value:
   `test_recommend_catchall_returns_doubtful`
 
 #### Scenario: tier labels
-- **WHEN** labelling by SF **THEN** the auto-bid tier minimums map to T1–T4 and
-  below the T4 floor is "Descarte"
+- **WHEN** labelling by SF **THEN** each band names a *projection* ("Proyección
+  top / alta / media / baja", "Sin proyección") and never a squad role
 - *Verifies:* `test_tier_label_boundaries`
+
+### Requirement: Squad depth outranks the projection band
+
+A player's JP projection says how well he is expected to *score*; it does not say
+what the squad loses if he *leaves*. The recommendation SHALL price the second
+question separately, by re-running the auto-pick optimizer over the squad without
+the player under offer:
+
+- **WHEN** no legal eleven can be formed without him **THEN** RECHAZAR
+  regardless of the money — an unfilled slot is a flat -4 on the round.
+- **WHEN** he is in the current eleven and the best eleven loses at least
+  `XI_LOSS_REJECT` (150) projected SF without him **THEN** RECHAZAR, unless the
+  offer clears `STAR_OVERRIDE_OVER_MARKET_PCT`, which steps it back to DUDOSO.
+- **WHEN** the loss is smaller **THEN** the money rules decide, and the verdict
+  names the size of the hole and the replacement rather than offering
+  "decide según tu necesidad de cash" alone.
+- **WHEN** the signal cannot be computed **THEN** the money rules SHALL behave
+  exactly as they did without it.
+
+The optimizer SHALL be invoked through `lineup.xi_snapshot`, which runs the same
+search as `pick_lineup` with none of its observation side effects: `provider_watch`
+records the promotions actually bet on each morning, and counterfactual runs must
+not write to that audit trail. The replacement named to the user SHALL be taken
+from the diff of the two elevens, so it is by construction the player the SF
+difference measures — not the best squad member at that position, who is usually
+already on the pitch.
+
+The search is exhaustive backtracking (~0.65 s per solve on a 15-man squad, ~3 s
+at 25 with many multi-position players) and `/ofertas` is chained onto
+`/digests/daily`, which holds a 5-minute end-to-end SLO. Two bounds SHALL apply:
+
+- The baseline eleven is solved **once per inbox**, not once per offer.
+- An offer for a player **not** in the current eleven SHALL NOT be solved at all
+  — every depth rule requires `is_starter`, so the work cannot change its verdict.
+- Past `_DEPTH_BUDGET_S` of wall-clock across the inbox, the signal SHALL degrade
+  to unavailable and the money rules SHALL decide alone.
+
+#### Scenario: an irreplaceable starter is not sold on good numbers
+- **WHEN** a first-choice goalkeeper projecting 404 is offered +20% over what was
+  paid and +2% over cf-base, and the only other keeper projects 12
+- **THEN** RECHAZAR, stating the SF the eleven would lose
+- *Verifies:* `test_recommend_rejects_starter_whose_replacement_cannot_cover`,
+  `test_recommend_rejects_when_selling_breaks_the_eleven`,
+  `test_recommend_downgrades_irreplaceable_starter_on_an_indecent_offer`,
+  `test_recommend_lets_replaceable_starter_be_sold`,
+  `test_recommend_without_depth_signal_keeps_old_behaviour`,
+  `test_xi_impact_prices_a_scarce_position_higher_than_a_covered_one`,
+  `test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him`,
+  `test_xi_impact_survives_an_optimizer_failure`,
+  `test_xi_impact_names_the_player_who_actually_comes_in`,
+  `test_xi_impact_respects_the_deadline`,
+  `test_a_non_starter_offer_never_pays_for_the_search`,
+  `test_a_starter_offer_does_pay_for_the_search`
+
+#### Scenario: the message names the replacement
+- **WHEN** an offer is rendered **THEN** it carries the player's role in the
+  squad, the SF the eleven would lose, and the name of the player who would take
+  his place
+- *Verifies:* `test_xi_impact_names_the_player_who_actually_comes_in`
 
 ### Requirement: Starter detection is resilient
 
@@ -59,6 +118,34 @@ starter).
 - *Verifies:* `test_starter_ids_pulls_from_biwenger_lineup_not_pick_lineup`,
   `test_starter_ids_swallows_sdk_failure`
 
+### Requirement: A rejected offer does not interrupt anyone
+
+Listing a squad on the market returns one offer per listed player, so the inbox
+answered with fifteen notifications to say "no" fourteen times. A RECHAZAR is a
+decision the algorithm has already made with the squad in front of it; what is
+left in it is knowing it happened, not a button.
+
+- **WHEN** an offer scores RECHAZAR and `OFFERS_MUTE_REJECTED` is on (default)
+  **THEN** it SHALL NOT get its own message.
+- **THEN** every muted offer SHALL still appear in a single digest message,
+  named, with its amount and the reason, ordered by amount descending — muted,
+  never dropped, so an offer worth taking against the advice stays visible.
+- **THEN** that digest SHALL carry no decide buttons: overriding a reasoned no
+  belongs in the Biwenger app, not in a mistap on a notification.
+- **WHEN** `OFFERS_MUTE_REJECTED` is off **THEN** every offer gets its own
+  message with buttons, as before.
+
+#### Scenario: a squad listed on the market
+- **WHEN** the inbox holds one sellable offer and several rejected ones
+- **THEN** one message with buttons for the sellable one, plus one digest for
+  the rest
+- *Verifies:* `test_a_rejected_offer_does_not_get_its_own_message`,
+  `test_muting_can_be_turned_off_without_a_deploy`,
+  `test_the_muted_digest_still_names_every_offer_and_its_price`,
+  `test_the_muted_digest_replaces_the_per_offer_messages`,
+  `test_an_actionable_offer_still_arrives_with_its_buttons`,
+  `test_run_offers_inbox_sends_one_message_per_actionable_offer`
+
 ### Requirement: Inbox delivery
 
 `run_offers_inbox` SHALL send one Telegram message per offer (with decide
@@ -71,7 +158,7 @@ on an empty inbox stay silent in digest mode but send "📭 Sin ofertas…" when
 - **WHEN** offers exist **THEN** one message each; a malformed one is skipped
 - **WHEN** the inbox is empty **THEN** silent (digest) or a note (on-demand)
 - **WHEN** a decision is made **THEN** valid → SDK + notify, invalid → raises
-- *Verifies:* `test_run_offers_inbox_sends_one_message_per_offer`,
+- *Verifies:* `test_run_offers_inbox_sends_one_message_per_actionable_offer`,
   `test_run_offers_inbox_skips_malformed_offer`,
   `test_run_offers_inbox_silent_when_empty_default`,
   `test_run_offers_inbox_notifies_when_empty_and_requested`,

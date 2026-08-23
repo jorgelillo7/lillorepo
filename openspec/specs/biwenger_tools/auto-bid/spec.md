@@ -108,6 +108,41 @@ descending.
 - *Verifies:* `test_build_candidates_drops_user_listings_and_unmatched_players`,
   `test_build_candidates_sorts_by_sf_descending`
 
+### Requirement: A bid is priced on whether the player will be on a pitch
+
+The tier ladder reads a single SF number, and JP hands a high one to players who
+are not going to play — one it leaves out of its projected eleven, and one who is
+injured. Read alone, that number sent the all-in tier after both. Before the
+ladder sees a candidate:
+
+- **WHEN** he cannot be fielded at all (injured, suspended, no fixture)
+  **THEN** he SHALL be skipped, and reported as skipped for that reason.
+- **WHEN** JP leaves him out of its projected eleven, **or** the squad already
+  owns better cover at every position he plays (`SQUAD_DEPTH_SLOTS`)
+  **THEN** his SF SHALL be clamped to `BENCH_PRICED_SF` so he cannot reach the
+  all-in or T2 tiers, and the summary SHALL say the bid was reduced and why.
+- **WHEN** he is versatile **THEN** one uncovered position is enough to price
+  him at full value — a signing needs one door open, not all of them.
+- **WHEN** the squad cannot be read **THEN** bidding SHALL continue on the
+  player's own SF, as it did before the signal existed.
+
+The clamp changes what is *paid*, never what is *reported*: the summary shows the
+SF JP actually gave him.
+
+#### Scenario: high-SF non-players do not drain the wallet
+- **WHEN** the daily market offers an injured SF 900 and a benched SF 900
+- **THEN** the injured one is skipped and the benched one is bid for on the T3
+  ladder, leaving the rest of the wallet intact
+- *Verifies:* `test_build_candidates_flags_bench_and_unavailable_players`,
+  `test_bid_sf_caps_a_benched_star_out_of_the_all_in_tier`,
+  `test_bid_sf_caps_a_signing_who_would_sit_on_our_bench`,
+  `test_bid_sf_leaves_a_real_signing_alone`,
+  `test_bid_sf_does_not_annotate_a_player_already_below_the_cap`,
+  `test_would_be_bench_needs_every_position_covered`,
+  `test_would_be_bench_is_false_when_the_position_is_thin`,
+  `test_would_be_bench_is_false_without_a_position`,
+  `test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched`
+
 ### Requirement: Idempotent retries
 
 Cloud Scheduler retries 5xx responses. The system SHALL log each placed bid to
