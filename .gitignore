@@ -52,3 +52,9 @@ draft-ranked*.csv
 .claude/skills/audit-apple-contacts/**/actions.json
 .claude/skills/audit-apple-contacts/**/decisions.json
 .claude/skills/audit-apple-contacts/scripts/config.json
+
+# Personal working notes, kept out of a public repository. The pattern is
+# `NOTES.local.md` anywhere, so any package can keep a private notebook beside
+# its public docs without a new rule each time.
+NOTES.local.md
+**/NOTES.local.md

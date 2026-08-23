@@ -9,6 +9,10 @@ things get found again.
 
 Nothing here builds, deploys or runs in CI.
 
+A `NOTES.local.md` beside this file is the private half — links, versions, a
+build log — and is gitignored, because this repository is public and that one
+is a notebook. It is not required; nothing here depends on it.
+
 ## Legal
 
 > **This directory is documentation only.**
@@ -63,6 +67,35 @@ Two things that are easy to get wrong:
 - **Arcade sets stay zipped.** FBNeo reads the archive; unpacking or renaming
   one is the most common reason a game that should work does not.
 
+## The device
+
+Per the setup write-up this guide draws on (linked at the bottom):
+
+| | |
+|---|---|
+| SoC | Snapdragon 8 Gen 5 |
+| OS | Android 13, clean install |
+| Storage | microSD expansion supported |
+| Screen | dual AMOLED touchscreen |
+
+Two things follow from it being an Android handheld rather than a dedicated
+retro box:
+
+- **Emulators are ordinary apps.** Each is installed and configured on its own;
+  there is no single settings screen covering all of them, which is why every
+  document below repeats where its files go.
+- **Controller mapping is per emulator.** Each one needs its pad assigned to
+  port 1 explicitly — RetroArch through "assign all controls", the standalone
+  emulators through their own equivalent. Worth binding a menu key and an exit
+  key while you are in there; without them you are reaching for the touchscreen
+  mid-game.
+
+**GPU drivers** are only worth touching for the heaviest systems. The write-up
+installs an Adreno driver through a GPU driver browser app and lets it pick the
+recommended build, falling back to choosing manually if the download fails.
+Nothing on the checklists below needs this — it matters for Switch emulation,
+which is outside this collection.
+
 ## Systems
 
 | System | Emulator | Titles |
@@ -95,3 +128,38 @@ give up. Roughly easiest to hardest:
    settings start to matter.
 4. **GameCube/Wii, 3DS** — the most demanding on the hardware and the most
    likely to need tuning per title rather than once globally.
+
+## What this hardware handles
+
+Everything on these checklists is within it. The write-up puts DS and 3DS at
+60-120 FPS and PS2 at a comfortable 30, and reports the device handling
+PS2-and-below without trouble. Switch emulation is where it starts to strain —
+30 FPS on lighter titles, and only with upscaling help — which is one reason
+no Switch list appears here.
+
+So the tuning advice in these documents is about the top of the range, not the
+whole of it: the Sega, GBA and arcade sections need no performance settings at
+all, and saying so is more useful than inventing some.
+
+## A launcher, once it gets big
+
+Fifteen systems and 142 titles is past the point where launching each emulator
+by hand stays pleasant. A front-end that scans one ROMs folder, sorts by
+platform and shows box art is the usual answer, and the write-up uses one
+(Console Launcher) pointed at the ROMs directory with automatic platform
+detection turned on. Any of the common front-ends does the same job.
+
+This is worth doing **after** the systems work individually, not before: a
+launcher that fails to start a game tells you nothing about whether the
+emulator or the launcher is at fault.
+
+---
+
+## Source
+
+The device-specific settings, driver notes and performance figures above come
+from [Cómo instalar emuladores en la AYN
+Thor](https://www.profesionalreview.com/2026/08/16/como-instalar-emuladores-ayn-thor/)
+(Profesional Review, August 2026). Read it for the walkthrough with
+screenshots; this guide keeps only what stays true as app versions move, plus
+the parts specific to this collection.

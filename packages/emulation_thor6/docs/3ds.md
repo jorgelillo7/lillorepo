@@ -16,6 +16,10 @@
 Citra itself is discontinued; Azahar is the fork still receiving fixes, which
 is why it leads here.
 
+Settings from the Thor write-up: Vulkan API, asynchronous shader compilation
+on, internal resolution 5x native, and the secondary screen set to the
+bottom-screen layout. 60-120 FPS is normal.
+
 ## Checklist (5 titles)
 
 - [ ] Mario Kart 7

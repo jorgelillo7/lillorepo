@@ -7,12 +7,20 @@
 > is the only use this guide supports.
 
 
-- **Emulator:** NetherSX2
+- **Emulator:** NetherSX2 (a maintained fork of AetherSX2)
 - **Games go in:** `SD_TEMPLATE/ROMs/ps2/`
 - **BIOS:** Required. NetherSX2 will not boot without a PS2 BIOS image dumped from your own console.
 - **BIOS goes in:** `SD_TEMPLATE/BIOS/`
 
 ## Notes
+
+Settings from the Thor write-up: Vulkan renderer, shader disk cache on,
+asynchronous shaders on. Expect a fairly comfortable 30 FPS. This is the first
+system on the list where per-game tuning starts to pay rather than one global
+set of options doing.
+
+Note the write-up measures AetherSX2, which NetherSX2 forked from — the numbers
+carry over, the menus may have drifted.
 
 Both Kingdom Hearts FINAL MIX editions are Japanese releases; playing them in
 English or Spanish means a fan translation over your own dump. San Andreas has
