@@ -163,7 +163,8 @@ def run_offers_inbox(
     xi_base = _xi_baseline(my_team)
     deadline = time.monotonic() + _DEPTH_BUDGET_S
 
-    sent = 0
+    actionable: list[dict] = []
+    muted: list[dict] = []
     for offer in inbox:
         scored = _score_offer(
             offer, ctx, acq_by_id, starter_ids, my_team, xi_base, deadline
@@ -173,18 +174,77 @@ def run_offers_inbox(
                 "Skipping malformed offer.", extra={"offer_id": offer.get("id")}
             )
             continue
-        text = _format_offer_message(scored)
-        keyboard = _decision_keyboard(scored["offer_id"])
+        if _is_muted(scored):
+            muted.append(scored)
+        else:
+            actionable.append(scored)
+
+    sent = 0
+    for scored in actionable:
         send_telegram_message(
             bot_token=token,
             chat_id=chat_id,
-            text=text,
-            reply_markup=keyboard,
+            text=_format_offer_message(scored),
+            reply_markup=_decision_keyboard(scored["offer_id"]),
         )
         sent += 1
 
-    logger.info("Offers inbox sent.", extra={"offers": len(inbox), "sent": sent})
-    return {"sent": sent, "offers": len(inbox)}
+    if muted:
+        send_telegram_message(
+            bot_token=token, chat_id=chat_id, text=_format_muted_digest(muted)
+        )
+        sent += 1
+
+    logger.info(
+        "Offers inbox sent.",
+        extra={"offers": len(inbox), "sent": sent, "muted": len(muted)},
+    )
+    return {
+        "sent": sent,
+        "offers": len(inbox),
+        "actionable": len(actionable),
+        "muted": len(muted),
+    }
+
+
+def _is_muted(scored: dict) -> bool:
+    """Whether this offer is answered well enough not to interrupt anyone.
+
+    Putting a squad on the market returns one message per listed player, each
+    with its own buttons — fifteen notifications to say "no" fourteen times.
+    A RECHAZAR is a decision the algorithm has already made with the squad in
+    front of it; the value left in it is knowing it happened, not a button.
+
+    Deliberately *muted*, never dropped: every one still appears in the digest
+    below, with its price, so an offer worth taking against the advice is
+    visible and can be accepted in the Biwenger app.
+    """
+    return config.OFFERS_MUTE_REJECTED and scored["recommendation"] == REC_REJECT
+
+
+def _format_muted_digest(muted: list[dict]) -> str:
+    """One message for every offer that did not need its own.
+
+    No buttons: acting on one of these means overriding a reasoned no, which
+    should cost a trip to the app rather than a mistap in a notification.
+    """
+    esc = lambda x: escape(str(x), quote=False)  # noqa: E731
+
+    lines = [
+        f"🔕 <b>{len(muted)} oferta{'s' if len(muted) > 1 else ''} descartada"
+        f"{'s' if len(muted) > 1 else ''}</b>",
+        "",
+    ]
+    for s in sorted(muted, key=lambda m: m["offer_amount"], reverse=True):
+        reason = s["reasons"][0] if s["reasons"] else "no interesa"
+        lines.append(
+            f"❌ <b>{esc(s['name'])}</b> ({esc(s['position'])}) · "
+            f"{esc(format_euros(s['offer_amount']))}"
+        )
+        lines.append(f"   <i>{esc(reason)}</i>")
+    lines.append("")
+    lines.append("<i>Para aceptar alguna, hazlo en la app de Biwenger.</i>")
+    return "\n".join(lines)
 
 
 def run_offer_decision(offer_id: int, decision: str) -> dict:

@@ -118,6 +118,34 @@ starter).
 - *Verifies:* `test_starter_ids_pulls_from_biwenger_lineup_not_pick_lineup`,
   `test_starter_ids_swallows_sdk_failure`
 
+### Requirement: A rejected offer does not interrupt anyone
+
+Listing a squad on the market returns one offer per listed player, so the inbox
+answered with fifteen notifications to say "no" fourteen times. A RECHAZAR is a
+decision the algorithm has already made with the squad in front of it; what is
+left in it is knowing it happened, not a button.
+
+- **WHEN** an offer scores RECHAZAR and `OFFERS_MUTE_REJECTED` is on (default)
+  **THEN** it SHALL NOT get its own message.
+- **THEN** every muted offer SHALL still appear in a single digest message,
+  named, with its amount and the reason, ordered by amount descending — muted,
+  never dropped, so an offer worth taking against the advice stays visible.
+- **THEN** that digest SHALL carry no decide buttons: overriding a reasoned no
+  belongs in the Biwenger app, not in a mistap on a notification.
+- **WHEN** `OFFERS_MUTE_REJECTED` is off **THEN** every offer gets its own
+  message with buttons, as before.
+
+#### Scenario: a squad listed on the market
+- **WHEN** the inbox holds one sellable offer and several rejected ones
+- **THEN** one message with buttons for the sellable one, plus one digest for
+  the rest
+- *Verifies:* `test_a_rejected_offer_does_not_get_its_own_message`,
+  `test_muting_can_be_turned_off_without_a_deploy`,
+  `test_the_muted_digest_still_names_every_offer_and_its_price`,
+  `test_the_muted_digest_replaces_the_per_offer_messages`,
+  `test_an_actionable_offer_still_arrives_with_its_buttons`,
+  `test_run_offers_inbox_sends_one_message_per_actionable_offer`
+
 ### Requirement: Inbox delivery
 
 `run_offers_inbox` SHALL send one Telegram message per offer (with decide

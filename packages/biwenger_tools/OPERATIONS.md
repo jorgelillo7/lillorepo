@@ -283,6 +283,20 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     `DRAFT_APPLY_TO_BIWENGER` — `deploy.yml` rewrites the whole env block, so an
     env var set only on Cloud Run survives exactly until someone merges.
 
+  * **Offer notifications when the squad is on the market:** listing players
+    returns one offer each, so `/ofertas` used to arrive as one message per
+    listed player. Rejected offers now collapse into a single no-button digest
+    that still names every one and its price; accept them in the Biwenger app
+    if you disagree. To get a message per offer back:
+
+    ```bash
+      gcloud run services update biwenger-api --region europe-southwest1 \
+        --update-env-vars OFFERS_MUTE_REJECTED=0
+      gh variable set OFFERS_MUTE_REJECTED --body 0
+    ```
+
+    Same two-step rule as above.
+
     Set too high, a benched star costs a matchday; too low, a genuine reserve
     displaces someone who is actually playing. The 350 default is a judgement —
     nothing measures how often JP's predicted eleven is right.

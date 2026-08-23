@@ -401,7 +401,15 @@ def test_run_offers_inbox_notifies_when_empty_and_requested():
     assert result == {"sent": 1, "offers": 0}
 
 
-def test_run_offers_inbox_sends_one_message_per_offer():
+def test_run_offers_inbox_sends_one_message_per_actionable_offer():
+    """One message per offer *worth deciding on*.
+
+    It used to be one per offer full stop, which is what made listing a squad
+    on the market arrive as fifteen notifications. These two score RECHAZAR
+    (a 100K offer on a 1M player), so they collapse into a single digest —
+    `test_an_actionable_offer_still_arrives_with_its_buttons` covers the
+    other side.
+    """
     fake_offer = {
         "id": 99,
         "amount": 100_000,
@@ -417,8 +425,18 @@ def test_run_offers_inbox_sends_one_message_per_offer():
         _p("send_telegram_message")
     ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
         result = offers.run_offers_inbox(ctx)
+    assert mock_send.call_count == 1
+    assert result == {"sent": 1, "offers": 2, "actionable": 0, "muted": 2}
+
+    # With muting off, both arrive individually and carry their callbacks.
+    with patch.object(offers.config, "OFFERS_MUTE_REJECTED", False), patch(
+        _p("require_telegram"), return_value=("tok", "chat")
+    ), patch(_p("send_telegram_message")) as mock_send, patch(
+        _p("_starter_ids"), return_value=set()
+    ):
+        result = offers.run_offers_inbox(ctx)
     assert mock_send.call_count == 2
-    assert result == {"sent": 2, "offers": 2}
+    assert result == {"sent": 2, "offers": 2, "actionable": 2, "muted": 0}
     # The keyboard must carry the o:a/r/i callbacks for the offer id.
     markup = mock_send.call_args.kwargs.get("reply_markup")
     callbacks = [
@@ -444,7 +462,7 @@ def test_run_offers_inbox_skips_malformed_offer():
     ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
         result = offers.run_offers_inbox(ctx)
     mock_send.assert_not_called()
-    assert result == {"sent": 0, "offers": 1}
+    assert result == {"sent": 0, "offers": 1, "actionable": 0, "muted": 0}
 
 
 # --- run_offer_decision: forwards + posts confirmation ---------------------
@@ -510,3 +528,107 @@ def test_run_offer_decision_forwards_to_sdk_and_notifies():
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Aceptada" in text
     assert "processed" in text
+
+
+# --- Muting the offers that were already answered -------------------------
+
+
+def _scored(name, rec, amount=1_000_000, reasons=("porque no",)):
+    """A scored offer with every key the renderer reads."""
+    return {
+        "offer_id": abs(hash(name)) % 10000,
+        "name": name,
+        "position": "DEL",
+        "offer_amount": amount,
+        "acq_price": 900_000,
+        "acq_date": None,
+        "acq_from": None,
+        "roi": 100_000,
+        "roi_pct": 11.0,
+        "cf_price": 950_000,
+        "vs_market": 50_000,
+        "vs_market_pct": 5.0,
+        "sf": 400,
+        "tier_label": "⭐ Proyección media (SF 400)",
+        "is_starter": False,
+        "xi_loss": None,
+        "breaks_xi": False,
+        "replacement_name": None,
+        "replacement_sf": None,
+        "offerer": "🤖 Mercado público",
+        "until": None,
+        "recommendation": rec,
+        "reasons": list(reasons),
+    }
+
+
+def test_a_rejected_offer_does_not_get_its_own_message():
+    """Listing a squad returns one offer per player — fifteen notifications
+    to say "no" fourteen times."""
+    assert offers._is_muted(_scored("X", offers.REC_REJECT)) is True
+    assert offers._is_muted(_scored("X", offers.REC_DOUBTFUL)) is False
+    assert offers._is_muted(_scored("X", offers.REC_ACCEPT)) is False
+
+
+def test_muting_can_be_turned_off_without_a_deploy():
+    with patch.object(offers.config, "OFFERS_MUTE_REJECTED", False):
+        assert offers._is_muted(_scored("X", offers.REC_REJECT)) is False
+
+
+def test_the_muted_digest_still_names_every_offer_and_its_price():
+    """Muted, never dropped: an offer worth taking against the advice has to
+    stay visible, or the filter is hiding money."""
+    text = offers._format_muted_digest(
+        [
+            _scored("Fulano", offers.REC_REJECT, 4_000_000, ["es tu titular"]),
+            _scored("Mengano", offers.REC_REJECT, 9_000_000, ["pierdes 40%"]),
+        ]
+    )
+    assert "Fulano" in text and "Mengano" in text
+    assert "9.000.000" in text and "4.000.000" in text
+    assert "es tu titular" in text and "pierdes 40%" in text
+    # Highest offer first — the one most likely to be worth overriding.
+    assert text.index("Mengano") < text.index("Fulano")
+    assert "app de Biwenger" in text
+
+
+def test_the_muted_digest_replaces_the_per_offer_messages():
+    """Overriding a reasoned no should cost a trip to the app rather than a
+    mistap in a notification — so the digest carries no buttons."""
+    ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("_starter_ids"), return_value=set()
+    ), patch(_p("_xi_baseline"), return_value=None), patch(
+        _p("_score_offer"),
+        side_effect=[
+            _scored("A", offers.REC_REJECT),
+            _scored("B", offers.REC_REJECT),
+        ],
+    ), patch(
+        _p("send_telegram_message")
+    ) as send:
+        result = offers.run_offers_inbox(ctx)
+
+    assert result["muted"] == 2 and result["actionable"] == 0
+    assert send.call_count == 1  # one digest, not two offers
+    assert "reply_markup" not in send.call_args.kwargs
+
+
+def test_an_actionable_offer_still_arrives_with_its_buttons():
+    ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("_starter_ids"), return_value=set()
+    ), patch(_p("_xi_baseline"), return_value=None), patch(
+        _p("_score_offer"),
+        side_effect=[
+            _scored("Vendible", offers.REC_ACCEPT),
+            _scored("No", offers.REC_REJECT),
+        ],
+    ), patch(
+        _p("send_telegram_message")
+    ) as send:
+        result = offers.run_offers_inbox(ctx)
+
+    assert result == {"sent": 2, "offers": 2, "actionable": 1, "muted": 1}
+    with_buttons = [c for c in send.call_args_list if "reply_markup" in c.kwargs]
+    assert len(with_buttons) == 1
