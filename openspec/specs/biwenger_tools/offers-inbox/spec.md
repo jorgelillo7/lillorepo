@@ -158,7 +158,7 @@ on an empty inbox stay silent in digest mode but send "📭 Sin ofertas…" when
 - **WHEN** offers exist **THEN** one message each; a malformed one is skipped
 - **WHEN** the inbox is empty **THEN** silent (digest) or a note (on-demand)
 - **WHEN** a decision is made **THEN** valid → SDK + notify, invalid → raises
-- *Verifies:* `test_run_offers_inbox_sends_one_message_per_offer`,
+- *Verifies:* `test_run_offers_inbox_sends_one_message_per_actionable_offer`,
   `test_run_offers_inbox_skips_malformed_offer`,
   `test_run_offers_inbox_silent_when_empty_default`,
   `test_run_offers_inbox_notifies_when_empty_and_requested`,
