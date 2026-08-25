@@ -13,6 +13,15 @@
 
 ## Notes
 
+Use the **64-bit** RetroArch build, and install more than one core per system.
+Compatibility problems here are usually solved by switching core, and switching
+is quick enough to be the first thing to try rather than the last. Keep the
+cores updated.
+
+Worth setting globally: save state on exit and load state on start, so you
+resume where you left off — while not depending on save states as your only
+saves.
+
 Team Rocket Edition is a fan hack: it is a patch applied to a base cartridge
 dump you already own, and is neither distributed nor sourced here.
 

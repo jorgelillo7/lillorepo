@@ -14,10 +14,20 @@
 ## Notes
 
 These are freely distributed fangames rather than console dumps, so they are
-the one category on this list with no dumping step — you obtain them from
-their own authors. This Gym of Mine is English-only; a Spanish version means a
-community translation. Each game is its own folder under `JoiPlay_Games/`,
-added to JoiPlay by pointing it at that folder's executable or `Game.ini`.
+the one category here with no dumping step — you get them from their authors.
+Several on this list come from the same author's own site, which also ships a
+PC launcher that needs no emulator at all.
+
+**JoiPlay is not the only option on Android**; Kirin is the alternative worth
+trying when a particular game gives JoiPlay trouble.
+
+This Gym of Mine is English-only; a Spanish version means a community
+translation. Each game is its own folder under `JoiPlay_Games/`, added to
+JoiPlay by pointing it at that folder's executable or `Game.ini`.
+
+**These are folders, not files, and they live outside `ROMs/`** — so
+`sdcard.sh status` cannot inventory them and says so rather than reporting
+them as absent.
 
 ## Checklist (11 titles)
 

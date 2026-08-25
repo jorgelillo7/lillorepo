@@ -13,12 +13,21 @@
 
 ## Notes
 
-Citra itself is discontinued; Azahar is the fork still receiving fixes, which
-is why it leads here.
+Citra is discontinued; Azahar is the fork still receiving fixes.
 
-Settings from the Thor write-up: Vulkan API, asynchronous shader compilation
-on, internal resolution 5x native, and the secondary screen set to the
-bottom-screen layout. 60-120 FPS is normal.
+Settings: Vulkan, asynchronous shader compilation on, internal resolution
+3x-4x native, secondary screen on the bottom-screen layout.
+
+**Switch between Turnip driver builds per game** — the recent Turnip releases
+and the T26 "Toasted" ones each suit different titles. Of everything in this
+collection, this is where the driver choice matters most.
+
+**Let the shaders compile before judging performance**, and drop to 2x
+internal resolution where a game will not hold its frame rate. A few titles
+have known quirks with documented fixes; Pokémon ORAS and Lego City Undercover
+were both reported.
+
+**Do not rely on save states.**
 
 ## Checklist (5 titles)
 

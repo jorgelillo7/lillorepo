@@ -7,15 +7,23 @@
 > is the only use this guide supports.
 
 
-- **Emulator:** Redream, or Flycast via RetroArch
+- **Emulator:** Flycast (standalone)
 - **Games go in:** `SD_TEMPLATE/ROMs/dreamcast/`
-- **BIOS:** Required by Flycast (`dc_boot.bin`, `dc_flash.bin`). Redream can run without it but is more accurate with it.
+- **BIOS:** Required (`dc_boot.bin`, `dc_flash.bin`).
 - **BIOS goes in:** `SD_TEMPLATE/BIOS/`
 
 ## Notes
 
-Crazy Taxi's original licensed soundtrack is present in the disc image itself;
-some later re-releases replaced it.
+Flycast leads rather than Redream, and standalone rather than the RetroArch
+core. Community reports on this handheld put Flycast ahead on performance,
+with widescreen hacks built in and RetroAchievements supported — and note
+Redream is no longer visibly maintained, which for an emulator is the thing
+that settles it.
+
+The built-in widescreen hacks are per-game and not all equally good.
+
+Crazy Taxi's original licensed soundtrack is in the disc image itself; some
+later re-releases replaced it.
 
 ## Checklist (1 titles)
 

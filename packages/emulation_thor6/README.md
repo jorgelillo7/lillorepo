@@ -184,12 +184,12 @@ which is outside this collection.
 | [Sega Master System / Mega Drive](docs/sega.md) | RetroArch — Genesis Plus GX | 17 |
 | [Game Boy Advance](docs/gba.md) | Pizza Boy GBA Pro / RetroArch | 17 |
 | [PlayStation 1](docs/psx.md) | DuckStation | 37 |
-| [Nintendo DS](docs/nds.md) | DraStic | 19 |
+| [Nintendo DS](docs/nds.md) | melonDS Nightly | 19 |
 | [Nintendo 3DS](docs/3ds.md) | Azahar | 5 |
-| [PlayStation Portable](docs/psp.md) | PPSSPP | 3 |
-| [Dreamcast](docs/dreamcast.md) | Redream / Flycast | 1 |
+| [PlayStation Portable](docs/psp.md) | PPSSPP Gold | 3 |
+| [Dreamcast](docs/dreamcast.md) | Flycast | 1 |
 | [GameCube and Wii](docs/gamecube-wii.md) | Dolphin | 4 |
-| [PlayStation 2](docs/ps2.md) | NetherSX2 | 16 |
+| [PlayStation 2](docs/ps2.md) | NetherSX2 Turnip (+2 alternates) | 16 |
 | [Arcade](docs/arcade.md) | RetroArch — FBNeo | 12 |
 | [JoiPlay — PC fangames](docs/joiplay.md) | JoiPlay + RPG Maker plugin | 11 |
 
@@ -222,25 +222,82 @@ So the tuning advice in these documents is about the top of the range, not the
 whole of it: the Sega, GBA and arcade sections need no performance settings at
 all, and saying so is more useful than inventing some.
 
+## Save states are not saves
+
+Its own heading because it is repeated, independently, for **PS2,
+GameCube/Wii, PSP and 3DS**: do not rely on save states there. Use the in-game
+save. They have held up on DS and on the RetroArch systems, which makes those
+the exception rather than the rule.
+
+The related trap, on PS2: **memory cards are not shared between emulators.**
+Switching build mid-game leaves your saves behind in the old one.
+
 ## A launcher, once it gets big
 
 Eleven systems and 142 titles is past the point where launching each emulator
 by hand stays pleasant. A front-end that scans one ROMs folder, sorts by
-platform and shows box art is the usual answer, and the write-up uses one
-(Console Launcher) pointed at the ROMs directory with automatic platform
-detection turned on. Any of the common front-ends does the same job.
+platform and shows box art is the usual answer.
 
-This is worth doing **after** the systems work individually, not before: a
-launcher that fails to start a game tells you nothing about whether the
-emulator or the launcher is at fault.
+**ES-DE** is what this guide's second source settles on, for a specific
+reason: it can assign a **different emulator per game**, which is exactly what
+PS2 needs. It also gives favourites, collections, and hiding duplicate entries
+like a Disc 2 image. Two real costs: scraping art and metadata for a large
+library takes a while — set the device up a few games at a time — and pointing
+it at a card, or at newer emulators, means hand-editing its custom XML files.
+
+It is also optional. Every emulator here except RetroArch has a decent menu of
+its own, and preferring a device that feels like a small computer rather than
+a small console is a legitimate taste.
+
+Either way, do it **after** the systems work individually: a launcher that
+fails to start a game tells you nothing about whether the emulator or the
+launcher is at fault.
+
+## When something will not run
+
+In order, cheapest first:
+
+1. **Lower the internal resolution.** The single most effective change.
+2. **Switch renderer** — Vulkan ↔ OpenGL.
+3. **Try another emulator or core.** On PS2 that is routine rather than a last
+   resort; on the RetroArch systems it is a few taps.
+4. **Check the emulator's wiki**, then search the game by name. Most per-game
+   quirks are known and have a one-setting fix.
+5. **Check the file layout.** Depending on the front-end, files may need a
+   specific structure — in ES-DE a PS1 or Dreamcast game wants its files in a
+   folder named after the disc 1 `.cue`. `./scripts/sdcard.sh status` tells you
+   what is where, which separates a path problem from a settings problem before
+   you spend an evening on the wrong one.
+
+Per-system troubleshooting lives in each document under [`docs/`](docs/).
+
+## RetroAchievements
+
+Every emulator recommended here supports it. It is opt-in and free, and it is
+the main reason RetroArch is preferred for the 2D systems over standalone
+emulators that are better in isolation but lack the support — N64 being the
+clearest example.
 
 ---
 
-## Source
+## Sources
 
-The device-specific settings, driver notes and performance figures above come
-from [Cómo instalar emuladores en la AYN
-Thor](https://www.profesionalreview.com/2026/08/16/como-instalar-emuladores-ayn-thor/)
-(Profesional Review, August 2026). Read it for the walkthrough with
-screenshots; this guide keeps only what stays true as app versions move, plus
-the parts specific to this collection.
+Two, and they disagree in places — where they do, the per-system documents
+follow the second, which is hands-on across more of these systems.
+
+1. [Cómo instalar emuladores en la AYN
+   Thor](https://www.profesionalreview.com/2026/08/16/como-instalar-emuladores-ayn-thor/)
+   (Profesional Review, August 2026) — the walkthrough with screenshots.
+2. A community write-up on r/AynThor recommending emulators per system, with
+   the settings, the per-game caveats and the troubleshooting order above.
+
+**A caveat on the second, worth keeping in mind:** its author is running a
+**Thor Max**, not a Thor 6. Which emulator handles a system best should carry
+over — that is about software maturity — but performance figures and how far
+you can push an internal resolution depend on the hardware, and those two
+devices are not stated to be identical. Treat the settings as a starting point
+to tune from, not as measurements taken on this device.
+
+Both are dated. Emulator recommendations move fast; the second's author says
+as much about their own earlier post. What is kept here is what survives a
+version bump.

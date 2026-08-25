@@ -13,9 +13,25 @@
 
 ## Notes
 
+**Enable Hybrid Ubershaders** — it applies to almost everything — and let the
+shaders compile before judging performance or before starting a game the first
+time. A few titles dislike ubershaders; those are the exception.
+
+**Check the Dolphin Wiki before changing anything else.** It carries per-game
+settings, and this is where guessing wastes the most time. Some games need Dual
+Core disabled (SoulCalibur II); others have a documented one-setting fix for a
+graphical quirk (MGS: The Twin Snakes and its codec colour glitch).
+
+**No built-in widescreen.** Some games ship Gecko codes selectable inside the
+emulator — set the display to widescreen as well — but for many you are hunting
+codes on the Dolphin Wiki or in old forum threads and adding them by hand.
+
+Wii titles reportedly run better than expected. A few are simply too heavy.
+
+**Do not rely on save states.**
+
 The Twin Snakes was never released in Spanish; that means a fan translation
-patch applied to your own disc image. Note this is the most demanding system
-on the list — expect to tune settings per title rather than globally.
+patch applied to your own disc image.
 
 ## Checklist (4 titles)
 
