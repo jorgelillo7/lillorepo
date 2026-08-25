@@ -515,7 +515,12 @@ def test_starter_ids_swallows_sdk_failure():
     assert offers._starter_ids(ctx) == set()
 
 
-def test_run_offer_decision_forwards_to_sdk_and_notifies():
+def test_run_offer_decision_stays_quiet_when_biwenger_agrees():
+    """It used to send "Oferta Aceptada · id 1657307609 · estado final:
+    processed" — a message naming neither the player nor the price, so the
+    reader had to correlate an id against the offer above it. The bot now
+    writes the verdict onto the offer message itself, so repeating it here
+    was noise."""
     biwenger = MagicMock()
     biwenger.decide_offer.return_value = {"id": 1, "status": "processed"}
     with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
@@ -525,9 +530,37 @@ def test_run_offer_decision_forwards_to_sdk_and_notifies():
 
     biwenger.decide_offer.assert_called_once_with(1, "accepted")
     assert result["final_status"] == "processed"
+    assert result["sent"] == 0
+    mock_send.assert_not_called()
+
+
+def test_run_offer_decision_speaks_up_when_biwenger_settles_elsewhere():
+    """The one case the old message existed to catch, now the only case it
+    fires on: we asked to accept and Biwenger did something else."""
+    biwenger = MagicMock()
+    biwenger.decide_offer.return_value = {"id": 1, "status": "expired"}
+    with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
+        _p("require_telegram"), return_value=("tok", "chat")
+    ), patch(_p("send_telegram_message")) as mock_send:
+        result = offers.run_offer_decision(offer_id=1, decision="accepted")
+
+    assert result["sent"] == 1
     text = mock_send.call_args.kwargs.get("text", "")
-    assert "Aceptada" in text
-    assert "processed" in text
+    assert "expired" in text and "accepted" in text
+
+
+def test_a_rejection_settling_as_rejected_is_not_a_surprise():
+    """An accept settles as `processed`, a reject stays `rejected` — the two
+    have different expected outcomes and neither should warn."""
+    biwenger = MagicMock()
+    biwenger.decide_offer.return_value = {"id": 1, "status": "rejected"}
+    with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
+        _p("require_telegram"), return_value=("tok", "chat")
+    ), patch(_p("send_telegram_message")) as mock_send:
+        result = offers.run_offer_decision(offer_id=1, decision="rejected")
+
+    assert result["sent"] == 0
+    mock_send.assert_not_called()
 
 
 # --- Muting the offers that were already answered -------------------------

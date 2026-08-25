@@ -7,6 +7,7 @@ from core.sdk.telegram import (
     TELEGRAM_SET_COMMANDS_URL,
     TELEGRAM_SET_MENU_BUTTON_URL,
     configure_bot_commands,
+    extract_webhook_callback,
     extract_webhook_update,
     parse_command,
     register_bot_commands,
@@ -228,3 +229,47 @@ def test_configure_bot_commands_with_scope_skips_menu_button_reset():
             if r.url == TELEGRAM_SET_MENU_BUTTON_URL.format(token=TEST_BOT_TOKEN)
         ]
         assert len(menu_calls) == 0
+
+
+# --- extract_webhook_callback ---
+
+
+def test_extract_webhook_callback_carries_the_tapped_message_text():
+    """The body of the message the button sat under. Telegram always sends
+    it and it was being dropped, which is why a decision confirmation could
+    only quote an id — the offer's own text was one field away."""
+    req = _mock_json_request(
+        {
+            "callback_query": {
+                "id": "cb-1",
+                "data": "o:a:12345",
+                "message": {
+                    "chat": {"id": 42},
+                    "message_id": 7,
+                    "text": "📥 Oferta entrante\nJugador: Neto (MED)",
+                },
+            }
+        }
+    )
+    cb = extract_webhook_callback(req)
+    assert cb["data"] == "o:a:12345"
+    assert cb["message_id"] == 7
+    assert "Neto (MED)" in cb["text"]
+
+
+def test_extract_webhook_callback_defaults_the_text_when_absent():
+    """A media message has no `text`; callers must get "" rather than None."""
+    req = _mock_json_request(
+        {
+            "callback_query": {
+                "id": "cb-1",
+                "data": "o:i:1",
+                "message": {"chat": {"id": 42}, "message_id": 7},
+            }
+        }
+    )
+    assert extract_webhook_callback(req)["text"] == ""
+
+
+def test_extract_webhook_callback_returns_none_for_a_plain_message():
+    assert extract_webhook_callback(_mock_json_request({"message": {}})) is None

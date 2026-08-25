@@ -146,21 +146,63 @@ left in it is knowing it happened, not a button.
   `test_an_actionable_offer_still_arrives_with_its_buttons`,
   `test_run_offers_inbox_sends_one_message_per_actionable_offer`
 
+### Requirement: A decision is recorded on the offer it settled
+
+Tapping ✅ or ❌ used to answer with a second message — "Oferta Aceptada · id
+1657307609 · estado final: processed" — naming neither the player nor the
+price, so the reader correlated an id against the message above it.
+
+- **WHEN** a decision succeeds **THEN** the bot SHALL write the verdict across
+  the **offer message itself**, keeping the offer readable underneath. That
+  message already carries the player, the price, what was paid and what was
+  advised, which is the whole record in one place.
+- **THEN** the stamp SHALL be applied only **after** the api call returns.
+  The outcome is Biwenger's to confirm, and stamping "ACEPTADA" on a transfer
+  that was refused is a message that lies. A failure leaves the offer
+  unstamped and still posts its error.
+- **THEN** the echoed body SHALL be HTML-escaped before being sent back.
+  Telegram delivers it as plain text and it re-enters an HTML message; an
+  unescaped `&` in a player's name drops the whole thing.
+- **WHEN** Telegram sends no `text` (a media message, or an older offer)
+  **THEN** the banner alone SHALL be sent rather than an empty edit.
+- **WHEN** Biwenger settles on a status other than the one the decision asked
+  for **THEN** `run_offer_decision` SHALL say so; otherwise it SHALL stay
+  silent, the verdict on the offer being the record.
+
+`extract_webhook_callback` SHALL carry the tapped message's `text`. Telegram
+always sends it; it was being discarded, which is why the confirmation had
+only an id to quote.
+
+#### Scenario: accepting an offer
+- **WHEN** ✅ is tapped and the api succeeds **THEN** the offer message reads
+  "OFERTA ACEPTADA" above the offer it settled, and no second message is sent
+- **WHEN** the api fails **THEN** no verdict is stamped and the error is posted
+- *Verifies:* `test_accepting_writes_the_verdict_onto_the_offer_message`,
+  `test_rejecting_says_so_rather_than_reusing_the_accept_banner`,
+  `test_a_failed_decision_leaves_the_offer_unstamped`,
+  `test_the_echoed_offer_text_is_escaped_before_it_goes_back_out`,
+  `test_a_verdict_without_the_original_text_is_still_sent`,
+  `test_run_offer_decision_stays_quiet_when_biwenger_agrees`,
+  `test_run_offer_decision_speaks_up_when_biwenger_settles_elsewhere`,
+  `test_a_rejection_settling_as_rejected_is_not_a_surprise`,
+  `test_extract_webhook_callback_carries_the_tapped_message_text`,
+  `test_extract_webhook_callback_defaults_the_text_when_absent`
+
 ### Requirement: Inbox delivery
 
 `run_offers_inbox` SHALL send one Telegram message per offer (with decide
 buttons), skip malformed offers (empty `requestedPlayers`) without crashing, and
 on an empty inbox stay silent in digest mode but send "📭 Sin ofertas…" when
 `notify_empty=True` (on-demand). An invalid decision SHALL raise;
-`run_offer_decision` SHALL forward a valid one to the SDK and notify.
+`run_offer_decision` SHALL forward a valid one to the SDK.
 
 #### Scenario: per-offer send, empty modes, decision
 - **WHEN** offers exist **THEN** one message each; a malformed one is skipped
 - **WHEN** the inbox is empty **THEN** silent (digest) or a note (on-demand)
-- **WHEN** a decision is made **THEN** valid → SDK + notify, invalid → raises
+- **WHEN** a decision is made **THEN** valid → SDK, invalid → raises
 - *Verifies:* `test_run_offers_inbox_sends_one_message_per_actionable_offer`,
   `test_run_offers_inbox_skips_malformed_offer`,
   `test_run_offers_inbox_silent_when_empty_default`,
   `test_run_offers_inbox_notifies_when_empty_and_requested`,
   `test_run_offer_decision_invalid_raises`,
-  `test_run_offer_decision_forwards_to_sdk_and_notifies`
+  `test_run_offer_decision_stays_quiet_when_biwenger_agrees`

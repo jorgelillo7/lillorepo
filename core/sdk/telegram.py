@@ -398,10 +398,15 @@ def extract_webhook_update(request: Any) -> tuple[str, str, str]:
 def extract_webhook_callback(request: Any) -> Optional[dict]:
     """Pull the callback_query out of a Flask webhook POST.
 
-    Returns a dict with `id`, `chat_id`, `message_id` and `data` when the
-    update is an inline-keyboard tap, or None for any other update kind.
+    Returns a dict with `id`, `chat_id`, `message_id`, `data` and `text` when
+    the update is an inline-keyboard tap, or None for any other update kind.
     `data` is the `callback_data` string the button was created with —
     typically `"prefix:value"`.
+
+    `text` is the tapped message's body, which Telegram sends **without
+    markup** — the formatting arrives separately in `entities` and is not
+    reassembled here. A caller echoing it back into an HTML message must
+    escape it, and should expect the bold to be gone.
     """
     body = request.get_json(silent=True) or {}
     cq = body.get("callback_query")
@@ -413,6 +418,7 @@ def extract_webhook_callback(request: Any) -> Optional[dict]:
         "chat_id": str(message.get("chat", {}).get("id", "")),
         "message_id": message.get("message_id"),
         "data": cq.get("data", ""),
+        "text": message.get("text", ""),
     }
 
 
