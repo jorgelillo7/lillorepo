@@ -91,6 +91,71 @@ is_removable() {
         || plist_bool "$disk" RemovableMediaOrExternalDevice
 }
 
+# How a card is attached. An internal Mac disk reports "Apple Fabric" or
+# "PCI-Express"; a card reader reports "Secure Digital" or "USB". This is the
+# single most decisive signal available — no amount of misconfiguration makes
+# the boot SSD arrive over Secure Digital — so `format` requires it rather
+# than merely consulting it.
+_ALLOWED_BUS='Secure Digital|USB|SD Card|FireWire'
+
+bus_protocol_of() {
+    diskutil info -plist "$1" 2>/dev/null \
+        | plutil -extract BusProtocol raw - 2>/dev/null
+}
+
+# The whole disks that must never be erased, whatever else they claim: the one
+# carrying the running system, the one holding its data volume, and the one
+# this repository is checked out on. Computed rather than hardcoded, so it
+# stays true on any Mac and after any reinstall.
+protected_disks() {
+    local path
+    for path in / /System/Volumes/Data "$PACKAGE_DIR" "$HOME"; do
+        whole_disk_of "$path" 2>/dev/null || true
+    done
+}
+
+# Every reason this disk must not be erased, one per line. Empty output means
+# no objection. Deliberately a list and not a boolean: when a refusal happens
+# the user deserves to know which rule caught it, and during review each rule
+# is legible on its own.
+format_objections() {
+    local disk="$1" bus protected mounted
+
+    if plist_bool "$disk" Internal; then
+        echo "it is an internal disk"
+    fi
+    if plist_bool "$disk" SystemImage; then
+        echo "it is a system image"
+    fi
+    if plist_bool "$disk" OSInternalMedia; then
+        echo "it holds OS internal media"
+    fi
+    if ! plist_bool "$disk" Ejectable \
+        && ! plist_bool "$disk" RemovableMediaOrExternalDevice; then
+        echo "it is neither ejectable nor removable"
+    fi
+
+    bus="$(bus_protocol_of "$disk")"
+    if ! printf '%s' "$bus" | grep -qE "^($_ALLOWED_BUS)$"; then
+        echo "it is attached over '${bus:-unknown}', not a card reader"
+    fi
+
+    # The decisive one. Identity beats every attribute above: whatever a disk
+    # reports about itself, the disk currently running the OS is not a card.
+    for protected in $(protected_disks); do
+        if [ "$disk" = "$protected" ]; then
+            echo "it is the disk carrying the system, your home, or this repo"
+            break
+        fi
+    done
+
+    # A disk mounted at a system path is the system's, regardless of the rest.
+    mounted="$(mount | awk -v d="/dev/$disk" '$1 ~ d {print $3}')"
+    if printf '%s\n' "$mounted" | grep -qE '^(/|/System|/System/Volumes/Data)$'; then
+        echo "one of its volumes is mounted at a system path"
+    fi
+}
+
 filesystem_of() {
     diskutil info -plist "$1" 2>/dev/null \
         | plutil -extract FilesystemType raw - 2>/dev/null \
@@ -233,15 +298,26 @@ cmd_status() {
 }
 
 cmd_format() {
-    local vol disk size name
+    local vol disk size name objections
     vol="$(resolve_volume)"
     disk="$(whole_disk_of "$vol")"
 
-    # Re-verify against the whole disk. `resolve_volume` already filtered on
-    # this, but the thing about to be erased deserves its own check rather
-    # than inheriting one made about a different object.
-    if ! is_removable "$disk"; then
-        red "REFUSING: $disk is not a removable disk."
+    if [ -z "$disk" ]; then
+        red "REFUSING: could not resolve a whole disk for $vol."
+        exit 1
+    fi
+
+    # Every objection, re-derived here against the disk that is actually about
+    # to be erased. `resolve_volume` has filtered already; this does not trust
+    # that, because the cost of the two disagreeing is somebody's Mac.
+    objections="$(format_objections "$disk")"
+    if [ -n "$objections" ]; then
+        red "REFUSING to erase $disk:"
+        printf '%s\n' "$objections" | sed 's/^/   · /' >&2
+        info ""
+        info "This script only ever formats a card reached over a card reader,"
+        info "and never the disk running the system, holding your home, or"
+        info "carrying this repository."
         exit 1
     fi
 
@@ -252,8 +328,12 @@ cmd_format() {
     red  "  THIS ERASES EVERYTHING ON THE DISK"
     echo "     disk:   $disk"
     echo "     media:  $name"
+    echo "     bus:    $(bus_protocol_of "$disk")"
     echo "     size:   $(( size / 1000000000 )) GB"
     echo "     mounted as: $vol"
+    echo
+    echo "  Everything currently mounted from this disk:"
+    mount | awk -v d="/dev/$disk" '$1 ~ d {print "     " $1 " -> " $3}'
     echo
     echo "  Type the disk identifier ($disk) to confirm, anything else to stop."
     # The identifier, not the volume label: cards ship labelled UNTITLED, so a
@@ -286,4 +366,9 @@ main() {
     esac
 }
 
-main "$@"
+# Sourcing exposes the functions without running anything, which is how the
+# safety rules get exercised directly. A guard that is only reachable through
+# the happy path is a guard nobody has tested.
+if [ "${SDCARD_LIB_ONLY:-}" != "1" ]; then
+    main "$@"
+fi
