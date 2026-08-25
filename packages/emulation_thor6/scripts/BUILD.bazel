@@ -1,0 +1,15 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
+
+# The half of the SD-card tooling that can be tested: paths in, a report out,
+# no disk touched. `sdcard.sh` drives `diskutil` and is not unit-testable, so
+# every decision worth pinning — what counts as present, and the difference
+# between a missing BIOS and a game whose filename went unrecognised — lives
+# in `inventory.py` instead.
+py_test(
+    name = "scripts_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]) + ["inventory.py"],
+    main = "tests/main.py",
+    deps = [requirement("pytest")],
+)

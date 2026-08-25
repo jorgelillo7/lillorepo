@@ -58,3 +58,14 @@ draft-ranked*.csv
 # its public docs without a new rule each time.
 NOTES.local.md
 **/NOTES.local.md
+
+# Emulation working material. The repository is public and this is where dumps
+# live before they reach the card — the directories are tracked by their
+# .gitkeep and nothing else. `sdcard.sh` re-checks the index at runtime rather
+# than trusting these lines: a rule written on a feature branch is not in
+# effect on the branch you happen to be committing from, which is exactly how
+# a private file reached master on 2026-08-25.
+packages/emulation_thor6/BIOS/*
+packages/emulation_thor6/ROMs/*
+!packages/emulation_thor6/BIOS/.gitkeep
+!packages/emulation_thor6/ROMs/.gitkeep

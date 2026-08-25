@@ -29,6 +29,43 @@ is a notebook. It is not required; nothing here depends on it.
 > `SD_TEMPLATE/` is deliberately empty. It exists to describe a shape, and
 > `.gitkeep` is the only file that will ever be committed inside it.
 
+## The script
+
+`scripts/sdcard.sh` does the card work. It moves files **you** supply — it
+downloads nothing, and it will not help you find anything.
+
+```bash
+./scripts/sdcard.sh            # check the card and report what is on it
+./scripts/sdcard.sh prepare    # create the folder tree on the card
+./scripts/sdcard.sh sync       # copy BIOS/ and ROMs/ onto the card
+./scripts/sdcard.sh format     # reformat to exFAT (erases, asks first)
+```
+
+The bare command is read-only; everything that writes is a named subcommand.
+Put your dumps in `BIOS/` and `ROMs/<system>/` beside this file — both are
+gitignored — and `sync` places them by the layout below.
+
+Three things it refuses to do:
+
+- **Touch anything that is not removable media.** The check runs against the
+  *whole disk* the volume sits on, not the mounted slice, because those are
+  different objects and only one of them gets erased. Pointing `SD_VOLUME` at
+  your boot disk is refused too.
+- **Erase without the disk identifier typed in.** Not the volume label: cards
+  ship labelled `UNTITLED`, so a label is neither unique nor deliberate.
+- **Copy while git is tracking your dumps.** It asks the index directly rather
+  than trusting `.gitignore` — a rule written on one branch is not in effect
+  on another, which is how a private file reached this public repository once.
+
+`scripts/inventory.py` is the reporting half, and is what `status` calls. It
+tells you what is on the card, and is careful about how it says it: **BIOS
+files are reported as present or absent**, because their names are fixed and
+the two PlayStation images are told apart by size. **Games are not.** A dump
+can be named anything, so a title it does not recognise is listed as *not
+obviously present* — never as missing. Sending you hunting for a game you
+already own, filed under a name the script failed to parse, would be worse
+than saying nothing.
+
 ## How to use `SD_TEMPLATE/`
 
 The tree mirrors what the card should look like. Copy the structure — not the
