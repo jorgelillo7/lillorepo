@@ -368,7 +368,25 @@ def _run_emergencia_refine(params: dict, edit_into: tuple[str, int] | None) -> N
     _run_in_background(_call_refine)
 
 
-def _run_offer_decision(decision_char: str, offer_id_str: str, edit_into) -> None:
+def _verdict_over(original: str, banner: str) -> str:
+    """The offer message with its outcome written across the top.
+
+    The record of a decision has to say *which* offer it settled, and the
+    message under the buttons is the only place that already knows: player,
+    price, what you paid, what the algorithm advised. A separate line saying
+    "Oferta Aceptada · id 1657307609" left the reader correlating ids.
+
+    `original` arrives from Telegram **without markup** — the formatting comes
+    separately as entities and is not reassembled — so it is escaped and sent
+    back as plain body text. The bold in it is lost; the banner keeps its own.
+    """
+    body = html.escape(original) if original else ""
+    return f"{banner}\n{'─' * 24}\n{body}" if body else banner
+
+
+def _run_offer_decision(
+    decision_char: str, offer_id_str: str, edit_into, original_text: str = ""
+) -> None:
     """Handle a tap on the ✅/❌/⏰ buttons under an `/ofertas` message.
 
     `decision_char` is the single-letter callback marker:
@@ -377,7 +395,9 @@ def _run_offer_decision(decision_char: str, offer_id_str: str, edit_into) -> Non
     - `i` → ignore (bot-side only: strip buttons, edit message text)
 
     `edit_into` is `(chat_id, message_id)` of the offer message so we
-    can drop the keyboard once tapped — no double-confirm possible.
+    can drop the keyboard once tapped — no double-confirm possible, and so
+    the outcome can be written onto the offer itself rather than into a
+    second message that only carries an id.
     """
     try:
         offer_id = int(offer_id_str)
@@ -401,7 +421,7 @@ def _run_offer_decision(decision_char: str, offer_id_str: str, edit_into) -> Non
                 bot_token=config.TELEGRAM_BOT_TOKEN,
                 chat_id=chat_id,
                 message_id=message_id,
-                text=f"⏰ <b>Oferta ignorada</b> · id <code>{offer_id}</code>",
+                text=_verdict_over(original_text, "⏰ <b>OFERTA IGNORADA</b>"),
             )
         return
 
@@ -416,6 +436,22 @@ def _run_offer_decision(decision_char: str, offer_id_str: str, edit_into) -> Non
                 method="POST",
                 params={"offer_id": str(offer_id), "decision": decision},
             )
+            # Only now: the outcome is Biwenger's to confirm, and until the
+            # call returns we would be stamping a verdict on a transfer that
+            # might still be refused.
+            if edit_into is not None:
+                banner = (
+                    "✅ <b>OFERTA ACEPTADA</b>"
+                    if decision_char == "a"
+                    else "❌ <b>OFERTA RECHAZADA</b>"
+                )
+                chat_id, message_id = edit_into
+                edit_message_text(
+                    bot_token=config.TELEGRAM_BOT_TOKEN,
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=_verdict_over(original_text, banner),
+                )
         except Exception as exc:
             logger.error(
                 "Webhook: offer decision failed",
@@ -489,7 +525,7 @@ def _handle_callback(cb: dict) -> None:
         if len(parts) != 2 or parts[0] not in ("a", "r", "i"):
             logger.info("Webhook: malformed offer callback", extra={"value": value})
             return
-        _run_offer_decision(parts[0], parts[1], edit_into)
+        _run_offer_decision(parts[0], parts[1], edit_into, cb.get("text", ""))
         return
 
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})

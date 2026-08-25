@@ -71,12 +71,22 @@ def _service_message_update(chat_id):
     }
 
 
-def _callback_update(chat_id, data, message_id=42, query_id="cb-1", from_user_id=None):
-    """Webhook body for an inline-keyboard tap."""
+def _callback_update(
+    chat_id, data, message_id=42, query_id="cb-1", from_user_id=None, text=""
+):
+    """Webhook body for an inline-keyboard tap.
+
+    `text` is the tapped message's body. Telegram always sends it and the
+    offer flow writes its verdict on top of it, so it is worth being able to
+    set here."""
     callback_query = {
         "id": query_id,
         "data": data,
-        "message": {"chat": {"id": chat_id}, "message_id": message_id},
+        "message": {
+            "chat": {"id": chat_id},
+            "message_id": message_id,
+            "text": text,
+        },
     }
     if from_user_id is not None:
         callback_query["from"] = {"id": from_user_id}
@@ -489,8 +499,11 @@ def test_ofertas_reject_callback_posts_decide_rejected(client):
 
 
 def test_ofertas_ignore_callback_edits_message_and_does_not_call_api(client):
-    """`o:i:<id>` strips the keyboard, edits the message text to "ignorada",
-    and never hits the api."""
+    """`o:i:<id>` strips the keyboard, writes "ignorada" across the offer,
+    and never hits the api.
+
+    The id used to be the whole message. It is no longer quoted because the
+    offer it belongs to is right underneath — see `_verdict_over`."""
     with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
         "packages.biwenger_tools.bot.app.edit_message_reply_markup"
     ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
@@ -501,7 +514,6 @@ def test_ofertas_ignore_callback_edits_message_and_does_not_call_api(client):
     mock_call.assert_not_called()
     text = mock_edit.call_args.kwargs.get("text", "")
     assert "ignorada" in text.lower()
-    assert "12345" in text
 
 
 def test_ofertas_malformed_callback_is_ignored(client):
@@ -900,3 +912,85 @@ def test_comparar_command_dispatches(client):
     assert resp.status_code == 200
     mock.assert_called_once()
     assert mock.call_args[0][0] == "comparar"
+
+
+# --- The decision is written onto the offer it settled --------------------
+
+_OFFER_TEXT = (
+    "📥 Oferta entrante\n\n"
+    "Jugador: Neto (MED)\n"
+    "Cantidad: 788.400 €\n"
+    "Recomendación: ✅ ACEPTAR"
+)
+
+
+def test_accepting_writes_the_verdict_onto_the_offer_message(client):
+    """The record has to say which offer it settled. "Oferta Aceptada · id
+    1657307609" named neither the player nor the price, leaving the reader to
+    correlate an id against the message above."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(
+            client, _callback_update(_VALID_CHAT, "o:a:12345", text=_OFFER_TEXT)
+        )
+    assert resp.status_code == 200
+    mock_call.assert_called_once()
+    text = mock_edit.call_args.kwargs.get("text", "")
+    assert "OFERTA ACEPTADA" in text
+    assert "Neto (MED)" in text  # the offer is still readable underneath
+    assert "788.400" in text
+
+
+def test_rejecting_says_so_rather_than_reusing_the_accept_banner(client):
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ):
+        _post(client, _callback_update(_VALID_CHAT, "o:r:12345", text=_OFFER_TEXT))
+    text = mock_edit.call_args.kwargs.get("text", "")
+    assert "OFERTA RECHAZADA" in text
+
+
+def test_a_failed_decision_leaves_the_offer_unstamped(client):
+    """The outcome is Biwenger's to confirm. Stamping "ACEPTADA" on a transfer
+    the api refused would be a message that lies."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api",
+        side_effect=RuntimeError("boom"),
+    ), patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        _post(client, _callback_update(_VALID_CHAT, "o:a:12345", text=_OFFER_TEXT))
+
+    banners = [
+        c.kwargs.get("text", "")
+        for c in mock_edit.call_args_list
+        if "ACEPTADA" in c.kwargs.get("text", "")
+    ]
+    assert banners == []
+    mock_send.assert_called_once()  # the error still reaches the chat
+
+
+def test_the_echoed_offer_text_is_escaped_before_it_goes_back_out():
+    """Telegram's HTML parser is strict and this repo has been bitten twice.
+    The body comes back as plain text and is re-sent inside an HTML message,
+    so a `&` in a player's name must not be able to drop the whole thing."""
+    from packages.biwenger_tools.bot.app import _verdict_over
+
+    out = _verdict_over("Jugador: Sanders & Co <b>", "✅ <b>OK</b>")
+    assert "&amp;" in out and "&lt;b&gt;" in out
+    assert "<b>OK</b>" in out  # the banner keeps its own markup
+
+
+def test_a_verdict_without_the_original_text_is_still_sent():
+    """Telegram omits `text` for a media message, and an older offer message
+    may predate this. Degrade to the banner alone rather than an empty edit."""
+    from packages.biwenger_tools.bot.app import _verdict_over
+
+    assert _verdict_over("", "⏰ <b>IGNORADA</b>") == "⏰ <b>IGNORADA</b>"

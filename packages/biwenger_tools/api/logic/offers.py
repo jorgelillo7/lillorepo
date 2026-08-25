@@ -46,6 +46,12 @@ DECISION_ACCEPT = "accepted"
 DECISION_REJECT = "rejected"
 VALID_DECISIONS = (DECISION_ACCEPT, DECISION_REJECT)
 
+# What Biwenger's own status flips to once it has carried out the decision.
+# An accept becomes "processed" (the transfer executed); a reject stays put.
+# Anything else means the API did something other than what was asked, which
+# is the one thing `run_offer_decision` still speaks up about.
+SETTLED_STATUS = {DECISION_ACCEPT: "processed", DECISION_REJECT: DECISION_REJECT}
+
 # Recommendation tags surfaced to the user.
 REC_ACCEPT = "ACEPTAR"
 REC_REJECT = "RECHAZAR"
@@ -267,20 +273,36 @@ def run_offer_decision(offer_id: int, decision: str) -> dict:
     result = biwenger.decide_offer(int(offer_id), decision)
 
     final_status = result.get("status")
-    if decision == DECISION_ACCEPT:
-        icon, verb = "✅", "Aceptada"
-    else:
-        icon, verb = "❌", "Rechazada"
-    send_telegram_message(
-        bot_token=token,
-        chat_id=chat_id,
-        text=(
-            f"{icon} <b>Oferta {verb}</b> · id <code>{offer_id}</code> · "
-            f"estado final: <code>{escape(str(final_status))}</code>"
-        ),
+
+    # The bot writes the verdict onto the offer message itself, which already
+    # names the player and the price — so a second message repeating it with
+    # only an id was noise. What is left worth saying is the case that message
+    # existed to catch: Biwenger settling on something other than the outcome
+    # we asked for. Silence when it agrees, a loud line when it does not.
+    sent = 0
+    if final_status != SETTLED_STATUS[decision]:
+        sent = 1
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text=(
+                f"⚠️ <b>Biwenger respondió otra cosa</b> · id "
+                f"<code>{offer_id}</code>\n"
+                f"Pedimos <code>{escape(decision)}</code> y el estado final es "
+                f"<code>{escape(str(final_status))}</code>."
+            ),
+        )
+    logger.info(
+        "Offer decision settled.",
+        extra={
+            "offer_id": offer_id,
+            "decision": decision,
+            "final_status": final_status,
+            "unexpected": bool(sent),
+        },
     )
     return {
-        "sent": 1,
+        "sent": sent,
         "offer_id": offer_id,
         "decision": decision,
         "final_status": final_status,
