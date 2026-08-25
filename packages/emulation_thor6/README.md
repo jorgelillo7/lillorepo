@@ -42,6 +42,37 @@ A `NOTES.local.md` beside this file is the private half — links, versions, a
 build log — and is gitignored, because this repository is public and that one
 is a notebook. It is not required; nothing here depends on it.
 
+## What the script does, and what it does not
+
+The script prepares **the card**. It does not touch the console, and the
+console is the larger half of the job. Worth being blunt about, because
+"the card is ready" reads a lot like "I can play now" and it is not.
+
+| | Where | Who |
+|---|---|---|
+| Format the card, build the folder tree | Mac | `sdcard.sh` |
+| Copy your BIOS and games across | Mac | `sdcard.sh` |
+| Report what is on the card | Mac | `sdcard.sh` |
+| **Install each emulator** | Thor 6 | you, once per emulator |
+| **Point each one at its folder on the card** | Thor 6 | you, once per emulator |
+| **Load the BIOS into the emulators that need one** | Thor 6 | you |
+| **Assign the controller to port 1** | Thor 6 | you, once per emulator |
+| **Apply the renderer settings** | Thor 6 | you, for DS / 3DS / PS2 |
+
+So the answer to "the card is full, am I done?" is no. Each emulator is an
+ordinary Android app with its own settings screen, and nothing on the card
+configures them — the files being in the right place is a precondition for
+that work, not a replacement for it.
+
+`./scripts/sdcard.sh status` is the checkpoint between the two halves: run it
+before you pick the console up, and again whenever something will not load,
+because "the file is not where the emulator is looking" and "the emulator is
+misconfigured" look identical from the couch.
+
+Per-system settings live in [`docs/`](docs/) — each document names its
+emulator, where its files go, whether it needs a BIOS, and the settings worth
+changing from the defaults.
+
 ## The script
 
 `scripts/sdcard.sh` does the card work. It moves files **you** supply — it
@@ -193,7 +224,7 @@ all, and saying so is more useful than inventing some.
 
 ## A launcher, once it gets big
 
-Fifteen systems and 142 titles is past the point where launching each emulator
+Eleven systems and 142 titles is past the point where launching each emulator
 by hand stays pleasant. A front-end that scans one ROMs folder, sorts by
 platform and shows box art is the usual answer, and the write-up uses one
 (Console Launcher) pointed at the ROMs directory with automatic platform
