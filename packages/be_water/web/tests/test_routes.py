@@ -391,10 +391,10 @@ def test_google_routes_hidden_until_configured(client):
 
 def test_google_login_sets_identity_and_derives_nickname(client):
     with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"):
-        resp = _google_login(client, "maria.perez@gmail.com")
+        resp = _google_login(client, "maria.perez@example.com")
     assert resp.status_code == 302
     with client.session_transaction() as sess:
-        assert sess["google_email"] == "maria.perez@gmail.com"
+        assert sess["google_email"] == "maria.perez@example.com"
         assert sess["nickname"] == "maria-perez"
 
 
