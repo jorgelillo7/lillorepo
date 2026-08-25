@@ -1,5 +1,34 @@
 # Emulation Collection — AYN Thor 6
 
+> ## No copyrighted files are stored here
+>
+> This directory holds **notes, a folder layout and checklists**. It contains
+> **no ROMs, no disc images, no BIOS dumps, no encryption keys and no
+> copyrighted game data of any kind**. It links to none, it does not say where
+> to obtain any, and it never will. Requests to add them will not be met.
+>
+> **You can check this rather than take our word for it.** Everything tracked
+> here is Markdown, a shell script, a Python script and empty `.gitkeep`
+> files:
+>
+> ```bash
+> git ls-files packages/emulation_thor6/
+> ```
+>
+> The directories under `SD_TEMPLATE/`, `BIOS/` and `ROMs/` exist to **describe
+> a shape** — where a file would go on your own SD card. They are empty and
+> gitignored, and `.gitkeep` is the only thing ever committed inside them.
+>
+> What this is for: organising a collection you already own. Every checklist
+> assumes **dumps you made yourself from media you own**, which is the only use
+> supported here. Where a note mentions a translation patch or a ROM hack, it
+> means a patch applied to your own dump; the patch is not distributed here
+> either.
+>
+> The tooling follows the same rule. `scripts/sdcard.sh` copies files you
+> supply onto a card. It downloads nothing, and it will not help you find
+> anything.
+
 Setup notes and per-system checklists for one handheld. It lives here rather
 than in `docs/` because it is not only prose: `SD_TEMPLATE/` is a folder tree
 meant to be copied onto a card, and a directory layout is an awkward thing to
@@ -12,22 +41,6 @@ Nothing here builds, deploys or runs in CI.
 A `NOTES.local.md` beside this file is the private half — links, versions, a
 build log — and is gitignored, because this repository is public and that one
 is a notebook. It is not required; nothing here depends on it.
-
-## Legal
-
-> **This directory is documentation only.**
->
-> It contains **no ROMs, no disc images, no BIOS dumps and no encryption
-> keys**. It links to none of those, and it does not explain where to obtain
-> them. Requests to add any of them will not be met.
->
-> Every checklist below assumes **you are supplying a dump you made yourself
-> from media you own**. That is the only use this guide supports. Where a note
-> mentions a translation patch or a ROM hack, it means a patch applied to your
-> own dump — the patch is not distributed here either.
->
-> `SD_TEMPLATE/` is deliberately empty. It exists to describe a shape, and
-> `.gitkeep` is the only file that will ever be committed inside it.
 
 ## The script
 

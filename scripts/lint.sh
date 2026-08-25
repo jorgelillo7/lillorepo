@@ -51,4 +51,10 @@ python3 "$REPO_ROOT/scripts/check_base_sync.py"
 echo "==> behaviour specs…"
 python3 "$REPO_ROOT/scripts/check_specs.py"
 
+# The emulation package's README tells anyone arriving at this public
+# repository that it holds no game data, and invites them to verify it. This
+# runs that verification, so the claim cannot quietly stop being true.
+echo "==> emulation package…"
+python3 "$REPO_ROOT/scripts/check_no_game_data.py"
+
 echo "==> lint OK"
