@@ -149,8 +149,8 @@ single source of *what must be true*.
     ```
 
     A brand-new cup *type* is one line in `config.SPECIAL_TOURNAMENTS` (that
-    one does need a redeploy). Teammate `d.lucena9@gmail.com` has
-    `storage.objectCreator` on the bucket.
+    one does need a redeploy). A teammate also holds `storage.objectCreator` on the
+    bucket; the grant names them, and this file does not need to.
 
     **Name the winner too.** The graphic alone forces a click to find out who
     won, so `palmares/{temporada}` carries a `copas` map keyed by the same
