@@ -45,7 +45,9 @@ graph TD
 
 ```
 /core           Shared library: Biwenger SDK, JP SDK, GCP, Telegram, domain models
-/packages       Self-contained services (one subdirectory per package)
+/packages       Self-contained projects, one per subdirectory. Most are
+                deployed services (table above); a few — my_photos,
+                emulation_thor6 — are personal projects with no code to ship
 /docker         Pre-built Python base image (all deps pre-installed)
 /tools          Custom Bazel macros (python_service, python_job)
 /platforms      Platform definitions (linux/amd64, linux/arm64)
