@@ -227,6 +227,12 @@ def build_report(docs_dir: Path, roms_root: Path, bios_dir: Path) -> dict:
             {
                 "system": entry["system"],
                 "folders": entry["folders"],
+                # JoiPlay's fangames live outside `ROMs/` and arrive as
+                # folders rather than files, so this scanner cannot see them.
+                # Flagged rather than reported as zero: an empty count next to
+                # a full checklist reads as "nothing installed", which would be
+                # this script inventing an absence out of its own blind spot.
+                "scannable": bool(entry["folders"]),
                 "files_present": len(filenames),
                 "listed": len(entry["titles"]),
                 "likely_present": present,
@@ -240,6 +246,7 @@ def build_report(docs_dir: Path, roms_root: Path, bios_dir: Path) -> dict:
         "totals": {
             "files": sum(s["files_present"] for s in per_system),
             "listed": sum(s["listed"] for s in per_system),
+            "unscannable": sum(1 for s in per_system if not s["scannable"]),
         },
     }
 
@@ -262,6 +269,12 @@ def render(report: dict) -> str:
     out.append("")
     out.append("Games on disk, per system")
     for entry in report["systems"]:
+        if not entry["scannable"]:
+            out.append(
+                f"    --  {entry['system']}  ({entry['listed']} listed) — not"
+                f" scanned: its files live outside ROMs/"
+            )
+            continue
         out.append(
             f"  {entry['files_present']:>3} file(s)  {entry['system']}"
             f"  ({len(entry['likely_present'])}/{entry['listed']} of the"

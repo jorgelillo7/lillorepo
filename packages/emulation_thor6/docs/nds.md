@@ -7,19 +7,22 @@
 > is the only use this guide supports.
 
 
-- **Emulator:** melonDS Nightly, or DraStic
+- **Emulator:** melonDS Nightly
 - **Games go in:** `SD_TEMPLATE/ROMs/nds/`
-- **BIOS:** None for either. Both ship a high-level BIOS replacement.
+- **BIOS:** None. It ships a high-level BIOS replacement.
 
 ## Notes
 
-Two emulators, and the choice is a real one: DraStic is the fast, paid,
-long-standing option; melonDS is open source and more accurate, and is what the
-Thor write-up recommends. Settings it gives for melonDS: OpenGL renderer,
-internal resolution 5x native (1280x960), and the dual-screen layout configured
-explicitly rather than left at its default.
+melonDS Nightly rather than DraStic. Community reports on this handheld put it
+ahead on the thing that actually goes wrong here: other forks gave trouble with
+the dual screen, and melonDS worked first time.
 
-This is not where the hardware struggles — 60-120 FPS is normal.
+Settings: OpenGL renderer, internal resolution 4x, and **screen swap** to move
+the primary view onto the top screen — the setting people single out. Touch
+input lag exists but is reportedly not intrusive.
+
+Few problems on this system, and save states have held up — which is not true
+of the heavier systems here.
 
 Jump Ultimate Stars never left Japan; a Spanish version means a fan translation
 patch applied to your own dump.

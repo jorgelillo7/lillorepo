@@ -7,20 +7,41 @@
 > is the only use this guide supports.
 
 
-- **Emulator:** NetherSX2 (a maintained fork of AetherSX2)
+- **Emulator:** NetherSX2 Turnip, with two alternates — see notes
 - **Games go in:** `SD_TEMPLATE/ROMs/ps2/`
 - **BIOS:** Required. NetherSX2 will not boot without a PS2 BIOS image dumped from your own console.
 - **BIOS goes in:** `SD_TEMPLATE/BIOS/`
 
 ## Notes
 
-Settings from the Thor write-up: Vulkan renderer, shader disk cache on,
-asynchronous shaders on. Expect a fairly comfortable 30 FPS. This is the first
-system on the list where per-game tuning starts to pay rather than one global
-set of options doing.
+**The one system where the emulator is a per-game decision.** Three builds,
+all descended from the abandoned AetherSX2, and community reports on this
+handheld use all three:
 
-Note the write-up measures AetherSX2, which NetherSX2 forked from — the numbers
-carry over, the menus may have drifted.
+| Build | When |
+|---|---|
+| **NetherSX2 Turnip** | the default — best compatibility and performance overall |
+| **NetherSX2 Classic** (not the Turnip build) | the odd game the default handles worse; Sly Cooper 1 was reported |
+| **ARMSX2 Refresh** (recent Turnip or T26 "Toasted" drivers) | the heaviest titles — Jak 3, Shadow of the Colossus |
+
+ARMSX2 is actively developed and improving, but still shows visual bugs in
+lighter titles (MGS2 was reported), so it earns its place on the demanding
+games rather than as a default.
+
+**Memory cards are not shared between emulators.** Switching build mid-game
+leaves your saves in the old one. This is the trap on this system.
+
+**Do not rely on save states here.** Use in-game saves.
+
+Settings: Vulkan renderer, shader disk cache on, asynchronous shaders on. Turn
+on the colour/saturation boost — PS2 output looks washed out on an OLED
+without it. Widescreen hacks are built in.
+
+When something runs badly, in order: switch Vulkan ↔ OpenGL, try another
+build, **disable hardware readbacks** (a large gain, at the cost of minor
+graphical bugs), lower the internal resolution. The software renderer always
+works if original PS2 visuals are acceptable. Gran Turismo 3 and 4 run well,
+though night stages may want readbacks off.
 
 Both Kingdom Hearts FINAL MIX editions are Japanese releases; playing them in
 English or Spanish means a fan translation over your own dump. San Andreas has

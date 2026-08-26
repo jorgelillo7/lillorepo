@@ -206,3 +206,34 @@ def test_a_name_unambiguous_system_needs_no_size(tmp_path):
     bios.mkdir()
     (bios / "dc_boot.bin").write_bytes(b"x")
     assert inventory.check_bios(bios)["Dreamcast (Flycast)"]["satisfied"] is True
+
+
+def test_a_system_whose_files_live_outside_roms_is_flagged_not_zeroed(tmp_path):
+    """JoiPlay's fangames sit in `JoiPlay_Games/` and arrive as folders, so
+    this scanner cannot see them. Reporting "0 files" beside a full checklist
+    would be inventing an absence out of the script's own blind spot."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "joiplay.md").write_text(
+        "# JoiPlay\n\n- **Games go in:** `SD_TEMPLATE/JoiPlay_Games/`\n\n"
+        "- [ ] Pokémon Iberia\n",
+        encoding="utf-8",
+    )
+    report = inventory.build_report(docs, tmp_path / "ROMs", tmp_path / "BIOS")
+    entry = report["systems"][0]
+
+    assert entry["scannable"] is False
+    assert report["totals"]["unscannable"] == 1
+    text = inventory.render(report)
+    assert "not scanned" in text
+    # And it must not appear in the "did not recognise" list, which would send
+    # the reader hunting for a game the scanner never looked for.
+    assert "· Pokémon Iberia" not in text
+
+
+def test_a_normal_system_is_still_scannable(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    _write_doc(docs, "gba.md", "GBA", "gba", ["Wario Land 4"])
+    report = inventory.build_report(docs, tmp_path / "ROMs", tmp_path / "BIOS")
+    assert report["systems"][0]["scannable"] is True
