@@ -6,7 +6,7 @@ claim about the project.
 For the feature-by-feature story read `packages/*/release-notes.md`; for the
 GCP inventory read `INFRA.md`; for open follow-ups read `PENDING.md`.
 
-**Score: 9.3 / 10.** Cap under current constraints: **~9.5**.
+**Score: 9.35 / 10.** Cap under current constraints: **~9.5**.
 
 Was 9.4, dropped to 9.2 on 2026-08-08 when an audit found a defect class that
 had been there all along and was not being counted: **facts about Biwenger and
@@ -100,7 +100,6 @@ and facts merely believed. The second table is the useful one.
 |---|---|
 | **Unverified provider facts** (table above). Three shipped defects: a legal pick rejected mid-draft, a legal XI declared impossible, and a status branch that never fired because JP spells it `sanctioned`, not `suspended`. All three were the code holding a rule the game does not have. The 2026-08-09 audit closed most of the class by reading the league settings and the live JP payload; what remains is narrower. | **−0.10** |
 | **No revision rollback.** `clean-images-artifact.sh` keeps one digest per service, so the images older Cloud Run revisions point at are gone (verified: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred. Recovery from a bad deploy is revert + wait for CI, ~10 min. | **−0.10** |
-| **Open incident: Lloros Awards.** Both Awards tabs render empty; the Sheets SA key is disabled. Root-caused, not fixed — blocked on a league decision about whether Sheets stays. | **−0.05** |
 | **Bus factor 1.** Every service, SDK and runbook has one author and one operator. Not fixable with engineering. | caps the rest |
 
 ### Accepted gaps — skipped on purpose, not oversights

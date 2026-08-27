@@ -85,6 +85,11 @@ field exists to avoid.
 Remind the user to upload the two graphics as well; without them the block is
 empty. Runbook: `packages/biwenger_tools/OPERATIONS.md` §1.
 
+Reglamento art. 3.5 also proclaims a Liga H2H champion and puts them in the
+palmarés, and `SPECIAL_TOURNAMENTS` has no slug for it. Ask whether this
+season's champion should get one — it needs a graphic, so it is the user's
+call, not an edit to make silently. Tracked in `PENDING.md`.
+
 ## Auto-fetch
 
 If credentials are available, source the env file and run the fetch script. Pass each
@@ -157,18 +162,25 @@ cannot know about.
 
 Then edit:
 
-1. **Snake order** — `core/constants.py`, `DRAFT_ORDER_NAMES`. **One place
-   only**: the api arbitrates the draft with it and the web publishes it on the
-   rulebook page, both reading the same constant. Names must match
-   `LEAGUE_MEMBERS` values (accent/case-insensitive).
+1. **Snake order** — `packages/biwenger_tools/constants.py`,
+   `DRAFT_ORDER_NAMES`. **One place only**: the api arbitrates the draft with
+   it and the web publishes it on the rulebook page, both reading the same
+   constant. Names must match `LEAGUE_MEMBERS` values (accent/case-insensitive).
 2. **Budget overrides** — `packages/biwenger_tools/api/logic/draft.py`,
    `BUDGET_OVERRIDES`. The Copa Castolo winner carries a +2M draft bonus into
    the new season. Keyed **by manager id**, never by draft position — the order
    changes yearly, so a positional key would silently hand the bonus to
    whoever happens to pick third.
-3. **League membership** — `core/constants.py`: `LEAGUE_MEMBERS` and
-   `NON_PLAYING_MEMBER_IDS`, if anyone joined, left, or switched between
-   playing and spectating.
+3. **League membership** — `packages/biwenger_tools/constants.py`:
+   `LEAGUE_MEMBERS` and `NON_PLAYING_MEMBER_IDS`, if anyone joined, left, or
+   switched between playing and spectating.
+4. **H2H calendar** — same file, `H2H_ROUNDS`: seven rounds naming the seven
+   presidents, repeated five times to cover the 35 matchdays (reglamento
+   art. 3.1). It only changes when the roster does, but then it changes
+   entirely — a round robin for six or eight is a different fixture list, and
+   the rulebook annex and the H2H page both render from this one constant.
+   Use the names the reglamento prints (`Lillo`, `Lucen`, `Rubén`), which are
+   not the `LEAGUE_MEMBERS` spellings.
 
 **The rulebook page needs no edit for any of this.** `/reglamento` renders the
 draft order from `DRAFT_ORDER_NAMES` and derives its season label from
