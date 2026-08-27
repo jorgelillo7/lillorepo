@@ -10,7 +10,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 | Service | Resource | Purpose |
 |---|---|---|
-| Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, lloros awards |
+| Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, competiciones |
 | Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (`--no-allow-unauthenticated`) |
 | Cloud Run (Services) | `biwenger-bot` | Telegram bot — receives webhooks, calls `biwenger-api` |
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
