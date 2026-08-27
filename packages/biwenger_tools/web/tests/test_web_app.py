@@ -459,19 +459,19 @@ def test_api_lloros_ligas_returns_sheets_data(mock_get_sheets, client):
         "packages.biwenger_tools.web.routes.season.config.LIGAS_ESPECIALES_SHEETS",
         {config.TEMPORADA_ACTUAL: "sheet-id-test"},
     ):
-        response = client.get("/api/lloros-awards/ligas")
+        response = client.get(f"/{config.TEMPORADA_ACTUAL}/api/lloros-awards/ligas")
     assert response.status_code == 200
     assert response.get_json() == payload
 
 
 def test_api_lloros_ligas_returns_empty_when_no_sheet_configured(client):
-    """If the active season has no sheet ID mapped, the endpoint returns []
+    """If the season has no sheet ID mapped, the endpoint returns []
     (not a 500). Important: silent fall-through is a deliberate design choice."""
     with patch(
         "packages.biwenger_tools.web.routes.season.config.LIGAS_ESPECIALES_SHEETS",
         {},
     ):
-        response = client.get("/api/lloros-awards/ligas")
+        response = client.get("/25-26/api/lloros-awards/ligas")
     assert response.status_code == 200
     assert response.get_json() == []
 
@@ -486,7 +486,7 @@ def test_api_lloros_trofeos_returns_sheets_data(mock_get_sheets, client):
         "packages.biwenger_tools.web.routes.season.config.TROFEOS_SHEETS",
         {config.TEMPORADA_ACTUAL: "sheet-id-test"},
     ):
-        response = client.get("/api/lloros-awards/trofeos")
+        response = client.get(f"/{config.TEMPORADA_ACTUAL}/api/lloros-awards/trofeos")
     assert response.status_code == 200
     assert response.get_json() == payload
 
@@ -1025,3 +1025,99 @@ def test_salseo_survives_a_season_with_no_front_pages(mock_http, mock_get, clien
     assert response.status_code == 200
     assert "Portadas" not in response.data.decode()
     season_routes._portadas_cache.clear()
+
+
+# --- Liga H2H page ---
+
+
+def test_h2h_page_renders_calendar_when_sheet_unavailable(client):
+    """A dead Sheets credential must not blank the page.
+
+    The awards tabs rendered empty for a whole season because the SA key was
+    disabled and every failure looked like «no hay datos». The calendar comes
+    from the reglamento, so it renders regardless — with a banner saying the
+    scores are the part that is missing.
+    """
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_h2h_cache()
+    with patch(
+        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
+        {"26-27": "sheet-id-test"},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
+        side_effect=Exception("invalid_grant"),
+    ):
+        response = client.get("/26-27/h2h")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "No se pueden leer los resultados" in body
+    assert "J35" in body, "el calendario debe seguir estando"
+
+
+def test_h2h_page_states_a_season_never_played_it(client):
+    """The competition started in 26-27. Landing on an older season via the
+    season pill is a normal state, not an error — the blank awards page is
+    exactly the failure this avoids."""
+    with patch(
+        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
+        {"26-27": "sheet-id-test"},
+    ):
+        response = client.get("/25-26/h2h")
+
+    assert response.status_code == 200
+    assert "no se disputó" in response.get_data(as_text=True)
+
+
+def test_h2h_standings_render_from_the_sheet(client):
+    """End to end: sheet rows in, ordered classification out."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_h2h_cache()
+    home, away = H2H_ROUNDS[0]["p1"]
+    rows = [["Jornada", "Partido"], ["1", "1", home, "78", "43", away]]
+    with patch(
+        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
+        {"26-27": "sheet-id-test"},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
+        return_value=rows,
+    ):
+        response = client.get("/26-27/lloros-awards")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "78 – 43" in body
+    assert "Clasificación" in body
+    season_routes.invalidate_h2h_cache()
+
+
+def test_h2h_read_is_cached_between_requests(client):
+    """One Sheets read serves every visitor inside the TTL. `/admin` flushes
+    it for whoever just typed a score and wants it now."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_h2h_cache()
+    with patch(
+        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
+        {"26-27": "sheet-id-test"},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
+        return_value=[],
+    ) as mock_rows:
+        client.get("/26-27/h2h")
+        client.get("/26-27/h2h")
+        assert mock_rows.call_count == 1
+
+        season_routes.invalidate_h2h_cache()
+        client.get("/26-27/h2h")
+        assert mock_rows.call_count == 2
+    season_routes.invalidate_h2h_cache()
+
+
+def test_refresh_h2h_requires_login(client):
+    """The cache flush is a write action on a page open to the internet."""
+    response = client.post("/admin/refresh-h2h", follow_redirects=False)
+    assert response.status_code == 302
+    assert "/admin" in response.headers["Location"]

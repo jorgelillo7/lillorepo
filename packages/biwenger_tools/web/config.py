@@ -32,6 +32,21 @@ TROFEOS_SHEETS = {
     "25-26": os.getenv("TROFEOS_SHEET_ID_25_26"),
 }
 
+# Liga H2H (reglamento ch. III). Started in 26-27; a season absent from this
+# map never played it, which the page states rather than treating as an error.
+# The organiser types two scores per match into this sheet and the site
+# follows within `H2H_CACHE_TTL_SECONDS` — no deploy.
+H2H_SHEETS = {
+    "26-27": os.getenv("H2H_SHEET_ID_26_27"),
+}
+# Deliberately shorter than the portadas/calendar TTLs: those refresh a feed
+# nobody is watching, this one has the organiser reloading to see the score he
+# just typed. `/admin` can flush it early.
+H2H_CACHE_TTL_SECONDS = 300
+# Wide enough to cover the 105 fixtures with room for spare rows; the parser
+# locates the block itself, so the range only has to contain it.
+H2H_SHEET_RANGE = "A1:H500"
+
 # --- Special tournaments (Palmarés "Copas especiales") ---
 # Winner graphics live in a public bucket; the app builds the URL from
 # {slug}/{temporada}.png and the template drops any that 404 (trying .jpg

@@ -5,8 +5,10 @@ Data flow:
 - Content (comunicados/datos/cronicas/clausulazos/participacion/tabla)
   comes from Firestore via `repository.*`. Filtering, ordering, and
   pagination all happen server-side — see the inline queries there.
-- Lloros Awards (ligas especiales + trofeos) still come from Google
-  Sheets — hand-edited by the user, not part of the Firestore data set.
+- The awards page (Liga H2H + ligas especiales + trofeos) comes from
+  Google Sheets — hand-edited by the league, not part of the Firestore
+  data set. H2H is server-rendered because it is what people open the
+  page for; the other two load on demand.
 """
 
 import time
@@ -16,9 +18,9 @@ import requests
 
 from flask import Blueprint, Response, g, jsonify, render_template, request
 
-from core.sdk.gcp import get_sheets_data
+from core.sdk.gcp import get_sheet_rows, get_sheets_data
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, repository, services
+from packages.biwenger_tools.web import config, h2h as h2h_logic, repository, services
 from packages.biwenger_tools.web.sanitize import safe_html, to_text
 
 logger = get_logger(__name__)
@@ -282,10 +284,34 @@ def mercado(season: str) -> str:
 
 @bp.route("/<season>/lloros-awards")
 def lloros_awards(season: str) -> str:
-    """Display the Lloros Awards page for a given season."""
+    """Display the Lloros Awards page for a given season, H2H tab first."""
+    return _render_awards(season, tab="h2h")
+
+
+@bp.route("/<season>/h2h")
+def h2h(season: str) -> str:
+    """Deep link straight to the Liga H2H tab of the awards page.
+
+    H2H lives as a tab rather than a ninth nav entry: the bar is already at
+    eight links and this site is read on a phone.
+    """
+    return _render_awards(season, tab="h2h")
+
+
+def _render_awards(season: str, tab: str) -> str:
+    """Render the awards page. Only the H2H tab is server-rendered.
+
+    Ligas and trofeos stay lazy — they are one fetch each and most visits only
+    want the standings. H2H is the reason people open this page every week, so
+    it must be in the first paint.
+    """
     error = None
     if not services.sheets_service:
         error = "El servicio de Google Sheets no está disponible."
+
+    rounds, issues, h2h_error = _load_h2h(season)
+    if h2h_error and not error:
+        error = h2h_error
 
     return render_template(
         "lloros_awards.html",
@@ -293,30 +319,108 @@ def lloros_awards(season: str) -> str:
         trofeos=None,
         error=error,
         active_page="lloros_awards",
+        active_tab=tab,
+        h2h_played=season in config.H2H_SHEETS,
+        h2h_rounds=rounds,
+        h2h_standings=h2h_logic.standings(rounds) if rounds else [],
+        h2h_issues=issues,
     )
 
 
-@bp.route("/api/lloros-awards/ligas")
-def api_lloros_ligas() -> Response:
-    """Return league data as JSON for the current season."""
+# The organiser reloads to check the score he just typed, so this cache is
+# minutes rather than the half-hour the calendar feed gets.
+_h2h_cache: dict[str, tuple[float, list, list]] = {}
+
+
+def invalidate_h2h_cache() -> None:
+    """Drop every cached H2H read. Called by the admin panel."""
+    _h2h_cache.clear()
+
+
+def _load_h2h(season: str) -> tuple[list, list[str], str | None]:
+    """Rounds, data issues and a user-facing error for one season.
+
+    A season with no sheet configured is not an error — the competition
+    started in 26-27 and simply did not exist before. A sheet that is
+    configured but unreadable **is**: the page still renders the whole
+    calendar without scores, and says why, because the last time a Sheets
+    credential died the pages just went blank for a season.
+    """
+    if season not in config.H2H_SHEETS:
+        return [], [], None
+
+    sheet_id = config.H2H_SHEETS.get(season)
+    if not sheet_id:
+        return (
+            h2h_logic.build_rounds({})[0],
+            [],
+            (
+                "Falta la hoja de resultados de esta temporada; "
+                "el calendario es el del reglamento."
+            ),
+        )
+
+    cached = _h2h_cache.get(season)
+    if cached and time.monotonic() - cached[0] < config.H2H_CACHE_TTL_SECONDS:
+        return cached[1], cached[2], None
+
+    if not services.sheets_service:
+        return (
+            h2h_logic.build_rounds({})[0],
+            [],
+            (
+                "No se pueden leer los resultados ahora mismo; "
+                "el calendario sí está actualizado."
+            ),
+        )
+
+    try:
+        rows = get_sheet_rows(services.sheets_service, sheet_id, config.H2H_SHEET_RANGE)
+    except Exception:
+        logger.exception("Error loading Liga H2H sheet.", extra={"season": season})
+        return (
+            h2h_logic.build_rounds({})[0],
+            [],
+            (
+                "No se pueden leer los resultados ahora mismo; "
+                "el calendario sí está actualizado."
+            ),
+        )
+
+    matches, parse_issues = h2h_logic.parse_rows(rows)
+    rounds, build_issues = h2h_logic.build_rounds(matches)
+    issues = parse_issues + build_issues
+    _h2h_cache[season] = (time.monotonic(), rounds, issues)
+    return rounds, issues, None
+
+
+@bp.route("/<season>/api/lloros-awards/ligas")
+def api_lloros_ligas(season: str) -> Response:
+    """Return league data as JSON for `season`.
+
+    The season is in the path like every other season route. It used to read
+    `g.season`, which on a path without a `<season>` segment resolves from the
+    session cookie — correct only because the page that calls this had just
+    set it.
+    """
     leagues: list = []
     try:
-        sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(g.season)
+        sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(season)
         if sheet_id and services.sheets_service:
             leagues = get_sheets_data(services.sheets_service, sheet_id)
     except Exception:
-        logger.exception("Error loading ligas especiales.", extra={"season": g.season})
+        logger.exception("Error loading ligas especiales.", extra={"season": season})
     return jsonify(leagues)
 
 
-@bp.route("/api/lloros-awards/trofeos")
-def api_lloros_trofeos() -> Response:
-    """Return trophy data as JSON for the current season."""
+@bp.route("/<season>/api/lloros-awards/trofeos")
+def api_lloros_trofeos(season: str) -> Response:
+    """Return trophy data as JSON for `season`."""
     trofeos: list = []
     try:
-        sheet_id = config.TROFEOS_SHEETS.get(g.season)
+        sheet_id = config.TROFEOS_SHEETS.get(season)
         if sheet_id and services.sheets_service:
             trofeos = get_sheets_data(services.sheets_service, sheet_id)
     except Exception:
-        logger.exception("Error loading trofeos.", extra={"season": g.season})
+        logger.exception("Error loading trofeos.", extra={"season": season})
     return jsonify(trofeos)

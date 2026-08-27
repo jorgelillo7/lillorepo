@@ -69,6 +69,26 @@ def trigger_cloud_run_job(project: str, region: str, job_name: str) -> str:
 # --- GOOGLE SHEETS ---
 
 
+def get_sheet_rows(service, spreadsheet_id, range_name: str) -> list[list[str]]:
+    """Raw cell rows for one A1 range, as the Sheets API returns them.
+
+    Ragged by design: the API truncates each row at its last non-empty cell,
+    so callers must index defensively. Omitting the sheet name from
+    ``range_name`` targets the first tab, which survives the owner renaming it.
+
+    Separate from `get_sheets_data` on purpose — that one imposes a
+    nombre/descripción/premio/headers/rows shape that only the awards
+    spreadsheets follow.
+    """
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range=range_name)
+        .execute()
+    )
+    return result.get("values", [])
+
+
 def get_sheets_data(service, spreadsheet_id) -> list[dict]:
     """Reads and processes all sheets from a Google Spreadsheet."""
     sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
