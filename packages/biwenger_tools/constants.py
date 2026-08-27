@@ -47,3 +47,61 @@ DRAFT_ORDER_NAMES: tuple[str, ...] = (
     "Lucena",
     "Fabio",
 )
+
+# H2H league fixture base (reglamento art. 3.1, Anexo II). Seven rounds — one
+# per resting president — repeated five times to cover the 35 matchdays the
+# competition is played over. The organisation fixes it before the season, so
+# it is code rather than data: the rulebook annex must render without a
+# network fetch, and the web's H2H page uses the same list as the skeleton it
+# overlays scores onto.
+#
+# Names are the ones the reglamento and the organiser's spreadsheet print,
+# which are not the `LEAGUE_MEMBERS` spellings (`Lillo`/`Lucen`/`Rubén` vs
+# `Jorge`/`Lucena`/`Ruben`).
+H2H_ROUNDS: tuple[dict, ...] = (
+    {
+        "p1": ("Fabio", "Rubén"),
+        "p2": ("Lillo", "Pablo"),
+        "p3": ("Javi", "Lucen"),
+        "descansa": "Manu",
+    },
+    {
+        "p1": ("Manu", "Rubén"),
+        "p2": ("Fabio", "Pablo"),
+        "p3": ("Lillo", "Javi"),
+        "descansa": "Lucen",
+    },
+    {
+        "p1": ("Lucen", "Rubén"),
+        "p2": ("Manu", "Javi"),
+        "p3": ("Fabio", "Lillo"),
+        "descansa": "Pablo",
+    },
+    {
+        "p1": ("Pablo", "Rubén"),
+        "p2": ("Lucen", "Lillo"),
+        "p3": ("Manu", "Fabio"),
+        "descansa": "Javi",
+    },
+    {
+        "p1": ("Javi", "Rubén"),
+        "p2": ("Pablo", "Fabio"),
+        "p3": ("Lucen", "Manu"),
+        "descansa": "Lillo",
+    },
+    {
+        "p1": ("Lillo", "Rubén"),
+        "p2": ("Javi", "Manu"),
+        "p3": ("Pablo", "Lucen"),
+        "descansa": "Fabio",
+    },
+    {
+        "p1": ("Fabio", "Lucen"),
+        "p2": ("Lillo", "Manu"),
+        "p3": ("Javi", "Pablo"),
+        "descansa": "Rubén",
+    },
+)
+
+# The competition runs over the first 35 official LaLiga matchdays (art. 3.1).
+H2H_MATCHDAYS = 35

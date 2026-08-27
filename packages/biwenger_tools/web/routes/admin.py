@@ -18,6 +18,7 @@ from flask import (
 from core.sdk.gcp import trigger_cloud_run_job
 from core.utils import get_logger
 from packages.biwenger_tools.web import config
+from packages.biwenger_tools.web.routes.season import invalidate_competiciones_cache
 from core.web.csrf import verify_csrf_token
 from core.web.ratelimit import RateLimiter
 
@@ -107,6 +108,33 @@ def run_scraper() -> Response:
 
     success, message = _trigger_scraper_job()
     flash(message, "success" if success else "error")
+    return redirect(url_for("admin.admin"))
+
+
+@bp.route("/admin/refresh-competiciones", methods=["POST"])
+def refresh_competiciones() -> Response:
+    """Drop the cached competitions read so the next visit re-reads the sheets.
+
+    The cache is five minutes, which is short enough for the league and long
+    enough to be maddening for whoever just typed a score and wants to see it.
+    """
+    if "admin_logged_in" not in session:
+        flash("Acceso denegado.", "error")
+        return redirect(url_for("admin.admin"))
+
+    if not verify_csrf_token():
+        logger.warning(
+            "CSRF token mismatch on /admin/refresh-competiciones.",
+            extra={"remote_addr": request.remote_addr},
+        )
+        flash("Sesión expirada. Recarga la página y vuelve a intentarlo.", "error")
+        return redirect(url_for("admin.admin"))
+
+    invalidate_competiciones_cache()
+    flash(
+        "Caché de competiciones vaciada. Recarga la página para ver los cambios.",
+        "success",
+    )
     return redirect(url_for("admin.admin"))
 
 

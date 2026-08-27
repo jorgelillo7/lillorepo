@@ -84,9 +84,9 @@
                 <a href="{{ url_for('season.mercado', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'mercado' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Mercado</a>
-                <a href="{{ url_for('season.lloros_awards', season=season) }}"
-                   class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'lloros_awards' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
-                    Lloros Awards</a>
+                <a href="{{ url_for('season.competiciones', season=season) }}"
+                   class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'competiciones' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                    Competiciones</a>
                 <a href="{{ url_for('season.participacion', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'participacion' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Participación</a>
@@ -129,8 +129,8 @@
                    class="nav-link {% if active_page == 'salseo' %}active{% endif %}">Salseo</a>
                 <a href="{{ url_for('season.mercado', season=season) }}"
                    class="nav-link {% if active_page == 'mercado' %}active{% endif %}">Mercado</a>
-                <a href="{{ url_for('season.lloros_awards', season=season) }}"
-                   class="nav-link {% if active_page == 'lloros_awards' %}active{% endif %}">Lloros Awards</a>
+                <a href="{{ url_for('season.competiciones', season=season) }}"
+                   class="nav-link {% if active_page == 'competiciones' %}active{% endif %}">Competiciones</a>
                 <a href="{{ url_for('season.participacion', season=season) }}"
                    class="nav-link {% if active_page == 'participacion' %}active{% endif %}">Participación</a>
                 <span class="self-center h-4 w-px bg-gray-200 mx-2 flex-shrink-0" aria-hidden="true"></span>

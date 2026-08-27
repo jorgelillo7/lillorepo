@@ -2,8 +2,8 @@
 
 Only the Sheets client lives here now — Drive retired with the
 Firestore migration. The Sheets API still needs an explicit SA key for
-the ligas especiales / trofeos reads (the user shared those sheets
-with the SA, not with the Cloud Run compute identity).
+the trofeos / Liga H2H reads (the user shared those
+sheets with the SA, not with the Cloud Run compute identity).
 """
 
 import os

@@ -20,7 +20,7 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Cloud Run (jobs) | `biwenger-scraper-data` | Sundays 22:00 via Scheduler |
 | Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` |
-| Secret Manager | 5 secrets ×1 version | biwenger-credentials, tools-sa, telegram-bot-config, chucknorris-bot-config, flask-web-config (all `-regional`) |
+| Secret Manager | 5 secrets ×1 active version | biwenger-credentials, tools-sa, telegram-bot-config, chucknorris-bot-config, flask-web-config (all `-regional`) |
 | Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |
 | Workload Identity Federation | pool `github` / provider `github-oidc` | keyless deploys for the whole repo, restricted to `jorgelillo7/lillorepo` |
 | Budget | €1/month alert | |
@@ -53,16 +53,22 @@ repo so the CI cleanup job can delete old digests, plus
 |---|---|---|
 | Gemini API key | AI Studio project `gen-lang-client-0059905191` ("Be Water") | billing linked + €1 budget; image gen needs prepaid AI-credit top-ups (bought in AI Studio) — text/OCR rides the free tier |
 | Telegram bots | `@be_water_app_bot` (catalog notifications) · biwenger league bot · Chuck Norris bot | tokens in Secret Manager |
-| GitHub secrets | 3 | `LIGAS_ESPECIALES_SHEET_ID_25_26`, `TROFEOS_SHEET_ID_25_26` (+ WIF needs none) |
+| GitHub secrets | 2 | `COMPETICIONES_SHEET_IDS_25_26`, `COMPETICIONES_SHEET_IDS_26_27` — one per season, comma-separated ids (+ WIF needs none) |
 
 ## Cost guardrails
 
-- Everything above fits the free tiers **except** sub-cent dust: Secret
-  Manager sits at exactly **6/6 free versions across the billing account**
-  (quota is per billing account, not per project — consolidate before
-  creating a 7th), Cloud Scheduler at **3/3 free jobs** (same account-wide
-  quota — the next cron needs a paid job or a consolidation), and photo
-  storage rides the US always-free tier.
+- Cloud Scheduler is at **3/3** free jobs across the billing account (the
+  quota is per billing account, not per project — the next cron needs a paid
+  job or a consolidation), and photo storage rides the US always-free tier.
+- **Secret Manager sits at 6/6 with no slack.** The free tier is 6 *active*
+  versions per billing account, and "active" counts **Enabled and Disabled
+  alike** — disabling a version does not stop it billing, only destroying it
+  does. The account reached 8 once, because rotating a secret adds a version
+  and the repo-wide runbook never said to destroy the one it replaced; see
+  "Updating a secret" in `docs/operations.md`, which now does. Overage is
+  $0.06 per version per month. Nothing prunes automatically —
+  `scripts/check-gcp-costs.sh` reports, it does not clean. A sixth service
+  needing its own secret has to consolidate into an existing JSON blob.
 - One €1 budget alert per project; `scripts/check-gcp-costs.sh` is the
   auditor — run without flags it sweeps both projects and closes with the
   account-wide Secret Manager version count.

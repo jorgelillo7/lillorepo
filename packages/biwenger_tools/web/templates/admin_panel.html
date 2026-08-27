@@ -55,6 +55,29 @@
         </div>
     </div>
 
+    <!-- Competiciones -->
+    <div class="card p-6 rounded-xl shadow-md">
+        <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Competiciones</h3>
+        <p class="text-sm text-gray-500 mb-5">
+            La web lee las hojas de competiciones y las cachea 5 minutos. Si acabáis de
+            meter una puntuación y queréis verla ya, vaciad la caché.
+        </p>
+        <form method="POST" action="{{ url_for('admin.refresh_competiciones') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 hover:border-gray-400
+                           bg-white text-gray-700 text-sm font-medium rounded-lg shadow-sm transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+                     viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581
+                             m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refrescar resultados
+            </button>
+        </form>
+    </div>
+
     <!-- Sistema -->
     <div class="card p-6 rounded-xl shadow-md">
         <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Sistema</h3>

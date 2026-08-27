@@ -46,8 +46,8 @@ bazel run //packages/biwenger_tools/web:web_local
 
 Needs a local `.env` with `SECRET_KEY`, `ADMIN_PASSWORD`,
 `GCP_PROJECT_ID`, `CLOUD_RUN_JOB_NAME`, `CLOUD_RUN_REGION`, plus the
-Sheets IDs you want to read (`LIGAS_ESPECIALES_SHEET_ID_25_26`,
-`TROFEOS_SHEET_ID_25_26`). For HTTP-only local dev set
+competitions workbooks you want to read (`COMPETICIONES_SHEET_IDS_26_27`,
+comma-separated when a season spans several). For HTTP-only local dev set
 `SESSION_COOKIE_SECURE=false` so the session survives without TLS.
 
 ## 🚀 Deploy

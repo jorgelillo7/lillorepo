@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Competiciones{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Tabs are the workbook's own tabs: a competition exists on the site
+         because it exists in the sheet. Scrollable so labels never wrap. -->
+    {% if tabs %}
+    <div class="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
+        {% for t in tabs %}
+        <button id="btn-{{ t.key }}" onclick="loadSection('{{ t.key }}')"
+                class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">{{ t.label }}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not tabs %}
+    <div class="card p-8 rounded-xl text-center">
+        <p class="text-gray-500">No hay competiciones registradas en la temporada {{ season }}.</p>
+    </div>
+    {% endif %}
+
+    {% if issues %}
+    <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50">
+        <p class="text-sm font-semibold text-amber-800 mb-1">Filas u hojas que no se han podido leer</p>
+        <ul class="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+            {% for issue in issues %}<li>{{ issue }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Liga H2H — server-rendered, it is what people open this page for -->
+    {% if h2h_rounds %}
+    <div id="h2h-container">
+        <!-- Clasificación -->
+        <div class="card p-4 md:p-6 rounded-xl shadow-md mb-6">
+            <h2 class="font-header text-2xl font-bold text-gray-900 mb-1">Clasificación</h2>
+            <p class="text-sm text-gray-500 mb-4">
+                3 puntos por victoria, 1 por empate. Empate cuando la diferencia es de 5 puntos o menos
+                (<a href="{{ url_for('main.reglamento') }}#art-3-3" class="text-green-700 hover:underline">art. 3.3</a>).
+            </p>
+
+            <!-- Mobile: una tarjeta por presidente, el detalle se despliega -->
+            <div class="md:hidden divide-y divide-gray-100">
+                {% for s in h2h_standings %}
+                <div>
+                    <button onclick="toggleStanding({{ loop.index0 }})"
+                            class="w-full flex items-center gap-3 py-3 text-left">
+                        <span class="w-6 text-sm font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.position }}</span>
+                        <span class="flex-1 font-medium text-gray-800">
+                            {{ s.equipo }}{% if s.tie_unresolved %} <span class="text-amber-500" title="Empate técnico: quedan criterios que no salen de esta hoja">≈</span>{% endif %}
+                        </span>
+                        <span class="text-xs text-gray-400">{{ s.pj }} PJ</span>
+                        <span class="w-9 text-right font-bold text-green-700">{{ s.puntos }}</span>
+                        <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="card-detail-{{ loop.index0 }}" class="hidden pb-3 pl-9">
+                        <dl class="grid grid-cols-3 gap-y-2 text-xs">
+                            <div><dt class="text-gray-400">G</dt><dd class="font-medium text-gray-700">{{ s.pg }}</dd></div>
+                            <div><dt class="text-gray-400">E</dt><dd class="font-medium text-gray-700">{{ s.pe }}</dd></div>
+                            <div><dt class="text-gray-400">P</dt><dd class="font-medium text-gray-700">{{ s.pp }}</dd></div>
+                            <div><dt class="text-gray-400">A favor</dt><dd class="font-medium text-gray-700">{{ s.pf }}</dd></div>
+                            <div><dt class="text-gray-400">En contra</dt><dd class="font-medium text-gray-700">{{ s.pc }}</dd></div>
+                            <div><dt class="text-gray-400">Dif.</dt><dd class="font-medium text-gray-700">{{ '+%d' % s.dif if s.dif > 0 else s.dif }}</dd></div>
+                        </dl>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Desktop: la tabla completa -->
+            <table class="hidden md:table min-w-full text-sm">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-200">
+                        <th class="py-2 px-2 text-left font-semibold">#</th>
+                        <th class="py-2 px-2 text-left font-semibold">Presidente</th>
+                        <th class="py-2 px-2 font-semibold">PJ</th>
+                        <th class="py-2 px-2 font-semibold">G</th>
+                        <th class="py-2 px-2 font-semibold">E</th>
+                        <th class="py-2 px-2 font-semibold">P</th>
+                        <th class="py-2 px-2 font-semibold">PF</th>
+                        <th class="py-2 px-2 font-semibold">PC</th>
+                        <th class="py-2 px-2 font-semibold">Dif.</th>
+                        <th class="py-2 px-2 font-semibold text-green-700">Pts</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 text-center">
+                    {% for s in h2h_standings %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="py-2 px-2 text-left font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.position }}</td>
+                        <td class="py-2 px-2 text-left font-medium text-gray-800">
+                            {{ s.equipo }}{% if s.tie_unresolved %} <span class="text-amber-500" title="Empate técnico: quedan criterios que no salen de esta hoja">≈</span>{% endif %}
+                        </td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pj }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pg }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pe }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pp }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pf }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ s.pc }}</td>
+                        <td class="py-2 px-2 text-gray-600">{{ '+%d' % s.dif if s.dif > 0 else s.dif }}</td>
+                        <td class="py-2 px-2 font-bold text-green-700">{{ s.puntos }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if h2h_standings | selectattr('tie_unresolved') | list %}
+            <p class="mt-4 text-xs text-gray-400">
+                ≈ empate técnico: iguales en puntos, diferencia y victorias. El
+                <a href="{{ url_for('main.reglamento') }}#art-3-4" class="hover:underline">art. 3.4</a>
+                lo resuelve con la puntuación total de la Liga Regular, que no está en esta hoja.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Calendario: una tarjeta por jornada -->
+        <div class="space-y-3">
+            <h2 class="font-header text-2xl font-bold text-gray-900">Calendario</h2>
+            {% for r in h2h_rounds %}
+            <div class="card rounded-xl shadow-sm {% if not r.started %}opacity-60{% endif %}">
+                <button onclick="toggleRound({{ r.jornada }})"
+                        class="w-full flex items-center gap-3 px-4 py-3 text-left">
+                    <span class="text-sm font-bold text-gray-800">J{{ r.jornada }}</span>
+                    {% if r.played %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800">Jugada</span>
+                    {% elif r.started %}
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">En juego</span>
+                    {% endif %}
+                    <span class="flex-1"></span>
+                    <span class="text-xs text-gray-400">Descansa {{ r.descansa }}</span>
+                    <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="round-{{ r.jornada }}" class="{% if not r.started %}hidden{% endif %} px-4 pb-3 divide-y divide-gray-100">
+                    {% for d in r.duels %}
+                    <div class="flex items-center gap-2 py-2 text-sm">
+                        <span class="flex-1 text-right {% if d.outcome == 'home' %}font-bold text-green-700{% else %}text-gray-700{% endif %}">{{ d.home }}</span>
+                        <span class="w-20 text-center font-mono {% if d.played %}text-gray-900 font-semibold{% else %}text-gray-300{% endif %}">
+                            {% if d.played %}{{ d.home_points }} – {{ d.away_points }}{% else %}– : –{% endif %}
+                        </span>
+                        <span class="flex-1 {% if d.outcome == 'away' %}font-bold text-green-700{% else %}text-gray-700{% endif %}">{{ d.away }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% for c in competitions %}
+    <div id="{{ c.key }}-container" class="hidden space-y-4">
+        <div class="card p-4 md:p-6 rounded-xl shadow-md">
+            <h2 class="font-header text-2xl font-bold text-gray-900">{{ c.nombre }}</h2>
+            {% if c.descripcion %}
+            <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{{ c.descripcion }}</p>
+            {% endif %}
+            {% if c.premio %}
+            <p class="mt-3 text-sm"><strong class="font-medium text-green-700">Premio:</strong>
+                <span class="text-gray-600 whitespace-pre-wrap">{{ c.premio }}</span></p>
+            {% endif %}
+        </div>
+
+        {% for sec in c.sections %}
+        <div class="card p-4 md:p-6 rounded-xl shadow-md">
+            {% if sec.titulo %}
+            <h3 class="font-header text-lg font-bold text-gray-800 mb-3">{{ sec.titulo }}</h3>
+            {% endif %}
+
+            <!-- Mobile: una tarjeta por fila. La Copa Castolo suma una columna
+                 por jornada, así que en horizontal sería scroll lateral sin fin. -->
+            <div class="md:hidden divide-y divide-gray-100">
+                {% for row in sec.rows %}
+                <div class="py-3">
+                    <p class="font-medium text-gray-800 mb-1">{{ row[0] }}</p>
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        {% for cell in row[1:] %}
+                        {% if cell %}
+                        <div class="flex gap-1 min-w-0">
+                            <dt class="text-gray-400 shrink-0">{{ sec.headers[loop.index] | default('', true) }}</dt>
+                            <dd class="font-medium text-gray-700 truncate">{{ cell }}</dd>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </dl>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-gray-500 border-b border-gray-200">
+                            {% for h in sec.headers %}
+                            <th class="py-2 px-3 {% if loop.first %}text-left{% endif %} font-semibold uppercase tracking-wider">{{ h }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-center">
+                        {% for row in sec.rows %}
+                        <tr class="hover:bg-gray-50 transition">
+                            {% for cell in row %}
+                            <td class="py-2 px-3 {% if loop.first %}text-left font-medium text-gray-800{% else %}text-gray-600{% endif %} whitespace-pre-wrap">{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+.tab-btn { background-color: #f1f5f9; color: #64748b; }
+.tab-btn.active-tab { background-color: #38a169; color: white; }
+</style>
+
+<script>
+const SECTIONS = {{ tabs | map(attribute='key') | list | tojson }};
+
+function toggleStanding(idx) {
+    document.getElementById('card-detail-' + idx)?.classList.toggle('hidden');
+}
+
+function toggleRound(jornada) {
+    document.getElementById('round-' + jornada)?.classList.toggle('hidden');
+}
+
+// Every tab is already in the DOM, rendered from one cached read. Switching
+// is a class toggle — no fetch, no spinner, works offline once loaded.
+function loadSection(section) {
+    SECTIONS.forEach(s => {
+        document.getElementById('btn-' + s)?.classList.toggle('active-tab', s === section);
+        document.getElementById(s + '-container')?.classList.toggle('hidden', s !== section);
+    });
+}
+
+{% if active_tab %}
+document.addEventListener('DOMContentLoaded', () => loadSection('{{ active_tab }}'));
+{% endif %}
+</script>
+{% endblock %}

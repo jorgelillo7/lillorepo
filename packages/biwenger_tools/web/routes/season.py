@@ -1,12 +1,13 @@
-"""Season-scoped routes: comunicados, salseo, participacion, mercado,
-lloros_awards, and their API endpoints.
+"""Season-scoped routes: comunicados, salseo, participacion, mercado and
+competiciones.
 
 Data flow:
 - Content (comunicados/datos/cronicas/clausulazos/participacion/tabla)
   comes from Firestore via `repository.*`. Filtering, ordering, and
   pagination all happen server-side — see the inline queries there.
-- Lloros Awards (ligas especiales + trofeos) still come from Google
-  Sheets — hand-edited by the user, not part of the Firestore data set.
+- The competitions page (Liga H2H, copas, trofeos) comes from Google
+  Sheets — hand-edited by the league, not part of the Firestore data set.
+  One cached read per season covers every tab.
 """
 
 import time
@@ -14,11 +15,26 @@ from dataclasses import asdict
 
 import requests
 
-from flask import Blueprint, Response, g, jsonify, render_template, request
+from flask import (
+    Blueprint,
+    Response,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
-from core.sdk.gcp import get_sheets_data
+from core.sdk.gcp import get_workbook
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, repository, services
+from packages.biwenger_tools.web import (
+    competiciones as competiciones_logic,
+    config,
+    h2h as h2h_logic,
+    repository,
+    services,
+)
 from packages.biwenger_tools.web.sanitize import safe_html, to_text
 
 logger = get_logger(__name__)
@@ -277,46 +293,135 @@ def mercado(season: str) -> str:
     )
 
 
-# --- Lloros Awards (Google Sheets) ---------------------------------------
+# --- Competiciones (Google Sheets) ---------------------------------------
+
+
+@bp.route("/<season>/competiciones")
+def competiciones(season: str) -> str:
+    """Every competition the season played: Liga H2H, copas, trofeos."""
+    return _render_competiciones(season, tab="h2h")
+
+
+@bp.route("/<season>/h2h")
+def h2h(season: str) -> str:
+    """Deep link straight to the Liga H2H tab.
+
+    H2H lives as a tab rather than its own nav entry: the bar is already at
+    eight links and this site is read on a phone.
+    """
+    return _render_competiciones(season, tab="h2h")
 
 
 @bp.route("/<season>/lloros-awards")
-def lloros_awards(season: str) -> str:
-    """Display the Lloros Awards page for a given season."""
-    error = None
-    if not services.sheets_service:
-        error = "El servicio de Google Sheets no está disponible."
+def lloros_awards(season: str) -> Response:
+    """The page's old address, kept because links to it are already out."""
+    return redirect(url_for("season.competiciones", season=season), code=301)
+
+
+def _render_competiciones(season: str, tab: str) -> str:
+    """Render the competitions page.
+
+    Everything is server-rendered from a single cached read, so switching tabs
+    is a class toggle and costs no request at all. Lazy-loading each tab would
+    have meant one Sheets call per tab per visitor and a spinner on every first
+    click; one workbook read covers them all and is shared by everyone inside
+    the TTL.
+    """
+    data = _load_competiciones(season)
+
+    tabs: list[dict] = []
+    if data["rounds"]:
+        tabs.append({"key": "h2h", "label": "🤝 Liga H2H"})
+    tabs += [{"key": c.key, "label": c.label} for c in data["competitions"]]
+
+    keys = [t["key"] for t in tabs]
+    if tab not in keys:
+        tab = keys[0] if keys else ""
 
     return render_template(
-        "lloros_awards.html",
-        leagues=None,
-        trofeos=None,
-        error=error,
-        active_page="lloros_awards",
+        "competiciones.html",
+        error=data["error"],
+        active_page="competiciones",
+        tabs=tabs,
+        active_tab=tab,
+        h2h_rounds=data["rounds"],
+        h2h_standings=data["standings"],
+        competitions=data["competitions"],
+        issues=data["issues"],
     )
 
 
-@bp.route("/api/lloros-awards/ligas")
-def api_lloros_ligas() -> Response:
-    """Return league data as JSON for the current season."""
-    leagues: list = []
-    try:
-        sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(g.season)
-        if sheet_id and services.sheets_service:
-            leagues = get_sheets_data(services.sheets_service, sheet_id)
-    except Exception:
-        logger.exception("Error loading ligas especiales.", extra={"season": g.season})
-    return jsonify(leagues)
+# The organiser reloads to check the score he just typed, so this cache is
+# minutes rather than the half-hour the calendar feed gets.
+_competiciones_cache: dict[str, tuple[float, dict]] = {}
 
 
-@bp.route("/api/lloros-awards/trofeos")
-def api_lloros_trofeos() -> Response:
-    """Return trophy data as JSON for the current season."""
-    trofeos: list = []
-    try:
-        sheet_id = config.TROFEOS_SHEETS.get(g.season)
-        if sheet_id and services.sheets_service:
-            trofeos = get_sheets_data(services.sheets_service, sheet_id)
-    except Exception:
-        logger.exception("Error loading trofeos.", extra={"season": g.season})
-    return jsonify(trofeos)
+def invalidate_competiciones_cache() -> None:
+    """Drop every cached read. Called by the admin panel."""
+    _competiciones_cache.clear()
+
+
+def _empty(error: str | None = None) -> dict:
+    return {
+        "rounds": [],
+        "standings": [],
+        "competitions": [],
+        "issues": [],
+        "error": error,
+    }
+
+
+def _load_competiciones(season: str) -> dict:
+    """Every competition of a season, from one cached read of its workbooks.
+
+    A season with no workbook configured is not an error — it simply has
+    nothing to show. A workbook that is configured but unreadable **is**: the
+    H2H calendar still renders from the reglamento so the page is never blank,
+    and the banner says the scores are what is missing. The last time a Sheets
+    credential died, every page it fed went quietly empty for a season.
+    """
+    sheet_ids = config.COMPETICIONES_SHEETS.get(season) or []
+    if not sheet_ids:
+        return _empty()
+
+    cached = _competiciones_cache.get(season)
+    if cached and time.monotonic() - cached[0] < config.COMPETICIONES_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    unreadable = (
+        "No se pueden leer los datos ahora mismo; " "el calendario sí está actualizado."
+    )
+    if not services.sheets_service:
+        return _empty(unreadable) | {"rounds": h2h_logic.build_rounds({})[0]}
+
+    workbooks = []
+    for sheet_id in sheet_ids:
+        try:
+            workbooks.append(get_workbook(services.sheets_service, sheet_id))
+        except Exception:
+            logger.exception(
+                "Error reading competitions workbook.",
+                extra={"season": season, "sheet_id": sheet_id},
+            )
+            return _empty(unreadable) | {"rounds": h2h_logic.build_rounds({})[0]}
+
+    h2h_rows, competitions, skipped = competiciones_logic.read_workbooks(workbooks)
+
+    rounds: list = []
+    standings: list = []
+    issues = list(skipped)
+    if h2h_rows:
+        matches, parse_issues = h2h_logic.parse_rows(h2h_rows)
+        rounds, build_issues = h2h_logic.build_rounds(matches)
+        standings = h2h_logic.standings(rounds)
+        issues += parse_issues + build_issues
+
+    data = {
+        "rounds": rounds,
+        "standings": standings,
+        "competitions": competitions,
+        "issues": issues,
+        "error": None,
+    }
+    _competiciones_cache[season] = (time.monotonic(), data)
+    return data
