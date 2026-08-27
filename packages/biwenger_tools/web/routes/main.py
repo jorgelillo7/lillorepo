@@ -20,7 +20,11 @@ from flask import (
 )
 
 from core.constants import MADRID_TZ
-from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES
+from packages.biwenger_tools.constants import (
+    DRAFT_ORDER_NAMES,
+    H2H_MATCHDAYS,
+    H2H_ROUNDS,
+)
 from core.sdk.gcp import get_sheets_data
 from core.sdk.http import retry_http_request
 from core.utils import get_logger
@@ -287,6 +291,8 @@ def reglamento() -> str:
         error=error,
         active_page="reglamento",
         draft_order=DRAFT_ORDER_NAMES,
+        h2h_rounds=H2H_ROUNDS,
+        h2h_matchdays=H2H_MATCHDAYS,
         season_label=_season_label(g.season),
     )
 

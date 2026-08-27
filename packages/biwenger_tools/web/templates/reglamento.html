@@ -707,17 +707,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% set h2h_base = [
-                                        {'p1': ('Fabio', 'Rubén'), 'p2': ('Lillo', 'Pablo'), 'p3': ('Javi', 'Lucen'), 'descansa': 'Manu'},
-                                        {'p1': ('Manu', 'Rubén'), 'p2': ('Fabio', 'Pablo'), 'p3': ('Lillo', 'Javi'), 'descansa': 'Lucen'},
-                                        {'p1': ('Lucen', 'Rubén'), 'p2': ('Manu', 'Javi'), 'p3': ('Fabio', 'Lillo'), 'descansa': 'Pablo'},
-                                        {'p1': ('Pablo', 'Rubén'), 'p2': ('Lucen', 'Lillo'), 'p3': ('Manu', 'Fabio'), 'descansa': 'Javi'},
-                                        {'p1': ('Javi', 'Rubén'), 'p2': ('Pablo', 'Fabio'), 'p3': ('Lucen', 'Manu'), 'descansa': 'Lillo'},
-                                        {'p1': ('Lillo', 'Rubén'), 'p2': ('Javi', 'Manu'), 'p3': ('Pablo', 'Lucen'), 'descansa': 'Fabio'},
-                                        {'p1': ('Fabio', 'Lucen'), 'p2': ('Lillo', 'Manu'), 'p3': ('Javi', 'Pablo'), 'descansa': 'Rubén'},
-                                    ] %}
-                                    {% for i in range(35) %}
-                                    {% set j = h2h_base[i % 7] %}
+                                    {% for i in range(h2h_matchdays) %}
+                                    {% set j = h2h_rounds[i % h2h_rounds|length] %}
                                     <tr class="border-b last:border-b-0 border-gray-100">
                                         <td class="py-1.5 px-3 font-semibold text-gray-800">{{ i + 1 }}</td>
                                         <td class="py-1.5 px-3 text-gray-600">{{ j.p1[0] }} – {{ j.p1[1] }}</td>

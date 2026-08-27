@@ -4,6 +4,7 @@ import requests
 import pytest
 from unittest.mock import MagicMock, patch
 
+from packages.biwenger_tools.constants import H2H_MATCHDAYS, H2H_ROUNDS
 from packages.biwenger_tools.web import services
 from packages.biwenger_tools.web.app import app
 from packages.biwenger_tools.web.routes import main as main_routes
@@ -918,6 +919,23 @@ def test_reglamento_renders_every_chapter(client):
     # Both scoring tables are the reader's reference for how points work.
     assert "nota_sofascore" in body
     assert "puntuacion_personalizada" in body
+
+
+def test_reglamento_annex_ii_renders_every_h2h_matchday(client):
+    """Anexo II (art. 3.1) is the H2H fixture list, now rendered from
+    `constants.H2H_ROUNDS` instead of a literal inside the template. It is the
+    same list the H2H page overlays scores onto, so a drift here is a drift in
+    the competition itself."""
+    body = client.get("/reglamento").get_data(as_text=True)
+
+    for matchday in range(1, H2H_MATCHDAYS + 1):
+        assert f">{matchday}</td>" in body, f"falta la jornada {matchday}"
+    # The base repeats every seven rounds; round 1 rests Manu and round 7
+    # rests Rubén, which pins both ends of the cycle.
+    assert H2H_ROUNDS[0]["descansa"] == "Manu"
+    assert H2H_ROUNDS[6]["descansa"] == "Rubén"
+    for home, away in (H2H_ROUNDS[0]["p1"], H2H_ROUNDS[6]["p3"]):
+        assert home in body and away in body
 
 
 @patch(
