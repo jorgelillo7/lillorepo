@@ -254,9 +254,6 @@ jobs:
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
             --update-secrets="/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest,FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
-            # COMPETICIONES_SHEET_IDS_* hold several ids separated by `;`.
-            # Not commas: this flag splits its own value on commas, so one
-            # inside a value fails the deploy with "Bad syntax for dict arg".
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
