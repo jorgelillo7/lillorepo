@@ -107,6 +107,7 @@ and facts merely believed. The second table is the useful one.
 | Gap | Why |
 |---|---|
 | Real observability (alerts, SLI dashboards) | Would leave the free tier; Cloud Logging suits a human-driven workflow |
+| A Sheets-only service account for the web | The web mounts a key on `biwenger-tools-sa`, which carries four other enabled keys. Narrowing it would cost a new key, a Secret Manager version the billing account does not have spare (6/6 free), and a second credential to remember at every rollover — for a narrower blast radius on a private league with one operator. Declined on 2026-08-28, deliberately, not forgotten |
 | Staging environment | Local + prod is enough for one user |
 | Integration tests against a Firestore emulator / Biwenger sandbox | Heavy setup for the marginal value at this traffic. A cheaper in-process bot↔api suite covers the contract that actually broke |
 | Coverage for the draft skill's 32 tests | They live under `.claude/`, which coverage cannot instrument. The tests **do** run in CI; only the percentage misses them, and moving the code would blur the split between the skill's read-only scripts and the ones that write Firestore |

@@ -20,7 +20,6 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Repoint `biwenger-tools-sa-regional` to a Sheets-only SA | Nothing now — the Sheets decision is made (key re-enabled, option (a)) · [why it is still worth doing](docs/technical/parked-work.md#lloros-awards--competiciones) |
 | ⏳ | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | ⏳ | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | ⏳ | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
