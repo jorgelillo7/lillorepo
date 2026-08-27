@@ -103,6 +103,13 @@ private league, and cost a new key, a Secret Manager version the billing
 account does not have spare (it sits at exactly 6 of 6 free), and a second
 credential to remember at every rollover.
 
+The workbooks are **Restricted**, shared with the Sheets service account and
+nobody else with a link. They were briefly link-public while the ids were being
+read during design; that was undone on 2026-08-28 and the reads were verified
+against the closed sheets, so option (c') — dropping the credential and reading
+a published CSV — is no longer available and would mean making league data
+public again to get it back.
+
 Option (c), moving the awards into Firestore, is now the *wrong* trade: the
 league edits these tables weekly in a spreadsheet and wants to keep doing so.
 What (c) was really solving — configuration that needs a deploy — is better
