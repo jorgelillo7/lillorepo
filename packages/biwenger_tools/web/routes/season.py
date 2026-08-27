@@ -375,10 +375,14 @@ def _load_competiciones(season: str) -> dict:
     """Every competition of a season, from one cached read of its workbooks.
 
     A season with no workbook configured is not an error — it simply has
-    nothing to show. A workbook that is configured but unreadable **is**: the
-    H2H calendar still renders from the reglamento so the page is never blank,
-    and the banner says the scores are what is missing. The last time a Sheets
-    credential died, every page it fed went quietly empty for a season.
+    nothing to show.
+
+    When a read fails, the **last successful one is served past its TTL** with
+    a banner saying the figures may be behind. Falling back to a freshly built
+    calendar instead would invent an H2H tab for a season that never played
+    the competition, and would show the current roster's fixtures on a past
+    season. Stale-but-real beats fresh-but-wrong; with nothing cached the page
+    says so rather than guessing.
     """
     sheet_ids = config.COMPETICIONES_SHEETS.get(season) or []
     if not sheet_ids:
@@ -388,11 +392,18 @@ def _load_competiciones(season: str) -> dict:
     if cached and time.monotonic() - cached[0] < config.COMPETICIONES_CACHE_TTL_SECONDS:
         return cached[1]
 
-    unreadable = (
-        "No se pueden leer los datos ahora mismo; " "el calendario sí está actualizado."
-    )
+    def _degraded() -> dict:
+        if cached:
+            return cached[1] | {
+                "error": (
+                    "No se han podido actualizar los datos; "
+                    "lo que ves puede estar desfasado."
+                )
+            }
+        return _empty("No se pueden leer los datos ahora mismo.")
+
     if not services.sheets_service:
-        return _empty(unreadable) | {"rounds": h2h_logic.build_rounds({})[0]}
+        return _degraded()
 
     workbooks = []
     for sheet_id in sheet_ids:
@@ -403,7 +414,7 @@ def _load_competiciones(season: str) -> dict:
                 "Error reading competitions workbook.",
                 extra={"season": season, "sheet_id": sheet_id},
             )
-            return _empty(unreadable) | {"rounds": h2h_logic.build_rounds({})[0]}
+            return _degraded()
 
     h2h_rows, competitions, skipped = competiciones_logic.read_workbooks(workbooks)
 

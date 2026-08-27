@@ -1128,28 +1128,56 @@ def test_a_group_stage_renders_one_table_per_group(client):
     season_routes.invalidate_competiciones_cache()
 
 
-def test_competiciones_render_calendar_when_sheets_unavailable(client):
-    """A dead Sheets credential must not blank the page.
+def test_a_failed_read_never_invents_an_h2h_tab(client):
+    """25-26 did not play the H2H, and a Sheets outage must not say it did.
 
-    The awards tabs rendered empty for a whole season because the SA key was
-    disabled and every failure looked like «no hay datos». The H2H calendar
-    comes from the reglamento, so it renders regardless — with a banner saying
-    the scores are the part that is missing.
+    The first fallback built a fresh calendar from `H2H_ROUNDS` on any failure,
+    which gave every season an H2H tab — and on a past season it would have
+    been the *current* roster's fixtures.
     """
     from packages.biwenger_tools.web.routes import season as season_routes
 
     season_routes.invalidate_competiciones_cache()
     with patch.multiple(
         "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        COMPETICIONES_SHEETS={"25-26": ["book-id"]},
     ), patch(
         "packages.biwenger_tools.web.routes.season.get_workbook",
         side_effect=Exception("invalid_grant"),
     ):
-        body = client.get("/26-27/h2h").get_data(as_text=True)
+        body = client.get("/25-26/competiciones").get_data(as_text=True)
 
+    assert 'id="btn-h2h"' not in body
     assert "No se pueden leer los datos" in body
-    assert "J35" in body, "el calendario debe seguir estando"
+    season_routes.invalidate_competiciones_cache()
+
+
+def test_a_failed_refresh_serves_the_last_good_read(client):
+    """Stale-but-real beats fresh-but-wrong.
+
+    The Sheets credential was dead for a whole season; the page has to keep
+    showing what it last knew and say the figures may be behind, rather than
+    going blank or inventing a calendar.
+    """
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    workbook = _workbook(
+        _table_tab("Copa Castolo", "Copa Castolo", ["Equipo", "J1"], ["Kairat", "60"])
+    )
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        COMPETICIONES_CACHE_TTL_SECONDS=0,
+    ), patch("packages.biwenger_tools.web.routes.season.get_workbook") as mock_book:
+        mock_book.return_value = workbook
+        first = client.get("/26-27/competiciones").get_data(as_text=True)
+        mock_book.side_effect = Exception("invalid_grant")
+        second = client.get("/26-27/competiciones").get_data(as_text=True)
+
+    assert "Kairat" in first
+    assert "Kairat" in second, "los datos buenos sobreviven al fallo"
+    assert "puede estar desfasado" in second
     season_routes.invalidate_competiciones_cache()
 
 
