@@ -177,6 +177,57 @@ recommended build, falling back to choosing manually if the download fails.
 Nothing on the checklists below needs this — it matters for Switch emulation,
 which is outside this collection.
 
+## What to install on the console
+
+The table below is organised by *system*; this one is by *app*, which is what
+you actually work through. They are not the same length — RetroArch covers
+three systems on its own, so eleven systems is ten installs.
+
+| App | Covers | Notes |
+|---|---|---|
+| **RetroArch** (64-bit) | Sega, Arcade, and GBA if you want | Install more than one core per system |
+| **Pizza Boy GBA Pro** | GBA | Optional — RetroArch also covers GBA |
+| **DuckStation** | PS1 | Needs the PS1 BIOS |
+| **melonDS Nightly** | DS | |
+| **Azahar** | 3DS | Plus a Turnip driver, switchable per game |
+| **PPSSPP Gold** | PSP | **Paid** |
+| **Flycast** | Dreamcast | Needs the Dreamcast BIOS |
+| **Dolphin** | GameCube, Wii | |
+| **NetherSX2 Turnip** | PS2 | Needs the PS2 BIOS |
+| **JoiPlay** + RPG Maker plugin | PC fangames | |
+
+Three more that are situational rather than required:
+
+| App | When |
+|---|---|
+| **NetherSX2 Classic** | the odd PS2 game the Turnip build handles worse |
+| **ARMSX2 Refresh** | the heaviest PS2 titles |
+| **ES-DE** | a front-end, once the systems work individually |
+
+Four need a BIOS you supply: **PS1, PS2, Dreamcast**, and **Neo Geo**
+(`neogeo.zip`, beside the Metal Slug sets rather than in `BIOS/`).
+`./scripts/sdcard.sh status` reports which of those it can find.
+
+## Settings worth changing from the defaults
+
+Per-system detail is in each document; this is the summary. Everything not
+listed here runs fine untouched — five of the eleven systems need no
+performance settings at all, which is worth knowing before you go looking for
+some.
+
+| Emulator | Renderer | Resolution | Also |
+|---|---|---|---|
+| **melonDS** (DS) | OpenGL | 4x | **Screen swap**, to put the main view on the top screen |
+| **Azahar** (3DS) | Vulkan | 3-4x, drop to 2x where needed | Async shader compilation on; secondary screen at the bottom; switch Turnip drivers per game |
+| **NetherSX2** (PS2) | Vulkan | — | Shader disk cache on, async shaders on, **colour/saturation boost on** (PS2 looks washed out on OLED without it) |
+| **PPSSPP** (PSP) | — | 3-4x | |
+| **Dolphin** (GC/Wii) | — | — | **Hybrid Ubershaders on**; let shaders compile before judging performance |
+| **RetroArch** (Sega, arcade, GBA) | — | — | 64-bit build; several cores per system; save-on-exit and load-on-start |
+
+Two settings that are not performance and are easy to miss: **RetroAchievements**
+is opt-in in every emulator here, and **the controller has to be assigned to
+port 1 in each one separately** — nothing inherits it.
+
 ## Systems
 
 | System | Emulator | Titles |
