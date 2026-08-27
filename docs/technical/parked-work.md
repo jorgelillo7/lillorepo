@@ -80,43 +80,35 @@ defined `core` this way since before there were other packages.
 **Triggers:** a second package needing a domain-model layer, or a package that
 wants none of the Biwenger SDK and has to justify carrying it.
 
-## Lloros Awards
+## Lloros Awards → Competiciones
 
-Both Awards tabs render empty for 25-26. The Sheets read throws
-`google.auth.exceptions.RefreshError: invalid_grant: Invalid JWT Signature`
-*before* it ever touches the sheet — confirmed in `biwenger-summary` logs, with
-the 25-26 sheet IDs correctly set and the sheets present.
+**Decided and shipped.** The league kept Sheets, chose option (a), and the key
+`78fe38d4…` on `biwenger-tools-sa` was re-enabled on 2026-08-27. Both pages had
+rendered empty for a season because that key was disabled — almost certainly
+during the Drive cleanup — so every read threw
+`google.auth.exceptions.RefreshError: invalid_grant` before touching a sheet.
 
-The web service authenticates Sheets with
-`biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`, key
-`78fe38d4a8101834a9b138f8e26ee966e1eef3f5`, mounted through the secret
-`biwenger-tools-sa-regional:latest`. That key is its only user-managed one and
-it is **disabled** — almost certainly during the Drive cleanup.
+The page went further than the fix. It is now **Competiciones**, and the
+spreadsheet decides what it holds: configuration keeps one entry per season
+listing workbook ids, and each tab classifies itself (`Jornada | Partido` is
+the Liga H2H fixture block, `Nombre de la liga` in A1 is a table). Adding or
+retiring a competition is adding or deleting a tab. The old shape — one sheet
+id per competition per season, each needing a code edit, a GitHub secret and a
+deploy — is what left the pages dark for a year.
 
-Three ways out:
+**What is still open:** option (b), a Sheets-only service account. The web
+authenticates with `biwenger-tools-sa`, whose key is the project's only
+user-managed one, and that account carries four other enabled keys. Narrowing
+it is worth doing; it is simply no longer blocked on a decision. Note the
+constraint before creating a secret for it: the billing account allows **6
+active Secret Manager versions** and sits at exactly 6, so a new key means
+destroying the version it replaces (see `INFRA.md`).
 
-- **(a)** Re-enable the key and redeploy to clear cached credentials. Two
-  minutes, and keeps alive exactly the kind of key that caused this.
-  ```bash
-  gcloud iam service-accounts keys enable 78fe38d4a8101834a9b138f8e26ee966e1eef3f5 \
-    --iam-account=biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com
-  ```
-- **(b)** Create a Sheets-only service account, share the sheets with it, new
-  key → new secret version → redeploy, leaving the old key dead on purpose.
-- **(c)** Move the awards into Firestore. Cheaper than it looks: Sheets now
-  holds up **only** these pages — three `get_sheets_data` call sites in the
-  whole repo — while comunicados, participación, clausulazos and the tabla all
-  read Firestore. This drops the last Sheets dependency and the last
-  user-managed SA key in the project, at the cost of a model and somewhere to
-  edit the data.
-
-**Blocked on a decision, not on the fix.** The league has not settled how the
-awards are maintained during a season. (b) builds a service account that is
-wasted if Sheets is dropped; (c) builds an editor that is wasted if a
-spreadsheet was already the right tool. The natural moment to decide is when
-the 26-27 sheets would have to be created anyway.
-
-**Until that answer exists, do not touch that service account or its keys.**
+Option (c), moving the awards into Firestore, is now the *wrong* trade: the
+league edits these tables weekly in a spreadsheet and wants to keep doing so.
+What (c) was really solving — configuration that needs a deploy — is better
+solved by moving the workbook ids into Firestore and editing them from
+`/admin`, which leaves the data where its editors are.
 
 ## be_water country field
 

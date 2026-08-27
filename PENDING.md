@@ -20,7 +20,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Repoint `biwenger-tools-sa-regional` to a Sheets-only SA | The Awards decision below — **do not touch that SA or its keys until it exists** |
+| 👤 | Repoint `biwenger-tools-sa-regional` to a Sheets-only SA | Nothing now — the Sheets decision is made (key re-enabled, option (a)) · [why it is still worth doing](docs/technical/parked-work.md#lloros-awards--competiciones) |
 | ⏳ | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | ⏳ | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | ⏳ | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
@@ -36,8 +36,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Lloros Awards render empty for 25-26 | The league settling how awards get maintained · [root cause and options](docs/technical/parked-work.md#lloros-awards) |
-| 👤 | Season 26-27 award sheets | You creating them and sharing the IDs |
+| 👤 | The Liga H2H champion has no palmarés slot | You: art. 3.5 proclaims one, `SPECIAL_TOURNAMENTS` has no slug and it would need a graphic · decided at the first H2H rollover |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 350 the right bar? | A few rounds of `log_promotions` read against real points |
 | 👤 | The draft optimiser buys a cameo total at full value | You: `build()` ranks on raw `sf` with no starts penalty, so 143 points off 32 substitute appearances outbids a regular. `is_starter` only orders `_xi` and prints 🪑. Changing it moves which 15 get drafted |
 | ⏳ | What to do when JP and Biwenger disagree on availability | A season of `provider_watch` disagreements to count |
