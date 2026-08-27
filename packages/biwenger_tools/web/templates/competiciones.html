@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Lloros Awards{% endblock %}
+{% block title %}Competiciones{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
 
-    <!-- Tabs are derived from the sheets a season has: a competition that was
-         not played that year simply has no tab. Scrollable so labels never wrap. -->
+    <!-- Tabs are the workbook's own tabs: a competition exists on the site
+         because it exists in the sheet. Scrollable so labels never wrap. -->
     {% if tabs %}
     <div class="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
         {% for t in tabs %}
@@ -22,6 +22,15 @@
     </div>
     {% endif %}
 
+    {% if issues %}
+    <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50">
+        <p class="text-sm font-semibold text-amber-800 mb-1">Filas u hojas que no se han podido leer</p>
+        <ul class="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+            {% for issue in issues %}<li>{{ issue }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     {% if error %}
     <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
         {{ error }}
@@ -29,18 +38,8 @@
     {% endif %}
 
     <!-- Liga H2H — server-rendered, it is what people open this page for -->
-    {% if h2h_played %}
+    {% if h2h_rounds %}
     <div id="h2h-container">
-
-        {% if h2h_issues %}
-        <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50 mb-6">
-            <p class="text-sm font-semibold text-amber-800 mb-1">Filas de la hoja que no cuadran con el calendario</p>
-            <ul class="text-xs text-amber-700 list-disc list-inside space-y-0.5">
-                {% for issue in h2h_issues %}<li>{{ issue }}</li>{% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-
         <!-- Clasificación -->
         <div class="card p-4 md:p-6 rounded-xl shadow-md mb-6">
             <h2 class="font-header text-2xl font-bold text-gray-900 mb-1">Clasificación</h2>
@@ -156,30 +155,78 @@
     </div>
     {% endif %}
 
-    {% for t in tabs if t.key != 'h2h' %}
-    <div id="{{ t.key }}-container" class="hidden"></div>
+    {% for c in competitions %}
+    <div id="{{ c.key }}-container" class="hidden space-y-4">
+        <div class="card p-4 md:p-6 rounded-xl shadow-md">
+            <h2 class="font-header text-2xl font-bold text-gray-900">{{ c.nombre }}</h2>
+            {% if c.descripcion %}
+            <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{{ c.descripcion }}</p>
+            {% endif %}
+            {% if c.premio %}
+            <p class="mt-3 text-sm"><strong class="font-medium text-green-700">Premio:</strong>
+                <span class="text-gray-600 whitespace-pre-wrap">{{ c.premio }}</span></p>
+            {% endif %}
+        </div>
+
+        {% for sec in c.sections %}
+        <div class="card p-4 md:p-6 rounded-xl shadow-md">
+            {% if sec.titulo %}
+            <h3 class="font-header text-lg font-bold text-gray-800 mb-3">{{ sec.titulo }}</h3>
+            {% endif %}
+
+            <!-- Mobile: una tarjeta por fila. La Copa Castolo suma una columna
+                 por jornada, así que en horizontal sería scroll lateral sin fin. -->
+            <div class="md:hidden divide-y divide-gray-100">
+                {% for row in sec.rows %}
+                <div class="py-3">
+                    <p class="font-medium text-gray-800 mb-1">{{ row[0] }}</p>
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                        {% for cell in row[1:] %}
+                        {% if cell %}
+                        <div class="flex gap-1 min-w-0">
+                            <dt class="text-gray-400 shrink-0">{{ sec.headers[loop.index] | default('', true) }}</dt>
+                            <dd class="font-medium text-gray-700 truncate">{{ cell }}</dd>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </dl>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="hidden md:block overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-gray-500 border-b border-gray-200">
+                            {% for h in sec.headers %}
+                            <th class="py-2 px-3 {% if loop.first %}text-left{% endif %} font-semibold uppercase tracking-wider">{{ h }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-center">
+                        {% for row in sec.rows %}
+                        <tr class="hover:bg-gray-50 transition">
+                            {% for cell in row %}
+                            <td class="py-2 px-3 {% if loop.first %}text-left font-medium text-gray-800{% else %}text-gray-600{% endif %} whitespace-pre-wrap">{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
     {% endfor %}
 </div>
 
 <style>
 .tab-btn { background-color: #f1f5f9; color: #64748b; }
 .tab-btn.active-tab { background-color: #38a169; color: white; }
-.spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #38a169;
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    animation: spin 1s linear infinite;
-    margin: 2rem auto;
-}
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 
 <script>
-const season = "{{ season }}";
 const SECTIONS = {{ tabs | map(attribute='key') | list | tojson }};
-const loaded = { h2h: true };
 
 function toggleStanding(idx) {
     document.getElementById('card-detail-' + idx)?.classList.toggle('hidden');
@@ -189,75 +236,13 @@ function toggleRound(jornada) {
     document.getElementById('round-' + jornada)?.classList.toggle('hidden');
 }
 
-async function loadSection(section) {
+// Every tab is already in the DOM, rendered from one cached read. Switching
+// is a class toggle — no fetch, no spinner, works offline once loaded.
+function loadSection(section) {
     SECTIONS.forEach(s => {
         document.getElementById('btn-' + s)?.classList.toggle('active-tab', s === section);
         document.getElementById(s + '-container')?.classList.toggle('hidden', s !== section);
     });
-
-    if (loaded[section]) return;
-
-    const container = document.getElementById(section + '-container');
-    container.innerHTML = '<div class="spinner"></div>';
-    try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`/${season}/api/lloros-awards/${section}`, { signal: controller.signal });
-        clearTimeout(tid);
-        const data = await res.json();
-        container.innerHTML = renderTable(data);
-        loaded[section] = true;
-    } catch (err) {
-        const msg = err.name === 'AbortError'
-            ? 'La solicitud tardó demasiado. Inténtalo de nuevo.'
-            : 'Error al cargar los datos.';
-        container.innerHTML = `<div class="card p-6 text-center text-red-500 rounded-xl">${msg}</div>`;
-    }
-}
-
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, c => (
-        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
-}
-
-function renderTable(data) {
-    if (!data || data.length === 0) return '<p class="text-center p-6 text-gray-500">No hay datos disponibles.</p>';
-    return data.map(league => `
-        <div class="card p-4 md:p-6 rounded-xl shadow-md mb-6">
-            <div class="mb-5 border-b border-gray-200 pb-4">
-                <h2 class="font-header text-2xl font-bold text-gray-900">${escapeHtml(league.nombre)}</h2>
-                <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap">${escapeHtml(league.descripcion)}</p>
-                <p class="mt-2 text-sm"><strong class="font-medium text-green-700">Premio:</strong> ${escapeHtml(league.premio)}</p>
-            </div>
-            <!-- Mobile: una tarjeta por fila; la cabecera va como etiqueta -->
-            <div class="md:hidden divide-y divide-gray-100">
-                ${league.rows.map(row => `
-                    <div class="py-3">
-                        <p class="font-medium text-gray-800 mb-1">${escapeHtml(row[0])}</p>
-                        <dl class="grid grid-cols-2 gap-y-1 text-xs">
-                            ${row.slice(1).map((cell, i) => `
-                                <div class="flex gap-1">
-                                    <dt class="text-gray-400">${escapeHtml(league.headers[i + 1] ?? '')}</dt>
-                                    <dd class="font-medium ${league.headers[i + 1]?.includes('Total') ? 'text-green-700' : 'text-gray-700'}">${escapeHtml(cell)}</dd>
-                                </div>
-                            `).join('')}
-                        </dl>
-                    </div>
-                `).join('')}
-            </div>
-            <table class="hidden md:table min-w-full text-center text-sm">
-                <thead><tr>${league.headers.map(h =>
-                    `<th class="p-3 font-semibold uppercase tracking-wider ${h.includes('Total') ? 'text-green-700' : 'text-gray-500'}">${escapeHtml(h)}</th>`
-                ).join('')}</tr></thead>
-                <tbody class="divide-y divide-gray-100">${league.rows.map(row =>
-                    `<tr class="hover:bg-gray-50 transition">${row.map((cell, i) =>
-                        `<td class="p-3 ${i === 0 ? 'text-left font-medium text-gray-800' : ''} ${league.headers[i]?.includes('Total') ? 'font-bold text-green-700' : 'text-gray-600'}">${escapeHtml(cell)}</td>`
-                    ).join('')}</tr>`
-                ).join('')}</tbody>
-            </table>
-        </div>
-    `).join('');
 }
 
 {% if active_tab %}

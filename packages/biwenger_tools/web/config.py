@@ -22,30 +22,32 @@ TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "26-27")
 # Prepend the new season at the start of each year (see docs/operations.md).
 TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
 
-# Per-season Sheet IDs for the awards pages. Hand-edited in Sheets by the
-# league, never moved to Firestore. A season absent from a map did not play
-# that competition, and its tab is not rendered.
+# --- Competiciones page ---
+# One entry per season, holding the spreadsheets that season's competitions
+# live in. Comma-separated so a season can span several workbooks without a
+# code change: 26-27 keeps everything in one, while 25-26 points at the two it
+# was already split across, and no history had to be migrated.
 #
-# The Ligas Especiales retired after 25-26 — the league dropped them and the
-# Liga H2H took their slot.
-TROFEOS_SHEETS = {
-    "25-26": os.getenv("TROFEOS_SHEET_ID_25_26"),
-}
+# What is *inside* a workbook is not configured at all — every tab describes
+# itself (see `competiciones.py`). Adding a competition is adding a tab: no
+# entry here, no GitHub secret, no deploy. A sheet id per competition per
+# season is exactly what left these pages empty for a year.
 
-# Liga H2H (reglamento ch. III). Started in 26-27; a season absent from this
-# map never played it, which the page states rather than treating as an error.
-# The organiser types two scores per match into this sheet and the site
-# follows within `H2H_CACHE_TTL_SECONDS` — no deploy.
-H2H_SHEETS = {
-    "26-27": os.getenv("H2H_SHEET_ID_26_27"),
+
+def _sheet_ids(env_name: str) -> list[str]:
+    """Comma-separated spreadsheet ids from one env var, blanks dropped."""
+    raw = os.getenv(env_name) or ""
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+COMPETICIONES_SHEETS = {
+    "25-26": _sheet_ids("COMPETICIONES_SHEET_IDS_25_26"),
+    "26-27": _sheet_ids("COMPETICIONES_SHEET_IDS_26_27"),
 }
 # Deliberately shorter than the portadas/calendar TTLs: those refresh a feed
 # nobody is watching, this one has the organiser reloading to see the score he
 # just typed. `/admin` can flush it early.
-H2H_CACHE_TTL_SECONDS = 300
-# Wide enough to cover the 105 fixtures with room for spare rows; the parser
-# locates the block itself, so the range only has to contain it.
-H2H_SHEET_RANGE = "A1:H500"
+COMPETICIONES_CACHE_TTL_SECONDS = 300
 
 # --- Special tournaments (Palmarés "Copas especiales") ---
 # Winner graphics live in a public bucket; the app builds the URL from

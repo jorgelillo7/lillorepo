@@ -53,7 +53,7 @@ repo so the CI cleanup job can delete old digests, plus
 |---|---|---|
 | Gemini API key | AI Studio project `gen-lang-client-0059905191` ("Be Water") | billing linked + €1 budget; image gen needs prepaid AI-credit top-ups (bought in AI Studio) — text/OCR rides the free tier |
 | Telegram bots | `@be_water_app_bot` (catalog notifications) · biwenger league bot · Chuck Norris bot | tokens in Secret Manager |
-| GitHub secrets | 2 | `TROFEOS_SHEET_ID_25_26`, `H2H_SHEET_ID_26_27` (+ WIF needs none) |
+| GitHub secrets | 2 | `COMPETICIONES_SHEET_IDS_25_26`, `COMPETICIONES_SHEET_IDS_26_27` — one per season, comma-separated ids (+ WIF needs none) |
 
 ## Cost guardrails
 

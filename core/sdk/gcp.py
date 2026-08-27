@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 def get_google_service(api_name, api_version, service_account_file, scopes):
     """Returns an authenticated client using a Service Account.
 
-    Used for the Google Sheets reader (liga H2H / trofeos). The
+    Used for the Google Sheets reader behind the competitions page. The
     Drive/CSV pipeline retired with the Firestore migration, so the
     `drive` API client lives elsewhere and only the `sheets` client uses
     this any more — kept generic in case another Google API ever joins.
@@ -69,51 +69,41 @@ def trigger_cloud_run_job(project: str, region: str, job_name: str) -> str:
 # --- GOOGLE SHEETS ---
 
 
-def get_sheet_rows(service, spreadsheet_id, range_name: str) -> list[list[str]]:
-    """Raw cell rows for one A1 range, as the Sheets API returns them.
+def get_workbook(service, spreadsheet_id) -> list[tuple[str, list[list[str]]]]:
+    """Every tab of a spreadsheet as ``(title, rows)``, in the owner's order.
 
-    Ragged by design: the API truncates each row at its last non-empty cell,
-    so callers must index defensively. Omitting the sheet name from
-    ``range_name`` targets the first tab, which survives the owner renaming it.
+    Two API calls whatever the tab count: one for the metadata, one
+    ``values.batchGet`` for all the ranges. The obvious loop is one call per
+    tab, which does not scale to a workbook the league keeps adding
+    competitions to.
 
-    Separate from `get_sheets_data` on purpose — that one imposes a
-    nombre/descripción/premio/headers/rows shape that only the awards
-    spreadsheets follow.
+    Rows come back ragged — the API truncates each at its last non-empty cell
+    — and tabs are returned untouched. Deciding what a tab *is* belongs to the
+    caller, which can then report what it ignored; the reader this replaced
+    imposed a nombre/descripción/premio shape here and dropped any tab under
+    six rows in silence.
     """
-    result = (
+    metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    titles = [
+        sheet.get("properties", {}).get("title", "")
+        for sheet in metadata.get("sheets", [])
+    ]
+    titles = [t for t in titles if t]
+    if not titles:
+        return []
+
+    # Quoted so a tab called "Copa Castolo" is one range, not a parse error.
+    batch = (
         service.spreadsheets()
         .values()
-        .get(spreadsheetId=spreadsheet_id, range=range_name)
+        .batchGet(
+            spreadsheetId=spreadsheet_id,
+            ranges=[f"'{t}'" for t in titles],
+        )
         .execute()
     )
-    return result.get("values", [])
-
-
-def get_sheets_data(service, spreadsheet_id) -> list[dict]:
-    """Reads and processes all sheets from a Google Spreadsheet."""
-    sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    sheets = sheet_metadata.get("sheets", "")
-
-    all_leagues_data = []
-    for sheet in sheets:
-        sheet_title = sheet.get("properties", {}).get("title", "Sin Título")
-        result = (
-            service.spreadsheets()
-            .values()
-            .get(spreadsheetId=spreadsheet_id, range=sheet_title)
-            .execute()
-        )
-        values = result.get("values", [])
-
-        if not values or len(values) < 6:
-            continue
-
-        league_info = {
-            "nombre": values[0][1] if len(values[0]) > 1 else "N/A",
-            "descripcion": values[1][1] if len(values[1]) > 1 else "N/A",
-            "premio": values[2][1] if len(values[2]) > 1 else "N/A",
-            "headers": values[4],
-            "rows": values[5:],
-        }
-        all_leagues_data.append(league_info)
-    return all_leagues_data
+    ranges = batch.get("valueRanges", [])
+    return [
+        (title, ranges[i].get("values", []) if i < len(ranges) else [])
+        for i, title in enumerate(titles)
+    ]

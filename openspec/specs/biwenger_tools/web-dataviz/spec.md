@@ -1,12 +1,14 @@
 # Capability: web-dataviz
 
 The public Flask site on Cloud Run that visualises league data: season-scoped
-content pages, palmarés, the market/justice table, the awards page, a
+content pages, palmarés, the market/justice table, the competitions page, a
 season-agnostic calendar, and a CSRF- and rate-limit-protected admin surface.
 
 - **Source:** `packages/biwenger_tools/web/routes/` (`main.py`, `admin.py`,
-  `season.py`), `app.py`
-- **Verified by:** `packages/biwenger_tools/web/tests/test_web_app.py`
+  `season.py`), `app.py`, plus the pure readers `h2h.py` and
+  `competiciones.py`
+- **Verified by:** `packages/biwenger_tools/web/tests/test_web_app.py`,
+  `test_h2h.py`, `test_competiciones.py`, `core/tests/test_gcp_services.py`
 
 ---
 
@@ -53,42 +55,82 @@ onward (earlier seasons had none).
   `test_palmares_renders_special_tournament_slots`,
   `test_palmares_skips_special_cups_before_25_26`
 
-### Requirement: the awards page shows only what a season played
+### Requirement: the sheet describes the competitions, not the config
 
-The awards page SHALL derive its tab strip from the sheets configured for the
-season being viewed: a competition with no sheet for that season SHALL have no
-tab, and a season with none SHALL say so rather than render empty panels. A
-deep link to a tab the season does not have SHALL fall back to its first real
-tab. The trofeos endpoint SHALL be season-scoped in the path and SHALL return
-an empty result (not an error) when no sheet is configured.
+The competitions page SHALL build its tab strip from the tabs of the
+spreadsheets a season points at, classifying each tab by its own shape: a
+`Jornada | Partido` header row is the Liga H2H fixture block, and `Nombre de
+la liga` in A1 is a table competition. A tab in neither format, or one with no
+data rows yet, SHALL be named on the page — never dropped in silence.
 
-This is how a competition retires or starts — by its sheet existing or not,
-with no code change and no deploy. The Ligas Especiales ran in 25-26 and were
-dropped; the Liga H2H took their slot in 26-27.
+Configuration SHALL hold one entry per season, listing spreadsheet ids, so a
+season may span several workbooks without a code change. Adding, renaming or
+retiring a competition SHALL therefore require no code, no secret and no
+deploy: a sheet id per competition per season is what left these pages empty
+for a year.
 
-#### Scenario: per-season tabs
-- **WHEN** the season has an H2H sheet and no trofeos sheet **THEN** only the
-  H2H tab renders
-- **WHEN** the season has neither **THEN** the page states there are no
+A season whose sheets hold nothing SHALL say so rather than render empty
+panels, and the page's former `/{season}/lloros-awards` address SHALL redirect
+to it permanently.
+
+#### Scenario: tabs come from the workbook
+- **WHEN** a workbook holds an H2H tab and a cup tab **THEN** both render as
+  tabs, labelled from the sheet rather than the tab name
+- **WHEN** a season lists two workbooks **THEN** their tabs concatenate
+- **WHEN** a tab matches neither format, or has no rows **THEN** it is
+  reported on the page
+- **WHEN** the season has no workbook **THEN** the page states there are no
   competitions registered
-- **WHEN** `/{season}/h2h` names a season without H2H **THEN** the page opens
-  on that season's first tab
-- *Verifies:* `test_a_season_only_shows_the_competitions_it_played`,
-  `test_h2h_deep_link_falls_back_when_the_season_has_no_h2h`,
-  `test_api_lloros_trofeos_returns_sheets_data`,
-  `test_api_lloros_trofeos_returns_empty_when_no_sheet_configured`
+- *Verifies:* `test_competiciones_renders_every_tab_from_one_read`,
+  `test_a_season_can_span_several_workbooks`,
+  `test_a_season_only_shows_the_competitions_its_sheet_holds`,
+  `test_the_h2h_tab_is_found_by_its_header_not_its_name`,
+  `test_a_tab_in_neither_format_is_reported_not_dropped`,
+  `test_a_table_tab_with_no_data_rows_yet_is_reported`,
+  `test_the_tab_takes_its_label_from_the_sheet_not_the_tab_name`,
+  `test_workbooks_concatenate_in_order`, `test_a_second_h2h_tab_is_refused`,
+  `test_the_old_awards_url_still_resolves`
 
-### Requirement: the rulebook reads nothing
+### Requirement: a group stage is several tables in one tab
 
-The reglamento page SHALL render from the repository alone. It used to fetch a
-Google Sheet whose result the template never referenced — a network round trip
-per visit, and two error branches that could not surface anything.
+A tab SHALL be split into sections wherever a row repeats the header's labels;
+that row's column A is the section title. A tab with a single section SHALL
+keep column A's label as a normal column header.
 
-#### Scenario: no upstream dependency
-- **WHEN** the rulebook is requested **THEN** it renders without touching
-  Sheets, and Anexo II prints all 35 H2H matchdays
-- *Verifies:* `test_reglamento_renders_every_chapter`,
-  `test_reglamento_annex_ii_renders_every_h2h_matchday`
+Reading only the first header rendered the second group's header row as if it
+were a competitor — the 25-26 Copa Santa Claus stacks `GRUPO A` and `GRUPO B`
+in one tab.
+
+#### Scenario: groups and plain tables
+- **WHEN** a tab repeats its header row **THEN** each repeat opens a titled
+  section and no group name lands in a data row
+- **WHEN** a tab has one table **THEN** it has no section title and keeps its
+  first column header
+- **WHEN** a data row is shorter than the header **THEN** it survives as sent
+- *Verifies:* `test_a_group_stage_splits_into_one_section_per_group`,
+  `test_a_group_stage_renders_one_table_per_group`,
+  `test_a_single_table_keeps_its_first_column_header`,
+  `test_ragged_rows_survive`
+
+### Requirement: one read serves the whole page
+
+A season's workbooks SHALL be read once per cache window and every tab
+rendered server-side, so switching tabs costs no request. The read SHALL take
+two API calls per workbook regardless of tab count. The admin panel SHALL be
+able to flush the cache so a freshly typed score can be seen without waiting
+for the TTL.
+
+#### Scenario: one fetch, cached
+- **WHEN** the page is requested **THEN** each workbook is read once and every
+  tab is present in the response
+- **WHEN** two visits fall inside the TTL **THEN** the workbook is read once,
+  and the admin flush makes the next visit read again
+- *Verifies:* `test_competiciones_renders_every_tab_from_one_read`,
+  `test_competiciones_read_is_cached_between_requests`,
+  `test_get_workbook_reads_every_tab_in_two_calls`,
+  `test_get_workbook_returns_empty_tabs_as_empty`,
+  `test_get_workbook_with_no_tabs_makes_no_values_call`,
+  `test_refresh_competiciones_requires_login`
 
 ### Requirement: Liga H2H is derived, not transcribed
 
@@ -126,25 +168,17 @@ different duel.
 - *Verifies:* `test_unknown_fixture_in_sheet_is_reported_not_rendered`,
   `test_duplicate_row_is_reported`, `test_scores_follow_the_pairing_not_the_column_order`
 
-### Requirement: the H2H page degrades to its calendar
+### Requirement: the page degrades to the H2H calendar
 
-A season with no H2H sheet configured SHALL have no H2H tab at all (see the
-per-season tabs requirement above). A season whose sheet **is** configured but
-unreadable SHALL still render the full calendar, with the scores absent and a
-banner saying so — the Sheets credential died once and every page it fed
-simply went blank for a season.
+A season whose workbooks are configured but unreadable SHALL still render the
+full 35-matchday H2H calendar, with the scores absent and a banner saying so —
+the Sheets credential died once and every page it fed simply went blank for a
+season.
 
-The H2H read SHALL be cached, and the admin panel SHALL be able to flush that
-cache so a freshly typed score can be seen without waiting for the TTL.
-
-#### Scenario: dead credential, cache
-- **WHEN** the Sheets read raises **THEN** the calendar still renders with a
-  banner
-- **WHEN** two visits fall inside the TTL **THEN** the sheet is read once, and
-  the admin flush makes the next visit read again
-- *Verifies:* `test_h2h_page_renders_calendar_when_sheet_unavailable`,
-  `test_h2h_read_is_cached_between_requests`,
-  `test_h2h_standings_render_from_the_sheet`, `test_refresh_h2h_requires_login`
+#### Scenario: dead credential
+- **WHEN** the workbook read raises **THEN** the calendar still renders with a
+  banner naming what is missing
+- *Verifies:* `test_competiciones_render_calendar_when_sheets_unavailable`
 
 ### Requirement: Admin surface is authenticated, rate-limited, CSRF-safe
 

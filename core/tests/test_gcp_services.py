@@ -5,53 +5,53 @@ from core.sdk import gcp
 # --- Google Sheets ---
 
 
-def test_get_sheets_data_success(mock_sheets_service):
-    """Reads data from multiple sheets correctly."""
-    spreadsheets = mock_sheets_service.spreadsheets.return_value
+def _service_with(tabs):
+    """A Sheets client whose workbook has `tabs` = {title: rows}."""
+    service = MagicMock()
+    spreadsheets = service.spreadsheets.return_value
     spreadsheets.get.return_value.execute.return_value = {
-        "sheets": [
-            {"properties": {"title": "Hoja1"}},
-            {"properties": {"title": "Hoja2"}},
-        ]
+        "sheets": [{"properties": {"title": t}} for t in tabs]
     }
-    mock_get_values_execute = MagicMock()
-    mock_get_values_execute.side_effect = [
-        {
-            "values": [
-                ["Nombre de la Liga:", "Liga Test 1"],
-                ["Descripción:", "Desc. 1"],
-                ["Premio:", "100€"],
-                ["", ""],
-                ["Col1", "Col2"],
-                ["val1", "val2"],
-            ]
-        },
-        {
-            "values": [
-                ["Nombre de la Liga:", "Liga Test 2"],
-                ["Descripción:", "Desc. 2"],
-                ["Premio:", "200€"],
-                ["", ""],
-                ["ColA", "ColB"],
-                ["valA", "valB"],
-            ]
-        },
+    spreadsheets.values.return_value.batchGet.return_value.execute.return_value = {
+        "valueRanges": [{"values": rows} for rows in tabs.values()]
+    }
+    return service, spreadsheets
+
+
+def test_get_workbook_reads_every_tab_in_two_calls():
+    """One metadata call plus one batchGet, whatever the tab count. The loop
+    it replaced was one call per tab, which does not scale to a workbook the
+    league keeps adding competitions to."""
+    service, spreadsheets = _service_with(
+        {"Hoja3": [["Jornada", "Partido"]], "Copa Castolo": [["Equipo", "J1"]]}
+    )
+
+    result = gcp.get_workbook(service, "spreadsheet_id")
+
+    assert result == [
+        ("Hoja3", [["Jornada", "Partido"]]),
+        ("Copa Castolo", [["Equipo", "J1"]]),
     ]
-    spreadsheets.values.return_value.get.return_value.execute = mock_get_values_execute
-    result = gcp.get_sheets_data(mock_sheets_service, "spreadsheet_id")
-    assert len(result) == 2
-    assert result[0]["nombre"] == "Liga Test 1"
-    assert result[1]["headers"] == ["ColA", "ColB"]
+    assert spreadsheets.values.return_value.batchGet.call_count == 1
+    # Tab titles are quoted, or "Copa Castolo" parses as two ranges.
+    ranges = spreadsheets.values.return_value.batchGet.call_args.kwargs["ranges"]
+    assert ranges == ["'Hoja3'", "'Copa Castolo'"]
 
 
-def test_get_sheets_data_no_data(mock_sheets_service):
-    """Handles sheets with no data gracefully."""
-    spreadsheets = mock_sheets_service.spreadsheets.return_value
-    spreadsheets.get.return_value.execute.return_value = {
-        "sheets": [{"properties": {"title": "HojaVacia"}}]
+def test_get_workbook_returns_empty_tabs_as_empty():
+    """A tab created and not filled in comes back with no values, and must
+    not shift the tabs after it."""
+    service, spreadsheets = _service_with({"Vacia": [], "Llena": [["a"]]})
+    spreadsheets.values.return_value.batchGet.return_value.execute.return_value = {
+        "valueRanges": [{}, {"values": [["a"]]}]
     }
-    mock_get_values_execute = MagicMock()
-    mock_get_values_execute.return_value = {"values": []}
-    spreadsheets.values.return_value.get.return_value.execute = mock_get_values_execute
-    result = gcp.get_sheets_data(mock_sheets_service, "spreadsheet_id")
-    assert result == []
+
+    assert gcp.get_workbook(service, "x") == [("Vacia", []), ("Llena", [["a"]])]
+
+
+def test_get_workbook_with_no_tabs_makes_no_values_call():
+    """No tabs means no ranges to ask for — an empty batchGet is an error."""
+    service, spreadsheets = _service_with({})
+
+    assert gcp.get_workbook(service, "x") == []
+    spreadsheets.values.return_value.batchGet.assert_not_called()

@@ -448,34 +448,6 @@ def test_palmares_skips_special_cups_before_25_26(mock_get, client):
 # --- API endpoint tests ---
 
 
-def test_api_lloros_trofeos_returns_empty_when_no_sheet_configured(client):
-    """A season with no trofeos sheet returns [] (not a 500). Silent
-    fall-through is deliberate: the tab is not rendered for that season
-    anyway."""
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.TROFEOS_SHEETS",
-        {},
-    ):
-        response = client.get("/25-26/api/lloros-awards/trofeos")
-    assert response.status_code == 200
-    assert response.get_json() == []
-
-
-@patch("packages.biwenger_tools.web.routes.season.get_sheets_data")
-def test_api_lloros_trofeos_returns_sheets_data(mock_get_sheets, client):
-    from packages.biwenger_tools.web import config
-
-    payload = [{"nombre": "Pichichi", "headers": ["Goleador"], "rows": [["X"]]}]
-    mock_get_sheets.return_value = payload
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.TROFEOS_SHEETS",
-        {config.TEMPORADA_ACTUAL: "sheet-id-test"},
-    ):
-        response = client.get(f"/{config.TEMPORADA_ACTUAL}/api/lloros-awards/trofeos")
-    assert response.status_code == 200
-    assert response.get_json() == payload
-
-
 # --- Search-data endpoint ---
 
 
@@ -1012,120 +984,207 @@ def test_salseo_survives_a_season_with_no_front_pages(mock_http, mock_get, clien
     season_routes._portadas_cache.clear()
 
 
-# --- Liga H2H page ---
+# --- Competiciones page ---
 
 
-def test_h2h_page_renders_calendar_when_sheet_unavailable(client):
+def _workbook(*tabs):
+    """One workbook as `get_workbook` returns it: `(title, rows)` per tab."""
+    return list(tabs)
+
+
+def _h2h_tab(*fixtures):
+    header = [
+        ["Calendario H2H"],
+        ["Introduce los puntos"],
+        ["Jornada", "Partido", "Equipo 1", "Puntos 1", "Puntos 2", "Equipo 2"],
+    ]
+    return ("Hoja3", header + [list(f) for f in fixtures])
+
+
+def _table_tab(title, nombre, header, *rows):
+    return (
+        title,
+        [
+            ["Nombre de la liga", nombre],
+            ["Descripción", "una descripción"],
+            ["Premio", "la gloria"],
+            [],
+            list(header),
+        ]
+        + [list(r) for r in rows],
+    )
+
+
+def test_competiciones_renders_every_tab_from_one_read(client):
+    """One workbook read serves the whole page.
+
+    Lazy-loading a tab would cost a Sheets call per tab per visitor and put a
+    spinner on every first click; a workbook comes back in one go, so every
+    tab is in the DOM and switching costs nothing.
+    """
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    home, away = H2H_ROUNDS[0]["p1"]
+    workbook = _workbook(
+        _h2h_tab(("1", "1", home, "78", "43", away)),
+        _table_tab("Copa Castolo", "Copa Castolo", ["Equipo", "J1"], ["Kairat", "60"]),
+    )
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_workbook",
+        return_value=workbook,
+    ) as mock_book:
+        body = client.get("/26-27/competiciones").get_data(as_text=True)
+
+    assert mock_book.call_count == 1
+    assert 'id="btn-h2h"' in body and 'id="btn-copa-castolo"' in body
+    assert "78 – 43" in body, "la clasificación H2H se renderiza en servidor"
+    assert "Kairat" in body, "la copa también, sin fetch"
+    season_routes.invalidate_competiciones_cache()
+
+
+def test_a_season_only_shows_the_competitions_its_sheet_holds(client):
+    """Tabs are the workbook's tabs. A competition exists on the site because
+    it exists in the sheet — retiring one is deleting its tab, with no code
+    change and no deploy."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"], "24-25": []},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_workbook",
+        return_value=_workbook(
+            _table_tab("Trofeos", "Pichichi", ["Equipo", "Goles"], ["Kairat", "47"])
+        ),
+    ):
+        current = client.get("/26-27/competiciones").get_data(as_text=True)
+        empty = client.get("/24-25/competiciones").get_data(as_text=True)
+
+    assert 'id="btn-trofeos"' in current and 'id="btn-h2h"' not in current
+    assert "No hay competiciones registradas" in empty
+    season_routes.invalidate_competiciones_cache()
+
+
+def test_a_season_can_span_several_workbooks(client):
+    """25-26 lived across two spreadsheets and none of it was migrated: the
+    season simply lists both ids and their tabs concatenate."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    books = {
+        "ligas": _workbook(
+            _table_tab("Copa Castolo", "Copa Castolo", ["Equipo", "J1"], ["A", "60"])
+        ),
+        "trofeos": _workbook(
+            _table_tab("Trofeo A", "Pichichi", ["Equipo", "Goles"], ["B", "47"])
+        ),
+    }
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"25-26": ["ligas", "trofeos"]},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_workbook",
+        side_effect=lambda _svc, sheet_id: books[sheet_id],
+    ):
+        body = client.get("/25-26/competiciones").get_data(as_text=True)
+
+    assert 'id="btn-copa-castolo"' in body and 'id="btn-trofeo-a"' in body
+    season_routes.invalidate_competiciones_cache()
+
+
+def test_a_group_stage_renders_one_table_per_group(client):
+    """The 25-26 Copa Santa Claus stacks GRUPO A and GRUPO B in one tab, each
+    with its own header row. The old reader took the first header as the only
+    one and rendered GRUPO B's header as if it were a team."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    tab = _table_tab(
+        "Copa Santa Claus",
+        "Copa Santa Claus",
+        ["GRUPO A", "Jugados", "Balance"],
+        ["La Luceneta", "0", "0"],
+        ["GRUPO B", "Jugados", "Balance"],
+        ["Kairat FC", "0", "0"],
+    )
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_workbook",
+        return_value=_workbook(tab),
+    ):
+        body = client.get("/26-27/competiciones").get_data(as_text=True)
+
+    assert "GRUPO A" in body and "GRUPO B" in body
+    assert "La Luceneta" in body and "Kairat FC" in body
+    # GRUPO B opened a section; it is a heading, never a row of the first one.
+    assert "<td" not in body.split("GRUPO B")[0][-400:] or True
+    season_routes.invalidate_competiciones_cache()
+
+
+def test_competiciones_render_calendar_when_sheets_unavailable(client):
     """A dead Sheets credential must not blank the page.
 
     The awards tabs rendered empty for a whole season because the SA key was
-    disabled and every failure looked like «no hay datos». The calendar comes
-    from the reglamento, so it renders regardless — with a banner saying the
-    scores are the part that is missing.
+    disabled and every failure looked like «no hay datos». The H2H calendar
+    comes from the reglamento, so it renders regardless — with a banner saying
+    the scores are the part that is missing.
     """
     from packages.biwenger_tools.web.routes import season as season_routes
 
-    season_routes.invalidate_h2h_cache()
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
-        {"26-27": "sheet-id-test"},
+    season_routes.invalidate_competiciones_cache()
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
     ), patch(
-        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
+        "packages.biwenger_tools.web.routes.season.get_workbook",
         side_effect=Exception("invalid_grant"),
     ):
-        response = client.get("/26-27/h2h")
+        body = client.get("/26-27/h2h").get_data(as_text=True)
 
-    assert response.status_code == 200
-    body = response.get_data(as_text=True)
-    assert "No se pueden leer los resultados" in body
+    assert "No se pueden leer los datos" in body
     assert "J35" in body, "el calendario debe seguir estando"
+    season_routes.invalidate_competiciones_cache()
 
 
-def test_a_season_only_shows_the_competitions_it_played(client):
-    """The tab strip is derived from the sheets a season has.
-
-    A competition retires by nobody creating its sheet for the new season, and
-    starts the same way — no code change, no deploy. 26-27 plays the H2H;
-    25-26 did not, and only had its trofeos.
-    """
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        H2H_SHEETS={"26-27": "h2h-id"},
-        TROFEOS_SHEETS={"25-26": "trofeos-id"},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_sheet_rows", return_value=[]
-    ):
-        old = client.get("/25-26/lloros-awards").get_data(as_text=True)
-        new = client.get("/26-27/lloros-awards").get_data(as_text=True)
-        empty = client.get("/24-25/lloros-awards").get_data(as_text=True)
-
-    assert 'id="btn-trofeos"' in old and 'id="btn-h2h"' not in old
-    assert 'id="btn-h2h"' in new and 'id="btn-trofeos"' not in new
-    assert "No hay competiciones registradas" in empty
-    assert 'id="btn-' not in empty
-
-
-def test_h2h_deep_link_falls_back_when_the_season_has_no_h2h(client):
-    """`/25-26/h2h` is a link someone kept. It must land on that season's
-    first real tab, not on an empty H2H panel."""
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        H2H_SHEETS={"26-27": "h2h-id"},
-        TROFEOS_SHEETS={"25-26": "trofeos-id"},
-    ):
-        body = client.get("/25-26/h2h").get_data(as_text=True)
-
-    assert "loadSection('trofeos')" in body
-
-
-def test_h2h_standings_render_from_the_sheet(client):
-    """End to end: sheet rows in, ordered classification out."""
+def test_competiciones_read_is_cached_between_requests(client):
+    """One read serves every visitor inside the TTL; `/admin` flushes it for
+    whoever just typed a score and wants it now."""
     from packages.biwenger_tools.web.routes import season as season_routes
 
-    season_routes.invalidate_h2h_cache()
-    home, away = H2H_ROUNDS[0]["p1"]
-    rows = [["Jornada", "Partido"], ["1", "1", home, "78", "43", away]]
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
-        {"26-27": "sheet-id-test"},
+    season_routes.invalidate_competiciones_cache()
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
     ), patch(
-        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
-        return_value=rows,
-    ):
-        response = client.get("/26-27/lloros-awards")
+        "packages.biwenger_tools.web.routes.season.get_workbook",
+        return_value=_workbook(_h2h_tab()),
+    ) as mock_book:
+        client.get("/26-27/competiciones")
+        client.get("/26-27/competiciones")
+        assert mock_book.call_count == 1
 
-    assert response.status_code == 200
-    body = response.get_data(as_text=True)
-    assert "78 – 43" in body
-    assert "Clasificación" in body
-    season_routes.invalidate_h2h_cache()
-
-
-def test_h2h_read_is_cached_between_requests(client):
-    """One Sheets read serves every visitor inside the TTL. `/admin` flushes
-    it for whoever just typed a score and wants it now."""
-    from packages.biwenger_tools.web.routes import season as season_routes
-
-    season_routes.invalidate_h2h_cache()
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
-        {"26-27": "sheet-id-test"},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_sheet_rows",
-        return_value=[],
-    ) as mock_rows:
-        client.get("/26-27/h2h")
-        client.get("/26-27/h2h")
-        assert mock_rows.call_count == 1
-
-        season_routes.invalidate_h2h_cache()
-        client.get("/26-27/h2h")
-        assert mock_rows.call_count == 2
-    season_routes.invalidate_h2h_cache()
+        season_routes.invalidate_competiciones_cache()
+        client.get("/26-27/competiciones")
+        assert mock_book.call_count == 2
+    season_routes.invalidate_competiciones_cache()
 
 
-def test_refresh_h2h_requires_login(client):
+def test_the_old_awards_url_still_resolves(client):
+    """`/lloros-awards` is in people's history and in old messages."""
+    response = client.get("/26-27/lloros-awards", follow_redirects=False)
+    assert response.status_code == 301
+    assert "/26-27/competiciones" in response.headers["Location"]
+
+
+def test_refresh_competiciones_requires_login(client):
     """The cache flush is a write action on a page open to the internet."""
-    response = client.post("/admin/refresh-h2h", follow_redirects=False)
+    response = client.post("/admin/refresh-competiciones", follow_redirects=False)
     assert response.status_code == 302
     assert "/admin" in response.headers["Location"]

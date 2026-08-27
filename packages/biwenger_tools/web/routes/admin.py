@@ -18,7 +18,7 @@ from flask import (
 from core.sdk.gcp import trigger_cloud_run_job
 from core.utils import get_logger
 from packages.biwenger_tools.web import config
-from packages.biwenger_tools.web.routes.season import invalidate_h2h_cache
+from packages.biwenger_tools.web.routes.season import invalidate_competiciones_cache
 from core.web.csrf import verify_csrf_token
 from core.web.ratelimit import RateLimiter
 
@@ -111,9 +111,9 @@ def run_scraper() -> Response:
     return redirect(url_for("admin.admin"))
 
 
-@bp.route("/admin/refresh-h2h", methods=["POST"])
-def refresh_h2h() -> Response:
-    """Drop the cached Liga H2H read so the next visit re-reads the sheet.
+@bp.route("/admin/refresh-competiciones", methods=["POST"])
+def refresh_competiciones() -> Response:
+    """Drop the cached competitions read so the next visit re-reads the sheets.
 
     The cache is five minutes, which is short enough for the league and long
     enough to be maddening for whoever just typed a score and wants to see it.
@@ -124,15 +124,15 @@ def refresh_h2h() -> Response:
 
     if not verify_csrf_token():
         logger.warning(
-            "CSRF token mismatch on /admin/refresh-h2h.",
+            "CSRF token mismatch on /admin/refresh-competiciones.",
             extra={"remote_addr": request.remote_addr},
         )
         flash("Sesión expirada. Recarga la página y vuelve a intentarlo.", "error")
         return redirect(url_for("admin.admin"))
 
-    invalidate_h2h_cache()
+    invalidate_competiciones_cache()
     flash(
-        "Caché de la Liga H2H vaciada. Recarga la página para ver los cambios.",
+        "Caché de competiciones vaciada. Recarga la página para ver los cambios.",
         "success",
     )
     return redirect(url_for("admin.admin"))
