@@ -63,8 +63,11 @@ spreadsheets a season points at, classifying each tab by its own shape: a
 la liga` in A1 is a table competition. A tab in neither format, or one with no
 data rows yet, SHALL be named on the page — never dropped in silence.
 
-Configuration SHALL hold one entry per season, listing spreadsheet ids, so a
-season may span several workbooks without a code change. Adding, renaming or
+Configuration SHALL hold one entry per season, listing spreadsheet ids
+separated by `;`, so a season may span several workbooks without a code
+change. The separator is not a comma because `gcloud run deploy
+--set-env-vars` splits its own argument on commas, and one inside a value
+fails the deploy before the app starts. Adding, renaming or
 retiring a competition SHALL therefore require no code, no secret and no
 deploy: a sheet id per competition per season is what left these pages empty
 for a year.
@@ -89,7 +92,8 @@ to it permanently.
   `test_a_table_tab_with_no_data_rows_yet_is_reported`,
   `test_the_tab_takes_its_label_from_the_sheet_not_the_tab_name`,
   `test_workbooks_concatenate_in_order`, `test_a_second_h2h_tab_is_refused`,
-  `test_the_old_awards_url_still_resolves`
+  `test_the_old_awards_url_still_resolves`,
+  `test_sheet_ids_split_on_semicolons_and_commas`
 
 ### Requirement: a group stage is several tables in one tab
 
