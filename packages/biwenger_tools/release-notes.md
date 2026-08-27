@@ -2,6 +2,23 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v8.4 - The Sheet Decides (27 August 2026)**
+
+The Lloros Awards page had rendered empty for a year. The cause was a service-account key someone disabled during a cleanup, but the reason nobody fixed it for twelve months is the interesting part: every competition needed its own sheet id, its own GitHub secret and its own deploy, so nothing about those pages was ever one edit away from working. This release publishes the **Liga H2H**, retires that shape, and hands the page over to the spreadsheet.
+
+* **🤝 The Liga H2H is on the site (the headline)**: 35 matchdays, standings and the full fixture calendar, from the spreadsheet the organiser already keeps. Chapter III of the reglamento existed in the rulebook and nowhere else.
+* **📋 The sheet is an input form, not a data source**: only the two scores per match are read. The calendar comes from `constants.H2H_ROUNDS`; results, points, difference and the whole classification are computed here from arts. 3.3 and 3.4. That was not tidiness — the sheet's own classification is a `SORTBY` rendering `#NAME?`, **and** it orders by points-for where the reglamento orders by victories. Reading it would have published a wrong table. The computed standings were checked against the sheet's `COUNTIFS` block: identical for all seven presidents.
+* **🎯 A tie it cannot break is marked, not invented**: art. 3.4's third criterion is the season's Liga Regular total, which is not in this spreadsheet. Two presidents level on points, difference and wins get an *empate técnico* marker rather than a fabricated rank.
+* **🧮 A row that disagrees with the calendar loses its scores, loudly**: `Equipo 1`/`Equipo 2` are read as a checksum against the reglamento's own fixture list. Reorder a row and the page names the mismatch instead of landing 78–43 on the wrong duel for the rest of the season.
+* **🗂️ Competiciones: the tabs are the workbook's tabs**: configuration now holds one entry per season — a list of workbook ids — and nothing about what is inside them. Each tab classifies itself (`Jornada | Partido` is the H2H block, `Nombre de la liga` in A1 is a table). **Adding a competition is adding a tab**: no code, no secret, no deploy. It works — a `MPV` trophy nobody told us about appeared on the site by itself.
+* **🎄 A group stage is several tables, and used to be one**: a tab holding `GRUPO A` and `GRUPO B` has a header row each; the old reader took the first as the only one and rendered GRUPO B's header as though it were a team. Live all along, invisible only because the pages were dark.
+* **🔇 Nothing is dropped in silence any more**: `get_sheets_data` skipped any tab under six rows without a word, so a half-written competition looked exactly like one that did not exist. Retired. What the reader ignores, the page now names.
+* **📱 Card-per-row on a phone**: standings and every competition table follow `DESIGN.md` below `md:`. Copa Castolo grows a column per matchday and would have reached 36 by May — which is the sideways scroll this removes.
+* **⚡ One read serves the whole page**: every tab of a workbook arrives in two API calls via `batchGet` instead of one call per tab, cached five minutes for all visitors and rendered server-side. Switching tabs is a class toggle — no request, no spinner. `/admin` flushes the cache for whoever just typed a score.
+* **🛟 A failed read serves the last good one**: stale, with a banner. The first attempt synthesised a calendar on failure and thereby gave an H2H tab to a season that never played the competition. Stale-but-real beats fresh-but-wrong.
+* **🧹 Retired with it**: the Ligas Especiales (the league dropped them; 25-26 stays readable as archive), a Sheets round trip `/reglamento` made on every visit and handed to a template that never mentioned it, two award endpoints resolving their season from the session cookie, and spreadsheet cells going straight into `innerHTML`.
+* **🔑 6/6 again**: auditing the free tier while wiring the secrets turned up a billing account at **8 active Secret Manager versions against a free tier of 6** — `INFRA.md` had claimed 6/6 for months. One secret carried three versions while everything read `:latest`. The repo-wide runbook documented rotating a secret without destroying the one it replaced, which is how they got there; it now says both halves.
+
 ### **v8.3 - What the Draft Actually Was (8 August 2026)**
 
 The 105 picks are in and the squad is a 2-5-7-1 — seven midfielders, one forward. The generator that was supposed to propose it could only ever build a 2-5-5-3. That gap, and what it turned up underneath, is most of this release: three separate places where the code held a rule the game does not have.

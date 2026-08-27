@@ -10,7 +10,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 | Service | Resource | Purpose |
 |---|---|---|
-| Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, lloros awards |
+| Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, competiciones |
 | Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (`--no-allow-unauthenticated`) |
 | Cloud Run (Services) | `biwenger-bot` | Telegram bot — receives webhooks, calls `biwenger-api` |
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
@@ -28,7 +28,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | `biwenger-credentials-regional` | `{"email", "password", "gdrive_folder_id", "jp_auth_token"}` |
 | `telegram-bot-config-regional` | `{"bot_token", "chat_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
-| `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (`ligas_especiales`, `trofeos`). Pending repoint to a Sheets-only SA once Drive folder is purged — see `PENDING.md`. |
+| `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (the competitions workbooks). Stays on `biwenger-tools-sa` by decision — see `STATUS.md` "Accepted gaps". |
 | `flask-web-config-regional` | `{"secret_key", "admin_password"}` — bound to `web` as `FLASK_WEB_CONFIG_JSON` |
 
 All secrets are regional (`europe-southwest1`). See "Cost decisions" below.

@@ -96,13 +96,12 @@ retiring a competition is adding or deleting a tab. The old shape — one sheet
 id per competition per season, each needing a code edit, a GitHub secret and a
 deploy — is what left the pages dark for a year.
 
-**What is still open:** option (b), a Sheets-only service account. The web
-authenticates with `biwenger-tools-sa`, whose key is the project's only
-user-managed one, and that account carries four other enabled keys. Narrowing
-it is worth doing; it is simply no longer blocked on a decision. Note the
-constraint before creating a secret for it: the billing account allows **6
-active Secret Manager versions** and sits at exactly 6, so a new key means
-destroying the version it replaces (see `INFRA.md`).
+**Option (b), a Sheets-only service account, was declined.** The web keeps
+authenticating with `biwenger-tools-sa`. The reasoning is in `STATUS.md` under
+"Accepted gaps": it would buy a narrower blast radius on a single-operator
+private league, and cost a new key, a Secret Manager version the billing
+account does not have spare (it sits at exactly 6 of 6 free), and a second
+credential to remember at every rollover.
 
 Option (c), moving the awards into Firestore, is now the *wrong* trade: the
 league edits these tables weekly in a spreadsheet and wants to keep doing so.
