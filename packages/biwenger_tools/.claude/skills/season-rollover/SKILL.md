@@ -198,10 +198,19 @@ Make all edits. For each file, use Edit (never Write) since these are existing f
 
 **`.github/workflows/deploy.yml`**
 - Replace `TEMPORADA_ACTUAL: "<current>"` with `TEMPORADA_ACTUAL: "<new>"`
+- In the `Deploy web to Cloud Run` step, add
+  `COMPETICIONES_SHEET_IDS_<NEW_UNDERSCORED>=${{ secrets.COMPETICIONES_SHEET_IDS_<NEW_UNDERSCORED> }},\`
+  to `--set-env-vars`, next to the existing seasons'. Put nothing but flags
+  between the backslash-continued lines: a comment there consumes the rest of
+  the command and the deploy exits 126 having applied only half of it.
 
 **`packages/biwenger_tools/web/config.py`**
 - Replace `TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "<current>")` with the new default
 - Append the new season to `TEMPORADAS_DISPONIBLES` (keep all existing ones)
+- Add the new season to `COMPETICIONES_SHEETS`:
+  `"<new>": _sheet_ids("COMPETICIONES_SHEET_IDS_<NEW_UNDERSCORED>")`
+  (e.g. `27-28` → `COMPETICIONES_SHEET_IDS_27_28`). Leave the old seasons in
+  place — they are the archive the season selector reaches.
 
 **`packages/biwenger_tools/scraper_job/config.py`**
 - Replace `TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "<current>")` with the new default
@@ -214,6 +223,32 @@ Make all edits. For each file, use Edit (never Write) since these are existing f
 
 **`packages/biwenger_tools/OPERATIONS.md`**
 - Replace the `--update-env-vars TEMPORADA_ACTUAL=<current>` references with the new value (there may be more than one — replace all)
+
+# Step 4b — The competitions workbook for the new season
+
+The competitions page (Liga H2H, copas, trofeos) reads whatever tabs live in
+the spreadsheets the season points at. Without this step the new season rolls
+over with an empty page and nobody notices until someone opens it — which is
+how the awards pages stayed dark for a year.
+
+Ask the user for the new season's workbook id (the string in its Sheets URL
+between `/d/` and `/edit`), then:
+
+1. Confirm the sheet is shared with the Sheets service account, or every read
+   returns 403 and the page falls back to the bare H2H calendar:
+   `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com` (Viewer).
+2. Create the GitHub secret:
+   ```bash
+   gh secret set COMPETICIONES_SHEET_IDS_<NEW_UNDERSCORED> --body "<id>"
+   ```
+   Several workbooks in one season are separated by **`;`**, never by a comma:
+   `--set-env-vars` splits its own argument on commas and the deploy fails
+   with `Bad syntax for dict arg`.
+
+Nothing inside the workbook is configured. A tab whose header row starts
+`Jornada | Partido` is the H2H fixture block; a tab whose A1 reads `Nombre de
+la liga` is a table competition; anything else is reported on the page. The
+league adds a competition by adding a tab.
 
 # Step 5 — Commit
 
