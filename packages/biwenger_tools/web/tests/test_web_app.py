@@ -448,30 +448,15 @@ def test_palmares_skips_special_cups_before_25_26(mock_get, client):
 # --- API endpoint tests ---
 
 
-@patch("packages.biwenger_tools.web.routes.season.get_sheets_data")
-def test_api_lloros_ligas_returns_sheets_data(mock_get_sheets, client):
-    """The endpoint forwards the sheets_data result for the active season."""
-    from packages.biwenger_tools.web import config
-
-    payload = [{"nombre": "Liga A", "headers": ["Pos", "Equipo"], "rows": [["1", "X"]]}]
-    mock_get_sheets.return_value = payload
+def test_api_lloros_trofeos_returns_empty_when_no_sheet_configured(client):
+    """A season with no trofeos sheet returns [] (not a 500). Silent
+    fall-through is deliberate: the tab is not rendered for that season
+    anyway."""
     with patch(
-        "packages.biwenger_tools.web.routes.season.config.LIGAS_ESPECIALES_SHEETS",
-        {config.TEMPORADA_ACTUAL: "sheet-id-test"},
-    ):
-        response = client.get(f"/{config.TEMPORADA_ACTUAL}/api/lloros-awards/ligas")
-    assert response.status_code == 200
-    assert response.get_json() == payload
-
-
-def test_api_lloros_ligas_returns_empty_when_no_sheet_configured(client):
-    """If the season has no sheet ID mapped, the endpoint returns []
-    (not a 500). Important: silent fall-through is a deliberate design choice."""
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.LIGAS_ESPECIALES_SHEETS",
+        "packages.biwenger_tools.web.routes.season.config.TROFEOS_SHEETS",
         {},
     ):
-        response = client.get("/25-26/api/lloros-awards/ligas")
+        response = client.get("/25-26/api/lloros-awards/trofeos")
     assert response.status_code == 200
     assert response.get_json() == []
 
@@ -1056,18 +1041,41 @@ def test_h2h_page_renders_calendar_when_sheet_unavailable(client):
     assert "J35" in body, "el calendario debe seguir estando"
 
 
-def test_h2h_page_states_a_season_never_played_it(client):
-    """The competition started in 26-27. Landing on an older season via the
-    season pill is a normal state, not an error — the blank awards page is
-    exactly the failure this avoids."""
-    with patch(
-        "packages.biwenger_tools.web.routes.season.config.H2H_SHEETS",
-        {"26-27": "sheet-id-test"},
-    ):
-        response = client.get("/25-26/h2h")
+def test_a_season_only_shows_the_competitions_it_played(client):
+    """The tab strip is derived from the sheets a season has.
 
-    assert response.status_code == 200
-    assert "no se disputó" in response.get_data(as_text=True)
+    A competition retires by nobody creating its sheet for the new season, and
+    starts the same way — no code change, no deploy. 26-27 plays the H2H;
+    25-26 did not, and only had its trofeos.
+    """
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        H2H_SHEETS={"26-27": "h2h-id"},
+        TROFEOS_SHEETS={"25-26": "trofeos-id"},
+    ), patch(
+        "packages.biwenger_tools.web.routes.season.get_sheet_rows", return_value=[]
+    ):
+        old = client.get("/25-26/lloros-awards").get_data(as_text=True)
+        new = client.get("/26-27/lloros-awards").get_data(as_text=True)
+        empty = client.get("/24-25/lloros-awards").get_data(as_text=True)
+
+    assert 'id="btn-trofeos"' in old and 'id="btn-h2h"' not in old
+    assert 'id="btn-h2h"' in new and 'id="btn-trofeos"' not in new
+    assert "No hay competiciones registradas" in empty
+    assert 'id="btn-' not in empty
+
+
+def test_h2h_deep_link_falls_back_when_the_season_has_no_h2h(client):
+    """`/25-26/h2h` is a link someone kept. It must land on that season's
+    first real tab, not on an empty H2H panel."""
+    with patch.multiple(
+        "packages.biwenger_tools.web.routes.season.config",
+        H2H_SHEETS={"26-27": "h2h-id"},
+        TROFEOS_SHEETS={"25-26": "trofeos-id"},
+    ):
+        body = client.get("/25-26/h2h").get_data(as_text=True)
+
+    assert "loadSection('trofeos')" in body
 
 
 def test_h2h_standings_render_from_the_sheet(client):

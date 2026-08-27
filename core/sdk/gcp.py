@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 def get_google_service(api_name, api_version, service_account_file, scopes):
     """Returns an authenticated client using a Service Account.
 
-    Used for the Google Sheets reader (ligas especiales / trofeos). The
+    Used for the Google Sheets reader (liga H2H / trofeos). The
     Drive/CSV pipeline retired with the Firestore migration, so the
     `drive` API client lives elsewhere and only the `sheets` client uses
     this any more — kept generic in case another Google API ever joins.

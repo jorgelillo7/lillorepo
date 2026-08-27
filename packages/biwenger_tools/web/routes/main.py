@@ -1,7 +1,6 @@
 """Main routes: home, favicon, palmares, reglamento, calendario."""
 
 import calendar
-import ssl
 import time
 from datetime import date, datetime
 
@@ -25,10 +24,9 @@ from packages.biwenger_tools.constants import (
     H2H_MATCHDAYS,
     H2H_ROUNDS,
 )
-from core.sdk.gcp import get_sheets_data
 from core.sdk.http import retry_http_request
 from core.utils import get_logger
-from packages.biwenger_tools.web import config, repository, services
+from packages.biwenger_tools.web import config, repository
 
 logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
@@ -270,25 +268,16 @@ def palmares() -> str:
 
 @bp.route("/reglamento")
 def reglamento() -> str:
-    """Display the rules page."""
-    error = None
-    leagues: list = []
-    try:
-        if services.sheets_service:
-            sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(g.season)
-            if sheet_id:
-                leagues = get_sheets_data(services.sheets_service, sheet_id)
-    except ssl.SSLError:
-        error = "Error de SSL al conectar con Google Sheets."
-        logger.exception("SSL error loading reglamento.")
-    except Exception:
-        error = "Ocurrió un error al cargar los datos para el reglamento."
-        logger.exception("Error loading reglamento.")
+    """Display the rules page.
 
+    Reads nothing. It used to fetch the ligas especiales sheet and hand the
+    result to a template that never mentions `leagues` — a Sheets round trip
+    per visit, straight to the bin, plus two error branches that could not
+    surface anything. Same defect the salseo route already shed.
+    """
     return render_template(
         "reglamento.html",
-        leagues=leagues,
-        error=error,
+        error=None,
         active_page="reglamento",
         draft_order=DRAFT_ORDER_NAMES,
         h2h_rounds=H2H_ROUNDS,

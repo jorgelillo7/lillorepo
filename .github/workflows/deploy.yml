@@ -259,7 +259,6 @@ jobs:
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
           CLOUD_RUN_JOB_NAME=biwenger-scraper-data,\
           CLOUD_RUN_REGION=${{ env.REGION }},\
-          LIGAS_ESPECIALES_SHEET_ID_25_26=${{ secrets.LIGAS_ESPECIALES_SHEET_ID_25_26 }},\
           TROFEOS_SHEET_ID_25_26=${{ secrets.TROFEOS_SHEET_ID_25_26 }},\
           H2H_SHEET_ID_26_27=${{ secrets.H2H_SHEET_ID_26_27 }},\
           GIT_COMMIT=${GITHUB_SHA::7},\

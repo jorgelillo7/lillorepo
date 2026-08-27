@@ -1,7 +1,7 @@
 # Capability: web-dataviz
 
 The public Flask site on Cloud Run that visualises league data: season-scoped
-content pages, palmarés, the market/justice table, Lloros Awards, a
+content pages, palmarés, the market/justice table, the awards page, a
 season-agnostic calendar, and a CSRF- and rate-limit-protected admin surface.
 
 - **Source:** `packages/biwenger_tools/web/routes/` (`main.py`, `admin.py`,
@@ -53,20 +53,42 @@ onward (earlier seasons had none).
   `test_palmares_renders_special_tournament_slots`,
   `test_palmares_skips_special_cups_before_25_26`
 
-### Requirement: Lloros Awards from Sheets
+### Requirement: the awards page shows only what a season played
 
-The Lloros Awards page SHALL carry three tabs — Liga H2H, Ligas Especiales and
-Trofeos. The ligas/trofeos endpoints SHALL be season-scoped in the path, SHALL
-return data read from Google Sheets, and SHALL return an empty result (not an
-error) when no sheet is configured for that season.
+The awards page SHALL derive its tab strip from the sheets configured for the
+season being viewed: a competition with no sheet for that season SHALL have no
+tab, and a season with none SHALL say so rather than render empty panels. A
+deep link to a tab the season does not have SHALL fall back to its first real
+tab. The trofeos endpoint SHALL be season-scoped in the path and SHALL return
+an empty result (not an error) when no sheet is configured.
 
-#### Scenario: configured vs unconfigured
-- **WHEN** a sheet is configured for the season in the path **THEN** its
-  ligas/trofeos data is returned
-- **WHEN** none is configured **THEN** an empty result is returned
-- *Verifies:* `test_api_lloros_ligas_returns_sheets_data`,
-  `test_api_lloros_ligas_returns_empty_when_no_sheet_configured`,
-  `test_api_lloros_trofeos_returns_sheets_data`
+This is how a competition retires or starts — by its sheet existing or not,
+with no code change and no deploy. The Ligas Especiales ran in 25-26 and were
+dropped; the Liga H2H took their slot in 26-27.
+
+#### Scenario: per-season tabs
+- **WHEN** the season has an H2H sheet and no trofeos sheet **THEN** only the
+  H2H tab renders
+- **WHEN** the season has neither **THEN** the page states there are no
+  competitions registered
+- **WHEN** `/{season}/h2h` names a season without H2H **THEN** the page opens
+  on that season's first tab
+- *Verifies:* `test_a_season_only_shows_the_competitions_it_played`,
+  `test_h2h_deep_link_falls_back_when_the_season_has_no_h2h`,
+  `test_api_lloros_trofeos_returns_sheets_data`,
+  `test_api_lloros_trofeos_returns_empty_when_no_sheet_configured`
+
+### Requirement: the rulebook reads nothing
+
+The reglamento page SHALL render from the repository alone. It used to fetch a
+Google Sheet whose result the template never referenced — a network round trip
+per visit, and two error branches that could not surface anything.
+
+#### Scenario: no upstream dependency
+- **WHEN** the rulebook is requested **THEN** it renders without touching
+  Sheets, and Anexo II prints all 35 H2H matchdays
+- *Verifies:* `test_reglamento_renders_every_chapter`,
+  `test_reglamento_annex_ii_renders_every_h2h_matchday`
 
 ### Requirement: Liga H2H is derived, not transcribed
 
@@ -106,22 +128,21 @@ different duel.
 
 ### Requirement: the H2H page degrades to its calendar
 
-A season with no H2H sheet configured SHALL state that the competition was not
-played, not render an error. A season whose sheet is configured but unreadable
-SHALL still render the full calendar, with the scores absent and a banner
-saying so — the Sheets credential died once and every page it fed simply went
-blank for a season.
+A season with no H2H sheet configured SHALL have no H2H tab at all (see the
+per-season tabs requirement above). A season whose sheet **is** configured but
+unreadable SHALL still render the full calendar, with the scores absent and a
+banner saying so — the Sheets credential died once and every page it fed
+simply went blank for a season.
 
 The H2H read SHALL be cached, and the admin panel SHALL be able to flush that
 cache so a freshly typed score can be seen without waiting for the TTL.
 
-#### Scenario: missing season, dead credential, cache
-- **WHEN** the season predates the competition **THEN** the page says so
+#### Scenario: dead credential, cache
 - **WHEN** the Sheets read raises **THEN** the calendar still renders with a
   banner
-- **WHEN** two visits fall inside the TTL **THEN** the sheet is read once
-- *Verifies:* `test_h2h_page_states_a_season_never_played_it`,
-  `test_h2h_page_renders_calendar_when_sheet_unavailable`,
+- **WHEN** two visits fall inside the TTL **THEN** the sheet is read once, and
+  the admin flush makes the next visit read again
+- *Verifies:* `test_h2h_page_renders_calendar_when_sheet_unavailable`,
   `test_h2h_read_is_cached_between_requests`,
   `test_h2h_standings_render_from_the_sheet`, `test_refresh_h2h_requires_login`
 

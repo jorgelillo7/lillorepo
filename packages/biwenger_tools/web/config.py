@@ -22,12 +22,12 @@ TEMPORADA_ACTUAL = os.getenv("TEMPORADA_ACTUAL", "26-27")
 # Prepend the new season at the start of each year (see docs/operations.md).
 TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
 
-# Per-season Sheet IDs for the Lloros Awards pages. Hand-edited in Sheets
-# by the user, never moved to Firestore.
-LIGAS_ESPECIALES_SHEETS = {
-    "25-26": os.getenv("LIGAS_ESPECIALES_SHEET_ID_25_26"),
-}
-
+# Per-season Sheet IDs for the awards pages. Hand-edited in Sheets by the
+# league, never moved to Firestore. A season absent from a map did not play
+# that competition, and its tab is not rendered.
+#
+# The Ligas Especiales retired after 25-26 — the league dropped them and the
+# Liga H2H took their slot.
 TROFEOS_SHEETS = {
     "25-26": os.getenv("TROFEOS_SHEET_ID_25_26"),
 }

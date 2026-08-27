@@ -26,7 +26,7 @@ graph TD
     GEM[Gemini API] -->|label OCR + studio| BW
     BWSYNC[be-water-catalog-sync<br/>Cloud Run Job, monthly] --> BWFS
     EUL[EU recognised-waters list] -->|monthly CI refresh, opens a PR| BW
-    GS[Google Sheets] -->|ligas especiales, trofeos| WEB
+    GS[Google Sheets] -->|liga H2H, trofeos| WEB
     USR -->|browse| WEB
 ```
 
@@ -104,7 +104,7 @@ for its build/test/deploy commands.
 | Language | Python 3.13 |
 | Web | Flask + Gunicorn |
 | Cloud | GCP — Cloud Run Services, Cloud Run Jobs, Secret Manager, Artifact Registry, Cloud Scheduler |
-| Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (ligas especiales / trofeos) |
+| Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (liga H2H / trofeos) |
 | CI/CD | GitHub Actions |
 
 ## Core Library

@@ -5,15 +5,22 @@
 {% block content %}
 <div class="space-y-6">
 
-    <!-- Tabs. Scrollable on narrow screens so three labels never wrap. -->
+    <!-- Tabs are derived from the sheets a season has: a competition that was
+         not played that year simply has no tab. Scrollable so labels never wrap. -->
+    {% if tabs %}
     <div class="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
-        <button id="btn-h2h" onclick="loadSection('h2h')"
-                class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">🤝 Liga H2H</button>
-        <button id="btn-ligas" onclick="loadSection('ligas')"
-                class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">🏆 Ligas Especiales</button>
-        <button id="btn-trofeos" onclick="loadSection('trofeos')"
-                class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">🥇 Trofeos</button>
+        {% for t in tabs %}
+        <button id="btn-{{ t.key }}" onclick="loadSection('{{ t.key }}')"
+                class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">{{ t.label }}</button>
+        {% endfor %}
     </div>
+    {% endif %}
+
+    {% if not tabs %}
+    <div class="card p-8 rounded-xl text-center">
+        <p class="text-gray-500">No hay competiciones registradas en la temporada {{ season }}.</p>
+    </div>
+    {% endif %}
 
     {% if error %}
     <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
@@ -22,13 +29,8 @@
     {% endif %}
 
     <!-- Liga H2H — server-rendered, it is what people open this page for -->
+    {% if h2h_played %}
     <div id="h2h-container">
-        {% if not h2h_played %}
-        <div class="card p-8 rounded-xl text-center">
-            <p class="text-gray-500">La Liga H2H no se disputó en la temporada {{ season }}.</p>
-            <p class="text-gray-400 text-sm mt-2">Empezó en la 26-27.</p>
-        </div>
-        {% else %}
 
         {% if h2h_issues %}
         <div class="card p-4 rounded-xl border border-amber-200 bg-amber-50 mb-6">
@@ -151,11 +153,12 @@
             </div>
             {% endfor %}
         </div>
-        {% endif %}
     </div>
+    {% endif %}
 
-    <div id="ligas-container" class="hidden"></div>
-    <div id="trofeos-container" class="hidden"></div>
+    {% for t in tabs if t.key != 'h2h' %}
+    <div id="{{ t.key }}-container" class="hidden"></div>
+    {% endfor %}
 </div>
 
 <style>
@@ -175,8 +178,8 @@
 
 <script>
 const season = "{{ season }}";
-const SECTIONS = ['h2h', 'ligas', 'trofeos'];
-const loaded = { h2h: true, ligas: false, trofeos: false };
+const SECTIONS = {{ tabs | map(attribute='key') | list | tojson }};
+const loaded = { h2h: true };
 
 function toggleStanding(idx) {
     document.getElementById('card-detail-' + idx)?.classList.toggle('hidden');
@@ -188,8 +191,8 @@ function toggleRound(jornada) {
 
 async function loadSection(section) {
     SECTIONS.forEach(s => {
-        document.getElementById('btn-' + s).classList.toggle('active-tab', s === section);
-        document.getElementById(s + '-container').classList.toggle('hidden', s !== section);
+        document.getElementById('btn-' + s)?.classList.toggle('active-tab', s === section);
+        document.getElementById(s + '-container')?.classList.toggle('hidden', s !== section);
     });
 
     if (loaded[section]) return;
@@ -257,6 +260,8 @@ function renderTable(data) {
     `).join('');
 }
 
-document.addEventListener('DOMContentLoaded', () => loadSection('{{ active_tab | default("h2h") }}'));
+{% if active_tab %}
+document.addEventListener('DOMContentLoaded', () => loadSection('{{ active_tab }}'));
+{% endif %}
 </script>
 {% endblock %}

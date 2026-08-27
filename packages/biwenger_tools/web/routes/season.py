@@ -5,10 +5,10 @@ Data flow:
 - Content (comunicados/datos/cronicas/clausulazos/participacion/tabla)
   comes from Firestore via `repository.*`. Filtering, ordering, and
   pagination all happen server-side — see the inline queries there.
-- The awards page (Liga H2H + ligas especiales + trofeos) comes from
-  Google Sheets — hand-edited by the league, not part of the Firestore
-  data set. H2H is server-rendered because it is what people open the
-  page for; the other two load on demand.
+- The awards page (Liga H2H + trofeos) comes from Google Sheets —
+  hand-edited by the league, not part of the Firestore data set. H2H is
+  server-rendered because it is what people open the page for; trofeos
+  loads on demand.
 """
 
 import time
@@ -298,15 +298,44 @@ def h2h(season: str) -> str:
     return _render_awards(season, tab="h2h")
 
 
+# Order matters: the first tab a season has is the one it opens on. H2H leads
+# because it is the competition being played week to week.
+_AWARD_TABS = (
+    ("h2h", "🤝 Liga H2H", "H2H_SHEETS"),
+    ("trofeos", "🥇 Trofeos", "TROFEOS_SHEETS"),
+)
+
+
+def _awards_tabs(season: str) -> list[dict]:
+    """The tabs this season actually has, driven by which sheets exist.
+
+    A competition retires by nobody creating its sheet for the new season —
+    no code change, no deploy, and the past seasons that do have one keep
+    theirs reachable through the season selector. That is why the tab strip
+    is derived rather than fixed: the Ligas Especiales ran in 25-26 and not
+    in 26-27, and both have to render honestly.
+    """
+    return [
+        {"key": key, "label": label}
+        for key, label, sheets in _AWARD_TABS
+        if season in getattr(config, sheets)
+    ]
+
+
 def _render_awards(season: str, tab: str) -> str:
     """Render the awards page. Only the H2H tab is server-rendered.
 
-    Ligas and trofeos stay lazy — they are one fetch each and most visits only
-    want the standings. H2H is the reason people open this page every week, so
-    it must be in the first paint.
+    Trofeos stays lazy — one fetch, and most visits only want the standings.
+    H2H is the reason people open this page every week, so it must be in the
+    first paint.
     """
+    tabs = _awards_tabs(season)
+    keys = [t["key"] for t in tabs]
+    if tab not in keys:
+        tab = keys[0] if keys else ""
+
     error = None
-    if not services.sheets_service:
+    if tabs and not services.sheets_service:
         error = "El servicio de Google Sheets no está disponible."
 
     rounds, issues, h2h_error = _load_h2h(season)
@@ -319,8 +348,9 @@ def _render_awards(season: str, tab: str) -> str:
         trofeos=None,
         error=error,
         active_page="lloros_awards",
+        tabs=tabs,
         active_tab=tab,
-        h2h_played=season in config.H2H_SHEETS,
+        h2h_played="h2h" in keys,
         h2h_rounds=rounds,
         h2h_standings=h2h_logic.standings(rounds) if rounds else [],
         h2h_issues=issues,
@@ -392,25 +422,6 @@ def _load_h2h(season: str) -> tuple[list, list[str], str | None]:
     issues = parse_issues + build_issues
     _h2h_cache[season] = (time.monotonic(), rounds, issues)
     return rounds, issues, None
-
-
-@bp.route("/<season>/api/lloros-awards/ligas")
-def api_lloros_ligas(season: str) -> Response:
-    """Return league data as JSON for `season`.
-
-    The season is in the path like every other season route. It used to read
-    `g.season`, which on a path without a `<season>` segment resolves from the
-    session cookie — correct only because the page that calls this had just
-    set it.
-    """
-    leagues: list = []
-    try:
-        sheet_id = config.LIGAS_ESPECIALES_SHEETS.get(season)
-        if sheet_id and services.sheets_service:
-            leagues = get_sheets_data(services.sheets_service, sheet_id)
-    except Exception:
-        logger.exception("Error loading ligas especiales.", extra={"season": season})
-    return jsonify(leagues)
 
 
 @bp.route("/<season>/api/lloros-awards/trofeos")
