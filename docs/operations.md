@@ -255,10 +255,25 @@ echo -n "DRIVE_FOLDER_ID" | gcloud secrets create gdrive-folder-id-regional \
   --locations="$REGION"
 ```
 
-### Updating a secret (e.g. token.json):
+### Updating a secret
+
+Rotating is two commands, not one. **Destroy the version you replaced** —
+Secret Manager bills a version while it is Enabled *or* Disabled, and the free
+tier is 6 active versions across the whole billing account, not per project.
+Disabling does not free the slot; only destroying does.
+
 ```bash
-gcloud secrets versions add token_json --data-file="token.json"
+# 1. add the new value (becomes `latest`, which is what every deploy binds)
+gcloud secrets versions add <secret-name> --project=<project> --data-file=-
+
+# 2. redeploy so running instances pick it up, verify it works, then:
+gcloud secrets versions destroy <old-version> --secret=<secret-name> --project=<project>
 ```
+
+`scripts/check-gcp-costs.sh` prints the account-wide total and flags 🚨 when it
+goes over. It only reports — nothing prunes versions automatically, so step 2
+is on you. `telegram-bot-config-regional` accumulated three versions this way
+before anyone noticed.
 
 ## 💅 Linter and Auto-formatter
 
