@@ -47,7 +47,8 @@ bazel run //packages/biwenger_tools/web:web_local
 Needs a local `.env` with `SECRET_KEY`, `ADMIN_PASSWORD`,
 `GCP_PROJECT_ID`, `CLOUD_RUN_JOB_NAME`, `CLOUD_RUN_REGION`, plus the
 competitions workbooks you want to read (`COMPETICIONES_SHEET_IDS_26_27`,
-comma-separated when a season spans several). For HTTP-only local dev set
+`;`-separated when a season spans several — a comma breaks the deploy, see
+`config.py`). For HTTP-only local dev set
 `SESSION_COOKIE_SECURE=false` so the session survives without TLS.
 
 ## 🚀 Deploy

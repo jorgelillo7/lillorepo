@@ -142,3 +142,26 @@ def test_a_second_h2h_tab_is_refused():
 
     assert h2h == rows
     assert len(skipped) == 1 and "ya hay otra pestaña de H2H" in skipped[0]
+
+
+# --- Configuration -------------------------------------------------------
+
+
+def test_sheet_ids_split_on_semicolons_and_commas(monkeypatch):
+    """Several ids per season travel in one env var.
+
+    The separator is `;` because `gcloud run deploy --set-env-vars` splits its
+    own argument on commas: a comma inside a value failed the deploy with
+    "Bad syntax for dict arg" before the app could start. Commas are still
+    read, for a hand-written local `.env` that never goes through gcloud.
+    """
+    from packages.biwenger_tools.web import config
+
+    monkeypatch.setenv("TEST_IDS", " a ; b ;; c ")
+    assert config._sheet_ids("TEST_IDS") == ["a", "b", "c"]
+
+    monkeypatch.setenv("TEST_IDS", "a,b")
+    assert config._sheet_ids("TEST_IDS") == ["a", "b"]
+
+    monkeypatch.delenv("TEST_IDS")
+    assert config._sheet_ids("TEST_IDS") == []

@@ -24,9 +24,15 @@ TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
 
 # --- Competiciones page ---
 # One entry per season, holding the spreadsheets that season's competitions
-# live in. Comma-separated so a season can span several workbooks without a
-# code change: 26-27 keeps everything in one, while 25-26 points at the two it
-# was already split across, and no history had to be migrated.
+# live in. **Semicolon-separated**, so a season can span several workbooks
+# without a code change: 26-27 keeps everything in one, while 25-26 points at
+# the two it was already split across, and no history had to be migrated.
+#
+# Semicolons rather than commas because `gcloud run deploy --set-env-vars`
+# splits its own argument on commas — a comma inside a value makes the deploy
+# fail with "Bad syntax for dict arg" before the app ever starts. Commas are
+# still accepted when reading, for a hand-written local `.env` that never
+# goes through gcloud.
 #
 # What is *inside* a workbook is not configured at all — every tab describes
 # itself (see `competiciones.py`). Adding a competition is adding a tab: no
@@ -35,9 +41,13 @@ TEMPORADAS_DISPONIBLES = ["24-25", "25-26", "26-27"]
 
 
 def _sheet_ids(env_name: str) -> list[str]:
-    """Comma-separated spreadsheet ids from one env var, blanks dropped."""
+    """Spreadsheet ids from one env var, blanks dropped.
+
+    Split on `;` or `,`: the deploy has to use `;` (see above), but a local
+    `.env` written by hand is not going through gcloud and either reads fine.
+    """
     raw = os.getenv(env_name) or ""
-    return [part.strip() for part in raw.split(",") if part.strip()]
+    return [part.strip() for part in raw.replace(",", ";").split(";") if part.strip()]
 
 
 COMPETICIONES_SHEETS = {

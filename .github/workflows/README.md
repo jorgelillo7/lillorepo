@@ -108,8 +108,8 @@ and `Test`. Swapping `github.token` for a PAT would remove that step.
 
 | Secret | Description |
 |--------|-------------|
-| `COMPETICIONES_SHEET_IDS_25_26` | Competitions workbook ids for 25-26, comma-separated |
-| `COMPETICIONES_SHEET_IDS_26_27` | Competitions workbook ids for 26-27, comma-separated |
+| `COMPETICIONES_SHEET_IDS_25_26` | Competitions workbook ids for 25-26, **`;`-separated** (a comma breaks `gcloud run deploy`) |
+| `COMPETICIONES_SHEET_IDS_26_27` | Competitions workbook ids for 26-27, **`;`-separated** |
 
 Other credentials (Biwenger login, Telegram bot tokens, JP token, Flask
 `secret_key`/`admin_password` via `flask-web-config-regional`) live in Secret
