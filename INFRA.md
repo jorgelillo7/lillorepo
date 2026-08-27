@@ -20,7 +20,7 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Cloud Run (jobs) | `biwenger-scraper-data` | Sundays 22:00 via Scheduler |
 | Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` |
-| Secret Manager | 5 secrets ×1 version | biwenger-credentials, tools-sa, telegram-bot-config, chucknorris-bot-config, flask-web-config (all `-regional`) |
+| Secret Manager | 5 secrets, **7 active versions** | biwenger-credentials, tools-sa, telegram-bot-config, chucknorris-bot-config, flask-web-config (all `-regional`). `telegram-bot-config` carries three versions while every consumer reads `:latest` — see the guardrail below |
 | Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |
 | Workload Identity Federation | pool `github` / provider `github-oidc` | keyless deploys for the whole repo, restricted to `jorgelillo7/lillorepo` |
 | Budget | €1/month alert | |
@@ -57,12 +57,16 @@ repo so the CI cleanup job can delete old digests, plus
 
 ## Cost guardrails
 
-- Everything above fits the free tiers **except** sub-cent dust: Secret
-  Manager sits at exactly **6/6 free versions across the billing account**
-  (quota is per billing account, not per project — consolidate before
-  creating a 7th), Cloud Scheduler at **3/3 free jobs** (same account-wide
-  quota — the next cron needs a paid job or a consolidation), and photo
-  storage rides the US always-free tier.
+- Cloud Scheduler is at **3/3** free jobs across the billing account (the
+  quota is per billing account, not per project — the next cron needs a paid
+  job or a consolidation), and photo storage rides the US always-free tier.
+- **Secret Manager is over.** The free tier is 6 *active* versions per billing
+  account, where "active" counts **Enabled and Disabled alike** — disabling a
+  version does not stop it billing, only destroying it does. The account
+  currently holds **8**, because `telegram-bot-config-regional` keeps versions
+  2, 3 and 4 while every consumer reads `:latest`. Overage is $0.06 per
+  version per month. `scripts/check-gcp-costs.sh` is the authority and already
+  flags it 🚨.
 - One €1 budget alert per project; `scripts/check-gcp-costs.sh` is the
   auditor — run without flags it sweeps both projects and closes with the
   account-wide Secret Manager version count.
