@@ -172,17 +172,24 @@ different duel.
 - *Verifies:* `test_unknown_fixture_in_sheet_is_reported_not_rendered`,
   `test_duplicate_row_is_reported`, `test_scores_follow_the_pairing_not_the_column_order`
 
-### Requirement: the page degrades to the H2H calendar
+### Requirement: a failed read serves the last good one
 
-A season whose workbooks are configured but unreadable SHALL still render the
-full 35-matchday H2H calendar, with the scores absent and a banner saying so —
-the Sheets credential died once and every page it fed simply went blank for a
-season.
+When a season's workbooks cannot be read, the page SHALL serve the last
+successful read past its TTL, with a banner saying the figures may be behind.
+It SHALL NOT synthesise content: building a calendar from `H2H_ROUNDS` on
+failure gives an H2H tab to a season that never played the competition, and on
+a past season it would be the current roster's fixtures. With nothing cached
+the page SHALL say it cannot read the data rather than render an empty one —
+the Sheets credential was dead for a whole season and every page it fed went
+quietly blank.
 
-#### Scenario: dead credential
-- **WHEN** the workbook read raises **THEN** the calendar still renders with a
-  banner naming what is missing
-- *Verifies:* `test_competiciones_render_calendar_when_sheets_unavailable`
+#### Scenario: outage
+- **WHEN** a read fails and a previous one succeeded **THEN** that data is
+  served with a staleness banner
+- **WHEN** a read fails for a season that never played the H2H **THEN** no H2H
+  tab appears
+- *Verifies:* `test_a_failed_refresh_serves_the_last_good_read`,
+  `test_a_failed_read_never_invents_an_h2h_tab`
 
 ### Requirement: Admin surface is authenticated, rate-limited, CSRF-safe
 
