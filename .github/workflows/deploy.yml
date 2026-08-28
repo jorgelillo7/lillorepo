@@ -468,9 +468,6 @@ jobs:
             --cpu=1 \
             --concurrency=10 \
             --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
-            # COMPETICIONES_SHEET_IDS_* hold several ids separated by `;`.
-            # Not commas: this flag splits its own value on commas, so one
-            # inside a value fails the deploy with "Bad syntax for dict arg".
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           DRAFT_APPLY_TO_BIWENGER=${{ vars.DRAFT_APPLY_TO_BIWENGER || 'false' }},\
