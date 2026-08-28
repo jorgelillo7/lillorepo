@@ -57,4 +57,10 @@ python3 "$REPO_ROOT/scripts/check_specs.py"
 echo "==> emulation package…"
 python3 "$REPO_ROOT/scripts/check_no_game_data.py"
 
+# A comment between backslash-continued lines truncates the command and the
+# truncated version often succeeds — the web service ran for an hour on a new
+# image and the previous revision's environment. Twice now.
+echo "==> workflow shell…"
+python3 "$REPO_ROOT/scripts/check_workflow_shell.py"
+
 echo "==> lint OK"
