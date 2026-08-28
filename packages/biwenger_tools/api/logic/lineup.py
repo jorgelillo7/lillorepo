@@ -899,14 +899,28 @@ def diff_against_current(result: dict, squad_rows: list, current: dict) -> dict:
     )
     captain_changed = current.get("captain_id") != optimal_captain_id
 
+    # The bench is not in `total_sf` — `_pick_reserves` runs after the search
+    # and scores nothing. It still decides whether a starter who does not play
+    # is covered or leaves the line uncovered, so a difference here is real and
+    # the points cannot express it. It gets its own line rather than an
+    # invented number folded into the delta.
+    saved_bench = {b for b in (current.get("reserve_ids") or []) if b}
+    optimal_bench = {r["bw_id"] for r in (result.get("reserves") or []) if r}
+
     return {
         "comparable": True,
         "reason": None,
         "identical": (
-            saved_ids == optimal_ids and not formation_changed and not captain_changed
+            saved_ids == optimal_ids
+            and saved_bench == optimal_bench
+            and not formation_changed
+            and not captain_changed
         ),
         "incoming": [by_id[i] for i in optimal_ids - saved_ids if i in by_id],
         "outgoing": [by_id[i] for i in saved_ids - optimal_ids],
+        "bench_incoming": [by_id[i] for i in optimal_bench - saved_bench if i in by_id],
+        "bench_outgoing": [by_id[i] for i in saved_bench - optimal_bench if i in by_id],
+        "bench_empty_slots": max(0, len(optimal_bench) - len(saved_bench)),
         "formation_changed": formation_changed,
         "captain_changed": captain_changed,
         "current_formation": current.get("formation"),
@@ -923,6 +937,9 @@ def _not_comparable(reason: str) -> dict:
         "identical": False,
         "incoming": [],
         "outgoing": [],
+        "bench_incoming": [],
+        "bench_outgoing": [],
+        "bench_empty_slots": 0,
         "formation_changed": False,
         "captain_changed": False,
         "current_formation": None,
@@ -961,9 +978,13 @@ def format_preview_message(result: dict, diff: dict, squad_rows: list) -> str:
     else:
         delta = diff["delta"]
         gain = (
-            "cuesta lo mismo — las dos valen igual"
-            if delta == 0
-            else f"<b>+{delta}</b> si cambias"
+            "mismo once"
+            if delta == 0 and not (diff["incoming"] or diff["outgoing"])
+            else (
+                "cuesta lo mismo — las dos valen igual"
+                if delta == 0
+                else f"<b>+{delta}</b> si cambias"
+            )
         )
         body = [
             head,
@@ -982,6 +1003,25 @@ def format_preview_message(result: dict, diff: dict, squad_rows: list) -> str:
                 f"{_name_of(squad_rows, diff['current_captain_id'])} → "
                 f"{escape(captain['name']) if captain else 'sin capitán'}"
             )
+        # Kept apart from the SF line on purpose: the bench is not in
+        # `total_sf`, so folding it into the delta would be inventing points.
+        # It changes whether an absent starter is covered, which is a
+        # different kind of gain and says so.
+        if diff["bench_incoming"] or diff["bench_outgoing"]:
+            if body[-1] != "":
+                body.append("")
+            if diff["bench_empty_slots"]:
+                body.append(
+                    f"  🪑 Banquillo: tienes {diff['bench_empty_slots']} hueco(s) "
+                    "sin cubrir — no suma puntos, pero un titular que no juegue "
+                    "se queda sin relevo"
+                )
+            else:
+                body.append("  🪑 Banquillo distinto:")
+            for row in sorted(diff["bench_incoming"], key=_sf, reverse=True):
+                body.append(f"     🟢 {escape(row['name'])} (SF {_sf(row)})")
+            for row in sorted(diff["bench_outgoing"], key=_sf, reverse=True):
+                body.append(f"     🔴 {escape(row['name'])} (SF {_sf(row)})")
         body.append("")
         body.append("Aplícala con /alinear")
         body.append("")

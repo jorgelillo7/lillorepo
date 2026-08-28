@@ -1095,18 +1095,20 @@ def _squad_for_diff():
     )
 
 
-def _current(result, formation=None, captain=None, drop=None, add=None):
+def _current(result, formation=None, captain=None, drop=None, add=None, bench=None):
     """The saved lineup as `get_current_lineup` returns it, defaulting to
-    exactly what the solver chose."""
+    exactly what the solver chose — bench included, or "identical" would never
+    be reachable."""
     ids = {row["bw_id"] for row, _ in result["starters"]}
     if drop is not None:
         ids.discard(drop)
     if add is not None:
         ids.add(add)
     cap = result.get("captain")
+    optimal_bench = [r["bw_id"] for r in (result.get("reserves") or []) if r]
     return {
         "player_ids": ids,
-        "reserve_ids": [],
+        "reserve_ids": optimal_bench if bench is None else bench,
         "formation": formation if formation is not None else result["formation"],
         "captain_id": (
             captain if captain is not None else (cap["bw_id"] if cap else None)
@@ -1291,3 +1293,51 @@ def test_applying_a_lineup_is_unchanged_by_the_preview_work():
     assert applied.startswith("<b>✅ Alineación aplicada")
     assert "Preview" not in applied
     assert "/alinear" not in applied
+
+
+def test_an_empty_bench_slot_is_not_nothing_to_add():
+    """The eleven matched and the preview said "óptima" while the bench had a
+    hole in it — reported from the real league.
+
+    The bench is not in `total_sf`: `_pick_reserves` runs after the search and
+    scores nothing. So this cannot show up as a delta, and folding one in
+    would be inventing points. It is still a real difference — a starter who
+    does not play has no cover — so it is reported on its own line.
+    """
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    filled = [r["bw_id"] for r in result["reserves"] if r]
+    assert filled, "el fixture tiene que dejar a alguien en el banquillo"
+
+    diff = lineup.diff_against_current(result, squad, _current(result, bench=[]))
+
+    assert diff["comparable"]
+    assert not diff["identical"], "un banquillo vacío no es «nada que aportar»"
+    assert diff["delta"] == 0, "el banquillo no mueve el SF, y no debe fingir que sí"
+    assert [r["bw_id"] for r in diff["bench_incoming"]] == filled
+    assert diff["bench_empty_slots"] == len(filled)
+
+
+def test_the_message_says_the_bench_gains_no_points():
+    """Whoever reads it has to be able to tell a change that is worth points
+    from one that is worth cover."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    diff = lineup.diff_against_current(result, squad, _current(result, bench=[]))
+
+    message = lineup.format_preview_message(result, diff, squad)
+
+    assert "Banquillo" in message
+    assert "no suma puntos" in message
+    assert "mismo once" in message
+
+
+def test_a_different_bench_is_reported_in_and_out():
+    """Not only holes: a different reserve is a different reserve."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    diff = lineup.diff_against_current(result, squad, _current(result, bench=[999]))
+
+    assert not diff["identical"]
+    assert diff["bench_incoming"]
+    assert diff["bench_outgoing"] == [], "999 no está en la plantilla, no se nombra"

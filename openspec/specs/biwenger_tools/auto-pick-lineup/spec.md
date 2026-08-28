@@ -57,6 +57,15 @@ player sold since it was set, or an eleven no formation fits.
 A delta of **zero** on a different eleven SHALL be reported rather than
 suppressed: it means the swap is free, which is an answer.
 
+The **bench is part of the comparison and not part of the delta**. A saved
+lineup whose eleven matches but whose bench differs, or has unfilled slots,
+SHALL NOT be reported as identical — it was, and the preview called a lineup
+with a hole in its bench optimal. `total_sf` is the starters' score alone
+(`_pick_reserves` runs after the search and scores nothing), so the difference
+SHALL be stated on its own line saying it gains no points but leaves an absent
+starter without cover. Folding an invented number into the delta is the thing
+to avoid.
+
 The saved eleven SHALL be scored by putting it back through the solver, and
 through `xi_snapshot` rather than `pick_lineup`. Summing `_sf()` over it is
 wrong — `_sf` reads `_promotion_capped`, which `_solve` flips between passes,
@@ -78,8 +87,8 @@ impossible to confuse.
 - **WHEN** a starter was swapped **THEN** he is named out, his replacement in,
   and the delta is `optimal − saved`
 - **WHEN** the two elevens score the same **THEN** the delta prints as zero
-- **WHEN** only the formation or only the captain differs **THEN** it is not
-  reported as identical
+- **WHEN** only the formation, only the captain, or only the bench differs
+  **THEN** it is not reported as identical
 - **WHEN** the saved lineup has holes, a sold player, or none exists **THEN**
   the preview says why instead of printing a delta
 - **WHEN** the read fails **THEN** the preview still renders
@@ -93,7 +102,10 @@ impossible to confuse.
   `test_a_sold_player_in_the_saved_lineup_is_not_comparable`,
   `test_a_failed_lineup_read_still_previews`,
   `test_the_comparison_does_not_write_to_provider_watch`,
-  `test_applying_a_lineup_is_unchanged_by_the_preview_work`
+  `test_applying_a_lineup_is_unchanged_by_the_preview_work`,
+  `test_an_empty_bench_slot_is_not_nothing_to_add`,
+  `test_the_message_says_the_bench_gains_no_points`,
+  `test_a_different_bench_is_reported_in_and_out`
 
 #### Scenario: the ceiling is driven, not just mocked
 - **WHEN** the ceiling is lowered far enough **THEN** the real counter fires
