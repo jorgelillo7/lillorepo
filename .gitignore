@@ -69,3 +69,6 @@ packages/emulation_thor6/BIOS/*
 packages/emulation_thor6/ROMs/*
 !packages/emulation_thor6/BIOS/.gitkeep
 !packages/emulation_thor6/ROMs/.gitkeep
+
+# DevTools traffic exports — captures of a live session, never committed.
+openapidevtools.json

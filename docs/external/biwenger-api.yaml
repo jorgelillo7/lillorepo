@@ -264,7 +264,9 @@ paths:
         | `fields=` value | Returns |
         |---|---|
         | `offers(*,from(*),to(*))` | The live inbox (sent + received, all statuses, with manager names). Used by `/ofertas`. |
-        | `lineup(date,formation,players)` | Current saved lineup (11-slot array, `null` for empty slots). Used to compute `is_starter` in `/ofertas`. |
+        | `lineup(date,type,captain,playersID,reservesID)` | **The projection to use.** The saved lineup as ids: formation (`type`), captain, 11 starter slots and 4 bench slots, `null` for an empty one. ~200 B. |
+        | `lineup(date,formation,players)` | Legacy. Inlines the full player object per slot — ~9.6 KB for the same eleven — and **`formation` is silently ignored**: the field is called `type`, so this variant returns no formation at all. |
+        | `lineup(*)` | Adds `count`, `position`, `striker`, `coach`. The last two are `null` in a league with coaches disabled. |
         | `*,lineup(date)` | Lineup metadata only (used as PUT target — see PUT below). |
       parameters:
         - name: fields
@@ -275,7 +277,7 @@ paths:
             inbox:
               value: "offers(*,from(*),to(*))"
             lineup:
-              value: "lineup(date,formation,players)"
+              value: "lineup(date,type,captain,playersID,reservesID)"
       responses:
         "200":
           description: Payload depends on `fields`.
@@ -284,14 +286,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/Envelope'
               examples:
-                lineup-with-empty-slots:
-                  summary: Lineup with 1 starter + 10 empty slots
+                lineup-by-ids:
+                  summary: "fields=lineup(date,type,captain,playersID,reservesID)"
+                  value:
+                    status: 200
+                    data:
+                      lineup:
+                        type: "4-6-0"
+                        date: 1782245619
+                        captain: {id: 26566}
+                        playersID: [26566, 30789, null, null, null, null, null, null, null, null, null]
+                        reservesID: [null, 41221, null, null]
+                legacy-lineup-with-empty-slots:
+                  summary: "fields=lineup(date,formation,players) — note: no formation comes back"
                   value:
                     status: 200
                     data:
                       lineup:
                         date: 1782245619
-                        formation: "4-4-2"
                         players:
                           - null
                           - {id: 26566, name: "Carlos Romero", position: 2}
@@ -426,6 +438,89 @@ paths:
                             id: {type: integer}
                             owner: {$ref: '#/components/schemas/Owner'}
       x-verified-at: "2026-06-24"
+
+  /home:
+    get:
+      tags: [account]
+      summary: Everything the app's landing screen needs, in one call.
+      description: |
+        Returns `account`, `competition`, `events`, `league` (with an inlined
+        `board` slice and `participants`) and `user` together. Nothing here
+        that the dedicated endpoints do not also give; documented because it
+        exists and a single round trip may one day beat four.
+      responses:
+        "200":
+          description: Landing payload.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
+
+  /league:
+    get:
+      tags: [league]
+      summary: The authenticated user's current league, without naming its id.
+      description: |
+        `?fields=*` returns the league's identity only — `name`, `type`,
+        `mode`, `marketMode`, `scoreID`, `icon`, `cover`, `created`, `id`.
+        **Not** its settings or standings: those come from
+        `/rounds/league` (see below), which is the surprising part.
+      parameters:
+        - name: fields
+          in: query
+          schema: {type: string}
+          examples:
+            all: {value: "*"}
+      responses:
+        "200":
+          description: League identity.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
+
+  /rounds/league:
+    get:
+      tags: [league]
+      summary: League standings and **the full scoring settings** for a round.
+      description: |
+        The richest league read there is, and not where you would look for it.
+        `data.league.settings` carries the bonus configuration the reglamento
+        describes — `bonusFixed`, `bonusPoint`, `bonusIdealLineup`,
+        `bonusGameMVP`, `bonusGoal`, `bonusWorstLineup`,
+        `bonusProfitableLineup`, `bonusInverse`, `bonusLeaguePosition`,
+        `bonusRoundPosition`, `bonusRoundPointsPosition` — plus `splitRound`
+        and the lineup-change rules (`lineupShow`, `lineupRoundChanges`,
+        `lineupRoundChangesIn`, `lineupRoundChangeStrategy`).
+
+        `data.league.standings` is one entry per manager with `points`,
+        `teamValue`, `teamValueInc`, `position` and their `lineup`.
+
+        No round id returns the current round.
+      responses:
+        "200":
+          description: Standings + settings for the round.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
+
+  /rounds/league/{roundID}:
+    get:
+      tags: [league]
+      summary: Same as `/rounds/league`, for one specific round.
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema: {type: integer}
+      responses:
+        "200":
+          description: Standings + settings for that round.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
 
   /league/{leagueID}:
     get:
@@ -692,6 +787,108 @@ paths:
   # -------------------------------------------------------------------------
   # cf.biwenger.com host (note: this hangs off the SECOND server block)
   # -------------------------------------------------------------------------
+
+  /rounds/la-liga:
+    get:
+      tags: [competition]
+      summary: A LaLiga round — per-match status, the round's status, and the whole season's.
+      description: |
+        **cf host.** The competition's own view of a matchday, and the answer
+        to a question this project currently infers from Jornada Perfecta.
+
+        - `status` — the round: `active`, `finished`, `pending`.
+        - `games[]` — per match `status` (`preview`, `secondTime`, `finished`
+          observed), `date`, and `home`/`away` with `score`, `reports` and
+          `stats`.
+        - `season.rounds[]` — all 40 rounds with their own `status`.
+        - `mvp`, `idealLineup`.
+
+        A round reading `active` while its games are a mix of `finished` and
+        `preview` is the reglamento's *jornada única* stated as data: the
+        matchday is not closed and its points are provisional.
+
+        No round id returns the current one.
+
+        **Unauthenticated, but not anonymous.** `cf.biwenger.com` sits behind
+        Cloudflare: it 403s the API session *and* a bare client, and answers a
+        plain request carrying a browser `User-Agent`.
+      parameters:
+        - name: lang
+          in: query
+          schema: {type: string, example: es}
+      responses:
+        "200":
+          description: Round detail.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+        "403":
+          description: Cloudflare block — sent the API session, or no User-Agent.
+      x-verified-at: "2026-08-28"
+
+  /rounds/la-liga/{roundID}:
+    get:
+      tags: [competition]
+      summary: One specific LaLiga round.
+      parameters:
+        - name: roundID
+          in: path
+          required: true
+          schema: {type: integer}
+        - name: lang
+          in: query
+          schema: {type: string, example: es}
+      responses:
+        "200":
+          description: Round detail.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
+
+  /competitions/la-liga:
+    get:
+      tags: [competition]
+      summary: Competition metadata, including the scoring configuration.
+      description: |
+        **cf host**, same Cloudflare rule as `/rounds/la-liga`. Returns `id`,
+        `name`, `slug`, `sport`, `currency`, **`scores`**, `social`,
+        **`config`**, `news`, `threads` and `standings`.
+
+        `scores` and `config` are where the platform's scoring assumptions
+        could be checked against the source rather than transcribed — see
+        `STATUS.md`, which lists the conversion factors as believed and never
+        verified.
+      parameters:
+        - name: lang
+          in: query
+          schema: {type: string, example: es}
+      responses:
+        "200":
+          description: Competition metadata.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
+
+  /competitions/la-liga/availableVariables:
+    get:
+      tags: [competition]
+      summary: The 39 scoring variables a custom score can be built from.
+      description: |
+        **cf host.** `data` is a flat array of `{id, name}` — the vocabulary
+        behind a league's `customScore`. Observed: 39 entries.
+      parameters:
+        - name: lang
+          in: query
+          schema: {type: string, example: es}
+      responses:
+        "200":
+          description: Variable list.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Envelope'}
+      x-verified-at: "2026-08-28"
 
   /competitions/la-liga/data:
     servers:

@@ -28,7 +28,15 @@ MARKET_URL = f"{BIWENGER_API_BASE}/market"
 OFFERS_URL = f"{BIWENGER_API_BASE}/offers"
 USER_OFFERS_URL = f"{BIWENGER_API_BASE}/user?fields=offers(*,from(*),to(*))"
 LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
-USER_LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=lineup(date,formation,players)"
+# `type` is what Biwenger calls the formation; asking for `formation` returns
+# nothing, which is why the old projection could never log one. Requesting ids
+# rather than `players` keeps the response at ~200 B instead of ~9.6 KB — the
+# squad read already carries every player's detail, so inlining it again is
+# 48x the bytes for data we hold.
+USER_LINEUP_URL = (
+    f"{BIWENGER_API_BASE}/user" "?fields=lineup(date,type,captain,playersID,reservesID)"
+)
+ROUND_URL = f"{BIWENGER_CF_BASE}/rounds/la-liga"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
 
@@ -677,31 +685,85 @@ class BiwengerClient:
         )
         return inbox
 
-    def get_current_lineup_player_ids(
-        self, user_lineup_url: str = USER_LINEUP_URL
-    ) -> set[int]:
-        """Return the set of `player_id` currently in the user's starting 11.
+    def get_current_lineup(self, user_lineup_url: str = USER_LINEUP_URL) -> dict:
+        """The lineup currently saved on Biwenger.
 
-        Reads `?fields=lineup(date,formation,players)` and pulls the
-        non-null entries from `data.lineup.players` (the array has slots
-        for the chosen formation; empty slots come as `null`).
+        Returns `{"player_ids": set[int], "reserve_ids": [int|None],
+        "formation": str|None, "captain_id": int|None}`.
 
-        Use this — NOT `pick_lineup` — when you need to know "is this
-        player in the current Biwenger lineup" (e.g. /ofertas
-        recommendation context). `pick_lineup` computes the OPTIMAL 11 and
-        returns None if a valid one can't be formed (1 player + 10 huecos),
-        which then silently flips every player's is_starter flag to False.
+        Use this — NOT `pick_lineup` — to know what is *set*. `pick_lineup`
+        computes the OPTIMAL eleven and returns None when none can be formed,
+        which then silently flips every player's `is_starter` flag to False.
+
+        `playersID` has one slot per position in the formation and sends
+        `null` for an empty one, so a saved lineup with holes yields fewer
+        than eleven ids — the caller has to treat that as incomplete rather
+        than as a smaller team.
         """
         response = self.session.get(user_lineup_url, timeout=30)
         response.raise_for_status()
         lineup = ((response.json().get("data") or {}).get("lineup")) or {}
-        players = lineup.get("players") or []
-        ids = {p["id"] for p in players if isinstance(p, dict) and p.get("id")}
+        player_ids = {p for p in (lineup.get("playersID") or []) if p}
+        captain = lineup.get("captain") or {}
+        current = {
+            "player_ids": player_ids,
+            "reserve_ids": list(lineup.get("reservesID") or []),
+            "formation": lineup.get("type"),
+            "captain_id": captain.get("id"),
+        }
         logger.info(
             "Current lineup fetched.",
-            extra={"formation": lineup.get("formation"), "filled_slots": len(ids)},
+            extra={
+                "formation": current["formation"],
+                "filled_slots": len(player_ids),
+                "has_captain": current["captain_id"] is not None,
+            },
         )
-        return ids
+        return current
+
+    def get_current_lineup_player_ids(
+        self, user_lineup_url: str = USER_LINEUP_URL
+    ) -> set[int]:
+        """Just the starting eleven's ids — what `/ofertas` needs to ask
+        "is this player currently a starter"."""
+        return self.get_current_lineup(user_lineup_url)["player_ids"]
+
+    def get_round(self, round_id: Optional[int] = None) -> dict:
+        """A LaLiga round as Biwenger sees it: `games[]` with per-match
+        `status` and kickoff, the round's own `status`, and `season.rounds[]`
+        carrying every round's status for the season.
+
+        No `round_id` asks for the current one.
+
+        This is Biwenger's own answer to two things the platform currently
+        infers from Jornada Perfecta: whether a matchday is still open (the
+        reglamento's "jornada única" — a round is not final until every match
+        in it is played) and what a fixture-less week actually looks like.
+
+        Unauthenticated on purpose: `cf.biwenger.com` sits behind Cloudflare
+        and rejects the API session, but answers a plain request carrying a
+        browser User-Agent.
+        """
+        url = ROUND_URL if round_id is None else f"{ROUND_URL}/{int(round_id)}"
+        response = retry_http_request(
+            lambda: requests.get(
+                url,
+                params={"lang": "es"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=30,
+            ),
+            label="biwenger round fetch",
+        )
+        data = (response.json() or {}).get("data") or {}
+        logger.info(
+            "Round fetched.",
+            extra={
+                "round_id": data.get("id"),
+                "status": data.get("status"),
+                "games": len(data.get("games") or []),
+            },
+        )
+        return data
 
     def decide_offer(
         self, offer_id: int, decision: str, offers_url: str = OFFERS_URL
