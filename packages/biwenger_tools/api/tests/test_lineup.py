@@ -1341,3 +1341,51 @@ def test_a_different_bench_is_reported_in_and_out():
     assert not diff["identical"]
     assert diff["bench_incoming"]
     assert diff["bench_outgoing"] == [], "999 no está en la plantilla, no se nombra"
+
+
+def test_a_player_moving_between_eleven_and_bench_is_reported_once():
+    """From the real league: benching a starter printed him twice.
+
+    "🔴 Sale: Rioja" from the eleven and "🟢 Entra: Rioja" to the bench are
+    the same man taking the same step, and read as a contradiction. Worse, the
+    counts stopped agreeing — one message claimed two empty slots while
+    listing three arrivals.
+    """
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    weakest = min((r for r, _ in result["starters"]), key=lineup._sf)
+    benched = [r["bw_id"] for r in result["reserves"] if r]
+    assert benched, "el fixture necesita a alguien en el banquillo"
+    promoted = benched[0]
+
+    # Swap them: the bench player starts, the starter sits.
+    current = _current(
+        result,
+        drop=weakest["bw_id"],
+        add=promoted,
+        bench=[b for b in benched if b != promoted] + [weakest["bw_id"]],
+    )
+    diff = lineup.diff_against_current(result, squad, current)
+
+    named_in_xi = {r["bw_id"] for r in diff["incoming"] + diff["outgoing"]}
+    named_on_bench = {
+        r["bw_id"] for r in diff["bench_incoming"] + diff["bench_outgoing"]
+    }
+
+    assert named_in_xi, "el intercambio tiene que salir en el once"
+    assert not (
+        named_in_xi & named_on_bench
+    ), "nadie puede aparecer en las dos listas: es un solo movimiento"
+
+
+def test_the_hole_count_matches_the_names_listed():
+    """The message said "2 huecos" and listed three arrivals, because the
+    third was a starter coming down rather than a slot being filled."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    benched = [r["bw_id"] for r in result["reserves"] if r]
+
+    diff = lineup.diff_against_current(result, squad, _current(result, bench=[]))
+
+    assert diff["bench_empty_slots"] == len(benched)
+    assert len(diff["bench_incoming"]) == diff["bench_empty_slots"]

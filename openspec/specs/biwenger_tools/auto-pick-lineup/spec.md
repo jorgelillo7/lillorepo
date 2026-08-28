@@ -66,6 +66,14 @@ SHALL be stated on its own line saying it gains no points but leaves an absent
 starter without cover. Folding an invented number into the delta is the thing
 to avoid.
 
+A player who moves **between** the eleven and the bench SHALL be reported
+once. The eleven's line already names him; repeating the mirror image below
+reads as a contradiction ("Sale: Rioja" from the eleven, "Entra: Rioja" to the
+bench) and made the counts disagree — one message claimed two empty slots
+while listing three arrivals. The bench lines SHALL carry only bench-only
+churn, and the empty-slot count SHALL be the number of bench slots the optimum
+fills that the saved lineup does not.
+
 The saved eleven SHALL be scored by putting it back through the solver, and
 through `xi_snapshot` rather than `pick_lineup`. Summing `_sf()` over it is
 wrong — `_sf` reads `_promotion_capped`, which `_solve` flips between passes,
@@ -105,7 +113,9 @@ impossible to confuse.
   `test_applying_a_lineup_is_unchanged_by_the_preview_work`,
   `test_an_empty_bench_slot_is_not_nothing_to_add`,
   `test_the_message_says_the_bench_gains_no_points`,
-  `test_a_different_bench_is_reported_in_and_out`
+  `test_a_different_bench_is_reported_in_and_out`,
+  `test_a_player_moving_between_eleven_and_bench_is_reported_once`,
+  `test_the_hole_count_matches_the_names_listed`
 
 #### Scenario: the ceiling is driven, not just mocked
 - **WHEN** the ceiling is lowered far enough **THEN** the real counter fires

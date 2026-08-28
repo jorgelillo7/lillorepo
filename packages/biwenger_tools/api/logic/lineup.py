@@ -907,6 +907,16 @@ def diff_against_current(result: dict, squad_rows: list, current: dict) -> dict:
     saved_bench = {b for b in (current.get("reserve_ids") or []) if b}
     optimal_bench = {r["bw_id"] for r in (result.get("reserves") or []) if r}
 
+    # A player moving between the eleven and the bench is **one** change, and
+    # the eleven's line already reports it. Listing the mirror image below
+    # reads as a contradiction — "Sale: Rioja" from the eleven and "Entra:
+    # Rioja" to the bench are the same man taking the same step. What is left
+    # after removing them is bench-only churn, which is the part the eleven
+    # cannot tell you about.
+    moved = (optimal_ids - saved_ids) | (saved_ids - optimal_ids)
+    bench_in = (optimal_bench - saved_bench) - moved
+    bench_out = (saved_bench - optimal_bench) - moved
+
     return {
         "comparable": True,
         "reason": None,
@@ -918,8 +928,8 @@ def diff_against_current(result: dict, squad_rows: list, current: dict) -> dict:
         ),
         "incoming": [by_id[i] for i in optimal_ids - saved_ids if i in by_id],
         "outgoing": [by_id[i] for i in saved_ids - optimal_ids],
-        "bench_incoming": [by_id[i] for i in optimal_bench - saved_bench if i in by_id],
-        "bench_outgoing": [by_id[i] for i in saved_bench - optimal_bench if i in by_id],
+        "bench_incoming": [by_id[i] for i in bench_in if i in by_id],
+        "bench_outgoing": [by_id[i] for i in bench_out if i in by_id],
         "bench_empty_slots": max(0, len(optimal_bench) - len(saved_bench)),
         "formation_changed": formation_changed,
         "captain_changed": captain_changed,
@@ -1007,7 +1017,11 @@ def format_preview_message(result: dict, diff: dict, squad_rows: list) -> str:
         # `total_sf`, so folding it into the delta would be inventing points.
         # It changes whether an absent starter is covered, which is a
         # different kind of gain and says so.
-        if diff["bench_incoming"] or diff["bench_outgoing"]:
+        if (
+            diff["bench_incoming"]
+            or diff["bench_outgoing"]
+            or diff["bench_empty_slots"]
+        ):
             if body[-1] != "":
                 body.append("")
             if diff["bench_empty_slots"]:
