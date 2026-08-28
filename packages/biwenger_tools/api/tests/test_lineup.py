@@ -1078,3 +1078,216 @@ def test_the_digest_survives_an_exhausted_lineup_search():
         result = digests._safe_run_auto_pick(object())
 
     assert isinstance(result, dict)  # degraded, not raised
+
+
+# --- /preview: comparing the optimum against what is actually set -----------
+
+
+def _squad_for_diff():
+    """Eleven that fill 4-4-2 exactly, plus one clearly worse forward on the
+    bench — so any swap is unambiguous and its cost is arithmetic."""
+    return (
+        [_player(1, 500, GK)]
+        + [_player(10 + i, 400 - i, DEF) for i in range(4)]
+        + [_player(20 + i, 300 - i, MID) for i in range(4)]
+        + [_player(30, 200, FWD), _player(31, 190, FWD)]
+        + [_player(32, 50, FWD)]
+    )
+
+
+def _current(result, formation=None, captain=None, drop=None, add=None):
+    """The saved lineup as `get_current_lineup` returns it, defaulting to
+    exactly what the solver chose."""
+    ids = {row["bw_id"] for row, _ in result["starters"]}
+    if drop is not None:
+        ids.discard(drop)
+    if add is not None:
+        ids.add(add)
+    cap = result.get("captain")
+    return {
+        "player_ids": ids,
+        "reserve_ids": [],
+        "formation": formation if formation is not None else result["formation"],
+        "captain_id": (
+            captain if captain is not None else (cap["bw_id"] if cap else None)
+        ),
+    }
+
+
+def test_an_identical_eleven_reports_nothing_to_add():
+    """The 09:00 digest applies the optimum daily, so this is the answer most
+    days. It has to be a clean "no", not an empty diff the reader interprets."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    diff = lineup.diff_against_current(result, squad, _current(result))
+
+    assert diff["comparable"] and diff["identical"]
+    assert diff["delta"] == 0
+    assert diff["incoming"] == [] and diff["outgoing"] == []
+
+
+def test_a_swapped_starter_is_reported_in_and_out_with_its_cost():
+    """The case the feature exists for: a substitute started on purpose, and
+    the owner wants the price of the hunch."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    benched = min((r for r, _ in result["starters"]), key=lineup._sf)
+
+    diff = lineup.diff_against_current(
+        result, squad, _current(result, drop=benched["bw_id"], add=32)
+    )
+
+    assert diff["comparable"] and not diff["identical"]
+    assert [r["bw_id"] for r in diff["incoming"]] == [benched["bw_id"]]
+    assert [r["bw_id"] for r in diff["outgoing"]] == [32]
+    assert diff["delta"] > 0, "cambiar a peor tiene que costar puntos"
+    assert diff["delta"] == result["total_sf"] - diff["current_sf"]
+
+
+def test_a_formation_change_alone_is_not_nothing_to_add():
+    """Same eleven, different shape. Reporting "nada que aportar" here is a
+    lie, and it is what the old projection would have produced anyway — it
+    asked for `formation` and Biwenger returned none."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    diff = lineup.diff_against_current(
+        result, squad, _current(result, formation="3-5-2")
+    )
+
+    assert diff["comparable"] and not diff["identical"]
+    assert diff["formation_changed"]
+
+
+def test_a_captain_change_alone_is_not_nothing_to_add():
+    """Doubling the wrong player is a real difference, and it is exactly the
+    kind of thing changed by hand in the app."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    diff = lineup.diff_against_current(result, squad, _current(result, captain=999))
+
+    assert diff["comparable"] and not diff["identical"]
+    assert diff["captain_changed"]
+
+
+def test_an_incomplete_saved_lineup_is_not_comparable():
+    """`playersID` sends `null` for an unfilled slot. Scoring eight players as
+    if they were an eleven would print a delta that means nothing."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    current = _current(result)
+    current["player_ids"] = set(list(current["player_ids"])[:8])
+
+    diff = lineup.diff_against_current(result, squad, current)
+
+    assert not diff["comparable"]
+    assert diff["delta"] is None
+    assert "huecos" in diff["reason"]
+
+
+def test_no_saved_lineup_is_not_comparable():
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    diff = lineup.diff_against_current(result, squad, {"player_ids": set()})
+
+    assert not diff["comparable"] and diff["delta"] is None
+
+
+def test_a_sold_player_in_the_saved_lineup_is_not_comparable():
+    """Biwenger keeps a sold player in the saved lineup until it is re-set.
+    His row is gone from the squad, so the eleven cannot be scored."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    current = _current(result)
+    current["player_ids"] = (current["player_ids"] - {1}) | {12345}
+
+    diff = lineup.diff_against_current(result, squad, current)
+
+    assert not diff["comparable"]
+    assert "plantilla" in diff["reason"]
+
+
+def test_the_comparison_does_not_write_to_provider_watch():
+    """Scoring the saved eleven is a counterfactual. `provider_watch` records
+    the promotions actually bet on every morning, and a preview run must not
+    bury that line — which is why this goes through `xi_snapshot` and not
+    `pick_lineup`."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    with patch.object(provider_watch, "observe") as observe:
+        lineup.diff_against_current(result, squad, _current(result, drop=1, add=32))
+
+    observe.assert_not_called()
+
+
+def test_an_equivalent_eleven_reports_a_zero_delta():
+    """A different eleven that scores the same. The bet is free, and saying so
+    is more useful than "hay cambios" — printing nothing would hide that the
+    swap was harmless."""
+    squad = (
+        [_player(1, 500, GK)]
+        + [_player(10 + i, 400 - i, DEF) for i in range(4)]
+        + [_player(20 + i, 300 - i, MID) for i in range(4)]
+        + [_player(30, 200, FWD), _player(31, 150, FWD), _player(32, 150, FWD)]
+    )
+    result = pick_lineup(squad)
+    started = {row["bw_id"] for row, _ in result["starters"]}
+    swap_out = 31 if 31 in started else 32
+    swap_in = 32 if swap_out == 31 else 31
+
+    diff = lineup.diff_against_current(
+        result, squad, _current(result, drop=swap_out, add=swap_in)
+    )
+
+    assert diff["comparable"] and not diff["identical"]
+    assert diff["delta"] == 0, "dos onces igual de buenos no cuestan puntos"
+    assert diff["incoming"] and diff["outgoing"]
+
+
+def _preview_ctx(squad):
+    """A context whose Biwenger and JP are stubs — the preview must not need
+    the network to be exercised."""
+    from unittest.mock import MagicMock
+
+    ctx = MagicMock()
+    ctx.biwenger.get_manager_squad.return_value = []
+    ctx.biwenger.user_id = 1
+    return ctx
+
+
+def test_a_failed_lineup_read_still_previews():
+    """A dead read must not cost the command. `/ofertas` stands its depth
+    signal down rather than failing the inbox; this does the same and says so
+    instead of pretending the two agree."""
+    from packages.biwenger_tools.api.logic import actions
+
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    biwenger = _preview_ctx(squad).biwenger
+    biwenger.get_current_lineup.side_effect = RuntimeError("invalid_grant")
+
+    diff = actions._diff_against_saved_lineup(biwenger, result, squad)
+
+    assert not diff["comparable"]
+    assert diff["delta"] is None
+    assert "no se ha podido leer" in diff["reason"].lower()
+    # And the message still carries the optimal eleven.
+    assert "Preview" in lineup.format_preview_message(result, diff, squad)
+
+
+def test_applying_a_lineup_is_unchanged_by_the_preview_work():
+    """`/alinear` is the path that writes to Biwenger. The preview must not
+    have moved its message: an applied lineup and a proposed one have to stay
+    impossible to confuse."""
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+
+    applied = lineup.format_lineup_message(result)
+
+    assert applied.startswith("<b>✅ Alineación aplicada")
+    assert "Preview" not in applied
+    assert "/alinear" not in applied

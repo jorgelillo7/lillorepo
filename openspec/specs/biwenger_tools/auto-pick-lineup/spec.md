@@ -45,6 +45,56 @@ between passes and `_sf` reads it, so a table built once per `pick_lineup`
 would score demoted players with their pre-demotion projection and pick a
 different eleven.
 
+### Requirement: the preview compares, it does not just propose
+
+`/preview` SHALL report the difference between the lineup saved on Biwenger
+and the optimal one, not the optimal one alone. It SHALL state one of three
+outcomes: identical ("nada que aportar"), different (who is in, who is out,
+whether the formation or captain changed, and the cost in projected points),
+or **not comparable** with the reason — nothing saved, unfilled slots, a
+player sold since it was set, or an eleven no formation fits.
+
+A delta of **zero** on a different eleven SHALL be reported rather than
+suppressed: it means the swap is free, which is an answer.
+
+The saved eleven SHALL be scored by putting it back through the solver, and
+through `xi_snapshot` rather than `pick_lineup`. Summing `_sf()` over it is
+wrong — `_sf` reads `_promotion_capped`, which `_solve` flips between passes,
+so a total taken outside the search is not in the same units as
+`result["total_sf"]`. And `pick_lineup` writes to `provider_watch`, the trail
+that records the promotions actually bet on each morning; a counterfactual
+must not bury a real decision.
+
+A failed read SHALL degrade — the optimal eleven still goes out with a line
+saying the comparison could not be made — and SHALL NOT synthesise a lineup
+to compare against.
+
+`/alinear` SHALL be untouched: an applied lineup and a proposed one must stay
+impossible to confuse.
+
+#### Scenario: the three outcomes and their cost
+- **WHEN** the saved eleven, formation and captain match **THEN** the preview
+  says there is nothing to add
+- **WHEN** a starter was swapped **THEN** he is named out, his replacement in,
+  and the delta is `optimal − saved`
+- **WHEN** the two elevens score the same **THEN** the delta prints as zero
+- **WHEN** only the formation or only the captain differs **THEN** it is not
+  reported as identical
+- **WHEN** the saved lineup has holes, a sold player, or none exists **THEN**
+  the preview says why instead of printing a delta
+- **WHEN** the read fails **THEN** the preview still renders
+- *Verifies:* `test_an_identical_eleven_reports_nothing_to_add`,
+  `test_a_swapped_starter_is_reported_in_and_out_with_its_cost`,
+  `test_an_equivalent_eleven_reports_a_zero_delta`,
+  `test_a_formation_change_alone_is_not_nothing_to_add`,
+  `test_a_captain_change_alone_is_not_nothing_to_add`,
+  `test_an_incomplete_saved_lineup_is_not_comparable`,
+  `test_no_saved_lineup_is_not_comparable`,
+  `test_a_sold_player_in_the_saved_lineup_is_not_comparable`,
+  `test_a_failed_lineup_read_still_previews`,
+  `test_the_comparison_does_not_write_to_provider_watch`,
+  `test_applying_a_lineup_is_unchanged_by_the_preview_work`
+
 #### Scenario: the ceiling is driven, not just mocked
 - **WHEN** the ceiling is lowered far enough **THEN** the real counter fires
   it, and the counter SHALL tick on cache misses only — states and cache

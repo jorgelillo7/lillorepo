@@ -26,7 +26,9 @@ callback queries — so a leaked bot link cannot drive it.
 ### Requirement: Commands route to the API
 
 Text commands SHALL map to the corresponding `api` call (parsing a `@botname`
-suffix), `/preview` SHALL call auto-pick with `?dry_run=1`, and an API failure
+suffix), `/preview` SHALL call auto-pick with `?dry_run=1` — which reports
+the difference against the saved lineup rather than proposing one — and an API
+failure
 SHALL send an error message with the exception HTML-escaped inside `<code>`.
 
 #### Scenario: routing, dry-run, and safe errors
