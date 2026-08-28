@@ -1024,7 +1024,15 @@ def format_preview_message(result: dict, diff: dict, squad_rows: list) -> str:
         ):
             if body[-1] != "":
                 body.append("")
-            if diff["bench_empty_slots"]:
+            if diff["bench_empty_slots"] and not diff["bench_incoming"]:
+                # Every slot you lack is filled by someone dropping out of the
+                # eleven, and the line above already named him. Saying "1 hueco"
+                # and listing nobody left the reader with a number and no story.
+                body.append(
+                    f"  🪑 Banquillo: el cambio de arriba cubre "
+                    f"{diff['bench_empty_slots']} hueco(s) que tienes vacío(s)"
+                )
+            elif diff["bench_empty_slots"]:
                 body.append(
                     f"  🪑 Banquillo: tienes {diff['bench_empty_slots']} hueco(s) "
                     "sin cubrir — no suma puntos, pero un titular que no juegue "
