@@ -840,3 +840,155 @@ def _pick_captain(starters: list) -> dict | None:
     if not eligible:
         return None
     return max(eligible, key=_sf)
+
+
+# ---------------------------------------------------------------------------
+# Comparing the optimum against what is actually set on Biwenger
+# ---------------------------------------------------------------------------
+
+
+def diff_against_current(result: dict, squad_rows: list, current: dict) -> dict:
+    """What changes between the saved lineup and the optimal one, and its cost.
+
+    `current` is `BiwengerClient.get_current_lineup()`. Returns::
+
+        {"comparable", "reason", "identical", "incoming", "outgoing",
+         "formation_changed", "captain_changed", "current_sf", "delta"}
+
+    The cost is the honest part. Summing `_sf()` over the saved eleven would
+    be wrong: `_sf` reads `_promotion_capped`, which `_solve` flips between
+    passes, so a total taken outside the search is not in the same units as
+    `result["total_sf"]`. The saved eleven is scored by putting it through the
+    solver again — same machine, same state, two numbers that subtract.
+
+    That second solve goes through `xi_snapshot`, never `pick_lineup`: this is
+    a counterfactual, and `provider_watch` records the promotions actually bet
+    on. A preview must not write to that audit trail.
+
+    `comparable` is False, with a `reason`, when the saved lineup cannot be
+    scored — nothing saved, holes in it, a player sold since, or an eleven no
+    formation fits. A preview that printed a zero delta for any of those would
+    be reporting "no difference" when it means "no idea".
+    """
+    optimal_ids = {row["bw_id"] for row, _ in result["starters"]}
+    saved_ids = set(current.get("player_ids") or ())
+
+    if not saved_ids:
+        return _not_comparable("No hay ninguna alineación guardada en Biwenger.")
+    if len(saved_ids) < len(optimal_ids):
+        return _not_comparable(
+            f"Tu alineación tiene {len(saved_ids)} de {len(optimal_ids)} huecos "
+            "cubiertos, así que no se puede puntuar."
+        )
+
+    by_id = {row["bw_id"]: row for row in squad_rows}
+    missing = saved_ids - by_id.keys()
+    if missing:
+        return _not_comparable(
+            "Tu alineación tiene jugadores que ya no están en la plantilla."
+        )
+
+    saved = xi_snapshot([by_id[pid] for pid in saved_ids])
+    if saved is None:
+        return _not_comparable("Tu alineación no encaja en ninguna formación válida.")
+
+    captain = result.get("captain")
+    optimal_captain_id = captain["bw_id"] if captain else None
+    formation_changed = bool(
+        current.get("formation") and current["formation"] != result["formation"]
+    )
+    captain_changed = current.get("captain_id") != optimal_captain_id
+
+    return {
+        "comparable": True,
+        "reason": None,
+        "identical": (
+            saved_ids == optimal_ids and not formation_changed and not captain_changed
+        ),
+        "incoming": [by_id[i] for i in optimal_ids - saved_ids if i in by_id],
+        "outgoing": [by_id[i] for i in saved_ids - optimal_ids],
+        "formation_changed": formation_changed,
+        "captain_changed": captain_changed,
+        "current_formation": current.get("formation"),
+        "current_captain_id": current.get("captain_id"),
+        "current_sf": saved["total_sf"],
+        "delta": result["total_sf"] - saved["total_sf"],
+    }
+
+
+def _not_comparable(reason: str) -> dict:
+    return {
+        "comparable": False,
+        "reason": reason,
+        "identical": False,
+        "incoming": [],
+        "outgoing": [],
+        "formation_changed": False,
+        "captain_changed": False,
+        "current_formation": None,
+        "current_captain_id": None,
+        "current_sf": None,
+        "delta": None,
+    }
+
+
+def _name_of(rows: list, bw_id) -> str:
+    row = next((r for r in rows if r["bw_id"] == bw_id), None)
+    return escape(row["name"]) if row else "—"
+
+
+def format_preview_message(result: dict, diff: dict, squad_rows: list) -> str:
+    """The preview, led by the verdict rather than by the eleven.
+
+    `/preview` used to print the optimal lineup and leave the reader to diff
+    it against the app by eye. The question it is actually asked is "do I need
+    to act", so the answer goes first and the eleven follows for reference.
+
+    Separate from `format_lineup_message`, which confirms a lineup that was
+    applied and says so — a preview must never be mistakable for that.
+    """
+    head = f"<b>👀 Preview — mejor {result['formation']}</b> (SF {result['total_sf']})"
+
+    if not diff.get("comparable"):
+        body = [head, "", f"⚠️ {diff['reason']}", "", "La mejor alineación sería:"]
+    elif diff["identical"]:
+        body = [
+            head,
+            "",
+            "✅ <b>Tu alineación ya es la óptima.</b> Nada que aportar.",
+            "",
+        ]
+    else:
+        delta = diff["delta"]
+        gain = (
+            "cuesta lo mismo — las dos valen igual"
+            if delta == 0
+            else f"<b>+{delta}</b> si cambias"
+        )
+        body = [
+            head,
+            f"Tu alineación: {diff['current_formation'] or '—'} "
+            f"(SF {diff['current_sf']}) → {gain}",
+            "",
+        ]
+        for row in sorted(diff["incoming"], key=_sf, reverse=True):
+            body.append(f"  🟢 Entra: {escape(row['name'])} (SF {_sf(row)})")
+        for row in sorted(diff["outgoing"], key=_sf, reverse=True):
+            body.append(f"  🔴 Sale:  {escape(row['name'])} (SF {_sf(row)})")
+        if diff["captain_changed"]:
+            captain = result.get("captain")
+            body.append(
+                "  🅒 Capitán: "
+                f"{_name_of(squad_rows, diff['current_captain_id'])} → "
+                f"{escape(captain['name']) if captain else 'sin capitán'}"
+            )
+        body.append("")
+        body.append("Aplícala con /alinear")
+        body.append("")
+
+    lineup = format_lineup_message(result).replace(
+        f"<b>✅ Alineación aplicada — {result['formation']}</b> "
+        f"(SF total: {result['total_sf']})\n",
+        "",
+    )
+    return "\n".join(body) + lineup

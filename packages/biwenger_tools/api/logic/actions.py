@@ -22,8 +22,10 @@ from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
+from packages.biwenger_tools.api.logic import lineup as lineup_logic
 from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
+    format_preview_message,
     pick_lineup,
 )
 from packages.biwenger_tools.api.logic.orchestration import (
@@ -301,6 +303,23 @@ def run_league_compare() -> dict:
     return {"sent": 1, "managers": len(summary)}
 
 
+def _diff_against_saved_lineup(biwenger, result: dict, my_team: list) -> dict:
+    """Compare the optimum against what is set on Biwenger. Never raises.
+
+    A failed read must not cost the preview: it degrades to "could not
+    compare" and the optimal eleven still goes out, the way `/ofertas` stands
+    its depth signal down rather than failing the inbox.
+    """
+    try:
+        current = biwenger.get_current_lineup()
+    except Exception:
+        logger.exception("Could not read the saved lineup — previewing without it.")
+        return lineup_logic._not_comparable(
+            "No se ha podido leer tu alineación actual para compararla."
+        )
+    return lineup_logic.diff_against_current(result, my_team, current)
+
+
 def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     """Pick the best lineup, apply it on Biwenger, confirm via Telegram.
 
@@ -349,13 +368,18 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
         return {"sent": 1, "applied": False, "reason": "no_lineup"}
 
     if dry_run:
-        preview = format_lineup_message(result).replace(
-            "✅ Alineación aplicada", "👀 <b>Preview</b> — no aplicada"
-        )
+        diff = _diff_against_saved_lineup(biwenger, result, my_team)
+        preview = format_preview_message(result, diff, my_team)
         send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=preview)
         logger.info(
             "Dry-run lineup preview sent.",
-            extra={"formation": result["formation"], "total_sf": result["total_sf"]},
+            extra={
+                "formation": result["formation"],
+                "total_sf": result["total_sf"],
+                "comparable": diff["comparable"],
+                "identical": diff["identical"],
+                "delta": diff["delta"],
+            },
         )
         return {
             "sent": 1,
@@ -363,6 +387,8 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
             "dry_run": True,
             "formation": result["formation"],
             "total_sf": result["total_sf"],
+            "identical": diff["identical"],
+            "delta": diff["delta"],
         }
 
     starters_ids = [

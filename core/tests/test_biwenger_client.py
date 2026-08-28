@@ -988,3 +988,134 @@ def test_each_board_builder_pins_its_own_type():
     # An admin transfer is not a clause and never shows up in `transfer`.
     assert "type=adminTransfer" in admin_transfers_url(TEST_LEAGUE_ID)
     assert "type=transfer&" not in admin_transfers_url(TEST_LEAGUE_ID)
+
+
+# --- The saved lineup, read by ids ---
+
+
+def test_get_current_lineup_reads_captain_formation_and_bench(
+    biwenger_client_authenticated,
+):
+    """The projection asks for ids, not inlined players.
+
+    `lineup(date,formation,players)` returned ~9.6 KB of player objects the
+    squad read already holds, and no formation at all — Biwenger calls that
+    field `type`, so asking for `formation` silently returned nothing and the
+    log line printed None for a season. `lineup(date,type,captain,playersID,
+    reservesID)` is ~200 B and carries the captain and the bench besides.
+    """
+    payload = {
+        "status": 200,
+        "data": {
+            "lineup": {
+                "type": "4-4-2",
+                "date": 1782245619,
+                "captain": {"id": 26566},
+                "playersID": [26566, 30789, None] + [None] * 8,
+                "reservesID": [41221, None, None, None],
+            }
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.get(TEST_USER_LINEUP_URL, json=payload, status_code=200)
+        current = biwenger_client_authenticated.get_current_lineup(TEST_USER_LINEUP_URL)
+
+    assert current["player_ids"] == {26566, 30789}
+    assert current["formation"] == "4-4-2"
+    assert current["captain_id"] == 26566
+    assert current["reserve_ids"] == [41221, None, None, None]
+
+
+def test_an_empty_slot_makes_the_lineup_short_not_smaller(
+    biwenger_client_authenticated,
+):
+    """`playersID` has one slot per position and sends `null` for an unfilled
+    one. Eight ids is an incomplete eleven, not an eight-man team — the
+    caller has to be able to tell."""
+    payload = {
+        "status": 200,
+        "data": {
+            "lineup": {
+                "type": "4-4-2",
+                "captain": None,
+                "playersID": [1, 2, None, 4] + [None] * 7,
+                "reservesID": [],
+            }
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.get(TEST_USER_LINEUP_URL, json=payload, status_code=200)
+        current = biwenger_client_authenticated.get_current_lineup(TEST_USER_LINEUP_URL)
+
+    assert current["player_ids"] == {1, 2, 4}
+    assert len(current["player_ids"]) < 11
+    assert current["captain_id"] is None
+
+
+def test_get_current_lineup_player_ids_still_returns_just_the_ids(
+    biwenger_client_authenticated,
+):
+    """`/ofertas` asks only "is this player a starter" and must not have to
+    learn a new shape."""
+    payload = {
+        "status": 200,
+        "data": {
+            "lineup": {"type": "4-4-2", "playersID": [7, 8], "captain": {"id": 7}}
+        },
+    }
+    with requests_mock.Mocker() as m:
+        m.get(TEST_USER_LINEUP_URL, json=payload, status_code=200)
+        ids = biwenger_client_authenticated.get_current_lineup_player_ids(
+            TEST_USER_LINEUP_URL
+        )
+
+    assert ids == {7, 8}
+
+
+# --- Rounds, from the competition host ---
+
+
+def test_get_round_reports_the_matchday_and_its_games(biwenger_client_authenticated):
+    """Biwenger's own answer to "is this matchday closed".
+
+    The reglamento's *jornada única* says a round is not final until every
+    match in it is played; today the platform infers that from Jornada
+    Perfecta. Here it is stated: a round `active` whose games are a mix of
+    `finished` and `preview` is open, and its points are provisional.
+    """
+    payload = {
+        "status": 200,
+        "data": {
+            "id": 4901,
+            "name": "Jornada 3",
+            "status": "active",
+            "games": [
+                {"id": 1, "status": "finished", "date": 1782245619},
+                {"id": 2, "status": "preview", "date": 1782345619},
+            ],
+            "season": {"rounds": [{"id": 4899, "status": "finished"}]},
+        },
+    }
+    url = "https://cf.biwenger.com/api/v2/rounds/la-liga"
+    with requests_mock.Mocker() as m:
+        m.get(url, json=payload, status_code=200)
+        data = biwenger_client_authenticated.get_round()
+
+    assert data["status"] == "active"
+    assert {g["status"] for g in data["games"]} == {"finished", "preview"}
+
+
+def test_get_round_asks_the_cf_host_without_the_api_session(
+    biwenger_client_authenticated,
+):
+    """`cf.biwenger.com` is behind Cloudflare: it 403s the authenticated API
+    session *and* a bare client, and answers a browser User-Agent. Sending the
+    session there is the mistake this pins."""
+    url = "https://cf.biwenger.com/api/v2/rounds/la-liga/4899"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200, "data": {"id": 4899}}, status_code=200)
+        biwenger_client_authenticated.get_round(4899)
+        request = m.request_history[-1]
+
+    assert request.headers["User-Agent"].startswith("Mozilla/")
+    assert "Authorization" not in request.headers
