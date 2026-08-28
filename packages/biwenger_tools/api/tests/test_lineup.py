@@ -1389,3 +1389,25 @@ def test_the_hole_count_matches_the_names_listed():
 
     assert diff["bench_empty_slots"] == len(benched)
     assert len(diff["bench_incoming"]) == diff["bench_empty_slots"]
+
+
+def test_a_hole_closed_by_the_eleven_change_says_so():
+    """Reported: "tienes 1 hueco(s) sin cubrir" and no name under it.
+
+    The slot is real, but the man who fills it is the one dropping out of the
+    eleven — already named two lines above and filtered out of the bench list
+    so he is not counted twice. A number with nothing under it reads as a bug.
+    """
+    squad = _squad_for_diff()
+    result = pick_lineup(squad)
+    benched = [r["bw_id"] for r in result["reserves"] if r][0]
+    weakest = min((r for r, _ in result["starters"]), key=lineup._sf)
+
+    # Bench player starts, the weak starter is nowhere — a real empty slot.
+    current = _current(result, drop=weakest["bw_id"], add=benched, bench=[])
+    diff = lineup.diff_against_current(result, squad, current)
+    message = lineup.format_preview_message(result, diff, squad)
+
+    assert diff["bench_empty_slots"] and not diff["bench_incoming"]
+    assert "el cambio de arriba cubre" in message
+    assert "sin cubrir" not in message
