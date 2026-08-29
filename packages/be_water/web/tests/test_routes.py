@@ -457,7 +457,9 @@ def test_blocked_nickname_cannot_login_or_add(client):
 
 
 def test_community_shows_aesan_progress(client):
-    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
+        f"{_REPO}.all_analyses", return_value=[]
+    ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "Cobertura del registro AESAN" in body
@@ -467,8 +469,8 @@ def test_community_shows_aesan_progress(client):
 def test_community_pending_list_shows_unmatched_registry_waters(client):
     """None of `_catalog()`'s waters match the fake registry — all 3 pend."""
     with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
-        f"{_REPO}.get_all_waters", return_value=_catalog()
-    ):
+        f"{_REPO}.all_analyses", return_value=[]
+    ), patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "aguas pendientes de fichar" in body
@@ -497,8 +499,8 @@ def test_community_shows_complete_registry_message(client):
         ),
     ]
     with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
-        f"{_REPO}.get_all_waters", return_value=catalog
-    ):
+        f"{_REPO}.all_analyses", return_value=[]
+    ), patch(f"{_REPO}.get_all_waters", return_value=catalog):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "Registro completo" in body
@@ -1061,7 +1063,9 @@ def test_sparkling_waters_wear_the_badge(client):
 
 
 def test_community_shows_achievements_showcase(client):
-    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
+        f"{_REPO}.all_analyses", return_value=[]
+    ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "Los logros" in body
@@ -1072,7 +1076,9 @@ def test_community_page_ranks_contributors(client):
     catalog = _catalog()
     catalog[0].added_by = "jorgelillo"
     catalog[0].verified_fields = ["tds"]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.all_analyses", return_value=[]
+    ):
         resp = client.get("/comunidad")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)

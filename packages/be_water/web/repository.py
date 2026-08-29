@@ -122,6 +122,17 @@ def get_analysis(water_id: str, analysis_date: str) -> dict | None:
     return firestore.get_document(ANALYSES, analysis_id(water_id, analysis_date))
 
 
+def all_analyses() -> list[dict]:
+    """Every analysis ever recorded.
+
+    A full scan, unlike `list_analyses`, and deliberately: the community page
+    ranks contributors across the whole catalog, so it needs the collection
+    once per page rather than once per water. The ficha's per-water read is
+    the one that had to stop scanning.
+    """
+    return [data for _, data in firestore.list_documents(ANALYSES)]
+
+
 def list_analyses(water_id: str) -> list[dict]:
     """This water's analyses, newest first.
 
