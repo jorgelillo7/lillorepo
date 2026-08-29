@@ -107,13 +107,21 @@ def test_replace_label_targets_originals_path():
     assert water.label_photo_url == url
 
 
-def test_delete_water_removes_both_objects_then_doc():
+def test_delete_water_removes_every_object_it_owns_then_the_doc():
+    """A water with a series owns a pair of objects per analysis on top of the
+    current pair. Deleting only the bare paths leaves the history's photos in
+    the bucket, paid for and reachable, with no ficha pointing at them."""
     water = _water("bezoya")
+    entries = [{"analysis_date": "2025-02"}, {"analysis_date": "2024-01"}]
     with patch(f"{_MOD}.photos.delete_object") as delete_obj, patch(
-        f"{_MOD}.repository.delete_water"
-    ) as delete_doc:
+        f"{_MOD}.repository.list_analyses", return_value=entries
+    ), patch(f"{_MOD}.repository.delete_water") as delete_doc:
         photo_audit.delete_water(water)
     assert [c.args[0] for c in delete_obj.call_args_list] == [
+        "bezoya__2025-02.jpg",
+        "originals/bezoya__2025-02.jpg",
+        "bezoya__2024-01.jpg",
+        "originals/bezoya__2024-01.jpg",
         "bezoya.jpg",
         "originals/bezoya.jpg",
     ]

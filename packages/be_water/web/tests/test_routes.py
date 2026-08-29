@@ -1452,7 +1452,9 @@ def test_an_unreadable_label_does_not_blame_the_photo_alone(client):
 # --- Compositions as a dated series ----------------------------------------
 
 
-def _analysis(date, tds, verified=("tds",), label="originals/x.jpg"):
+def _analysis(date, tds, verified=("tds",), label="originals/x.jpg", photo=None):
+    """`photo` defaults to absent, which is the state of every entry the
+    backfill wrote — those predate the per-analysis bottle shot."""
     return {
         "water_id": "bezoya",
         "analysis_date": date,
@@ -1460,6 +1462,7 @@ def _analysis(date, tds, verified=("tds",), label="originals/x.jpg"):
         "verified_fields": list(verified),
         "sources": {},
         "label_photo_url": label,
+        "photo_url": photo,
     }
 
 
@@ -1529,6 +1532,74 @@ def test_each_dated_analysis_keeps_its_own_label_photo(client):
     assert any(d.endswith("__2024-01.jpg") for d in destinations), destinations
 
 
+def test_an_older_submission_never_overwrites_the_current_bottle_photo(client):
+    """What happened to Peñaclara in production.
+
+    The label got a per-analysis path; the bottle shot did not. An older
+    submission promoted its photo to the bare `{water_id}.jpg` **before** the
+    outcome branch, so on the history path — where `save_water` never runs —
+    the ficha kept its url while the file behind it became the old bottle. The
+    replacement is invisible precisely because nothing in Firestore moved.
+    """
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ), patch(
+        f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
+    ) as promote:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "photo_tmp": "uploads/abc.jpg",
+                "label_tmp": "uploads/abc-label.jpg",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    destinations = [call.args[1] for call in promote.call_args_list]
+    assert destinations, "no photo was promoted at all"
+    assert all("__2024-01.jpg" in d for d in destinations), destinations
+
+
+def test_an_analysis_entry_keeps_the_photos_that_submission_brought(client):
+    """`apply_existing` copies the ficha's photos onto a submission that
+    brought none, so the entry would store the *current* label as the proof of
+    another year's numbers — and the ficha's bottle as that year's bottle,
+    which makes the selector look broken: every year, the same picture."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    existing.photo_url = "https://x/current.jpg"
+    existing.label_photo_url = "https://x/originals/current.jpg"
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    entry = mock_analysis.call_args.args[0]
+    assert entry.photo_url is None
+    assert entry.label_photo_url is None
+
+
 def test_the_catalog_reads_only_the_current_composition(client):
     """The guardrail. A water with a series must appear **once** everywhere
     else — the ficha is the only place the past is visible."""
@@ -1576,6 +1647,40 @@ def test_a_past_analysis_swaps_the_numbers_and_its_verification(client):
     ):
         current = client.get("/agua/bezoya").get_data(as_text=True)
     assert marker in current, "el actual sí está confirmado por etiqueta"
+
+
+def test_a_past_analysis_shows_the_bottle_of_its_own_year(client):
+    """A label redesign is part of what changed between analyses, so the
+    bottle follows the year. Without this the selector moves the numbers and
+    leaves the same picture on screen, which reads as a page that did not
+    react."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    ):
+        body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
+
+    assert "bezoya__2024-01.jpg" in body
+    assert 'src="https://x/bezoya.jpg"' not in body
+
+
+def test_an_analysis_with_no_bottle_of_its_own_keeps_the_ficha_s(client):
+    """The bottle is illustration, not evidence: an entry that never had one —
+    every backfilled entry — is better shown with today's than with none. The
+    label does not fall back; that one is evidence."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses",
+        return_value=[_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)],
+    ):
+        body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
+
+    assert 'src="https://x/bezoya.jpg"' in body
 
 
 def test_an_unknown_analysis_is_a_404_not_the_current_one(client):

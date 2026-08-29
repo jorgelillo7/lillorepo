@@ -120,8 +120,12 @@ series is not.
 - **WHEN** the date is already in the series **THEN** that entry is replaced
 - **WHEN** the composition carries no date **THEN** it never joins the series,
   and replacing a dated one still warns and snapshots
-- **WHEN** two analyses exist **THEN** each keeps its own label photo and its
-  own verified fields
+- **WHEN** two analyses exist **THEN** each keeps its own label photo, its own
+  bottle photo and its own verified fields — a submission's photos are promoted
+  to `{water_id}__{date}.jpg`, never to the bare path an older submission would
+  overwrite invisibly
+- **WHEN** an entry brought no bottle photo **THEN** the ficha's is shown for
+  it; the label never falls back, because it is the evidence for that year
 - **WHEN** the composition does not move **THEN** no snapshot is taken
 - *Verifies:* `test_an_older_analysis_does_not_touch_the_current_composition`,
   `test_an_older_analysis_needs_no_confirmation_any_more`,
@@ -129,6 +133,10 @@ series is not.
   `test_a_resubmission_for_the_same_date_replaces_that_entry`,
   `test_an_undated_composition_never_enters_the_series`,
   `test_each_dated_analysis_keeps_its_own_label_photo`,
+  `test_an_older_submission_never_overwrites_the_current_bottle_photo`,
+  `test_an_analysis_entry_keeps_the_photos_that_submission_brought`,
+  `test_a_past_analysis_shows_the_bottle_of_its_own_year`,
+  `test_an_analysis_with_no_bottle_of_its_own_keeps_the_ficha_s`,
   `test_a_past_analysis_swaps_the_numbers_and_its_verification`,
   `test_the_catalog_reads_only_the_current_composition`,
   `test_an_unknown_analysis_is_a_404_not_the_current_one`,

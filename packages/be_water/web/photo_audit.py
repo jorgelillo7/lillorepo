@@ -155,8 +155,13 @@ def replace_label(water: Water, image_bytes: bytes) -> str:
 
 
 def delete_water(water: Water) -> None:
-    """Remove the ficha entirely: both bucket objects then the Firestore doc.
-    Photo deletes are best-effort; the doc delete is the authoritative part."""
+    """Remove the ficha entirely: every bucket object it owns — the current
+    pair and one pair per analysis — then the Firestore doc. Photo deletes are
+    best-effort; the doc delete is the authoritative part."""
+    for entry in repository.list_analyses(water.id):
+        suffix = f"__{entry['analysis_date']}"
+        photos.delete_object(f"{water.id}{suffix}.jpg")
+        photos.delete_object(f"originals/{water.id}{suffix}.jpg")
     photos.delete_object(f"{water.id}.jpg")
     photos.delete_object(f"originals/{water.id}.jpg")
     repository.delete_water(water.id)

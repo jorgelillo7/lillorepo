@@ -127,7 +127,13 @@ class Water:
         ✓ over another year's values — a verification claim about a label
         nobody in that entry ever photographed.
 
-        Identity, location and photo stay the ficha's: it is the same bottle.
+        The bottle shot follows when the entry brought one, and falls back to
+        the ficha's when it did not: it is illustration, and an old analysis
+        with no photo is better shown with today's bottle than with none. The
+        label does not fall back — it is evidence, and borrowing another
+        year's would be the exact claim this split exists to prevent.
+
+        Identity and location stay the ficha's: it is the same spring.
         """
         return replace(
             self,
@@ -135,6 +141,7 @@ class Water:
             verified_fields=list(entry.get("verified_fields") or []),
             sources=dict(entry.get("sources") or {}),
             label_photo_url=entry.get("label_photo_url"),
+            photo_url=entry.get("photo_url") or self.photo_url,
             analysis_date=entry.get("analysis_date"),
         )
 
