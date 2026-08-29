@@ -56,7 +56,10 @@ def places(catalog: list[Water]) -> list[str]:
 
 # Parameters that reorder or filter a page without changing what it is about.
 # A canonical URL drops them so the variants consolidate into one indexed page.
-_NON_CANONICAL_ARGS = {"perfil", "periodo"}
+# `analisis` belongs here even though it changes the numbers on screen: a past
+# analysis is the same water, and left in, every dated entry would declare
+# itself the canonical page for a ficha that already has one.
+_NON_CANONICAL_ARGS = {"perfil", "periodo", "analisis"}
 
 
 def base_url() -> str:

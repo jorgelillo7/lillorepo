@@ -137,6 +137,10 @@ series is not.
   overwrite invisibly
 - **WHEN** an entry brought no bottle photo **THEN** the ficha's is shown for
   it; the label never falls back, because it is the evidence for that year
+- **WHEN** a past analysis is on screen **THEN** the page's own metadata
+  describes it — title, description, `og:image` and the JSON-LD all follow the
+  entry shown, while the canonical URL drops `analisis` so the variants
+  consolidate on the ficha instead of competing with it
 - **WHEN** the ficha already holds minerals the submission does not declare
   **THEN** the entry records only the declared ones, with only the ✓ that
   submission earned, while the ficha keeps the merge — an entry is the record
@@ -156,7 +160,8 @@ series is not.
   `test_a_past_analysis_swaps_the_numbers_and_its_verification`,
   `test_a_dated_entry_carries_only_what_that_label_declared`,
   `test_the_ficha_keeps_the_merge_the_entry_does_not`,
-  `test_the_catalog_reads_only_the_current_composition`,
+  `test_a_past_analysis_does_not_advertise_the_present_numbers`,
+  `test_only_the_ficha_reads_the_analysis_series`,
   `test_an_unknown_analysis_is_a_404_not_the_current_one`,
   `test_a_newer_label_saves_straight_through_but_still_snapshots`,
   `test_no_snapshot_when_the_composition_did_not_move`,

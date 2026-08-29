@@ -6,8 +6,8 @@
 <header class="text-center mb-8">
     <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">🏆 La comunidad</h1>
     <p class="mt-3 text-slate-500 max-w-lg mx-auto text-sm sm:text-base">
-        Quien fotografía etiquetas, hace historia. Añadir un agua vale un punto —
-        cada valor verificado, otro.
+        Quien fotografía etiquetas, hace historia. Añadir un agua vale dos puntos —
+        cada valor confirmado de etiqueta, uno más.
     </p>
     <div class="mt-5 inline-flex rounded-full bg-white ring-1 ring-slate-200 p-1 text-sm font-semibold">
         <a href="{{ url_for('community_page', periodo='siempre') }}"
@@ -35,7 +35,7 @@
     {% else %}
     <p class="text-xs text-slate-500 mt-2">
         Tu catálogo tiene {{ catalog_size }} fichas. España reconoce oficialmente
-        {{ aesan.total }} aguas minerales naturales (AESAN) y ya cubres
+        {{ aesan.total }} aguas minerales naturales distintas (AESAN) y ya cubres
         <strong>{{ aesan.covered }}</strong> de ellas — no es lo mismo que el tamaño
         del catálogo. Quedan <strong>{{ aesan.total - aesan.covered }}</strong> por fichar
         — cada botella nueva suma.
@@ -113,7 +113,7 @@
 
     <p class="text-center mt-8 text-sm text-slate-500">
         📸 <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline font-semibold">Fotografía una etiqueta</a>
-        y suma — quedan {{ '' }}muchas aguas sin verificar.
+        y suma — quedan muchas aguas sin verificar.
     </p>
 {% endif %}
 

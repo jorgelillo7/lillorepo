@@ -38,7 +38,15 @@ def coverage(catalog_names) -> dict:
     registry = {_key(e["name"]) for e in AESAN_WATERS}
     names = {_key(n) for n in catalog_names if n}
     covered = {r for r in registry if any(r in n or n in r for n in names)}
-    return {"total": len(registry), "covered": len(covered)}
+    # `total` counts distinct commercial names, `entries` the registry rows:
+    # a brand with several springs is listed once per spring. The pages say
+    # which is which, because "España reconoce N aguas" is a factual claim
+    # and the two numbers are not interchangeable.
+    return {
+        "total": len(registry),
+        "covered": len(covered),
+        "entries": len(AESAN_WATERS),
+    }
 
 
 def pending_waters(catalog_names) -> list[dict]:
