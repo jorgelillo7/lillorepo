@@ -1354,3 +1354,53 @@ def test_a_failed_ocr_still_saves_the_studio_photo(client, monkeypatch):
     assert any(
         call.args[1] == b"studio" for call in upload.call_args_list
     ), "la foto de estudio se sube aunque el OCR falle"
+
+
+def test_a_read_timeout_is_reported_as_an_overloaded_reader(client):
+    """A timeout is what an overloaded model looks like from here.
+
+    Only a *reply* carries a 429/503, and when Gemini is busy enough the
+    request gets no reply at all. That fell through to wording that reads as
+    "your photo is unreadable", and the owner re-shot the same bottle three
+    times while the model was returning "experiencing high demand".
+    """
+    import io
+
+    from requests import Timeout
+
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=Timeout("read timed out")):
+        response = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+
+    body = response.get_data(as_text=True)
+    assert "saturado" in body
+    assert "prueba de nuevo en unos minutos" in body
+
+
+def test_an_unreadable_label_does_not_blame_the_photo_alone(client):
+    """When the reader answers and simply could not parse it, the message
+    should not assert which of the two was at fault — we do not know."""
+    import io
+
+    from core.sdk.gemini import GeminiError
+
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(
+        f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("malformed output")
+    ):
+        response = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+
+    body = response.get_data(as_text=True)
+    assert "puede ser la foto o el lector" in body

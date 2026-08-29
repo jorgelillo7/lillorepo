@@ -261,9 +261,12 @@ def add_water_photo():
 
     processed = photos.process_image(raw)
     uid = uuid.uuid4().hex
-    # Both tmps live under uploads/ so the bucket lifecycle rule reclaims
-    # abandoned forms; on save the label shot is promoted to originals/
-    # as the permanent verification proof.
+    # Both tmps live under uploads/, and every attempt writes two objects
+    # before the OCR is even tried — three failed reads leave six. The
+    # lifecycle rule that was supposed to reclaim them **does not exist** on
+    # the bucket (checked 2026-08-29: `lifecycle: null`); the runbook in
+    # packages/be_water/OPERATIONS.md has the command to create it. On save
+    # the label shot is promoted to originals/ as the permanent proof.
     label_tmp = f"uploads/{uid}-label.jpg"
     photos.upload_photo(label_tmp, processed)
 
@@ -321,12 +324,22 @@ def add_water_photo():
         exc = ocr_error
         logger.warning("Label OCR failed.", extra={"error": str(exc)[:300]})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
-        overloaded = getattr(exc, "status_code", None) in (429, 503)
+        #
+        # A read that times out counts as overloaded. Only a *reply* carries a
+        # 429/503, and when the model is busy enough the request often gets no
+        # reply at all — that fell through to the generic wording, which reads
+        # as "your photo is unreadable" and had the owner re-shooting the same
+        # bottle three times while Gemini was returning
+        # "experiencing high demand" to everyone.
+        overloaded = getattr(exc, "status_code", None) in (429, 503) or isinstance(
+            exc, requests.Timeout
+        )
         error = (
             "El lector de etiquetas está saturado ahora mismo — "
             "prueba de nuevo en unos minutos, o rellena a mano."
             if overloaded
-            else "No pude leer la etiqueta automáticamente — rellena a mano."
+            else "No pude leer la etiqueta esta vez — puede ser la foto o el "
+            "lector; rellena a mano y sigue."
         )
         return _render_add_form(
             photo_tmp=photo_tmp,

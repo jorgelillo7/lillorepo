@@ -146,3 +146,42 @@ operational how-to; the specs are the single source of *what must be true*.
     5. Verify: the home shows the G button · sign in with
        jorge.lillo9@gmail.com · 🛡️ Admin appears in the nav (admin emails
        live in `BEWATER_ADMIN_EMAILS` in deploy.yml).
+
+## 🧹 Reclaiming abandoned upload photos
+
+Every `/anadir/foto` attempt writes **two** objects to
+`gs://be-water-photos/uploads/` — the label shot and the display photo —
+*before* the label is read. A read that fails leaves both behind, so three
+failed attempts on the same bottle leave six.
+
+`routes/add.py` claimed a lifecycle rule reclaimed them. **It did not exist**:
+checked on 2026-08-29, the bucket reported `lifecycle: null` while `uploads/`
+held 6 objects and 491 KB from that morning's failures alone. Nothing has ever
+deleted them.
+
+The bucket rides Cloud Storage's 5 GB always-free tier and sat at 3.5 MB, so
+this has never cost anything — but the invariant the code asserts is false and
+the pile only grows.
+
+Create the rule (deletes anything under `uploads/` after 7 days; a form nobody
+finished in a week is abandoned):
+
+```bash
+cat > /tmp/lifecycle.json <<'JSON'
+{"rule": [{
+  "action": {"type": "Delete"},
+  "condition": {"age": 7, "matchesPrefix": ["uploads/"]}
+}]}
+JSON
+gcloud storage buckets update gs://be-water-photos \
+  --lifecycle-file=/tmp/lifecycle.json --project=be-water-app
+```
+
+Verify, and confirm it is scoped to `uploads/` before trusting it — the same
+bucket holds `originals/`, which is the permanent verification proof and must
+never be swept:
+
+```bash
+gcloud storage buckets describe gs://be-water-photos \
+  --format="json(lifecycle)" --project=be-water-app
+```
