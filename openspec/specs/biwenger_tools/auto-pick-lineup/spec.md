@@ -45,6 +45,43 @@ between passes and `_sf` reads it, so a table built once per `pick_lineup`
 would score demoted players with their pre-demotion projection and pick a
 different eleven.
 
+### Requirement: the lineup messages say where the season is
+
+`/preview` and `/alinear` SHALL open with the current round, how many of its
+games are played, whether it is still open, the next round's first kickoff and
+the moment clauses freeze for it. The state SHALL come from Biwenger's own
+round payload, not be inferred from Jornada Perfecta.
+
+**The next round is not the next number.** 2026/27 interleaves postponed
+rounds — with Jornada 3 active the next to be played is Jornada 6, and Jornada
+4 follows it. The implementation SHALL take Biwenger's `next` and never derive
+the next round from the round number or from the order of `season.rounds[]`,
+which is not chronological.
+
+Clauses freeze 24 h before that kickoff, so the deadline is what makes the
+line actionable: cash has to be positive before it, and until it passes a
+player can still be taken.
+
+The read SHALL be best-effort — a failure drops the line and leaves the
+message otherwise intact, because losing a lineup because the calendar was
+unreachable is the wrong trade.
+
+#### Scenario: the header and its absence
+- **WHEN** the round has unplayed games **THEN** it reads as open, with the
+  played/total count
+- **WHEN** the next round's games carry several kickoffs **THEN** the earliest
+  is the one the freeze is measured from
+- **WHEN** the payload is missing or partial **THEN** no line is rendered and
+  nothing raises
+- *Verifies:* `test_an_open_round_is_read_from_its_games_not_assumed`,
+  `test_a_finished_round_is_not_open`,
+  `test_the_next_round_is_not_the_next_number`,
+  `test_the_clause_deadline_is_a_day_before_the_first_kickoff`,
+  `test_the_earliest_kickoff_wins_when_the_round_has_several`,
+  `test_a_partial_payload_yields_an_empty_context_not_a_crash`,
+  `test_no_context_renders_no_line`,
+  `test_the_line_names_the_round_the_next_one_and_the_freeze`
+
 ### Requirement: the preview compares, it does not just propose
 
 `/preview` SHALL report the difference between the lineup saved on Biwenger

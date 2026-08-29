@@ -51,6 +51,8 @@ correct because of them. Recorded once so they are not rediscovered per module:
 | **Per-matchday prize money** (2.5.7): 75k per point, 500k per Once Ideal player, 100k for the MVP, paid automatically by Biwenger | Cash grows every matchday without anyone selling, which is the budget auto-bid and the clausulazo recommender read |
 | **Captain must cost < 3M** (Biwenger hard cap) | Enforced in `lineup.py`; the draft ranks the best sub-3M starter accordingly |
 | **15 players able to field some legal XI**, bench unconstrained; snake draft; prices frozen to the export day | The draft capability, `specs/biwenger_tools/draft/spec.md` |
+| **Clauses freeze 24 h before a matchday's first kickoff** (Biwenger platform rule). Nobody can be claused in that window, in either direction, and it reopens once the round is under way | Cash has to be positive *before* the freeze, not during the round: the auto-bid and the clausulazo recommender both have a deadline nothing in the code knows about. Stated by the league owner from Biwenger's own behaviour — **not** read from the API, so it belongs with the assumptions in `STATUS.md` until something verifies it |
+| **A "next matchday" is not the next number.** 2026/27 interleaves postponed rounds: with Jornada 3 active, the next round to be played is **Jornada 6**, and Jornada 4 follows it | Anything reasoning about "the next round" must take Biwenger's own `next`, never the round number or the array order. `season.rounds[]` is not chronological |
 
 The full text lives in the league's reglamento document, not in this repo. When
 an article changes, the row above changes with it — and so does whatever it

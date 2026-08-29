@@ -40,7 +40,6 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 350 the right bar? | A few rounds of `log_promotions` read against real points |
 | 👤 | The draft optimiser buys a cameo total at full value | You: `build()` ranks on raw `sf` with no starts penalty, so 143 points off 32 substitute appearances outbids a regular. `is_starter` only orders `_xi` and prints 🪑. Changing it moves which 15 get drafted |
 | ⏳ | What to do when JP and Biwenger disagree on availability | A season of `provider_watch` disagreements to count |
-| 🔨 | Read matchday state from Biwenger instead of inferring it from JP | `biwenger.get_round()` is wired and untested against a real break: `games[].status`, the round `status` and `season.rounds[]` say whether a matchday is open. Would settle both rows below · [validated 2026-08-28](docs/external/biwenger-api.yaml) |
 | ⏳ | `nextMatch.status == "break"` has never been observed | The first international break — `provider_watch` logs the sighting |
 
 ## my_photos
