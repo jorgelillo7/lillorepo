@@ -35,6 +35,36 @@ with the stored value.
 - *Verifies:* `test_province_and_community_from_aesan_registry`,
   `test_no_aesan_source_when_registry_disagrees`
 
+### Requirement: The four sources mean four different things, and the ficha says so
+
+`label` / `manufacturer` / `manual` / `aesan` are a vocabulary shown to
+readers, not internal states, and each SHALL keep its meaning:
+
+| Value | Renders | Means |
+|---|---|---|
+| `label` | ✓ etiqueta | Read off a photographed label kept as proof |
+| `manufacturer` | fabricante | Still equal to this water's seeded value |
+| `manual` | a mano | Somebody typed it: no label, no seed match |
+| `aesan` | AESAN | Identity cross-checked against the state register — **never a composition** |
+
+The ficha SHALL let a reader reach the explanation of any badge it shows. The
+badges carried their meaning in a `title` attribute alone, which does nothing
+on a touch screen, and the page they linked to explained three of the four
+words — never `manual`. Every badge now links to its own entry there, and no
+badge may render without one.
+
+Nothing had ever stated this vocabulary: the four values existed only as
+constants and template branches, which is why `manual` could be quietly
+repurposed as "not confirmed by a label" without a single test or spec
+objecting.
+
+#### Scenario: a reader can find out where a number came from
+- **WHEN** a ficha shows fields sourced from a label, from the seed and from a
+  contributor
+- **THEN** each badge links to the entry in `/acerca` that explains that
+  source, and every anchor it links to exists on that page
+- *Verifies:* `test_every_provenance_badge_links_to_an_explanation_that_exists`
+
 ### Requirement: Sources recomputed on save
 
 `sources_on_save` SHALL mark a new mineral `manufacturer` when its value still

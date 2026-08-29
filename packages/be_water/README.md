@@ -48,8 +48,8 @@ graph TD
         RUN["be-water · Cloud Run service<br/>europe-southwest1 · min 0 / max 20"]
         JOB["be-water-catalog-sync · Cloud Run Job<br/>reuses the web image"]
         SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid"]
-        FS[("Firestore · europe-southwest1<br/>waters · users · water_revisions")]
-        GCS[("be-water-photos · us-central1<br/>id.jpg · originals/ · uploads/ 3-day TTL")]
+        FS[("Firestore · europe-southwest1<br/>waters · water_analyses<br/>users · water_revisions")]
+        GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ — no TTL yet")]
         SEC["Secret Manager<br/>flask-web-config-regional"]
     end
 
@@ -104,12 +104,49 @@ composition.
 
 ## Data trust model
 
-Every value carries its source (`label` / `manufacturer` / `manual` / `aesan`),
-shown on the water page. An entry is **verified and locked** against overwrite
-two ways: auto-promotion (every value label-backed) or admin sign-off (a
-photographed label + at least one confirmed value). The official AESAN registry
-supplies identity (name + spring + province); compositions always come from the
-label, the legal source.
+Every number on a ficha says where it came from. Four sources, and they are
+not interchangeable — the whole point is that a reader can tell a photographed
+label from a figure somebody typed.
+
+```mermaid
+graph LR
+    LBL["📸 Label photo<br/><i>a contributor's bottle</i>"] -->|OCR + human review| V["verified_fields<br/><b>✓ etiqueta</b>"]
+    SEED["seed_data.py<br/><i>manufacturer sites,<br/>in git</i>"] -->|value still matches the seed| M["sources<br/><b>fabricante</b>"]
+    TYPED["✍️ Typed in the form"] -->|no label, no seed match| H["sources<br/><b>a mano</b>"]
+    REG["aesan_snapshot.py<br/><i>state register</i>"] -->|name + spring + province only| A["sources<br/><b>AESAN</b>"]
+
+    V --> DOC["waters/{id}"]
+    M --> DOC
+    H --> DOC
+    A --> DOC
+
+    style V fill:#ccfbf1,stroke:#0d9488
+    style M fill:#f1f5f9,stroke:#94a3b8
+    style H fill:#fef3c7,stroke:#d97706
+    style A fill:#e0f2fe,stroke:#0284c7
+```
+
+| Source | Means | Who can produce it | Trust |
+|---|---|---|---|
+| **`label`** → ✓ etiqueta | Read off a photographed label, kept as proof | Any contributor with a bottle | Highest — the legal source |
+| **`manufacturer`** → fabricante | Still equal to this water's value in `seed_data.py`, transcribed from brand sites | Nobody: it is the state a water ships in | Approximate; analytics move between batches and years |
+| **`manual`** → a mano | Somebody typed it: no label behind it, and it does not match the seed | Any contributor | Lowest, and the only one nothing can cross-check |
+| **`aesan`** | Identity cross-checked against the state register | Automatic on save | Authoritative — **for identity only** |
+
+Two rules that fall out of the table and are easy to get wrong:
+
+- **AESAN never supplies a composition.** The register carries name, spring and
+  province and nothing else. Every mineral comes from a label or a manufacturer.
+- **`manual` is a claim about a person, not a fallback.** It renders as
+  *"aportado a mano por la comunidad"*, so it may not be used as the catch-all
+  for "not confirmed by a label" — a seeded value that nobody has touched is
+  `manufacturer`. Lunares shipped two seeded numbers credited to the
+  contributor who photographed its label; that is the bug this rule exists to
+  prevent.
+
+A ficha is **verified and locked** against overwrite two ways: auto-promotion
+(every declared value label-backed) or admin sign-off (a photographed label +
+at least one confirmed value).
 
 ## Design decisions (the *why*)
 

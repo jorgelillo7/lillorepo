@@ -1694,6 +1694,37 @@ def test_only_the_ficha_reads_the_analysis_series(client):
         assert spy.call_count == 1, "la ficha sí"
 
 
+def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
+    """The badges said what they meant only through `title=`, which does
+    nothing on a touch screen — and the page they pointed at explained three
+    of the four words it used, never "a mano". A reader on a phone had no way
+    to find out where a number came from.
+
+    Ties the two pages together: every anchor the ficha links to has to exist
+    in `/acerca`, so renaming a section breaks the build instead of leaving a
+    link that scrolls nowhere.
+    """
+    catalog = _catalog()
+    catalog[1].minerals = {"tds": 26.5, "sodium": 1.1, "calcium": 9.0}
+    catalog[1].verified_fields = ["tds"]
+    catalog[1].sources = {"sodium": "manual", "calcium": "manufacturer"}
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        ficha = client.get("/agua/bezoya").get_data(as_text=True)
+        about = client.get("/acerca").get_data(as_text=True)
+
+    anchors = set(re.findall(r'href="[^"]*#(fuente[a-z-]*)"', ficha))
+    assert anchors == {
+        "fuente-etiqueta",
+        "fuente-a-mano",
+        "fuente-fabricante",
+        "fuentes",  # the legend at the foot of the card
+    }
+    for name in anchors:
+        assert f'id="{name}"' in about, f"/acerca no explica {name}"
+
+
 def test_the_home_count_does_not_treat_a_blank_province_as_one(client):
     """Live, the home page said 23 provinces over 22. Province is optional
     end to end — the add form does not require it — and Jinja's `unique`

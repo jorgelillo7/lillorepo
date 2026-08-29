@@ -24,9 +24,13 @@
     </section>
 
     <section class="bg-white rounded-3xl ring-1 ring-slate-200 p-6 sm:p-8">
-        <h2 class="font-bold text-lg text-slate-900 mb-3">De dónde salen los datos</h2>
+        <h2 id="fuentes" class="font-bold text-lg text-slate-900 mb-3 scroll-mt-24">De dónde salen los datos</h2>
+        <p class="text-sm text-slate-500 mb-3">
+            Cada número de cada ficha lleva escrito de dónde sale. Estas son las
+            cuatro procedencias, de la más fiable a la menos.
+        </p>
         <ul class="text-sm text-slate-600 leading-relaxed space-y-3">
-            <li>
+            <li id="fuente-etiqueta" class="scroll-mt-24">
                 <span class="text-teal-500 font-bold">✓ Fotos de etiquetas reales</span> —
                 la fuente primaria. Cuando un valor lleva el check
                 <span class="text-teal-500">✓</span>, alguien fotografió la botella y
@@ -34,14 +38,22 @@
                 humana). La foto original de cada etiqueta se conserva como prueba
                 y puede verse desde la ficha del agua.
             </li>
-            <li>
+            <li id="fuente-fabricante" class="scroll-mt-24">
                 <span class="font-semibold text-slate-700">Datos publicados por fabricantes</span> —
                 para las aguas que aún nadie ha fotografiado, la composición proviene
                 de la información publicada por las propias marcas. Son valores
                 aproximados (las analíticas cambian entre lotes y años) y están
                 pendientes de verificación botella en mano.
             </li>
-            <li>
+            <li id="fuente-a-mano" class="scroll-mt-24">
+                <span class="font-semibold text-amber-600">A mano</span> —
+                alguien tecleó ese valor al dar de alta el agua y no viene ni de una
+                etiqueta fotografiada ni del dato publicado por la marca. Es la
+                procedencia más débil de las cuatro y la única que no se puede
+                contrastar con nada: si ves un número así y tienes la botella
+                delante, fotografía la etiqueta y el ✓ lo sustituye.
+            </li>
+            <li id="fuente-aesan" class="scroll-mt-24">
                 <span class="font-semibold text-slate-700">Lista oficial AESAN</span> —
                 España reconoce oficialmente <strong>{{ aesan.total }}</strong> aguas
                 minerales naturales distintas — el registro tiene {{ aesan.entries }}
