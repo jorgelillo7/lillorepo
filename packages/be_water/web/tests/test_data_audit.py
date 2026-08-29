@@ -106,14 +106,41 @@ def test_merge_waters_folds_and_deletes_drop():
         sources={"calcium": "manufacturer"},
     )
     with patch(f"{_MOD}.repository.save_water") as save, patch(
-        f"{_MOD}.repository.delete_water"
-    ) as delete:
+        f"{_MOD}.repository.list_analyses", return_value=[]
+    ), patch(f"{_MOD}.repository.delete_water") as delete:
         data_audit.merge_waters(keep, drop)
     assert keep.minerals == {"tds": 100, "calcium": 50}
     assert keep.label_photo_url == "lbl"  # filled from drop
     assert keep.sources["calcium"] == "manufacturer"
     save.assert_called_once_with(keep)
     delete.assert_called_once_with("drop")
+
+
+def test_merging_a_duplicate_rescues_its_analysis_series():
+    """`delete_water` takes a water's entries with it, so a merge that folded
+    only the minerals destroyed the duplicate's measurement history — the one
+    thing it held that `keep` cannot reconstruct. A date `keep` already has
+    wins, like every other field in a merge."""
+    keep = _water(id="keep", minerals={"tds": 100})
+    drop = _water(id="drop", minerals={"tds": 999})
+    series = {
+        "keep": [{"analysis_date": "2025-02", "minerals": {"tds": 100}}],
+        "drop": [
+            {"analysis_date": "2025-02", "minerals": {"tds": 999}},
+            {"analysis_date": "2019", "minerals": {"tds": 880}},
+        ],
+    }
+    with patch(f"{_MOD}.repository.save_water"), patch(
+        f"{_MOD}.repository.list_analyses", side_effect=lambda wid: series[wid]
+    ), patch(f"{_MOD}.repository.delete_water"), patch(
+        f"{_MOD}.repository.save_analysis"
+    ) as save_analysis:
+        data_audit.merge_waters(keep, drop)
+
+    saved = [c.args[0] for c in save_analysis.call_args_list]
+    assert [w.analysis_date for w in saved] == ["2019"], "solo la que se perdía"
+    assert saved[0].id == "keep", "reescrita bajo el agua que sobrevive"
+    assert saved[0].minerals == {"tds": 880}
 
 
 # --- dataset drift ----------------------------------------------------------

@@ -51,8 +51,13 @@ of the same brand as distinct entries.
 
 `set_source` SHALL move a field in/out of `verified_fields` consistently with
 its source (`label` ↔ in verified_fields). `merge_waters` SHALL fold the dropped
-water's minerals (keeper wins on conflict), label photo and sources into the
-keeper, then delete the dropped doc.
+water's minerals (keeper wins on conflict), label photo, sources **and analysis
+series** into the keeper, then delete the dropped doc.
+
+The series has to move first: `delete_water` takes a water's entries with it,
+so a merge that folded only the composition destroyed the duplicate's
+measurement history — the one thing it held that the keeper cannot
+reconstruct.
 
 #### Scenario: re-source and merge semantics
 - **WHEN** a field's source is set to `manufacturer` then back to `label`
@@ -60,8 +65,12 @@ keeper, then delete the dropped doc.
 - **WHEN** merging a duplicate into a keeper
 - **THEN** non-conflicting minerals and the label photo fold in, the keeper's
   conflicting value wins, and the dropped doc is deleted
+- **WHEN** the dropped water holds analyses the keeper does not
+- **THEN** they are rewritten under the keeper before the delete; a date the
+  keeper already has wins, like every other field in a merge
 - *Verifies:* `test_set_source_moves_field_in_and_out_of_verified`,
-  `test_merge_waters_folds_and_deletes_drop`
+  `test_merge_waters_folds_and_deletes_drop`,
+  `test_merging_a_duplicate_rescues_its_analysis_series`
 
 ### Requirement: Dataset drift is detectable
 

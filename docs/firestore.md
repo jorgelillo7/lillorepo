@@ -301,9 +301,16 @@ water_revisions/{water_id}__{timestamp}
 ```
 
 Both are flat, top-level collections — no season containers. There are **no
-composite indexes and no TTL policies**: the catalog is small (~44 docs) and
-the app reads it whole (`get_all_waters`) then filters/sorts in Python, so
+composite indexes and no TTL policies**: the catalog is small (46 docs) and the
+app reads it whole (`get_all_waters`) then filters/sorts in Python, so
 single-field auto-indexing is enough.
+
+`water_analyses` is the exception to "read it whole", and deliberately.
+`list_analyses` queries it by `water_id`, because every dated ficha reads it on
+every view and that collection grows faster than `waters` — a new entry per
+re-labelling, and nothing prunes it. Scanning made one page view cost the whole
+catalog's history. Firestore auto-indexes single root fields, so the query
+needs no composite index either.
 
 ### Schemas
 
@@ -353,8 +360,9 @@ label lands on the same document and correcting a past year needs no query.
 | `analysis_date` | string | `YYYY-MM` or `YYYY`; also the second half of the key |
 | `minerals` | map&lt;string,number&gt; | The composition that analysis measured |
 | `verified_fields` | array&lt;string&gt; | Which of them **that** label confirmed |
-| `sources` | map&lt;string,string&gt; | Provenance of the rest, for that entry |
+| `sources` | map&lt;string,string&gt; | Provenance of the rest, for that entry. May also carry `province`/`community`, which `provenance` keeps alongside the minerals |
 | `label_photo_url` | string / null | That analysis's label shot, at `originals/{water_id}__{analysis_date}.jpg` |
+| `photo_url` | string / null | That analysis's bottle shot, at `{water_id}__{analysis_date}.jpg`. Null when the submission brought none, and the ficha's is shown instead — the bottle is illustration, the label is evidence |
 | `added_by` / `added_at` | string | Contributor and when the entry was written |
 
 `verified_fields` and `sources` live **inside the entry**, not on the ficha: a
@@ -362,7 +370,7 @@ tick that lived on the water would end up printing one year's "confirmado por
 etiqueta" over another year's values.
 
 **Only dated compositions enter.** An undated one can be the ficha's current
-composition but has no place on a timeline; 34 of 46 waters are in that state,
+composition but has no place on a timeline; 33 of the 46 waters are in that state,
 because the label is not legally required to print the date. Replacing an
 undated composition still goes to `water_revisions` as before.
 

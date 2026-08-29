@@ -125,15 +125,20 @@ def get_analysis(water_id: str, analysis_date: str) -> dict | None:
 def list_analyses(water_id: str) -> list[dict]:
     """This water's analyses, newest first.
 
-    Sorted on the date string: `YYYY` and `YYYY-MM` compare correctly against
-    each other, and a plain year sorts before any month of the same year, which
-    is the same ordering `domain.analysis_is_older` applies.
+    Queried by `water_id` rather than scanned: every ficha with a date reads
+    this on every view, and a scan grows with the whole collection instead of
+    with the water being looked at. `water_analyses` grows faster than
+    `waters` — a new entry per re-labelling, and nothing prunes it — so the
+    scan made one page view cost the entire history of the catalog. Firestore
+    indexes single root fields on its own, so this needs no composite index.
+
+    Sorted in Python on the date string: `YYYY` and `YYYY-MM` compare
+    correctly against each other, and a plain year sorts before any month of
+    the same year, which is the same ordering `domain.analysis_is_older`
+    applies — and the result set is now small enough that sorting it here
+    costs nothing.
     """
-    entries = [
-        data
-        for _, data in firestore.list_documents(ANALYSES)
-        if data.get("water_id") == water_id
-    ]
+    entries = firestore.query(ANALYSES, field="water_id", op="==", value=water_id)
     return sorted(entries, key=lambda e: e.get("analysis_date") or "", reverse=True)
 
 

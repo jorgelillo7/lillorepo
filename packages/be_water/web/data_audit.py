@@ -160,7 +160,14 @@ def find_suspicious(catalog: list[Water]) -> list[tuple]:
 def merge_waters(keep: Water, drop: Water) -> None:
     """Fold `drop` into `keep` (keep wins on conflicts) and delete the drop
     doc. Drop's bucket objects are left in place — keep may now point at
-    them."""
+    them.
+
+    The analysis series moves across first. `delete_water` takes a water's
+    entries with it, so folding only the minerals threw away the dropped
+    duplicate's whole measurement history — the one part of it that is not
+    reconstructable from `keep`. An entry already on `keep` for the same date
+    wins, on the same rule as every other field here.
+    """
     keep.minerals = {**drop.minerals, **keep.minerals}
     keep.sources = {**drop.sources, **keep.sources}
     keep.verified_fields = sorted(set(keep.verified_fields) | set(drop.verified_fields))
@@ -170,6 +177,11 @@ def merge_waters(keep: Water, drop: Water) -> None:
     keep.spring = keep.spring or drop.spring
     keep.province = keep.province or drop.province
     keep.community = keep.community or drop.community
+    kept_dates = {e.get("analysis_date") for e in repository.list_analyses(keep.id)}
+    for entry in repository.list_analyses(drop.id):
+        if entry.get("analysis_date") in kept_dates:
+            continue
+        repository.save_analysis(keep.with_analysis(entry))
     repository.save_water(keep)
     repository.delete_water(drop.id)
 
