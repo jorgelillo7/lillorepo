@@ -48,11 +48,29 @@ def water_detail(water_id: str):
     water = next((w for w in catalog if w.id == water_id), None)
     if water is None:
         abort(404)
+
+    # The ficha shows the current composition; `?analisis=` swaps in a past
+    # one. `similar` and the structured data keep reading `water`, so a water
+    # with four analyses is still one entry everywhere else.
+    # An undated water cannot have a series — only dated compositions enter
+    # one — so three quarters of the catalog skips the read entirely.
+    analyses = repository.list_analyses(water_id) if water.analysis_date else []
+    viewing = (request.args.get("analisis") or "").strip()
+    shown = water
+    if viewing and viewing != water.analysis_date:
+        entry = next((a for a in analyses if a.get("analysis_date") == viewing), None)
+        if entry is None:
+            abort(404)
+        shown = water.with_analysis(entry)
+
     similar = similarity.similar_waters(water, catalog, top_n=3)
     home = helpers.base_url()
     return render_template(
         "water.html",
-        water=water,
+        water=shown,
+        analyses=analyses,
+        viewing_past=shown is not water,
+        current_analysis_date=water.analysis_date,
         similar=similar,
         favorite_ids=helpers.favorite_ids(),
         og_image=water.photo_url,

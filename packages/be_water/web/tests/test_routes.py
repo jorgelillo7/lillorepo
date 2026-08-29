@@ -1201,14 +1201,26 @@ def test_a_shared_place_link_previews_a_real_bottle(client):
 # --- analysis date: stale-overwrite guard + revision trail ------------------
 
 
-def test_older_label_needs_confirming_and_saves_nothing_until_then(client):
-    """The dated ficha is protected by a warning, not by a refusal."""
+def test_an_older_analysis_does_not_touch_the_current_composition(client):
+    """The behaviour this feature exists to change.
+
+    An older label used to overwrite the ficha after a warning the contributor
+    clicked through — a measurement lost through a dialog. It now joins the
+    series and leaves the present alone: `save_water` is never called, and
+    nothing is snapshotted because nothing was replaced.
+    """
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+    ), patch(f"{_REPO}.touch_user"), patch(
+        f"{_REPO}.save_revision"
+    ) as mock_revision, patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
         resp = client.post(
             "/anadir",
             data={
@@ -1218,19 +1230,27 @@ def test_older_label_needs_confirming_and_saves_nothing_until_then(client):
                 "analysis_date": "2024-01",
             },
         )
-    assert resp.status_code == 200  # form re-rendered, not redirected
-    assert "2025-02" in resp.get_data(as_text=True)
+
+    assert resp.status_code == 302
     mock_save.assert_not_called()
     mock_revision.assert_not_called()
+    mock_analysis.assert_called_once()
+    assert mock_analysis.call_args.args[0].analysis_date == "2024-01"
 
 
-def test_confirming_an_older_label_saves_and_snapshots_the_previous_state(client):
+def test_an_older_analysis_needs_no_confirmation_any_more(client):
+    """Nothing is being replaced, so there is nothing to warn about. The
+    dialog existed to guard an overwrite that no longer happens."""
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
+    with patch(f"{_REPO}.save_water"), patch(
         f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -1238,14 +1258,33 @@ def test_confirming_an_older_label_saves_and_snapshots_the_previous_state(client
                 "tds": "26.5",
                 "ocr_fields": "tds",
                 "analysis_date": "2024-01",
-                "confirm_stale": "1",
             },
         )
-    assert resp.status_code == 302
-    assert mock_save.call_args.args[0].analysis_date == "2024-01"
-    mock_revision.assert_called_once()
-    assert mock_revision.call_args.args[0] is existing
-    assert mock_revision.call_args.kwargs["reason"] == "older_analysis"
+
+    assert resp.status_code == 302, "sin confirmación y sin re-render"
+
+
+def test_an_undated_label_over_a_dated_one_still_needs_confirming(client):
+    """The one case that is still a replacement: an undated composition has no
+    slot on the timeline, so saving it does overwrite the ficha and the
+    warning still guards it."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        resp = client.post(
+            "/anadir",
+            data={"name": "Bezoya", "tds": "26.5", "ocr_fields": "tds"},
+        )
+
+    assert resp.status_code == 200, "el formulario vuelve pidiendo confirmación"
+    assert "2025-02" in resp.get_data(as_text=True)
+    mock_save.assert_not_called()
+    mock_analysis.assert_not_called(), "una composición sin fecha no entra en la serie"
 
 
 def test_a_newer_label_saves_straight_through_but_still_snapshots(client):
@@ -1254,7 +1293,11 @@ def test_a_newer_label_saves_straight_through_but_still_snapshots(client):
     existing.analysis_date = "2024-01"
     with patch(f"{_REPO}.save_water") as mock_save, patch(
         f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.get_analysis"), patch(
+        f"{_REPO}.save_analysis"
+    ), patch(
+        f"{_REPO}.save_revision"
+    ) as mock_revision:
         resp = client.post(
             "/anadir",
             data={
@@ -1404,3 +1447,143 @@ def test_an_unreadable_label_does_not_blame_the_photo_alone(client):
 
     body = response.get_data(as_text=True)
     assert "puede ser la foto o el lector" in body
+
+
+# --- Compositions as a dated series ----------------------------------------
+
+
+def _analysis(date, tds, verified=("tds",), label="originals/x.jpg"):
+    return {
+        "water_id": "bezoya",
+        "analysis_date": date,
+        "minerals": {"tds": tds},
+        "verified_fields": list(verified),
+        "sources": {},
+        "label_photo_url": label,
+    }
+
+
+def test_a_resubmission_for_the_same_date_replaces_that_entry(client):
+    """Keyed by the analysis date, so a corrected OCR of a past year lands on
+    the same document instead of adding a second 2024."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2024-01"
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=_analysis("2024-01", 99.0)
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    mock_analysis.assert_called_once()
+    assert mock_analysis.call_args.args[0].analysis_date == "2024-01"
+
+
+def test_an_undated_composition_never_enters_the_series(client):
+    """Three quarters of the catalog has no analysis date — the label is not
+    required to print one — and there is no honest slot for them on a
+    timeline."""
+    _login(client)
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis") as mock_analysis:
+        client.post("/anadir", data={"name": "Nueva", "tds": "26.5"})
+
+    mock_analysis.assert_not_called()
+
+
+def test_each_dated_analysis_keeps_its_own_label_photo(client):
+    """`originals/{water_id}.jpg` is one path per water. With a series, the
+    second label would overwrite the first one's — destroying the proof of the
+    very entry the history exists to keep."""
+    _login(client)
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
+    ) as promote:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "label_tmp": "uploads/abc-label.jpg",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    destinations = [call.args[1] for call in promote.call_args_list]
+    assert any(d.endswith("__2024-01.jpg") for d in destinations), destinations
+
+
+def test_the_catalog_reads_only_the_current_composition(client):
+    """The guardrail. A water with a series must appear **once** everywhere
+    else — the ficha is the only place the past is visible."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses",
+        return_value=[_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)],
+    ):
+        response = client.get("/agua/bezoya")
+        listing = client.get("/")
+
+    assert response.status_code == 200
+    assert listing.get_data(as_text=True).count("/agua/bezoya") == 1
+
+
+def test_a_past_analysis_swaps_the_numbers_and_its_verification(client):
+    """The tick must travel with its year. Showing 2024's values under 2025's
+    "confirmado por etiqueta" would claim a label nobody in that entry ever
+    photographed."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].minerals = {"tds": 26.5}
+    catalog[1].verified_fields = ["tds"]
+    past = _analysis("2024-01", 30.0, verified=[])
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    ):
+        response = client.get("/agua/bezoya?analisis=2024-01")
+
+    body = response.get_data(as_text=True)
+    assert "30" in body, "los valores son los de 2024"
+    assert "análisis anterior" in body
+    # The point: 2025's label confirmed tds, 2024's did not. Rendering the
+    # past values under the present ✓ would assert a photograph that entry
+    # never had. Asserting only on the numbers passes with the ticks left
+    # behind — this is what makes the test worth having.
+    # The per-field marker, not the legend at the foot of the page, which
+    # explains the sources and is always there.
+    marker = 'title="Confirmado de foto de etiqueta"'
+    assert marker not in body
+
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    ):
+        current = client.get("/agua/bezoya").get_data(as_text=True)
+    assert marker in current, "el actual sí está confirmado por etiqueta"
+
+
+def test_an_unknown_analysis_is_a_404_not_the_current_one(client):
+    """Silently falling back to the present would show one year's numbers
+    under another year's URL."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5)]
+    ):
+        assert client.get("/agua/bezoya?analisis=1999").status_code == 404

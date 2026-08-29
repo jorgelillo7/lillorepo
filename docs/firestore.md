@@ -292,6 +292,9 @@ The Python models live in `packages/be_water/web/domain.py` (`Water`,
 ```
 waters/{water_id}   — one bottled water and its mineral vector
 users/{nickname}    — a contributor: favorites, activity, block flag
+water_analyses/{water_id}__{analysis_date}
+                    — one lab analysis of a water; the browsable history behind
+                      the ficha's current composition
 water_revisions/{water_id}__{timestamp}
                     — the previous state of a water, snapshotted just before a
                       contribution changed its composition (undo trail)
@@ -332,6 +335,39 @@ same doc and re-adds/updates are idempotent.
 whatever `sources` records (`Water.source_of`). This is what lets the UI say
 "✓ etiqueta" / "fabricante" / "registro AESAN" / "a mano" per value instead of
 a blanket "sin verificar".
+
+#### `water_analyses/{water_id}__{analysis_date}` — composition history
+
+The same water from the same spring measures differently in different lab
+analyses. `waters/{water_id}` holds the **most recent** one — which is what the
+catalog, the search and the similarity engine read, so a water with a series
+still appears once everywhere — and this collection holds them all, the current
+included, so the ficha's selector is a plain list.
+
+Keyed by the analysis date verbatim (`2024` or `2024-06`), so resubmitting a
+label lands on the same document and correcting a past year needs no query.
+
+| Field | Type | Notes |
+|---|---|---|
+| `water_id` | string | The ficha this analysis belongs to |
+| `analysis_date` | string | `YYYY-MM` or `YYYY`; also the second half of the key |
+| `minerals` | map&lt;string,number&gt; | The composition that analysis measured |
+| `verified_fields` | array&lt;string&gt; | Which of them **that** label confirmed |
+| `sources` | map&lt;string,string&gt; | Provenance of the rest, for that entry |
+| `label_photo_url` | string / null | That analysis's label shot, at `originals/{water_id}__{analysis_date}.jpg` |
+| `added_by` / `added_at` | string | Contributor and when the entry was written |
+
+`verified_fields` and `sources` live **inside the entry**, not on the ficha: a
+tick that lived on the water would end up printing one year's "confirmado por
+etiqueta" over another year's values.
+
+**Only dated compositions enter.** An undated one can be the ficha's current
+composition but has no place on a timeline; 34 of 46 waters are in that state,
+because the label is not legally required to print the date. Replacing an
+undated composition still goes to `water_revisions` as before.
+
+Written by the add flow; backfilled once by
+`bazel run //packages/be_water/scripts:backfill_analyses`.
 
 #### `water_revisions/{water_id}__{timestamp}` — undo trail
 

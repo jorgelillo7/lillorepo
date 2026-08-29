@@ -227,3 +227,36 @@ def finalize_provenance(water: Water, existing: Optional[Water]) -> None:
         and set(water.minerals) <= set(water.verified_fields)
     ):
         water.verified = True
+
+
+# --- Where a submitted composition belongs on the timeline -----------------
+
+CURRENT = "current"
+HISTORY = "history"
+UNDATED = "undated"
+
+
+def analysis_outcome(incoming: Optional[str], existing: Optional[Water]) -> str:
+    """Where this composition goes: `CURRENT`, `HISTORY` or `UNDATED`.
+
+    - `CURRENT` — it is the most recent analysis, so it becomes the ficha's
+      composition *and* joins the series. Includes a resubmission of the date
+      the ficha already shows, which corrects it in both places.
+    - `HISTORY` — it predates what the ficha shows, so it joins the series and
+      **leaves the ficha alone**. This is the change: an older label used to
+      overwrite the present after a warning, which is how a measurement got
+      lost by clicking through a dialog.
+    - `UNDATED` — no analysis date, so it has no place on a timeline. It can
+      still be the ficha's composition (there may be nothing better), but it
+      never enters the series and never displaces a dated one. Three quarters
+      of the catalog is in this state: the label is not required to print the
+      date.
+
+    Ordering is `domain.analysis_is_older`, unchanged — undated loses to dated,
+    and a plain year loses to a month of the same year.
+    """
+    if not incoming:
+        return UNDATED
+    if existing is None or not existing.analysis_date:
+        return CURRENT
+    return HISTORY if analysis_is_older(incoming, existing.analysis_date) else CURRENT

@@ -52,25 +52,51 @@ def _render_add_form(
     )
 
 
-def _promote_photos(water_id: str) -> tuple[Optional[str], Optional[str]]:
-    """Promote the form's tmp uploads to their permanent paths; on a storage
-    hiccup keep the tmp URL as a fallback rather than losing the photo."""
+def _promote_photos(
+    water_id: str, analysis_date: Optional[str] = None
+) -> tuple[Optional[str], Optional[str], bool]:
+    """Promote the form's tmp uploads to their permanent paths.
+
+    A dated label goes to `originals/{water_id}__{date}.jpg`, one path per
+    analysis. `originals/{water_id}.jpg` is a single path per water, so with a
+    series of compositions the second label would overwrite the first one's —
+    destroying the proof of exactly the entry the history exists to keep.
+    Undated labels keep the old path, so every stored `label_photo_url` stays
+    valid and no object has to be moved.
+
+    Returns `(photo_url, label_photo_url, stranded)`. On a storage hiccup the
+    tmp URL is kept rather than losing the photo, and `stranded` says so:
+    `uploads/` is swept on a schedule, and a water pointing there would work
+    for weeks and then not.
+    """
     photo_url = label_photo_url = None
     photo_tmp = (request.form.get("photo_tmp") or "").strip()
     label_tmp = (request.form.get("label_tmp") or "").strip()
+    stranded = False
     if photo_tmp:
         try:
             photo_url = photos.promote_photo(photo_tmp, f"{water_id}.jpg")
         except requests.RequestException:
+            logger.error(
+                "Photo promotion failed — the water points into uploads/.",
+                extra={"water_id": water_id, "tmp": photo_tmp},
+            )
             photo_url = photos.public_url(photo_tmp)
+            stranded = True
     if label_tmp:
+        suffix = f"__{analysis_date}" if analysis_date else ""
         try:
             label_photo_url = photos.promote_photo(
-                label_tmp, f"originals/{water_id}.jpg"
+                label_tmp, f"originals/{water_id}{suffix}.jpg"
             )
         except requests.RequestException:
+            logger.error(
+                "Label promotion failed — the water points into uploads/.",
+                extra={"water_id": water_id, "tmp": label_tmp},
+            )
             label_photo_url = photos.public_url(label_tmp)
-    return photo_url, label_photo_url
+            stranded = True
+    return photo_url, label_photo_url, stranded
 
 
 def _resolve_add_target(name, water_id, existing, merge_into):
@@ -166,9 +192,18 @@ def add_water():
         request.form.get("analysis_date")
     )
 
-    # An older (or undated) label replacing a dated one is allowed, but never
-    # silently: the contributor confirms, and the previous doc is snapshotted.
-    stale = submission.stale_analysis_warning(analysis_date, existing)
+    # Where this composition belongs on the timeline. An older *dated* label
+    # no longer overwrites the ficha — it joins the history and leaves the
+    # present alone, which is the whole point of keeping a series.
+    outcome = submission.analysis_outcome(analysis_date, existing)
+
+    # An undated label replacing a dated one is still a replacement, and still
+    # needs confirming: there is no timeline slot to put it in.
+    stale = (
+        submission.stale_analysis_warning(analysis_date, existing)
+        if outcome == submission.UNDATED
+        else None
+    )
     if stale and not request.form.get("confirm_stale"):
         return _render_add_form(
             prefill=dict(request.form),
@@ -179,7 +214,7 @@ def add_water():
             merge_into=merge_into or None,
         )
 
-    photo_url, label_photo_url = _promote_photos(water_id)
+    photo_url, label_photo_url, stranded = _promote_photos(water_id, analysis_date)
     verified_fields = submission.verified_fields_from_ocr(
         request.form.get("ocr_fields") or "", minerals
     )
@@ -202,6 +237,28 @@ def add_water():
             form_has_brand=bool(submission.form_field(request.form, "brand")),
         )
     submission.finalize_provenance(water, existing)
+    if stranded:
+        water.photo_promotion_failed = True
+
+    if analysis_date:
+        # Every dated composition joins the series, the current one included,
+        # so the ficha's selector is a plain list rather than "the current one
+        # plus the others". Same date replaces that entry.
+        replaced = repository.get_analysis(water_id, analysis_date)
+        repository.save_analysis(water)
+        if replaced and replaced.get("minerals") != water.minerals:
+            logger.info(
+                "Analysis entry replaced.",
+                extra={"water_id": water_id, "analysis_date": analysis_date},
+            )
+
+    if outcome == submission.HISTORY:
+        # The ficha keeps the newer composition it already had.
+        repository.touch_user(session["nickname"])
+        return redirect(
+            url_for("water_detail", water_id=water_id, analisis=analysis_date)
+        )
+
     if existing is not None and existing.minerals != water.minerals:
         repository.save_revision(
             existing,
