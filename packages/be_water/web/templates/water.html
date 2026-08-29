@@ -28,7 +28,8 @@
         <div class="bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl p-8 text-center ring-1 ring-{{ tone }}-200/60">
             {% if water.photo_url %}
             <img src="{{ water.photo_url }}" alt="Botella de {{ water.name }}"
-                 class="mx-auto mb-4 h-64 w-auto rounded-2xl object-cover shadow-md ring-1 ring-white/60">
+                 data-zoom data-caption="Botella de {{ water.name }}"
+                 class="mx-auto mb-4 h-64 w-auto rounded-2xl object-cover shadow-md ring-1 ring-white/60 cursor-zoom-in">
             {% else %}
             <div class="text-7xl mb-4">{{ '🫧' if water.sparkling else '💧' }}</div>
             {% endif %}
@@ -81,7 +82,10 @@
             {% endif %}
             {% if water.label_photo_url %}
             <p class="mt-4 text-[11px]">
+                {# Keeps the href: without JS the tab still opens, and the
+                   label is the photo people actually need to enlarge. #}
                 <a href="{{ water.label_photo_url }}" target="_blank" rel="noopener"
+                   data-zoom data-caption="Etiqueta de {{ water.name }}{% if water.analysis_date %} · análisis de {{ water.analysis_date }}{% endif %}"
                    class="text-slate-400 hover:text-sky-600 underline">📄 ver etiqueta de composición</a>
             </p>
             {% endif %}
@@ -115,7 +119,6 @@
                 {% if water.analysis_date %}Análisis de la etiqueta: <span class="tabular-nums font-medium text-slate-500">{{ water.analysis_date }}</span>{% else %}Sin fecha de análisis{% endif %}
             </p>
             {% endif %}
-            {% set max_val = 400 %}
             <dl class="space-y-3">
                 {% for field in mineral_fields if water.minerals.get(field) is not none %}
                 {% set val = water.minerals[field] %}
@@ -124,9 +127,13 @@
                     <dt class="text-slate-500">{{ mineral_labels[field] }}</dt>
                     <dd>
                         {% if field != 'ph' %}
+                        {# Each mineral is scaled by the most anyone has recorded
+                           of it: one shared ceiling pinned half the catalog at
+                           full width. #}
+                        {% set top = mineral_scale.get(field) or val %}
                         <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
                             <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-400"
-                                 style="width: {{ [100, (val / max_val * 100) | round(1)] | min }}%"></div>
+                                 style="width: {{ [100, (val / top * 100) | round(1)] | min }}%"></div>
                         </div>
                         {% endif %}
                     </dd>
@@ -173,4 +180,55 @@
         </div>
     </section>
 </article>
+
+{# Tap a photo to read it. A label shot is 150 KB of small print — on a phone
+   the ficha renders it 64 units tall, which is proof nobody can check. #}
+<div id="zoom" hidden
+     class="fixed inset-0 z-50 bg-slate-900/90 p-4 flex flex-col items-center justify-center">
+    <img id="zoom-img" src="" alt=""
+         class="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl">
+    <p id="zoom-caption" class="mt-3 text-xs text-white/70 text-center"></p>
+    <button type="button" id="zoom-close" aria-label="Cerrar"
+            class="absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white text-2xl leading-none">×</button>
+</div>
+
+<script>
+(function () {
+    const box = document.getElementById('zoom');
+    const img = document.getElementById('zoom-img');
+    const caption = document.getElementById('zoom-caption');
+    let lastFocus = null;
+
+    function open(src, text, trigger) {
+        lastFocus = trigger;
+        img.src = src;
+        img.alt = text;
+        caption.textContent = text;
+        box.hidden = false;
+        document.body.style.overflow = 'hidden';
+        document.getElementById('zoom-close').focus();
+    }
+
+    function close() {
+        box.hidden = true;
+        // Dropping the src frees the full-size image; the ficha keeps its own.
+        img.src = '';
+        document.body.style.overflow = '';
+        if (lastFocus) lastFocus.focus();
+    }
+
+    document.querySelectorAll('[data-zoom]').forEach(el => {
+        const src = el.dataset.zoomSrc || el.getAttribute('src') || el.href;
+        el.addEventListener('click', event => {
+            event.preventDefault();
+            open(src, el.dataset.caption || '', el);
+        });
+    });
+
+    box.addEventListener('click', close);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !box.hidden) close();
+    });
+})();
+</script>
 {% endblock %}

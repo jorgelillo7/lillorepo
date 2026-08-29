@@ -57,3 +57,9 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | `country` field on `Water` | The verification pass above · [analysis](docs/technical/parked-work.md#be_water-country-field) |
 | 🔨 | `uploads/` has no lifecycle rule and never had one | The code says it does; the bucket says `lifecycle: null`. Every failed label read leaves two orphaned objects · command in [`OPERATIONS.md`](packages/be_water/OPERATIONS.md) |
 | 👤 | `lanjaron` claims 4 label-confirmed values with no label photo | You: a shot of its composition label (the old one was the studio render) |
+| 🔨 | `tramuntana` and `neval` have broken geography | `province: "Talarrubias"` (a town) with `community: "Badajoz"` (a province) — fields shifted one slot; `neval` has both blank. Both fields are free text validated against nothing, while `geo.ALL_PROVINCES` already exists |
+| 🔨 | 11 of 14 analysis entries share the ficha's bare label path | The backfill copied `originals/{id}.jpg` verbatim, so an undated correction would replace the photo a dated entry offers as proof · only `lunares__2020` and `penaclara__2024-01` have their own |
+| ⏳ | `aquadeus` and `fuente-arquillo` may be one spring under two brands | Your eye: `find_duplicates` matches name tokens and these share none |
+| 🔨 | Tailwind ships as the Play CDN script, no `defer` | Compiles styles in the browser on every load, on a mobile-first audience · needs a build step, not a one-line fix |
+| 🔨 | Catalog thumbnails are CSS `background-image`, so they carry no `alt` | 45 of 46 waters earn nothing from image search and read as nothing to a screen reader · only the detail hero is a real `<img>` |
+| 🔨 | No capability spec for auth/moderation, the add-water flow, or `label_ocr` | All three are live, tested code that no spec describes · [audit](openspec/specs/be_water/) |

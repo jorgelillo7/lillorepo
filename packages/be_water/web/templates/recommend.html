@@ -8,7 +8,11 @@
 
 {% block content %}
 <header class="text-center mb-8">
-    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">📍 ¿Dónde estás?</h1>
+    {# The h1 names the place: this URL is the one that competes for "qué agua
+       beber en [provincia]", and a static heading never said the province. #}
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+        {% if place %}📍 Aguas de {{ place }}{% else %}📍 ¿Dónde estás?{% endif %}
+    </h1>
     <p class="mt-3 text-slate-500 max-w-lg mx-auto text-sm sm:text-base">
         Te decimos qué aguas hay en la zona —
         se acabó elegir al tuntún en la gasolinera.
