@@ -90,7 +90,8 @@ def save_analysis(water: Water) -> str:
     The entry carries its own proof: the minerals, which of them a label
     confirmed, where the rest came from, and the photo of that label. A ✓ that
     lived on the ficha instead would end up describing one year's label over
-    another year's numbers.
+    another year's numbers. The bottle shot travels too — a label redesign is
+    part of what changed between one analysis and the next.
     """
     if not water.analysis_date:
         raise ValueError("save_analysis needs a dated composition")
@@ -105,6 +106,7 @@ def save_analysis(water: Water) -> str:
             "verified_fields": water.verified_fields,
             "sources": water.sources,
             "label_photo_url": water.label_photo_url,
+            "photo_url": water.photo_url,
             "added_by": water.added_by,
             "added_at": _now_iso(),
         },
@@ -161,6 +163,11 @@ def set_water_community(water_id: str, community: str) -> None:
 
 
 def delete_water(water_id: str) -> None:
+    """Delete the ficha and its analysis series together. Left behind, the
+    entries would reattach themselves to any water later given the same id."""
+    for entry in list_analyses(water_id):
+        entry_id = analysis_id(water_id, entry["analysis_date"])
+        firestore.delete_document(ANALYSES, entry_id)
     firestore.delete_document(WATERS, water_id)
     logger.info("Water deleted.", extra={"water_id": water_id})
 

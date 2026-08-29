@@ -2,6 +2,7 @@
 
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from typing import Optional
 
 import requests
@@ -57,11 +58,12 @@ def _promote_photos(
 ) -> tuple[Optional[str], Optional[str], bool]:
     """Promote the form's tmp uploads to their permanent paths.
 
-    A dated label goes to `originals/{water_id}__{date}.jpg`, one path per
-    analysis. `originals/{water_id}.jpg` is a single path per water, so with a
-    series of compositions the second label would overwrite the first one's —
-    destroying the proof of exactly the entry the history exists to keep.
-    Undated labels keep the old path, so every stored `label_photo_url` stays
+    A dated submission goes to `{water_id}__{date}.jpg`, one path per analysis,
+    for the bottle shot and the label alike. The bare path is a single one per
+    water, so the second analysis would overwrite the first one's photos —
+    including on the history path, where the ficha is never saved and the
+    replacement is therefore invisible: the url does not move, the image behind
+    it does. Undated submissions keep the bare path, so every stored url stays
     valid and no object has to be moved.
 
     Returns `(photo_url, label_photo_url, stranded)`. On a storage hiccup the
@@ -72,10 +74,11 @@ def _promote_photos(
     photo_url = label_photo_url = None
     photo_tmp = (request.form.get("photo_tmp") or "").strip()
     label_tmp = (request.form.get("label_tmp") or "").strip()
+    suffix = f"__{analysis_date}" if analysis_date else ""
     stranded = False
     if photo_tmp:
         try:
-            photo_url = photos.promote_photo(photo_tmp, f"{water_id}.jpg")
+            photo_url = photos.promote_photo(photo_tmp, f"{water_id}{suffix}.jpg")
         except requests.RequestException:
             logger.error(
                 "Photo promotion failed — the water points into uploads/.",
@@ -84,7 +87,6 @@ def _promote_photos(
             photo_url = photos.public_url(photo_tmp)
             stranded = True
     if label_tmp:
-        suffix = f"__{analysis_date}" if analysis_date else ""
         try:
             label_photo_url = photos.promote_photo(
                 label_tmp, f"originals/{water_id}{suffix}.jpg"
@@ -265,7 +267,12 @@ def add_water():
         # so the ficha's selector is a plain list rather than "the current one
         # plus the others". Same date replaces that entry.
         replaced = repository.get_analysis(water_id, analysis_date)
-        repository.save_analysis(water)
+        # The entry keeps the photos *this* submission brought, not the ones
+        # `apply_existing` copied over from the ficha: an entry that borrowed
+        # the current label would claim another year's proof as its own.
+        repository.save_analysis(
+            replace(water, photo_url=photo_url, label_photo_url=label_photo_url)
+        )
         if replaced and replaced.get("minerals") != water.minerals:
             logger.info(
                 "Analysis entry replaced.",

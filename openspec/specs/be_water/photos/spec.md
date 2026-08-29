@@ -48,10 +48,12 @@ can't be read — never crashing. `suggest_verdict` SHALL map a status to `OK` o
 - **WHEN** re-running studio on a water
 - **THEN** the processed studio image overwrites the main object and the doc is saved
 - **WHEN** replacing the label **THEN** it lands under `originals/`
-- **WHEN** deleting **THEN** both objects go before the doc
+- **WHEN** deleting **THEN** every object the water owns goes before the doc
+  — the current pair and one pair per analysis, since a dated submission
+  promotes its photos to `{water_id}__{date}.jpg`
 - *Verifies:* `test_rerun_studio_overwrites_main`,
   `test_replace_label_targets_originals_path`,
-  `test_delete_water_removes_both_objects_then_doc`
+  `test_delete_water_removes_every_object_it_owns_then_the_doc`
 
 ### Requirement: Image-processing pipeline
 
