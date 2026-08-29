@@ -185,3 +185,37 @@ never be swept:
 gcloud storage buckets describe gs://be-water-photos \
   --format="json(lifecycle)" --project=be-water-app
 ```
+
+## 🤖 Changing the Gemini model
+
+Models are retired **per API key**, and the local `.env` key is not the one
+production uses. Testing with the wrong one is how `gemini-2.5-flash` briefly
+got pinned while production could not call it at all — it answered locally and
+404'd in Cloud Run.
+
+Always measure with the production key:
+
+```bash
+KEY=$(gcloud secrets versions access latest --secret=flask-web-config-regional \
+  --project=be-water-app | python3 -c "import json,sys; print(json.load(sys.stdin)['gemini_api_key'])")
+```
+
+When a model is retired the 404 body names its replacement, which is where
+`gemini-3.6-flash` came from:
+
+```
+This model models/gemini-2.5-flash is no longer available to new users.
+Please update your code to use models/gemini-3.6-flash
+```
+
+Swap it without a deploy, then bump the default in `core/sdk/gemini.py`:
+
+```bash
+gcloud run services update be-water --update-env-vars GEMINI_MODEL=<model> \
+  --region europe-southwest1 --project be-water-app
+```
+
+**Do not go back to a `-latest` alias.** It read-timed out at 60 s for a whole
+morning, and there is no way to know which model is behind it — for a reader
+that fills a catalog people trust for being verified, the extraction changing
+without notice is worse than a loud 404.

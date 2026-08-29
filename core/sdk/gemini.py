@@ -17,17 +17,20 @@ from core.utils import get_logger
 logger = get_logger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-# Pinned, not `-latest`. The alias was chosen because pinned versions used to
-# 404 on this key; measured again on 2026-08-29, that is no longer true and the
-# alias itself is the problem — it read-timed out at 60 s while
-# `gemini-2.5-flash` answered the same request in 2.9 s and
-# `gemini-2.5-flash-lite` in 1.5 s.
+# Pinned, not `-latest`: the alias read-timed out at 60 s for a whole morning
+# and there is no way to tell which model is behind it — for a label reader
+# that means the extraction changing without notice under a catalog people
+# trust for being verified.
 #
-# An alias is shared-fate capacity nobody here controls, and the model behind
-# it can change without notice — which for a label reader means the extraction
-# quietly changing under a catalog people trust. Override via env when this one
-# is retired; the 404 will say so plainly.
-DEFAULT_MODEL = "gemini-2.5-flash"
+# **Measure with the production key.** Models are retired per key: a local
+# `.env` key can be older and still reach a model production 404s on, and
+# testing with the wrong one is how `gemini-2.5-flash` briefly got pinned here
+# while production could not call it at all. Google names the replacement in
+# the 404 body, which is how this value was found.
+#
+#     gcloud secrets versions access latest --secret=flask-web-config-regional \
+#       --project=be-water-app
+DEFAULT_MODEL = "gemini-3.6-flash"
 # No `-latest` alias exists for image models; callers should treat failures
 # as degradable (and override via env when this one gets retired too).
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
