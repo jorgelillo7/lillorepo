@@ -92,9 +92,29 @@
     <section class="md:col-span-3">
         <div class="bg-white rounded-3xl ring-1 ring-slate-200 p-6">
             <h2 class="font-bold text-lg text-slate-900 mb-1">Composición <span class="text-slate-400 font-normal text-sm">(mg/L)</span></h2>
+            {% if analyses | length > 1 %}
+            <p class="text-xs text-slate-400 mb-2">Análisis de la etiqueta:</p>
+            <div class="flex flex-wrap gap-2 mb-4">
+                {% for entry in analyses %}
+                {% set is_shown = entry.analysis_date == water.analysis_date %}
+                <a href="{{ url_for('water_detail', water_id=water.id) }}{% if entry.analysis_date != current_analysis_date %}?analisis={{ entry.analysis_date }}{% endif %}"
+                   class="px-3 py-1 rounded-full text-xs tabular-nums ring-1 transition
+                          {% if is_shown %}bg-sky-600 text-white ring-sky-600{% else %}bg-white text-slate-500 ring-slate-200 hover:ring-slate-300{% endif %}">
+                    {{ entry.analysis_date }}{% if entry.analysis_date == current_analysis_date %} · actual{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+            {% if viewing_past %}
+            <p class="text-xs text-amber-700 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2 mb-4">
+                Estás viendo un análisis anterior. La composición vigente es la de
+                <a class="underline font-medium" href="{{ url_for('water_detail', water_id=water.id) }}">{{ current_analysis_date }}</a>.
+            </p>
+            {% endif %}
+            {% else %}
             <p class="text-xs text-slate-400 mb-4">
                 {% if water.analysis_date %}Análisis de la etiqueta: <span class="tabular-nums font-medium text-slate-500">{{ water.analysis_date }}</span>{% else %}Sin fecha de análisis{% endif %}
             </p>
+            {% endif %}
             {% set max_val = 400 %}
             <dl class="space-y-3">
                 {% for field in mineral_fields if water.minerals.get(field) is not none %}

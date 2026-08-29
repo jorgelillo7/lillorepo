@@ -1,6 +1,6 @@
 """Domain model for be_water: a bottled water and its mineral vector."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 # Mineral fields, in display order. Every value is mg/L except ph.
@@ -112,6 +112,31 @@ class Water:
     added_by: str = ""
     added_at: Optional[str] = None  # ISO timestamp; None for seeded waters
     verified: bool = False
+    # True when a photo could not be copied out of `uploads/` and the ficha is
+    # pointing at the temporary object. That directory is swept on a schedule,
+    # so the photo works now and stops working later — this is what makes the
+    # water findable before it does.
+    photo_promotion_failed: bool = False
+
+    def with_analysis(self, entry: dict) -> "Water":
+        """This water as one of its past analyses saw it.
+
+        The composition **and its provenance** are swapped together: minerals,
+        which of them a label confirmed, where the rest came from, and the
+        photo of that label. Swapping only the numbers would print this year's
+        ✓ over another year's values — a verification claim about a label
+        nobody in that entry ever photographed.
+
+        Identity, location and photo stay the ficha's: it is the same bottle.
+        """
+        return replace(
+            self,
+            minerals=dict(entry.get("minerals") or {}),
+            verified_fields=list(entry.get("verified_fields") or []),
+            sources=dict(entry.get("sources") or {}),
+            label_photo_url=entry.get("label_photo_url"),
+            analysis_date=entry.get("analysis_date"),
+        )
 
     @property
     def tds(self) -> Optional[float]:
@@ -148,6 +173,7 @@ class Water:
             sources=dict(data.get("sources", {}) or {}),
             mentions=list(data.get("mentions", []) or []),
             analysis_date=data.get("analysis_date"),
+            photo_promotion_failed=bool(data.get("photo_promotion_failed")),
             added_by=data.get("added_by", ""),
             added_at=data.get("added_at"),
             verified=bool(data.get("verified", False)),
@@ -173,4 +199,5 @@ class Water:
             "added_by": self.added_by,
             "added_at": self.added_at,
             "verified": self.verified,
+            "photo_promotion_failed": self.photo_promotion_failed,
         }

@@ -19,6 +19,15 @@ py_binary(
     deps = ["//packages/be_water/web:web_lib"],
 )
 
+# One-shot backfill: each dated water's current composition becomes the first
+# entry of its analysis series, so the ficha's selector is not empty on day one.
+py_binary(
+    name = "backfill_analyses",
+    srcs = ["backfill_analyses.py"],
+    main = "backfill_analyses.py",
+    deps = ["//packages/be_water/web:web_lib"],
+)
+
 # One-shot backfill of Water.community from the province. Dry-run by default.
 py_binary(
     name = "backfill_communities",

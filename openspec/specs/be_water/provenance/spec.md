@@ -75,31 +75,63 @@ already on file.
   `test_a_dateless_submission_inherits_the_date_on_file`,
   `test_a_dated_submission_keeps_its_own_date`
 
-### Requirement: An older label never overwrites a newer one silently
+### Requirement: a composition is a dated series, not a single value
 
-When a submission's analysis predates the stored one — or carries no date
-while the stored one does — the add flow SHALL re-render the form with a
-warning naming both dates and SHALL save nothing until the contributor
-confirms. It SHALL NOT refuse the submission: the contributor may be holding
-the better bottle. A newer analysis SHALL save straight through.
+The same water from the same spring measures differently in different lab
+analyses. A **dated** composition SHALL join `water_analyses`, keyed by its
+analysis date, whatever its age. `waters/{water_id}` SHALL keep the most recent
+one, and the catalog, the search and the similarity engine SHALL read only
+that, so a water with a series appears exactly once everywhere but its ficha.
+
+An analysis that predates the stored one SHALL join the series and **leave the
+ficha untouched**. It used to overwrite the present after a warning the
+contributor confirmed, which is a measurement lost by clicking through a
+dialog. There is nothing to warn about when nothing is replaced.
+
+A submission for a date already in the series SHALL replace that entry, so a
+mis-read past year is correctable from the form rather than a CLI.
+
+`verified_fields`, `sources` and the label photo SHALL travel **inside** the
+entry, and a dated label SHALL be promoted to
+`originals/{water_id}__{analysis_date}.jpg`. Both for the same reason: one path
+and one tick-list per water would print one year's "confirmado por etiqueta"
+over another year's numbers, and the second label would overwrite the first
+one's proof — destroying the evidence of the very entry the history exists to
+keep.
+
+An **undated** composition SHALL NOT enter the series: it has no place on a
+timeline, and 34 of 46 waters are in that state because the label is not
+required to print the date. It may still be the ficha's composition, and
+replacing a dated one with it is still an overwrite — so that case alone keeps
+the warning, the confirmation and the snapshot.
 
 Any save that changes an existing ficha's minerals SHALL first snapshot the
 whole previous document to `water_revisions`, tagged `older_analysis` or
 `composition_changed`, so a bad edit is reversible from
-`scripts/revert_water.py`. The trail is not limited to the older case: an
-undated or mistyped overwrite produces the same regret and the same need.
+`scripts/revert_water.py`. That trail stays a trail: it is deletable, and the
+series is not.
 
-#### Scenario: warn, confirm, snapshot
-- **WHEN** the submitted analysis is older than the stored one and unconfirmed
-- **THEN** the form comes back showing both dates, and nothing is written
-- **WHEN** the contributor confirms
-- **THEN** the water saves and the previous doc is snapshotted as `older_analysis`
-- **WHEN** the analysis is newer but the composition moves
-- **THEN** it saves straight through, still snapshotted as `composition_changed`
-- **WHEN** the composition does not move
-- **THEN** no snapshot is taken
-- *Verifies:* `test_older_label_needs_confirming_and_saves_nothing_until_then`,
-  `test_confirming_an_older_label_saves_and_snapshots_the_previous_state`,
+#### Scenario: where a submitted composition goes
+- **WHEN** the analysis is older than the ficha's
+- **THEN** it joins the series, the ficha does not change, and nothing is
+  snapshotted — no confirmation is asked for
+- **WHEN** the analysis is newer **THEN** it becomes the ficha's and joins the
+  series, snapshotting the previous doc if the composition moved
+- **WHEN** the date is already in the series **THEN** that entry is replaced
+- **WHEN** the composition carries no date **THEN** it never joins the series,
+  and replacing a dated one still warns and snapshots
+- **WHEN** two analyses exist **THEN** each keeps its own label photo and its
+  own verified fields
+- **WHEN** the composition does not move **THEN** no snapshot is taken
+- *Verifies:* `test_an_older_analysis_does_not_touch_the_current_composition`,
+  `test_an_older_analysis_needs_no_confirmation_any_more`,
+  `test_an_undated_label_over_a_dated_one_still_needs_confirming`,
+  `test_a_resubmission_for_the_same_date_replaces_that_entry`,
+  `test_an_undated_composition_never_enters_the_series`,
+  `test_each_dated_analysis_keeps_its_own_label_photo`,
+  `test_a_past_analysis_swaps_the_numbers_and_its_verification`,
+  `test_the_catalog_reads_only_the_current_composition`,
+  `test_an_unknown_analysis_is_a_404_not_the_current_one`,
   `test_a_newer_label_saves_straight_through_but_still_snapshots`,
   `test_no_snapshot_when_the_composition_did_not_move`,
   `test_older_or_undated_analysis_warns_newer_one_does_not`,
