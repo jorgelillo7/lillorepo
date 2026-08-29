@@ -55,7 +55,6 @@ in `STATUS.md` — neither belongs here.
 | 👤 | `audit_photos --fix` (2 fichas) and `audit_data` (5 fichas) | You: both prompt before every write, local via ADC |
 | 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | `country` field on `Water` | The verification pass above · [analysis](docs/technical/parked-work.md#be_water-country-field) |
-| 🔨 | `uploads/` has no lifecycle rule and never had one | The code says it does; the bucket says `lifecycle: null`. Every failed label read leaves two orphaned objects · command in [`OPERATIONS.md`](packages/be_water/OPERATIONS.md) |
 | 👤 | `lanjaron` claims 4 label-confirmed values with no label photo | You: a shot of its composition label (the old one was the studio render) |
 | 🔨 | `tramuntana` and `neval` have broken geography | `province: "Talarrubias"` (a town) with `community: "Badajoz"` (a province) — fields shifted one slot; `neval` has both blank. Both fields are free text validated against nothing, while `geo.ALL_PROVINCES` already exists |
 | 🔨 | 11 of 14 analysis entries share the ficha's bare label path | The backfill copied `originals/{id}.jpg` verbatim, so an undated correction would replace the photo a dated entry offers as proof · only `lunares__2020` and `penaclara__2024-01` have their own |

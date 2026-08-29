@@ -49,7 +49,7 @@ graph TD
         JOB["be-water-catalog-sync · Cloud Run Job<br/>reuses the web image"]
         SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid"]
         FS[("Firestore · europe-southwest1<br/>waters · water_analyses<br/>users · water_revisions")]
-        GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ — no TTL yet")]
+        GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ 30-day TTL")]
         SEC["Secret Manager<br/>flask-web-config-regional"]
     end
 

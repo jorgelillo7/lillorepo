@@ -35,6 +35,37 @@ with the stored value.
 - *Verifies:* `test_province_and_community_from_aesan_registry`,
   `test_no_aesan_source_when_registry_disagrees`
 
+### Requirement: A province decides its own community
+
+`resolve_place` SHALL store the community that belongs to the submitted
+province whenever the province is one this repo knows, rather than whatever
+the form carried. A province's community is a fact, not the contributor's to
+choose, and "Valencia · Cataluña" used to save exactly as typed.
+
+A submitted *community* that is really a **province** SHALL be read as the
+fields having been shifted one slot, and corrected. `tramuntana` reached
+production with `province="Talarrubias"` — a town in Badajoz — and
+`community="Badajoz"`, which dropped it out of every province and community
+view in silence, because the place search matches province or community and
+it had neither.
+
+Text matching neither list SHALL be kept as typed. A village nobody has
+mapped is still what the contributor read on the label; `data_audit` is where
+a human decides. Only a provable mistake is repaired.
+
+#### Scenario: what reaches the doc
+- **WHEN** the province is known **THEN** its own community is stored, even if
+  the form named a different one
+- **WHEN** the community names a province and the province names nothing
+- **THEN** the pair is read as shifted: the community becomes the province and
+  the real community is derived
+- **WHEN** neither is recognised **THEN** both are stored as typed
+- *Verifies:* `test_build_water_derives_the_community_from_the_province`,
+  `test_a_known_province_decides_its_own_community`,
+  `test_a_community_that_is_really_a_province_means_the_fields_are_shifted`,
+  `test_a_place_nobody_has_mapped_is_kept_as_typed`,
+  `test_build_water_leaves_an_unknown_province_without_a_community`
+
 ### Requirement: The four sources mean four different things, and the ficha says so
 
 `label` / `manufacturer` / `manual` / `aesan` are a vocabulary shown to

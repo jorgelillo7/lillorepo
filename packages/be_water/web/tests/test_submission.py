@@ -101,9 +101,26 @@ def test_build_water_derives_the_community_from_the_province():
     assert water.community == "Comunidad Valenciana"
 
 
-def test_build_water_keeps_a_stated_community():
+def test_a_known_province_decides_its_own_community():
+    """A province's community is a fact, not the contributor's to choose.
+    "Valencia · Cataluña" used to save exactly as typed."""
     water = _submitted({"province": "Valencia", "community": "Cataluña"})
-    assert water.community == "Cataluña"
+    assert water.community == "Comunidad Valenciana"
+
+
+def test_a_community_that_is_really_a_province_means_the_fields_are_shifted():
+    """`tramuntana`, in production: `province="Talarrubias"` — a town — with
+    `community="Badajoz"`, a province. One slot out, and the water vanished
+    from every province and community view without a word."""
+    water = _submitted({"province": "Talarrubias", "community": "Badajoz"})
+    assert (water.province, water.community) == ("Badajoz", "Extremadura")
+
+
+def test_a_place_nobody_has_mapped_is_kept_as_typed():
+    """It is still what the contributor read on the label; `data_audit` is
+    where a human decides. Only a provable mistake is repaired."""
+    water = _submitted({"province": "Talarrubias", "community": "Comarca X"})
+    assert (water.province, water.community) == ("Talarrubias", "Comarca X")
 
 
 def test_build_water_leaves_an_unknown_province_without_a_community():
