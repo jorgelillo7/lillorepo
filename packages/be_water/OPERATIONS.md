@@ -154,10 +154,11 @@ Every `/anadir/foto` attempt writes **two** objects to
 *before* the label is read. A read that fails leaves both behind, so three
 failed attempts on the same bottle leave six.
 
-`routes/add.py` claimed a lifecycle rule reclaimed them. **It did not exist**:
-checked on 2026-08-29, the bucket reported `lifecycle: null` while `uploads/`
-held 6 objects and 491 KB from that morning's failures alone. Nothing has ever
-deleted them.
+`routes/add.py` claimed a lifecycle rule reclaimed them. **It does not exist**:
+the bucket reports `lifecycle: null`, and `uploads/` has only grown — 6 objects
+and 491 KB when this was first written, 14 objects and ~1 MB a week later.
+Nothing has ever deleted them, and the README's architecture diagram claimed a
+3-day TTL that was never created either.
 
 The bucket rides Cloud Storage's 5 GB always-free tier and sat at 3.5 MB, so
 this has never cost anything — but the invariant the code asserts is false and

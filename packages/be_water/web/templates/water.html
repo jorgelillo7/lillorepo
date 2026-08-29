@@ -132,15 +132,23 @@
                     </dd>
                     <dd class="text-right leading-tight">
                         <div class="font-semibold text-slate-800 tabular-nums">{{ val | mineral }}</div>
+                        {# The badge is a link, not a tooltip: `title` does
+                           nothing on a touch screen, which is where this is
+                           read. Each one lands on its own entry in "de dónde
+                           salen los datos". #}
+                        {% set badge = 'text-[10px] uppercase tracking-wide font-semibold underline decoration-dotted underline-offset-2' %}
                         {% if src == 'label' %}
-                        <div class="text-[10px] uppercase tracking-wide font-semibold text-teal-600"
-                             title="Confirmado de foto de etiqueta">✓ etiqueta</div>
+                        <a href="{{ url_for('about') }}#fuente-etiqueta"
+                           class="{{ badge }} text-teal-600"
+                           title="Confirmado de foto de etiqueta">✓ etiqueta</a>
                         {% elif src == 'manual' %}
-                        <div class="text-[10px] uppercase tracking-wide font-semibold text-amber-600"
-                             title="Aportado a mano por la comunidad">a mano</div>
+                        <a href="{{ url_for('about') }}#fuente-a-mano"
+                           class="{{ badge }} text-amber-600"
+                           title="Aportado a mano por la comunidad">a mano</a>
                         {% elif src == 'manufacturer' %}
-                        <div class="text-[10px] uppercase tracking-wide font-semibold text-slate-400"
-                             title="Datos publicados por el fabricante">fabricante</div>
+                        <a href="{{ url_for('about') }}#fuente-fabricante"
+                           class="{{ badge }} text-slate-400"
+                           title="Datos publicados por el fabricante">fabricante</a>
                         {% endif %}
                     </dd>
                 </div>
@@ -150,7 +158,7 @@
                 <span class="text-teal-600 font-semibold">✓ etiqueta</span> confirmado de foto ·
                 <span class="text-slate-500 font-semibold">fabricante</span> datos publicados ·
                 <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad.
-                <a href="{{ url_for('about') }}" class="underline hover:text-sky-600">Más sobre las fuentes</a>
+                <a href="{{ url_for('about') }}#fuentes" class="underline hover:text-sky-600">Más sobre las fuentes</a>
             </p>
         </div>
 
