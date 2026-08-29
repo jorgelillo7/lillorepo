@@ -23,6 +23,7 @@ from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
+from packages.biwenger_tools.api.logic import round_context
 from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
     format_preview_message,
@@ -303,6 +304,16 @@ def run_league_compare() -> dict:
     return {"sent": 1, "managers": len(summary)}
 
 
+def _round_context(biwenger) -> "round_context.RoundContext":
+    """Where the season is. Never raises — it decorates a message, and losing
+    the lineup because the calendar could not be read is the wrong trade."""
+    try:
+        return round_context.read(biwenger.get_round())
+    except Exception:
+        logger.exception("Could not read the round — message goes without it.")
+        return round_context.RoundContext()
+
+
 def _diff_against_saved_lineup(biwenger, result: dict, my_team: list) -> dict:
     """Compare the optimum against what is set on Biwenger. Never raises.
 
@@ -370,6 +381,9 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     if dry_run:
         diff = _diff_against_saved_lineup(biwenger, result, my_team)
         preview = format_preview_message(result, diff, my_team)
+        header = round_context.format_line(_round_context(biwenger))
+        if header:
+            preview = f"{header}\n\n{preview}"
         send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=preview)
         logger.info(
             "Dry-run lineup preview sent.",
@@ -429,9 +443,11 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
         )
         return {"sent": 1, "applied": False, "reason": "biwenger_put_failed"}
 
-    send_telegram_message_or_raise(
-        bot_token=token, chat_id=chat_id, text=format_lineup_message(result)
-    )
+    applied = format_lineup_message(result)
+    header = round_context.format_line(_round_context(biwenger))
+    if header:
+        applied = f"{header}\n\n{applied}"
+    send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=applied)
     logger.info(
         "Lineup applied.",
         extra={"formation": result["formation"], "total_sf": result["total_sf"]},
