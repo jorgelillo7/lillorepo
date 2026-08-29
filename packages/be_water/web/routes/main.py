@@ -178,7 +178,9 @@ def community_page():
     catalog = repository.get_all_waters()
     period = request.args.get("periodo", "siempre")
     month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
-    ranking = community.build_community_stats(catalog, month_prefix)
+    ranking = community.build_community_stats(
+        catalog, month_prefix, repository.all_analyses()
+    )
     if period == "mes":
         ranking = [s for s in ranking if s["month_score"] > 0]
         ranking.sort(key=lambda s: (-s["month_score"], s["nickname"]))
