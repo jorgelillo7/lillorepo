@@ -39,7 +39,10 @@ if not SECRET_KEY:
 # --- Photos + Gemini OCR ---
 PHOTOS_BUCKET = os.getenv("PHOTOS_BUCKET", "be-water-photos")
 GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+# Pinned deliberately — see `core/sdk/gemini.DEFAULT_MODEL`. Changing it needs
+# no deploy:
+#   gcloud run services update be-water --update-env-vars GEMINI_MODEL=...
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # Nicknames whose uploads go through the paid studio treatment (image

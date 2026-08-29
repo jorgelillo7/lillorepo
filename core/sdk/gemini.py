@@ -17,9 +17,17 @@ from core.utils import get_logger
 logger = get_logger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
-# The `-latest` alias tracks the current flash generation — pinned versions
-# get retired for new API keys (gemini-2.5-flash already 404s on ours).
-DEFAULT_MODEL = "gemini-flash-latest"
+# Pinned, not `-latest`. The alias was chosen because pinned versions used to
+# 404 on this key; measured again on 2026-08-29, that is no longer true and the
+# alias itself is the problem — it read-timed out at 60 s while
+# `gemini-2.5-flash` answered the same request in 2.9 s and
+# `gemini-2.5-flash-lite` in 1.5 s.
+#
+# An alias is shared-fate capacity nobody here controls, and the model behind
+# it can change without notice — which for a label reader means the extraction
+# quietly changing under a catalog people trust. Override via env when this one
+# is retired; the 404 will say so plainly.
+DEFAULT_MODEL = "gemini-2.5-flash"
 # No `-latest` alias exists for image models; callers should treat failures
 # as degradable (and override via env when this one gets retired too).
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
