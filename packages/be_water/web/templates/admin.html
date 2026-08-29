@@ -10,6 +10,22 @@
     </p>
 </header>
 
+{% if stranded %}
+<section class="max-w-3xl mx-auto mb-6 bg-rose-50 rounded-3xl ring-1 ring-rose-200 p-5">
+    <h2 class="font-bold text-rose-900">⚠️ Fotos sin promover ({{ stranded | length }})</h2>
+    <p class="text-sm text-rose-800/80 mt-1">
+        Estas fichas apuntan a <span class="font-mono text-xs">uploads/</span>, que se
+        barre periódicamente: hoy se ven, dentro de unas semanas no. Vuelve a subir la
+        foto desde la ficha.
+    </p>
+    <ul class="mt-3 text-sm space-y-1">
+        {% for w in stranded %}
+        <li><a class="text-rose-700 underline" href="{{ url_for('water_detail', water_id=w.id) }}">{{ w.name }}</a></li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
 <section class="max-w-3xl mx-auto bg-white rounded-3xl ring-1 ring-slate-200 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">

@@ -49,6 +49,26 @@ MINERAL_LABELS = {
 }
 
 
+def mineral_scale(catalog) -> dict:
+    """The bar's full width, per mineral, taken from the catalog itself.
+
+    One constant for every mineral made the bars decorative: sodium runs from
+    under 1 mg/L to over 1000, sulfates likewise, so against a fixed 400 the
+    interesting half of the catalog sat pinned at 100% and a water at 500
+    looked identical to one at 5000. Scaling each mineral by the largest value
+    anyone has recorded for it puts a bar back to meaning "a lot, for this
+    mineral". pH has no bar and no entry here.
+    """
+    scale: dict = {}
+    for water in catalog:
+        for name, value in water.minerals.items():
+            if name == "ph" or not isinstance(value, (int, float)):
+                continue
+            if value > scale.get(name, 0):
+                scale[name] = value
+    return scale
+
+
 def format_mineral(value) -> str:
     """A mineral value as the label prints it: `667`, not `667.0`.
 

@@ -15,6 +15,10 @@ def admin_page():
         abort(403)
     users = repository.get_all_users()
     catalog = repository.get_all_waters()
+    # `photo_promotion_failed` is set when a save could not move a photo out of
+    # `uploads/`. That prefix is swept, so the ficha works for weeks and then
+    # does not. Nothing read the flag, which made it an alarm with no bell.
+    stranded = [w for w in catalog if w.photo_promotion_failed]
     contributions: dict = {}
     for water in catalog:
         contributor = (water.added_by or "").strip().lower()
@@ -33,6 +37,7 @@ def admin_page():
     ]
     return render_template(
         "admin.html",
+        stranded=stranded,
         rows=rows,
         admin_emails=sorted(config.ADMIN_EMAILS),
         meta_description="Administración de Be Water.",

@@ -24,6 +24,7 @@ from packages.be_water.web import (
     seo,
     similarity,
 )
+from packages.be_water.web import domain
 from packages.be_water.web.domain import format_mineral, mineralization_label
 
 
@@ -75,6 +76,7 @@ def water_detail(water_id: str):
         viewing_past=shown is not water,
         current_analysis_date=water.analysis_date,
         similar=similar,
+        mineral_scale=domain.mineral_scale(catalog),
         favorite_ids=helpers.favorite_ids(),
         og_image=shown.photo_url,
         structured_data=seo.water_page(

@@ -1700,6 +1700,39 @@ def test_only_the_ficha_reads_the_analysis_series(client):
         assert spy.call_count == 1, "la ficha sí"
 
 
+def test_both_photos_can_be_opened_full_size(client):
+    """A label shot is small print rendered 64 units tall on a phone — proof
+    nobody can actually check. Both the bottle and the label open in the
+    viewer, and the label keeps its `href` so it still opens without JS."""
+    catalog = _catalog()
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    catalog[1].label_photo_url = "https://x/originals/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    assert 'data-caption="Botella de Bezoya"' in body
+    assert 'data-caption="Etiqueta de Bezoya' in body
+    assert 'href="https://x/originals/bezoya.jpg"' in body
+
+
+def test_a_mineral_bar_is_scaled_by_that_mineral_not_a_shared_ceiling(client):
+    """One constant for every mineral pinned half the catalog at full width:
+    sodium at 500 and sodium at 5000 drew the same bar."""
+    catalog = _catalog()
+    catalog[0].minerals = {"sodium": 1000.0}
+    catalog[1].minerals = {"sodium": 100.0}
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    # 100 of a catalog whose most sodic water holds 1000 — a tenth, not a
+    # quarter of an arbitrary 400.
+    assert "width: 10.0%" in body
+
+
 def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
     """The badges said what they meant only through `title=`, which does
     nothing on a touch screen — and the page they pointed at explained three
