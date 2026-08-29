@@ -49,6 +49,19 @@ MINERAL_LABELS = {
 }
 
 
+def format_mineral(value) -> str:
+    """A mineral value as the label prints it: `667`, not `667.0`.
+
+    Storage decides the type, not the number. The seed catalog holds plain
+    ints while `submission.parse_minerals` floats everything a contributor
+    types, so the same 667 mg/L rendered as `261` on one ficha and `667.0` on
+    the next depending only on how the water got into the catalog.
+    """
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def mineralization_label(tds: Optional[float]) -> str:
     """EU classification by dry residue — the primary one-number summary."""
     if tds is None:

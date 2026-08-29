@@ -15,13 +15,20 @@ pending-waters list on the community page.
 ### Requirement: Coverage counts unique names
 
 `coverage` SHALL count the registry by **unique name**, so a brand recognised
-under several springs counts once toward the total.
+under several springs counts once toward the total, and SHALL also report
+`entries`, the raw row count.
+
+Both numbers are published, and they are not interchangeable: the pages say
+"España reconoce oficialmente N aguas minerales naturales **distintas**",
+which is a factual claim about the state's register. Stating the deduplicated
+figure as the register's own size overstates neither number but describes the
+wrong one.
 
 #### Scenario: multi-spring brand counts once
 - **WHEN** the registry lists "Font Vella" under two springs plus two other
   brands, with one covered
-- **THEN** total = 3 (unique names), covered = 1
-- *Verifies:* `test_coverage_counts_unique_names`
+- **THEN** total = 3 (unique names), covered = 1, entries = 4
+- *Verifies:* `test_coverage_separates_distinct_names_from_registry_rows`
 
 ### Requirement: Pending list dedupes multi-spring brands
 

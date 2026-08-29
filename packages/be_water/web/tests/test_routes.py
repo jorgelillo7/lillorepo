@@ -1666,20 +1666,87 @@ def test_the_ficha_keeps_the_merge_the_entry_does_not(client):
     assert set(mock_analysis.call_args.args[0].minerals) == {"sodium"}
 
 
-def test_the_catalog_reads_only_the_current_composition(client):
-    """The guardrail. A water with a series must appear **once** everywhere
-    else — the ficha is the only place the past is visible."""
+def test_only_the_ficha_reads_the_analysis_series(client):
+    """The guardrail, asserted where it can actually fail.
+
+    Counting `/agua/bezoya` in the listing proved nothing: `index()` never
+    calls `list_analyses`, so the mock was inert and the assertion held for
+    any return value — including the day someone made the catalog iterate
+    per entry, the exact regression the name claims to guard. Spy on the call
+    instead: the series is the ficha's business and nobody else's, because
+    every other page must show a water once however many analyses it has.
+    """
     catalog = _catalog()
     catalog[1].analysis_date = "2025-02"
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses",
-        return_value=[_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)],
-    ):
-        response = client.get("/agua/bezoya")
-        listing = client.get("/")
+    entries = [_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)]
 
-    assert response.status_code == 200
-    assert listing.get_data(as_text=True).count("/agua/bezoya") == 1
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=entries
+    ) as spy:
+        client.get("/")
+        client.get("/recomendar?lugar=Segovia")
+        assert spy.call_count == 0, "el catálogo no debe leer la serie"
+
+        listing = client.get("/")
+        assert listing.get_data(as_text=True).count("/agua/bezoya") == 1
+
+        client.get("/agua/bezoya")
+        assert spy.call_count == 1, "la ficha sí"
+
+
+def test_the_home_count_does_not_treat_a_blank_province_as_one(client):
+    """Live, the home page said 23 provinces over 22. Province is optional
+    end to end — the add form does not require it — and Jinja's `unique`
+    counted the empty string as a province of its own."""
+    catalog = _catalog()
+    catalog[0].province = "Segovia"
+    catalog[1].province = ""
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        body = client.get("/").get_data(as_text=True)
+
+    assert ">1</span> provincias" in body, "una provincia real, no dos"
+
+
+def test_a_past_analysis_does_not_advertise_the_present_numbers(client):
+    """The page's own metadata must describe the page. With `?analisis=` the
+    body shows one composition while the head described another: a crawler
+    or a shared link quoted this year's residuo seco under last year's URL.
+    The canonical tag is what consolidates the variants — it drops `analisis`
+    — so the head is free to tell the truth about what is on screen."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].minerals = {"tds": 26.5}
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    ):
+        body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
+
+    head = body.split("</head>")[0]
+    assert "30" in head and "26.5" not in head, "la meta cita el análisis mostrado"
+    assert "bezoya__2024-01.jpg" in head, "y su botella"
+    # The canonical drops the parameter, which is what keeps the variants from
+    # competing with the ficha for the same search.
+    assert '<link rel="canonical" href="http://localhost/agua/bezoya">' in head
+
+
+def test_a_mineral_reads_the_same_however_it_reached_the_catalog(client):
+    """The seed stores plain ints and the form floats everything, so the same
+    number printed as `261` on one ficha and `667.0` on the next depending
+    only on how the water got in."""
+    catalog = _catalog()
+    catalog[1].minerals = {"tds": 667.0, "calcium": 2.19}
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    # Only what a reader sees: the JSON-LD carries `667.0` on purpose, because
+    # there it is a number and not a piece of text.
+    visible = re.sub(r"(?s)<script.*?</script>", "", body)
+    assert ">667<" in visible and "667.0" not in visible
+    assert "2.19" in visible, "un decimal de verdad se queda"
 
 
 def test_a_past_analysis_swaps_the_numbers_and_its_verification(client):

@@ -23,6 +23,7 @@ from packages.be_water.web import (  # noqa: F401
     photos,
     repository,
 )
+from packages.be_water.web.domain import format_mineral
 from packages.be_water.web.routes import add, admin, main, session
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -36,6 +37,7 @@ app.config.update(
 )
 
 app.context_processor(helpers.context_data)
+app.add_template_filter(format_mineral, "mineral")
 
 main.register(app)
 add.register(app)

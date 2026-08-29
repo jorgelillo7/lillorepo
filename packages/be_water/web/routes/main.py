@@ -24,7 +24,7 @@ from packages.be_water.web import (
     seo,
     similarity,
 )
-from packages.be_water.web.domain import mineralization_label
+from packages.be_water.web.domain import format_mineral, mineralization_label
 
 
 def index():
@@ -50,8 +50,11 @@ def water_detail(water_id: str):
         abort(404)
 
     # The ficha shows the current composition; `?analisis=` swaps in a past
-    # one. `similar` and the structured data keep reading `water`, so a water
-    # with four analyses is still one entry everywhere else.
+    # one. `similar` keeps reading `water`: what a water resembles is a
+    # property of the water, not of one measurement of it, so a water with
+    # four analyses is still one entry everywhere else. Everything that
+    # describes *this page* follows `shown` — the canonical tag, which drops
+    # `analisis`, is what consolidates the variants for a crawler.
     # An undated water cannot have a series — only dated compositions enter
     # one — so three quarters of the catalog skips the read entirely.
     analyses = repository.list_analyses(water_id) if water.analysis_date else []
@@ -73,16 +76,18 @@ def water_detail(water_id: str):
         current_analysis_date=water.analysis_date,
         similar=similar,
         favorite_ids=helpers.favorite_ids(),
-        og_image=water.photo_url,
+        og_image=shown.photo_url,
         structured_data=seo.water_page(
-            water,
+            shown,
             url=f"{home}/agua/{water.id}",
             home_url=home,
             place_url=f"{home}/recomendar?lugar={quote(water.province)}",
         ),
         meta_description=(
-            f"{water.name} ({water.province}): residuo seco "
-            f"{water.tds or '?'} mg/L, mineralización {water.mineralization}. "
+            f"{shown.name}{f' ({shown.province})' if shown.province else ''}: "
+            f"residuo seco "
+            f"{format_mineral(shown.tds) if shown.tds is not None else '?'} mg/L, "
+            f"mineralización {shown.mineralization}. "
             "Composición completa y aguas similares."
         ),
     )

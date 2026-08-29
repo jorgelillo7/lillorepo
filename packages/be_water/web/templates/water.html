@@ -40,7 +40,7 @@
                title="Procedencia cruzada con el registro oficial AESAN">registro AESAN</p>
             {% endif %}
             <div class="mt-5 inline-flex flex-col items-center">
-                <span class="text-5xl font-extrabold text-{{ tone }}-700">{{ water.tds if water.tds is not none else '—' }}</span>
+                <span class="text-5xl font-extrabold text-{{ tone }}-700">{{ water.tds | mineral if water.tds is not none else '—' }}</span>
                 <span class="text-[11px] uppercase tracking-wider text-{{ tone }}-600/80 font-semibold mt-1">mg/L residuo seco</span>
                 <span class="mt-2 px-3 py-1 rounded-full text-xs font-bold bg-{{ tone }}-200/70 text-{{ tone }}-800">
                     mineralización {{ water.mineralization }}
@@ -131,7 +131,7 @@
                         {% endif %}
                     </dd>
                     <dd class="text-right leading-tight">
-                        <div class="font-semibold text-slate-800 tabular-nums">{{ val }}</div>
+                        <div class="font-semibold text-slate-800 tabular-nums">{{ val | mineral }}</div>
                         {% if src == 'label' %}
                         <div class="text-[10px] uppercase tracking-wide font-semibold text-teal-600"
                              title="Confirmado de foto de etiqueta">✓ etiqueta</div>
