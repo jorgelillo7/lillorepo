@@ -1278,3 +1278,79 @@ def test_no_snapshot_when_the_composition_did_not_move(client):
     ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
         client.post("/anadir", data={"name": "Bezoya", "spring": "Sierra"})
     mock_revision.assert_not_called()
+
+
+def test_the_studio_photo_and_the_ocr_run_at_the_same_time(client, monkeypatch):
+    """They used to run in a queue and the wait was their sum.
+
+    The studio call alone can take ninety seconds, and the OCR — the one the
+    user is actually waiting for, the one that fills the form — started only
+    after it finished. Both are independent HTTP calls, so the wall clock
+    should be the slower of the two, not the total.
+    """
+    import io
+    import threading
+
+    from packages.be_water.web import config as bw_config
+
+    started = threading.Barrier(2, timeout=5)
+
+    def _slow_studio(_src):
+        started.wait()  # only returns if the OCR reached here too
+        return b"studio"
+
+    def _slow_ocr(_img):
+        started.wait()
+        return {"name": "Agua"}
+
+    _login(client)
+    monkeypatch.setattr(bw_config, "ADMIN_NICKNAMES", {"tester"})
+    with client.session_transaction() as session:
+        session["nickname"] = "tester"
+
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ), patch(f"{_APP}.photos.studio_photo", side_effect=_slow_studio), patch(
+        f"{_APP}.label_ocr.extract_label", side_effect=_slow_ocr
+    ):
+        response = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+
+    # The barrier would have timed out if either call waited for the other.
+    assert response.status_code == 200
+    assert "Agua" in response.get_data(as_text=True)
+
+
+def test_a_failed_ocr_still_saves_the_studio_photo(client, monkeypatch):
+    """Running them together must not couple their failures: the studio
+    result is uploaded even when the read that follows it fails."""
+    import io
+
+    from requests import RequestException
+
+    from packages.be_water.web import config as bw_config
+
+    _login(client)
+    monkeypatch.setattr(bw_config, "ADMIN_NICKNAMES", {"tester"})
+    with client.session_transaction() as session:
+        session["nickname"] = "tester"
+
+    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as upload, patch(f"{_APP}.photos.studio_photo", return_value=b"studio"), patch(
+        f"{_APP}.label_ocr.extract_label",
+        side_effect=RequestException("read timeout"),
+    ):
+        response = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+
+    assert "rellena a mano" in response.get_data(as_text=True)
+    assert any(
+        call.args[1] == b"studio" for call in upload.call_args_list
+    ), "la foto de estudio se sube aunque el OCR falle"
