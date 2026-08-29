@@ -85,6 +85,32 @@ def test_sources_on_save_marks_new_minerals_manual_labels_implied():
     assert result == {"tds": "manual"}
 
 
+def test_a_seeded_value_is_not_credited_to_the_contributor():
+    """Lunares, in production. Its label declares eight minerals; the seed
+    carried ten, `apply_existing` merged the two it never printed through, and
+    the ficha then told the contributor they had typed them by hand. The seed
+    is manufacturer transcription — say that, as `derive_sources` already
+    does for the very same values."""
+    result = provenance.sources_on_save(
+        minerals={"tds": 950, "ph": 7.2, "calcium": 94.5},
+        verified_fields=["calcium"],
+        existing_sources={},
+        water_id="lunares",
+    )
+    assert result == {"tds": "manufacturer", "ph": "manufacturer"}
+
+
+def test_a_value_a_contributor_changed_is_no_longer_the_manufacturer_s():
+    """The seed is only an alibi while the number still matches it."""
+    result = provenance.sources_on_save(
+        minerals={"tds": 999},
+        verified_fields=[],
+        existing_sources={},
+        water_id="lunares",
+    )
+    assert result == {"tds": "manual"}
+
+
 def test_sources_on_save_preserves_prior_and_identity_sources():
     result = provenance.sources_on_save(
         minerals={"tds": 100, "sodium": 5},

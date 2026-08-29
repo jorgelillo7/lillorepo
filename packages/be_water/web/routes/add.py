@@ -267,11 +267,23 @@ def add_water():
         # so the ficha's selector is a plain list rather than "the current one
         # plus the others". Same date replaces that entry.
         replaced = repository.get_analysis(water_id, analysis_date)
-        # The entry keeps the photos *this* submission brought, not the ones
-        # `apply_existing` copied over from the ficha: an entry that borrowed
-        # the current label would claim another year's proof as its own.
+        # The entry is the record of one measurement, so it carries only what
+        # this submission declared — not what `apply_existing` merged in from
+        # the ficha. The ficha keeps the merge: it is the best-known current
+        # state of the water and what the catalog, the search and the
+        # mineralisation badge read. The ✓ narrows with it: `apply_existing`
+        # unions the ficha's verified fields into the submission, which on an
+        # entry would mark this year's numbers as confirmed by another year's
+        # label.
         repository.save_analysis(
-            replace(water, photo_url=photo_url, label_photo_url=label_photo_url)
+            replace(
+                water,
+                minerals=minerals,
+                verified_fields=verified_fields,
+                sources={k: v for k, v in water.sources.items() if k in minerals},
+                photo_url=photo_url,
+                label_photo_url=label_photo_url,
+            )
         )
         if replaced and replaced.get("minerals") != water.minerals:
             logger.info(

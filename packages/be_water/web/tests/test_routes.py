@@ -1600,6 +1600,72 @@ def test_an_analysis_entry_keeps_the_photos_that_submission_brought(client):
     assert entry.label_photo_url is None
 
 
+def test_a_dated_entry_carries_only_what_that_label_declared(client):
+    """An entry is the record of one measurement. `apply_existing` merges the
+    ficha's minerals and unions its verified fields into every submission —
+    stored on the entry, that makes a year claim values it never measured and
+    a ✓ from a label nobody in that entry photographed. The ficha keeps the
+    merge: it is what the catalog and the mineralisation badge read.
+    """
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    existing.minerals = {"tds": 26.5, "calcium": 9.0}
+    existing.verified_fields = ["tds", "calcium"]
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "sodium": "1.1",
+                "ocr_fields": "sodium",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    entry = mock_analysis.call_args.args[0]
+    assert set(entry.minerals) == {"sodium"}
+    assert entry.verified_fields == ["sodium"]
+    assert set(entry.sources) <= {"sodium"}
+    # The ficha is the other half of the rule: it is not narrowed. This save
+    # is history, so it does not write one at all.
+    mock_save.assert_not_called()
+
+
+def test_the_ficha_keeps_the_merge_the_entry_does_not(client):
+    """The half that protects the search: a newer label declaring fewer
+    minerals must not strip the ficha of a residuo seco the catalog reads."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2024-01"
+    existing.minerals = {"tds": 26.5, "calcium": 9.0}
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "sodium": "1.1",
+                "ocr_fields": "sodium",
+                "analysis_date": "2025-06",
+            },
+        )
+
+    assert mock_save.call_args.args[0].tds == 26.5
+    assert set(mock_analysis.call_args.args[0].minerals) == {"sodium"}
+
+
 def test_the_catalog_reads_only_the_current_composition(client):
     """The guardrail. A water with a series must appear **once** everywhere
     else — the ficha is the only place the past is visible."""
