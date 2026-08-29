@@ -142,17 +142,33 @@ def _resolve_add_target(name, water_id, existing, merge_into):
             water_id, submission.form_field(form, "spring")
         )
         existing = repository.get_water(water_id)
-    if existing is not None and existing.verified:
-        # A verified water is bottle-checked and data-frozen.
-        return _render_add_form(
-            prefill=dict(form),
-            photo_tmp=form.get("photo_tmp") or None,
-            error=(
-                f"«{name}» ya está en el catálogo y verificada — "
-                "no se puede sobrescribir."
-            ),
-        )
     return water_id, existing
+
+
+def _refuses_overwriting_verified(name: str, existing, outcome: str):
+    """A verified water is bottle-checked and data-frozen, so nothing may
+    overwrite it — but a past analysis overwrites nothing.
+
+    The guard used to run before the submission's date was even parsed and
+    refused everything, which blocked the one case the history exists for:
+    photographing an older label of a water already verified. Its own message
+    said "no se puede sobrescribir" while the submission was not going to.
+    """
+    if existing is None or not existing.verified:
+        return None
+    if outcome == submission.HISTORY:
+        return None
+    return _render_add_form(
+        prefill=dict(request.form),
+        photo_tmp=request.form.get("photo_tmp") or None,
+        label_tmp=request.form.get("label_tmp") or None,
+        ocr_fields=request.form.get("ocr_fields") or None,
+        error=(
+            f"«{name}» ya está en el catálogo y verificada — no se puede "
+            "sobrescribir. Un análisis anterior al suyo sí se guarda en el "
+            "histórico."
+        ),
+    )
 
 
 def add_water():
@@ -196,6 +212,10 @@ def add_water():
     # no longer overwrites the ficha — it joins the history and leaves the
     # present alone, which is the whole point of keeping a series.
     outcome = submission.analysis_outcome(analysis_date, existing)
+
+    refusal = _refuses_overwriting_verified(name, existing, outcome)
+    if refusal is not None:
+        return refusal
 
     # An undated label replacing a dated one is still a replacement, and still
     # needs confirming: there is no timeline slot to put it in.

@@ -1587,3 +1587,63 @@ def test_an_unknown_analysis_is_a_404_not_the_current_one(client):
         f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5)]
     ):
         assert client.get("/agua/bezoya?analisis=1999").status_code == 404
+
+
+def test_a_verified_water_still_accepts_an_older_analysis(client):
+    """Reported: photographing an older label of `penaclara` was refused with
+    "ya está verificada — no se puede sobrescribir".
+
+    It was not going to overwrite anything. The guard ran before the
+    submission's date was parsed and refused everything, blocking the one case
+    the history exists for — an older label of a water already bottle-checked.
+    """
+    _login(client)
+    existing = _catalog()[1]
+    existing.verified = True
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ) as mock_analysis:
+        response = client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2024-01",
+            },
+        )
+
+    assert response.status_code == 302, "el histórico acepta el análisis viejo"
+    mock_analysis.assert_called_once()
+    mock_save.assert_not_called(), "y la ficha verificada no se toca"
+
+
+def test_a_verified_water_still_refuses_to_be_overwritten(client):
+    """The guard's real job survives: a newer or undated submission for a
+    bottle-checked water is still refused."""
+    _login(client)
+    existing = _catalog()[1]
+    existing.verified = True
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water") as mock_save, patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis") as mock_analysis:
+        response = client.post(
+            "/anadir",
+            data={
+                "name": "Bezoya",
+                "tds": "26.5",
+                "ocr_fields": "tds",
+                "analysis_date": "2026-05",
+            },
+        )
+
+    assert response.status_code == 200
+    assert "verificada" in response.get_data(as_text=True)
+    mock_save.assert_not_called()
+    mock_analysis.assert_not_called()
