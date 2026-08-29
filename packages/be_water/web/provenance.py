@@ -31,22 +31,36 @@ _IDENTITY_KEYS = ("province", "community", "spring")
 
 
 def sources_on_save(
-    minerals: dict, verified_fields: list, existing_sources: dict
+    minerals: dict, verified_fields: list, existing_sources: dict, water_id: str = ""
 ) -> dict:
     """Provenance after a form save. Label fields are implied by
     `verified_fields` (so they are dropped here); identity sources and prior
-    mineral sources survive a merge; any remaining mineral a contributor
-    entered by hand is `manual`."""
+    mineral sources survive a merge.
+
+    A remaining mineral is `manufacturer` when it still matches this water's
+    seeded value and `manual` otherwise — the same test `derive_sources`
+    applies. Defaulting the lot to `manual` made the ficha assert that a
+    contributor typed a number nobody had touched: Lunares' label declares
+    eight minerals, the seed carried ten, and the two the label never printed
+    were merged through and then credited to whoever photographed it.
+    """
     verified = set(verified_fields)
     keep = set(minerals) | set(_IDENTITY_KEYS)
+    seed_minerals = _SEED_MINERALS.get(water_id, {})
     result = {
         field_name: source
         for field_name, source in existing_sources.items()
         if field_name in keep and field_name not in verified
     }
-    for field_name in minerals:
-        if field_name not in verified:
-            result.setdefault(field_name, SOURCE_MANUAL)
+    for field_name, value in minerals.items():
+        if field_name in verified:
+            continue
+        source = (
+            SOURCE_MANUFACTURER
+            if seed_minerals.get(field_name) == value
+            else SOURCE_MANUAL
+        )
+        result.setdefault(field_name, source)
     return result
 
 

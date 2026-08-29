@@ -37,16 +37,27 @@ with the stored value.
 
 ### Requirement: Sources recomputed on save
 
-`sources_on_save` SHALL mark new minerals `manual`, drop fields that became
-label-backed or that no longer exist as minerals, and preserve prior mineral
-sources and identity (province/community) sources.
+`sources_on_save` SHALL mark a new mineral `manufacturer` when its value still
+matches this water's seeded one and `manual` otherwise — the same test
+`derive_sources` applies, so the two provenance paths cannot disagree about the
+same number. It SHALL drop fields that became label-backed or that no longer
+exist as minerals, and preserve prior mineral sources and identity
+(province/community) sources.
+
+`manual` means a contributor typed it, and SHALL NOT be used as the catch-all
+for "not confirmed by a label". A seeded value merged onto a submission that
+never mentioned it was being credited to whoever photographed the bottle.
 
 #### Scenario: save recomputation
 - **WHEN** saving with new minerals, label promotions, and vanished fields
 - **THEN** new → `manual`, label/vanished → dropped, prior + identity → kept
+- **WHEN** a new mineral still holds its seeded value **THEN** `manufacturer`
+- **WHEN** that value was changed from the seed **THEN** `manual`
 - *Verifies:* `test_sources_on_save_marks_new_minerals_manual_labels_implied`,
   `test_sources_on_save_preserves_prior_and_identity_sources`,
-  `test_sources_on_save_drops_vanished_and_label_fields`
+  `test_sources_on_save_drops_vanished_and_label_fields`,
+  `test_a_seeded_value_is_not_credited_to_the_contributor`,
+  `test_a_value_a_contributor_changed_is_no_longer_the_manufacturer_s`
 
 ### Requirement: The label's analysis date dates the whole composition
 
@@ -126,6 +137,11 @@ series is not.
   overwrite invisibly
 - **WHEN** an entry brought no bottle photo **THEN** the ficha's is shown for
   it; the label never falls back, because it is the evidence for that year
+- **WHEN** the ficha already holds minerals the submission does not declare
+  **THEN** the entry records only the declared ones, with only the ✓ that
+  submission earned, while the ficha keeps the merge — an entry is the record
+  of one measurement, the ficha is the best-known current state and is what the
+  catalog, the search and the mineralisation badge read
 - **WHEN** the composition does not move **THEN** no snapshot is taken
 - *Verifies:* `test_an_older_analysis_does_not_touch_the_current_composition`,
   `test_an_older_analysis_needs_no_confirmation_any_more`,
@@ -138,6 +154,8 @@ series is not.
   `test_a_past_analysis_shows_the_bottle_of_its_own_year`,
   `test_an_analysis_with_no_bottle_of_its_own_keeps_the_ficha_s`,
   `test_a_past_analysis_swaps_the_numbers_and_its_verification`,
+  `test_a_dated_entry_carries_only_what_that_label_declared`,
+  `test_the_ficha_keeps_the_merge_the_entry_does_not`,
   `test_the_catalog_reads_only_the_current_composition`,
   `test_an_unknown_analysis_is_a_404_not_the_current_one`,
   `test_a_newer_label_saves_straight_through_but_still_snapshots`,

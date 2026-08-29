@@ -220,6 +220,7 @@ def finalize_provenance(water: Water, existing: Optional[Water]) -> None:
         water.minerals,
         water.verified_fields,
         existing.sources if existing is not None else {},
+        water.id,
     )
     if (
         water.label_photo_url
