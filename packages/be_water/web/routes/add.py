@@ -1,6 +1,7 @@
 """The add-water flow: photo upload + OCR, then the reviewed submission."""
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import requests
@@ -278,26 +279,46 @@ def add_water_photo():
             )
         display_src = photos.process_image(beauty_raw)
 
-    # Studio version for display — admin-only: image generation is the one
-    # paid call in the project, so it fires only for trusted nicknames.
-    # Everyone else keeps the (free) OCR prefill and their raw photo.
-    display = display_src
-    studio_note = ""
-    if session["nickname"] in config.ADMIN_NICKNAMES:
+    # Two independent Gemini calls, run together rather than in a queue. They
+    # used to be sequential and the wait was their sum — the studio photo
+    # alone can take ninety seconds, and the OCR that the user is actually
+    # waiting for started only after it finished.
+    #
+    # Studio is admin-only: image generation is the one paid call in the
+    # project, so it fires only for trusted nicknames. Everyone else keeps the
+    # (free) OCR prefill and their raw photo.
+    is_admin = session["nickname"] in config.ADMIN_NICKNAMES
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        studio_task = (
+            pool.submit(photos.studio_photo, display_src) if is_admin else None
+        )
+        ocr_task = pool.submit(label_ocr.extract_label, processed)
+
+        display = display_src
+        studio_note = ""
+        if studio_task is not None:
+            try:
+                display = studio_task.result()
+                studio_note = " La foto ha pasado por el estudio 📸"
+            except (GeminiError, requests.RequestException) as exc:
+                logger.warning(
+                    "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
+                )
+                studio_note = (
+                    " El estudio no pudo retocar la foto; se guarda la original."
+                )
+
+        ocr_error: Exception | None = None
         try:
-            display = photos.studio_photo(display_src)
-            studio_note = " La foto ha pasado por el estudio 📸"
+            extracted = ocr_task.result()
         except (GeminiError, requests.RequestException) as exc:
-            logger.warning(
-                "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
-            )
-            studio_note = " El estudio no pudo retocar la foto; se guarda la original."
+            ocr_error = exc
+
     photo_tmp = f"uploads/{uid}.jpg"
     photos.upload_photo(photo_tmp, display)
 
-    try:
-        extracted = label_ocr.extract_label(processed)
-    except (GeminiError, requests.RequestException) as exc:
+    if ocr_error is not None:
+        exc = ocr_error
         logger.warning("Label OCR failed.", extra={"error": str(exc)[:300]})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
         overloaded = getattr(exc, "status_code", None) in (429, 503)

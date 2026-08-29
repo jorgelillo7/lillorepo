@@ -43,4 +43,9 @@ def extract_label(image_bytes: bytes) -> dict:
         schema=LABEL_SCHEMA,
         model=config.GEMINI_MODEL,
         retries=1,
+        # 45 s (the default) threw away reads that were merely slow — the
+        # observed failure was a read timeout, not an API error. The worker
+        # allows 240 s and this call now runs beside the studio photo rather
+        # than after it, so waiting is affordable.
+        timeout=90,
     )
