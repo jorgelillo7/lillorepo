@@ -34,14 +34,13 @@ def test_verified_fields_name_minerals_the_entry_actually_declares():
             assert field in minerals, f"{raw['id']}: {field} verified but not declared"
 
 
-def test_a_verified_water_carries_the_photo_that_verifies_it():
-    """`verified` is the frozen state: `catalog_sync` will not touch the ficha
-    again. Freezing one with no photo at all freezes an unprovable claim.
-
-    The stronger rule — a verified water names at least one field its label
-    confirms — still fails on `valtorre`, signed off against a front-of-bottle
-    shot whose composition panel runs off the edge. Whether that photo is proof
-    is a data decision for the owner, not something a test may define away."""
+def test_a_verified_water_names_the_fields_its_label_declares():
+    """`verified` is the frozen state: `catalog_sync` will never touch the ficha
+    again. Freezing one with no label photo, or with no field that photo
+    confirms, freezes a claim nothing can back — which is what both `aquadeus`
+    and `valtorre` were, signed off against front-of-bottle shots while every
+    value on them still read "fabricante"."""
     for raw in SEED_WATERS:
         if raw.get("verified"):
             assert raw.get("label_photo_url"), f"{raw['id']}: verified, no label photo"
+            assert raw.get("verified_fields"), f"{raw['id']}: verified, no fields"

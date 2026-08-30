@@ -517,8 +517,21 @@ SEED_WATERS = [
         "spring": "Valtorre (Sierra de San Vicente)",
         "province": "Toledo",
         "community": "Castilla-La Mancha",
-        # Label-verified 2026-07-18 (bottle photo). Minero-medicinal, BOE 1972.
+        # Signed off against the photographed composition panel, which prints
+        # these eight values and its laboratory (Dr. Oliver Rodés, 2024).
+        # Minero-medicinal, BOE 1972.
         "verified": True,
+        "analysis_date": "2024",
+        "verified_fields": [
+            "bicarbonates",
+            "calcium",
+            "chlorides",
+            "magnesium",
+            "silica",
+            "sodium",
+            "sulfates",
+            "tds",
+        ],
         "photo_url": "https://storage.googleapis.com/be-water-photos/valtorre.jpg",
         "label_photo_url": "https://storage.googleapis.com/be-water-photos"
         "/originals/valtorre.jpg",

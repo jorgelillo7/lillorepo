@@ -52,7 +52,6 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | `valtorre` is frozen as `verified` with nothing a label confirms | You: a photo of its composition panel — the current proof is a front-of-bottle shot whose panel runs off the edge, every value reads *fabricante*, and `verified` means `catalog_sync` will never revisit it |
 | 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | International waters — the `country` field exists, nothing uses it | The verification pass above · country chips, a 🌍 tier and a geography that stops assuming Spain · [analysis](docs/technical/parked-work.md#be_water-country-field) |
 | ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
