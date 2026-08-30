@@ -15,6 +15,12 @@ TELEGRAM_EDIT_MESSAGE_URL = "https://api.telegram.org/bot{token}/editMessageText
 TELEGRAM_EDIT_REPLY_MARKUP_URL = (
     "https://api.telegram.org/bot{token}/editMessageReplyMarkup"
 )
+TELEGRAM_GET_FILE_URL = "https://api.telegram.org/bot{token}/getFile"
+TELEGRAM_FILE_DOWNLOAD_URL = "https://api.telegram.org/file/bot{token}/{path}"
+
+# getFile refuses anything above this; the bytes are simply not reachable
+# through the Bot API, however the file got into the chat.
+TELEGRAM_MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 
 # Hard limit on Bot API sendMessage; anything longer is truncated server-side.
 TELEGRAM_MAX_MESSAGE_LENGTH = 4096
@@ -197,6 +203,37 @@ def send_telegram_animation(
     except requests.RequestException as e:
         logger.error("Failed to send Telegram animation.", extra={"error": str(e)})
         return False
+
+
+def download_telegram_file(bot_token: str, file_id: str, timeout: int = 60) -> bytes:
+    """Download a file the user sent to the bot, by `file_id`.
+
+    Two calls: `getFile` resolves the id to a storage path, then the path is
+    fetched from Telegram's file host. Raises `requests.RequestException` on
+    either — including the 400 `getFile` returns for anything over
+    `TELEGRAM_MAX_DOWNLOAD_BYTES`, which is a hard Bot API limit and not a
+    transient failure.
+    """
+    meta = requests.get(
+        TELEGRAM_GET_FILE_URL.format(token=bot_token),
+        params={"file_id": file_id},
+        timeout=timeout,
+    )
+    meta.raise_for_status()
+    file_path = (meta.json().get("result") or {}).get("file_path", "")
+    if not file_path:
+        raise requests.RequestException("getFile returned no file_path")
+
+    content = requests.get(
+        TELEGRAM_FILE_DOWNLOAD_URL.format(token=bot_token, path=file_path),
+        timeout=timeout,
+    )
+    content.raise_for_status()
+    logger.info(
+        "Telegram file downloaded.",
+        extra={"file_path": file_path, "bytes": len(content.content)},
+    )
+    return content.content
 
 
 class TelegramDeliveryError(RuntimeError):
@@ -393,6 +430,39 @@ def extract_webhook_update(request: Any) -> tuple[str, str, str]:
     text = (message.get("text") or "").strip()
     user_id = str(message.get("from", {}).get("id") or "")
     return chat_id, text, user_id
+
+
+def extract_webhook_media(request: Any) -> Optional[dict]:
+    """Extract an image attachment from a Flask webhook POST, or None.
+
+    Returns `{chat_id, user_id, file_id, caption, kind}` where `kind` is
+    `"document"` or `"photo"`. Documents come first and keep their original
+    bytes; `photo` is Telegram's recompressed copy (~1280 px on the long
+    side), of which the last entry is the largest. Anything else — text,
+    stickers, non-image documents, callbacks — is None, so callers can fall
+    through to the text path.
+    """
+    body = request.get_json(silent=True) or {}
+    message = body.get("message", {})
+    document = message.get("document") or {}
+    photos = message.get("photo") or []
+
+    if document and str(document.get("mime_type", "")).startswith("image/"):
+        file_id, kind = document.get("file_id", ""), "document"
+    elif photos:
+        file_id, kind = photos[-1].get("file_id", ""), "photo"
+    else:
+        return None
+    if not file_id:
+        return None
+
+    return {
+        "chat_id": str(message.get("chat", {}).get("id", "")),
+        "user_id": str(message.get("from", {}).get("id") or ""),
+        "file_id": file_id,
+        "caption": (message.get("caption") or "").strip(),
+        "kind": kind,
+    }
 
 
 def extract_webhook_callback(request: Any) -> Optional[dict]:

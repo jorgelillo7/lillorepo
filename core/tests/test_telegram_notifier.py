@@ -1,13 +1,19 @@
 from unittest.mock import MagicMock
 
+import pytest
+import requests
 import requests_mock
 
 from core.sdk.telegram import (
+    TELEGRAM_FILE_DOWNLOAD_URL,
+    TELEGRAM_GET_FILE_URL,
     TELEGRAM_SEND_MESSAGE_URL,
     TELEGRAM_SET_COMMANDS_URL,
     TELEGRAM_SET_MENU_BUTTON_URL,
     configure_bot_commands,
+    download_telegram_file,
     extract_webhook_callback,
+    extract_webhook_media,
     extract_webhook_update,
     parse_command,
     register_bot_commands,
@@ -273,3 +279,97 @@ def test_extract_webhook_callback_defaults_the_text_when_absent():
 
 def test_extract_webhook_callback_returns_none_for_a_plain_message():
     assert extract_webhook_callback(_mock_json_request({"message": {}})) is None
+
+
+# --- extract_webhook_media ---
+
+
+def _media_request(message: dict) -> MagicMock:
+    return _mock_json_request({"update_id": 1, "message": message})
+
+
+def test_extract_webhook_media_prefers_the_document():
+    """A document keeps the original bytes; the `photo` Telegram builds beside
+    it is the recompressed copy, unreadable for a newspaper page."""
+    req = _media_request(
+        {
+            "chat": {"id": 7},
+            "from": {"id": 9},
+            "caption": "  2026-08-14 Titular  ",
+            "document": {"file_id": "doc-1", "mime_type": "image/jpeg"},
+            "photo": [{"file_id": "small"}, {"file_id": "big"}],
+        }
+    )
+
+    media = extract_webhook_media(req)
+
+    assert media == {
+        "chat_id": "7",
+        "user_id": "9",
+        "file_id": "doc-1",
+        "caption": "2026-08-14 Titular",
+        "kind": "document",
+    }
+
+
+def test_extract_webhook_media_takes_the_largest_photo():
+    req = _media_request(
+        {
+            "chat": {"id": 7},
+            "photo": [{"file_id": "s"}, {"file_id": "m"}, {"file_id": "l"}],
+        }
+    )
+
+    media = extract_webhook_media(req)
+
+    assert media["file_id"] == "l"
+    assert media["kind"] == "photo"
+    assert media["caption"] == ""
+
+
+def test_extract_webhook_media_ignores_non_image_documents():
+    """A PDF or a CSV dropped in the chat must fall through to the text path."""
+    req = _media_request(
+        {"chat": {"id": 7}, "document": {"file_id": "d", "mime_type": "text/csv"}}
+    )
+
+    assert extract_webhook_media(req) is None
+
+
+def test_extract_webhook_media_ignores_text_updates():
+    req = _media_request({"chat": {"id": 7}, "text": "/mercado"})
+
+    assert extract_webhook_media(req) is None
+
+
+# --- download_telegram_file ---
+
+
+def test_download_telegram_file_resolves_path_then_fetches():
+    with requests_mock.Mocker() as m:
+        m.get(
+            TELEGRAM_GET_FILE_URL.format(token=TEST_BOT_TOKEN),
+            json={"ok": True, "result": {"file_path": "photos/f.jpg"}},
+        )
+        m.get(
+            TELEGRAM_FILE_DOWNLOAD_URL.format(
+                token=TEST_BOT_TOKEN, path="photos/f.jpg"
+            ),
+            content=b"\xff\xd8\xffbytes",
+        )
+
+        assert download_telegram_file(TEST_BOT_TOKEN, "file-1") == b"\xff\xd8\xffbytes"
+
+
+def test_download_telegram_file_raises_when_getfile_refuses():
+    """getFile 400s on anything over 20 MB — the bytes are simply unreachable,
+    so the caller has to tell the operator rather than retry."""
+    with requests_mock.Mocker() as m:
+        m.get(
+            TELEGRAM_GET_FILE_URL.format(token=TEST_BOT_TOKEN),
+            json={"ok": False, "description": "file is too big"},
+            status_code=400,
+        )
+
+        with pytest.raises(requests.RequestException):
+            download_telegram_file(TEST_BOT_TOKEN, "huge")

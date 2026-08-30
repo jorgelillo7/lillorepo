@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import google.auth
 import google.auth.exceptions
 import google.auth.transport.requests
@@ -64,6 +66,84 @@ def trigger_cloud_run_job(project: str, region: str, job_name: str) -> str:
         extra={"job": job_name, "execution": execution_name},
     )
     return execution_name
+
+
+# --- CLOUD STORAGE ---
+#
+# The JSON API over ADC rather than `google-cloud-storage`: the library is not
+# in the lock file and pulling it in for two calls would drag a dependency bump
+# (and a python-base rebuild) into a feature change.
+
+_GCS_UPLOAD_URL = "https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o"
+_GCS_OBJECT_URL = "https://storage.googleapis.com/storage/v1/b/{bucket}/o/{name}"
+_GCS_PUBLIC_URL = "https://storage.googleapis.com/{bucket}/{name}"
+
+
+def _gcs_token() -> str:
+    """Bearer token for the storage scope from Application Default Credentials."""
+    credentials, _ = google.auth.default(
+        scopes=["https://www.googleapis.com/auth/devstorage.read_write"]
+    )
+    credentials.refresh(google.auth.transport.requests.Request())
+    return credentials.token
+
+
+def upload_object(
+    bucket: str,
+    name: str,
+    data: bytes,
+    content_type: str,
+    cache_control: str | None = None,
+    timeout: int = 60,
+) -> str:
+    """Upload bytes to `gs://{bucket}/{name}`, overwriting. Returns the public URL.
+
+    `cache_control` is worth setting on anything that changes in place: a public
+    object defaults to `max-age=3600`, so an updated manifest can keep serving
+    the old body from the edge for an hour.
+
+    Raises `requests.HTTPError` on non-2xx (a 403 here means the runtime service
+    account lacks `storage.objects.create` on the bucket) and
+    `google.auth.exceptions.GoogleAuthError` if credentials can't be obtained.
+    """
+    headers = {
+        "Authorization": f"Bearer {_gcs_token()}",
+        "Content-Type": content_type,
+    }
+    if cache_control:
+        headers["Cache-Control"] = cache_control
+    resp = http_requests.post(
+        _GCS_UPLOAD_URL.format(bucket=bucket),
+        params={"uploadType": "media", "name": name},
+        headers=headers,
+        data=data,
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    logger.info(
+        "Object uploaded to GCS.",
+        extra={"bucket": bucket, "object": name, "bytes": len(data)},
+    )
+    return _GCS_PUBLIC_URL.format(bucket=bucket, name=quote(name, safe="/"))
+
+
+def download_object(bucket: str, name: str, timeout: int = 30) -> bytes | None:
+    """Read `gs://{bucket}/{name}`, or None if it does not exist.
+
+    Authenticated on purpose even for a public object: a read-modify-write that
+    fetches the public URL can merge onto an edge-cached copy and silently drop
+    whatever was written in the last hour.
+    """
+    resp = http_requests.get(
+        _GCS_OBJECT_URL.format(bucket=bucket, name=quote(name, safe="")),
+        params={"alt": "media"},
+        headers={"Authorization": f"Bearer {_gcs_token()}"},
+        timeout=timeout,
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.content
 
 
 # --- GOOGLE SHEETS ---

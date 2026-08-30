@@ -692,3 +692,59 @@ def test_draft_export_returns_500_on_exception(client):
 def test_draft_export_rejects_post(client):
     resp = client.post("/draft/export")
     assert resp.status_code == 405
+
+
+# --- /periodico/portada ---
+
+
+def test_portada_route_passes_the_attachment_to_the_logic(client):
+    with patch(
+        "packages.biwenger_tools.api.app.periodico.publish_portada",
+        return_value={"published": True, "message": "ok"},
+    ) as mock_publish:
+        resp = client.post(
+            "/periodico/portada",
+            json={
+                "file_id": "f-1",
+                "caption": "2026-08-14 Titular",
+                "kind": "document",
+            },
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["message"] == "ok"
+    mock_publish.assert_called_once_with(
+        file_id="f-1", caption="2026-08-14 Titular", kind="document"
+    )
+
+
+def test_portada_route_requires_a_file_id(client):
+    resp = client.post("/periodico/portada", json={"caption": "Titular"})
+    assert resp.status_code == 400
+
+
+def test_portada_route_answers_200_when_the_front_page_is_rejected(client):
+    """A missing headline is the operator's to fix — the bot relays the
+    instructions, so it must not arrive dressed as an error."""
+    with patch(
+        "packages.biwenger_tools.api.app.periodico.publish_portada",
+        return_value={
+            "published": False,
+            "message": "❌ La portada necesita un titular.",
+        },
+    ):
+        resp = client.post("/periodico/portada", json={"file_id": "f-1", "caption": ""})
+
+    assert resp.status_code == 200
+    assert resp.get_json()["published"] is False
+
+
+def test_portada_route_reports_a_write_failure_as_500(client):
+    with patch(
+        "packages.biwenger_tools.api.app.periodico.publish_portada",
+        side_effect=RuntimeError("403 Forbidden"),
+    ):
+        resp = client.post("/periodico/portada", json={"file_id": "f-1"})
+
+    assert resp.status_code == 500
+    assert "403" in resp.get_json()["error"]

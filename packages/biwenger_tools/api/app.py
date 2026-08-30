@@ -19,6 +19,7 @@ from packages.biwenger_tools.api.logic import (
     draft_service,
     emergency,
     offers,
+    periodico,
     recommendations,
     scraper,
 )
@@ -472,6 +473,31 @@ def draft_export():
 
 
 # --- Scheduler-triggered endpoints -----------------------------------------
+
+
+@app.route("/periodico/portada", methods=["POST"])
+def periodico_portada():
+    """Publish a league front page sent to the bot as an image.
+
+    JSON body: `file_id` (Telegram), `caption` (`[YYYY-MM-DD ]Titular`) and
+    `kind` (`document`/`photo`).
+
+    Answers 200 with a ready-to-send `message` even when the front page is
+    rejected — a missing headline or a PNG is the operator's to fix, and the
+    bot relays the instructions verbatim rather than an error trace.
+    """
+    body = request.get_json(silent=True) or {}
+    file_id = (body.get("file_id") or "").strip()
+    if not file_id:
+        return jsonify({"status": "error", "error": "file_id required"}), 400
+    return _run_action(
+        "periodico.portada",
+        lambda: periodico.publish_portada(
+            file_id=file_id,
+            caption=body.get("caption") or "",
+            kind=body.get("kind") or "photo",
+        ),
+    )
 
 
 @app.route("/digests/daily", methods=["POST"])

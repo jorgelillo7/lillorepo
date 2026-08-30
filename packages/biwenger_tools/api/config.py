@@ -104,11 +104,21 @@ SCRAPER_JOB_NAME = os.getenv("SCRAPER_JOB_NAME", "biwenger-scraper-data")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
 
+# --- SEASON ----------------------------------------------------------------
+# Every season-scoped surface (draft Firestore layout, periódico bucket prefix)
+# reads the web package's `TEMPORADA_ACTUAL` env var
+# (packages/biwenger_tools/web/config.py) so all of them roll over together
+# with a single deploy.yml bump.
+CURRENT_SEASON = os.getenv("TEMPORADA_ACTUAL", "26-27")
+
+# --- LEAGUE NEWSPAPER (see logic/periodico.py) -----------------------------
+# Public bucket the web reads its front pages from — same default as
+# `PERIODICO_BUCKET` in packages/biwenger_tools/web/config.py, which resolves
+# the URLs on the other side.
+PERIODICO_BUCKET = os.getenv("PERIODICO_BUCKET", "biwenger")
+
 # --- DRAFT (annual snake draft, see logic/draft.py + logic/draft_service.py) ---
-# Season string for the `draft/{season}/...` Firestore layout. Reuses the
-# web package's `TEMPORADA_ACTUAL` env var (packages/biwenger_tools/web/config.py)
-# so both packages roll over together with a single deploy.yml bump.
-DRAFT_SEASON = os.getenv("TEMPORADA_ACTUAL", "26-27")
+DRAFT_SEASON = CURRENT_SEASON
 
 # Frozen closed-market CSV (see .claude/skills/draft). Read from a public
 # bucket object rather than bundled into the image: the `python_service` macro

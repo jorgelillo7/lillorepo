@@ -30,6 +30,7 @@ from core.sdk.telegram import (
     edit_message_reply_markup,
     edit_message_text,
     extract_webhook_callback,
+    extract_webhook_media,
     extract_webhook_update,
     parse_command,
     send_telegram_message,
@@ -57,6 +58,10 @@ _HELP_TEXT = (
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje\n\n"
+    "📰 <b>Portadas</b>: mándame la portada del periódico con un pie de "
+    "foto (<code>Titular</code>, o <code>2026-08-14 Titular</code>) y la "
+    "publico en /salseo. Mándala <b>como archivo</b> para que no se "
+    "recomprima.\n\n"
     "<i>Desktop:</i> si no ves el menú visual, pulsa el icono de "
     "teclado junto al input para desplegarlo."
 )
@@ -595,6 +600,47 @@ def _handle_owner_message(text: str) -> None:
         logger.info("Webhook: unknown command, ignoring", extra={"text": text[:50]})
 
 
+def _run_portada(media: dict) -> None:
+    """Publish the attachment and relay what the api answers.
+
+    Rejections (no headline, wrong format, file too large) come back 200 with
+    the instructions already written, so the only thing left here is delivery
+    — and reporting a genuine failure, which otherwise dies in this thread and
+    leaves the "procesando…" line as the last word.
+    """
+    try:
+        result = api_client.call_api_json(
+            config.BIWENGER_API_URL,
+            "/periodico/portada",
+            payload={
+                "file_id": media["file_id"],
+                "caption": media["caption"],
+                "kind": media["kind"],
+            },
+            timeout=180,
+        )
+    except Exception as exc:
+        _report_api_error("📰 Portada", exc, log="Webhook: portada upload failed")
+        return
+
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=result.get("message") or "📰 Portada procesada.",
+    )
+
+
+def _handle_portada(media: dict) -> None:
+    """Ack the image and publish it in the background."""
+    logger.info("Webhook: portada received", extra={"kind": media["kind"]})
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="⏳ <b>📰 Portada</b> — subiendo…",
+    )
+    _run_in_background(_run_portada, media)
+
+
 # --- Draft group -------------------------------------------------------------
 #
 # Reachable only from `config.TELEGRAM_DRAFT_CHAT_ID`. `biwenger-api` owns all
@@ -956,6 +1002,21 @@ def webhook():
             logger.info(
                 "Webhook: ignoring callback from unknown chat",
                 extra={"chat_id": cb["chat_id"]},
+            )
+        return "", 200
+
+    # Image attachments before the text path: a photo update carries a caption,
+    # never a `text`, so `extract_webhook_update` sees an empty message. Owner
+    # chat only — the same branch in the draft supergroup would let any league
+    # member publish a front page.
+    media = extract_webhook_media(request)
+    if media is not None:
+        if media["chat_id"] == config.TELEGRAM_CHAT_ID:
+            _handle_portada(media)
+        else:
+            logger.info(
+                "Webhook: ignoring media from non-owner chat",
+                extra={"chat_id": media["chat_id"]},
             )
         return "", 200
 
