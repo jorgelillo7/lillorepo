@@ -10,6 +10,7 @@ The date is not decoration: it is the object name and the manifest key, which
 is why one date holds exactly one front page and re-sending replaces it.
 """
 
+import html
 import json
 import re
 from datetime import datetime
@@ -30,10 +31,10 @@ _DATE_PREFIX = re.compile(r"^(\d{4}-\d{2}-\d{2})\s*[-|—]?\s*(.*)$", re.DOTALL)
 # under that name would leave bytes, content type and extension disagreeing.
 _JPEG_MAGIC = b"\xff\xd8\xff"
 
-# The manifest changes in place, so it must not sit in the edge cache for the
-# default hour — the web adds its own 600 s TTL on top. The images never change
-# under a given date and keep the default.
-_MANIFEST_CACHE_CONTROL = "public, max-age=60"
+# Both objects change in place — a corrected front page overwrites the image
+# under the same date — so neither may sit in the edge cache for the default
+# hour, on top of the web's own 600 s TTL.
+_CACHE_CONTROL = "public, max-age=60"
 
 _HELP = (
     "Mándala otra vez con un pie de foto: "
@@ -154,7 +155,9 @@ def publish_portada(file_id: str, caption: str, kind: str) -> dict:
     entries = _read_manifest(bucket, manifest_path)
     replaced = any(e.get("fecha") == fecha for e in entries)
 
-    url = upload_object(bucket, image_path, image, "image/jpeg")
+    url = upload_object(
+        bucket, image_path, image, "image/jpeg", cache_control=_CACHE_CONTROL
+    )
     upload_object(
         bucket,
         manifest_path,
@@ -162,7 +165,7 @@ def publish_portada(file_id: str, caption: str, kind: str) -> dict:
             _upsert(entries, fecha, titulo), ensure_ascii=False, indent=2
         ).encode("utf-8"),
         "application/json",
-        cache_control=_MANIFEST_CACHE_CONTROL,
+        cache_control=_CACHE_CONTROL,
     )
 
     logger.info(
@@ -190,9 +193,13 @@ def publish_portada(file_id: str, caption: str, kind: str) -> dict:
         "titulo": titulo,
         "url": url,
         "replaced": replaced,
+        # The headline is escaped here and only here: Telegram 400s an
+        # unbalanced `&` or `<` in an HTML message, which would leave the owner
+        # with the ack and no answer. The manifest keeps the raw text — the
+        # template escapes it on the way out.
         "message": (
             f"📰 <b>Portada {'actualizada' if replaced else 'publicada'}</b>\n\n"
-            f"{titulo}\n{fecha}\n\n"
+            f"{html.escape(titulo)}\n{fecha}\n\n"
             f"{url}{quality}"
         ),
     }

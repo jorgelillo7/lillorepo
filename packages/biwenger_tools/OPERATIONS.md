@@ -442,21 +442,22 @@ on the long side, which loses the body copy of a newspaper page. It must be a
 JPEG (the web builds every URL as `.jpg`) and under 20 MB (the Bot API cannot
 download more). Sending the same date again replaces that cover.
 
-It shows up on `/{season}/salseo` within a minute — the manifest is written with
-`max-age=60` and the web caches it for 600 s per instance.
+It shows up on `/{season}/salseo` within a minute — image and manifest are both
+written with `max-age=60`, on top of the web's own 600 s per-instance cache.
 
 **Manual fallback** — if the bot or the bucket write is broken:
 
 ```bash
-  gcloud storage cp portada.jpg gs://biwenger/periodico/26-27/2026-08-14.jpg
+  gcloud storage cp portada.jpg gs://biwenger/periodico/26-27/2026-08-14.jpg \
+      --cache-control="public, max-age=60"
   gcloud storage cp gs://biwenger/periodico/26-27/index.json .
   # add {"fecha": "2026-08-14", "titulo": "…"} to the list, newest first
   gcloud storage cp index.json gs://biwenger/periodico/26-27/index.json \
       --cache-control="public, max-age=60"
 ```
 
-Without that `--cache-control` the manifest keeps serving from the edge for an
-hour (the bucket default), so the new cover appears late for everyone.
+Without `--cache-control` an object keeps serving from the edge for an hour
+(the bucket default), so a new or corrected cover appears late for everyone.
 
 ---
 

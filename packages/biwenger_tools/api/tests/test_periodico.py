@@ -109,13 +109,13 @@ def test_first_portada_of_a_season_creates_the_manifest():
     ]
 
 
-def test_manifest_is_written_with_a_short_cache_so_the_web_sees_it():
-    """The image never changes under its date and keeps the bucket default;
-    the manifest changes in place and must not sit in the edge cache for an
-    hour on top of the web's own TTL."""
+def test_both_objects_are_written_with_a_short_cache_so_the_web_sees_them():
+    """Both change in place — resending a date overwrites the image — and a
+    public object defaults to an hour at the edge, on top of the web's own
+    600 s TTL. A corrected front page would keep serving the old scan."""
     _, (image_upload, manifest_upload) = _publish()
 
-    assert image_upload[4] is None
+    assert image_upload[4] == "public, max-age=60"
     assert manifest_upload[4] == "public, max-age=60"
 
 
@@ -152,6 +152,16 @@ def test_accents_survive_the_manifest():
     _, uploads = _publish(caption="2026-08-14 Mañana empieza la guerra")
 
     assert "Mañana" in uploads[1][2].decode("utf-8")
+
+
+def test_headline_is_escaped_in_the_message_but_not_in_the_manifest():
+    """Telegram 400s a bare `&` in an HTML message and the owner is left with
+    the ack and no answer; the web template escapes on the way out, so the
+    manifest has to keep the real headline."""
+    result, uploads = _publish(caption="2026-08-14 Lucen & Lloros <2M")
+
+    assert "Lucen &amp; Lloros &lt;2M" in result["message"]
+    assert json.loads(uploads[1][2])[0]["titulo"] == "Lucen & Lloros <2M"
 
 
 def test_unparseable_manifest_is_not_overwritten():

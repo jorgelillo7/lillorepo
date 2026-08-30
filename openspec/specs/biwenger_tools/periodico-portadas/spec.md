@@ -50,23 +50,29 @@ ordered newest-first.
 - *Verifies:* `test_same_date_replaces_the_entry_instead_of_appending`,
   `test_new_portada_is_prepended_newest_first`
 
-### Requirement: The manifest is never published stale or clobbered
+### Requirement: Nothing is published stale or clobbered
 
-The manifest SHALL be written with `Cache-Control: public, max-age=60`, read
-back over the authenticated JSON API rather than its public URL, and left
-untouched when it does not parse as a JSON list.
+Both the image and the manifest SHALL be written with
+`Cache-Control: public, max-age=60`. The manifest SHALL be read back over the
+authenticated JSON API rather than its public URL, and left untouched when it
+does not parse as a JSON list. The headline SHALL be HTML-escaped in the
+confirmation message and stored raw in the manifest.
 
 Motive: a public object defaults to `max-age=3600`, which stacks with the web's
-own 600 s TTL — a front page could take over an hour to appear. Reading the
-public URL for a read-modify-write can merge onto an edge-cached copy and drop
-whatever was published in the last hour; overwriting an unparseable manifest
-would drop the whole season.
+own 600 s TTL — and both objects change in place, so a corrected front page
+would keep serving the old scan for an hour. Reading the public URL for a
+read-modify-write can merge onto an edge-cached copy and drop whatever was
+published in the last hour; overwriting an unparseable manifest would drop the
+whole season. An unescaped `&` in a headline makes Telegram refuse the
+confirmation, leaving the owner with the ack and no answer.
 
-#### Scenario: cache headers and a corrupt manifest
-- **WHEN** the manifest is written **THEN** it carries `max-age=60`, while the
-  image keeps the bucket default
+#### Scenario: cache headers, a corrupt manifest, and an ampersand
+- **WHEN** either object is written **THEN** it carries `max-age=60`
 - **WHEN** the stored manifest is not valid JSON **THEN** nothing is written
-- *Verifies:* `test_manifest_is_written_with_a_short_cache_so_the_web_sees_it`,
+- **WHEN** the headline holds `&` or `<` **THEN** the message escapes it and the
+  manifest keeps it raw
+- *Verifies:* `test_both_objects_are_written_with_a_short_cache_so_the_web_sees_them`,
+  `test_headline_is_escaped_in_the_message_but_not_in_the_manifest`,
   `test_unparseable_manifest_is_not_overwritten`,
   `test_upload_object_posts_bytes_and_returns_public_url`,
   `test_download_object_returns_bytes`
