@@ -10,6 +10,13 @@ Only waters with an `analysis_date` are touched: an undated composition has no
 place on a timeline, which is the whole rule (three quarters of the catalog is
 in that state — the label is not required to print the date).
 
+The entry gets **no photos**. The ficha's live at the bare `{water_id}.jpg`
+path, which any later undated correction overwrites, so copying them here
+would have a dated entry offering as proof of one year an image that quietly
+becomes another. A ficha with no photo of its own falls back to the ficha's
+for display, which is exactly the right behaviour for a backfilled entry:
+shown, but never claimed as that year's evidence.
+
 Idempotent: the entry id is `{water_id}__{analysis_date}`, so re-running writes
 the same document. Dry-run by default; pass --apply to write.
 
@@ -20,6 +27,7 @@ Runs locally against be-water-app via ADC."""
 
 import argparse
 import os
+from dataclasses import replace
 
 os.environ.setdefault("FIRESTORE_PROJECT", "be-water-app")
 
@@ -43,7 +51,14 @@ def main() -> None:
             f"{len(water.minerals):2d} minerales  ({state})"
         )
         if args.apply and not existing:
-            repository.save_analysis(water)
+            # Not the ficha's photos. Those live at the bare path, which any
+            # later undated correction overwrites — so a dated entry would
+            # offer as proof of one year an image that quietly becomes
+            # another. Eleven entries were written that way before this and
+            # had to be repaired by hand.
+            repository.save_analysis(
+                replace(water, photo_url=None, label_photo_url=None)
+            )
             written += 1
 
     undated = len(waters) - len(dated)

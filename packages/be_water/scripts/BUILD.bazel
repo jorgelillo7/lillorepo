@@ -69,7 +69,13 @@ py_binary(
 py_test(
     name = "scripts_tests",
     timeout = "short",
-    srcs = glob(["tests/**/*.py"]) + ["refresh_aesan_snapshot.py"],
+    srcs = glob(["tests/**/*.py"]) + [
+        "refresh_aesan_snapshot.py",
+        "backfill_analyses.py",
+    ],
     main = "tests/main.py",
-    deps = [requirement("pytest")],
+    deps = [
+        requirement("pytest"),
+        "//packages/be_water/web:web_lib",
+    ],
 )
