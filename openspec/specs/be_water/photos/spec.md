@@ -68,3 +68,24 @@ watermark, producing the bytes uploaded to storage.
 > top candidate for the next test-hardening pass: feed a synthetic image and
 > assert output dimensions, watermark presence, and error handling on a corrupt
 > input.
+
+### Requirement: A replaced photo replaces what visitors see
+
+Every object the photo pipeline writes SHALL carry a `Cache-Control` of at most
+five minutes, set as object metadata rather than as an upload request header.
+A photo whose bytes are replaced at a path a ficha already points at SHALL be
+re-homed to a new object name when the ficha must show it immediately.
+
+Motive: a public object defaults to an hour at the edge, and every path here is
+overwritten in place — a re-run studio shot, a replaced composition label. The
+ficha points at new bytes while the edge keeps serving the old ones, which
+reads as the site having ignored the upload; it cannot be purged, and it
+outlives a private window. A `Cache-Control` header on an `uploadType=media`
+request is accepted and silently dropped, so it has to travel as metadata.
+
+#### Scenario: uploading a photo
+- **WHEN** any photo is uploaded **THEN** it carries `public, max-age=300` as
+  object metadata
+- **WHEN** a temporary upload is promoted **THEN** the copy inherits it
+- *Verifies:* `test_upload_photo_asks_for_a_short_cache_on_every_object`,
+  `test_upload_object_sends_cache_control_as_object_metadata`

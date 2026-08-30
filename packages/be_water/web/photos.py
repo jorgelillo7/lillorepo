@@ -14,6 +14,7 @@ import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from core.sdk import gemini
+from core.sdk.gcp import upload_object
 from core.utils import get_logger
 from packages.be_water.web import config
 
@@ -115,18 +116,23 @@ def _auth_header() -> dict:
     return {"Authorization": f"Bearer {credentials.token}"}
 
 
+# Five minutes, not the bucket's default hour. Every object here is written to
+# a stable path and overwritten in place — a re-run studio shot, a replaced
+# composition label — so the old bytes keep being served from the edge long
+# after the ficha points at new ones. A replaced label read as "the site
+# ignored my photo" for an hour.
+PHOTO_CACHE_CONTROL = "public, max-age=300"
+
+
 def upload_photo(object_name: str, data: bytes) -> str:
     """Upload JPEG bytes; returns the public URL."""
-    response = requests.post(
-        f"{_STORAGE_API}/upload/storage/v1/b/{config.PHOTOS_BUCKET}/o",
-        params={"uploadType": "media", "name": object_name},
-        headers={**_auth_header(), "Content-Type": "image/jpeg"},
-        data=data,
-        timeout=30,
+    return upload_object(
+        config.PHOTOS_BUCKET,
+        object_name,
+        data,
+        "image/jpeg",
+        cache_control=PHOTO_CACHE_CONTROL,
     )
-    response.raise_for_status()
-    logger.info("Photo uploaded.", extra={"object": object_name, "bytes": len(data)})
-    return public_url(object_name)
 
 
 def delete_object(object_name: str) -> None:
@@ -144,7 +150,11 @@ def delete_object(object_name: str) -> None:
 
 
 def promote_photo(tmp_name: str, final_name: str) -> str:
-    """Server-side copy tmp → final, best-effort delete of tmp."""
+    """Server-side copy tmp → final, best-effort delete of tmp.
+
+    The copy carries the source object's metadata, so the promoted photo
+    inherits `PHOTO_CACHE_CONTROL` from the upload that wrote the temporary.
+    """
     response = requests.post(
         f"{_STORAGE_API}/storage/v1/b/{config.PHOTOS_BUCKET}/o/"
         f"{requests.utils.quote(tmp_name, safe='')}/copyTo/b/"
