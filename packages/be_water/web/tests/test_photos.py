@@ -99,6 +99,22 @@ def test_stamp_watermark_marks_bottom_right_only():
 # --- public_url -------------------------------------------------------------
 
 
+def test_upload_photo_asks_for_a_short_cache_on_every_object():
+    """Photos are written to stable paths and overwritten in place — a re-run
+    studio shot, a replaced composition label. On the bucket default of an
+    hour the ficha keeps serving the photo that was just replaced, which reads
+    as the site having ignored the upload."""
+    with patch(f"{_MOD}.upload_object", return_value="https://x/y.jpg") as mock_upload:
+        url = photos.upload_photo("originals/lanjaron.jpg", b"\xff\xd8\xffbytes")
+
+    assert url == "https://x/y.jpg"
+    bucket, name, data, content_type = mock_upload.call_args.args
+    assert name == "originals/lanjaron.jpg"
+    assert data == b"\xff\xd8\xffbytes"
+    assert content_type == "image/jpeg"
+    assert mock_upload.call_args.kwargs["cache_control"] == "public, max-age=300"
+
+
 def test_public_url_points_at_the_bucket():
     url = photos.public_url("bezoya.jpg")
     assert url.endswith("/bezoya.jpg")
