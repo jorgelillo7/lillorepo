@@ -421,6 +421,46 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
 
 ---
 
+## 📰 League front pages (portadas)
+
+The league newspaper's covers shown on `/{season}/salseo`. They live in a public
+bucket, not in Firestore: `gs://biwenger/periodico/{season}/{YYYY-MM-DD}.jpg`
+plus a manifest `index.json` holding the headline of each date. The web reads
+the manifest at request time, so publishing needs no deploy.
+
+**Normal path — send it to the bot** (owner private chat only):
+
+Send the image with a caption and the bot publishes it:
+
+| Caption | Result |
+|---|---|
+| `Mañana empieza la guerra` | published under today's date (Madrid) |
+| `2026-08-14 Mañana empieza la guerra` | published under that date |
+
+Send it **as a file**, not as a photo: Telegram recompresses photos to ~1280 px
+on the long side, which loses the body copy of a newspaper page. It must be a
+JPEG (the web builds every URL as `.jpg`) and under 20 MB (the Bot API cannot
+download more). Sending the same date again replaces that cover.
+
+It shows up on `/{season}/salseo` within a minute — image and manifest are both
+written with `max-age=60`, on top of the web's own 600 s per-instance cache.
+
+**Manual fallback** — if the bot or the bucket write is broken:
+
+```bash
+  gcloud storage cp portada.jpg gs://biwenger/periodico/26-27/2026-08-14.jpg \
+      --cache-control="public, max-age=60"
+  gcloud storage cp gs://biwenger/periodico/26-27/index.json .
+  # add {"fecha": "2026-08-14", "titulo": "…"} to the list, newest first
+  gcloud storage cp index.json gs://biwenger/periodico/26-27/index.json \
+      --cache-control="public, max-age=60"
+```
+
+Without `--cache-control` an object keeps serving from the edge for an hour
+(the bucket default), so a new or corrected cover appears late for everyone.
+
+---
+
 ## 🗓️ Cambio de temporada
 
 El cambio de temporada es **manual e intencional** — ocurre cuando se resetea la liga en Biwenger (una vez al año). El flujo completo está automatizado por la skill `season-rollover`; los comandos manuales viven aquí.

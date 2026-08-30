@@ -994,3 +994,107 @@ def test_a_verdict_without_the_original_text_is_still_sent():
     from packages.biwenger_tools.bot.app import _verdict_over
 
     assert _verdict_over("", "⏰ <b>IGNORADA</b>") == "⏰ <b>IGNORADA</b>"
+
+
+# --- Portadas (image attachments) ---
+
+
+def _photo_update(chat_id, caption="Titular", file_ids=("small", "big")):
+    return {
+        "update_id": 1,
+        "message": {
+            "chat": {"id": chat_id},
+            "from": {"id": 1},
+            "caption": caption,
+            "photo": [{"file_id": f} for f in file_ids],
+        },
+    }
+
+
+def _document_update(chat_id, caption="Titular", mime_type="image/jpeg"):
+    return {
+        "update_id": 1,
+        "message": {
+            "chat": {"id": chat_id},
+            "from": {"id": 1},
+            "caption": caption,
+            "document": {"file_id": "doc-1", "mime_type": mime_type},
+        },
+    }
+
+
+def test_owner_document_publishes_the_portada(client):
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        return_value={"message": "📰 Portada publicada"},
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _document_update(_VALID_CHAT, "2026-08-14 Titular"))
+
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/periodico/portada",
+        payload={
+            "file_id": "doc-1",
+            "caption": "2026-08-14 Titular",
+            "kind": "document",
+        },
+        timeout=180,
+    )
+    # Ack first, then whatever the api wrote — verbatim.
+    assert mock_send.call_count == 2
+    assert "📰 Portada publicada" in mock_send.call_args.kwargs["text"]
+
+
+def test_owner_photo_sends_the_largest_size(client):
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        return_value={"message": "ok"},
+    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+        resp = _post(client, _photo_update(_VALID_CHAT))
+
+    assert resp.status_code == 200
+    assert mock_call.call_args.kwargs["payload"]["file_id"] == "big"
+    assert mock_call.call_args.kwargs["payload"]["kind"] == "photo"
+
+
+def test_draft_group_photo_is_ignored(client):
+    """The league supergroup must not be able to publish front pages — every
+    member can post a photo there."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json"
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _photo_update(_VALID_DRAFT_CHAT))
+
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    mock_send.assert_not_called()
+
+
+def test_portada_failure_is_reported_instead_of_leaving_the_ack_hanging(client):
+    """The upload runs in a background thread; without this the owner watches
+    "subiendo…" forever when the bucket refuses the write."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        side_effect=RuntimeError("403 Forbidden"),
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _document_update(_VALID_CHAT))
+
+    assert resp.status_code == 200
+    assert "❌" in mock_send.call_args.kwargs["text"]
+    assert "403 Forbidden" in mock_send.call_args.kwargs["text"]
+
+
+def test_non_image_document_falls_through_to_the_text_path(client):
+    """A CSV dropped in the owner chat is not a front page."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json"
+    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+        resp = _post(client, _document_update(_VALID_CHAT, mime_type="text/csv"))
+
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
