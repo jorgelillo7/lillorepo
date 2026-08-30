@@ -534,6 +534,32 @@ def test_water_photo_becomes_og_image(client):
     assert "summary_large_image" in body
 
 
+def test_catalog_thumbnails_are_images_a_reader_can_name(client):
+    """The thumbnail used to be a CSS `background-image`, which carries no alt:
+    every catalog card was a nameless box to a screen reader and earned nothing
+    from image search. Only the detail hero was a real `<img>`."""
+    catalog = _catalog()
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        body = client.get("/").get_data(as_text=True)
+
+    assert 'src="https://x/bezoya.jpg"' in body
+    assert 'alt="Botella de Bezoya · Segovia"' in body
+    assert "background-image" not in body
+    # 48 cards on one page: the ones below the fold wait their turn.
+    assert 'loading="lazy"' in body
+
+
+def test_a_water_with_no_photo_still_renders_its_card(client):
+    """The placeholder branch has no image to name — it must not leave an
+    empty `<img>` behind."""
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/").get_data(as_text=True)
+
+    assert "Solán de Cabras" in body
+    assert 'alt="Botella de' not in body
+
+
 def test_add_form_shows_sections_and_gas_toggle(client):
     _login(client)
     body = client.get("/anadir").get_data(as_text=True)
