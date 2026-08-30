@@ -57,14 +57,30 @@
     // Accent-insensitive: "lanjaron" must find "Lanjarón".
     const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+    // Matched at the start of a word, not anywhere inside one. Folding
+    // "Cataluña" gives "cataluna", so a plain substring search for "luna"
+    // returned every Catalan water ahead of Lunares. A query still spans
+    // words, so "font vella" keeps working.
+    const matcher = q => new RegExp('(^|\\s)' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
     function apply() {
         const q = fold(search.value.toLowerCase().trim());
+        const cards = Array.from(document.querySelectorAll('.water-card'));
+        const names = cards.map(c => fold(c.dataset.name));
+        let matched = names.map(() => true);
+        if (q) {
+            const re = matcher(q);
+            matched = names.map(n => re.test(n));
+            // Nothing begins with it — try inside words too, so a fragment
+            // like "jaron" still reaches Lanjarón. Only as a second pass, so
+            // "luna" never drags Cataluña in ahead of Lunares.
+            if (!matched.some(Boolean)) matched = names.map(n => n.includes(q));
+        }
         let visible = 0;
-        document.querySelectorAll('.water-card').forEach(card => {
-            const matchQ = !q || fold(card.dataset.name).includes(q);
+        cards.forEach((card, i) => {
             const matchF = !activeFilter || card.dataset.min === activeFilter;
             const matchG = !gasOnly || card.dataset.gas === '1';
-            const show = matchQ && matchF && matchG;
+            const show = matched[i] && matchF && matchG;
             card.classList.toggle('hidden', !show);
             if (show) visible++;
         });
