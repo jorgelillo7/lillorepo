@@ -126,6 +126,31 @@ def verified_fields_from_ocr(ocr_fields: str, minerals: dict) -> list[str]:
     return sorted(f for f in ocr_fields.split(",") if f in minerals)
 
 
+def resolve_place(province: str, community: str) -> tuple[str, str]:
+    """Province and community as they should be stored, from what was typed.
+
+    Both are free-text inputs on a public form, and `tramuntana` shows what
+    that costs: it reached Firestore with `province="Talarrubias"` — a town in
+    Badajoz — and `community="Badajoz"`, a province. The fields were shifted
+    one slot, and the water dropped out of every province and community view
+    silently, because nothing ever compared them against the lists this repo
+    already carries.
+
+    A community that is really a province means exactly that shift, so it is
+    read as one. Otherwise the community is derived from the province, which
+    the place search needs: it matches province *or* community, so a water
+    with only one of the two is invisible to half the searches.
+
+    Text that matches nothing is kept as typed rather than thrown away — a
+    village nobody has mapped is still what the contributor saw on the label,
+    and `data_audit` is where a human decides. This only ever repairs a
+    provable mistake.
+    """
+    if not geo.community_of(province) and geo.community_of(community):
+        province = community
+    return province, geo.community_of(province) or community
+
+
 def build_water(
     form: Mapping,
     *,
@@ -139,18 +164,16 @@ def build_water(
     added_by: str,
 ) -> Water:
     """The submitted water before any merge with an existing doc."""
-    province = form_field(form, "province")
+    province, community = resolve_place(
+        form_field(form, "province"), form_field(form, "community")
+    )
     return Water(
         id=water_id,
         name=name,
         brand=form_field(form, "brand") or name,
         spring=form_field(form, "spring"),
         province=province,
-        # Derived when the form leaves it blank: the place search matches
-        # province *or* community, so a water with only a province is
-        # invisible to a community search. An unknown province yields "",
-        # same as before.
-        community=form_field(form, "community") or geo.community_of(province),
+        community=community,
         sparkling=form.get("sparkling") == "on",
         minerals=minerals,
         photo_url=photo_url,

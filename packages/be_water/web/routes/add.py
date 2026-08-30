@@ -358,11 +358,10 @@ def add_water_photo():
     processed = photos.process_image(raw)
     uid = uuid.uuid4().hex
     # Both tmps live under uploads/, and every attempt writes two objects
-    # before the OCR is even tried — three failed reads leave six. The
-    # lifecycle rule that was supposed to reclaim them **does not exist** on
-    # the bucket (checked 2026-08-29: `lifecycle: null`); the runbook in
-    # packages/be_water/OPERATIONS.md has the command to create it. On save
-    # the label shot is promoted to originals/ as the permanent proof.
+    # before the OCR is even tried — three failed reads leave six. A lifecycle
+    # rule deletes that prefix after 30 days, which is why a save that cannot
+    # promote a photo flags the water instead of leaving it there quietly. On
+    # save the label shot is promoted to originals/ as the permanent proof.
     label_tmp = f"uploads/{uid}-label.jpg"
     photos.upload_photo(label_tmp, processed)
 

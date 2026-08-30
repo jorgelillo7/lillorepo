@@ -164,28 +164,37 @@ The bucket rides Cloud Storage's 5 GB always-free tier and sat at 3.5 MB, so
 this has never cost anything — but the invariant the code asserts is false and
 the pile only grows.
 
-Create the rule (deletes anything under `uploads/` after 7 days; a form nobody
-finished in a week is abandoned):
+**The rule now exists**, deleting anything under `uploads/` after **30 days**.
+Recreate it like this if it is ever lost:
 
 ```bash
 cat > /tmp/lifecycle.json <<'JSON'
 {"rule": [{
   "action": {"type": "Delete"},
-  "condition": {"age": 7, "matchesPrefix": ["uploads/"]}
+  "condition": {"age": 30, "matchesPrefix": ["uploads/"]}
 }]}
 JSON
 gcloud storage buckets update gs://be-water-photos \
   --lifecycle-file=/tmp/lifecycle.json --project=be-water-app
 ```
 
-Verify, and confirm it is scoped to `uploads/` before trusting it — the same
-bucket holds `originals/`, which is the permanent verification proof and must
-never be swept:
+**30 days, not the 7 an abandoned form would justify.** When `promote_photo`
+fails, the save deliberately keeps the tmp URL rather than losing the photo,
+so a live ficha can point into `uploads/` — those carry
+`photo_promotion_failed` and are listed on `/admin`. Seven days is not enough
+to notice and re-upload; thirty is.
+
+Verify it, and confirm the prefix before trusting it — the same bucket holds
+`originals/`, the permanent verification proof, which must never be swept:
 
 ```bash
 gcloud storage buckets describe gs://be-water-photos \
-  --format="json(lifecycle)" --project=be-water-app
+  --project=be-water-app --format=json | python3 -m json.tool | grep -A 12 lifecycle
 ```
+
+The field is `lifecycle_config`, so `--format="json(lifecycle)"` prints `null`
+even when the rule is there — which is exactly how it looks when it is
+missing.
 
 ## 🤖 Changing the Gemini model
 
