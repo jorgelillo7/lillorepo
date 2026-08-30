@@ -58,4 +58,3 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
 | ⏳ | `aquadeus` and `fuente-arquillo` may be one spring under two brands | Your eye: `find_duplicates` matches name tokens and these share none |
 | 🔨 | Tailwind ships as the Play CDN script, no `defer` | Compiles styles in the browser on every load, on a mobile-first audience · needs a build step, not a one-line fix |
-| 🔨 | Catalog thumbnails are CSS `background-image`, so they carry no `alt` | 47 of 48 waters earn nothing from image search and read as nothing to a screen reader · only the detail hero is a real `<img>` |

@@ -534,6 +534,51 @@ def test_water_photo_becomes_og_image(client):
     assert "summary_large_image" in body
 
 
+def test_catalog_thumbnails_are_images_a_reader_can_name(client):
+    """The thumbnail used to be a CSS `background-image`, which carries no alt:
+    every catalog card was a nameless box to a screen reader and earned nothing
+    from image search. Only the detail hero was a real `<img>`."""
+    catalog = _catalog()
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        body = client.get("/").get_data(as_text=True)
+
+    assert 'src="https://x/bezoya.jpg"' in body
+    assert 'alt="Botella de Bezoya · Segovia"' in body
+    assert "background-image" not in body
+    # 48 cards on one page: the ones below the fold wait their turn.
+    assert 'loading="lazy"' in body
+
+
+def test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable(client):
+    """The card renders on the ficha too, beside a hero the photo viewer binds
+    to. The neighbours are named for a screen reader and stay out of the
+    overlay — only `[data-zoom]` opens it, and a card is a link to that water."""
+    catalog = _catalog()
+    catalog[0].photo_url = "https://x/solan.jpg"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    assert 'alt="Botella de Solán de Cabras · Cuenca"' in body
+    # The hero is the only zoomable bottle on the page: the viewer binds to
+    # `[data-zoom]`, and a neighbour's card is a link to that water, not a
+    # photo to open here.
+    assert body.count("data-zoom data-caption=") == 1
+
+
+def test_a_water_with_no_photo_still_renders_its_card(client):
+    """The placeholder branch has no image to name — it must not leave an
+    empty `<img>` behind."""
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/").get_data(as_text=True)
+
+    assert "Solán de Cabras" in body
+    assert 'alt="Botella de' not in body
+
+
 def test_add_form_shows_sections_and_gas_toggle(client):
     _login(client)
     body = client.get("/anadir").get_data(as_text=True)

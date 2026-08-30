@@ -122,3 +122,28 @@ Every page SHALL declare `og:site_name` and `og:locale`.
 - **THEN** that photo is the `og:image` and the card is `summary_large_image`
 - *Verifies:* `test_a_shared_place_link_previews_a_real_bottle`,
   `test_a_photoless_water_declares_no_image`
+
+### Requirement: Every bottle on screen is an image that can be named
+
+A water's photo SHALL be rendered as an `<img>` carrying an `alt` that names the
+water and its province — on the catalogue card as much as on the ficha — and
+SHALL NOT be painted as a CSS `background-image`. Cards below the fold SHALL
+load lazily. A water with no photo SHALL render its placeholder without an
+image element.
+
+A background image has no `alt` and no `src` a crawler indexes: the whole
+catalogue grid was a wall of nameless boxes to a screen reader, and earned
+nothing from image search, while only the detail hero was a real image. The
+grid is where almost every visitor lands.
+
+#### Scenario: card with a photo, card without
+- **WHEN** a catalogue card has a photo **THEN** it renders an `<img>` with
+  `alt="Botella de {name} · {province}"` and `loading="lazy"`, and no
+  `background-image`
+- **WHEN** the water has no photo **THEN** the placeholder renders and no bottle
+  image is claimed
+- **WHEN** the card renders on a ficha, beside the zoomable hero **THEN** it is
+  named and stays out of the photo viewer
+- *Verifies:* `test_catalog_thumbnails_are_images_a_reader_can_name`,
+  `test_a_water_with_no_photo_still_renders_its_card`,
+  `test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable`
