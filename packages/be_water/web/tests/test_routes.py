@@ -1715,6 +1715,26 @@ def test_both_photos_can_be_opened_full_size(client):
     assert 'data-caption="Botella de Bezoya"' in body
     assert 'data-caption="Etiqueta de Bezoya' in body
     assert 'href="https://x/originals/bezoya.jpg"' in body
+    # It shipped covering every ficha on load: the `hidden` attribute and a
+    # utility class have the same specificity, and Tailwind's `flex` came
+    # later in the cascade. An inline style is the one thing a class cannot
+    # outrank.
+    assert '<div id="zoom" style="display: none"' in body
+
+
+def test_the_viewer_is_closed_on_a_water_with_no_photos_either(client):
+    """The ficha that reported it had no photo at all, so the overlay was
+    covering a page with nothing to open."""
+    catalog = _catalog()
+    catalog[1].photo_url = None
+    catalog[1].label_photo_url = None
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    assert 'id="zoom" style="display: none"' in body
+    assert "data-caption=" not in body
 
 
 def test_a_mineral_bar_is_scaled_by_that_mineral_not_a_shared_ceiling(client):
