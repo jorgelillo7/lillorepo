@@ -52,7 +52,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 🔨 | `seed_data.py` holds six Lunares minerals a photographed label contradicts | The only thing `audit_data` still reports (`audit_photos` and the suspicious/duplicate checks are clean): bicarbonatos 340→290, cloruros 75→62,3, sulfatos 330→150, calcio 150→94,5, magnesio 50→40,7, sodio 55→38,9. Crosses `catalog_sync`'s verified-freeze, so not a blind edit |
+| 👤 | `aquadeus` is frozen as `verified` with nothing a label confirms | You: its proof photo is a front-of-bottle shot, the ficha reads every value as *fabricante*, and `verified` means `catalog_sync` will never revisit it · either photograph the composition panel or drop the freeze |
 | 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | International waters — the `country` field exists, nothing uses it | The verification pass above · country chips, a 🌍 tier and a geography that stops assuming Spain · [analysis](docs/technical/parked-work.md#be_water-country-field) |
 | ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
