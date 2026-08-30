@@ -52,12 +52,11 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | `audit_photos --fix` (2 fichas) and `audit_data` (5 fichas) | You: both prompt before every write, local via ADC |
+| 🔨 | `seed_data.py` holds six Lunares minerals a photographed label contradicts | The only thing `audit_data` still reports (`audit_photos` and the suspicious/duplicate checks are clean): bicarbonatos 340→290, cloruros 75→62,3, sulfatos 330→150, calcio 150→94,5, magnesio 50→40,7, sodio 55→38,9. Crosses `catalog_sync`'s verified-freeze, so not a blind edit |
 | 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | `country` field on `Water` | The verification pass above · [analysis](docs/technical/parked-work.md#be_water-country-field) |
-| 👤 | `lanjaron` claims 4 label-confirmed values with no label photo | You: a shot of its composition label (the old one was the studio render) |
 | ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
 | ⏳ | `aquadeus` and `fuente-arquillo` may be one spring under two brands | Your eye: `find_duplicates` matches name tokens and these share none |
 | 🔨 | Tailwind ships as the Play CDN script, no `defer` | Compiles styles in the browser on every load, on a mobile-first audience · needs a build step, not a one-line fix |
-| 🔨 | Catalog thumbnails are CSS `background-image`, so they carry no `alt` | 45 of 46 waters earn nothing from image search and read as nothing to a screen reader · only the detail hero is a real `<img>` |
+| 🔨 | Catalog thumbnails are CSS `background-image`, so they carry no `alt` | 47 of 48 waters earn nothing from image search and read as nothing to a screen reader · only the detail hero is a real `<img>` |
 | 🔨 | No capability spec for auth/moderation, the add-water flow, or `label_ocr` | All three are live, tested code that no spec describes · [audit](openspec/specs/be_water/) |
