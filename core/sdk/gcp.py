@@ -1,3 +1,5 @@
+import json
+import uuid
 from urllib.parse import quote
 
 import google.auth
@@ -98,25 +100,42 @@ def upload_object(
 ) -> str:
     """Upload bytes to `gs://{bucket}/{name}`, overwriting. Returns the public URL.
 
-    `cache_control` is worth setting on anything that changes in place: a public
-    object defaults to `max-age=3600`, so an updated manifest can keep serving
-    the old body from the edge for an hour.
+    Sent as a `multipart` upload because that is the only single-request form
+    that carries object metadata: with `uploadType=media` the API takes the
+    bytes and the content type and **silently ignores** a `Cache-Control`
+    request header, leaving the object on the bucket default of an hour.
+
+    `cache_control` is worth setting on anything that changes in place — a
+    public object that keeps the default keeps serving its old body from the
+    edge long after it was overwritten.
 
     Raises `requests.HTTPError` on non-2xx (a 403 here means the runtime service
     account lacks `storage.objects.create` on the bucket) and
     `google.auth.exceptions.GoogleAuthError` if credentials can't be obtained.
     """
-    headers = {
-        "Authorization": f"Bearer {_gcs_token()}",
-        "Content-Type": content_type,
-    }
+    metadata: dict[str, str] = {"name": name}
     if cache_control:
-        headers["Cache-Control"] = cache_control
+        metadata["cacheControl"] = cache_control
+
+    boundary = f"lillorepo-{uuid.uuid4().hex}"
+    body = b"".join(
+        [
+            f"--{boundary}\r\n"
+            "Content-Type: application/json; charset=UTF-8\r\n\r\n".encode(),
+            json.dumps(metadata).encode("utf-8"),
+            f"\r\n--{boundary}\r\nContent-Type: {content_type}\r\n\r\n".encode(),
+            data,
+            f"\r\n--{boundary}--\r\n".encode(),
+        ]
+    )
     resp = http_requests.post(
         _GCS_UPLOAD_URL.format(bucket=bucket),
-        params={"uploadType": "media", "name": name},
-        headers=headers,
-        data=data,
+        params={"uploadType": "multipart"},
+        headers={
+            "Authorization": f"Bearer {_gcs_token()}",
+            "Content-Type": f"multipart/related; boundary={boundary}",
+        },
+        data=body,
         timeout=timeout,
     )
     resp.raise_for_status()
@@ -130,14 +149,18 @@ def upload_object(
 def download_object(bucket: str, name: str, timeout: int = 30) -> bytes | None:
     """Read `gs://{bucket}/{name}`, or None if it does not exist.
 
-    Authenticated on purpose even for a public object: a read-modify-write that
-    fetches the public URL can merge onto an edge-cached copy and silently drop
-    whatever was written in the last hour.
+    Authenticated and `no-cache` on purpose: a read-modify-write that merges
+    onto a cached copy silently drops whatever was written since. A public
+    object is cacheable by its content, so an `Authorization` header alone does
+    not guarantee the current bytes.
     """
     resp = http_requests.get(
         _GCS_OBJECT_URL.format(bucket=bucket, name=quote(name, safe="")),
         params={"alt": "media"},
-        headers={"Authorization": f"Bearer {_gcs_token()}"},
+        headers={
+            "Authorization": f"Bearer {_gcs_token()}",
+            "Cache-Control": "no-cache",
+        },
         timeout=timeout,
     )
     if resp.status_code == 404:
