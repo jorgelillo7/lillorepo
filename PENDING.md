@@ -52,9 +52,8 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | `aquadeus` is frozen as `verified` with nothing a label confirms | You: its proof photo is a front-of-bottle shot, the ficha reads every value as *fabricante*, and `verified` means `catalog_sync` will never revisit it · either photograph the composition panel or drop the freeze |
+| 👤 | `valtorre` is frozen as `verified` with nothing a label confirms | You: a photo of its composition panel — the current proof is a front-of-bottle shot whose panel runs off the edge, every value reads *fabricante*, and `verified` means `catalog_sync` will never revisit it |
 | 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | International waters — the `country` field exists, nothing uses it | The verification pass above · country chips, a 🌍 tier and a geography that stops assuming Spain · [analysis](docs/technical/parked-work.md#be_water-country-field) |
 | ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
-| ⏳ | `aquadeus` and `fuente-arquillo` may be one spring under two brands | Your eye: `find_duplicates` matches name tokens and these share none |
 | 🔨 | Tailwind ships as the Play CDN script, no `defer` | Compiles styles in the browser on every load, on a mobile-first audience · needs a build step, not a one-line fix |

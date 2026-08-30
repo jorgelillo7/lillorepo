@@ -38,10 +38,10 @@ def test_a_verified_water_carries_the_photo_that_verifies_it():
     """`verified` is the frozen state: `catalog_sync` will not touch the ficha
     again. Freezing one with no photo at all freezes an unprovable claim.
 
-    The stronger rule — a verified water names the fields its label declares —
-    is not asserted here yet: `aquadeus` is frozen with a front-of-bottle shot
-    and no label-confirmed value, which is a data decision for the owner, not
-    something a test may quietly define away."""
+    The stronger rule — a verified water names at least one field its label
+    confirms — still fails on `valtorre`, signed off against a front-of-bottle
+    shot whose composition panel runs off the edge. Whether that photo is proof
+    is a data decision for the owner, not something a test may define away."""
     for raw in SEED_WATERS:
         if raw.get("verified"):
             assert raw.get("label_photo_url"), f"{raw['id']}: verified, no label photo"

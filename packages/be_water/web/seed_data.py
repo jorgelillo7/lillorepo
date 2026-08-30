@@ -233,8 +233,22 @@ SEED_WATERS = [
         "spring": "Fuente Arquillo (Masegoso)",
         "province": "Albacete",
         "community": "Castilla-La Mancha",
-        # Label-verified 2026-07-18 (bottle photo).
+        # Signed off against the photographed composition panel: it prints
+        # every value here except the silica the 5 L format carries, and dates
+        # itself "Laboratorio CNTA, octubre 2021".
         "verified": True,
+        "analysis_date": "2021-10",
+        "verified_fields": [
+            "bicarbonates",
+            "calcium",
+            "chlorides",
+            "magnesium",
+            "ph",
+            "potassium",
+            "sodium",
+            "sulfates",
+            "tds",
+        ],
         "photo_url": "https://storage.googleapis.com/be-water-photos/aquadeus.jpg",
         "label_photo_url": "https://storage.googleapis.com/be-water-photos"
         "/originals/aquadeus.jpg",
