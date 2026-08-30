@@ -1722,6 +1722,44 @@ def test_both_photos_can_be_opened_full_size(client):
     assert '<div id="zoom" style="display: none"' in body
 
 
+def test_the_caption_says_which_analysis_the_bottle_belongs_to(client):
+    """The bottle changes with the selector, and both captions read the same
+    — so in the viewer, where the ficha is hidden behind the overlay, the two
+    photos of Peñaclara were indistinguishable."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
+    entries = [_analysis("2025-02", 26.5), past]
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=entries
+    ):
+        current = client.get("/agua/bezoya").get_data(as_text=True)
+        old = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
+
+    assert 'data-caption="Botella de Bezoya · análisis de 2025-02"' in current
+    assert 'data-caption="Botella de Bezoya · análisis de 2024-01"' in old
+
+
+def test_a_borrowed_bottle_is_not_captioned_with_the_past_date(client):
+    """An entry with no photo of its own falls back to the ficha's. Dating
+    that with the entry's year would claim a photograph nobody took — and it
+    is also the honest explanation of why the image did not change."""
+    catalog = _catalog()
+    catalog[1].analysis_date = "2025-02"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    entries = [_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)]
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=entries
+    ):
+        body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
+
+    assert 'data-caption="Botella de Bezoya · foto actual de la ficha"' in body
+    # The label's caption still carries the date, and rightly: that label
+    # *is* the 2024 one. Only the borrowed bottle must not claim it.
+    assert 'data-caption="Botella de Bezoya · análisis de 2024-01"' not in body
+
+
 def test_the_viewer_is_closed_on_a_water_with_no_photos_either(client):
     """The ficha that reported it had no photo at all, so the overlay was
     covering a page with nothing to open."""

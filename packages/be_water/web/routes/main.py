@@ -61,11 +61,16 @@ def water_detail(water_id: str):
     analyses = repository.list_analyses(water_id) if water.analysis_date else []
     viewing = (request.args.get("analisis") or "").strip()
     shown = water
+    # Whether the bottle on screen is that analysis's own. A past entry with
+    # no photo falls back to the ficha's, and captioning *that* with the past
+    # date would claim a photograph nobody took.
+    photo_is_of_the_analysis = True
     if viewing and viewing != water.analysis_date:
         entry = next((a for a in analyses if a.get("analysis_date") == viewing), None)
         if entry is None:
             abort(404)
         shown = water.with_analysis(entry)
+        photo_is_of_the_analysis = bool(entry.get("photo_url"))
 
     similar = similarity.similar_waters(water, catalog, top_n=3)
     home = helpers.base_url()
@@ -74,6 +79,7 @@ def water_detail(water_id: str):
         water=shown,
         analyses=analyses,
         viewing_past=shown is not water,
+        photo_is_of_the_analysis=photo_is_of_the_analysis,
         current_analysis_date=water.analysis_date,
         similar=similar,
         mineral_scale=domain.mineral_scale(catalog),

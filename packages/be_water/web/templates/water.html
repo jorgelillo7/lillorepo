@@ -28,7 +28,7 @@
         <div class="bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl p-8 text-center ring-1 ring-{{ tone }}-200/60">
             {% if water.photo_url %}
             <img src="{{ water.photo_url }}" alt="Botella de {{ water.name }}"
-                 data-zoom data-caption="Botella de {{ water.name }}"
+                 data-zoom data-caption="Botella de {{ water.name }}{% if water.analysis_date and photo_is_of_the_analysis %} · análisis de {{ water.analysis_date }}{% elif not photo_is_of_the_analysis %} · foto actual de la ficha{% endif %}"
                  class="mx-auto mb-4 h-64 w-auto rounded-2xl object-cover shadow-md ring-1 ring-white/60 cursor-zoom-in">
             {% else %}
             <div class="text-7xl mb-4">{{ '🫧' if water.sparkling else '💧' }}</div>
