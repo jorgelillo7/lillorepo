@@ -768,14 +768,32 @@ SEED_WATERS = [
         "spring": "Lunares (Jaraba)",
         "province": "Zaragoza",
         "community": "Aragón",
+        # Everything but the residue and the pH comes off a photographed
+        # composition label, which is why those two keep their "fabricante"
+        # provenance. No `label_photo_url`: the proof is the photo attached to
+        # the 2020 entry of the analysis series, and a ficha-level field
+        # pointing at it would lend a dated entry's bottle to the ficha.
+        "analysis_date": "2020",
+        "verified_fields": [
+            "bicarbonates",
+            "calcium",
+            "chlorides",
+            "magnesium",
+            "potassium",
+            "silica",
+            "sodium",
+            "sulfates",
+        ],
         "minerals": {
             "tds": 950,
-            "bicarbonates": 340,
-            "chlorides": 75.0,
-            "sulfates": 330.0,
-            "calcium": 150.0,
-            "magnesium": 50.0,
-            "sodium": 55.0,
+            "bicarbonates": 290.0,
+            "chlorides": 62.3,
+            "sulfates": 150.0,
+            "calcium": 94.5,
+            "magnesium": 40.7,
+            "sodium": 38.9,
+            "potassium": 2.19,
+            "silica": 9.6,
             "ph": 7.2,
         },
     },
