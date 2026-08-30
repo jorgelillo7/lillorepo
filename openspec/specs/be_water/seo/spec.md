@@ -142,5 +142,8 @@ grid is where almost every visitor lands.
   `background-image`
 - **WHEN** the water has no photo **THEN** the placeholder renders and no bottle
   image is claimed
+- **WHEN** the card renders on a ficha, beside the zoomable hero **THEN** it is
+  named and stays out of the photo viewer
 - *Verifies:* `test_catalog_thumbnails_are_images_a_reader_can_name`,
-  `test_a_water_with_no_photo_still_renders_its_card`
+  `test_a_water_with_no_photo_still_renders_its_card`,
+  `test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable`

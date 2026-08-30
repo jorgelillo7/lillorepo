@@ -550,6 +550,25 @@ def test_catalog_thumbnails_are_images_a_reader_can_name(client):
     assert 'loading="lazy"' in body
 
 
+def test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable(client):
+    """The card renders on the ficha too, beside a hero the photo viewer binds
+    to. The neighbours are named for a screen reader and stay out of the
+    overlay — only `[data-zoom]` opens it, and a card is a link to that water."""
+    catalog = _catalog()
+    catalog[0].photo_url = "https://x/solan.jpg"
+    catalog[1].photo_url = "https://x/bezoya.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    assert 'alt="Botella de Solán de Cabras · Cuenca"' in body
+    # The hero is the only zoomable bottle on the page: the viewer binds to
+    # `[data-zoom]`, and a neighbour's card is a link to that water, not a
+    # photo to open here.
+    assert body.count("data-zoom data-caption=") == 1
+
+
 def test_a_water_with_no_photo_still_renders_its_card(client):
     """The placeholder branch has no image to name — it must not leave an
     empty `<img>` behind."""
