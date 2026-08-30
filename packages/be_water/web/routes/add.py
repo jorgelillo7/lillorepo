@@ -314,7 +314,15 @@ def _prefill_from_aesan(prefill: dict) -> str:
 
     The label always wins (only missing keys are filled); with several
     registry springs for the name, only fields all candidates agree on
-    are used. Returns the notice suffix ('' when nothing matched)."""
+    are used. Returns the notice suffix ('' when nothing matched).
+
+    Do not "improve" this by preferring an exact name match when the
+    candidates disagree. "Sierra Natura" matches two registry entries — the
+    exact one is Fuente del Arca, Beteta, **Cuenca**, and the loose one is
+    Natura, Los Villares, **Jaén**. The bottle says Los Villares: the exact
+    match is the wrong answer. Filling nothing and letting the label decide is
+    the correct behaviour, not a gap.
+    """
     matches = aesan.registry_matches(prefill.get("name") or "")
     if not matches:
         return ""

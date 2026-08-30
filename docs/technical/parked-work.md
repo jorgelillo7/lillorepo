@@ -128,3 +128,40 @@ country chips on the home page.
 **Trigger:** the data verification pass finishing first. The recommender's
 "places" and the province achievements both assume Spanish geography and need
 a small rethink before a second country exists.
+
+## be_water — a second, optional label photo
+
+The composition panel and the origin panel are rarely the same piece of
+label. Of five bottles photographed in one sitting, **three** carried the
+spring and its municipality on a face the composition shot never sees:
+
+| Water | On the other panel |
+|---|---|
+| `22` | Manantial de Peñaclara · Torrecilla en Cameros (La Rioja) |
+| `sierra-natura` | Manantial Natura · Finca La Pandera · Los Villares (Jaén) |
+| `lunares` | Manantial Lunares · Jaraba (Zaragoza) |
+
+For `sierra-natura` that panel was the **only** source of the one thing its
+ficha lacked, and the official registry could not have supplied it — see the
+`_prefill_from_aesan` comment for why it would have supplied the wrong
+province instead.
+
+What it would look like: not a third fixed upload, but a prompt that appears
+only when `spring` or `province` comes back empty from the OCR pass — today
+that is 1 ficha in 46, so the form does not get heavier for everyone. The
+extraction is the same shape as the mineral one, and the fields already have
+their vocabulary and validation (`geo.ALL_PROVINCES`, `submission.resolve_place`,
+the AESAN cross-check).
+
+It would also close a gap in the provenance vocabulary: `label` (✓ etiqueta)
+can only be earned by a mineral today. Identity can be `aesan` or `manual`
+and never "confirmed from a photograph", even when a photograph is exactly
+what proves it.
+
+**Cost:** a second Gemini call per submission, and a third object per water in
+the bucket.
+
+**Trigger:** enough waters with an empty spring to be worth it, or the first
+time a contributor gets the province wrong in a way the registry cannot catch.
+One ficha does not justify it; the repair script that fixed `sierra-natura` by
+hand was cheaper.
