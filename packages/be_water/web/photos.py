@@ -7,11 +7,12 @@ phone photos carry GPS and this bucket is public.
 """
 
 import io
+from collections import Counter
 
 import google.auth
 import google.auth.transport.requests
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
 from core.sdk import gemini
 from core.sdk.gcp import upload_object
@@ -34,6 +35,38 @@ _STUDIO_PROMPT = (
     "producto de estudio. Conserva la botella y su etiqueta tal cual son, "
     "sin inventar ni retocar texto. Devuelve solo la imagen."
 )
+
+
+# How far a pixel may sit from the detected backdrop and still count as part
+# of it. Wide enough for the gradient a studio backdrop carries, narrow enough
+# to leave a bottle's own highlights alone.
+_BACKDROP_TOLERANCE = 15
+# Below this the backdrop is a deliberate dark or coloured one, not a white
+# that drifted, and flattening it would rewrite the photo rather than fix it.
+_BACKDROP_MIN_CHANNEL = 200
+
+
+def _flatten_backdrop(img: Image.Image) -> Image.Image:
+    """Force a near-white backdrop to pure white.
+
+    The prompt asks for pure white and the model does not always deliver it: it
+    returns the bottle on its own light-grey studio sweep, which the square
+    canvas then frames as a visible grey rectangle — one ficha looking unlike
+    every other in the grid. Detected from the border rather than assumed, and
+    left alone when the backdrop is genuinely dark or coloured.
+    """
+    width, height = img.size
+    border = [img.getpixel((x, int(height * 0.06))) for x in range(0, width, 7)]
+    border += [img.getpixel((int(width * 0.04), y)) for y in range(0, height, 7)]
+    backdrop = Counter(border).most_common(1)[0][0]
+    if backdrop == (255, 255, 255) or min(backdrop) < _BACKDROP_MIN_CHANNEL:
+        return img
+    distance = ImageChops.difference(img, Image.new("RGB", img.size, backdrop)).convert(
+        "L"
+    )
+    mask = distance.point(lambda v: 255 if v <= _BACKDROP_TOLERANCE else 0)
+    img.paste((255, 255, 255), mask=mask.convert("1"))
+    return img
 
 
 def public_url(object_name: str) -> str:
@@ -76,7 +109,7 @@ def studio_photo(raw_photo: bytes) -> bytes:
         # again is latency the add flow already budgets for.
         retries=2,
     )
-    img = Image.open(io.BytesIO(cutout)).convert("RGB")
+    img = _flatten_backdrop(Image.open(io.BytesIO(cutout)).convert("RGB"))
     img.thumbnail((int(STUDIO_SIZE * 0.86), int(STUDIO_SIZE * 0.86)))
 
     canvas = Image.new("RGB", (STUDIO_SIZE, STUDIO_SIZE), "white")
