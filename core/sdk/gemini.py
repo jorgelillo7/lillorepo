@@ -32,8 +32,11 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 #       --project=be-water-app
 DEFAULT_MODEL = "gemini-3.6-flash"
 # No `-latest` alias exists for image models; callers should treat failures
-# as degradable (and override via env when this one gets retired too).
-DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
+# as degradable (and override via env when this one gets retired too). Measured
+# with the production key, as the note above demands: its predecessor answered
+# 503 "experiencing high demand" through every retry while this one returned
+# first time.
+DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-image"
 
 _RETRYABLE_STATUS = {429, 503}
 _RETRY_BACKOFF_SECONDS = 2
@@ -48,9 +51,21 @@ class GeminiError(Exception):
 
 
 def _post_with_retry(
-    url: str, api_key: str, payload: dict, timeout: int, retries: int
+    url: str,
+    api_key: str,
+    payload: dict,
+    timeout: int,
+    retries: int,
+    fallback_api_key: str = "",
 ) -> requests.Response:
-    """POST, resending on a 429/503 (transient overload) up to `retries` times."""
+    """POST, resending on a 429/503 (transient overload) up to `retries` times.
+
+    A 429 that survives the retries is a quota wall, not a busy minute. When
+    `fallback_api_key` is set the request is sent once more with it: the tier
+    is a property of the key's project, so a key whose project has billing
+    answers where the free one is out of allowance. Free first, paid only when
+    free has nothing left — nothing is charged while the free quota holds.
+    """
     response = requests.post(
         url, params={"key": api_key}, json=payload, timeout=timeout
     )
@@ -60,6 +75,13 @@ def _post_with_retry(
         time.sleep(_RETRY_BACKOFF_SECONDS)
         response = requests.post(
             url, params={"key": api_key}, json=payload, timeout=timeout
+        )
+    if response.status_code == 429 and fallback_api_key:
+        # Logged loudly: this line is the only warning that the project just
+        # started spending money.
+        logger.warning("Free-tier quota exhausted — retrying on the paid key.")
+        response = requests.post(
+            url, params={"key": fallback_api_key}, json=payload, timeout=timeout
         )
     return response
 
@@ -73,6 +95,7 @@ def generate_json(
     model: str = DEFAULT_MODEL,
     timeout: int = 45,
     retries: int = 0,
+    fallback_api_key: str = "",
 ) -> dict:
     """One-shot structured generation: prompt (+ optional image) → dict.
 
@@ -80,7 +103,9 @@ def generate_json(
     propagate as `requests.RequestException` so callers can distinguish
     "Gemini said no" from "the wire broke". `retries` resends the request
     on a 429/503 (transient overload) before giving up — 0 by default so
-    existing callers keep their current latency.
+    existing callers keep their current latency. `fallback_api_key`, when set,
+    gets one last attempt on a 429 the retries could not clear: see
+    `_post_with_retry`.
     """
     parts: list[dict] = [{"text": prompt}]
     if image_bytes is not None:
@@ -102,6 +127,7 @@ def generate_json(
         {"contents": [{"parts": parts}], "generationConfig": generation_config},
         timeout,
         retries,
+        fallback_api_key,
     )
     if response.status_code != 200:
         raise GeminiError(
@@ -123,10 +149,13 @@ def generate_image(
     model: str = DEFAULT_IMAGE_MODEL,
     timeout: int = 90,
     retries: int = 0,
+    fallback_api_key: str = "",
 ) -> bytes:
     """Image-editing call: prompt + source image → edited image bytes.
 
-    Same error contract as `generate_json`."""
+    Same error contract as `generate_json`, and the same paid-key fallback —
+    which matters most here: image generation carries the smallest free
+    allowance of the two, so it is the call that runs out first."""
     response = _post_with_retry(
         f"{GEMINI_API_BASE}/models/{model}:generateContent",
         api_key,
@@ -148,6 +177,7 @@ def generate_image(
         },
         timeout,
         retries,
+        fallback_api_key,
     )
     if response.status_code != 200:
         raise GeminiError(

@@ -39,11 +39,21 @@ if not SECRET_KEY:
 # --- Photos + Gemini OCR ---
 PHOTOS_BUCKET = os.getenv("PHOTOS_BUCKET", "be-water-photos")
 GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
+# Optional second key, used only when the first one's free allowance is spent.
+# The tier belongs to the key's *project*: this one lives in a project with a
+# billing account attached, the default one does not. Empty means "never spend"
+# — the calls simply fail on quota as they did before.
+GEMINI_API_KEY_PAID = _FLASK_CFG.get("gemini_api_key_paid") or os.getenv(
+    "GEMINI_API_KEY_PAID", ""
+)
 # Pinned deliberately — see `core/sdk/gemini.DEFAULT_MODEL`. Changing it needs
 # no deploy:
 #   gcloud run services update be-water --update-env-vars GEMINI_MODEL=...
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
-GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+# Nano Banana 2. Measured against the paid key: the 2.5 flash image model it
+# replaces answered 503 "experiencing high demand" through every retry, while
+# this one returned first time.
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
 # Nicknames whose uploads go through the paid studio treatment (image
 # generation has no free tier). Everyone else keeps the free OCR prefill

@@ -135,3 +135,88 @@ def test_generate_image_surfaces_finish_reason_when_content_missing():
         m.post(_IMG_URL, json={"candidates": [{"finishReason": "IMAGE_SAFETY"}]})
         with pytest.raises(gemini.GeminiError, match="IMAGE_SAFETY"):
             gemini.generate_image("key", "isolate", b"src")
+
+
+# --- Paid-key fallback ---
+
+
+def test_a_spent_free_quota_falls_back_to_the_paid_key():
+    """The tier belongs to the key's project, so the same request answered by a
+    key whose project has billing goes through where the free one is out of
+    allowance. Free first: the paid key is only ever reached on a 429."""
+    with requests_mock.Mocker() as m:
+        m.post(
+            _URL,
+            [
+                {"status_code": 429, "text": "free tier quota exceeded"},
+                {"json": _api_response({"name": "Bezoya"})},
+            ],
+        )
+        result = gemini.generate_json("free", "prompt", fallback_api_key="paid")
+
+    assert result == {"name": "Bezoya"}
+    assert m.call_count == 2
+    assert m.request_history[0].qs["key"] == ["free"]
+    assert m.request_history[1].qs["key"] == ["paid"]
+
+
+def test_the_paid_key_is_tried_once_and_only_after_the_retries():
+    """It is the wall, not the busy minute, that justifies spending: the free
+    key gets every retry it was configured for first."""
+    with requests_mock.Mocker() as m:
+        m.post(_URL, status_code=429, text="quota")
+        with patch("core.sdk.gemini.time.sleep"):
+            with pytest.raises(gemini.GeminiError, match="429"):
+                gemini.generate_json(
+                    "free", "prompt", retries=1, fallback_api_key="paid"
+                )
+
+    assert [r.qs["key"] for r in m.request_history] == [["free"], ["free"], ["paid"]]
+
+
+def test_nothing_is_spent_on_a_failure_the_paid_key_cannot_fix():
+    """A 400 is a malformed request and a 503 is an overloaded model. Neither
+    is about allowance, and retrying either on the paid key just buys the same
+    error for money."""
+    for status in (400, 503):
+        with requests_mock.Mocker() as m:
+            m.post(_URL, status_code=status, text="nope")
+            with pytest.raises(gemini.GeminiError):
+                gemini.generate_json("free", "prompt", fallback_api_key="paid")
+        assert [r.qs["key"] for r in m.request_history] == [["free"]]
+
+
+def test_without_a_paid_key_a_spent_quota_still_fails():
+    """The fallback is opt-in: an unconfigured deployment never spends."""
+    with requests_mock.Mocker() as m:
+        m.post(_URL, status_code=429, text="quota")
+        with pytest.raises(gemini.GeminiError, match="429"):
+            gemini.generate_json("free", "prompt")
+    assert m.call_count == 1
+
+
+def test_the_image_call_falls_back_too():
+    """Image generation carries the smallest free allowance of the two, so it
+    is the call that runs out first."""
+    url = (
+        f"{gemini.GEMINI_API_BASE}/models/{gemini.DEFAULT_IMAGE_MODEL}:generateContent"
+    )
+    png = base64.b64encode(b"studio-bytes").decode("ascii")
+    with requests_mock.Mocker() as m:
+        m.post(
+            url,
+            [
+                {"status_code": 429, "text": "quota"},
+                {
+                    "json": {
+                        "candidates": [
+                            {"content": {"parts": [{"inlineData": {"data": png}}]}}
+                        ]
+                    }
+                },
+            ],
+        )
+        out = gemini.generate_image("free", "prompt", b"raw", fallback_api_key="paid")
+
+    assert out == b"studio-bytes"
+    assert m.request_history[1].qs["key"] == ["paid"]

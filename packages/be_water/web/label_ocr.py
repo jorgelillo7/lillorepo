@@ -42,6 +42,7 @@ def extract_label(image_bytes: bytes) -> dict:
         image_bytes=image_bytes,
         schema=LABEL_SCHEMA,
         model=config.GEMINI_MODEL,
+        fallback_api_key=config.GEMINI_API_KEY_PAID,
         retries=1,
         # 45 s (the default) threw away reads that were merely slow — the
         # observed failure was a read timeout, not an API error. The worker

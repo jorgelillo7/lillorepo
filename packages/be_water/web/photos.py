@@ -64,6 +64,17 @@ def studio_photo(raw_photo: bytes) -> bytes:
         prompt=_STUDIO_PROMPT,
         image_bytes=raw_photo,
         model=config.GEMINI_IMAGE_MODEL,
+        fallback_api_key=config.GEMINI_API_KEY_PAID,
+        # 90 s (the default) is not enough once the free allowance is gone: the
+        # request is then made twice, and the paid attempt starts after the
+        # first has already burned its round trip. The add flow allows the
+        # worker 240 s and runs this beside the OCR, so waiting is affordable.
+        timeout=180,
+        # The image model answers 503 "experiencing high demand" often enough
+        # that a single attempt loses the studio photo on a busy morning. The
+        # caller degrades to the raw shot either way, so the cost of trying
+        # again is latency the add flow already budgets for.
+        retries=2,
     )
     img = Image.open(io.BytesIO(cutout)).convert("RGB")
     img.thumbnail((int(STUDIO_SIZE * 0.86), int(STUDIO_SIZE * 0.86)))
