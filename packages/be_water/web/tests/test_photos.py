@@ -77,6 +77,46 @@ def test_studio_photo_builds_square_watermarked_canvas():
     assert _has_non_white(canvas.crop((w // 2, h // 2, w, h)))
 
 
+def _bottle_on_backdrop(backdrop, size=(400, 800)) -> bytes:
+    """A dark bottle centred on a coloured backdrop, as the model returns it."""
+    img = Image.new("RGB", size, backdrop)
+    img.paste(Image.new("RGB", (120, 400), "navy"), (140, 200))
+    out = io.BytesIO()
+    img.save(out, "JPEG")
+    return out.getvalue()
+
+
+def test_a_near_white_studio_backdrop_is_flattened_to_white():
+    """The prompt asks for pure white and the model does not always deliver:
+    it returns its own light-grey sweep, which the square canvas then frames as
+    a grey rectangle — one ficha looking unlike every other in the grid."""
+    with patch(
+        f"{_MOD}.gemini.generate_image",
+        return_value=_bottle_on_backdrop((245, 245, 245)),
+    ):
+        out = photos.studio_photo(b"raw")
+
+    canvas = Image.open(io.BytesIO(out)).convert("RGB")
+    # Inside where the model's own backdrop landed (the 400x800 cutout is
+    # centred on the 1080 canvas), not the white margin around it.
+    assert canvas.getpixel((380, 200)) == (255, 255, 255)
+    # The bottle itself survives.
+    assert canvas.getpixel((540, 500)) != (255, 255, 255)
+
+
+def test_a_deliberately_dark_backdrop_is_left_alone():
+    """Only a white that drifted is repaired. Whitening a dark or coloured
+    background would rewrite the photograph rather than fix it."""
+    with patch(
+        f"{_MOD}.gemini.generate_image",
+        return_value=_bottle_on_backdrop((40, 40, 60)),
+    ):
+        out = photos.studio_photo(b"raw")
+
+    canvas = Image.open(io.BytesIO(out)).convert("RGB")
+    assert canvas.getpixel((380, 200)) != (255, 255, 255)
+
+
 def test_studio_photo_propagates_gemini_failure():
     """The docstring contract: any failure raises so the caller can fall back
     to the raw photo instead of shipping a broken studio image."""

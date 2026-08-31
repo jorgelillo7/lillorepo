@@ -69,6 +69,26 @@ watermark, producing the bytes uploaded to storage.
 > assert output dimensions, watermark presence, and error handling on a corrupt
 > input.
 
+### Requirement: The studio shot lands on white, whatever the model returns
+
+`studio_photo` SHALL force a **near-white** backdrop in the generated image to
+pure white before squaring it onto the canvas, and SHALL leave a genuinely dark
+or coloured background untouched.
+
+Motive: the prompt asks for pure white and the model does not always deliver —
+it returns the bottle on its own light-grey studio sweep, which the white
+square canvas then frames as a visible grey rectangle. One ficha then looks
+unlike every other in the grid, which is the whole point of the studio
+treatment. Whitening a dark background instead would rewrite the photograph
+rather than repair it, so the repair is limited to a white that drifted.
+
+#### Scenario: drifted white, and a deliberate dark backdrop
+- **WHEN** the model returns the bottle on a light-grey sweep **THEN** the
+  backdrop is white and the bottle is untouched
+- **WHEN** the background is dark or coloured **THEN** it is left as it is
+- *Verifies:* `test_a_near_white_studio_backdrop_is_flattened_to_white`,
+  `test_a_deliberately_dark_backdrop_is_left_alone`
+
 ### Requirement: A replaced photo replaces what visitors see
 
 Every object the photo pipeline writes SHALL carry a `Cache-Control` of at most
