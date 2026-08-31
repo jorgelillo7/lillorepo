@@ -74,7 +74,8 @@ watermark, producing the bytes uploaded to storage.
 Every object the photo pipeline writes SHALL carry a `Cache-Control` of at most
 five minutes, set as object metadata rather than as an upload request header.
 A photo whose bytes are replaced at a path a ficha already points at SHALL be
-re-homed to a new object name when the ficha must show it immediately.
+given a URL the caches cannot already hold — a new object name, or the stored
+URL suffixed with the new generation — when the ficha must show it immediately.
 
 Motive: a public object defaults to an hour at the edge, and every path here is
 overwritten in place — a re-run studio shot, a replaced composition label. The

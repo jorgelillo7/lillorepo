@@ -59,3 +59,32 @@ the candidate has no content, so logs explain the fallback.
 - *Verifies:* `test_generate_image_decodes_inline_data`,
   `test_generate_image_raises_without_image_part`,
   `test_generate_image_surfaces_finish_reason_when_content_missing`
+
+### Requirement: A spent free allowance may fall back to a paid key
+
+`generate_json` and `generate_image` SHALL accept an optional
+`fallback_api_key`. When the request still answers **429** after the
+configured retries, and only then, it SHALL be sent once more with that key,
+and the fallback SHALL be logged. A 4xx other than 429, a 503, and an absent
+fallback key SHALL never reach it.
+
+Motive: the Gemini tier is a property of the key's **project**, not of the
+call — a key whose project has a billing account answers where a free one is
+out of allowance. Free first keeps the bill at zero while the free quota
+holds; restricting the fallback to 429 keeps it from buying the same error
+twice, since a 400 is a malformed request and a 503 is an overloaded model.
+Image generation carries the smallest free allowance, so it is the call that
+runs out first. Opt-in, so a deployment that configures no paid key never
+spends.
+
+#### Scenario: quota wall, transient failure, and no key
+- **WHEN** the free key is out of quota and a fallback is set **THEN** the
+  request is retried on it, after every configured retry has been spent
+- **WHEN** the failure is a 400 or a 503 **THEN** the fallback is not used
+- **WHEN** no fallback key is set **THEN** the 429 raises as before
+- *Verifies:* `test_a_spent_free_quota_falls_back_to_the_paid_key`,
+  `test_the_paid_key_is_tried_once_and_only_after_the_retries`,
+  `test_nothing_is_spent_on_a_failure_the_paid_key_cannot_fix`,
+  `test_without_a_paid_key_a_spent_quota_still_fails`,
+  `test_the_image_call_falls_back_too`
+

@@ -229,3 +229,49 @@ gcloud run services update be-water --update-env-vars GEMINI_MODEL=<model> \
 morning, and there is no way to know which model is behind it — for a reader
 that fills a catalog people trust for being verified, the extraction changing
 without notice is worse than a loud 404.
+
+## 🔑 Two Gemini keys, and the secret that serves them
+
+The Gemini **tier is a property of the key's project**, not of the call:
+
+| key | project | billing | tier |
+|---|---|---|---|
+| `gemini_api_key` | `gen-lang-client-0434934257` | ❌ | free |
+| `gemini_api_key_paid` | `gen-lang-client-0059905191` | ✅ | paid |
+
+Both live in `flask-web-config-regional`. The client tries the first, and only
+on a **429 that survives the retries** does it repeat the call with the second
+(`core/sdk/gemini.py`) — free while the free allowance lasts, paid only when it
+is spent. Leave `gemini_api_key_paid` empty and nothing is ever charged.
+
+A key in a billing-less project is why a 429 can arrive while the billing
+account still shows its credit untouched. Check which project a key belongs to
+before concluding the quota is a billing problem:
+
+```bash
+gcloud services api-keys list --project <project> --format="value(displayName,name)"
+gcloud services api-keys get-key-string <resource-name> --format="value(keyString)"
+```
+
+### Never disable the newest version of this secret
+
+Cloud Run mounts it as `secretKeyRef: latest`, resolved **at instance start**.
+Disabling the newest version does **not** fall back to the previous one: the
+lookup fails, the container never boots, and every request 500s with
+`The request failed because the instance could not start successfully`. That is
+an outage, not a rollback — and it happened.
+
+To roll a secret back, **add a new version carrying the old content**:
+
+```bash
+gcloud secrets versions access latest --secret=flask-web-config-regional \
+  --project=be-water-app --out-file=/tmp/cfg.json     # never to stdout
+# edit /tmp/cfg.json
+gcloud secrets versions add flask-web-config-regional --data-file=/tmp/cfg.json \
+  --project=be-water-app
+rm /tmp/cfg.json
+```
+
+A running instance keeps the payload it booted with, so a change only reaches
+production on the next cold start (min-instances=0, so within minutes of idle).
+
