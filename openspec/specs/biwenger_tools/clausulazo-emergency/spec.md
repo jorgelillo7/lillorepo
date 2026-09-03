@@ -67,10 +67,10 @@ no target yet. With no losses it SHALL target the weakest line.
 400 rather than reach the flow. When nothing is affordable it SHALL send a
 no-target message with no buttons.
 
-The goalkeeper line is never a resolved intent: a manager's last goalkeeper
-can never be claused (Biwenger cancels the operation and the admin
-penalises), and one is all a legal eleven needs, so there is no goalkeeper
-line to reinforce. A single goalkeeper loss SHALL fall back to the weakest
+The goalkeeper line is never a resolved intent. Biwenger allows a manager's
+last goalkeeper to be claused; the league does not, and the admin cancels the
+operation and penalises whoever tried — so no raid leaves anyone without one,
+and one is all a legal eleven needs. There is no goalkeeper line to reinforce. A single goalkeeper loss SHALL fall back to the weakest
 outfield line instead; a batch of losses that are all goalkeepers SHALL be
 reported by name rather than folded into "no recent losses".
 

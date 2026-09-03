@@ -131,10 +131,11 @@ def _format_selector_text(losses: list[dict], cash: int) -> str:
 def _format_goalkeeper_losses_text(losses: list[dict], cash: int) -> str:
     """Render the report for a batch of losses that were all goalkeepers.
 
-    A manager's last goalkeeper can never be claused (Biwenger cancels the
-    operation and the admin penalises the offender) and one is all a legal
-    eleven needs, so there is no goalkeeper line to offer — but the losses
-    themselves are real and must be named, not folded into "no losses".
+    Biwenger allows a manager's last goalkeeper to be claused; the league does
+    not, and the admin cancels the operation and penalises whoever tried. So
+    nobody is ever left without one, one is all a legal eleven needs, and there
+    is no goalkeeper line to offer — but the losses themselves are real and
+    must be named, not folded into "no losses".
     """
     lines = [
         "🚨 <b>Emergencia — clausulazo(s) recientes en portería</b>",
@@ -147,8 +148,9 @@ def _format_goalkeeper_losses_text(losses: list[dict], cash: int) -> str:
         lines.append(f"  · <b>{_escape(loss['name'])}</b> (POR)")
     lines.append("")
     lines.append(
-        "<i>No hay línea de portero que reforzar por esta vía — un único "
-        "portero es legal y no se puede clausular.</i>"
+        "<i>No hay línea de portero que reforzar por esta vía — con un solo "
+        "portero el once es legal, y al último no te lo pueden quitar: el "
+        "admin cancela el clausulazo y penaliza.</i>"
     )
     return "\n".join(lines)
 
