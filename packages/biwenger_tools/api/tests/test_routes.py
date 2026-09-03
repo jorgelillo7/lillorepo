@@ -397,6 +397,24 @@ def test_budget_recommendations_clamps_query_params(client):
     assert [c.kwargs["margin"] for c in calls] == [50_000_000, 0, None]
 
 
+# --- /emergency/clausulazo/preview -----------------------------------------
+
+
+def test_force_position_outside_the_range_is_a_400_not_a_crash(client):
+    """`_reason_force_position` looks up `_POSITION_LABELS_ES[position_id]`
+    for whatever `force_position` carries; anything outside the outfield
+    range (2-4) — garbage, negative, or the goalkeeper line — must be
+    rejected here instead of reaching that lookup."""
+    with patch(
+        "packages.biwenger_tools.api.app.emergency.preview_clausulazo"
+    ) as mock_preview:
+        for raw in ("9", "-1", "garbage", "1"):
+            resp = client.post(f"/emergency/clausulazo/preview?force_position={raw}")
+            assert resp.status_code == 400, raw
+            assert "force_position" in resp.get_json()["error"]
+    mock_preview.assert_not_called()
+
+
 # --- /offers/inbox and /offers/decide -------------------------------------
 
 

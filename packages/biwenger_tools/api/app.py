@@ -159,7 +159,8 @@ def emergency_clausulazo_preview():
     Query params (set by the bot when the user taps a selector button
     after a multi-clausulazo run):
       - `force_position=<2|3|4>` — skip detection, lock target to that
-        outfield position.
+        outfield position. Anything outside that range (including the
+        goalkeeper line) is a 400.
       - `force_weakest=1` — skip detection, target the weakest line.
 
     Side effect: one Telegram message (selector OR confirmation). The
@@ -169,14 +170,17 @@ def emergency_clausulazo_preview():
     force_position_raw = (request.args.get("force_position") or "").strip()
     force_weakest_raw = (request.args.get("force_weakest") or "").strip().lower()
     force_weakest = force_weakest_raw in ("1", "true", "yes")
-    force_position: int | None
+    force_position: int | None = None
     if force_position_raw:
         try:
             force_position = int(force_position_raw)
         except ValueError:
             force_position = None
-    else:
-        force_position = None
+        if force_position not in emergency.OUTFIELD_POSITION_IDS:
+            return (
+                jsonify({"status": "error", "error": "force_position must be 2-4"}),
+                400,
+            )
     return _run_action(
         "emergency.preview",
         lambda: emergency.preview_clausulazo(

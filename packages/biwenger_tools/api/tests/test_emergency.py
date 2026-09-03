@@ -449,6 +449,57 @@ def test_preview_no_losses_uses_weakest_line(preview_env):
     assert "más mermada" in result["reason"]
 
 
+def test_two_goalkeeper_losses_are_reported_not_silently_dropped(preview_env):
+    """Every recent loss being a goalkeeper must not fall through to
+    `_reason_no_losses` — the last goalkeeper cannot be claused, so there is
+    no line to reinforce, but the losses themselves are real."""
+    biwenger, mock_send = preview_env(
+        cash=20_000_000,
+        my_squad=_squad(),
+        biwenger_players={},
+        rivals=[],
+        affordable=[],
+        losses=[
+            _loss(10, "GkOne", position=1),
+            _loss(11, "GkTwo", position=1),
+        ],
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result.get("goalkeeper_only") is True
+    assert mock_send.call_args.kwargs.get("reply_markup") is None
+    text = mock_send.call_args.args[0]
+    assert "GkOne" in text and "GkTwo" in text
+    assert "sin clausulazos" not in text.lower()
+
+
+def test_emergencia_never_targets_the_goalkeeper_line(preview_env):
+    """A manager's own goalkeeper is exempt from `/emergencia` (the last one
+    can never be claused), so a GK loss must resolve to the weakest outfield
+    line instead of being treated as the line to reinforce."""
+    biwenger_players = {
+        10: _bw_player(10, "Gk", position=1),
+        11: _bw_player(11, "D1", position=2),
+        12: _bw_player(12, "D2", position=2),
+        13: _bw_player(13, "M1", position=3),
+        14: _bw_player(14, "F1", position=4),
+    }
+    rivals = [_cand(50, position=3, sf=300), _cand(51, position=4, sf=600)]
+    biwenger, mock_send = preview_env(
+        cash=20_000_000,
+        my_squad=_squad(10, 11, 12, 13, 14),
+        biwenger_players=biwenger_players,
+        rivals=rivals,
+        affordable=rivals,
+        losses=[_loss(10, "MyGk", position=1)],
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result["target"]["position_id"] != 1
+    assert result["target"]["player_id"] == 50  # weakest outfield line = MID
+    assert "portero" in result["reason"].lower()
+
+
 def test_preview_no_affordable_candidates_sends_no_target_message(preview_env):
     biwenger_players = {10: _bw_player(10, "Gk", position=1)}
     biwenger, mock_send = preview_env(

@@ -5,8 +5,9 @@ help them strike back by picking the best affordable rival player to clause,
 with a Telegram preview + inline confirmation before executing.
 
 - **Source:** `packages/biwenger_tools/api/logic/emergency.py`,
-  `clausulazo_detection.py`, `clausulazo_candidates.py`
-- **Verified by:** `packages/biwenger_tools/api/tests/test_emergency.py`
+  `clausulazo_detection.py`, `clausulazo_candidates.py`, `api/app.py`
+- **Verified by:** `packages/biwenger_tools/api/tests/test_emergency.py`,
+  `packages/biwenger_tools/api/tests/test_routes.py`
 
 ---
 
@@ -57,12 +58,21 @@ candidates it SHALL return `None`.
 ### Requirement: Preview resolves or offers a selector
 
 `preview_clausulazo` SHALL target the lost line directly when the loss is
-unambiguous (one single-position loss). When ambiguous — a multi-position loss,
-or several losses — it SHALL send a **selector** (buttons per candidate
-position + a weakest-line fallback + cancel) and set no target yet. With no
-losses it SHALL target the weakest line. `force_position` / `force_weakest`
-SHALL skip detection entirely. When nothing is affordable it SHALL send a
+unambiguous (one single-position outfield loss). When ambiguous — a
+multi-position loss, or several losses — it SHALL send a **selector**
+(buttons per candidate position + a weakest-line fallback + cancel) and set
+no target yet. With no losses it SHALL target the weakest line.
+`force_position` / `force_weakest` SHALL skip detection entirely, and a
+`force_position` outside the outfield range (2-4) SHALL be rejected with a
+400 rather than reach the flow. When nothing is affordable it SHALL send a
 no-target message with no buttons.
+
+The goalkeeper line is never a resolved intent. Biwenger allows a manager's
+last goalkeeper to be claused; the league does not, and the admin cancels the
+operation and penalises whoever tried — so no raid leaves anyone without one,
+and one is all a legal eleven needs. There is no goalkeeper line to reinforce. A single goalkeeper loss SHALL fall back to the weakest
+outfield line instead; a batch of losses that are all goalkeepers SHALL be
+reported by name rather than folded into "no recent losses".
 
 #### Scenario: unambiguous single loss
 - **WHEN** exactly one single-position DEF is lost
@@ -88,6 +98,22 @@ no-target message with no buttons.
 - **WHEN** no candidate fits the cash
 - **THEN** a "Sin candidatos" message is sent with no buttons and target `None`
 - *Verifies:* `test_preview_no_affordable_candidates_sends_no_target_message`
+
+#### Scenario: the goalkeeper line is never the resolved intent
+- **WHEN** the only recent loss is a goalkeeper
+- **THEN** the weakest outfield line is targeted instead, with a reason
+  naming the lost goalkeeper
+- **WHEN** every recent loss is a goalkeeper (single or several)
+- **THEN** the losses are reported by name with no target and no selector,
+  instead of being reported as "no recent losses"
+- *Verifies:* `test_emergencia_never_targets_the_goalkeeper_line`,
+  `test_two_goalkeeper_losses_are_reported_not_silently_dropped`
+
+#### Scenario: force_position outside the outfield range is rejected
+- **WHEN** `force_position` is not one of 2/3/4 (garbage, negative, or the
+  goalkeeper line)
+- **THEN** the route answers 400 without calling into the flow
+- *Verifies:* `test_force_position_outside_the_range_is_a_400_not_a_crash`
 
 ### Requirement: Execute notifies on success and failure
 
