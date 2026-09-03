@@ -62,8 +62,18 @@ third-country table and SHALL be excluded.
 
 The generator SHALL refuse to overwrite the snapshot when the parse looks
 wrong — fewer than 100 entries, or any entry whose province did not parse — and
-SHALL reject a download whose bytes are not a PDF, because a retired URL
-answers with an HTML error page that a PDF reader reports as a corrupt stream.
+SHALL reject a download whose bytes are not a PDF. A retired URL answers with
+an HTML error page that a PDF reader reports as a corrupt stream — but so does
+a live URL under load, so "not a PDF" on its own SHALL NOT be reported as the
+document having moved.
+
+Before refusing, the generator SHALL retry a download the host declined
+transiently — HTTP 429 or 5xx — with exponential backoff, raised to the host's
+`Retry-After` when it asks for longer and capped either way. A status meaning
+the document is not there SHALL fail immediately, without retrying. Every
+refusal SHALL carry its evidence — the HTTP status and the offending page's
+title — so the next failure diagnoses itself instead of costing an
+investigation.
 
 #### Scenario: the parse survives the document's shape
 - **WHEN** a row fits one line
@@ -76,6 +86,21 @@ answers with an HTML error page that a PDF reader reports as a corrupt stream.
 - *Verifies:* `test_reads_a_plain_row`,
   `test_a_two_line_place_wraps_above_its_row`,
   `test_a_three_line_place_wraps_below_its_row`
+
+#### Scenario: a throttled host is not mistaken for a move
+- **WHEN** a download is declined with HTTP 429 and the retry succeeds
+- **THEN** the snapshot is generated from the retried response
+- **WHEN** every attempt is declined with HTTP 429
+- **THEN** the generator exits naming the throttling, never the move
+- **WHEN** the download answers 404
+- **THEN** it exits on the first attempt, naming the move
+- **WHEN** the download answers 200 with bytes that are not a PDF
+- **THEN** it still refuses to overwrite the snapshot
+- *Verifies:* `test_a_throttled_download_is_retried_and_succeeds`,
+  `test_a_download_throttled_every_time_gives_up_naming_the_throttle`,
+  `test_a_moved_document_fails_immediately_without_retrying`,
+  `test_a_200_that_is_not_a_pdf_still_refuses`,
+  `test_the_refusal_carries_the_page_that_caused_it`
 
 #### Scenario: only Spain's own table is read
 - **WHEN** page headers repeat across a page break
