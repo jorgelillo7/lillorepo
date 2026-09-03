@@ -128,6 +128,31 @@ def _format_selector_text(losses: list[dict], cash: int) -> str:
     return "\n".join(lines)
 
 
+def _format_goalkeeper_losses_text(losses: list[dict], cash: int) -> str:
+    """Render the report for a batch of losses that were all goalkeepers.
+
+    A manager's last goalkeeper can never be claused (Biwenger cancels the
+    operation and the admin penalises the offender) and one is all a legal
+    eleven needs, so there is no goalkeeper line to offer — but the losses
+    themselves are real and must be named, not folded into "no losses".
+    """
+    lines = [
+        "🚨 <b>Emergencia — clausulazo(s) recientes en portería</b>",
+        "",
+        f"Tu cash: <b>{format_euros(cash)}</b>",
+        "",
+        "Te han clausulado (últimas 24h):",
+    ]
+    for loss in losses:
+        lines.append(f"  · <b>{_escape(loss['name'])}</b> (POR)")
+    lines.append("")
+    lines.append(
+        "<i>No hay línea de portero que reforzar por esta vía — un único "
+        "portero es legal y no se puede clausular.</i>"
+    )
+    return "\n".join(lines)
+
+
 def _format_preview_text(
     target: dict,
     reason: str,
@@ -194,6 +219,13 @@ def _reason_single_loss(loss: dict) -> str:
 
 def _reason_no_losses() -> str:
     return "sin clausulazos recientes contra ti — refuerza la línea más mermada"
+
+
+def _reason_goalkeeper_loss(loss: dict) -> str:
+    return (
+        f"te han clausulado a tu portero ({loss['name']}) — esa línea no se "
+        "puede reforzar, refuerza la más mermada"
+    )
 
 
 def _fallback_note(preferred_position: int, in_preferred: bool) -> str:
@@ -326,12 +358,15 @@ def _resolve_intent(
                 reply_markup=_selector_keyboard(positions),
             )
             return 0, "", {"cash": cash, "losses": losses, "selector": True}
+        # Every loss was a goalkeeper: no outfield line to offer.
+        _send(_format_goalkeeper_losses_text(losses, cash))
+        return 0, "", {"cash": cash, "losses": losses, "goalkeeper_only": True}
 
-    if len(losses) == 1:
+    if len(losses) == 1 and losses[0]["position_id"] in OUTFIELD_POSITION_IDS:
         return losses[0]["position_id"], _reason_single_loss(losses[0]), None
     return (
         weakest_outfield_position(my_squad, biwenger_players),
-        _reason_no_losses(),
+        _reason_no_losses() if not losses else _reason_goalkeeper_loss(losses[0]),
         None,
     )
 
