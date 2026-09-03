@@ -18,8 +18,10 @@ import io
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 PDF_URL = (
@@ -28,6 +30,16 @@ PDF_URL = (
     "?filename=labelling-nutrition_mineral-waters_list_eu-recognised.pdf"
 )
 SNAPSHOT_PATH = Path("packages/be_water/web/aesan_snapshot.py")
+LANDING_PAGE = (
+    "https://food.ec.europa.eu/food-safety/labelling-and-nutrition"
+    "/natural-mineral-waters-and-spring-water_en"
+)
+
+# The host refuses under load as readily as it refuses a dead link, so these
+# statuses buy a retry rather than an alert.
+RETRYABLE = frozenset({429, 500, 502, 503, 504})
+ATTEMPTS = 5
+BACKOFF_CAP_SECONDS = 60.0
 
 # Spain's own table, and the third-country one that follows it (out of scope:
 # those waters are recognised by Spain but sourced abroad).
@@ -42,6 +54,8 @@ _CELL = re.compile(r"\S(?:.*?\S)?(?=\s{2,}|$)")
 # Every place reads "Municipality (Province)" — the closing parenthesis is what
 # tells a wrapped cell from a finished one.
 _PROVINCE = re.compile(r"^(.*)\(([^)]+)\)\s*$")
+# An HTML refusal names itself in its title ("Sorry - 35884773" for a 429).
+_TITLE = re.compile(rb"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
 def _is_noise(line: str) -> bool:
@@ -158,27 +172,76 @@ def _split(line: str, starts: tuple[int, int]) -> tuple[str, str, str]:
     return line[:second].strip(), line[second:third].strip(), line[third:].strip()
 
 
-def _download() -> bytes:
+def _http_get(url: str) -> tuple[int, bytes, str | None]:
+    """One GET, as (status, body, Retry-After) — errors included, not raised."""
     try:
-        body = urllib.request.urlopen(PDF_URL, timeout=120).read()
+        with urllib.request.urlopen(url, timeout=120) as response:
+            return response.status, response.read(), response.headers.get("Retry-After")
+    except urllib.error.HTTPError as error:
+        return error.code, error.read(), error.headers.get("Retry-After")
     except urllib.error.URLError:
         # Python's bundled CA store doesn't know corporate MITM certs;
-        # curl uses the system trust store and does.
+        # curl uses the system trust store and does. One attempt, no status:
+        # the body check below is what judges it.
         body = subprocess.run(
-            ["curl", "-sSL", PDF_URL], check=True, capture_output=True, timeout=180
+            ["curl", "-sSL", url], check=True, capture_output=True, timeout=180
         ).stdout
-    # A dead link is the failure mode that actually happens: the old AESAN URL
-    # answered 404 with a 107 KB HTML page, and pypdf reported it as a
-    # truncated stream. Check the bytes, not the status — an error page served
-    # as 200 after a redirect would pass a status check.
-    if not body.startswith(b"%PDF"):
+        return 200, body, None
+
+
+def _evidence(body: bytes) -> str:
+    """What arrived instead of the PDF, short enough to read in an alert."""
+    if match := _TITLE.search(body):
+        return match.group(1).decode("utf-8", "replace").strip()
+    return repr(body[:200])
+
+
+def _backoff(attempt: int, retry_after: str | None) -> float:
+    """Exponential, raised to the host's Retry-After when it asks for longer."""
+    delay = min(BACKOFF_CAP_SECONDS, 2.0**attempt)
+    if retry_after and retry_after.strip().isdigit():
+        delay = max(delay, min(BACKOFF_CAP_SECONDS, float(retry_after.strip())))
+    return delay
+
+
+def _download(
+    fetch: Callable[[str], tuple[int, bytes, str | None]] = _http_get,
+    sleep: Callable[[float], object] = time.sleep,
+    attempts: int = ATTEMPTS,
+) -> bytes:
+    """The list's bytes, or exit — retrying only what is worth retrying.
+
+    Bytes decide, not the status: an error page served as 200 after a redirect
+    would pass a status check. But "not a PDF" alone does not mean "moved" —
+    a live host under load answers a 429 with an HTML page too, which is what
+    turned one throttled run into a false "the source is gone" alert.
+
+    `fetch` and `sleep` are injected so the retry rules are testable offline.
+    """
+    status, body = 0, b""
+    for attempt in range(1, attempts + 1):
+        status, body, retry_after = fetch(PDF_URL)
+        if status == 200 and body.startswith(b"%PDF"):
+            return body
+        if status != 200 and status not in RETRYABLE:
+            sys.exit(
+                f"{PDF_URL}\nanswered HTTP {status} ({_evidence(body)}) — the "
+                f"document has probably moved. Find it from {LANDING_PAGE}"
+            )
+        if attempt < attempts:
+            sleep(_backoff(attempt, retry_after))
+    if status in RETRYABLE:
         sys.exit(
-            f"{PDF_URL}\nreturned {len(body)} bytes that are not a PDF — the "
-            "document has probably moved. Find it from "
-            "https://food.ec.europa.eu/food-safety/labelling-and-nutrition"
-            "/natural-mineral-waters-and-spring-water_en"
+            f"{PDF_URL}\nstill answered HTTP {status} after {attempts} attempts "
+            f"({_evidence(body)}) — the host is throttling, which is not the "
+            "same as the document moving. Re-run the workflow before assuming "
+            "the source is gone."
         )
-    return body
+    sys.exit(
+        f"{PDF_URL}\nreturned {len(body)} bytes that are not a PDF after "
+        f"{attempts} attempts ({_evidence(body)}) — the document has probably "
+        f"moved. Find it from {LANDING_PAGE}"
+    )
 
 
 def main() -> None:
