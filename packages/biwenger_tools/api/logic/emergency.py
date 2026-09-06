@@ -14,6 +14,11 @@ Two-phase flow:
    clausulazo with the exact `player_id`/`owner_user_id`/`amount` the
    user approved and notifies the result.
 
+When the squad cannot field a legal eleven at all (`composition_ok` is
+False), the preview forks into rebuild mode instead: a multi-signing plan
+built by `rebuild.build_plan`, stored in Firestore and confirmed/executed as
+a whole via `_preview_rebuild`/`execute_rebuild` — see `rebuild.py`.
+
 Hard rules:
 
 - Cash is **justo** — `target = cash` (no dynamic margin, unlike
@@ -44,11 +49,15 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
     unique_outfield_positions,
     weakest_outfield_position,
 )
+from packages.biwenger_tools.api.logic import rebuild
+from packages.biwenger_tools.api.logic.draft import composition_ok
+from packages.biwenger_tools.api.logic.lineup import xi_snapshot
 from packages.biwenger_tools.api.logic.orchestration import (
     build_biwenger_session,
     build_context,
     require_telegram,
 )
+from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 
 logger = get_logger(__name__)
@@ -99,6 +108,22 @@ def _selector_keyboard(positions: list[int]) -> dict:
     rows.append([{"text": "🌍 Línea más mermada", "callback_data": "e:m"}])
     rows.append([{"text": "❌ Cancelar", "callback_data": "e:n"}])
     return {"inline_keyboard": rows}
+
+
+def _rebuild_keyboard(plan_id: str) -> dict:
+    """Confirm the whole plan. The payload is a plan id and nothing else:
+    `callback_data` is capped at 64 bytes and a seven-signing basket does not
+    fit in it — which is also why execution reads the stored plan instead of
+    recomputing one, so what executes is exactly what was approved.
+    """
+    return {
+        "inline_keyboard": [
+            [
+                {"text": "✅ Sí, reconstruir", "callback_data": f"e:r:{plan_id}"},
+                {"text": "❌ No, cancelar", "callback_data": "e:n"},
+            ]
+        ]
+    }
 
 
 # --- Message formatters --------------------------------------------------
@@ -197,6 +222,93 @@ def _format_executed_text(amount: int, player_name: str, cash_after: int) -> str
     )
 
 
+def _format_rebuild_text(
+    plan, eleven: Optional[dict], projected: list[dict], cash: int
+) -> str:
+    """Render the rebuild plan preview: every signing, the eleven it would
+    field, and whether the money reaches a legal one — before a euro moves.
+    """
+    lines = [
+        "🚨 <b>Emergencia — hace falta reconstruir</b>",
+        "",
+        f"Tu cash: <b>{format_euros(cash)}</b>",
+        f"Formación objetivo: <b>{plan.formation}</b>",
+        "",
+    ]
+    if plan.signings:
+        lines.append("Fichajes propuestos:")
+        for signing in plan.signings:
+            pos = POSITION_SHORT.get(signing.line, "?")
+            lines.append(
+                f"  · <b>{_escape(signing.row['name'])}</b> ({pos}) de "
+                f"<b>{signing.row['owner']}</b> — "
+                f"{format_euros(signing.row['clause_value'])}"
+            )
+        lines.append("")
+        lines.append(f"Coste total: <b>{format_euros(plan.total_cost)}</b>")
+        if plan.spends_floor:
+            lines.append("<i>Hace falta gastar el colchón de seguridad.</i>")
+    else:
+        lines.append("<i>No hay fichajes asequibles con el cash disponible.</i>")
+
+    lines.append("")
+    if eleven is None:
+        lines.append("<i>Ni siquiera con este plan se puede formar un once legal.</i>")
+    else:
+        by_id = {row["bw_id"]: row for row in projected}
+        starters = [by_id[bid] for bid in eleven["starter_ids"] if bid in by_id]
+        names = ", ".join(sorted(row["name"] for row in starters))
+        lines.append(f"Once resultante (SF {eleven['total_sf']}): {names}")
+
+    if not plan.completes_xi:
+        lines.append("")
+        lines.append(
+            "<i>El cash no llega para completar un once legal — quedará al "
+            "menos un hueco sin cubrir.</i>"
+        )
+
+    lines.append("")
+    lines.append("<i>Esta operación es irreversible.</i>")
+    return "\n".join(lines)
+
+
+def _format_rebuild_missing_text() -> str:
+    return (
+        "🚨 <b>Emergencia</b>\n\n"
+        "Este plan ya no está disponible (ya se ejecutó o caducó)."
+    )
+
+
+def _format_rebuild_expired_text() -> str:
+    return (
+        "🚨 <b>Emergencia</b>\n\n"
+        "El plan ha caducado — las cláusulas se mueven y ya no puede "
+        "ejecutarse. Repite <code>/emergencia</code>."
+    )
+
+
+def _format_rebuild_executed_text(outcomes: list[dict], cash_after: int) -> str:
+    lines = ["🚨 <b>Reconstrucción ejecutada</b>", ""]
+    for outcome in outcomes:
+        pos = POSITION_SHORT.get(outcome["line"], "?")
+        if outcome["status"] == "bought":
+            swap_note = " (sustituto)" if outcome.get("swapped") else ""
+            lines.append(
+                f"  · ✅ ({pos}){swap_note} <b>{_escape(outcome['name'])}</b> — "
+                f"{format_euros(outcome['amount'])}"
+            )
+        elif outcome["status"] == "failed":
+            lines.append(
+                f"  · ❌ ({pos}) rechazado — "
+                f"<code>{_escape(outcome.get('error', ''))}</code>"
+            )
+        else:
+            lines.append(f"  · ⚠️ ({pos}) sin cubrir — nadie asequible")
+    lines.append("")
+    lines.append(f"Cash restante: <b>{format_euros(cash_after)}</b>")
+    return "\n".join(lines)
+
+
 # --- Reason strings ------------------------------------------------------
 
 
@@ -273,6 +385,14 @@ def preview_clausulazo(
         biwenger, ctx.biwenger_players, my_manager_name, now_epoch=time.time()
     )
 
+    my_rows = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+    if not composition_ok(rebuild.eligibilities(my_rows)):
+        # Structural, not circumstantial: this asks whether the players exist,
+        # never whether they are fit. Rebuild outranks every other path,
+        # including a forced position — a selector is meaningless when no
+        # single signing can restore an eleven.
+        return _preview_rebuild(ctx, my_rows, my_ids, cash, losses)
+
     preferred_position, reason, selector_payload = _resolve_intent(
         losses=losses,
         my_squad=my_squad,
@@ -321,6 +441,39 @@ def preview_clausulazo(
             "amount": target["clause_value"],
             "sf": sf_of(target),
         },
+    }
+
+
+def _preview_rebuild(
+    ctx, my_rows: list[dict], my_ids: set, cash: int, losses: list[dict]
+) -> dict:
+    """Build, prove, store and offer a rebuild plan. Never buys anything.
+
+    Entered instead of the single-signing flow when `composition_ok` says
+    the squad cannot field a legal eleven at all — see `preview_clausulazo`.
+    """
+    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+    affordable = filter_affordable(rivals, my_ids, target=cash)
+    plan = rebuild.build_plan(my_rows=my_rows, affordable=affordable, cash=cash)
+
+    # Prove it: the eleven is computed from the squad the plan would leave,
+    # never asserted. `xi_snapshot` has no side effects, unlike `pick_lineup`.
+    projected = my_rows + [signing.row for signing in plan.signings]
+    eleven = xi_snapshot(projected)
+
+    plan_id = rebuild.store(plan)
+    _send(
+        _format_rebuild_text(plan, eleven, projected, cash),
+        reply_markup=_rebuild_keyboard(plan_id) if plan.signings else None,
+    )
+    return {
+        "cash": cash,
+        "losses": losses,
+        "rebuild": True,
+        "plan_id": plan_id,
+        "formation": plan.formation,
+        "total_cost": plan.total_cost,
+        "completes_xi": plan.completes_xi,
     }
 
 
@@ -415,6 +568,105 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
     }
 
 
+def execute_rebuild(plan_id: str) -> dict:
+    """Execute a stored rebuild plan, one signing at a time, and report the
+    outcome of every one.
+
+    Refuses a plan older than `config.REBUILD_PLAN_TTL_SECONDS` — clause
+    values move, and a stale basket may no longer be priced accurately.
+    Deletes the stored document once it has run (successfully or not), so
+    the same plan id can never execute twice.
+
+    Re-reads the candidate pool fresh rather than trusting `clause_at_plan`:
+    a target that is gone or whose clause rose above the amount reserved for
+    its hole is replaced by the best-value candidate in the SAME line at or
+    under that SAME reserved amount — the per-signing `reserved` ceiling is
+    what stops a hole from ever being paid for out of another hole's
+    reserve. A hole with nothing left within its own reserve is reported
+    unfilled, never retried against the rest of the budget.
+    """
+    doc = rebuild.load(plan_id)
+    if doc is None:
+        logger.info(
+            "Rebuild plan missing or already executed.", extra={"plan_id": plan_id}
+        )
+        _send(_format_rebuild_missing_text())
+        return {"plan_id": plan_id, "status": "not_found"}
+
+    if time.time() - doc["created_at"] > config.REBUILD_PLAN_TTL_SECONDS:
+        rebuild.discard(plan_id)
+        _send(_format_rebuild_expired_text())
+        return {"plan_id": plan_id, "status": "expired"}
+
+    ctx = build_context()
+    my_squad = ctx.biwenger.get_manager_squad(
+        config.USER_SQUAD_URL, ctx.biwenger.user_id
+    )
+    my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
+    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+
+    outcomes = []
+    for signing in doc["signings"]:
+        cash = int(ctx.biwenger.get_account_state().get("cash") or 0)
+        pool = filter_affordable(rivals, my_ids, target=cash)
+        line_pool = [
+            row
+            for row in pool
+            if rebuild._eligible_for(row, signing["line"])
+            and row["clause_value"] <= signing["reserved"]
+        ]
+        current = next(
+            (row for row in line_pool if int(row["bw_id"]) == int(signing["bw_id"])),
+            None,
+        )
+        swapped = current is None
+        chosen = current or (
+            max(line_pool, key=rebuild.value_of) if line_pool else None
+        )
+
+        if chosen is None:
+            outcomes.append({"line": signing["line"], "status": "unfilled"})
+            continue
+
+        try:
+            ctx.biwenger.place_clausulazo(
+                player_id=int(chosen["bw_id"]),
+                amount=int(chosen["clause_value"]),
+                seller_user_id=int(chosen["owner_user_id"]),
+                offers_url=config.OFFERS_URL,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Rebuild signing failed.",
+                extra={
+                    "plan_id": plan_id,
+                    "bw_id": chosen["bw_id"],
+                    "error": str(exc),
+                },
+            )
+            outcomes.append(
+                {"line": signing["line"], "status": "failed", "error": str(exc)}
+            )
+            continue
+
+        my_ids.add(chosen["bw_id"])
+        outcomes.append(
+            {
+                "line": signing["line"],
+                "status": "bought",
+                "swapped": swapped,
+                "bw_id": chosen["bw_id"],
+                "name": chosen["name"],
+                "amount": chosen["clause_value"],
+            }
+        )
+
+    rebuild.discard(plan_id)
+    cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
+    _send(_format_rebuild_executed_text(outcomes, cash_after))
+    return {"plan_id": plan_id, "signings": outcomes, "cash_after": cash_after}
+
+
 # --- Side-effect helpers -------------------------------------------------
 
 
@@ -440,5 +692,6 @@ def _send(text: str, reply_markup: Optional[dict] = None) -> None:
 __all__ = [
     "preview_clausulazo",
     "execute_clausulazo",
+    "execute_rebuild",
     "OUTFIELD_POSITION_IDS",
 ]

@@ -1,12 +1,17 @@
-"""Pure planner for `/emergencia`'s rebuild mode: what to buy when a single
-clausulazo can no longer restore a legal eleven.
+"""Planner for `/emergencia`'s rebuild mode — what to buy when a single
+clausulazo can no longer restore a legal eleven — plus the Firestore
+persistence of the plan a manager approves.
 
-No HTTP, no Firestore, no Telegram — `emergency.py` owns the flow this feeds.
+No HTTP, no Telegram — `emergency.py` owns the flow this feeds and is the
+only caller of `store`/`load`/`discard`.
 """
 
+import time
+import uuid
 from dataclasses import dataclass
 from typing import Mapping, Sequence
 
+from core.sdk import firestore as fs  # noqa: F401 — re-exported as `rebuild.fs`
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft
 from packages.biwenger_tools.api.logic.clausulazo_candidates import sf_of
@@ -434,3 +439,53 @@ def build_plan(
         total_cost=xi_spent + bench_spent,
         cash_before=cash,
     )
+
+
+# ---------------------------------------------------------------------------
+# Storage — emergencia/{season}/planes/{plan_id}, thin and season-scoped (D3)
+# ---------------------------------------------------------------------------
+
+
+def _plans_path(season: str) -> str:
+    return f"emergencia/{season}/planes"
+
+
+def store(plan: Plan) -> str:
+    """Persist `plan` thinly and return the new document's id.
+
+    Keeps only what `execute_rebuild` needs to re-resolve and re-verify each
+    signing later: `bw_id`, `owner_user_id`, `line`, `reserved`,
+    `clause_at_plan`. Never `jp_player` — a candidate row carries the whole
+    provider payload, and this document is read exactly once, by the
+    manager's own confirmation tap. Names are re-resolved at execution from
+    the players map, the way `execute_clausulazo` already does for its
+    success message.
+    """
+    plan_id = uuid.uuid4().hex
+    doc = {
+        "formation": plan.formation,
+        "cash_before": plan.cash_before,
+        "created_at": time.time(),
+        "signings": [
+            {
+                "bw_id": signing.row["bw_id"],
+                "owner_user_id": signing.row["owner_user_id"],
+                "line": signing.line,
+                "reserved": signing.reserved,
+                "clause_at_plan": signing.row["clause_value"],
+            }
+            for signing in plan.signings
+        ],
+    }
+    fs.set_document(_plans_path(config.CURRENT_SEASON), plan_id, doc)
+    return plan_id
+
+
+def load(plan_id: str) -> dict | None:
+    """The stored plan document, or `None` if it never existed or already ran."""
+    return fs.get_document(_plans_path(config.CURRENT_SEASON), plan_id)
+
+
+def discard(plan_id: str) -> None:
+    """Delete the stored plan so `plan_id` can never execute twice."""
+    fs.delete_document(_plans_path(config.CURRENT_SEASON), plan_id)

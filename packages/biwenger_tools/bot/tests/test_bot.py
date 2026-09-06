@@ -376,6 +376,28 @@ def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
     )
 
 
+def test_rebuild_confirm_callback_calls_rebuild_execute_with_plan_id(client):
+    """`e:r:<plan_id>` → POST /emergency/rebuild/execute with that plan id.
+    Mirrors `e:c:...`'s confirm flow but for the whole rebuild basket."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+    ) as mock_strip, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api"
+    ) as mock_call:
+        resp = _post(client, _callback_update(_VALID_CHAT, "e:r:abc123"))
+    assert resp.status_code == 200
+    mock_strip.assert_called_once()
+    assert "reconstruyendo" in mock_send.call_args.kwargs["text"].lower()
+    mock_call.assert_called_once_with(
+        _API_URL,
+        "/emergency/rebuild/execute",
+        method="POST",
+        params={"plan_id": "abc123"},
+    )
+
+
 def test_emergencia_selector_position_callback_refines_with_force_position(client):
     """`e:p:<position>` → POST /preview?force_position=<position>.
     Strips the selector keyboard so it can't be re-tapped."""

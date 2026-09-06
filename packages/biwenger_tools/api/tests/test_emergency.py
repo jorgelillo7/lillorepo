@@ -15,6 +15,7 @@ re-imported names *inside* `emergency` when stubbing `preview_clausulazo`'s
 collaborators, since that's where the lookup happens at runtime.
 """
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,6 +25,7 @@ from packages.biwenger_tools.api.logic import (
     clausulazo_detection,
     emergency,
 )
+from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
 
 # --- _recent_lost_players -----------------------------------------------
 
@@ -238,10 +240,39 @@ def _patches(target):
     return f"packages.biwenger_tools.api.logic.emergency.{target}"
 
 
+def _legal_my_rows():
+    """A minimal 3-4-3-shaped squad: enough to satisfy `composition_ok` so
+    tests that are not about the rebuild trigger keep exercising the
+    single-signing flow, exactly as before the trigger existed."""
+    rows = [{"bw_id": 900, "name": "MyGk", "position_id": 1, "alt_positions": []}]
+    rows += [
+        {"bw_id": 901 + i, "name": f"MyDef{i}", "position_id": 2, "alt_positions": []}
+        for i in range(3)
+    ]
+    rows += [
+        {"bw_id": 911 + i, "name": f"MyMid{i}", "position_id": 3, "alt_positions": []}
+        for i in range(4)
+    ]
+    rows += [
+        {"bw_id": 921 + i, "name": f"MyFwd{i}", "position_id": 4, "alt_positions": []}
+        for i in range(3)
+    ]
+    return rows
+
+
 @pytest.fixture
 def preview_env():
     """Wire `preview_clausulazo` collaborators: build_context, gather_rivals,
-    filter_affordable, _send. Returns the mocks the test wants to assert on."""
+    filter_affordable, build_squad_rows, _send. Returns the mocks the test
+    wants to assert on.
+
+    `build_squad_rows` is patched to a legal-XI stand-in by default so every
+    test not specifically about the rebuild trigger keeps satisfying
+    `composition_ok` regardless of how small its `my_squad`/`biwenger_players`
+    fixtures are (those still drive `weakest_outfield_position` and
+    `recent_lost_players`, unaffected by this). Pass `my_rows=` to control it
+    directly — the rebuild tests use this to force `composition_ok` False.
+    """
     from contextlib import ExitStack
 
     def _enter(
@@ -252,6 +283,7 @@ def preview_env():
         rivals,
         affordable,
         losses=None,
+        my_rows=None,
     ):
         stack = ExitStack()
 
@@ -278,6 +310,18 @@ def preview_env():
         stack.enter_context(patch(_patches("gather_rivals"), return_value=rivals))
         stack.enter_context(
             patch(_patches("filter_affordable"), return_value=affordable)
+        )
+        stack.enter_context(
+            patch(
+                _patches("build_squad_rows"),
+                return_value=my_rows if my_rows is not None else _legal_my_rows(),
+            )
+        )
+        # Rebuild-mode tests reach `rebuild.store`, a Firestore write — never
+        # exercised by a test not specifically about the trigger, but stubbed
+        # here so none of them accidentally reach a real client.
+        stack.enter_context(
+            patch.object(emergency.rebuild, "store", return_value="plan-test-id")
         )
         mock_send = stack.enter_context(patch(_patches("_send")))
         return biwenger, mock_send, stack
@@ -516,6 +560,301 @@ def test_preview_no_affordable_candidates_sends_no_target_message(preview_env):
     mock_send.assert_called_once()
     assert mock_send.call_args.kwargs.get("reply_markup") is None
     assert "Sin candidatos" in mock_send.call_args.args[0]
+
+
+# --- rebuild mode: the trigger and preview --------------------------------
+
+
+def _broken_my_rows(defenders=0):
+    """A squad missing enough defenders that no formation can be filled —
+    every one of the 14 shapes needs at least 3 DEF (`rebuild._LINE_FLOOR`).
+    """
+    rows = [{"bw_id": 900, "name": "MyGk", "position_id": 1, "alt_positions": []}]
+    rows += [
+        {"bw_id": 901 + i, "name": f"MyDef{i}", "position_id": 2, "alt_positions": []}
+        for i in range(defenders)
+    ]
+    rows += [
+        {"bw_id": 911 + i, "name": f"MyMid{i}", "position_id": 3, "alt_positions": []}
+        for i in range(6)
+    ]
+    rows += [
+        {"bw_id": 921 + i, "name": f"MyFwd{i}", "position_id": 4, "alt_positions": []}
+        for i in range(4)
+    ]
+    return rows
+
+
+def _def_candidates(count=3, clause=5_000_000, sf=300):
+    return [
+        _cand(501 + i, position=2, sf=sf, clause=clause, owner_user_id=8, owner="Rival")
+        for i in range(count)
+    ]
+
+
+def test_rebuild_mode_triggers_only_when_no_legal_xi_is_possible(preview_env):
+    """A squad missing every defender cannot field any of the 14 formations
+    (all need >=3 DEF), so `preview_clausulazo` must fork into the rebuild
+    plan instead of the single-signing flow."""
+    defenders = _def_candidates()
+    biwenger, mock_send = preview_env(
+        cash=30_000_000,
+        my_squad=_squad(),
+        biwenger_players={},
+        rivals=defenders,
+        affordable=defenders,
+        losses=[],
+        my_rows=_broken_my_rows(defenders=0),
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result.get("rebuild") is True
+    assert result.get("plan_id")
+    mock_send.assert_called_once()
+
+
+def test_a_single_loss_that_still_fields_an_xi_keeps_the_one_player_flow(preview_env):
+    """A squad that can still field a legal eleven (the default
+    `_legal_my_rows` stand-in `preview_env` patches in) must keep going
+    through the single-signing flow even with a recent loss — rebuild mode
+    is for squads that cannot field an eleven at all, not for reacting to a
+    single loss."""
+    biwenger_players = {
+        10: _bw_player(10, "Gk", position=1),
+        11: _bw_player(11, "D1", position=2),
+    }
+    rivals = [_cand(50, position=2, sf=500), _cand(51, position=4, sf=900)]
+    biwenger, mock_send = preview_env(
+        cash=10_000_000,
+        my_squad=_squad(10, 11),
+        biwenger_players=biwenger_players,
+        rivals=rivals,
+        affordable=rivals,
+        losses=[_loss(42, "AnaDef", position=2)],
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result.get("rebuild") is None
+    assert result["target"]["player_id"] == 50
+    assert result["target"]["position_id"] == 2
+
+
+def test_rebuild_mode_takes_precedence_over_the_selector(preview_env):
+    """Three losses would normally post the multi-loss selector, but a
+    composition-broken squad must go straight to the rebuild plan instead —
+    a selector asking which line to reinforce is meaningless when no single
+    signing can restore an eleven."""
+    defenders = _def_candidates()
+    biwenger, mock_send = preview_env(
+        cash=30_000_000,
+        my_squad=_squad(),
+        biwenger_players={},
+        rivals=defenders,
+        affordable=defenders,
+        losses=[
+            _loss(42, "DefenderOne", position=2),
+            _loss(43, "ForwardOne", position=4),
+            _loss(44, "MidOne", position=3),
+        ],
+        my_rows=_broken_my_rows(defenders=0),
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result.get("rebuild") is True
+    assert result.get("selector") is None
+    mock_send.assert_called_once()
+    reply_markup = mock_send.call_args.kwargs.get("reply_markup")
+    if reply_markup:
+        callbacks = {
+            b["callback_data"] for row in reply_markup["inline_keyboard"] for b in row
+        }
+        assert not any(cb.startswith("e:p:") or cb == "e:m" for cb in callbacks)
+
+
+def test_the_preview_shows_the_eleven_the_plan_would_field(preview_env):
+    """The message must show the eleven the plan would leave behind, proven
+    with `xi_snapshot` over the projected squad rather than merely asserted.
+    """
+    my_rows = _broken_my_rows(defenders=0)  # GK1 + MID6 + FWD4, 0 DEF
+    defenders = _def_candidates()
+    biwenger, mock_send = preview_env(
+        cash=30_000_000,
+        my_squad=_squad(),
+        biwenger_players={},
+        rivals=defenders,
+        affordable=defenders,
+        losses=[],
+        my_rows=my_rows,
+    )
+    result = emergency.preview_clausulazo()
+
+    assert result["completes_xi"] is True
+    text = mock_send.call_args.args[0]
+    assert "Once resultante" in text
+    assert "sigue sin poder formarse" not in text
+
+
+# --- execute_rebuild -------------------------------------------------------
+
+
+def _rebuild_signing(bw_id, line, reserved, clause_at_plan=None, owner_user_id=7):
+    return {
+        "bw_id": bw_id,
+        "owner_user_id": owner_user_id,
+        "line": line,
+        "reserved": reserved,
+        "clause_at_plan": clause_at_plan if clause_at_plan is not None else reserved,
+    }
+
+
+def _rebuild_doc(signings, created_at=None):
+    return {
+        "formation": "3-4-3",
+        "cash_before": 40_000_000,
+        "created_at": created_at if created_at is not None else time.time(),
+        "signings": signings,
+    }
+
+
+def _pool_row(bw_id, line, clause, owner_user_id=8, owner="Rival", sf=300, name=None):
+    return {
+        "bw_id": bw_id,
+        "name": name or f"P{bw_id}",
+        "position_id": line,
+        "alt_positions": [],
+        "owner": owner,
+        "owner_user_id": owner_user_id,
+        "clause_value": clause,
+        "jp_player": {"predict": [{"type": 2, "rate": sf}]},
+    }
+
+
+def _rebuild_ctx(cash=40_000_000):
+    biwenger = MagicMock(user_id=99)
+    biwenger.get_manager_squad.return_value = []
+    biwenger.get_account_state.return_value = {"cash": cash}
+    biwenger.place_clausulazo.return_value = {"id": 1, "status": "processed"}
+    ctx = OrchestratorContext(biwenger=biwenger, biwenger_players={}, jp_index={})
+    return biwenger, ctx
+
+
+def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
+    """Clause values move — a plan older than `REBUILD_PLAN_TTL_SECONDS` must
+    be refused and discarded rather than executed against stale prices."""
+    stale_created_at = time.time() - emergency.config.REBUILD_PLAN_TTL_SECONDS - 1
+    doc = _rebuild_doc(
+        [_rebuild_signing(111, line=2, reserved=5_000_000)], created_at=stale_created_at
+    )
+    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
+        emergency.rebuild, "discard"
+    ) as mock_discard, patch(_patches("_send")) as mock_send, patch(
+        _patches("build_context")
+    ) as mock_build_context:
+        result = emergency.execute_rebuild("plan1")
+
+    assert result["status"] == "expired"
+    mock_discard.assert_called_once_with("plan1")
+    mock_build_context.assert_not_called()
+    assert "caducado" in mock_send.call_args.args[0].lower()
+
+
+def test_a_vanished_target_is_replaced_within_its_reserved_amount():
+    """The stored target is gone from the fresh candidate pool; the
+    replacement must come from the SAME line and cost no more than the SAME
+    reserved amount — never a swap paid for out of another hole's budget."""
+    doc = _rebuild_doc([_rebuild_signing(111, line=2, reserved=5_000_000)])
+    replacement = _pool_row(222, line=2, clause=5_000_000, owner_user_id=9)
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
+        emergency.rebuild, "discard"
+    ) as mock_discard, patch(_patches("_send")), patch(
+        _patches("build_context"), return_value=ctx
+    ), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=[replacement]
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    biwenger.place_clausulazo.assert_called_once_with(
+        player_id=222,
+        amount=5_000_000,
+        seller_user_id=9,
+        offers_url=emergency.config.OFFERS_URL,
+    )
+    assert result["signings"][0]["swapped"] is True
+    mock_discard.assert_called_once_with("plan1")
+
+
+def test_nothing_outside_the_confirmed_plan_is_ever_bought():
+    """Every `place_clausulazo` call must resolve to a player the stored
+    plan actually targeted — never a tempting extra from the fresh pool,
+    even one cheaper and better-value than the plan's own pick."""
+    doc = _rebuild_doc(
+        [
+            _rebuild_signing(111, line=2, reserved=5_000_000),
+            _rebuild_signing(222, line=3, reserved=6_000_000),
+        ]
+    )
+    pool = [
+        _pool_row(111, line=2, clause=5_000_000),
+        _pool_row(222, line=3, clause=6_000_000),
+        _pool_row(333, line=2, clause=1_000_000, sf=900),  # decoy: cheap, high value
+        _pool_row(444, line=4, clause=1_000_000, sf=900),  # decoy: unrelated line
+    ]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
+        emergency.rebuild, "discard"
+    ), patch(_patches("_send")), patch(
+        _patches("build_context"), return_value=ctx
+    ), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        emergency.execute_rebuild("plan1")
+
+    bought_ids = {
+        call.kwargs["player_id"] for call in biwenger.place_clausulazo.call_args_list
+    }
+    assert bought_ids == {111, 222}
+
+
+def test_execution_reports_the_outcome_of_every_signing():
+    """One outcome per stored signing — bought, swapped, or unfilled — never
+    silently dropped."""
+    doc = _rebuild_doc(
+        [
+            _rebuild_signing(111, line=2, reserved=5_000_000),
+            _rebuild_signing(222, line=3, reserved=6_000_000),
+            _rebuild_signing(333, line=4, reserved=4_000_000),
+        ]
+    )
+    pools = [
+        [_pool_row(111, line=2, clause=5_000_000)],  # bought as planned
+        [_pool_row(999, line=3, clause=6_000_000)],  # target gone — swap
+        [],  # nobody left at all — unfilled
+    ]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
+        emergency.rebuild, "discard"
+    ), patch(_patches("_send")) as mock_send, patch(
+        _patches("build_context"), return_value=ctx
+    ), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), side_effect=pools
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = [outcome["status"] for outcome in result["signings"]]
+    assert statuses == ["bought", "bought", "unfilled"]
+    assert result["signings"][1]["swapped"] is True
+    text = mock_send.call_args.args[0]
+    assert text.count("·") == 3
 
 
 # --- execute_clausulazo --------------------------------------------------

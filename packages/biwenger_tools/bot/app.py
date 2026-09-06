@@ -322,6 +322,45 @@ def _run_emergencia_confirm(payload: str, edit_into: tuple[str, int] | None) -> 
     _run_in_background(_call_execute)
 
 
+def _run_rebuild_confirm(plan_id: str, edit_into: tuple[str, int] | None) -> None:
+    """Tap on the "✅ Sí, reconstruir" button — fire `/emergency/rebuild/execute`.
+
+    `plan_id` is the `e:r:<plan_id>` payload (the `e:` prefix already
+    stripped). The api owns per-signing reporting; this only kicks it off.
+    """
+    if edit_into is not None:
+        chat_id, message_id = edit_into
+        edit_message_reply_markup(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup={"inline_keyboard": []},
+        )
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="⏳ <b>Emergencia</b> — reconstruyendo…",
+    )
+
+    def _call_execute() -> None:
+        try:
+            api_client.call_api(
+                config.BIWENGER_API_URL,
+                "/emergency/rebuild/execute",
+                method="POST",
+                params={"plan_id": plan_id},
+            )
+        except Exception as exc:
+            _report_api_error(
+                "Emergencia",
+                exc,
+                log="Webhook: rebuild execute failed",
+                plan_id=plan_id,
+            )
+
+    _run_in_background(_call_execute)
+
+
 def _run_emergencia_cancel(edit_into: tuple[str, int] | None) -> None:
     """Tap on the "❌ No, cancelar" button — edit the preview to cancelled."""
     if edit_into is None:
@@ -481,6 +520,7 @@ def _handle_callback(cb: dict) -> None:
     Inline-keyboard taps in scope:
     - `analizar:<id|all>` — manager picker for /analizar.
     - `e:c:<player_id>:<owner_id>:<amount>` — confirm /emergencia.
+    - `e:r:<plan_id>` — confirm a rebuild plan (composition-broken squad).
     - `e:p:<position_id>` — selector "reinforce this position".
     - `e:m` — selector "weakest line" fallback.
     - `e:n` — cancel /emergencia.
@@ -520,6 +560,8 @@ def _handle_callback(cb: dict) -> None:
             _run_emergencia_refine(
                 {"force_position": value.split(":", 1)[1]}, edit_into
             )
+        elif value.startswith("r:"):
+            _run_rebuild_confirm(value.split(":", 1)[1], edit_into)
         else:
             _run_emergencia_confirm(value, edit_into)
         return
