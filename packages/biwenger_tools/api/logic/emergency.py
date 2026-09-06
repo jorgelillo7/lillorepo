@@ -16,8 +16,8 @@ Two-phase flow:
 
 When the squad cannot field a legal eleven at all (`composition_ok` is
 False), the preview forks into rebuild mode instead: a multi-signing plan
-built by `rebuild.build_plan`, stored in Firestore and confirmed/executed as
-a whole via `_preview_rebuild`/`execute_rebuild` — see `rebuild.py`.
+built by `rebuild.build_plan`, stored via `rebuild_store` and
+confirmed/executed as a whole via `_preview_rebuild`/`execute_rebuild`.
 
 Hard rules:
 
@@ -49,7 +49,7 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
     unique_outfield_positions,
     weakest_outfield_position,
 )
-from packages.biwenger_tools.api.logic import rebuild
+from packages.biwenger_tools.api.logic import rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.draft import composition_ok
 from packages.biwenger_tools.api.logic.lineup import xi_snapshot
 from packages.biwenger_tools.api.logic.orchestration import (
@@ -461,7 +461,7 @@ def _preview_rebuild(
     projected = my_rows + [signing.row for signing in plan.signings]
     eleven = xi_snapshot(projected)
 
-    plan_id = rebuild.store(plan)
+    plan_id = rebuild_store.store(plan)
     _send(
         _format_rebuild_text(plan, eleven, projected, cash),
         reply_markup=_rebuild_keyboard(plan_id) if plan.signings else None,
@@ -569,13 +569,22 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
 
 
 def execute_rebuild(plan_id: str) -> dict:
-    """Execute a stored rebuild plan, one signing at a time, and report the
-    outcome of every one.
+    """Claim a stored rebuild plan and execute it, one signing at a time,
+    reporting the outcome of every one.
 
-    Refuses a plan older than `config.REBUILD_PLAN_TTL_SECONDS` — clause
-    values move, and a stale basket may no longer be priced accurately.
-    Deletes the stored document once it has run (successfully or not), so
-    the same plan id can never execute twice.
+    Claims before spending: `rebuild_store.claim` reads and deletes the
+    document in one Firestore transaction, so a duplicate call for the same
+    `plan_id` — a crash-triggered retry or simply a fast double tap on the
+    confirm button — finds nothing and never reaches `place_clausulazo` a
+    second time. This is at-most-once, not resumable: a crash partway
+    through the loop below loses whatever signings had not yet been
+    attempted, and the owner has to re-run `/emergencia` rather than the
+    same basket silently re-executing against a market that has moved.
+
+    A plan older than `config.REBUILD_PLAN_TTL_SECONDS` is refused — clause
+    values move, and a stale basket may no longer be priced accurately —
+    but it has already been claimed by this point, so refusing it never
+    reopens the double-execution window `claim` closes.
 
     Re-reads the candidate pool fresh rather than trusting `clause_at_plan`:
     a target that is gone or whose clause rose above the amount reserved for
@@ -585,7 +594,7 @@ def execute_rebuild(plan_id: str) -> dict:
     reserve. A hole with nothing left within its own reserve is reported
     unfilled, never retried against the rest of the budget.
     """
-    doc = rebuild.load(plan_id)
+    doc = rebuild_store.claim(plan_id)
     if doc is None:
         logger.info(
             "Rebuild plan missing or already executed.", extra={"plan_id": plan_id}
@@ -594,7 +603,6 @@ def execute_rebuild(plan_id: str) -> dict:
         return {"plan_id": plan_id, "status": "not_found"}
 
     if time.time() - doc["created_at"] > config.REBUILD_PLAN_TTL_SECONDS:
-        rebuild.discard(plan_id)
         _send(_format_rebuild_expired_text())
         return {"plan_id": plan_id, "status": "expired"}
 
@@ -661,7 +669,6 @@ def execute_rebuild(plan_id: str) -> dict:
             }
         )
 
-    rebuild.discard(plan_id)
     cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
     _send(_format_rebuild_executed_text(outcomes, cash_after))
     return {"plan_id": plan_id, "signings": outcomes, "cash_after": cash_after}

@@ -317,11 +317,11 @@ def preview_env():
                 return_value=my_rows if my_rows is not None else _legal_my_rows(),
             )
         )
-        # Rebuild-mode tests reach `rebuild.store`, a Firestore write — never
-        # exercised by a test not specifically about the trigger, but stubbed
-        # here so none of them accidentally reach a real client.
+        # Rebuild-mode tests reach `rebuild_store.store`, a Firestore write —
+        # never exercised by a test not specifically about the trigger, but
+        # stubbed here so none of them accidentally reach a real client.
         stack.enter_context(
-            patch.object(emergency.rebuild, "store", return_value="plan-test-id")
+            patch.object(emergency.rebuild_store, "store", return_value="plan-test-id")
         )
         mock_send = stack.enter_context(patch(_patches("_send")))
         return biwenger, mock_send, stack
@@ -740,20 +740,23 @@ def _rebuild_ctx(cash=40_000_000):
 
 def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
     """Clause values move — a plan older than `REBUILD_PLAN_TTL_SECONDS` must
-    be refused and discarded rather than executed against stale prices."""
+    be refused rather than executed against stale prices. It has already
+    been claimed (and so deleted) by the time its age is checked, which is
+    what keeps the refusal from reopening the double-execution window
+    `claim` exists to close."""
     stale_created_at = time.time() - emergency.config.REBUILD_PLAN_TTL_SECONDS - 1
     doc = _rebuild_doc(
         [_rebuild_signing(111, line=2, reserved=5_000_000)], created_at=stale_created_at
     )
-    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
-        emergency.rebuild, "discard"
-    ) as mock_discard, patch(_patches("_send")) as mock_send, patch(
+    with patch.object(
+        emergency.rebuild_store, "claim", return_value=doc
+    ) as mock_claim, patch(_patches("_send")) as mock_send, patch(
         _patches("build_context")
     ) as mock_build_context:
         result = emergency.execute_rebuild("plan1")
 
     assert result["status"] == "expired"
-    mock_discard.assert_called_once_with("plan1")
+    mock_claim.assert_called_once_with("plan1")
     mock_build_context.assert_not_called()
     assert "caducado" in mock_send.call_args.args[0].lower()
 
@@ -766,11 +769,9 @@ def test_a_vanished_target_is_replaced_within_its_reserved_amount():
     replacement = _pool_row(222, line=2, clause=5_000_000, owner_user_id=9)
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
-        emergency.rebuild, "discard"
-    ) as mock_discard, patch(_patches("_send")), patch(
-        _patches("build_context"), return_value=ctx
-    ), patch(
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
         _patches("gather_rivals"), return_value=[]
     ), patch(
         _patches("filter_affordable"), return_value=[replacement]
@@ -784,7 +785,6 @@ def test_a_vanished_target_is_replaced_within_its_reserved_amount():
         offers_url=emergency.config.OFFERS_URL,
     )
     assert result["signings"][0]["swapped"] is True
-    mock_discard.assert_called_once_with("plan1")
 
 
 def test_nothing_outside_the_confirmed_plan_is_ever_bought():
@@ -805,11 +805,9 @@ def test_nothing_outside_the_confirmed_plan_is_ever_bought():
     ]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
-        emergency.rebuild, "discard"
-    ), patch(_patches("_send")), patch(
-        _patches("build_context"), return_value=ctx
-    ), patch(
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
         _patches("gather_rivals"), return_value=[]
     ), patch(
         _patches("filter_affordable"), return_value=pool
@@ -839,11 +837,9 @@ def test_execution_reports_the_outcome_of_every_signing():
     ]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild, "load", return_value=doc), patch.object(
-        emergency.rebuild, "discard"
-    ), patch(_patches("_send")) as mock_send, patch(
-        _patches("build_context"), return_value=ctx
-    ), patch(
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
         _patches("gather_rivals"), return_value=[]
     ), patch(
         _patches("filter_affordable"), side_effect=pools
@@ -855,6 +851,40 @@ def test_execution_reports_the_outcome_of_every_signing():
     assert result["signings"][1]["swapped"] is True
     text = mock_send.call_args.args[0]
     assert text.count("·") == 3
+
+
+def test_a_second_execute_rebuild_call_never_reaches_biwenger_again():
+    """A duplicate tap landing while the first execution is still mid-loop —
+    the crash-prone window a stale-read-then-discard-at-the-end leaves open,
+    and one Telegram makes easy to hit with a fast double tap — must never
+    let `place_clausulazo` fire twice for the same plan. The plan has to be
+    claimed atomically before any money moves, not merely deleted after."""
+    doc = _rebuild_doc([_rebuild_signing(111, line=2, reserved=5_000_000)])
+    pool = [_pool_row(111, line=2, clause=5_000_000)]
+    biwenger, ctx = _rebuild_ctx()
+
+    def _place_clausulazo(**kwargs):
+        if biwenger.place_clausulazo.call_count == 1:
+            # A second call for the same plan_id arrives before this one
+            # (still mid-signing) has returned.
+            emergency.execute_rebuild("plan1")
+        return {"id": 1, "status": "processed"}
+
+    biwenger.place_clausulazo.side_effect = _place_clausulazo
+
+    # The real `claim` is transactional: only the first caller ever sees the
+    # document, everyone else gets `None`. Modelled here as the seam the
+    # transaction guarantees, without re-implementing Firestore.
+    with patch.object(emergency.rebuild_store, "claim", side_effect=[doc, None]), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        emergency.execute_rebuild("plan1")
+
+    assert biwenger.place_clausulazo.call_count == 1
 
 
 # --- execute_clausulazo --------------------------------------------------
