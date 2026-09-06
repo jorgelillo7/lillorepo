@@ -112,7 +112,13 @@ def value_of(row: dict) -> float:
 class Signing:
     row: dict
     line: int
-    reserved: int
+    # The cheapest eligible candidate's price for this line at the moment
+    # this hole was committed — an artefact of how `_attempt_fill` budgeted
+    # for the holes still to come, kept for `test_the_plan_reserves_...`.
+    # NOT what was spent (`row["clause_value"]` is) and NOT a ceiling for
+    # anything: the winner is chosen by points-per-euro and is routinely
+    # pricier than this. Never store or read this as a substitution budget.
+    reserve_floor: int
 
 
 @dataclass(frozen=True)
@@ -320,7 +326,7 @@ def _attempt_fill(
         if not candidates:
             continue
         winner = max(candidates, key=value_of)
-        signings.append(Signing(row=winner, line=line, reserved=reserved_for_this))
+        signings.append(Signing(row=winner, line=line, reserve_floor=reserved_for_this))
         used_ids.add(winner["bw_id"])
         spent += winner["clause_value"]
     return signings, spent
@@ -379,7 +385,9 @@ def _fill_bench(
             break
         winner = max(candidates, key=value_of)
         line = next(line for line in lines_used if _eligible_for(winner, line))
-        signings.append(Signing(row=winner, line=line, reserved=winner["clause_value"]))
+        signings.append(
+            Signing(row=winner, line=line, reserve_floor=winner["clause_value"])
+        )
         used_ids.add(winner["bw_id"])
         spent += winner["clause_value"]
     return signings, spent

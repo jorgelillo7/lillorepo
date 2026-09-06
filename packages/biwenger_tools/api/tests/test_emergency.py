@@ -24,8 +24,12 @@ from packages.biwenger_tools.api.logic import (
     clausulazo_candidates,
     clausulazo_detection,
     emergency,
+    rebuild,
+    rebuild_store,
 )
+from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
 from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 
 # --- _recent_lost_players -----------------------------------------------
 
@@ -697,23 +701,79 @@ def test_the_preview_shows_the_eleven_the_plan_would_field(preview_env):
 # --- execute_rebuild -------------------------------------------------------
 
 
-def _rebuild_signing(bw_id, line, reserved, clause_at_plan=None, owner_user_id=7):
-    return {
-        "bw_id": bw_id,
-        "owner_user_id": owner_user_id,
-        "line": line,
-        "reserved": reserved,
-        "clause_at_plan": clause_at_plan if clause_at_plan is not None else reserved,
-    }
+def _two_hole_squad():
+    """DEF=2, MID=1, FWD=8: the only formation reaching the minimum
+    shortfall is `3-2-5` (one DEF, one MID short) — which is what gives a
+    plan built from this squad exactly two signings on two different
+    lines."""
+    rows = [{"bw_id": 900, "name": "MyGk", "position_id": GK, "alt_positions": []}]
+    rows += [
+        {"bw_id": 901 + i, "name": f"MyDef{i}", "position_id": DEF, "alt_positions": []}
+        for i in range(2)
+    ]
+    rows += [{"bw_id": 911, "name": "MyMid0", "position_id": MID, "alt_positions": []}]
+    rows += [
+        {"bw_id": 921 + i, "name": f"MyFwd{i}", "position_id": FWD, "alt_positions": []}
+        for i in range(8)
+    ]
+    return rows
 
 
-def _rebuild_doc(signings, created_at=None):
-    return {
-        "formation": "3-4-3",
-        "cash_before": 40_000_000,
-        "created_at": created_at if created_at is not None else time.time(),
-        "signings": signings,
-    }
+def _legal_squad_and_players():
+    """An 11-player 3-4-3 squad, as both `get_manager_squad`'s raw shape and
+    the matching `biwenger_players` map — real inputs to `build_squad_rows`,
+    needed wherever `execute_rebuild`'s own fresh-squad re-check must see a
+    squad that already fields a legal eleven."""
+    players = {10: _bw_player(10, "Gk", position=1)}
+    players.update({11 + i: _bw_player(11 + i, f"D{i}", position=2) for i in range(3)})
+    players.update({14 + i: _bw_player(14 + i, f"M{i}", position=3) for i in range(4)})
+    players.update({18 + i: _bw_player(18 + i, f"F{i}", position=4) for i in range(3)})
+    return _squad(*players.keys()), players
+
+
+def _broken_squad_and_players(defenders=0):
+    """Same shape as `_broken_my_rows`, but as the raw `get_manager_squad` /
+    `biwenger_players` pair `execute_rebuild` actually reads — needed
+    wherever a test wants its OWN fresh-squad re-check to agree with the
+    hypothetical squad a plan was built against."""
+    players = {900: _bw_player(900, "MyGk", position=1)}
+    players.update(
+        {
+            901 + i: _bw_player(901 + i, f"MyDef{i}", position=2)
+            for i in range(defenders)
+        }
+    )
+    players.update(
+        {911 + i: _bw_player(911 + i, f"MyMid{i}", position=3) for i in range(6)}
+    )
+    players.update(
+        {921 + i: _bw_player(921 + i, f"MyFwd{i}", position=4) for i in range(4)}
+    )
+    return _squad(*players.keys()), players
+
+
+def _partial_fix_squad_and_players():
+    """DEF already restored to 3 — whatever closed that hole happened
+    independently of this plan — while MID stays empty, so `composition_ok`
+    is still False overall but the DEF line specifically is no longer
+    short."""
+    players = {10: _bw_player(10, "Gk", position=1)}
+    players.update({11 + i: _bw_player(11 + i, f"D{i}", position=2) for i in range(3)})
+    return _squad(*players.keys()), players
+
+
+def _built_doc(my_rows, affordable, cash, bench=0, created_at=None):
+    """A stored-plan document built the way the real flow does: the real
+    planner, mapped through the real storage layer (`rebuild_store`). A
+    hand-typed document is what previously let an execution-path test pin
+    a schema `store` could never actually produce."""
+    plan = rebuild.build_plan(
+        my_rows=my_rows, affordable=affordable, cash=cash, bench=bench
+    )
+    doc = rebuild_store._doc_from_plan(plan)
+    if created_at is not None:
+        doc["created_at"] = created_at
+    return doc, plan
 
 
 def _pool_row(bw_id, line, clause, owner_user_id=8, owner="Rival", sf=300, name=None):
@@ -729,12 +789,19 @@ def _pool_row(bw_id, line, clause, owner_user_id=8, owner="Rival", sf=300, name=
     }
 
 
-def _rebuild_ctx(cash=40_000_000):
+def _rebuild_ctx(cash=40_000_000, my_squad=None, biwenger_players=None):
     biwenger = MagicMock(user_id=99)
-    biwenger.get_manager_squad.return_value = []
+    biwenger.get_manager_squad.return_value = my_squad if my_squad is not None else []
     biwenger.get_account_state.return_value = {"cash": cash}
     biwenger.place_clausulazo.return_value = {"id": 1, "status": "processed"}
-    ctx = OrchestratorContext(biwenger=biwenger, biwenger_players={}, jp_index={})
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players=biwenger_players if biwenger_players is not None else {},
+        # `execute_rebuild` calls `build_squad_rows` for real (unlike
+        # `preview_env`, which mocks it out): a properly-shaped empty index
+        # avoids `find_player_match` KeyError-ing on a bare `{}`.
+        jp_index=build_jp_index([]),
+    )
     return biwenger, ctx
 
 
@@ -745,8 +812,11 @@ def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
     what keeps the refusal from reopening the double-execution window
     `claim` exists to close."""
     stale_created_at = time.time() - emergency.config.REBUILD_PLAN_TTL_SECONDS - 1
-    doc = _rebuild_doc(
-        [_rebuild_signing(111, line=2, reserved=5_000_000)], created_at=stale_created_at
+    doc, _ = _built_doc(
+        _broken_my_rows(defenders=0),
+        _def_candidates(count=1),
+        cash=30_000_000,
+        created_at=stale_created_at,
     )
     with patch.object(
         emergency.rebuild_store, "claim", return_value=doc
@@ -763,10 +833,16 @@ def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
 
 def test_a_vanished_target_is_replaced_within_its_reserved_amount():
     """The stored target is gone from the fresh candidate pool; the
-    replacement must come from the SAME line and cost no more than the SAME
-    reserved amount — never a swap paid for out of another hole's budget."""
-    doc = _rebuild_doc([_rebuild_signing(111, line=2, reserved=5_000_000)])
-    replacement = _pool_row(222, line=2, clause=5_000_000, owner_user_id=9)
+    replacement must come from the SAME line and cost no more than what the
+    plan approved for that hole (`clause_at_plan`) — never a swap paid for
+    out of another hole's money."""
+    target = _def_candidates(count=1)[0]
+    doc, plan = _built_doc(_broken_my_rows(defenders=0), [target], cash=30_000_000)
+    approved_id = plan.signings[0].row["bw_id"]
+    approved_price = plan.signings[0].row["clause_value"]
+    replacement = _pool_row(
+        9001, line=DEF, clause=approved_price - 1_000_000, owner_user_id=9
+    )
     biwenger, ctx = _rebuild_ctx()
 
     with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
@@ -779,29 +855,36 @@ def test_a_vanished_target_is_replaced_within_its_reserved_amount():
         result = emergency.execute_rebuild("plan1")
 
     biwenger.place_clausulazo.assert_called_once_with(
-        player_id=222,
-        amount=5_000_000,
+        player_id=9001,
+        amount=replacement["clause_value"],
         seller_user_id=9,
         offers_url=emergency.config.OFFERS_URL,
     )
     assert result["signings"][0]["swapped"] is True
+    assert approved_id != 9001
 
 
 def test_nothing_outside_the_confirmed_plan_is_ever_bought():
     """Every `place_clausulazo` call must resolve to a player the stored
     plan actually targeted — never a tempting extra from the fresh pool,
-    even one cheaper and better-value than the plan's own pick."""
-    doc = _rebuild_doc(
-        [
-            _rebuild_signing(111, line=2, reserved=5_000_000),
-            _rebuild_signing(222, line=3, reserved=6_000_000),
-        ]
-    )
+    even one cheaper and better-value than the plan's own pick.
+
+    Built from the real `build_plan` and the real `store` mapping: a
+    hand-typed document previously hid the exact defect this guards — the
+    approved target, priced above the planner's cheapest-candidate
+    bookkeeping figure, was excluded from its own hole and a decoy got
+    bought instead."""
+    my_rows = _two_hole_squad()
+    def_target = _cand(701, position=DEF, sf=300, clause=5_000_000)
+    mid_target = _cand(702, position=MID, sf=300, clause=6_000_000)
+    doc, plan = _built_doc(my_rows, [def_target, mid_target], cash=40_000_000)
+    assert {s.row["bw_id"] for s in plan.signings} == {701, 702}  # the real planner
+
     pool = [
-        _pool_row(111, line=2, clause=5_000_000),
-        _pool_row(222, line=3, clause=6_000_000),
-        _pool_row(333, line=2, clause=1_000_000, sf=900),  # decoy: cheap, high value
-        _pool_row(444, line=4, clause=1_000_000, sf=900),  # decoy: unrelated line
+        def_target,
+        mid_target,
+        _pool_row(703, line=DEF, clause=1_000_000, sf=900),  # decoy: cheap, high value
+        _pool_row(704, line=FWD, clause=1_000_000, sf=900),  # decoy: unrelated line
     ]
     biwenger, ctx = _rebuild_ctx()
 
@@ -817,22 +900,21 @@ def test_nothing_outside_the_confirmed_plan_is_ever_bought():
     bought_ids = {
         call.kwargs["player_id"] for call in biwenger.place_clausulazo.call_args_list
     }
-    assert bought_ids == {111, 222}
+    assert bought_ids == {701, 702}
 
 
 def test_execution_reports_the_outcome_of_every_signing():
     """One outcome per stored signing — bought, swapped, or unfilled — never
-    silently dropped."""
-    doc = _rebuild_doc(
-        [
-            _rebuild_signing(111, line=2, reserved=5_000_000),
-            _rebuild_signing(222, line=3, reserved=6_000_000),
-            _rebuild_signing(333, line=4, reserved=4_000_000),
-        ]
-    )
+    silently dropped, and each is sent to Telegram as it happens rather
+    than batched at the end."""
+    my_rows = _broken_my_rows(defenders=0)  # 3-4-3, DEF short by 3
+    candidates = _def_candidates(count=3, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000)
+    assert [s.row["bw_id"] for s in plan.signings] == [501, 502, 503]
+
     pools = [
-        [_pool_row(111, line=2, clause=5_000_000)],  # bought as planned
-        [_pool_row(999, line=3, clause=6_000_000)],  # target gone — swap
+        [_pool_row(501, line=DEF, clause=5_000_000)],  # bought as planned
+        [_pool_row(999, line=DEF, clause=5_000_000)],  # target gone — swap
         [],  # nobody left at all — unfilled
     ]
     biwenger, ctx = _rebuild_ctx()
@@ -849,8 +931,151 @@ def test_execution_reports_the_outcome_of_every_signing():
     statuses = [outcome["status"] for outcome in result["signings"]]
     assert statuses == ["bought", "bought", "unfilled"]
     assert result["signings"][1]["swapped"] is True
-    text = mock_send.call_args.args[0]
-    assert text.count("·") == 3
+    # One message per signing as it happens, plus one final summary —
+    # never a single batch sent only after the whole loop finished.
+    assert mock_send.call_count == 4
+    assert "resumen" in mock_send.call_args_list[-1].args[0].lower()
+
+
+def test_execute_rebuild_buys_nothing_when_the_squad_already_fields_an_eleven():
+    """A plan approved against yesterday's squad is a no-op today if
+    something else — another plan, a manual transfer — already restored a
+    legal eleven: `composition_ok` is re-checked fresh, before a euro
+    moves."""
+    doc, _ = _built_doc(
+        _broken_my_rows(defenders=0), _def_candidates(count=3), cash=30_000_000
+    )
+    squad, players = _legal_squad_and_players()
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals")
+    ) as mock_gather:
+        result = emergency.execute_rebuild("plan1")
+
+    assert result["status"] == "not_needed"
+    biwenger.place_clausulazo.assert_not_called()
+    mock_gather.assert_not_called()
+    assert "ya puede formar" in mock_send.call_args.args[0].lower()
+
+
+def test_a_signing_is_skipped_when_its_hole_no_longer_exists():
+    """A hole the plan meant to fill but that a fresh squad re-check shows
+    is no longer short must never be bought into anyway — it is reported
+    skipped, not silently re-filled."""
+    my_rows = _two_hole_squad()
+    def_target = _cand(701, position=DEF, sf=300, clause=5_000_000)
+    mid_target = _cand(702, position=MID, sf=300, clause=6_000_000)
+    doc, plan = _built_doc(my_rows, [def_target, mid_target], cash=40_000_000)
+    assert [s.line for s in plan.signings] == [DEF, MID]
+
+    squad, players = _partial_fix_squad_and_players()
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+    pool = [def_target, mid_target]
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = {outcome["line"]: outcome["status"] for outcome in result["signings"]}
+    assert statuses[DEF] == "skipped"
+    assert statuses[MID] == "bought"
+    bought_ids = {
+        call.kwargs["player_id"] for call in biwenger.place_clausulazo.call_args_list
+    }
+    assert bought_ids == {702}
+
+
+def test_an_unknown_outcome_stops_the_loop_and_the_rest_are_not_attempted():
+    """A call that raises must not be treated as a plain rejection: it may
+    have gone through and merely timed out on the way back. The loop stops
+    rather than continuing on a squad this code can no longer describe, and
+    every signing after the failure is reported as not attempted."""
+    my_rows = _broken_my_rows(defenders=0)
+    candidates = _def_candidates(count=3, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000)
+    assert len(plan.signings) == 3
+
+    biwenger, ctx = _rebuild_ctx()
+    biwenger.place_clausulazo.side_effect = RuntimeError("timeout")
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"),
+        return_value=[_pool_row(501, line=DEF, clause=5_000_000)],
+    ) as mock_filter:
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = [outcome["status"] for outcome in result["signings"]]
+    assert statuses == ["unknown", "not_attempted", "not_attempted"]
+    assert biwenger.place_clausulazo.call_count == 1
+    # The un-attempted signings never even reach the market re-check.
+    assert mock_filter.call_count == 1
+    assert mock_send.call_count == 2  # the failure, then the final summary
+
+
+def test_execute_rebuild_never_buys_a_goalkeeper_as_a_substitute():
+    """A rival's backup goalkeeper — even one eligible for an outfield line
+    via `alt_positions` — must never be bought through this flow: the
+    exclusion is absolute, not merely a planning-time preference."""
+    target = _def_candidates(count=1)[0]
+    doc, plan = _built_doc(_broken_my_rows(defenders=0), [target], cash=30_000_000)
+    approved_id = plan.signings[0].row["bw_id"]
+
+    backup_keeper = _pool_row(9999, line=DEF, clause=1_000_000, sf=900)
+    backup_keeper["position_id"] = GK  # primary line is GK; DEF is only an alt
+    backup_keeper["alt_positions"] = [DEF]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=[backup_keeper]
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    biwenger.place_clausulazo.assert_not_called()
+    assert result["signings"][0]["status"] == "unfilled"
+    assert approved_id != 9999
+
+
+def test_the_executed_summary_states_whether_the_squad_now_fields_a_legal_eleven():
+    """The preview proves its eleven with `xi_snapshot`; the execution must
+    say the same about the squad it leaves behind, not just list what it
+    bought."""
+    my_rows = _broken_my_rows(defenders=0)  # GK1 + MID6 + FWD4, 0 DEF
+    candidates = _def_candidates(count=3, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000)
+    pool = [_pool_row(bw_id, line=DEF, clause=5_000_000) for bw_id in (501, 502, 503)]
+    # The squad `execute_rebuild` re-reads for itself must match the one the
+    # plan was built against, or the final XI check is proving something
+    # other than what the plan actually fixed.
+    squad, players = _broken_squad_and_players(defenders=0)
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        emergency.execute_rebuild("plan1")
+
+    summary = mock_send.call_args_list[-1].args[0]
+    assert "ya puede formar un once legal" in summary.lower()
 
 
 def test_a_second_execute_rebuild_call_never_reaches_biwenger_again():
@@ -859,8 +1084,10 @@ def test_a_second_execute_rebuild_call_never_reaches_biwenger_again():
     and one Telegram makes easy to hit with a fast double tap — must never
     let `place_clausulazo` fire twice for the same plan. The plan has to be
     claimed atomically before any money moves, not merely deleted after."""
-    doc = _rebuild_doc([_rebuild_signing(111, line=2, reserved=5_000_000)])
-    pool = [_pool_row(111, line=2, clause=5_000_000)]
+    doc, _ = _built_doc(
+        _broken_my_rows(defenders=0), _def_candidates(count=1), cash=30_000_000
+    )
+    pool = [_pool_row(501, line=DEF, clause=5_000_000)]
     biwenger, ctx = _rebuild_ctx()
 
     def _place_clausulazo(**kwargs):

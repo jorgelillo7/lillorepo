@@ -84,6 +84,12 @@ class _FakeFirestore:
     def delete_document(self, collection_path, doc_id):
         self.docs.pop((collection_path, doc_id), None)
 
+    def delete_collection(self, collection_path, page_size=None):
+        deleted = [key for key in self.docs if key[0] == collection_path]
+        for key in deleted:
+            del self.docs[key]
+        return len(deleted)
+
     def get_client(self):
         return _FakeClient(self)
 
@@ -91,24 +97,27 @@ class _FakeFirestore:
         return fn(_FakeTransaction())
 
 
-def _stored_plan():
+def _stored_plan(clause=5_000_000):
     signing = rebuild.Signing(
         row={
             "bw_id": 1,
             "owner_user_id": 7,
-            "clause_value": 5_000_000,
+            "clause_value": clause,
             "name": "X",
             "jp_player": {"predict": [{"type": 2, "rate": 300}]},
         },
         line=DEF,
-        reserved=5_000_000,
+        # Deliberately different from `clause_value`, to prove `store`
+        # never persists this field under any name (fix for the mixed-up
+        # "reserved" ceiling).
+        reserve_floor=1,
     )
     return rebuild.Plan(
         signings=[signing],
         formation="3-4-3",
         completes_xi=True,
         spends_floor=False,
-        total_cost=5_000_000,
+        total_cost=clause,
         cash_before=40_000_000,
     )
 
@@ -116,7 +125,8 @@ def _stored_plan():
 def test_store_writes_a_thin_season_scoped_document(monkeypatch):
     """The stored plan is read exactly once, by the manager's own
     confirmation tap — a candidate row's full `jp_player` payload has no
-    reader there, only Firestore cost."""
+    reader there, only Firestore cost. `reserve_floor` is a planning-time
+    artefact with no execution-time meaning and must never be stored."""
     fake = _FakeFirestore()
     monkeypatch.setattr(rebuild_store, "fs", fake)
 
@@ -133,11 +143,24 @@ def test_store_writes_a_thin_season_scoped_document(monkeypatch):
                 "bw_id": 1,
                 "owner_user_id": 7,
                 "line": DEF,
-                "reserved": 5_000_000,
                 "clause_at_plan": 5_000_000,
             }
         ],
     }
+
+
+def test_storing_a_new_plan_invalidates_any_other_live_plan(monkeypatch):
+    """Only one rebuild plan is ever live per season: confirming an older
+    Telegram message after a newer plan replaced it must find nothing to
+    execute, never a second overlapping basket for the same deficit."""
+    fake = _FakeFirestore()
+    monkeypatch.setattr(rebuild_store, "fs", fake)
+
+    old_id = rebuild_store.store(_stored_plan(clause=1_000_000))
+    new_id = rebuild_store.store(_stored_plan(clause=2_000_000))
+
+    assert rebuild_store.load(old_id) is None
+    assert rebuild_store.load(new_id) is not None
 
 
 def test_load_reads_without_removing_the_document(monkeypatch):

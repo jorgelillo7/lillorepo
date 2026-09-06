@@ -169,7 +169,11 @@ def test_target_formation_treats_an_unaffordable_line_as_unreachable_not_free():
 def test_the_plan_reserves_the_cheapest_candidate_for_every_remaining_hole():
     """Two DEF holes, three DEF candidates. The reservation set aside for
     each hole is always the cheapest *still-unclaimed* body, never the same
-    one counted twice."""
+    one counted twice.
+
+    `reserve_floor` is that budgeting artefact, not what gets spent — the
+    winner is chosen by points-per-euro and can cost more (see the two
+    distinct `bw_id`s bought below for exactly that)."""
     my_rows = _squad(gk=1, d=1, m=6, f=5)  # every d=3 formation: DEF short by 2
     pool = [
         _candidate(1, DEF, clause=5_000_000, sf=300),
@@ -180,8 +184,29 @@ def test_the_plan_reserves_the_cheapest_candidate_for_every_remaining_hole():
         my_rows=my_rows, affordable=pool, cash=40_000_000, floor=0, bench=0
     )
     assert plan.completes_xi is True
-    assert [s.reserved for s in plan.signings] == [5_000_000, 5_000_000]
+    assert [s.reserve_floor for s in plan.signings] == [5_000_000, 5_000_000]
     assert len({s.row["bw_id"] for s in plan.signings}) == 2
+
+
+def test_reserve_floor_is_not_what_gets_spent_and_must_not_be_read_as_a_ceiling():
+    """The bug this pins: `reserve_floor` is the cheapest candidate's price
+    at commit time, but the winner is chosen by points-per-euro and is
+    routinely pricier. A caller that reads `reserve_floor` as "the most this
+    signing can cost" excludes its own approved target on essentially every
+    real plan — this asserts the two numbers can legitimately differ."""
+    my_rows = _squad(gk=1, d=1, m=6, f=5)
+    pool = [
+        _candidate(1, DEF, clause=5_000_000, sf=300),
+        _candidate(2, DEF, clause=8_000_000, sf=560),
+        _candidate(3, DEF, clause=20_000_000, sf=1000),
+    ]
+    plan = rebuild.build_plan(
+        my_rows=my_rows, affordable=pool, cash=40_000_000, floor=0, bench=0
+    )
+    first = plan.signings[0]
+    assert first.row["clause_value"] == 8_000_000  # the actual cost
+    assert first.reserve_floor == 5_000_000  # the unrelated budgeting figure
+    assert first.row["clause_value"] > first.reserve_floor
 
 
 def test_a_star_signing_is_refused_when_it_would_starve_the_other_holes():

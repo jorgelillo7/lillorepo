@@ -51,7 +51,7 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
 )
 from packages.biwenger_tools.api.logic import rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.draft import composition_ok
-from packages.biwenger_tools.api.logic.lineup import xi_snapshot
+from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID, xi_snapshot
 from packages.biwenger_tools.api.logic.orchestration import (
     build_biwenger_session,
     build_context,
@@ -111,10 +111,12 @@ def _selector_keyboard(positions: list[int]) -> dict:
 
 
 def _rebuild_keyboard(plan_id: str) -> dict:
-    """Confirm the whole plan. The payload is a plan id and nothing else:
-    `callback_data` is capped at 64 bytes and a seven-signing basket does not
-    fit in it — which is also why execution reads the stored plan instead of
-    recomputing one, so what executes is exactly what was approved.
+    """Confirm the whole plan. The payload is a plan id and nothing else —
+    `callback_data` is capped at 64 bytes and a seven-signing basket does
+    not fit in it. Execution reads the stored plan rather than a freshly
+    recomputed one, but it is not a promise that what runs is unchanged:
+    the market has kept moving since the preview, so `execute_rebuild`
+    re-verifies every signing against it before spending a euro.
     """
     return {
         "inline_keyboard": [
@@ -287,25 +289,61 @@ def _format_rebuild_expired_text() -> str:
     )
 
 
-def _format_rebuild_executed_text(outcomes: list[dict], cash_after: int) -> str:
-    lines = ["🚨 <b>Reconstrucción ejecutada</b>", ""]
-    for outcome in outcomes:
-        pos = POSITION_SHORT.get(outcome["line"], "?")
-        if outcome["status"] == "bought":
-            swap_note = " (sustituto)" if outcome.get("swapped") else ""
-            lines.append(
-                f"  · ✅ ({pos}){swap_note} <b>{_escape(outcome['name'])}</b> — "
-                f"{format_euros(outcome['amount'])}"
-            )
-        elif outcome["status"] == "failed":
-            lines.append(
-                f"  · ❌ ({pos}) rechazado — "
-                f"<code>{_escape(outcome.get('error', ''))}</code>"
-            )
-        else:
-            lines.append(f"  · ⚠️ ({pos}) sin cubrir — nadie asequible")
-    lines.append("")
-    lines.append(f"Cash restante: <b>{format_euros(cash_after)}</b>")
+def _format_rebuild_not_needed_text() -> str:
+    return (
+        "🚨 <b>Emergencia</b>\n\n"
+        "La plantilla ya puede formar un once legal — no se compra nada."
+    )
+
+
+def _format_rebuild_signing_text(outcome: dict) -> str:
+    """One signing's outcome, sent the moment it happens.
+
+    Batching this until the whole plan finished used to mean a request that
+    outlives gunicorn's timeout is SIGKILLed with no `except` running, and
+    every purchase already made vanishes from the chat along with it.
+    """
+    pos = POSITION_SHORT.get(outcome["line"], "?")
+    status = outcome["status"]
+    if status == "bought":
+        swap_note = " (sustituto)" if outcome.get("swapped") else ""
+        return (
+            f"🚨 <b>Reconstrucción</b> — ✅ ({pos}){swap_note} "
+            f"<b>{_escape(outcome['name'])}</b> — "
+            f"{format_euros(outcome['amount'])}"
+        )
+    if status == "unknown":
+        return (
+            f"🚨 <b>Reconstrucción</b> — ⚠️ ({pos}) resultado desconocido — "
+            f"<code>{_escape(outcome.get('error', ''))}</code>. Se detiene el "
+            "resto del plan: comprueba tu plantilla y tu cash antes de repetir."
+        )
+    if status == "skipped":
+        return (
+            f"🚨 <b>Reconstrucción</b> — ⏭️ ({pos}) ese hueco ya no existe, "
+            "no se compra."
+        )
+    if status == "not_attempted":
+        return f"🚨 <b>Reconstrucción</b> — ⏸️ ({pos}) no intentado."
+    return f"🚨 <b>Reconstrucción</b> — ❌ ({pos}) sin cubrir — nadie asequible."
+
+
+def _format_rebuild_summary_text(
+    outcomes: list[dict], cash_after: int, fields_xi: bool
+) -> str:
+    bought = sum(1 for outcome in outcomes if outcome["status"] == "bought")
+    lines = [
+        "🚨 <b>Reconstrucción — resumen</b>",
+        "",
+        f"Fichajes realizados: <b>{bought}</b> de <b>{len(outcomes)}</b>.",
+        f"Cash restante: <b>{format_euros(cash_after)}</b>",
+        "",
+        (
+            "<i>La plantilla ya puede formar un once legal.</i>"
+            if fields_xi
+            else "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
+        ),
+    ]
     return "\n".join(lines)
 
 
@@ -568,31 +606,56 @@ def execute_clausulazo(player_id: int, owner_user_id: int, amount: int) -> dict:
     }
 
 
+def _requirement_for_formation(label: str) -> dict:
+    """`{line: needed}` for the formation label the plan was built against —
+    reusing the plan's own choice rather than re-running `target_formation`,
+    which could pick a different shape now and shuffle which lines count as
+    holes."""
+    for formation_label, n_def, n_mid, n_fwd in rebuild.FORMATIONS:
+        if formation_label == label:
+            return {GK: 1, DEF: n_def, MID: n_mid, FWD: n_fwd}
+    raise ValueError(f"unknown formation: {label}")
+
+
 def execute_rebuild(plan_id: str) -> dict:
     """Claim a stored rebuild plan and execute it, one signing at a time,
-    reporting the outcome of every one.
+    reporting each outcome as it happens.
 
     Claims before spending: `rebuild_store.claim` reads and deletes the
     document in one Firestore transaction, so a duplicate call for the same
-    `plan_id` — a crash-triggered retry or simply a fast double tap on the
-    confirm button — finds nothing and never reaches `place_clausulazo` a
-    second time. This is at-most-once, not resumable: a crash partway
-    through the loop below loses whatever signings had not yet been
-    attempted, and the owner has to re-run `/emergencia` rather than the
-    same basket silently re-executing against a market that has moved.
+    `plan_id` — a crash-triggered retry, a fast double tap on the confirm
+    button, or an older plan a newer one has superseded — finds nothing and
+    never reaches `place_clausulazo`. This is at-most-once, not resumable:
+    a crash partway through the loop below loses whatever signings had not
+    yet been attempted, and the owner has to re-run `/emergencia`.
 
     A plan older than `config.REBUILD_PLAN_TTL_SECONDS` is refused — clause
-    values move, and a stale basket may no longer be priced accurately —
-    but it has already been claimed by this point, so refusing it never
-    reopens the double-execution window `claim` closes.
+    values move — but it has already been claimed by this point, so
+    refusing it never reopens the double-execution window `claim` closes.
 
-    Re-reads the candidate pool fresh rather than trusting `clause_at_plan`:
-    a target that is gone or whose clause rose above the amount reserved for
-    its hole is replaced by the best-value candidate in the SAME line at or
-    under that SAME reserved amount — the per-signing `reserved` ceiling is
-    what stops a hole from ever being paid for out of another hole's
-    reserve. A hole with nothing left within its own reserve is reported
-    unfilled, never retried against the rest of the budget.
+    The squad is re-read fresh before anything is spent. If it can already
+    field a legal eleven — another plan, or a manual transfer, beat this
+    one to it — nothing is bought. Otherwise each signing's own line is
+    checked against the CURRENT deficit for the plan's formation: a hole
+    the plan meant to fill but that is not short any more is skipped.
+
+    Re-reads the candidate pool fresh rather than trusting anything else
+    from plan time: a target that is gone, no longer affordable, or whose
+    clause rose above what the plan approved for it (`clause_at_plan`) is
+    replaced by the best-value candidate in the SAME line at or under that
+    SAME price — which by construction leaves the approved target eligible
+    for its own hole — never a swap paid for out of another hole's money,
+    and never a goalkeeper. A hole with nothing left within that price is
+    reported unfilled, never retried against the rest of the budget.
+
+    An exception stops the loop rather than continuing: a call that timed
+    out may have gone through anyway, and there is no way to tell from here
+    — continuing on a squad this code can no longer describe is how a
+    purchase that actually succeeded gets attempted a second time. Every
+    signing's outcome is sent to Telegram the moment it resolves, not
+    batched at the end: gunicorn's timeout SIGKILLs a request that runs too
+    long, and no `except` runs when that happens — a batched report would
+    simply never arrive.
     """
     doc = rebuild_store.claim(plan_id)
     if doc is None:
@@ -611,17 +674,41 @@ def execute_rebuild(plan_id: str) -> dict:
         config.USER_SQUAD_URL, ctx.biwenger.user_id
     )
     my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
+    my_rows = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+    elig = rebuild.eligibilities(my_rows)
+
+    if composition_ok(elig):
+        _send(_format_rebuild_not_needed_text())
+        return {"plan_id": plan_id, "status": "not_needed", "signings": []}
+
+    remaining_holes = rebuild.line_deficit(
+        elig, _requirement_for_formation(doc["formation"])
+    )
     rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
 
     outcomes = []
+    bought_rows = []
+    stopped = False
     for signing in doc["signings"]:
+        if stopped:
+            outcome = {"line": signing["line"], "status": "not_attempted"}
+            outcomes.append(outcome)
+            continue
+
+        if remaining_holes.get(signing["line"], 0) <= 0:
+            outcome = {"line": signing["line"], "status": "skipped"}
+            outcomes.append(outcome)
+            _send(_format_rebuild_signing_text(outcome))
+            continue
+
         cash = int(ctx.biwenger.get_account_state().get("cash") or 0)
         pool = filter_affordable(rivals, my_ids, target=cash)
         line_pool = [
             row
             for row in pool
-            if rebuild._eligible_for(row, signing["line"])
-            and row["clause_value"] <= signing["reserved"]
+            if row.get("position_id") != GK
+            and rebuild._eligible_for(row, signing["line"])
+            and row["clause_value"] <= signing["clause_at_plan"]
         ]
         current = next(
             (row for row in line_pool if int(row["bw_id"]) == int(signing["bw_id"])),
@@ -633,7 +720,9 @@ def execute_rebuild(plan_id: str) -> dict:
         )
 
         if chosen is None:
-            outcomes.append({"line": signing["line"], "status": "unfilled"})
+            outcome = {"line": signing["line"], "status": "unfilled"}
+            outcomes.append(outcome)
+            _send(_format_rebuild_signing_text(outcome))
             continue
 
         try:
@@ -645,32 +734,36 @@ def execute_rebuild(plan_id: str) -> dict:
             )
         except Exception as exc:
             logger.warning(
-                "Rebuild signing failed.",
+                "Rebuild signing failed — outcome unknown, stopping the plan.",
                 extra={
                     "plan_id": plan_id,
                     "bw_id": chosen["bw_id"],
                     "error": str(exc),
                 },
             )
-            outcomes.append(
-                {"line": signing["line"], "status": "failed", "error": str(exc)}
-            )
+            outcome = {"line": signing["line"], "status": "unknown", "error": str(exc)}
+            outcomes.append(outcome)
+            _send(_format_rebuild_signing_text(outcome))
+            stopped = True
             continue
 
         my_ids.add(chosen["bw_id"])
-        outcomes.append(
-            {
-                "line": signing["line"],
-                "status": "bought",
-                "swapped": swapped,
-                "bw_id": chosen["bw_id"],
-                "name": chosen["name"],
-                "amount": chosen["clause_value"],
-            }
-        )
+        bought_rows.append(chosen)
+        remaining_holes[signing["line"]] = remaining_holes.get(signing["line"], 0) - 1
+        outcome = {
+            "line": signing["line"],
+            "status": "bought",
+            "swapped": swapped,
+            "bw_id": chosen["bw_id"],
+            "name": chosen["name"],
+            "amount": chosen["clause_value"],
+        }
+        outcomes.append(outcome)
+        _send(_format_rebuild_signing_text(outcome))
 
     cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
-    _send(_format_rebuild_executed_text(outcomes, cash_after))
+    fields_xi = xi_snapshot(my_rows + bought_rows) is not None
+    _send(_format_rebuild_summary_text(outcomes, cash_after, fields_xi))
     return {"plan_id": plan_id, "signings": outcomes, "cash_after": cash_after}
 
 
