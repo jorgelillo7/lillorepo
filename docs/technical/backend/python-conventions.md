@@ -85,6 +85,24 @@ outside scripts.
 
 ## 6. Tests
 
+- **Write the test first, and watch it fail.** For anything under
+  `packages/*/logic/` or `core/`: write the test, run it, confirm it fails
+  *for the reason you expect* — a wrong value, not an `ImportError` or a typo
+  — and only then implement until it passes.
+
+  This is the enforceable half of the rule below it. "A test asserting current
+  behaviour is worthless if current behaviour is the bug" cannot be checked
+  after the fact: once the bug and its test are written together, the test is
+  anchored to the code and reads as green either way. Writing first removes the
+  anchor, and the red run is the proof that the test can fail at all.
+
+  Scope is deliberate — logic and core only. Route glue in `api/app.py`,
+  operational scripts (already governed by the dry-run rule in §7) and
+  documentation are excluded: there the loop is friction without the payoff.
+
+  Nothing in CI can prove a test predated its implementation. It is enforced
+  the way this repo enforces every other process rule — by pasting the output:
+  the red run *and* the green run, not just the green one.
 - Every module has its Bazel target (`//packages/.../x:x_tests`); the whole
   suite is `bazel test //...` and CI requires it green before deploying.
 - **Spec and test are a pair** (`openspec/`): a scenario without a test is

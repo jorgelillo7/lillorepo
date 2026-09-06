@@ -54,9 +54,18 @@ So write the test against *what should be true*, and say in the docstring why
 it should be true. If you cannot state that, you do not understand the change
 well enough to test it — say so.
 
+And write it **before** the code, for anything in `logic/` or `core/`: run it,
+watch it fail for the reason you expect, then implement until it passes. A test
+written alongside its implementation is anchored to that implementation, which
+is exactly how the three green tests above ended up pinning defects. The red run
+is the only proof the test can fail at all. Full rule and its scope:
+`docs/technical/backend/python-conventions.md` §6.
+
 ## What you return
 
 - The list of files you touched and what changed in each.
 - The exact commands you ran and their real output — `bazel test`,
   `bash scripts/lint.sh`. Never claim green without pasting it.
+- For a logic change, **both runs**: the failing one with its reason, and the
+  passing one. A lone green proves the test passes, never that it could fail.
 - Anything you could not do, and why. An honest gap beats a silent one.
