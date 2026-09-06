@@ -85,6 +85,23 @@ DAILY_LEAGUE_VALUES_ENABLED = (
 #     --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
 LINEUP_SUB_STARTS_ABOVE = int(os.getenv("LINEUP_SUB_STARTS_ABOVE", "350"))
 
+# What the rebuild leaves in the account, if anything. Zero by default: the
+# money a raid pays out lands in this same balance, so it is already the money
+# the plan is spending, and a clausulazo is paid in cash rather than against
+# `max_bid` — which is exactly what guarantees the manager is never left having
+# to sell to settle up. Hoarding part of it buys the chance to retaliate at the
+# price of a squad that cannot field an eleven, and the squad wins.
+#
+# Kept as a knob rather than deleted: a manager who would rather hold fire can
+# set one, and the planner treats it as a preference, spending into it when it
+# is what stands between them and a legal eleven.
+EMERGENCY_CASH_FLOOR = int(os.getenv("EMERGENCY_CASH_FLOOR", "0"))
+
+# How long an approved rebuild plan stays executable. Clause values move, so a
+# basket approved and forgotten is a basket priced against a market that no
+# longer exists.
+REBUILD_PLAN_TTL_SECONDS = int(os.getenv("REBUILD_PLAN_TTL_SECONDS", "1800"))
+
 # Whether an offer the algorithm rejects gets its own Telegram message.
 # Listing a squad on the market returns one offer per player, so the inbox
 # answers with fifteen notifications to say "no" fourteen times. Off by
