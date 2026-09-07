@@ -161,7 +161,9 @@ def test_store_marks_a_bench_signing_as_such(monkeypatch):
         signings=[
             rebuild.Signing(row=plan.signings[0].row, line=DEF, reserve_floor=1),
             rebuild.Signing(
-                row={**plan.signings[0].row, "bw_id": 2}, line=DEF, reserve_floor=1,
+                row={**plan.signings[0].row, "bw_id": 2},
+                line=DEF,
+                reserve_floor=1,
                 bench=True,
             ),
         ],
