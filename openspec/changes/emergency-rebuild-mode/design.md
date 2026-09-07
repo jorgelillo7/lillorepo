@@ -53,14 +53,17 @@ labelled as incomplete. Refusing to help a manager who cannot afford a full
 recovery would leave them with nothing; claiming an eleven that is not there
 would be a lie. Saying "this is as far as your money goes" is neither.
 
-## Why execution re-plans between purchases
+## Why execution re-reads between purchases
 
 Clause values move and rivals sell. A plan approved thirty seconds ago can have
 a hole in it by the third purchase, and a flow that discovered this by failing
-would leave the squad half-rebuilt with the money already spent. Re-planning
-between purchases keeps the remaining reserve honest; substituting only within
-the same position and at or under the price the plan approved for that signing
-keeps the approved plan's shape, so what executes is still what was agreed.
+would leave the squad half-rebuilt with the money already spent.
+
+What execution re-reads is the balance and the squad, not the plan: it does not
+re-run the planner, and it holds nothing back for later holes. It does not need
+to. Every substitution is capped at the price the plan approved for that
+signing, so the total can never exceed what the owner approved, and the shape
+of the basket survives — what executes is still what was agreed.
 
 ## Deliberately not handled
 

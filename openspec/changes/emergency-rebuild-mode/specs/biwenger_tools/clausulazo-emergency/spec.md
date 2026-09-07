@@ -117,8 +117,8 @@ here worth confirming.
 
 ### Requirement: One confirmation, sequential execution, honest reporting
 
-An approved plan SHALL be executed one signing at a time, re-planning between
-purchases against the balance and clause values that actually remain. A target
+An approved plan SHALL be executed one signing at a time, re-reading the
+balance between purchases. A target
 that has become unavailable SHALL be replaced only by a candidate in the same
 position and at or under the price the plan approved for that signing
 (`clause_at_plan` — the target's own price at plan time, not the cheapest-
@@ -160,8 +160,9 @@ of it is worse than an incomplete notification.
   approved price **THEN** it is bought
 - **WHEN** a bench signing's target is gone **THEN** it is reported
   unavailable, never substituted for a different body
-- **WHEN** signings are processed **THEN** the eleven's are checked and
-  filled before the bench's, regardless of storage order
+- **WHEN** signings are processed **THEN** which rules apply to each is
+  decided by its marker and never by its position in the stored list, so a
+  bench signing never consumes an eleven's hole
 - *Verifies:* `test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole`,
   `test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy`,
   `test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order`
@@ -177,6 +178,41 @@ of it is worse than an incomplete notification.
   `test_a_cash_read_failure_in_the_final_check_does_not_crash_execution`
 
 ## MODIFIED Requirements
+
+### Requirement: An approved plan executes at most once, and only while it is fresh
+
+Executing a plan SHALL claim it first, in a single transaction that reads and
+removes it, so a second confirmation of the same plan reaches no external
+service and spends nothing. Storing a new plan SHALL invalidate any other plan
+still live for the season. A plan older than the configured TTL SHALL be
+refused rather than executed. Before spending, execution SHALL re-read the
+squad and buy nothing when it already fields a legal eleven, SHALL skip an
+eleven signing whose hole has closed, and SHALL stop the run when a purchase
+returns an unknown outcome rather than continue against a squad it can no
+longer describe. No goalkeeper SHALL be bought at execution time either.
+
+This is the money safety of the whole feature, and it is worth stating rather
+than leaving to the code: Telegram makes a second tap easy, a plan priced
+thirty minutes ago is priced against a market that has moved, and a purchase
+whose reply was lost is a purchase whose outcome nobody knows — continuing past
+it would spend against a squad the code has already got wrong.
+
+#### Scenario: a second tap, a stale plan, and a squad that recovered
+- **WHEN** the same plan is confirmed twice **THEN** the second call reaches no
+  external service
+- **WHEN** the plan is older than the TTL **THEN** it is refused
+- **WHEN** the squad already fields a legal eleven **THEN** nothing is bought
+- **WHEN** an eleven signing's hole has closed **THEN** that signing is skipped
+- **WHEN** a purchase returns an unknown outcome **THEN** the run stops and the
+  rest are reported as not attempted
+- **WHEN** a goalkeeper is the best substitute available **THEN** it is not
+  bought
+- *Verifies:* `test_a_second_execute_rebuild_call_never_reaches_biwenger_again`,
+  `test_execute_rebuild_refuses_a_plan_older_than_the_ttl`,
+  `test_execute_rebuild_buys_nothing_when_the_squad_already_fields_an_eleven`,
+  `test_a_signing_is_skipped_when_its_hole_no_longer_exists`,
+  `test_an_unknown_outcome_stops_the_loop_and_the_rest_are_not_attempted`,
+  `test_execute_rebuild_never_buys_a_goalkeeper_as_a_substitute`
 
 ### Requirement: Preview resolves or offers a selector
 
