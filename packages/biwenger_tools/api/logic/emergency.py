@@ -51,7 +51,14 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
 )
 from packages.biwenger_tools.api.logic import rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.draft import composition_ok
-from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID, xi_snapshot
+from packages.biwenger_tools.api.logic.lineup import (
+    DEF,
+    FWD,
+    GK,
+    MID,
+    LineupSearchExhausted,
+    xi_snapshot,
+)
 from packages.biwenger_tools.api.logic.orchestration import (
     build_biwenger_session,
     build_context,
@@ -332,14 +339,15 @@ def _format_rebuild_signing_text(outcome: dict) -> str:
 
 
 def _format_rebuild_summary_text(
-    outcomes: list[dict], cash_after: int, fields_xi: bool
+    outcomes: list[dict], cash_after: int, fields_xi: Optional[bool]
 ) -> str:
     bought = sum(1 for outcome in outcomes if outcome["status"] == "bought")
-    xi_line = (
-        "<i>La plantilla ya puede formar un once legal.</i>"
-        if fields_xi
-        else "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
-    )
+    if fields_xi is None:
+        xi_line = "<i>No se pudo comprobar si la plantilla ya forma un once legal.</i>"
+    elif fields_xi:
+        xi_line = "<i>La plantilla ya puede formar un once legal.</i>"
+    else:
+        xi_line = "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
     lines = [
         "🚨 <b>Reconstrucción — resumen</b>",
         "",
@@ -668,6 +676,11 @@ def execute_rebuild(plan_id: str) -> dict:
     `clause_at_plan`, or reported unavailable, never swapped for another body.
     Signings are processed eleven-first regardless of storage order, so a
     bench purchase can never spend the reserve an eleven hole still needs.
+
+    A Telegram delivery failure while reporting a signing or the final
+    summary is downgraded to a warning rather than raised: by that point
+    money may already have moved, and losing the record of it to a
+    messaging hiccup is worse than a missed notification.
     """
     doc = rebuild_store.claim(plan_id)
     if doc is None:
@@ -713,7 +726,7 @@ def execute_rebuild(plan_id: str) -> dict:
         if not is_bench and remaining_holes.get(signing["line"], 0) <= 0:
             outcome = {"line": signing["line"], "status": "skipped"}
             outcomes.append(outcome)
-            _send(_format_rebuild_signing_text(outcome))
+            _safe_send(outcome, plan_id)
             continue
 
         cash = int(ctx.biwenger.get_account_state().get("cash") or 0)
@@ -734,7 +747,7 @@ def execute_rebuild(plan_id: str) -> dict:
             if chosen is None:
                 outcome = {"line": signing["line"], "status": "unavailable"}
                 outcomes.append(outcome)
-                _send(_format_rebuild_signing_text(outcome))
+                _safe_send(outcome, plan_id)
                 continue
         else:
             line_pool = [
@@ -759,7 +772,7 @@ def execute_rebuild(plan_id: str) -> dict:
             if chosen is None:
                 outcome = {"line": signing["line"], "status": "unfilled"}
                 outcomes.append(outcome)
-                _send(_format_rebuild_signing_text(outcome))
+                _safe_send(outcome, plan_id)
                 continue
 
         try:
@@ -780,7 +793,7 @@ def execute_rebuild(plan_id: str) -> dict:
             )
             outcome = {"line": signing["line"], "status": "unknown", "error": str(exc)}
             outcomes.append(outcome)
-            _send(_format_rebuild_signing_text(outcome))
+            _safe_send(outcome, plan_id)
             stopped = True
             continue
 
@@ -798,13 +811,49 @@ def execute_rebuild(plan_id: str) -> dict:
             "name": chosen["name"],
             "amount": chosen["clause_value"],
         }
+        logger.info(
+            "Rebuild signing bought.",
+            extra={
+                "plan_id": plan_id,
+                "bw_id": chosen["bw_id"],
+                "amount": chosen["clause_value"],
+                "bench": is_bench,
+            },
+        )
         outcomes.append(outcome)
-        _send(_format_rebuild_signing_text(outcome))
+        _safe_send(outcome, plan_id)
 
     cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
-    fields_xi = xi_snapshot(my_rows + bought_rows) is not None
-    _send(_format_rebuild_summary_text(outcomes, cash_after, fields_xi))
+    try:
+        fields_xi = xi_snapshot(my_rows + bought_rows) is not None
+    except LineupSearchExhausted as exc:
+        logger.warning(
+            "Rebuild summary could not verify the resulting eleven.",
+            extra={"plan_id": plan_id, "error": str(exc)},
+        )
+        fields_xi = None
+    summary_text = _format_rebuild_summary_text(outcomes, cash_after, fields_xi)
+    try:
+        _send(summary_text)
+    except Exception as exc:
+        logger.warning(
+            "Rebuild summary could not be reported to Telegram.",
+            extra={"plan_id": plan_id, "error": str(exc)},
+        )
     return {"plan_id": plan_id, "signings": outcomes, "cash_after": cash_after}
+
+
+def _safe_send(outcome: dict, plan_id: str) -> None:
+    """Report one signing's outcome, downgrading a delivery failure to a
+    warning: money may already have moved, and losing the record of it to
+    a Telegram hiccup is worse than a missed notification."""
+    try:
+        _send(_format_rebuild_signing_text(outcome))
+    except Exception as exc:
+        logger.warning(
+            "Rebuild signing outcome could not be reported to Telegram.",
+            extra={"plan_id": plan_id, "outcome": outcome, "error": str(exc)},
+        )
 
 
 # --- Side-effect helpers -------------------------------------------------

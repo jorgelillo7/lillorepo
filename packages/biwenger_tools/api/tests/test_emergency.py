@@ -27,7 +27,13 @@ from packages.biwenger_tools.api.logic import (
     rebuild,
     rebuild_store,
 )
-from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
+from packages.biwenger_tools.api.logic.lineup import (
+    DEF,
+    FWD,
+    GK,
+    MID,
+    LineupSearchExhausted,
+)
 from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
 from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 
@@ -725,9 +731,13 @@ def _two_hole_squad_and_players():
     test wants `execute_rebuild`'s own fresh-squad re-check to agree with
     the deficit the plan was actually built against."""
     players = {900: _bw_player(900, "MyGk", position=1)}
-    players.update({901 + i: _bw_player(901 + i, f"MyDef{i}", position=2) for i in range(2)})
+    players.update(
+        {901 + i: _bw_player(901 + i, f"MyDef{i}", position=2) for i in range(2)}
+    )
     players.update({911: _bw_player(911, "MyMid0", position=3)})
-    players.update({921 + i: _bw_player(921 + i, f"MyFwd{i}", position=4) for i in range(8)})
+    players.update(
+        {921 + i: _bw_player(921 + i, f"MyFwd{i}", position=4) for i in range(8)}
+    )
     return _squad(*players.keys()), players
 
 
@@ -785,7 +795,9 @@ def _built_doc(my_rows, affordable, cash, bench=None, created_at=None):
     money-path defect that only exists at the real value.
     """
     kwargs = {} if bench is None else {"bench": bench}
-    plan = rebuild.build_plan(my_rows=my_rows, affordable=affordable, cash=cash, **kwargs)
+    plan = rebuild.build_plan(
+        my_rows=my_rows, affordable=affordable, cash=cash, **kwargs
+    )
     doc = rebuild_store._doc_from_plan(plan)
     if created_at is not None:
         doc["created_at"] = created_at
@@ -1233,6 +1245,92 @@ def test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order():
 
     statuses = {o["bw_id"]: o["status"] for o in result["signings"]}
     assert statuses == {701: "bought", 702: "bought", 703: "bought"}
+
+
+def test_a_telegram_failure_after_a_purchase_does_not_abort_the_run():
+    """A 429 reporting one purchase must not swallow the fact that money
+    already moved: the loop keeps going, the next signing is still
+    attempted, and the final summary still gets sent."""
+    my_rows = _broken_my_rows(defenders=0)
+    candidates = _def_candidates(count=2, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000, bench=0)
+    pool = [
+        _pool_row(501, line=DEF, clause=5_000_000),
+        _pool_row(502, line=DEF, clause=5_000_000),
+    ]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send"), side_effect=[RuntimeError("429"), None, None]
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = [outcome["status"] for outcome in result["signings"]]
+    assert statuses == ["bought", "bought"]
+    assert biwenger.place_clausulazo.call_count == 2
+    assert mock_send.call_count == 3
+
+
+def test_every_purchase_is_logged_even_if_telegram_never_hears_about_it():
+    """The only record a purchase happened must not depend on a Telegram
+    delivery that can fail — it has to be logged before the report is even
+    attempted."""
+    my_rows = _broken_my_rows(defenders=0)
+    candidates = _def_candidates(count=1, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000, bench=0)
+    pool = [_pool_row(501, line=DEF, clause=5_000_000)]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send"), side_effect=RuntimeError("429")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ), patch.object(
+        emergency, "logger"
+    ) as mock_logger:
+        emergency.execute_rebuild("plan1")
+
+    bought_calls = [
+        call
+        for call in mock_logger.info.call_args_list
+        if call.args and call.args[0] == "Rebuild signing bought."
+    ]
+    assert len(bought_calls) == 1
+    assert bought_calls[0].kwargs["extra"]["bw_id"] == 501
+    assert bought_calls[0].kwargs["extra"]["amount"] == 5_000_000
+
+
+def test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution():
+    """`xi_snapshot` can raise `LineupSearchExhausted` when every formation
+    hits the search ceiling. The purchases already made — and their
+    reporting — must not be lost because the final eleven check failed."""
+    my_rows = _broken_my_rows(defenders=0)
+    candidates = _def_candidates(count=3, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000, bench=0)
+    pool = [_pool_row(bw_id, line=DEF, clause=5_000_000) for bw_id in (501, 502, 503)]
+    biwenger, ctx = _rebuild_ctx()
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ), patch(
+        _patches("xi_snapshot"),
+        side_effect=LineupSearchExhausted("ceiling hit"),
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    assert [o["status"] for o in result["signings"]] == ["bought", "bought", "bought"]
+    summary = mock_send.call_args_list[-1].args[0]
+    assert "no se pudo comprobar" in summary.lower()
 
 
 # --- execute_clausulazo --------------------------------------------------
