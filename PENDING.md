@@ -35,6 +35,8 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
+| ⏳ | A second projection source beside Jornada Perfecta | Whether Analítica Fantasy can be read programmatically, with permission · every decision rides on one number today · [plan](docs/technical/backend/second-projection-source.md) |
+| 🔨 | Nothing records what was projected against what was scored | Worth doing whether or not a second source ever arrives — without it "is JP worth it" has no answer · [why](docs/technical/backend/second-projection-source.md) |
 | 👤 | The Liga H2H champion has no palmarés slot | You: art. 3.5 proclaims one, `SPECIAL_TOURNAMENTS` has no slug and it would need a graphic · decided at the first H2H rollover |
 | ⏳ | `Lucen`/`Lillo`/`Rubén` in the sheets vs `Lucena`/`Jorge`/`Ruben` in `LEAGUE_MEMBERS` | Harmless today · becomes load-bearing when art. 3.5 puts the H2H champion in the palmarés and art. 3.6 makes H2H the league tiebreak |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 350 the right bar? | A few rounds of `log_promotions` read against real points |
