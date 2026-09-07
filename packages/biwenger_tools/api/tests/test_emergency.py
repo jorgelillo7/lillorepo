@@ -719,6 +719,18 @@ def _two_hole_squad():
     return rows
 
 
+def _two_hole_squad_and_players():
+    """The raw `get_manager_squad` / `biwenger_players` pair matching
+    `_two_hole_squad()`'s shape (GK1/DEF2/MID1/FWD8) — needed wherever a
+    test wants `execute_rebuild`'s own fresh-squad re-check to agree with
+    the deficit the plan was actually built against."""
+    players = {900: _bw_player(900, "MyGk", position=1)}
+    players.update({901 + i: _bw_player(901 + i, f"MyDef{i}", position=2) for i in range(2)})
+    players.update({911: _bw_player(911, "MyMid0", position=3)})
+    players.update({921 + i: _bw_player(921 + i, f"MyFwd{i}", position=4) for i in range(8)})
+    return _squad(*players.keys()), players
+
+
 def _legal_squad_and_players():
     """An 11-player 3-4-3 squad, as both `get_manager_squad`'s raw shape and
     the matching `biwenger_players` map — real inputs to `build_squad_rows`,
@@ -762,14 +774,18 @@ def _partial_fix_squad_and_players():
     return _squad(*players.keys()), players
 
 
-def _built_doc(my_rows, affordable, cash, bench=0, created_at=None):
+def _built_doc(my_rows, affordable, cash, bench=None, created_at=None):
     """A stored-plan document built the way the real flow does: the real
     planner, mapped through the real storage layer (`rebuild_store`). A
     hand-typed document is what previously let an execution-path test pin
-    a schema `store` could never actually produce."""
-    plan = rebuild.build_plan(
-        my_rows=my_rows, affordable=affordable, cash=cash, bench=bench
-    )
+    a schema `store` could never actually produce.
+
+    `bench` defaults to `build_plan`'s own default rather than a fixed
+    number here — a test-side default that silently overrode it once hid a
+    money-path defect that only exists at the real value.
+    """
+    kwargs = {} if bench is None else {"bench": bench}
+    plan = rebuild.build_plan(my_rows=my_rows, affordable=affordable, cash=cash, **kwargs)
     doc = rebuild_store._doc_from_plan(plan)
     if created_at is not None:
         doc["created_at"] = created_at
@@ -1112,6 +1128,111 @@ def test_a_second_execute_rebuild_call_never_reaches_biwenger_again():
         emergency.execute_rebuild("plan1")
 
     assert biwenger.place_clausulazo.call_count == 1
+
+
+def test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole():
+    """A bench signing has no corresponding eleven hole to be checked
+    against — `remaining_holes` reads zero for its line by construction,
+    which is exactly what made the pre-fix code report it as `skipped`
+    ("ese hueco ya no existe") even though the player was still there to
+    buy. Exercises the real `bench=2` default end to end, and a fresh
+    squad shaped like the one the plan was actually built against."""
+    my_rows = _two_hole_squad()
+    def_target = _cand(701, position=DEF, sf=900, clause=5_000_000)
+    mid_target = _cand(702, position=MID, sf=900, clause=6_000_000)
+    bench_a = _cand(703, position=DEF, sf=400, clause=3_000_000)
+    bench_b = _cand(704, position=FWD, sf=500, clause=4_000_000)
+    doc, plan = _built_doc(
+        my_rows, [def_target, mid_target, bench_a, bench_b], cash=40_000_000
+    )
+    assert {s.row["bw_id"] for s in plan.signings} == {701, 702, 703, 704}
+
+    squad, players = _two_hole_squad_and_players()
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+    pool = [def_target, mid_target, bench_a, bench_b]
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = {o["bw_id"]: o["status"] for o in result["signings"] if "bw_id" in o}
+    assert statuses == {701: "bought", 702: "bought", 703: "bought", 704: "bought"}
+    bought_ids = {
+        call.kwargs["player_id"] for call in biwenger.place_clausulazo.call_args_list
+    }
+    assert bought_ids == {701, 702, 703, 704}
+
+
+def test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy():
+    """Unlike an eleven hole, a vanished bench target is never replaced by
+    a different body — it was never a hole the plan needed filled, so the
+    only two outcomes are 'still there, buy it' or 'gone, skip it', and the
+    message must say the latter rather than the eleven's 'hole' wording."""
+    my_rows = _two_hole_squad()
+    def_target = _cand(701, position=DEF, sf=900, clause=5_000_000)
+    mid_target = _cand(702, position=MID, sf=900, clause=6_000_000)
+    bench_a = _cand(703, position=DEF, sf=400, clause=3_000_000)
+    bench_b = _cand(704, position=FWD, sf=500, clause=4_000_000)
+    doc, plan = _built_doc(
+        my_rows, [def_target, mid_target, bench_a, bench_b], cash=40_000_000
+    )
+
+    decoy = _pool_row(9001, line=DEF, clause=1_000_000, sf=900)
+    pool = [def_target, mid_target, decoy, bench_b]
+    squad, players = _two_hole_squad_and_players()
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    bought_ids = {
+        call.kwargs["player_id"] for call in biwenger.place_clausulazo.call_args_list
+    }
+    assert bought_ids == {701, 702, 704}
+    assert 9001 not in bought_ids
+    assert any(o["status"] == "unavailable" for o in result["signings"])
+
+
+def test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order():
+    """The bench/eleven split is read from each signing's own `bench`
+    field — reversing the stored order must not change which check
+    applies to which entry, nor let a bench purchase consume an eleven
+    hole's budget before that hole is bought."""
+    my_rows = _two_hole_squad()
+    def_target = _cand(701, position=DEF, sf=900, clause=5_000_000)
+    mid_target = _cand(702, position=MID, sf=900, clause=6_000_000)
+    bench_a = _cand(703, position=DEF, sf=400, clause=3_000_000)
+    doc, plan = _built_doc(
+        my_rows, [def_target, mid_target, bench_a], cash=40_000_000, bench=1
+    )
+    doc["signings"].reverse()
+
+    squad, players = _two_hole_squad_and_players()
+    biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
+    pool = [def_target, mid_target, bench_a]
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ), patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    statuses = {o["bw_id"]: o["status"] for o in result["signings"]}
+    assert statuses == {701: "bought", 702: "bought", 703: "bought"}
 
 
 # --- execute_clausulazo --------------------------------------------------

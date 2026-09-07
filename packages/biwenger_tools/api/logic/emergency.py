@@ -323,8 +323,11 @@ def _format_rebuild_signing_text(outcome: dict) -> str:
             f"🚨 <b>Reconstrucción</b> — ⏭️ ({pos}) ese hueco ya no existe, "
             "no se compra."
         )
-    if status == "not_attempted":
-        return f"🚨 <b>Reconstrucción</b> — ⏸️ ({pos}) no intentado."
+    if status == "unavailable":
+        return (
+            f"🚨 <b>Reconstrucción</b> — ⏭️ ({pos}) el sustituto ya no está "
+            "disponible, no se compra."
+        )
     return f"🚨 <b>Reconstrucción</b> — ❌ ({pos}) sin cubrir — nadie asequible."
 
 
@@ -332,17 +335,18 @@ def _format_rebuild_summary_text(
     outcomes: list[dict], cash_after: int, fields_xi: bool
 ) -> str:
     bought = sum(1 for outcome in outcomes if outcome["status"] == "bought")
+    xi_line = (
+        "<i>La plantilla ya puede formar un once legal.</i>"
+        if fields_xi
+        else "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
+    )
     lines = [
         "🚨 <b>Reconstrucción — resumen</b>",
         "",
         f"Fichajes realizados: <b>{bought}</b> de <b>{len(outcomes)}</b>.",
         f"Cash restante: <b>{format_euros(cash_after)}</b>",
         "",
-        (
-            "<i>La plantilla ya puede formar un once legal.</i>"
-            if fields_xi
-            else "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
-        ),
+        xi_line,
     ]
     return "\n".join(lines)
 
@@ -652,10 +656,18 @@ def execute_rebuild(plan_id: str) -> dict:
     out may have gone through anyway, and there is no way to tell from here
     — continuing on a squad this code can no longer describe is how a
     purchase that actually succeeded gets attempted a second time. Every
-    signing's outcome is sent to Telegram the moment it resolves, not
-    batched at the end: gunicorn's timeout SIGKILLs a request that runs too
-    long, and no `except` runs when that happens — a batched report would
-    simply never arrive.
+    attempted signing's outcome is sent to Telegram the moment it resolves,
+    not batched at the end, so a request that outlives gunicorn's timeout
+    does not take every purchase already made down with it; a signing left
+    unattempted because the loop already stopped is still in the returned
+    list, just not sent on its own — the failure message already said the
+    plan stopped.
+
+    Bench signings carry no eleven hole to be checked against `remaining_holes`
+    at all — they are bought when the exact player is still there and within
+    `clause_at_plan`, or reported unavailable, never swapped for another body.
+    Signings are processed eleven-first regardless of storage order, so a
+    bench purchase can never spend the reserve an eleven hole still needs.
     """
     doc = rebuild_store.claim(plan_id)
     if doc is None:
@@ -689,13 +701,16 @@ def execute_rebuild(plan_id: str) -> dict:
     outcomes = []
     bought_rows = []
     stopped = False
-    for signing in doc["signings"]:
+    signings = sorted(doc["signings"], key=lambda s: s.get("bench", False))
+    for signing in signings:
+        is_bench = signing.get("bench", False)
+
         if stopped:
             outcome = {"line": signing["line"], "status": "not_attempted"}
             outcomes.append(outcome)
             continue
 
-        if remaining_holes.get(signing["line"], 0) <= 0:
+        if not is_bench and remaining_holes.get(signing["line"], 0) <= 0:
             outcome = {"line": signing["line"], "status": "skipped"}
             outcomes.append(outcome)
             _send(_format_rebuild_signing_text(outcome))
@@ -703,27 +718,49 @@ def execute_rebuild(plan_id: str) -> dict:
 
         cash = int(ctx.biwenger.get_account_state().get("cash") or 0)
         pool = filter_affordable(rivals, my_ids, target=cash)
-        line_pool = [
-            row
-            for row in pool
-            if row.get("position_id") != GK
-            and rebuild._eligible_for(row, signing["line"])
-            and row["clause_value"] <= signing["clause_at_plan"]
-        ]
-        current = next(
-            (row for row in line_pool if int(row["bw_id"]) == int(signing["bw_id"])),
-            None,
-        )
-        swapped = current is None
-        chosen = current or (
-            max(line_pool, key=rebuild.value_of) if line_pool else None
-        )
 
-        if chosen is None:
-            outcome = {"line": signing["line"], "status": "unfilled"}
-            outcomes.append(outcome)
-            _send(_format_rebuild_signing_text(outcome))
-            continue
+        if is_bench:
+            swapped = False
+            chosen = next(
+                (
+                    row
+                    for row in pool
+                    if row.get("position_id") != GK
+                    and int(row["bw_id"]) == int(signing["bw_id"])
+                    and row["clause_value"] <= signing["clause_at_plan"]
+                ),
+                None,
+            )
+            if chosen is None:
+                outcome = {"line": signing["line"], "status": "unavailable"}
+                outcomes.append(outcome)
+                _send(_format_rebuild_signing_text(outcome))
+                continue
+        else:
+            line_pool = [
+                row
+                for row in pool
+                if row.get("position_id") != GK
+                and rebuild._eligible_for(row, signing["line"])
+                and row["clause_value"] <= signing["clause_at_plan"]
+            ]
+            current = next(
+                (
+                    row
+                    for row in line_pool
+                    if int(row["bw_id"]) == int(signing["bw_id"])
+                ),
+                None,
+            )
+            swapped = current is None
+            chosen = current or (
+                max(line_pool, key=rebuild.value_of) if line_pool else None
+            )
+            if chosen is None:
+                outcome = {"line": signing["line"], "status": "unfilled"}
+                outcomes.append(outcome)
+                _send(_format_rebuild_signing_text(outcome))
+                continue
 
         try:
             ctx.biwenger.place_clausulazo(
@@ -749,7 +786,10 @@ def execute_rebuild(plan_id: str) -> dict:
 
         my_ids.add(chosen["bw_id"])
         bought_rows.append(chosen)
-        remaining_holes[signing["line"]] = remaining_holes.get(signing["line"], 0) - 1
+        if not is_bench:
+            remaining_holes[signing["line"]] = (
+                remaining_holes.get(signing["line"], 0) - 1
+            )
         outcome = {
             "line": signing["line"],
             "status": "bought",
