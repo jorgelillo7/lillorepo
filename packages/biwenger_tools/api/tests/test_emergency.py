@@ -859,7 +859,7 @@ def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
     assert "caducado" in mock_send.call_args.args[0].lower()
 
 
-def test_a_vanished_target_is_replaced_within_its_reserved_amount():
+def test_a_vanished_target_is_replaced_within_its_clause_at_plan():
     """The stored target is gone from the fresh candidate pool; the
     replacement must come from the SAME line and cost no more than what the
     plan approved for that hole (`clause_at_plan`) — never a swap paid for

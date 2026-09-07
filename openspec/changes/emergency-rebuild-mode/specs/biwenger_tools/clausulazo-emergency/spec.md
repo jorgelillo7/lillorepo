@@ -113,9 +113,11 @@ of what is left over, not a wall in front of the eleven.
 An approved plan SHALL be executed one signing at a time, re-planning between
 purchases against the balance and clause values that actually remain. A target
 that has become unavailable SHALL be replaced only by a candidate in the same
-position and within the amount already reserved for that hole, and the
-substitution SHALL be reported. Nothing outside the confirmed plan's shape SHALL
-ever be bought, and each signing's outcome SHALL be reported individually.
+position and at or under the price the plan approved for that signing
+(`clause_at_plan` — the target's own price at plan time, not the cheapest-
+candidate figure "reserved" in the requirement above), and the substitution
+SHALL be reported. Nothing outside the confirmed plan's shape SHALL ever be
+bought, and each signing's outcome SHALL be reported individually.
 
 Clause values move and rivals sell: a plan approved thirty seconds ago can have
 a hole in it by the third purchase, and a flow that discovered this by failing
@@ -123,11 +125,12 @@ would leave the squad half-rebuilt with the money already gone.
 
 #### Scenario: a vanished target, and the reporting
 - **WHEN** a target is no longer clausulable **THEN** it is replaced within its
-  position and reserved amount, and the substitution is reported
+  position and at or under the price the plan approved for it, and the
+  substitution is reported
 - **WHEN** the plan finishes **THEN** every signing's outcome is reported
-- **WHEN** no substitute fits the reserved amount **THEN** that hole is reported
-  unfilled rather than paid for out of another hole's reserve
-- *Verifies:* `test_a_vanished_target_is_replaced_within_its_reserved_amount`,
+- **WHEN** no substitute fits that price **THEN** that hole is reported
+  unfilled rather than paid for with money meant for another hole
+- *Verifies:* `test_a_vanished_target_is_replaced_within_its_clause_at_plan`,
   `test_nothing_outside_the_confirmed_plan_is_ever_bought`,
   `test_execution_reports_the_outcome_of_every_signing`
 

@@ -59,8 +59,8 @@ Clause values move and rivals sell. A plan approved thirty seconds ago can have
 a hole in it by the third purchase, and a flow that discovered this by failing
 would leave the squad half-rebuilt with the money already spent. Re-planning
 between purchases keeps the remaining reserve honest; substituting only within
-the same position and the amount already reserved for it keeps the approved
-plan's shape, so what executes is still what was agreed.
+the same position and at or under the price the plan approved for that signing
+keeps the approved plan's shape, so what executes is still what was agreed.
 
 ## Deliberately not handled
 
