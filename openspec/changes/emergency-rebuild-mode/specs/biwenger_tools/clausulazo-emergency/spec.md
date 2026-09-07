@@ -94,6 +94,10 @@ an eleven loses points every matchday, while an empty balance only costs the
 chance to retaliate. Having a team comes first; the cushion is what is kept out
 of what is left over, not a wall in front of the eleven.
 
+A plan with no signings at all — nothing affordable — SHALL NOT be persisted:
+storing wipes any other plan already live for the season, and there is nothing
+here worth confirming.
+
 #### Scenario: complete plan, incomplete plan, and the floor
 - **WHEN** the plan restores an eleven **THEN** that eleven is shown with the
   per-signing cost
@@ -103,10 +107,13 @@ of what is left over, not a wall in front of the eleven.
   left intact
 - **WHEN** the floor is the difference between an eleven and no eleven
 - **THEN** it is spent, and the plan says so
+- **WHEN** the plan has no signings **THEN** it is not stored, and no
+  confirmation is offered
 - *Verifies:* `test_the_preview_shows_the_eleven_the_plan_would_field`,
   `test_the_plan_states_when_it_cannot_reach_a_legal_xi`,
   `test_the_cash_floor_is_kept_when_the_plan_completes_without_it`,
-  `test_completing_the_eleven_wins_over_keeping_the_cash_floor`
+  `test_completing_the_eleven_wins_over_keeping_the_cash_floor`,
+  `test_preview_rebuild_does_not_store_a_plan_with_no_signings`
 
 ### Requirement: One confirmation, sequential execution, honest reporting
 
@@ -123,6 +130,20 @@ Clause values move and rivals sell: a plan approved thirty seconds ago can have
 a hole in it by the third purchase, and a flow that discovered this by failing
 would leave the squad half-rebuilt with the money already gone.
 
+The eleven's holes and the bench's extra signings SHALL be tracked separately:
+a re-check against the squad's current deficit SHALL apply to the eleven's
+signings only. A bench signing carries no such hole — it SHALL be bought when
+its exact target is still available at or under `clause_at_plan`, and reported
+unavailable rather than substituted when it is not. Signings SHALL be
+processed eleven-first regardless of storage order, so a bench purchase can
+never consume the budget an eleven hole still needs.
+
+Reporting an outcome, or reading the closing cash balance and eleven, SHALL
+NOT abort a run that has already spent money: a delivery or read failure
+after a purchase SHALL be logged and downgraded to a warning rather than
+raised — by that point the purchase already happened, and losing the record
+of it is worse than an incomplete notification.
+
 #### Scenario: a vanished target, and the reporting
 - **WHEN** a target is no longer clausulable **THEN** it is replaced within its
   position and at or under the price the plan approved for it, and the
@@ -133,6 +154,27 @@ would leave the squad half-rebuilt with the money already gone.
 - *Verifies:* `test_a_vanished_target_is_replaced_within_its_clause_at_plan`,
   `test_nothing_outside_the_confirmed_plan_is_ever_bought`,
   `test_execution_reports_the_outcome_of_every_signing`
+
+#### Scenario: bench signings are bought on their own terms
+- **WHEN** a bench signing's target is still available at or under its
+  approved price **THEN** it is bought
+- **WHEN** a bench signing's target is gone **THEN** it is reported
+  unavailable, never substituted for a different body
+- **WHEN** signings are processed **THEN** the eleven's are checked and
+  filled before the bench's, regardless of storage order
+- *Verifies:* `test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole`,
+  `test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy`,
+  `test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order`
+
+#### Scenario: reporting survives a downstream failure
+- **WHEN** Telegram rejects a signing's or the summary's report **THEN** the
+  run continues and no purchase already made is lost
+- **WHEN** the closing eleven check or cash read fails **THEN** the summary
+  still reports every purchase, with that one fact stated as unknown
+- *Verifies:* `test_a_telegram_failure_after_a_purchase_does_not_abort_the_run`,
+  `test_every_purchase_is_logged_even_if_telegram_never_hears_about_it`,
+  `test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution`,
+  `test_a_cash_read_failure_in_the_final_check_does_not_crash_execution`
 
 ## MODIFIED Requirements
 

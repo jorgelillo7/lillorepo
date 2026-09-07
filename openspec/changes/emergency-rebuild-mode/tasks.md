@@ -23,12 +23,24 @@ updated in the same PR.
 - [x] Execution is sequential, re-plans between purchases, substitutes only
       within a hole's position and at or under the price the plan approved for
       it, and reports each outcome
+- [x] A plan with no signings is never stored, and offers no confirmation
+- [x] The eleven's holes and the bench's signings are tracked separately: a
+      bench signing is bought on its own terms (still available, at or under
+      its approved price) or reported unavailable, never substituted, and
+      eleven signings are processed before bench ones regardless of storage
+      order
+- [x] A downstream failure after a purchase — a Telegram report, or the
+      closing cash/eleven check — is logged and downgraded to a warning
+      rather than losing the record that money already moved
 
 ## Defects fixed with it
 
 - [x] Two goalkeeper losses are reported, never "sin clausulazos recientes"
 - [x] The goalkeeper line is never targeted
 - [x] `force_position` outside 1-4 answers 400 instead of raising `KeyError`
+- [x] A bench signing's line was checked against the eleven's hole count and
+      always found empty, reporting it skipped even when the player was
+      still there to buy
 
 ## Tests (exact names)
 
@@ -50,6 +62,14 @@ updated in the same PR.
 - [x] `test_two_goalkeeper_losses_are_reported_not_silently_dropped`
 - [x] `test_rebuild_mode_takes_precedence_over_the_selector`
 - [x] `test_force_position_outside_the_range_is_a_400_not_a_crash`
+- [x] `test_preview_rebuild_does_not_store_a_plan_with_no_signings`
+- [x] `test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole`
+- [x] `test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy`
+- [x] `test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order`
+- [x] `test_a_telegram_failure_after_a_purchase_does_not_abort_the_run`
+- [x] `test_every_purchase_is_logged_even_if_telegram_never_hears_about_it`
+- [x] `test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution`
+- [x] `test_a_cash_read_failure_in_the_final_check_does_not_crash_execution`
 
 ## Closing
 
