@@ -112,13 +112,10 @@ def value_of(row: dict) -> float:
 class Signing:
     row: dict
     line: int
-    # The cheapest eligible candidate's price for this line at the moment
-    # this hole was committed — an artefact of how `_attempt_fill` budgeted
-    # for the holes still to come, kept for `test_the_plan_reserves_...`.
-    # NOT what was spent (`row["clause_value"]` is) and NOT a ceiling for
-    # anything: the winner is chosen by points-per-euro and is routinely
-    # pricier than this. Never store or read this as a substitution budget.
+    # Planning-time budgeting artefact, not what was spent and not a spending
+    # ceiling — see `_reserve_for`.
     reserve_floor: int
+    bench: bool = False
 
 
 @dataclass(frozen=True)
@@ -386,7 +383,12 @@ def _fill_bench(
         winner = max(candidates, key=value_of)
         line = next(line for line in lines_used if _eligible_for(winner, line))
         signings.append(
-            Signing(row=winner, line=line, reserve_floor=winner["clause_value"])
+            Signing(
+                row=winner,
+                line=line,
+                reserve_floor=winner["clause_value"],
+                bench=True,
+            )
         )
         used_ids.add(winner["bw_id"])
         spent += winner["clause_value"]

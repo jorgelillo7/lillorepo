@@ -144,9 +144,39 @@ def test_store_writes_a_thin_season_scoped_document(monkeypatch):
                 "owner_user_id": 7,
                 "line": DEF,
                 "clause_at_plan": 5_000_000,
+                "bench": False,
             }
         ],
     }
+
+
+def test_store_marks_a_bench_signing_as_such(monkeypatch):
+    """Execution treats an eleven hole and a bench slot under different
+    rules, so the stored document must say which is which per signing."""
+    fake = _FakeFirestore()
+    monkeypatch.setattr(rebuild_store, "fs", fake)
+
+    plan = _stored_plan()
+    bench_plan = rebuild.Plan(
+        signings=[
+            rebuild.Signing(row=plan.signings[0].row, line=DEF, reserve_floor=1),
+            rebuild.Signing(
+                row={**plan.signings[0].row, "bw_id": 2}, line=DEF, reserve_floor=1,
+                bench=True,
+            ),
+        ],
+        formation=plan.formation,
+        completes_xi=plan.completes_xi,
+        spends_floor=plan.spends_floor,
+        total_cost=plan.total_cost,
+        cash_before=plan.cash_before,
+    )
+
+    plan_id = rebuild_store.store(bench_plan)
+
+    path = rebuild_store._plans_path(config.CURRENT_SEASON)
+    doc = fake.docs[(path, plan_id)]
+    assert [s["bench"] for s in doc["signings"]] == [False, True]
 
 
 def test_storing_a_new_plan_invalidates_any_other_live_plan(monkeypatch):

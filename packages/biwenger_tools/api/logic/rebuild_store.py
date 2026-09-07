@@ -20,26 +20,10 @@ def _plans_path(season: str) -> str:
 
 
 def _doc_from_plan(plan: Plan) -> dict:
-    """The thin document `store` writes, exposed so tests can build a
-    realistic execution fixture from a real `Plan` without touching
-    Firestore — a hand-typed document is what previously let a document
-    `store` can never actually produce reach `execute_rebuild`'s tests.
-
-    Keeps only what execution needs to re-resolve and re-verify each
-    signing later: `bw_id`, `owner_user_id`, `line`, `clause_at_plan`. Never
-    `jp_player` — a candidate row carries the whole provider payload, and
-    this document is read exactly once, by the manager's own confirmation
-    tap. Names are re-resolved at execution from the players map, the way
-    `execute_clausulazo` already does for its success message.
-
-    Deliberately NOT stored: `Signing.reserve_floor`. It is a planning-time
-    budgeting artefact (the cheapest candidate's price when a hole was
-    committed), not what was spent and not a ceiling on anything — storing
-    it under a name execution could mistake for "how much this signing may
-    cost" is exactly what let the approved target be excluded from its own
-    hole. The one number that legitimately bounds a substitution is the
-    target's own price at plan time, `clause_at_plan`.
-    """
+    """The thin document `store` persists: never `reserve_floor` (a
+    planning-time artefact, not a spending ceiling) or `jp_player` (not
+    needed again after the confirmation tap, and re-resolved from the
+    players map at execution instead)."""
     return {
         "formation": plan.formation,
         "cash_before": plan.cash_before,
@@ -50,6 +34,7 @@ def _doc_from_plan(plan: Plan) -> dict:
                 "owner_user_id": signing.row["owner_user_id"],
                 "line": signing.line,
                 "clause_at_plan": signing.row["clause_value"],
+                "bench": signing.bench,
             }
             for signing in plan.signings
         ],

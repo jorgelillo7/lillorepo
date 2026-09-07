@@ -350,3 +350,27 @@ def test_a_bench_candidate_below_the_starts_above_bar_is_never_bought_as_cover()
     bought_ids = {s.row["bw_id"] for s in plan.signings}
     assert 1 not in bought_ids
     assert 2 in bought_ids
+
+
+def test_signings_are_marked_eleven_or_bench():
+    """Execution treats an eleven hole and a bench slot under different
+    rules and must tell them apart from each signing itself, never from
+    its position in the list — a hole re-check that reads a bench
+    signing's line finds it always at zero, since no eleven hole was ever
+    charged to it."""
+    my_rows = _squad(gk=1, d=2, m=6, f=5)  # DEF short by 1
+    xi_target = _candidate(1, DEF, clause=5_000_000, sf=900)
+    bench_target = _candidate(
+        2, DEF, clause=3_000_000, sf=config.LINEUP_SUB_STARTS_ABOVE + 50
+    )
+    plan = rebuild.build_plan(
+        my_rows=my_rows,
+        affordable=[xi_target, bench_target],
+        cash=50_000_000,
+        floor=0,
+        bench=1,
+    )
+    assert [(s.row["bw_id"], s.bench) for s in plan.signings] == [
+        (1, False),
+        (2, True),
+    ]
