@@ -1355,6 +1355,37 @@ def test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution(
     assert "no se pudo comprobar" in summary.lower()
 
 
+def test_a_cash_read_failure_in_the_final_check_does_not_crash_execution():
+    """The final cash read sits in the same post-purchase window as
+    `xi_snapshot` — a failure there must not lose the purchases already
+    made and reported."""
+    my_rows = _broken_my_rows(defenders=0)
+    candidates = _def_candidates(count=3, clause=5_000_000, sf=300)
+    doc, plan = _built_doc(my_rows, candidates, cash=30_000_000, bench=0)
+    pool = [_pool_row(bw_id, line=DEF, clause=5_000_000) for bw_id in (501, 502, 503)]
+    biwenger, ctx = _rebuild_ctx()
+    biwenger.get_account_state.side_effect = [
+        {"cash": 30_000_000},
+        {"cash": 25_000_000},
+        {"cash": 20_000_000},
+        RuntimeError("timeout"),
+    ]
+
+    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
+        _patches("_send")
+    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("gather_rivals"), return_value=[]
+    ), patch(
+        _patches("filter_affordable"), return_value=pool
+    ):
+        result = emergency.execute_rebuild("plan1")
+
+    assert [o["status"] for o in result["signings"]] == ["bought", "bought", "bought"]
+    assert result["cash_after"] is None
+    summary = mock_send.call_args_list[-1].args[0]
+    assert "no se pudo comprobar" in summary.lower()
+
+
 # --- execute_clausulazo --------------------------------------------------
 
 

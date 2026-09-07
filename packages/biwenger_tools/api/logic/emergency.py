@@ -339,7 +339,7 @@ def _format_rebuild_signing_text(outcome: dict) -> str:
 
 
 def _format_rebuild_summary_text(
-    outcomes: list[dict], cash_after: int, fields_xi: Optional[bool]
+    outcomes: list[dict], cash_after: Optional[int], fields_xi: Optional[bool]
 ) -> str:
     bought = sum(1 for outcome in outcomes if outcome["status"] == "bought")
     if fields_xi is None:
@@ -348,11 +348,16 @@ def _format_rebuild_summary_text(
         xi_line = "<i>La plantilla ya puede formar un once legal.</i>"
     else:
         xi_line = "<i>La plantilla TODAVÍA NO puede formar un once legal.</i>"
+    cash_line = (
+        f"Cash restante: <b>{format_euros(cash_after)}</b>"
+        if cash_after is not None
+        else "Cash restante: <i>no se pudo comprobar.</i>"
+    )
     lines = [
         "🚨 <b>Reconstrucción — resumen</b>",
         "",
         f"Fichajes realizados: <b>{bought}</b> de <b>{len(outcomes)}</b>.",
-        f"Cash restante: <b>{format_euros(cash_after)}</b>",
+        cash_line,
         "",
         xi_line,
     ]
@@ -680,9 +685,10 @@ def execute_rebuild(plan_id: str) -> dict:
     bench purchase can never spend the reserve an eleven hole still needs.
 
     A Telegram delivery failure while reporting a signing or the final
-    summary is downgraded to a warning rather than raised: by that point
-    money may already have moved, and losing the record of it to a
-    messaging hiccup is worse than a missed notification.
+    summary, or a failure reading the closing cash balance or eleven,
+    is downgraded to a warning rather than raised: by that point money
+    may already have moved, and losing the record of it to a transient
+    failure is worse than a missed or incomplete notification.
     """
     doc = rebuild_store.claim(plan_id)
     if doc is None:
@@ -825,7 +831,14 @@ def execute_rebuild(plan_id: str) -> dict:
         outcomes.append(outcome)
         _safe_send(outcome, plan_id)
 
-    cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
+    try:
+        cash_after = int(ctx.biwenger.get_account_state().get("cash") or 0)
+    except Exception as exc:
+        logger.warning(
+            "Rebuild summary could not read the final cash balance.",
+            extra={"plan_id": plan_id, "error": str(exc)},
+        )
+        cash_after = None
     try:
         fields_xi = xi_snapshot(my_rows + bought_rows) is not None
     except LineupSearchExhausted as exc:
