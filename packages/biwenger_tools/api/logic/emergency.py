@@ -511,10 +511,12 @@ def _preview_rebuild(
     projected = my_rows + [signing.row for signing in plan.signings]
     eleven = xi_snapshot(projected)
 
-    plan_id = rebuild_store.store(plan)
+    # An empty plan is never stored: `store` wipes every other plan already
+    # stored for the season, and there is nothing here worth confirming.
+    plan_id = rebuild_store.store(plan) if plan.signings else None
     _send(
         _format_rebuild_text(plan, eleven, projected, cash),
-        reply_markup=_rebuild_keyboard(plan_id) if plan.signings else None,
+        reply_markup=_rebuild_keyboard(plan_id) if plan_id else None,
     )
     return {
         "cash": cash,

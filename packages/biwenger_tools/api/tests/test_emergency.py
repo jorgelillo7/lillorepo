@@ -704,6 +704,28 @@ def test_the_preview_shows_the_eleven_the_plan_would_field(preview_env):
     assert "sigue sin poder formarse" not in text
 
 
+def test_preview_rebuild_does_not_store_a_plan_with_no_signings(preview_env):
+    """`store` wipes every other plan already stored for the season — an
+    empty plan (nothing affordable at all) must never call it, or a good
+    plan still awaiting confirmation would be silently invalidated."""
+    my_rows = _broken_my_rows(defenders=0)
+    biwenger, mock_send = preview_env(
+        cash=100,
+        my_squad=_squad(),
+        biwenger_players={},
+        rivals=[],
+        affordable=[],
+        losses=[],
+        my_rows=my_rows,
+    )
+    with patch.object(emergency.rebuild_store, "store") as mock_store:
+        result = emergency.preview_clausulazo()
+
+    mock_store.assert_not_called()
+    assert result["plan_id"] is None
+    assert mock_send.call_args.kwargs.get("reply_markup") is None
+
+
 # --- execute_rebuild -------------------------------------------------------
 
 
