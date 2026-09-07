@@ -1,7 +1,8 @@
 """Pure planner for `/emergencia`'s rebuild mode: what to buy when a single
 clausulazo can no longer restore a legal eleven.
 
-No HTTP, no Firestore, no Telegram — `emergency.py` owns the flow this feeds.
+No HTTP, no Firestore, no Telegram — `emergency.py` owns the flow this
+feeds, and `rebuild_store.py` owns the plan's persistence.
 """
 
 from dataclasses import dataclass
@@ -111,7 +112,10 @@ def value_of(row: dict) -> float:
 class Signing:
     row: dict
     line: int
-    reserved: int
+    # Planning-time budgeting artefact, not what was spent and not a spending
+    # ceiling — see `_reserve_for`.
+    reserve_floor: int
+    bench: bool = False
 
 
 @dataclass(frozen=True)
@@ -319,7 +323,7 @@ def _attempt_fill(
         if not candidates:
             continue
         winner = max(candidates, key=value_of)
-        signings.append(Signing(row=winner, line=line, reserved=reserved_for_this))
+        signings.append(Signing(row=winner, line=line, reserve_floor=reserved_for_this))
         used_ids.add(winner["bw_id"])
         spent += winner["clause_value"]
     return signings, spent
@@ -378,7 +382,14 @@ def _fill_bench(
             break
         winner = max(candidates, key=value_of)
         line = next(line for line in lines_used if _eligible_for(winner, line))
-        signings.append(Signing(row=winner, line=line, reserved=winner["clause_value"]))
+        signings.append(
+            Signing(
+                row=winner,
+                line=line,
+                reserve_floor=winner["clause_value"],
+                bench=True,
+            )
+        )
         used_ids.add(winner["bw_id"])
         spent += winner["clause_value"]
     return signings, spent

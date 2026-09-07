@@ -94,6 +94,10 @@ an eleven loses points every matchday, while an empty balance only costs the
 chance to retaliate. Having a team comes first; the cushion is what is kept out
 of what is left over, not a wall in front of the eleven.
 
+A plan with no signings at all — nothing affordable — SHALL NOT be persisted:
+storing wipes any other plan already live for the season, and there is nothing
+here worth confirming.
+
 #### Scenario: complete plan, incomplete plan, and the floor
 - **WHEN** the plan restores an eleven **THEN** that eleven is shown with the
   per-signing cost
@@ -103,35 +107,112 @@ of what is left over, not a wall in front of the eleven.
   left intact
 - **WHEN** the floor is the difference between an eleven and no eleven
 - **THEN** it is spent, and the plan says so
+- **WHEN** the plan has no signings **THEN** it is not stored, and no
+  confirmation is offered
 - *Verifies:* `test_the_preview_shows_the_eleven_the_plan_would_field`,
   `test_the_plan_states_when_it_cannot_reach_a_legal_xi`,
   `test_the_cash_floor_is_kept_when_the_plan_completes_without_it`,
-  `test_completing_the_eleven_wins_over_keeping_the_cash_floor`
+  `test_completing_the_eleven_wins_over_keeping_the_cash_floor`,
+  `test_preview_rebuild_does_not_store_a_plan_with_no_signings`
 
 ### Requirement: One confirmation, sequential execution, honest reporting
 
-An approved plan SHALL be executed one signing at a time, re-planning between
-purchases against the balance and clause values that actually remain. A target
+An approved plan SHALL be executed one signing at a time, re-reading the
+balance between purchases. A target
 that has become unavailable SHALL be replaced only by a candidate in the same
-position and within the amount already reserved for that hole, and the
-substitution SHALL be reported. Nothing outside the confirmed plan's shape SHALL
-ever be bought, and each signing's outcome SHALL be reported individually.
+position and at or under the price the plan approved for that signing
+(`clause_at_plan` — the target's own price at plan time, not the cheapest-
+candidate figure "reserved" in the requirement above), and the substitution
+SHALL be reported. Nothing outside the confirmed plan's shape SHALL ever be
+bought, and each signing's outcome SHALL be reported individually.
 
 Clause values move and rivals sell: a plan approved thirty seconds ago can have
 a hole in it by the third purchase, and a flow that discovered this by failing
 would leave the squad half-rebuilt with the money already gone.
 
+The eleven's holes and the bench's extra signings SHALL be tracked separately:
+a re-check against the squad's current deficit SHALL apply to the eleven's
+signings only. A bench signing carries no such hole — it SHALL be bought when
+its exact target is still available at or under `clause_at_plan`, and reported
+unavailable rather than substituted when it is not. Signings SHALL be
+processed eleven-first regardless of storage order, so a bench purchase can
+never consume the budget an eleven hole still needs.
+
+Reporting an outcome, or reading the closing cash balance and eleven, SHALL
+NOT abort a run that has already spent money: a delivery or read failure
+after a purchase SHALL be logged and downgraded to a warning rather than
+raised — by that point the purchase already happened, and losing the record
+of it is worse than an incomplete notification.
+
 #### Scenario: a vanished target, and the reporting
 - **WHEN** a target is no longer clausulable **THEN** it is replaced within its
-  position and reserved amount, and the substitution is reported
+  position and at or under the price the plan approved for it, and the
+  substitution is reported
 - **WHEN** the plan finishes **THEN** every signing's outcome is reported
-- **WHEN** no substitute fits the reserved amount **THEN** that hole is reported
-  unfilled rather than paid for out of another hole's reserve
-- *Verifies:* `test_a_vanished_target_is_replaced_within_its_reserved_amount`,
+- **WHEN** no substitute fits that price **THEN** that hole is reported
+  unfilled rather than paid for with money meant for another hole
+- *Verifies:* `test_a_vanished_target_is_replaced_within_its_clause_at_plan`,
   `test_nothing_outside_the_confirmed_plan_is_ever_bought`,
   `test_execution_reports_the_outcome_of_every_signing`
 
+#### Scenario: bench signings are bought on their own terms
+- **WHEN** a bench signing's target is still available at or under its
+  approved price **THEN** it is bought
+- **WHEN** a bench signing's target is gone **THEN** it is reported
+  unavailable, never substituted for a different body
+- **WHEN** signings are processed **THEN** which rules apply to each is
+  decided by its marker and never by its position in the stored list, so a
+  bench signing never consumes an eleven's hole
+- *Verifies:* `test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole`,
+  `test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy`,
+  `test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order`
+
+#### Scenario: reporting survives a downstream failure
+- **WHEN** Telegram rejects a signing's or the summary's report **THEN** the
+  run continues and no purchase already made is lost
+- **WHEN** the closing eleven check or cash read fails **THEN** the summary
+  still reports every purchase, with that one fact stated as unknown
+- *Verifies:* `test_a_telegram_failure_after_a_purchase_does_not_abort_the_run`,
+  `test_every_purchase_is_logged_even_if_telegram_never_hears_about_it`,
+  `test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution`,
+  `test_a_cash_read_failure_in_the_final_check_does_not_crash_execution`
+
 ## MODIFIED Requirements
+
+### Requirement: An approved plan executes at most once, and only while it is fresh
+
+Executing a plan SHALL claim it first, in a single transaction that reads and
+removes it, so a second confirmation of the same plan reaches no external
+service and spends nothing. Storing a new plan SHALL invalidate any other plan
+still live for the season. A plan older than the configured TTL SHALL be
+refused rather than executed. Before spending, execution SHALL re-read the
+squad and buy nothing when it already fields a legal eleven, SHALL skip an
+eleven signing whose hole has closed, and SHALL stop the run when a purchase
+returns an unknown outcome rather than continue against a squad it can no
+longer describe. No goalkeeper SHALL be bought at execution time either.
+
+This is the money safety of the whole feature, and it is worth stating rather
+than leaving to the code: Telegram makes a second tap easy, a plan priced
+thirty minutes ago is priced against a market that has moved, and a purchase
+whose reply was lost is a purchase whose outcome nobody knows — continuing past
+it would spend against a squad the code has already got wrong.
+
+#### Scenario: a second tap, a stale plan, and a squad that recovered
+- **WHEN** the same plan is confirmed twice **THEN** the second call reaches no
+  external service
+- **WHEN** the plan is older than the TTL **THEN** it is refused
+- **WHEN** the squad already fields a legal eleven **THEN** nothing is bought
+- **WHEN** an eleven signing's hole has closed **THEN** that signing is skipped
+- **WHEN** a purchase returns an unknown outcome **THEN** the run stops and the
+  rest are reported as not attempted
+- **WHEN** a goalkeeper is the best substitute available **THEN** it is not
+  bought
+- *Verifies:* `test_a_second_execute_rebuild_call_never_reaches_biwenger_again`,
+  `test_execute_rebuild_refuses_a_plan_older_than_the_ttl`,
+  `test_execute_rebuild_buys_nothing_when_the_squad_already_fields_an_eleven`,
+  `test_a_signing_is_skipped_when_its_hole_no_longer_exists`,
+  `test_an_unknown_outcome_stops_the_loop_and_the_rest_are_not_attempted`,
+  `test_execute_rebuild_never_buys_a_goalkeeper_as_a_substitute`
 
 ### Requirement: Preview resolves or offers a selector
 

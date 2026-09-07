@@ -220,6 +220,20 @@ def emergency_clausulazo_execute():
     )
 
 
+@app.route("/emergency/rebuild/execute", methods=["POST"])
+def emergency_rebuild_execute():
+    """Fire the approved rebuild plan — bot's `e:r:<plan_id>` callback.
+
+    Query params:
+      - `plan_id` — id of the plan stored by `_preview_rebuild`
+        (`emergencia/{season}/planes/{plan_id}`).
+    """
+    plan_id = (request.args.get("plan_id") or "").strip()
+    if not plan_id:
+        return jsonify({"status": "error", "error": "plan_id required"}), 400
+    return _run_action("emergency.rebuild", lambda: emergency.execute_rebuild(plan_id))
+
+
 @app.route("/offers/inbox", methods=["POST"])
 def offers_inbox():
     """List + score received offers, post one Telegram message per offer.
