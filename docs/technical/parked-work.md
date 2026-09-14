@@ -259,44 +259,65 @@ Nothing else here would have caught it either. An AESAN `place → province`
 index — considered earlier — needs a municipality to key on, and the stored
 document has none, for the same reason.
 
-## be_water — a second, optional label photo
+## be_water — the third photo, and the identity on it
 
-The composition panel and the origin panel are rarely the same piece of
-label. Of five bottles photographed in one sitting, **three** carried the
-spring and its municipality on a face the composition shot never sees:
+The add form takes **two** photos and reads **one**:
 
-| Water | On the other panel |
+| Field | Required | Fed to the OCR? | What it becomes |
+|---|:-:|:-:|---|
+| `photo` — "foto de la composición" | ✅ | ✅ | `label_photo_url`, the verification proof |
+| `beauty` — "foto para la ficha" | — | ❌ | `photo_url`, the display shot |
+
+The pretty front is **never read**. So the catalog sees exactly one face of the
+bottle, and it is the face chosen for a table of minerals.
+
+`fuente-dehesa` is what that costs: the composition shot frames the
+`ANÁLISIS QUÍMICO` panel, and everything identifying the water runs down the
+clipped left edge. Measured — the same prompt reads the origin correctly off
+the other face (see "the origin the camera never saw").
+
+### What is on that panel and nowhere in the model
+
+From the two bottles photographed:
+
+| On the label | Field today |
 |---|---|
-| `22` | Manantial de Peñaclara · Torrecilla en Cameros (La Rioja) |
-| `sierra-natura` | Manantial Natura · Finca La Pandera · Los Villares (Jaén) |
-| `lunares` | Manantial Lunares · Jaraba (Zaragoza) |
+| `MANANTIAL ENCINAS` | `spring` — exists, was empty |
+| `Herrera del Duque` (municipality) | **none** |
+| `(Badajoz)` | `province` — exists, was empty |
+| `RGSEAA 27.02231/BA` | **none** |
+| `Envasada por SONEPA` / `OUTEIRINHO TURISMO INDÚSTRIA S.A` | **none** |
+| `España` / `Portugal` | `country` — exists now |
 
-For `sierra-natura` that panel was the **only** source of the one thing its
-ficha lacked, and the official registry could not have supplied it — see the
-`_prefill_from_aesan` comment for why it would have supplied the wrong
-province instead.
+Two of those are worth more than the ones we already model:
 
-**Its trigger has fired.** `fuente-dehesa` is no longer a hypothetical: it
-reached `verified = True` with no origin at all, and the measurement above
-shows the reader would have got everything right had it been handed the other
-face. See "the origin the camera never saw".
+**The RGSEAA number** is the official sanitary registry key. Identity matching
+today is `aesan.registry_matches`, fuzzy token overlap on a commercial name —
+the machinery that cannot tell `Sierra Natura`'s two candidate springs apart,
+and that misses every white label because those register under the producer.
+A printed registry number is unambiguous. On the one bottle where it is legible
+the suffix also matches the province (`/BA`, Badajoz); whether that holds
+generally is unchecked and worth confirming before relying on it.
 
-What it would look like: not a third fixed upload, but a prompt that appears
-only when `spring` or `province` comes back empty from the OCR pass — today
-that is 2 fichas in 51, so the form does not get heavier for everyone. The
-extraction is the same shape as the mineral one, and the fields already have
-their vocabulary and validation (`geo.ALL_PROVINCES`, `submission.resolve_place`,
-the AESAN cross-check).
+**The bottler** is the only thing that reveals that two supermarket own-brands
+are the same water from the same spring. Mercadona and Lidl waters are a real
+part of this catalog and nothing currently connects them.
+
+Neither is captured, because nothing ever photographs the panel they are on.
+
+### The shape
+
+Not a third *fixed* upload — a prompt that appears only when `spring` or
+`province` comes back empty from the OCR pass. Today that would be 2 fichas in
+51, so the form does not get heavier for everyone. The extraction is the same
+shape as the mineral one, and the vocabulary already exists
+(`geo.ALL_PROVINCES`, `submission.resolve_place`, the AESAN cross-check).
 
 It would also close a gap in the provenance vocabulary: `label` (✓ etiqueta)
-can only be earned by a mineral today. Identity can be `aesan` or `manual`
-and never "confirmed from a photograph", even when a photograph is exactly
-what proves it.
+can only be earned by a mineral today. Identity can be `aesan` or `manual` and
+never "confirmed from a photograph", even when a photograph is exactly what
+proves it.
 
-**Cost:** a second Gemini call per submission, and a third object per water in
-the bucket.
-
-**Trigger:** enough waters with an empty spring to be worth it, or the first
-time a contributor gets the province wrong in a way the registry cannot catch.
-One ficha does not justify it; the repair script that fixed `sierra-natura` by
-hand was cheaper.
+Cheaper half worth doing either way: **read the `beauty` shot too** when one is
+uploaded. It is already in hand, already paid for, and currently thrown away by
+the reader.
