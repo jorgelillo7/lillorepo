@@ -122,9 +122,42 @@ did not match, never zero it in silence.
   a second source needs the same treatment; a projection recomputed hourly is
   worth nothing if we read yesterday's copy.
 
+## What the first capture actually established
+
+A browser API-discovery capture of the Analítica Fantasy site was taken. The
+raw export is kept — [`captures/oraculo-analiticafantasy.json`](captures/oraculo-analiticafantasy.json)
+— so the next session can diff a second capture against it rather than start
+from this summary. Twenty-two of its twenty-five hosts are ad-tech noise.
+
+Host: `server.analiticafantasy.com`. **Oráculo is the tool inside that site**,
+not a separate product — so this host is the right one and there is no second
+place to look.
+
+| Endpoint | Method | Auth |
+|---|---|---|
+| `/api/v1/configuration` | GET | cookie (`connectid`, `panoramaid`, `_cc_id`, plus a raw `COOKIE` header) |
+| `/api/v1/fantasy-tips/config` | GET | none observed |
+| `/api/v1/fixtures/nav-strip` | GET | cookie, as above |
+
+**This does not answer the question the page opens with.** All three are
+configuration and fixture metadata — feature flags, video links, eliminated
+team ids, a fixtures nav strip. **No projection or player endpoint was
+captured.** Nothing here shows the numbers can be read programmatically, and
+writing "we have the API" would be wrong.
+
+What it does establish: the host exists, it is a versioned JSON API, and its
+auth is cookie-based rather than a bearer token — which matters, because a
+cookie-based read is a session to maintain, not a key to store, and the
+permission question in "What blocks it" is unchanged by any of this.
+
+**Next step:** a second capture taken with the projections screen open, so the
+endpoint that serves the per-player numbers appears. Until then this stays
+parked exactly where it was.
+
 ## Open questions
 
-- Is there a legitimate programmatic route at all? Everything above waits on it.
+- Is there a legitimate programmatic route at all? Everything above waits on
+  it. The capture found a JSON API; it did not find permission.
 - What exactly does the payload expose — the three probabilities, or only what
   the web renders?
 - Does its player identity carry a stable id, or only a display name?
