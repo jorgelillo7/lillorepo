@@ -9,7 +9,7 @@ import re
 
 from unidecode import unidecode
 
-from packages.be_water.web import repository
+from packages.be_water.web import geo, repository
 from packages.be_water.web.domain import (
     MINERAL_FIELDS,
     MINERAL_LABELS,
@@ -152,6 +152,53 @@ def dataset_drift(catalog: list[Water]) -> list[tuple]:
 def find_suspicious(catalog: list[Water]) -> list[tuple]:
     """(water, reasons) for every ficha with at least one data-quality flag."""
     return [(w, r) for w in catalog if (r := suspicious_reasons(w))]
+
+
+# --- Geography --------------------------------------------------------------
+
+
+def geo_reasons(water: Water) -> list[str]:
+    """Human-readable origin flags for one ficha (empty when clean).
+
+    Kept apart from `suspicious_reasons`, which judges minerals: these two
+    answer different questions and a ficha can fail one while passing the
+    other. Both of the catalog's broken fichas did exactly that — one stored
+    `province='portugal', community='portugal'`, the other no origin at all,
+    and both were `verified=True` because nothing here looked at geography.
+
+    A foreign water is **not** judged by Spanish geography. Its `province`
+    holds a region that is not a province and has no community to derive, so
+    checking it against `ALL_PROVINCES` would make every correct foreign ficha
+    permanently suspicious. It still has to say where it is from.
+    """
+    reasons = []
+    if not water.spring:
+        reasons.append("sin manantial")
+    if not water.province:
+        reasons.append("sin provincia" if water.is_spanish else "sin región")
+        return reasons
+    if not water.is_spanish:
+        return reasons
+    derived = geo.community_of(water.province)
+    if not derived:
+        reasons.append(f"«{water.province}» no es una provincia española")
+    elif not water.community:
+        reasons.append(f"sin comunidad (debería ser {derived})")
+    elif geo.place_key(water.community) != geo.place_key(derived):
+        reasons.append(
+            f"comunidad «{water.community}» no corresponde a {water.province} "
+            f"(sería {derived})"
+        )
+    return reasons
+
+
+def find_geo_gaps(catalog: list[Water]) -> list[tuple]:
+    """(water, reasons) for every ficha whose origin needs a human.
+
+    The admin page's worklist: unlike a mineral flag, none of these can be
+    resolved by re-reading the label with a machine.
+    """
+    return [(w, r) for w in catalog if (r := geo_reasons(w))]
 
 
 # --- Repairs ----------------------------------------------------------------
