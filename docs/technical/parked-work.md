@@ -118,16 +118,133 @@ solved by moving the workbook ids into Firestore and editing them from
 
 ## be_water country field
 
-Add `country` to `Water`, defaulting to `"España"` — backward compatible, a
-one-line migration in `catalog_sync`.
+`Water.country` exists and defaults to `"ES"` (`domain.py`), but nothing writes
+it, nothing reads it and no form offers it. Every water in the catalog is
+therefore Spanish by assertion, not by evidence.
 
-It unlocks the international waters people actually find in Spanish
-supermarkets (Evian, Perrier, San Pellegrino…), a 🌍 achievement tier, and
+**The trigger has fired, and the stored document is worse than "no country".**
+`FONTÉBIL` (Mercadona, 1 L) is bottled by Outeirinho Turismo Indústria S.A. in
+Fafe, **Portugal**. Its ficha reads:
+
+```
+province  = 'portugal'
+community = 'portugal'
+country   = 'ES'
+```
+
+`resolve_place` kept both as typed — neither matches a Spanish province or
+community, and its documented policy is to preserve what the contributor saw —
+so the ficha now asserts that Portugal is simultaneously a Spanish province and
+a Spanish autonomous community, while declaring the country as Spain. It
+appears in no province view and no community view. It was caught by eye,
+reading the back of the bottle; nothing in the app could have flagged it.
+
+What it unlocks besides correctness: the international waters Spanish
+supermarkets actually stock (Evian, Perrier, San Pellegrino…), a 🌍 tier, and
 country chips on the home page.
 
-**Trigger:** the data verification pass finishing first. The recommender's
-"places" and the province achievements both assume Spanish geography and need
-a small rethink before a second country exists.
+**The source is already international.** `refresh_aesan_snapshot.py` reads the
+EU-wide list (`mineral-waters_list_eu-recognised.pdf`), which carries a table
+per member state, and then deliberately throws all of them away:
+`_SPAIN` keeps Spain's table, `_THIRD` drops the third-country one, `_OTHER`
+drops every other country's. Internationalisation needs no new data source —
+it needs the parser to stop filtering. Fontebel is very likely already in that
+PDF, under Portugal.
+
+What actually breaks, and is the real cost:
+
+- `_PROVINCE` in the parser assumes every place reads `Municipality
+  (Province)`. Other member states do not use Spanish provinces.
+- `geo.community_of` is a Spanish province → autonomous community table.
+  `submission.resolve_place` derives `community` from `province` and keeps
+  unrecognised text as typed, so a Portuguese *concelho* lands as a province
+  with an empty community and drops out of every place view — the exact
+  failure `resolve_place` was written to prevent, arriving by a new door.
+- The recommender's "nearby" (`geo.adjacent_places`) and the 🗺️ Cartógrafo
+  badge (6+ provinces) both assume Spanish geography.
+
+The shape that avoids a rewrite: `country` decides whether a community is
+**expected at all**. A non-`ES` water declares country + a free-text region and
+is excluded from province/community views rather than silently absent from
+them. No geocoding service, no address parsing — the owner's call, and the
+right one.
+
+## be_water — repairing a ficha from the admin page
+
+`/admin` shows users and stranded photos. It cannot edit a water. Every repair
+— a missing community, a province that is really a municipality, a wrong
+source — runs through `scripts/audit_data.py` on a laptop with credentials, or
+by re-submitting the public add form and letting the merge rules win.
+
+Two waters added in one sitting made the gap concrete: one reached Firestore
+with no province (Badajoz was on the label and was not read), the other is
+Portuguese and has no province to have.
+
+Most of the engine is already built and tested — this is wiring, not new
+logic:
+
+| Need | Already exists |
+|---|---|
+| Change a mineral + its provenance | `data_audit.correct_field` / `set_source` |
+| Sign off a ficha | `data_audit.mark_verified` |
+| Fold a duplicate | `data_audit.merge_waters` |
+| Community-only write | `repository.set_water_community` |
+| Undo trail before an overwrite | `repository.save_revision` + `scripts/revert_water.py` |
+| Province / community vocabulary | `geo.ALL_PROVINCES`, `geo.ALL_COMMUNITIES` |
+
+**Use selects, not free text.** `resolve_place`'s docstring records what free
+text cost once: `tramuntana` reached Firestore with `province="Talarrubias"`
+(a municipality) and `community="Badajoz"` (a province), shifted one slot, and
+vanished from every province and community view. An admin form that offers the
+two canonical lists cannot reproduce that.
+
+**Blocked on:** Google Sign-In. `admin_page` 404s while `GOOGLE_CLIENT_ID` is
+unset, so there is nowhere to put the form until that is configured.
+
+## be_water — the province the OCR did not read
+
+`Una Dehesa` (id `fuente-dehesa`) was saved with **no origin at all**:
+
+```
+spring = ''   province = ''   community = ''
+```
+
+— while `verified = True` over seven label-confirmed minerals. The OCR read the
+composition panel perfectly and returned nothing for the origin.
+
+The label prints it: `06670 Herrera del Duque (Badajoz), España`, inside the
+small-print conservation paragraph, as the bottler's postal address.
+
+Likely cause: `label_ocr._PROMPT` scopes the field to *"el lugar del manantial
+en España"*, so a bottler address is not obviously an answer to the question
+asked.
+
+**The fix is the prompt, and only the prompt.** An AESAN `place → province`
+index was considered — the snapshot does contain `Herrera del Duque → Badajoz`
+— but it is dead for this case and would not have helped: there is no
+municipality in the stored document to key it on, because the OCR returned no
+place either. A backstop needs something to back up.
+
+Two independent things to say in the prompt: that the bottler's address is an
+acceptable fallback when no origin is printed elsewhere, and that `(Provincia)`
+inside an address is the province.
+
+## be_water — the curation engine cannot see a broken province
+
+`data_audit` flags suspicious **minerals** (`suspicious_reasons`) and gates
+verification on a label photo plus one confirmed field (`verifiable`). Nothing
+in it looks at geography.
+
+`fontebil` is `verified = True` with `province = 'portugal'`. Both of the two
+broken fichas in the catalog would pass every check the curation engine has.
+
+A geo check — province in `geo.ALL_PROVINCES`, community derivable from it,
+or an explicit non-`ES` country — is small, self-contained, and would have
+caught both. It also gives the admin edit page its worklist for free.
+
+**Sizing, measured against the live catalog:** 2 fichas of 51 have a geo gap.
+Small enough that this is not urgent, and the honest argument for doing the
+Biwenger work first.
 
 ## be_water — a second, optional label photo
 
