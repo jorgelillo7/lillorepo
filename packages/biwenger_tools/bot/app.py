@@ -55,6 +55,7 @@ _HELP_TEXT = (
     "/comparar — Valor y proyección de todas las plantillas de la liga\n"
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
+    "/pacto — Pacto de no agresión: a quién no clausular\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje\n\n"
@@ -155,6 +156,71 @@ def _send_manager_picker() -> None:
         text="<b>📊 Analizar — ¿a quién?</b>",
         reply_markup=menu.managers_keyboard(managers),
     )
+
+
+def _send_pact_picker(edit_into: tuple[str, int] | None = None) -> None:
+    """Post (or redraw) the pact editor: one toggle per rival manager."""
+    managers = (
+        api_client.list_pact_managers(config.BIWENGER_API_URL)
+        if config.BIWENGER_API_URL
+        else None
+    )
+    if managers is None:
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text="❌ No pude cargar el pacto. Vuelve a intentarlo.",
+        )
+        return
+    text = (
+        "<b>🤝 Pacto de no agresión</b>\n\n"
+        "🤝 = no se le ataca · ⚔️ = objetivo válido\n"
+        "<i>/emergencia nunca propone a los protegidos. "
+        "/recomendar los sigue mostrando, marcados.</i>"
+    )
+    markup = menu.pact_keyboard(managers)
+    if edit_into:
+        chat_id, message_id = edit_into
+        edit_message_text(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            reply_markup=markup,
+        )
+        return
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=text,
+        reply_markup=markup,
+    )
+
+
+def _run_pact_toggle(value: str, edit_into: tuple[str, int] | None) -> None:
+    """Flip one manager, then redraw the picker in place."""
+    try:
+        manager_id = int(value)
+    except ValueError:
+        logger.info("Webhook: malformed pact payload", extra={"value": value})
+        return
+    try:
+        api_client.call_api_json(
+            config.BIWENGER_API_URL,
+            "/pact/toggle",
+            payload={"manager_id": manager_id},
+        )
+    except Exception as exc:
+        logger.warning("Pact toggle failed.", extra={"error": str(exc)})
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text=(
+                "❌ No pude cambiar el pacto: " f"<code>{html.escape(str(exc))}</code>"
+            ),
+        )
+        return
+    _send_pact_picker(edit_into)
 
 
 def _run_in_background(fn, *args, **kwargs) -> None:
@@ -524,6 +590,7 @@ def _handle_callback(cb: dict) -> None:
     - `e:p:<position_id>` — selector "reinforce this position".
     - `e:m` — selector "weakest line" fallback.
     - `e:n` — cancel /emergencia.
+    - `pact:<manager_id>` — toggle a manager in the non-aggression pact.
     - `o:a:<offer_id>` / `o:r:<offer_id>` / `o:i:<offer_id>` — accept /
       reject / ignore a received offer (the inbox flow).
     """
@@ -549,6 +616,10 @@ def _handle_callback(cb: dict) -> None:
 
     if prefix == "analizar":
         _run_analizar(value, edit_into)
+        return
+
+    if prefix == "pact":
+        _run_in_background(_run_pact_toggle, value, edit_into)
         return
 
     if prefix == "e":
@@ -622,6 +693,9 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("scrapper", "🧹 Scraper")
     elif cmd == "/emergencia":
         _dispatch_action("emergencia", "🚨 Emergencia")
+    elif cmd == "/pacto":
+        logger.info("Webhook: /pacto received — sending picker")
+        _send_pact_picker()
     elif cmd == "/comparar":
         _dispatch_action("comparar", "⚖️ Comparar")
     elif cmd == "/ofertas":

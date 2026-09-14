@@ -339,3 +339,75 @@ it would spend against a squad the code has already got wrong.
   `test_a_signing_is_skipped_when_its_hole_no_longer_exists`,
   `test_an_unknown_outcome_stops_the_loop_and_the_rest_are_not_attempted`,
   `test_execute_rebuild_never_buys_a_goalkeeper_as_a_substitute`
+
+### Requirement: The non-aggression pact binds every path that spends money
+
+The owner keeps a per-**manager** non-aggression pact in `pactos/actual`,
+edited from the bot's `/pacto`. No flow of `/emergencia` SHALL propose or buy a
+player owned by a manager in it. The pact SHALL be applied at all three pool
+sites, because all three can put money on a player:
+
+1. the single-pick preview, before `pick_top_in_position`;
+2. the rebuild preview, before `rebuild.build_plan`;
+3. **rebuild execution**, whose `else` branch re-picks a substitute when the
+   approved player is gone — a plan approved before a manager joined the pact
+   must not sign around it.
+
+Manager ids SHALL be compared as integers, so a pact document written with
+string ids still matches rather than silently protecting nobody.
+
+#### Scenario: the best candidate is a friend
+- **WHEN** the highest-SF player in the needed line belongs to a pacted manager
+- **THEN** the target is the next best unpacted candidate
+- *Verifies:* `test_preview_skips_a_pacted_managers_player_for_the_next_best`
+
+#### Scenario: a rebuild plan never signs a pacted manager's player
+- **WHEN** the squad cannot field an eleven and every affordable rival is pacted
+- **THEN** `build_plan` receives an empty pool
+- *Verifies:* `test_rebuild_plan_never_signs_a_pacted_managers_player`
+
+### Requirement: An empty pool says whether the pact caused it
+
+When the pact removed candidates and nothing is left to buy, the "sin
+candidatos" message SHALL name the pact, count the excluded candidates and
+point at `/pacto`. It SHALL stay silent about the pact when nothing was
+excluded.
+
+Without this an owner with a broken eleven and cash in hand reads "sin
+candidatos asequibles" and goes looking for money they already have. The lever
+is `/pacto`, so the message says so.
+
+#### Scenario: the pact is the only thing blocking the buy
+- **WHEN** every affordable rival belongs to a pacted manager
+- **THEN** the message names the pact and reports the excluded count
+- **WHEN** nothing was excluded **THEN** the message does not mention it
+- *Verifies:* `test_no_target_message_names_the_pact_when_it_is_what_emptied_the_pool`,
+  `test_no_target_message_stays_quiet_when_no_one_was_excluded`,
+  `test_preview_reports_the_pact_when_it_leaves_nothing_to_buy`
+
+### Requirement: The pact is one document, outlives the season, toggled whole
+
+`pact_store` SHALL hold the pact as a single `pactos/actual` document with a
+`manager_ids` list, `load` returning an empty set when it does not exist — a
+league without a pact is the normal case, not an error.
+
+It SHALL NOT be keyed by season, unlike `rebuild_store`. A rebuild plan belongs
+to the deficit that produced it; an agreement with a rival is standing. Season
+-keyed, the pact would empty itself at each rollover silently and fail **open**
+— the new year's first `/emergencia` proposing the very manager it protects. It
+changes when the owner changes it, and at no other moment. `toggle` SHALL flip one
+manager and return whether they ended up protected, so the bot redraws from the
+return value in one round trip. An unparseable id SHALL be dropped with a
+warning rather than raised: one junk entry must not blind the whole pact.
+
+#### Scenario: load, toggle and survive junk
+- **WHEN** the document is read **THEN** its id carries no season
+- **WHEN** no document exists **THEN** `load` returns an empty set
+- **WHEN** the document holds `[10, "", None]` **THEN** `load` returns `{10}`
+- **WHEN** `toggle` runs on a manager in / not in the pact
+- **THEN** it removes / adds them and returns False / True
+- *Verifies:* `test_the_pact_is_not_scoped_to_a_season`,
+  `test_load_returns_an_empty_set_when_no_pact_was_ever_saved`,
+  `test_load_survives_a_document_with_a_junk_id`,
+  `test_toggle_adds_a_manager_that_was_not_in_the_pact`,
+  `test_toggle_removes_a_manager_that_was_already_in_the_pact`

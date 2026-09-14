@@ -5,8 +5,9 @@ by an affordability budget that scales with cash and by league house rules, and
 present the top per position. Shares candidate helpers with clausulazo-emergency.
 
 - **Source:** `packages/biwenger_tools/api/logic/recommendations.py`,
-  `clausulazo_candidates.py`
-- **Verified by:** `packages/biwenger_tools/api/tests/test_recommendations.py`
+  `clausulazo_candidates.py`, `pact_store.py`
+- **Verified by:** `packages/biwenger_tools/api/tests/test_recommendations.py`,
+  `test_pact.py`
 
 ---
 
@@ -62,3 +63,21 @@ a manually-set margin, and dash the bid when max_bid is missing.
 - *Verifies:* `test_format_telegram_text_includes_multi_badge_and_exact_euros`,
   `test_format_telegram_text_marks_manual_margin`,
   `test_format_telegram_text_dashes_when_max_bid_missing`
+
+### Requirement: The non-aggression pact is shown here, never enforced
+
+A manager under the pact (see clausulazo-emergency) SHALL still have their
+players ranked and listed by `/recomendar`, each row carrying `pacted: true`
+and rendered with a 🤝 badge plus a footnote naming `/emergencia` as where the
+pact binds.
+
+The veto SHALL NOT live in `filter_affordable`, which both flows share:
+applying it there would hide pacted players from this surface too. `/recomendar`
+is advice about the whole market, and the owner is the one who decides whether
+a pact still holds.
+
+#### Scenario: a pacted player is ranked on merit and flagged
+- **WHEN** the highest-SF candidate belongs to a pacted manager
+- **THEN** they head the position's list, flagged, above an unpacted rival
+- *Verifies:* `test_recommendations_keep_pacted_players_and_carry_the_flag`,
+  `test_recommendations_render_a_badge_for_a_pacted_player`

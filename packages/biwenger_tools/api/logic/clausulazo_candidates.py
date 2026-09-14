@@ -111,3 +111,42 @@ def pick_top_in_position(
         return None, False
     candidates_sorted = sorted(candidates, key=sf_of, reverse=True)
     return candidates_sorted[0], False
+
+
+def _pacted_ids(pacted: set) -> set:
+    """The pact as ints, so a set written with string ids still matches."""
+    out = set()
+    for raw in pacted or ():
+        try:
+            out.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def annotate_pact(rows: list[dict], pacted: set) -> None:
+    """Stamp every row with `pacted`: is its owner under the non-aggression
+    pact?
+
+    Always sets the key, including to False, so no caller has to distinguish
+    "not pacted" from "nobody ran this". `/recomendar` renders the flag and
+    keeps the row; `/emergencia` uses `without_pacted` to drop it.
+    """
+    protected = _pacted_ids(pacted)
+    for row in rows:
+        row["pacted"] = row.get("owner_user_id") in protected
+
+
+def without_pacted(rows: list[dict], pacted: set) -> list[dict]:
+    """`rows` minus every player owned by a manager under the pact.
+
+    A new list, never an edit in place: `/recomendar` must keep showing these
+    players while `/emergencia` must not see them at all, and some flows build
+    both views from one `gather_rivals` result.
+
+    Deliberately not folded into `filter_affordable`, which both flows share —
+    a veto applied there would hide the pact from `/recomendar` too, and the
+    whole point is that it stays visible where the owner can override it.
+    """
+    protected = _pacted_ids(pacted)
+    return [row for row in rows if row.get("owner_user_id") not in protected]

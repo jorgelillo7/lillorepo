@@ -20,10 +20,12 @@ from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.clausulazo_candidates import (
+    annotate_pact,
     filter_affordable,
     gather_rivals,
     sf_of,
 )
+from packages.biwenger_tools.api.logic import pact_store
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
@@ -33,6 +35,11 @@ from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 logger = get_logger(__name__)
 
 DEFAULT_TOP_N = 3
+
+# Marks a player owned by a manager under the non-aggression pact. They stay
+# in the ranking on purpose: `/recomendar` is advice, and the owner is the one
+# who decides whether a pact still holds. `/emergencia` is where it binds.
+PACT_BADGE = "🤝"
 
 # Dynamic margin coefficients. When the user does not pass `?margin=N`, we
 # compute a margin proportional to their cash so a poor balance doesn't get
@@ -86,6 +93,7 @@ def _serialise_row(row: dict) -> dict:
         "clause": row.get("clause_value", 0),
         "sf": sf_of(row),
         "multi": [_short_position_es(a) for a in alts],
+        "pacted": bool(row.get("pacted")),
     }
 
 
@@ -137,10 +145,18 @@ def _format_telegram_text(payload: dict) -> str:
             continue
         for r in rows:
             badge = f"  <i>[multi: {'/'.join(r['multi'])}]</i>" if r["multi"] else ""
+            pact = f"{PACT_BADGE} " if r.get("pacted") else ""
             lines.append(
-                f"  · {r['name']} ({r['owner']}) — "
+                f"  · {pact}{r['name']} ({r['owner']}) — "
                 f"cláusula {format_euros(r['clause'])} · SF {r['sf']}{badge}"
             )
+    if any(
+        r.get("pacted") for rows in payload["recommendations"].values() for r in rows
+    ):
+        lines.append("")
+        lines.append(
+            f"<i>{PACT_BADGE} pacto de no agresión — /emergencia no los propone.</i>"
+        )
     return "\n".join(lines)
 
 
@@ -180,6 +196,7 @@ def run_recommendations(
 
     rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = filter_affordable(rivals, my_ids, target)
+    annotate_pact(affordable, pact_store.load())
     recommendations = _pick_top_per_position(affordable, top)
 
     payload = {
