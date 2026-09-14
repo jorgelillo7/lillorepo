@@ -229,50 +229,35 @@ two canonical lists cannot reproduce that.
 **Blocked on:** Google Sign-In. `admin_page` 404s while `GOOGLE_CLIENT_ID` is
 unset, so there is nowhere to put the form until that is configured.
 
-## be_water — the province the OCR did not read
+## be_water — the origin the camera never saw
 
-`Una Dehesa` (id `fuente-dehesa`) was saved with **no origin at all**:
+`Una Dehesa` (id `fuente-dehesa`) was saved with no spring, province or
+community, while `verified = True` over seven label-confirmed minerals.
 
-```
-spring = ''   province = ''   community = ''
-```
+This note used to say the cause was `label_ocr._PROMPT` scoping the field to
+*"el lugar del manantial **en España**"*, and that rewording it was the fix.
+**That was wrong, and the prompt needs no change.** Measured by running the
+real `extract_label` against two photographs of the same bottle:
 
-— while `verified = True` over seven label-confirmed minerals. The OCR read the
-composition panel perfectly and returned nothing for the origin.
+| Photo | `spring` | `province` | `community` | minerals |
+|---|---|---|---|---|
+| The back panel, address legible | `Encinas` | `Badajoz` | `Extremadura` | — |
+| **The stored `label_photo_url`** | `None` | `None` | `None` | `tds=48`, `sodium=5.3` ✓ |
 
-The label prints it: `06670 Herrera del Duque (Badajoz), España`, inside the
-small-print conservation paragraph, as the bottler's postal address.
+Same prompt, same model. The origin was simply **not in the frame**: the
+composition shot frames the `ANÁLISIS QUÍMICO` panel, and the conservation
+paragraph that carries `Herrera del Duque (Badajoz)` runs down the left edge,
+rotated and clipped. The reader did not fail to understand the label — it was
+never shown it.
 
-Likely cause: `label_ocr._PROMPT` scopes the field to *"el lugar del manantial
-en España"*, so a bottler address is not obviously an answer to the question
-asked.
+So this is not an OCR item at all. It is the **second, optional label photo**
+below, and this is its trigger: a ficha that reached `verified = True` with its
+whole origin missing, because one face of the bottle answers the composition
+question and another answers the origin one.
 
-**The fix is the prompt, and only the prompt.** An AESAN `place → province`
-index was considered — the snapshot does contain `Herrera del Duque → Badajoz`
-— but it is dead for this case and would not have helped: there is no
-municipality in the stored document to key it on, because the OCR returned no
-place either. A backstop needs something to back up.
-
-Two independent things to say in the prompt: that the bottler's address is an
-acceptable fallback when no origin is printed elsewhere, and that `(Provincia)`
-inside an address is the province.
-
-## be_water — the curation engine cannot see a broken province
-
-`data_audit` flags suspicious **minerals** (`suspicious_reasons`) and gates
-verification on a label photo plus one confirmed field (`verifiable`). Nothing
-in it looks at geography.
-
-`fontebil` is `verified = True` with `province = 'portugal'`. Both of the two
-broken fichas in the catalog would pass every check the curation engine has.
-
-A geo check — province in `geo.ALL_PROVINCES`, community derivable from it,
-or an explicit non-`ES` country — is small, self-contained, and would have
-caught both. It also gives the admin edit page its worklist for free.
-
-**Sizing, measured against the live catalog:** 2 fichas of 51 have a geo gap.
-Small enough that this is not urgent, and the honest argument for doing the
-Biwenger work first.
+Nothing else here would have caught it either. An AESAN `place → province`
+index — considered earlier — needs a municipality to key on, and the stored
+document has none, for the same reason.
 
 ## be_water — a second, optional label photo
 
@@ -291,9 +276,14 @@ ficha lacked, and the official registry could not have supplied it — see the
 `_prefill_from_aesan` comment for why it would have supplied the wrong
 province instead.
 
+**Its trigger has fired.** `fuente-dehesa` is no longer a hypothetical: it
+reached `verified = True` with no origin at all, and the measurement above
+shows the reader would have got everything right had it been handed the other
+face. See "the origin the camera never saw".
+
 What it would look like: not a third fixed upload, but a prompt that appears
 only when `spring` or `province` comes back empty from the OCR pass — today
-that is 1 ficha in 46, so the form does not get heavier for everyone. The
+that is 2 fichas in 51, so the form does not get heavier for everyone. The
 extraction is the same shape as the mineral one, and the fields already have
 their vocabulary and validation (`geo.ALL_PROVINCES`, `submission.resolve_place`,
 the AESAN cross-check).
