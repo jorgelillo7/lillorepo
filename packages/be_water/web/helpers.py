@@ -106,5 +106,6 @@ def context_data() -> dict:
         "mineral_fields": MINERAL_FIELDS,
         "mineral_fields_main": MINERAL_FIELDS_MAIN,
         "mineral_fields_extra": MINERAL_FIELDS_EXTRA,
+        "country_choices": geo.COUNTRY_CHOICES,
         "csrf_token": get_csrf_token,
     }

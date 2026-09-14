@@ -283,3 +283,56 @@ def test_a_dated_submission_keeps_its_own_date():
         water, _water(analysis_date="2025-02"), merge_into=False, form_has_brand=True
     )
     assert water.analysis_date == "2026-01"
+
+
+# --- country decides whether a community is expected at all ----------------
+
+
+def test_a_foreign_water_keeps_its_region_and_gets_no_community():
+    """`FONTÉBIL` is bottled in Fafe, Portugal. Run through the Spanish rules
+    it reached Firestore as `province='portugal', community='portugal'` —
+    asserting Portugal is at once a Spanish province and a Spanish autonomous
+    community. Outside Spain there is no community to derive, so none is
+    invented."""
+    province, community = submission.resolve_place("Fafe", "", country="PT")
+    assert province == "Fafe"
+    assert community == ""
+
+
+def test_a_foreign_water_never_shifts_its_fields():
+    """The province/community shift repair is a Spanish-geography rule. Applied
+    abroad it would move a foreign region into the wrong slot on a name that
+    merely happens to collide."""
+    province, community = submission.resolve_place("Braga", "Portugal", country="PT")
+    assert (province, community) == ("Braga", "")
+
+
+def test_a_spanish_water_still_derives_its_community():
+    province, community = submission.resolve_place("Badajoz", "", country="ES")
+    assert (province, community) == ("Badajoz", "Extremadura")
+
+
+def test_the_field_shift_repair_still_works_for_spain():
+    """`tramuntana` reached Firestore with a municipality in `province` and a
+    province in `community`. That repair must survive the country split."""
+    province, community = submission.resolve_place(
+        "Talarrubias", "Badajoz", country="ES"
+    )
+    assert (province, community) == ("Badajoz", "Extremadura")
+
+
+def test_country_defaults_to_spain_when_the_form_says_nothing():
+    """Every existing ficha and every unchanged form post is Spanish."""
+    assert submission.form_country({}) == "ES"
+
+
+def test_an_unknown_country_code_falls_back_to_spain():
+    """The form is public. An unrecognised code must not create a water in a
+    country that does not exist, and silently owning it as Spanish is the
+    behaviour every other free-text field here already has."""
+    assert submission.form_country({"country": "ZZ"}) == "ES"
+    assert submission.form_country({"country": ""}) == "ES"
+
+
+def test_a_recognised_country_is_kept():
+    assert submission.form_country({"country": "PT"}) == "PT"

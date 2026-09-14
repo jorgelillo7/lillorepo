@@ -33,3 +33,35 @@ def test_source_of_prefers_label_from_verified_fields():
     assert water.source_of("calcium") == "label"
     assert water.source_of("tds") == "manufacturer"
     assert water.source_of("sodium") is None
+
+
+# --- a water knows whether Spanish geography applies to it -----------------
+
+
+def test_a_water_is_spanish_by_default():
+    """Every ficha written before `country` existed, and every Spanish one."""
+    assert Water(
+        id="x", name="X", brand="X", spring="", province="", community=""
+    ).is_spanish
+
+
+def test_a_foreign_water_is_not_spanish():
+    water = Water(
+        id="fontebil",
+        name="FONTÉBIL",
+        brand="FONTÉBIL",
+        spring="Fontébil 1",
+        province="Fafe",
+        community="",
+        country="PT",
+    )
+    assert not water.is_spanish
+    assert water.country_name == "Portugal"
+
+
+def test_an_unknown_country_code_still_renders_something():
+    """A code with no name in the table must not blank the origin panel."""
+    water = Water(
+        id="x", name="X", brand="X", spring="", province="", community="", country="ZZ"
+    )
+    assert water.country_name == "ZZ"

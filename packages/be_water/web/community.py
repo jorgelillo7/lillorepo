@@ -64,6 +64,12 @@ ACHIEVEMENTS = [
         lambda s: s["month_waters"] + s["month_past_analyses"] >= 5,
     ),
     (
+        "🌍",
+        "Trotamundos",
+        "Añadió un agua embotellada fuera de España",
+        lambda s: s["foreign_added"] >= 1,
+    ),
+    (
         "🧭",
         "Explorador",
         "Añadió un agua fuera del registro oficial AESAN",
@@ -98,6 +104,7 @@ def _blank(nickname: str) -> dict:
         "waters_with_photo": 0,
         "provinces": set(),
         "sparkling_added": 0,
+        "foreign_added": 0,
         "off_registry_added": 0,
         "past_analyses": 0,
         "deepened": set(),
@@ -161,8 +168,13 @@ def build_community_stats(
             stats["fields_verified"] += len(water.verified_fields)
         if water.photo_url:
             stats["waters_with_photo"] += 1
-        if water.province:
+        # Spanish provinces only: 🗺️ Cartógrafo asks for 6+ *provinces*, and a
+        # foreign water's `province` holds a region that is not one. Counting
+        # it would award the badge for geography the catalog does not cover.
+        if water.province and water.is_spanish:
             stats["provinces"].add(water.province)
+        if not water.is_spanish:
+            stats["foreign_added"] += 1
         if water.sparkling:
             stats["sparkling_added"] += 1
         if not (

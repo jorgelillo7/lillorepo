@@ -126,8 +126,28 @@ def verified_fields_from_ocr(ocr_fields: str, minerals: dict) -> list[str]:
     return sorted(f for f in ocr_fields.split(",") if f in minerals)
 
 
-def resolve_place(province: str, community: str) -> tuple[str, str]:
+def form_country(form: Mapping) -> str:
+    """Country code from the form, defaulting to Spain.
+
+    An unrecognised code becomes Spain rather than creating a water in a
+    country the catalog has no name for: the form is public, and `country`
+    now decides which geography rules apply, so a junk value would silently
+    switch them off.
+    """
+    code = (form.get("country") or "").strip().upper()
+    return code if code in geo.COUNTRIES else geo.SPAIN
+
+
+def resolve_place(
+    province: str, community: str, country: str = geo.SPAIN
+) -> tuple[str, str]:
     """Province and community as they should be stored, from what was typed.
+
+    **Outside Spain none of this applies.** There is no autonomous community to
+    derive and no province list to check a shift against, so the region is kept
+    as typed and the community stays empty. Running the Spanish rules on a
+    Portuguese bottle is what put `province='portugal', community='portugal'`
+    on a ficha — the country asserted twice, as two things it is not.
 
     Both are free-text inputs on a public form, and `tramuntana` shows what
     that costs: it reached Firestore with `province="Talarrubias"` — a town in
@@ -146,6 +166,8 @@ def resolve_place(province: str, community: str) -> tuple[str, str]:
     and `data_audit` is where a human decides. This only ever repairs a
     provable mistake.
     """
+    if not geo.is_spain(country):
+        return province, ""
     if not geo.community_of(province) and geo.community_of(community):
         province = community
     return province, geo.community_of(province) or community
@@ -164,8 +186,9 @@ def build_water(
     added_by: str,
 ) -> Water:
     """The submitted water before any merge with an existing doc."""
+    country = form_country(form)
     province, community = resolve_place(
-        form_field(form, "province"), form_field(form, "community")
+        form_field(form, "province"), form_field(form, "community"), country
     )
     return Water(
         id=water_id,
@@ -174,6 +197,7 @@ def build_water(
         spring=form_field(form, "spring"),
         province=province,
         community=community,
+        country=country,
         sparkling=form.get("sparkling") == "on",
         minerals=minerals,
         photo_url=photo_url,

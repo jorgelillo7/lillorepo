@@ -222,3 +222,43 @@ def test_explorador_does_not_fire_for_water_matching_aesan_registry():
         ranking = build_community_stats(catalog, "2026-07")
     names = {b["name"] for b in ranking[0]["badges"]}
     assert "Explorador" not in names
+
+
+# --- the cartographer badge counts Spanish provinces ----------------------
+
+
+def _geo_water(water_id, province, country="ES", added_by="ana"):
+    return Water(
+        id=water_id,
+        name=water_id,
+        brand=water_id,
+        spring="",
+        province=province,
+        community="",
+        country=country,
+        added_by=added_by,
+    )
+
+
+def test_cartographer_does_not_count_a_foreign_locality_as_a_province():
+    """🗺️ Cartógrafo asks for 6+ provinces. A Portuguese *concelho* is not a
+    province, and counting it would hand out the badge for geography the
+    catalog does not actually cover."""
+    catalog = [
+        _geo_water("a", "Badajoz"),
+        _geo_water("b", "Cáceres"),
+        _geo_water("c", "Toledo"),
+        _geo_water("d", "Girona"),
+        _geo_water("e", "Lugo"),
+        _geo_water("f", "Fafe", country="PT"),
+    ]
+    stats = build_community_stats(catalog, "2026-09")[0]
+    assert len(stats["provinces"]) == 5
+    assert not any(b["emoji"] == "🗺️" for b in stats["badges"])
+
+
+def test_a_foreign_water_earns_the_globetrotter_badge():
+    catalog = [_geo_water("f", "Fafe", country="PT")]
+    stats = build_community_stats(catalog, "2026-09")[0]
+    assert stats["foreign_added"] == 1
+    assert any(b["emoji"] == "🌍" for b in stats["badges"])

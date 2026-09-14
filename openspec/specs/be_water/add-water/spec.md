@@ -185,3 +185,56 @@ page reads.
   and their permanent URLs stored
 - *Verifies:* `test_add_with_photo_tmp_promotes_both_and_stores_urls`,
   `test_add_water_saves_and_redirects`
+
+### Requirement: The country decides whether Spanish geography applies
+
+`Water.country` SHALL be written on save from a closed vocabulary
+(`geo.COUNTRIES`), defaulting to `ES` — for a form that says nothing, and for
+an unrecognised code. The form is public, and `country` now switches the
+geography rules, so a junk value must not switch them off silently.
+
+For a non-`ES` water, `resolve_place` SHALL keep the region as typed and leave
+`community` **empty**. It SHALL NOT derive a community and SHALL NOT apply the
+province/community shift repair: both are Spanish-geography rules, and running
+them on a Portuguese bottle is what stored `province='portugal',
+community='portugal'` — the country asserted twice, as two things it is not.
+
+The shift repair SHALL continue to work unchanged for `ES`.
+
+#### Scenario: a foreign water keeps its region and gains no community
+- **WHEN** `Fafe` / `PT` is submitted **THEN** province is `Fafe`, community `''`
+- **WHEN** `Braga` / `Portugal` / `PT` is submitted **THEN** the fields are not
+  shifted
+- **WHEN** `Talarrubias` / `Badajoz` / `ES` is submitted **THEN** the shift is
+  still repaired to `Badajoz` / `Extremadura`
+- **WHEN** the form carries no country, or `ZZ` **THEN** `ES`
+- *Verifies:* `test_a_foreign_water_keeps_its_region_and_gets_no_community`,
+  `test_a_foreign_water_never_shifts_its_fields`,
+  `test_the_field_shift_repair_still_works_for_spain`,
+  `test_country_defaults_to_spain_when_the_form_says_nothing`,
+  `test_an_unknown_country_code_falls_back_to_spain`
+
+### Requirement: A foreign water is absent from Spanish-geography surfaces
+
+Surfaces built on provinces and communities SHALL skip non-`ES` waters rather
+than let them fall out silently:
+
+- The **sitemap** SHALL list `?lugar=` pages only for Spanish waters' places.
+- The 🗺️ **Cartógrafo** badge SHALL count Spanish provinces only; a foreign
+  region is not a province and must not earn it.
+- A 🌍 **Trotamundos** badge SHALL be earned by adding a water bottled outside
+  Spain.
+
+The **ficha** SHALL still render an origin for a foreign water — region and
+country name — and `country_name` SHALL fall back to the raw code, never blank.
+
+#### Scenario: foreign waters in and out of the Spanish surfaces
+- **WHEN** the catalog holds a Spanish and a Portuguese water
+- **THEN** the sitemap carries the Spanish place and not the Portuguese region,
+  while both fichas stay indexed
+- **WHEN** a contributor has five Spanish provinces and one foreign region
+- **THEN** the province count is 5 and 🗺️ is not awarded, but 🌍 is
+- *Verifies:* `test_the_sitemap_lists_only_places_the_spanish_geography_covers`,
+  `test_cartographer_does_not_count_a_foreign_locality_as_a_province`,
+  `test_a_foreign_water_earns_the_globetrotter_badge`,
+  `test_an_unknown_country_code_still_renders_something`
