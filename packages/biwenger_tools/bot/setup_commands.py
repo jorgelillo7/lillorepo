@@ -50,6 +50,10 @@ COMMANDS = [
         "description": "Clausulazo de emergencia con confirmación (irreversible)",
     },
     {
+        "command": "pacto",
+        "description": "Pacto de no agresión: a quién no clausular",
+    },
+    {
         "command": "scrapper",
         "description": "Lanza el scraper a demanda (te avisa al acabar)",
     },

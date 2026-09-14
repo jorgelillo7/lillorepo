@@ -1120,3 +1120,66 @@ def test_non_image_document_falls_through_to_the_text_path(client):
 
     assert resp.status_code == 200
     mock_call.assert_not_called()
+
+
+# --- /pacto edits the non-aggression pact ---
+
+
+def test_pacto_command_opens_the_pact_picker(client):
+    """One toggle per rival manager, marked with its current state. Mine is
+    absent: there is no pact with yourself."""
+    fake_managers = [
+        {"id": 1, "name": "Jorge", "is_me": True, "pacted": False},
+        {"id": 2, "name": "Pablo", "is_me": False, "pacted": True},
+        {"id": 3, "name": "Ana", "is_me": False, "pacted": False},
+    ]
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+        return_value=fake_managers,
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/pacto"))
+    assert resp.status_code == 200
+    rows = mock_send.call_args.kwargs["reply_markup"]["inline_keyboard"]
+    assert [r[0]["callback_data"] for r in rows] == ["pact:2", "pact:3"]
+    assert rows[0][0]["text"].startswith("🤝")
+    assert rows[1][0]["text"].startswith("⚔️")
+
+
+def test_pacto_command_handles_a_fetch_failure(client):
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+        return_value=None,
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/pacto"))
+    assert resp.status_code == 200
+    assert "No pude cargar el pacto" in mock_send.call_args.kwargs.get("text", "")
+
+
+def test_pact_callback_toggles_the_manager_and_redraws_in_place(client):
+    """The tap posts the toggle and edits the same message, so the picker
+    stays one message however many managers get flipped."""
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json"
+    ) as mock_call, patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+    ), patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ) as mock_edit:
+        resp = _post(client, _callback_update(_VALID_CHAT, "pact:2"))
+    assert resp.status_code == 200
+    mock_call.assert_called_once_with(
+        _API_URL, "/pact/toggle", payload={"manager_id": 2}
+    )
+    mock_edit.assert_called_once()
+    rows = mock_edit.call_args.kwargs["reply_markup"]["inline_keyboard"]
+    assert rows[0][0]["text"].startswith("🤝")
+
+
+def test_pact_callback_ignores_a_malformed_manager_id(client):
+    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json"
+    ) as mock_call, patch("packages.biwenger_tools.bot.app.edit_message_text"):
+        resp = _post(client, _callback_update(_VALID_CHAT, "pact:nope"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()

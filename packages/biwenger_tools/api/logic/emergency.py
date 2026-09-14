@@ -42,6 +42,7 @@ from packages.biwenger_tools.api.logic.clausulazo_candidates import (
     gather_rivals,
     pick_top_in_position,
     sf_of,
+    without_pacted,
 )
 from packages.biwenger_tools.api.logic.clausulazo_detection import (
     OUTFIELD_POSITION_IDS,
@@ -49,7 +50,7 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
     unique_outfield_positions,
     weakest_outfield_position,
 )
-from packages.biwenger_tools.api.logic import rebuild, rebuild_store
+from packages.biwenger_tools.api.logic import pact_store, rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.draft import composition_ok
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
@@ -212,12 +213,26 @@ def _format_preview_text(
     )
 
 
-def _format_no_target_text(reason: str, cash: int) -> str:
+def _format_no_target_text(reason: str, cash: int, excluded: int = 0) -> str:
+    """Why there is nothing to buy — and, when it applies, that the pact is
+    the reason rather than the budget.
+
+    Without this line an owner with a broken eleven and money in the bank is
+    told "sin candidatos asequibles" and goes looking for cash they already
+    have. `/pacto` is the lever, so the message names it.
+    """
+    pact = (
+        f"\n\n🤝 <i>{excluded} candidato{'s' if excluded != 1 else ''} "
+        f"excluido{'s' if excluded != 1 else ''} por el pacto de no agresión. "
+        f"Usa /pacto si quieres levantarlo.</i>"
+        if excluded
+        else ""
+    )
     return (
         f"🚨 <b>Emergencia</b>\n"
         f"\n"
         f"Sin candidatos asequibles. Tu cash: <b>{format_euros(cash)}</b>. "
-        f"Motivo: <i>{reason}</i>."
+        f"Motivo: <i>{reason}</i>.{pact}"
     )
 
 
@@ -461,7 +476,11 @@ def preview_clausulazo(
 
     rivals = gather_rivals(biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = filter_affordable(rivals, my_ids, target=cash)
-    target, in_preferred = pick_top_in_position(affordable, preferred_position)
+    # The pact binds here, unlike in `/recomendar`: this flow spends money on
+    # one irreversible call, so a protected manager is never even proposed.
+    attackable = without_pacted(affordable, pact_store.load())
+    excluded = len(affordable) - len(attackable)
+    target, in_preferred = pick_top_in_position(attackable, preferred_position)
 
     payload = {
         "cash": cash,
@@ -470,8 +489,8 @@ def preview_clausulazo(
     }
 
     if target is None:
-        _send(_format_no_target_text(reason, cash))
-        return {**payload, "target": None, "reason": reason}
+        _send(_format_no_target_text(reason, cash, excluded))
+        return {**payload, "target": None, "reason": reason, "pact_excluded": excluded}
 
     text = _format_preview_text(
         target, reason, _fallback_note(preferred_position, in_preferred), cash
@@ -509,6 +528,7 @@ def _preview_rebuild(
     """
     rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
     affordable = filter_affordable(rivals, my_ids, target=cash)
+    affordable = without_pacted(affordable, pact_store.load())
     plan = rebuild.build_plan(my_rows=my_rows, affordable=affordable, cash=cash)
 
     # Prove it: the eleven is computed from the squad the plan would leave,
@@ -738,7 +758,13 @@ def execute_rebuild(plan_id: str) -> dict:
             continue
 
         cash = int(ctx.biwenger.get_account_state().get("cash") or 0)
-        pool = filter_affordable(rivals, my_ids, target=cash)
+        # Also filtered here, not just at preview: the `else` branch below
+        # re-picks a substitute when the approved player is gone, and that
+        # substitute must respect a pact that may have changed since the plan
+        # was approved.
+        pool = without_pacted(
+            filter_affordable(rivals, my_ids, target=cash), pact_store.load()
+        )
 
         if is_bench:
             swapped = False
