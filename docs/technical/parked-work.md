@@ -143,28 +143,56 @@ What it unlocks besides correctness: the international waters Spanish
 supermarkets actually stock (Evian, Perrier, San Pellegrino…), a 🌍 tier, and
 country chips on the home page.
 
-**The source is already international.** `refresh_aesan_snapshot.py` reads the
-EU-wide list (`mineral-waters_list_eu-recognised.pdf`), which carries a table
-per member state, and then deliberately throws all of them away:
-`_SPAIN` keeps Spain's table, `_THIRD` drops the third-country one, `_OTHER`
-drops every other country's. Internationalisation needs no new data source —
-it needs the parser to stop filtering. Fontebel is very likely already in that
-PDF, under Portugal.
+### Two items, and only one of them fixes anything today
 
-What actually breaks, and is the real cost:
+An earlier version of this note said the official registry would already know
+FONTÉBIL and that internationalisation was "one parser filter away". The PDF
+was downloaded and read to check. **Both halves of that need correcting**, so
+the work splits in two:
 
-- `_PROVINCE` in the parser assumes every place reads `Municipality
-  (Province)`. Other member states do not use Spanish provinces.
+**(a) The model and the UI accept a non-`ES` water.** This is what fixes the
+broken ficha, and it is the small half: write `country` on save, offer it on
+the form, keep `resolve_place` from inventing a Spanish province out of a
+Portuguese locality, and skip non-`ES` waters in the province/community views
+instead of letting them fall out silently.
+
+**(b) Parse the other 27 country tables.** This fixes *future* waters that the
+registry does know. It does **not** fix FONTÉBIL, and it is the larger half —
+see the measurements below. Its own item, not a prerequisite for (a).
+
+### What the PDF actually says, measured
+
+`refresh_aesan_snapshot.py` reads the EU-wide list
+(`mineral-waters_list_eu-recognised.pdf`, 110 pages). Downloaded and parsed
+directly:
+
+- **28 country tables** — Austria through the United Kingdom. `_SPAIN` keeps
+  Spain's, `_THIRD` drops the third-country one, `_OTHER` drops the remaining
+  26. So (b) genuinely needs no new data source, only a parser that stops
+  filtering. That much was right.
+- **FONTÉBIL is not in it.** Neither is its bottler (Outeirinho), nor Fafe.
+  Portugal's table has 29 real entries — Luso, Vidago, Monchique, Frize — and
+  ours is not among them. Either it is *água de nascente*, a category this list
+  does not cover, or it is registered under a name we do not have. **The
+  registry cannot repair this ficha; a human has to.**
+- **The place column has a different shape.** Portugal reads
+  `Locality-Municipality` (`Vidago – Chaves`, `Sampaio-Vila Flor`), not
+  `Municipality (Province)`. `_PROVINCE` matches on the closing parenthesis, so
+  it would return nothing for every row of 26 tables. That was a suspicion
+  here before; it is now checked.
+
+### What (a) has to avoid breaking
+
 - `geo.community_of` is a Spanish province → autonomous community table.
   `submission.resolve_place` derives `community` from `province` and keeps
-  unrecognised text as typed, so a Portuguese *concelho* lands as a province
-  with an empty community and drops out of every place view — the exact
-  failure `resolve_place` was written to prevent, arriving by a new door.
+  unrecognised text as typed, which is exactly how `province='portugal',
+  community='portugal'` happened — the failure `resolve_place` was written to
+  prevent, arriving by a new door.
 - The recommender's "nearby" (`geo.adjacent_places`) and the 🗺️ Cartógrafo
   badge (6+ provinces) both assume Spanish geography.
 
-The shape that avoids a rewrite: `country` decides whether a community is
-**expected at all**. A non-`ES` water declares country + a free-text region and
+The shape that avoids a rewrite: **`country` decides whether a community is
+expected at all.** A non-`ES` water declares country + a free-text region and
 is excluded from province/community views rather than silently absent from
 them. No geocoding service, no address parsing — the owner's call, and the
 right one.
