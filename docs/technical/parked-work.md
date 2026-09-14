@@ -150,11 +150,11 @@ FONTÉBIL and that internationalisation was "one parser filter away". The PDF
 was downloaded and read to check. **Both halves of that need correcting**, so
 the work splits in two:
 
-**(a) The model and the UI accept a non-`ES` water.** This is what fixes the
-broken ficha, and it is the small half: write `country` on save, offer it on
-the form, keep `resolve_place` from inventing a Spanish province out of a
-Portuguese locality, and skip non-`ES` waters in the province/community views
-instead of letting them fall out silently.
+**(a) The model and the UI accept a non-`ES` water.** ✅ **Shipped** — `country`
+is written on save from a closed vocabulary, the form offers it, `resolve_place`
+no longer invents a Spanish province out of a Portuguese locality, and the
+sitemap and the 🗺️ badge skip foreign waters. What remains of (a) is repairing
+`fontebil`'s stored document, which is a Firestore write and the owner's call.
 
 **(b) Parse the other 27 country tables.** This fixes *future* waters that the
 registry does know. It does **not** fix FONTÉBIL, and it is the larger half —
