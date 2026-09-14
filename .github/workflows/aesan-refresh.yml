@@ -55,7 +55,12 @@ jobs:
       # Exits non-zero when the download is not a PDF, or the parse looks
       # wrong, rather than writing a damaged snapshot.
       - name: Regenerate the snapshot
-        run: python3 packages/be_water/scripts/refresh_aesan_snapshot.py
+        run: |
+          if ! python3 packages/be_water/scripts/refresh_aesan_snapshot.py \
+              2> "$RUNNER_TEMP/refresh-error.txt"; then
+            cat "$RUNNER_TEMP/refresh-error.txt" >&2
+            exit 1
+          fi
 
       - name: Is there news?
         id: diff
@@ -117,12 +122,23 @@ jobs:
       # The failure that matters: the source moved, or the document's layout
       # changed enough that the parse is no longer trustworthy. Both mean the
       # snapshot silently stops tracking reality.
+      # The script already works out *which* failure this is — a moved
+      # document reads differently from a throttled host, and it says so on
+      # stderr before exiting. This step forwards that verdict instead of
+      # guessing: a fixed "la fuente se ha movido" sent the owner hunting for
+      # a new URL after a transient 429 on a source that was fine.
       - name: Tell Telegram it broke
         if: failure() && steps.telegram.outputs.token != ''
         run: |
+          REASON=$(tail -c 600 "$RUNNER_TEMP/refresh-error.txt" 2>/dev/null)
+          if [ -z "$REASON" ]; then
+            REASON="Falló antes de llegar al script — mira el run."
+          fi
           curl -sS -X POST \
             "https://api.telegram.org/bot${{ steps.telegram.outputs.token }}/sendMessage" \
             -d chat_id="${{ steps.telegram.outputs.chat }}" \
             --data-urlencode text="⚠️ El refresco del registro de aguas ha fallado.
-          Probablemente la fuente se ha movido otra vez, o cambió el formato del PDF.
+
+          $REASON
+
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
