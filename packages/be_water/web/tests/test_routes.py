@@ -2058,3 +2058,46 @@ def test_a_verified_water_still_refuses_to_be_overwritten(client):
     assert "verificada" in response.get_data(as_text=True)
     mock_save.assert_not_called()
     mock_analysis.assert_not_called()
+
+
+def test_admin_page_lists_the_origins_that_need_a_human(client):
+    """The two fichas the curation engine could not see: one asserting a
+    country is a Spanish province, one with no origin at all."""
+    catalog = [
+        Water(
+            id="f",
+            name="FONTEBIL",
+            brand="F",
+            spring="S",
+            province="portugal",
+            community="portugal",
+        ),
+        Water(
+            id="d",
+            name="Fuente Dehesa",
+            brand="F",
+            spring="",
+            province="",
+            community="",
+        ),
+        Water(
+            id="ok",
+            name="Solan",
+            brand="S",
+            spring="S",
+            province="Cuenca",
+            community="Castilla-La Mancha",
+        ),
+    ]
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_all_users", return_value={}), patch(
+            f"{_REPO}.get_all_waters", return_value=catalog
+        ):
+            resp = client.get("/admin")
+    body = resp.get_data(as_text=True)
+    assert "Procedencia por revisar (2)" in body
+    assert "FONTEBIL" in body and "Fuente Dehesa" in body
+    assert "Solan" not in body

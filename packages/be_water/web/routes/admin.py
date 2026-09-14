@@ -3,7 +3,7 @@
 from flask import abort, redirect, render_template, url_for
 
 from core.web.csrf import verify_csrf_token
-from packages.be_water.web import config, helpers, repository
+from packages.be_water.web import config, data_audit, helpers, repository
 
 
 def admin_page():
@@ -19,6 +19,9 @@ def admin_page():
     # `uploads/`. That prefix is swept, so the ficha works for weeks and then
     # does not. Nothing read the flag, which made it an alarm with no bell.
     stranded = [w for w in catalog if w.photo_promotion_failed]
+    # Origins a machine cannot repair: a wrong province is not something
+    # re-reading the label fixes, so this is the page's human worklist.
+    geo_gaps = data_audit.find_geo_gaps(catalog)
     contributions: dict = {}
     for water in catalog:
         contributor = (water.added_by or "").strip().lower()
@@ -38,6 +41,7 @@ def admin_page():
     return render_template(
         "admin.html",
         stranded=stranded,
+        geo_gaps=geo_gaps,
         rows=rows,
         admin_emails=sorted(config.ADMIN_EMAILS),
         meta_description="Administración de Be Water.",
