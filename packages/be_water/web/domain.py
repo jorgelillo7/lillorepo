@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
+from packages.be_water.web import geo
+
 # Mineral fields, in display order. Every value is mg/L except ph.
 MINERAL_FIELDS = [
     "tds",
@@ -177,6 +179,17 @@ class Water:
             photo_url=entry.get("photo_url") or self.photo_url,
             analysis_date=entry.get("analysis_date"),
         )
+
+    @property
+    def is_spanish(self) -> bool:
+        """Whether Spanish geography applies: provinces, communities, the
+        adjacency map, the 🗺️ badge. False for a foreign water, whose
+        `province` holds a region with no community to derive."""
+        return geo.is_spain(self.country)
+
+    @property
+    def country_name(self) -> str:
+        return geo.country_name(self.country)
 
     @property
     def tds(self) -> Optional[float]:

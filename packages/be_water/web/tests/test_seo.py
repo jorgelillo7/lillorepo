@@ -1,6 +1,7 @@
 """Structured data: what the pages claim about themselves, machine-readable."""
 
 import json
+from unittest.mock import patch
 
 from packages.be_water.web import seo
 from packages.be_water.web.domain import Water
@@ -96,3 +97,36 @@ def test_first_photo_scans_the_groups_in_order():
     plain, shot = _water(id="a"), _water(id="b", photo_url="gs://b.jpg")
     assert seo.first_photo([plain], [shot]) == "gs://b.jpg"
     assert seo.first_photo([plain], []) == ""
+
+
+def test_the_sitemap_lists_only_places_the_spanish_geography_covers():
+    """`?lugar=` matches provinces and communities. A foreign region in the
+    sitemap invites a crawler to a page the recommender cannot answer."""
+    from packages.be_water.web.app import app
+
+    catalog = [
+        Water(
+            id="a",
+            name="A",
+            brand="A",
+            spring="",
+            province="Badajoz",
+            community="Extremadura",
+        ),
+        Water(
+            id="f",
+            name="F",
+            brand="F",
+            spring="",
+            province="Fafe",
+            community="",
+            country="PT",
+        ),
+    ]
+    with patch(
+        "packages.be_water.web.app.repository.get_all_waters", return_value=catalog
+    ):
+        body = app.test_client().get("/sitemap.xml").data.decode()
+    assert "lugar=Badajoz" in body
+    assert "Fafe" not in body
+    assert "/agua/f" in body  # the ficha itself is still indexed
