@@ -158,13 +158,22 @@ def _send_manager_picker() -> None:
     )
 
 
-def _send_pact_picker(edit_into: tuple[str, int] | None = None) -> None:
-    """Post (or redraw) the pact editor: one toggle per rival manager."""
-    managers = (
-        api_client.list_pact_managers(config.BIWENGER_API_URL)
-        if config.BIWENGER_API_URL
-        else None
-    )
+def _send_pact_picker(
+    edit_into: tuple[str, int] | None = None,
+    managers: list[dict] | None = None,
+) -> None:
+    """Post (or redraw) the pact editor: one toggle per rival manager.
+
+    `managers` short-circuits the fetch. A toggle already gets the refreshed
+    list back in its own response, and re-reading `/pact` to redraw paid for a
+    second Biwenger league round trip on every tap.
+    """
+    if managers is None:
+        managers = (
+            api_client.list_pact_managers(config.BIWENGER_API_URL)
+            if config.BIWENGER_API_URL
+            else None
+        )
     if managers is None:
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
@@ -205,7 +214,7 @@ def _run_pact_toggle(value: str, edit_into: tuple[str, int] | None) -> None:
         logger.info("Webhook: malformed pact payload", extra={"value": value})
         return
     try:
-        api_client.call_api_json(
+        result = api_client.call_api_json(
             config.BIWENGER_API_URL,
             "/pact/toggle",
             payload={"manager_id": manager_id},
@@ -220,7 +229,7 @@ def _run_pact_toggle(value: str, edit_into: tuple[str, int] | None) -> None:
             ),
         )
         return
-    _send_pact_picker(edit_into)
+    _send_pact_picker(edit_into, managers=(result or {}).get("managers"))
 
 
 def _run_in_background(fn, *args, **kwargs) -> None:
@@ -611,6 +620,10 @@ def _handle_callback(cb: dict) -> None:
         marker = value.split(":", 1)[0]
         toast = "⏳ Aceptando…" if marker == "a" else "⏳ Rechazando…"
         answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id, text=toast)
+    elif prefix == "pact":
+        answer_callback_query(
+            config.TELEGRAM_BOT_TOKEN, cb_id, text="⏳ Actualizando el pacto…"
+        )
     else:
         answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb_id)
 
@@ -695,7 +708,16 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("emergencia", "🚨 Emergencia")
     elif cmd == "/pacto":
         logger.info("Webhook: /pacto received — sending picker")
-        _send_pact_picker()
+        # Status first, fetch in the background: the picker costs a cold start
+        # plus a Biwenger league call, and doing that inline blocks the worker
+        # past Telegram's timeout — which is how a slow call becomes a retried
+        # webhook and a second picker.
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text="⏳ <b>🤝 Pacto</b> — procesando…",
+        )
+        _run_in_background(_send_pact_picker)
     elif cmd == "/comparar":
         _dispatch_action("comparar", "⚖️ Comparar")
     elif cmd == "/ofertas":

@@ -1145,6 +1145,23 @@ def test_pacto_command_opens_the_pact_picker(client):
     assert rows[1][0]["text"].startswith("⚔️")
 
 
+def test_pacto_command_says_it_is_working_before_the_picker_arrives(client):
+    """The picker sits behind a cold start plus a Biwenger league call. Without
+    a "procesando…" line the command looks ignored — and doing the fetch inside
+    the webhook would block the worker past Telegram's timeout, which is how a
+    slow call turns into a retried webhook and a duplicated picker."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "/pacto"))
+    assert resp.status_code == 200
+    first = mock_send.call_args_list[0].kwargs["text"]
+    assert "procesando" in first.lower()
+    # The picker still arrives, with its keyboard.
+    assert mock_send.call_args_list[-1].kwargs.get("reply_markup") is not None
+
+
 def test_pacto_command_handles_a_fetch_failure(client):
     with patch(
         "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
@@ -1157,13 +1174,24 @@ def test_pacto_command_handles_a_fetch_failure(client):
 
 def test_pact_callback_toggles_the_manager_and_redraws_in_place(client):
     """The tap posts the toggle and edits the same message, so the picker
-    stays one message however many managers get flipped."""
+    stays one message however many managers get flipped.
+
+    It redraws from the toggle's **own** response. `/pact/toggle` already
+    returns the refreshed list, and re-fetching `/pact` afterwards paid for a
+    second Biwenger league round trip per tap — which is what made the button
+    feel like it had not registered.
+    """
     with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json"
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        return_value={
+            "status": "ok",
+            "manager_id": 2,
+            "pacted": True,
+            "managers": [{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+        },
     ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
-        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
-    ), patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers"
+    ) as mock_refetch, patch(
         "packages.biwenger_tools.bot.app.edit_message_text"
     ) as mock_edit:
         resp = _post(client, _callback_update(_VALID_CHAT, "pact:2"))
@@ -1171,9 +1199,26 @@ def test_pact_callback_toggles_the_manager_and_redraws_in_place(client):
     mock_call.assert_called_once_with(
         _API_URL, "/pact/toggle", payload={"manager_id": 2}
     )
+    mock_refetch.assert_not_called()
     mock_edit.assert_called_once()
     rows = mock_edit.call_args.kwargs["reply_markup"]["inline_keyboard"]
     assert rows[0][0]["text"].startswith("🤝")
+
+
+def test_pact_callback_acknowledges_the_tap_with_a_toast(client):
+    """Between the tap and the redraw sits a cold start and a Biwenger call.
+    Without a toast the button looks dead and gets tapped twice."""
+    with patch(
+        "packages.biwenger_tools.bot.app.answer_callback_query"
+    ) as mock_ack, patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        return_value={"managers": []},
+    ), patch(
+        "packages.biwenger_tools.bot.app.edit_message_text"
+    ):
+        resp = _post(client, _callback_update(_VALID_CHAT, "pact:2"))
+    assert resp.status_code == 200
+    assert mock_ack.call_args.kwargs.get("text", "")
 
 
 def test_pact_callback_ignores_a_malformed_manager_id(client):
