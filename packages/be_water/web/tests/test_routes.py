@@ -1,5 +1,6 @@
 """Route smoke tests with the repository patched (no Firestore)."""
 
+import io
 import re
 from unittest.mock import patch
 
@@ -825,8 +826,10 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
 
 
 def test_beauty_photo_becomes_the_display_shot(client):
-    """The optional front shot feeds the ficha photo; OCR still reads the
-    composition shot."""
+    """The optional front shot feeds the ficha photo — and is now read too.
+
+    Both faces go to the reader, the composition shot first; it stays the
+    verification proof and wins every field it declares."""
     _login(client)
     import io
 
@@ -834,7 +837,7 @@ def test_beauty_photo_becomes_the_display_shot(client):
         f"{_APP}.photos.upload_photo"
     ) as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
-    ) as mock_ocr:
+    ) as mock_ocr:  # noqa: E501
         resp = client.post(
             "/anadir/foto",
             data={
@@ -849,7 +852,7 @@ def test_beauty_photo_becomes_the_display_shot(client):
     assert label_call.args[0].endswith("-label.jpg")
     assert label_call.args[1] == b"label"
     assert display_call.args[1] == b"front"
-    mock_ocr.assert_called_once_with(b"label")
+    assert [c.args[0] for c in mock_ocr.call_args_list] == [b"label", b"front"]
     # The processing overlay ships with the form for the next visitor.
     assert 'id="processing"' in resp.get_data(as_text=True)
 
@@ -2247,3 +2250,68 @@ def test_admin_edit_404s_on_a_water_that_does_not_exist(client):
         _google_login(client, "admin@x.com")
         with patch(f"{_REPO}.get_water", return_value=None):
             assert client.get("/admin/agua/nope").status_code == 404
+
+
+def test_the_front_shot_is_read_too_and_only_fills_gaps(client):
+    """The front photo was already uploaded and already paid for. Reading only
+    the composition shot is how `fuente-dehesa` reached `verified` with no
+    origin: the mineral table and the origin are on different faces."""
+    _login(client)
+    reads = [
+        {"name": "Fuente Dehesa", "tds": 48, "spring": None, "province": None},
+        {
+            "name": "Fuente Dehesa",
+            "spring": "Encinas",
+            "province": "Badajoz",
+            "tds": 999,
+        },
+    ]
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "photo": (io.BytesIO(b"composition"), "c.jpg"),
+                "beauty": (io.BytesIO(b"front"), "f.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    # The gap the second face filled.
+    assert 'name="province"' in body and "Badajoz" in body
+    assert "Encinas" in body
+    # The composition shot still wins its own fields.
+    assert "999" not in body
+
+
+def test_the_tick_belongs_to_the_photo_that_is_stored_as_proof(client):
+    """A mineral only the front shot declared must not become a
+    `verified_field`: `label_photo_url` is the composition shot, so the ✓ would
+    point at a photograph that does not show the value."""
+    _login(client)
+    reads = [
+        {"name": "X", "tds": 48, "sodium": None},
+        {"name": "X", "sodium": 5.3},
+    ]
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "photo": (io.BytesIO(b"composition"), "c.jpg"),
+                "beauty": (io.BytesIO(b"front"), "f.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    ocr_fields = re.search(r'name="ocr_fields" value="([^"]*)"', body).group(1)
+    assert "tds" in ocr_fields
+    assert "sodium" not in ocr_fields  # present in the form, but unverified

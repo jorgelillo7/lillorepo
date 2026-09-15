@@ -394,11 +394,21 @@ def add_water_photo():
     # project, so it fires only for trusted nicknames. Everyone else keeps the
     # (free) OCR prefill and their raw photo.
     is_admin = session["nickname"] in config.ADMIN_NICKNAMES
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         studio_task = (
             pool.submit(photos.studio_photo, display_src) if is_admin else None
         )
         ocr_task = pool.submit(label_ocr.extract_label, processed)
+        # The front shot was already uploaded and paid for, and it is a second
+        # face of the same bottle. The composition shot frames the mineral
+        # table; spring, municipality and province usually live elsewhere, and
+        # reading only one face is how a ficha reached `verified` with no
+        # origin at all. It only ever fills gaps — see `merge_label_reads`.
+        second_face_task = (
+            pool.submit(label_ocr.extract_label, display_src)
+            if display_src is not processed
+            else None
+        )
 
         display = display_src
         studio_note = ""
@@ -419,6 +429,18 @@ def add_water_photo():
             extracted = ocr_task.result()
         except (GeminiError, requests.RequestException) as exc:
             ocr_error = exc
+
+        second_face = None
+        if second_face_task is not None:
+            try:
+                second_face = second_face_task.result()
+            except (GeminiError, requests.RequestException) as exc:
+                # A bonus read. Losing it must never cost the submission the
+                # composition shot already paid for.
+                logger.info(
+                    "Second-face read failed — ignoring.",
+                    extra={"error": str(exc)[:300]},
+                )
 
     photo_tmp = f"uploads/{uid}.jpg"
     photos.upload_photo(photo_tmp, display)
@@ -449,11 +471,18 @@ def add_water_photo():
             label_tmp=label_tmp,
             error=error,
         )
-    prefill = {k: v for k, v in extracted.items() if v is not None}
+    # Mineral fields the label actually declared — they become verified_fields
+    # on save (human-reviewed label data). Read from the **composition** shot
+    # only, before the merge: that is the photo stored as `label_photo_url`,
+    # so a ✓ earned by a value the other face declared would point at a
+    # photograph that does not show it.
+    ocr_fields = [f for f in MINERAL_FIELDS if extracted.get(f) is not None]
+    prefill = {
+        k: v
+        for k, v in submission.merge_label_reads(extracted, second_face).items()
+        if v is not None
+    }
     aesan_note = _prefill_from_aesan(prefill)
-    # Mineral fields the label actually declared — they become
-    # verified_fields on save (human-reviewed label data).
-    ocr_fields = [f for f in MINERAL_FIELDS if prefill.get(f) is not None]
     return _render_add_form(
         prefill=prefill,
         photo_tmp=photo_tmp,

@@ -115,3 +115,44 @@ affordable.
 > **GAP — unverified.** No test asserts the timeout and retry values reaching
 > the Gemini client. A test would patch `gemini.generate_json` and assert
 > `timeout=90, retries=1`.
+
+### Requirement: Both photographed faces are read, and only one carries the ✓
+
+When an optional front photo is uploaded it SHALL be read by the same
+extractor, in parallel with the composition shot. It is already uploaded and
+already paid for, and it is a second face of the same bottle: the composition
+shot frames the mineral table, while spring, municipality and province usually
+live elsewhere. Reading one face is how a ficha reached `verified` with no
+origin at all.
+
+`merge_label_reads` SHALL let the **composition** shot win every field it
+declares, the second face filling only gaps. A gap is `None` or `""` — the
+reader returns both for a field it could not find. `False` SHALL NOT be a gap:
+`sparkling: False` is an answer, and treating it as missing would let the other
+face turn a still water sparkling.
+
+`ocr_fields` — which become `verified_fields` — SHALL be taken from the
+composition read **before** the merge. That photo is what is stored as
+`label_photo_url`, so a ✓ earned by a value only the other face declared would
+point at a photograph that does not show it. Such a value still prefills the
+form; it simply arrives unverified.
+
+A failure of the second read SHALL be logged and ignored. It is a bonus, and
+losing it must never cost the submission the composition shot already paid for.
+
+#### Scenario: two faces, one prefill
+- **WHEN** the composition read has no spring or province and the front read
+  has both **THEN** the merged prefill carries them
+- **WHEN** both declare `tds` **THEN** the composition value wins
+- **WHEN** the composition read says `sparkling: False` **THEN** it stands
+- **WHEN** only the front read declares a mineral **THEN** it prefills the form
+  but is absent from `ocr_fields`
+- **WHEN** no front photo was uploaded **THEN** nothing changes
+- *Verifies:* `test_the_second_face_fills_gaps_the_first_left`,
+  `test_the_composition_shot_wins_every_field_it_declares`,
+  `test_a_false_is_a_value_and_not_a_gap`,
+  `test_an_empty_string_is_a_gap`,
+  `test_no_second_face_changes_nothing`,
+  `test_the_front_shot_is_read_too_and_only_fills_gaps`,
+  `test_the_tick_belongs_to_the_photo_that_is_stored_as_proof`,
+  `test_beauty_photo_becomes_the_display_shot`

@@ -121,6 +121,25 @@ def normalize_analysis_date(raw: Optional[str]) -> Optional[str]:
     return None
 
 
+def merge_label_reads(primary: dict, secondary: Optional[dict]) -> dict:
+    """One prefill from two photographed faces of the same bottle.
+
+    The composition shot is `primary` and wins every field it declares: it is
+    the photo kept as verification proof, so a value it read is the one the ✓
+    will refer to. The second face only fills gaps.
+
+    A gap is `None` or `""` — the reader returns both for a field it could not
+    find. `False` is **not** a gap: `sparkling: False` is an answer, and
+    treating it as missing would let the other face turn a still water
+    sparkling.
+    """
+    merged = dict(primary)
+    for field, value in (secondary or {}).items():
+        if merged.get(field) in (None, "") and value not in (None, ""):
+            merged[field] = value
+    return merged
+
+
 def verified_fields_from_ocr(ocr_fields: str, minerals: dict) -> list[str]:
     """Label-declared mineral fields (human-reviewed) become verified_fields."""
     return sorted(f for f in ocr_fields.split(",") if f in minerals)
