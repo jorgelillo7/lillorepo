@@ -336,3 +336,49 @@ def test_an_unknown_country_code_falls_back_to_spain():
 
 def test_a_recognised_country_is_kept():
     assert submission.form_country({"country": "PT"}) == "PT"
+
+
+# --- two photographed faces, one prefill ----------------------------------
+
+
+def test_the_second_face_fills_gaps_the_first_left():
+    """The composition shot frames the mineral table; the origin is usually on
+    another face. `fuente-dehesa` was saved with no origin because only one of
+    them was ever read."""
+    merged = submission.merge_label_reads(
+        {"name": "Fuente Dehesa", "tds": 48, "spring": None, "province": None},
+        {"name": "Fuente Dehesa", "spring": "Encinas", "province": "Badajoz"},
+    )
+    assert merged["tds"] == 48
+    assert merged["spring"] == "Encinas"
+    assert merged["province"] == "Badajoz"
+
+
+def test_the_composition_shot_wins_every_field_it_declares():
+    """It is the photo kept as verification proof, so a value it read is the
+    one the ✓ will refer to. The other face never overrides it."""
+    merged = submission.merge_label_reads(
+        {"tds": 48, "province": "Badajoz"},
+        {"tds": 999, "province": "Cuenca"},
+    )
+    assert merged == {"tds": 48, "province": "Badajoz"}
+
+
+def test_a_false_is_a_value_and_not_a_gap():
+    """`sparkling: False` is an answer. Treating it as missing would let the
+    other face turn a still water sparkling."""
+    merged = submission.merge_label_reads({"sparkling": False}, {"sparkling": True})
+    assert merged["sparkling"] is False
+
+
+def test_an_empty_string_is_a_gap():
+    """The reader returns '' as readily as null for a field it could not
+    find, and an empty spring is exactly the gap this exists to fill."""
+    merged = submission.merge_label_reads({"spring": ""}, {"spring": "Encinas"})
+    assert merged["spring"] == "Encinas"
+
+
+def test_no_second_face_changes_nothing():
+    primary = {"name": "X", "tds": 10}
+    assert submission.merge_label_reads(primary, None) == primary
+    assert submission.merge_label_reads(primary, {}) == primary
