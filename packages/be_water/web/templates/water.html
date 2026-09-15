@@ -37,6 +37,10 @@
             <div class="text-7xl mb-4">{{ '🫧' if water.sparkling else '💧' }}</div>
             {% endif %}
             <h1 class="text-2xl font-extrabold text-slate-900">{{ water.name }}</h1>
+            {% if is_admin %}
+            <a href="{{ url_for('admin_edit_water', water_id=water.id) }}"
+               class="inline-block mt-1 text-[11px] font-semibold text-slate-400 hover:text-sky-600 underline">🛠️ editar ficha</a>
+            {% endif %}
             <p class="text-slate-500 text-sm mt-1">{{ water.spring }}</p>
             {% if water.is_spanish %}
             <p class="text-slate-600 text-sm mt-2 font-medium">📍 {{ water.province }} · {{ water.community }}</p>

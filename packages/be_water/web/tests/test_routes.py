@@ -2101,3 +2101,149 @@ def test_admin_page_lists_the_origins_that_need_a_human(client):
     assert "Procedencia por revisar (2)" in body
     assert "FONTEBIL" in body and "Fuente Dehesa" in body
     assert "Solan" not in body
+
+
+# --- /admin/agua/<id>: repairing a ficha without the CLI -------------------
+
+
+def _csrf_from(body: str) -> str:
+    """The token the rendered form carries — posting it exercises the real
+    round trip instead of bypassing the check."""
+    return re.search(r'name="csrf_token" value="([^"]+)"', body).group(1)
+
+
+def _broken():
+    return Water(
+        id="f",
+        name="FONTEBIL",
+        brand="FONTEBIL",
+        spring="Fontebil 1",
+        province="portugal",
+        community="portugal",
+        verified=True,
+        minerals={"tds": 32.0},
+    )
+
+
+def test_admin_edit_form_is_admin_only(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        assert client.get("/admin/agua/f").status_code == 403  # signed out
+        _google_login(client, "otra@x.com")
+        assert client.get("/admin/agua/f").status_code == 403  # not an admin
+
+
+def test_admin_edit_form_offers_the_canonical_vocabularies(client):
+    """Free text is what stored `province='portugal'`. The form offers the
+    lists this repo already carries, so that shape cannot be retyped."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()):
+            resp = client.get("/admin/agua/f")
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert '<select id="province"' in body and "Badajoz" in body
+    assert '<select id="community"' in body and "Extremadura" in body
+    assert '<select id="country"' in body and "Portugal" in body
+    # The reasons it was flagged are shown next to the fields that cause them.
+    assert "no es una provincia" in body
+
+
+def test_admin_edit_saves_a_snapshot_before_overwriting(client):
+    """The undo trail `scripts/revert_water.py` reads. An admin edit is the
+    one write with no contributor behind it to ask what the label said."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision") as mock_rev:
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            resp = client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "FONTEBIL",
+                    "brand": "FONTEBIL",
+                    "spring": "Fontebil 1",
+                    "country": "PT",
+                    "province": "Fafe",
+                    "community": "",
+                    "retailer": "Mercadona",
+                },
+            )
+    assert resp.status_code == 302
+    mock_rev.assert_called_once()
+    assert mock_rev.call_args.kwargs["replaced_by"] == "admin@x.com"
+    saved = mock_save.call_args.args[0]
+    assert (saved.country, saved.province, saved.community) == ("PT", "Fafe", "")
+    assert saved.retailer == "Mercadona"
+
+
+def test_admin_edit_applies_the_country_rules_on_save(client):
+    """The admin form goes through `resolve_place` like the public one: a
+    Spanish province derives its community, so an admin cannot hand-type a
+    mismatch the curation engine would then flag."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision"):
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "X",
+                    "brand": "X",
+                    "spring": "S",
+                    "country": "ES",
+                    "province": "Badajoz",
+                    "community": "Cataluña",
+                },
+            )
+    saved = mock_save.call_args.args[0]
+    assert saved.community == "Extremadura"
+
+
+def test_admin_edit_keeps_what_the_form_does_not_carry(client):
+    """Minerals, photos, verification and authorship are not on this form and
+    must survive it — an origin repair is not a re-submission."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision"):
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "X",
+                    "brand": "X",
+                    "spring": "S",
+                    "country": "PT",
+                    "province": "Fafe",
+                    "community": "",
+                },
+            )
+    saved = mock_save.call_args.args[0]
+    assert saved.minerals == {"tds": 32.0}
+    assert saved.verified is True
+
+
+def test_admin_edit_404s_on_a_water_that_does_not_exist(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=None):
+            assert client.get("/admin/agua/nope").status_code == 404
