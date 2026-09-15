@@ -2334,3 +2334,89 @@ def test_the_ficha_shows_the_registry_number_and_bottler(client):
         body = client.get("/agua/x").get_data(as_text=True)
     assert "27.02231/BA" in body
     assert "SONEPA" in body
+
+
+# --- the third photo: only asked for when the origin came back empty -------
+
+
+def _photo_post(client, reads, extra=None):
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        data = {
+            "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+            "photo": (io.BytesIO(b"composition"), "c.jpg"),
+        }
+        data.update(extra or {})
+        return client.post(
+            "/anadir/foto", data=data, content_type="multipart/form-data"
+        )
+
+
+def test_the_origin_upload_appears_only_when_the_origin_is_missing(client):
+    """2 fichas in 51 need it, so the form must not get heavier for the other
+    49. It is offered when the reader found no spring or no province."""
+    _login(client)
+    body = _photo_post(client, [{"name": "X", "spring": None, "province": None}])
+    assert 'name="origin"' in body.get_data(as_text=True)
+
+    body = _photo_post(
+        client, [{"name": "X", "spring": "Encinas", "province": "Badajoz"}]
+    )
+    assert 'name="origin"' not in body.get_data(as_text=True)
+
+
+def test_the_origin_photo_fills_the_gaps_and_keeps_what_was_typed(client):
+    """Everything already on the form survives — the contributor may have
+    corrected the reader before reaching for another photo."""
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
+        f"{_APP}.label_ocr.extract_label",
+        return_value={"spring": "Encinas", "province": "Badajoz", "tds": 999},
+    ), patch(f"{_REPO}.get_all_waters", return_value=[]):
+        resp = client.post(
+            "/anadir/origen",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "origin": (io.BytesIO(b"origin-face"), "o.jpg"),
+                "name": "Fuente Dehesa",
+                "tds": "48",
+                "ocr_fields": "tds",
+                "photo_tmp": "uploads/x.jpg",
+                "label_tmp": "uploads/x-label.jpg",
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert "Encinas" in body and "Badajoz" in body
+    assert 'value="Fuente Dehesa"' in body
+    assert 'value="48"' in body and "999" not in body  # typed value wins
+    # The proof photo is still the composition shot, so the ✓ set is unchanged.
+    assert re.search(r'name="ocr_fields" value="tds"', body)
+    assert 'value="uploads/x-label.jpg"' in body
+
+
+def test_the_origin_photo_never_becomes_the_stored_proof(client):
+    """It is a third face, read and discarded. `label_photo_url` must stay the
+    composition shot, which is what the ✓ refers to."""
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"province": "Badajoz"}
+    ), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        client.post(
+            "/anadir/origen",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "origin": (io.BytesIO(b"origin-face"), "o.jpg"),
+                "name": "X",
+                "label_tmp": "uploads/x-label.jpg",
+            },
+            content_type="multipart/form-data",
+        )
+    mock_upload.assert_not_called()
