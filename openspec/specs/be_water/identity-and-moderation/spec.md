@@ -156,3 +156,49 @@ still holding admin.
 > **GAP — unverified.** No test posts `/logout` and asserts the session is
 > empty. A test would sign in both ways, post `/logout`, and assert `nickname`,
 > `google_email` and `google_name` are all gone.
+
+### Requirement: An admin repairs a ficha's origin from the page, not the CLI
+
+`/admin/agua/<id>` SHALL let a Google-verified admin edit a water's identity
+and origin: name, brand, spring, retailer, country, province, community. It
+SHALL 404 while Sign-In is unconfigured and 403 for a non-admin, like the rest
+of the admin surface.
+
+It SHALL NOT edit minerals. `data_audit.correct_field` owns those and they
+carry a provenance this form has no way to ask about. What belongs here is what
+no machine can recover: where the bottle is from.
+
+Province, community and country SHALL be **selects** over
+`geo.ALL_PROVINCES` / `ALL_COMMUNITIES` / `COUNTRY_CHOICES`. Free text is what
+let `province='portugal'` and the `tramuntana` field shift reach Firestore; a
+list cannot be mistyped. A stored value outside the list SHALL still be shown
+and selected, so the ficha that needs repairing does not silently lose it on
+first render.
+
+The save SHALL:
+- snapshot the previous document via `repository.save_revision` **before**
+  overwriting — an admin edit is the one write with no contributor behind it to
+  ask what the label said, so it must be undoable by `scripts/revert_water.py`;
+- run `submission.resolve_place` with the submitted country, so an admin
+  cannot hand-type a province/community mismatch the curation engine would then
+  flag;
+- leave every field the form does not carry untouched — minerals, photos,
+  verification, authorship and the analysis series. An origin repair is not a
+  re-submission.
+
+#### Scenario: repairing the ficha that could not be repaired
+- **WHEN** a non-admin opens it **THEN** 403
+- **WHEN** an admin opens a flagged ficha **THEN** the geo reasons are shown
+  beside selects carrying the canonical vocabularies
+- **WHEN** the admin saves **THEN** a revision is stored first, keyed to their
+  email, and the water is saved
+- **WHEN** `Badajoz` is saved with community `Cataluña` **THEN** it becomes
+  `Extremadura`
+- **WHEN** the form omits minerals and verification **THEN** both survive
+- **WHEN** the water does not exist **THEN** 404
+- *Verifies:* `test_admin_edit_form_is_admin_only`,
+  `test_admin_edit_form_offers_the_canonical_vocabularies`,
+  `test_admin_edit_saves_a_snapshot_before_overwriting`,
+  `test_admin_edit_applies_the_country_rules_on_save`,
+  `test_admin_edit_keeps_what_the_form_does_not_carry`,
+  `test_admin_edit_404s_on_a_water_that_does_not_exist`

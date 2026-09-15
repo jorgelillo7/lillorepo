@@ -36,7 +36,8 @@
     <ul class="mt-3 text-sm space-y-2">
         {% for water, reasons in geo_gaps %}
         <li>
-            <a class="text-amber-800 font-semibold underline" href="{{ url_for('water_detail', water_id=water.id) }}">{{ water.name }}</a>
+            <a class="text-amber-800 font-semibold underline" href="{{ url_for('admin_edit_water', water_id=water.id) }}">{{ water.name }}</a>
+            <a class="ml-1 text-[10px] text-amber-600/70 underline" href="{{ url_for('water_detail', water_id=water.id) }}">ver ficha</a>
             {% if not water.is_spanish %}<span class="ml-1 text-[10px] uppercase font-bold text-amber-600">{{ water.country_name }}</span>{% endif %}
             <ul class="ml-4 text-amber-900/70 text-xs mt-0.5">
                 {% for reason in reasons %}<li>· {{ reason }}</li>{% endfor %}
