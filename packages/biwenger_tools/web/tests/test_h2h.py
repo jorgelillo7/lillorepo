@@ -260,3 +260,51 @@ def test_every_president_rests_once_per_cycle():
 
     assert sorted(resting) == sorted(h2h.teams())
     assert all(playing.count(name) == 6 for name in h2h.teams())
+
+
+# --- two name universes, one league ---------------------------------------
+
+
+def test_every_h2h_name_resolves_to_a_league_member():
+    """`H2H_ROUNDS` prints what the reglamento prints; `LEAGUE_MEMBERS` holds
+    what Biwenger holds. Both are correct where they live, and the palmarés has
+    to cross between them — so a name added to the calendar without an alias
+    must fail here rather than drop a manager from the standings."""
+    from packages.biwenger_tools.constants import H2H_ROUNDS, resolve_h2h_name
+
+    names = set()
+    for base in H2H_ROUNDS:
+        for key, value in base.items():
+            names.update(value if isinstance(value, tuple) else (value,))
+    unresolved = sorted(n for n in names if resolve_h2h_name(n) is None)
+    assert unresolved == []
+
+
+def test_the_three_known_spellings_map_across():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Lillo") == "Jorge"
+    assert resolve_h2h_name("Lucen") == "Lucena"
+    assert resolve_h2h_name("Rubén") == "Ruben"
+
+
+def test_a_name_both_universes_agree_on_needs_no_alias():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Manu") == "Manu"
+    assert resolve_h2h_name("Fabio") == "Fabio"
+
+
+def test_an_unknown_name_resolves_to_nothing_rather_than_guessing():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Quienquiera") is None
+
+
+def test_the_member_id_is_reachable_from_a_reglamento_name():
+    """What the palmarés actually needs: the reglamento's champion, as a
+    Biwenger manager id."""
+    from packages.biwenger_tools.constants import h2h_member_id
+
+    assert h2h_member_id("Lillo") == 1372802
+    assert h2h_member_id("Quienquiera") is None
