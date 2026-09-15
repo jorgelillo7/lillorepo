@@ -37,6 +37,7 @@ from packages.biwenger_tools.api.logic.orchestration import (
     require_telegram,
     send_image_or_text_fallback,
 )
+from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
 logger = get_logger(__name__)
@@ -70,6 +71,27 @@ def _notify_auto_bid_paused(token: str, chat_id: str) -> None:
             "Puedes lanzarlas a mano con /pujar."
         ),
     )
+
+
+def _observed_market_rows(biwenger, market_players, biwenger_players, jp_index):
+    """Market rows, watched on the way past.
+
+    `provider_watch.observe` used to see only the squad — about twenty players
+    — while the disagreement rate it cites was measured across the whole league
+    payload. That is roughly one sighting per two dozen lineups, which is why
+    two backlog items had twelve months of silence to read.
+
+    These rows are built every morning either way, so watching them costs no
+    extra Biwenger call. The observer decides nothing; a failure here must not
+    cost the digest its market section, which is the section most likely to be
+    empty already.
+    """
+    rows = build_market_rows(market_players, biwenger_players, jp_index)
+    try:
+        provider_watch.observe(rows)
+    except Exception:  # pragma: no cover - an observer must never break a send
+        logger.warning("Market observation failed; digest unaffected.", exc_info=True)
+    return rows
 
 
 def _safe_send_section(
@@ -241,7 +263,9 @@ def _run_daily_inner() -> dict:
 
     def _market_rows():
         market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
-        return build_market_rows(market_players, ctx.biwenger_players, ctx.jp_index)
+        return _observed_market_rows(
+            ctx.biwenger, market_players, ctx.biwenger_players, ctx.jp_index
+        )
 
     team_sent, team_count = _safe_send_section(
         token, chat_id, _team_rows, "Mi equipo", show_total_value=True
