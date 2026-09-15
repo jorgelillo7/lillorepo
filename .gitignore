@@ -70,5 +70,10 @@ packages/emulation_thor6/ROMs/*
 !packages/emulation_thor6/BIOS/.gitkeep
 !packages/emulation_thor6/ROMs/.gitkeep
 
-# DevTools traffic exports — captures of a live session, never committed.
+# DevTools traffic exports landing at the repo root — never committed from
+# there. A capture worth keeping gets moved into the directory of whatever
+# investigation it belongs to and committed on that branch, so the raw
+# material survives beside the notes that read it (see
+# docs/technical/backend/captures/).
 openapidevtools.json
+oraculo.json
