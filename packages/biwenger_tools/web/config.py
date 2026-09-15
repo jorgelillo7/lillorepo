@@ -65,17 +65,21 @@ COMPETICIONES_CACHE_TTL_SECONDS = 300
 # first). Uploading a new winner needs no redeploy — only a brand-new cup type
 # adds a line here.
 SPECIAL_TOURNAMENTS_BUCKET = os.getenv("SPECIAL_TOURNAMENTS_BUCKET", "biwenger")
+# Each tournament carries the season it was first played. A single global
+# threshold worked while the two cups started together; the Liga H2H starts a
+# year later, and without a per-tournament gate the 25-26 palmarés advertises a
+# competition nobody played — a caption with no result under it, forever.
 SPECIAL_TOURNAMENTS = [
-    {"slug": "santa-cup", "label": "Copa Santa Claus"},
-    {"slug": "castolo-cup", "label": "Copa Castolo"},
-    # Art. 3.5 proclaims a Liga H2H champion. The slot exists so the graphic
-    # can be dropped in the bucket when there is one; until then the palmarés
-    # simply shows no image for it, like any season before a cup existed.
-    {"slug": "liga-h2h", "label": "Liga H2H"},
+    {"slug": "santa-cup", "label": "Copa Santa Claus", "since": "25-26"},
+    {"slug": "castolo-cup", "label": "Copa Castolo", "since": "25-26"},
+    # Art. 3.5 proclaims a Liga H2H champion. The slot exists so the graphic can
+    # be dropped in the bucket when there is one; until then the palmarés simply
+    # shows no image for it, like any season before a tournament existed.
+    {"slug": "liga-h2h", "label": "Liga H2H", "since": "26-27"},
 ]
-# The cups started in 25-26; older palmarés seasons never get a graphic, so the
-# block is skipped for them (no broken-image flash, no wasted 404s).
-SPECIAL_TOURNAMENTS_SINCE = "25-26"
+# The earliest season any special tournament was played — the block is skipped
+# entirely below it (no broken-image flash, no wasted 404s).
+SPECIAL_TOURNAMENTS_SINCE = min(t["since"] for t in SPECIAL_TOURNAMENTS)
 
 
 # --- SCRAPER TRIGGER (admin panel) ---
