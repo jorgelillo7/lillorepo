@@ -126,6 +126,12 @@ def _watch_disagreement(row: dict, jp: dict) -> None:
     fielded and scores nothing. Too rare to justify overriding one source with
     the other on this evidence — but not too rare to write down each time it
     happens, which is how that decision eventually gets made with numbers.
+
+    Note the window, because it sets how fast those numbers arrive: that 1-in-481
+    was measured across the whole league payload, and `observe` is handed the
+    squad rows — about twenty players. So roughly one sighting per two dozen
+    lineups, not one per lineup. Twelve months of logs hold none, which is
+    consistent with the rate rather than evidence of a broken sensor.
     """
     bw_status = row.get("bw_status")
     if bw_status is None:
