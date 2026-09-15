@@ -122,42 +122,91 @@ did not match, never zero it in silence.
   a second source needs the same treatment; a projection recomputed hourly is
   worth nothing if we read yesterday's copy.
 
-## What the first capture actually established
+## What the page actually serves — read, not captured
 
-A browser API-discovery capture of the Analítica Fantasy site was taken. The
-raw export is kept — [`captures/oraculo-analiticafantasy.json`](captures/oraculo-analiticafantasy.json)
-— so the next session can diff a second capture against it rather than start
-from this summary. Twenty-two of its twenty-five hosts are ad-tech noise.
+The first capture hunted for an API endpoint and found only configuration and
+fixtures. That was the wrong place to look: **Analítica does not fetch these
+numbers, it ships them.** The site is Next.js App Router, so the data arrives
+inside the RSC flight payload embedded in the public HTML
+(`self.__next_f.push([1, "..."])`). No API call, no cookie, no key — a plain
+`GET` of the page a visitor sees.
 
-Host: `server.analiticafantasy.com`. **Oráculo is the tool inside that site**,
-not a separate product — so this host is the right one and there is no second
-place to look.
+`robots.txt` draws the line in exactly the place that matters:
 
-| Endpoint | Method | Auth |
+```
+Allow: /                 ← the pages below
+Disallow: /api/          ← the endpoint the first capture was hunting
+```
+
+The route that works is allowed; the route that was being chased is the one
+explicitly off-limits. That is a crawler directive, not a licence — the terms
+of service are a separate question and the owner's to answer.
+
+### The scoring system is the whole ballgame
+
+`/oraculo-fantasy/la-liga` is the page a human lands on, and reading it is a
+trap. Its numbers are **LaLiga Fantasy**, not Biwenger.
+
+`?sistema=biwenger-sofascore` does not fix it. The router receives the
+parameter — the payload carries `"q":"?sistema=biwenger-sofascore"` — but the
+props that hold the numbers say `"sistema":"la-liga-fantasy"` either way, and
+the values come back identical. The switch is applied client-side after
+hydration. Path variants (`/oraculo-fantasy/biwenger-sofascore/la-liga` and the
+reverse) both 404.
+
+How much it matters, same players, same matchday:
+
+| | `/oraculo-fantasy` | `/biwenger/predicciones` |
 |---|---|---|
-| `/api/v1/configuration` | GET | cookie (`connectid`, `panoramaid`, `_cc_id`, plus a raw `COOKIE` header) |
-| `/api/v1/fantasy-tips/config` | GET | none observed |
-| `/api/v1/fixtures/nav-strip` | GET | cookie, as above |
+| Ferran Jutglà | 7.38 | **2.06** |
+| Ionut Radu | 6.28 | **4.08** |
+| Marcos Alonso | 5.53 | **4.89** |
 
-**This does not answer the question the page opens with.** All three are
-configuration and fixture metadata — feature flags, video links, eliminated
-team ids, a fixtures nav strip. **No projection or player endpoint was
-captured.** Nothing here shows the numbers can be read programmatically, and
-writing "we have the API" would be wrong.
+A source read through the wrong scoring system is the kind that looks like it
+works and quietly poisons every decision. `SCORE_SF` is SofaScore-based; the
+left column is not.
 
-What it does establish: the host exists, it is a versioned JSON API, and its
-auth is cookie-based rather than a bearer token — which matters, because a
-cookie-based read is a session to maintain, not a key to store, and the
-permission question in "What blocks it" is unchanged by any of this.
+### The route that answers
 
-**Next step:** a second capture taken with the projections screen open, so the
-endpoint that serves the per-player numbers appears. Until then this stays
-parked exactly where it was.
+**`/biwenger/predicciones`** is server-rendered, Biwenger-scored, and needs no
+parameter. Checked against a screenshot of the site taken independently:
+Marcos Alonso 4.89 against 4.99, Carl Starfelt 4.20 against 4.29 — within the
+hourly retrain. Per player it carries:
+
+`playerId` · `slug` · `playerName` · `position` · `positionId` ·
+`playerTeamId` · `chance` (starting probability) · `predictedPoints` ·
+`isEstimate` · `fixtureId` · `fixtureDate` · `homeTeamName` · `awayTeamName`
+
+`playerId` and `slug` answer the identity question: there is a stable id, so
+this is the same matching problem `player_matching.py` already solves — with
+the same trap, that **a failed match must be loud and never a silent zero**.
+
+### Coverage, measured
+
+366 players in one read, spanning two matchdays at once — the one being played
+and the one coming — separated by `fixtureDate`. So "always the next matchday"
+is a filter, not a URL to compute.
+
+The catch is that a matchday fills in progressively. Three days out, 79 of
+those 366 belonged to the upcoming round, and on the Oráculo pages only 2 of
+10 fixtures had any projection at all. **When it is read decides what is in
+it**; a Saturday-morning read is a different dataset from a Tuesday one.
+
+## What is still open
+
+- **Terms of service.** `robots.txt` permits these pages; that is not a licence.
+  Reading them for a private league of eight is a different act from
+  redistributing them, and the distinction is the owner's to make before any of
+  this ships.
+- **Staleness.** The model retrains hourly and the numbers visibly move. Read
+  as late as the 09:00 SLO allows, and stamp what was read.
+- **Scraping is fragile by nature.** The flight payload is a framework
+  implementation detail, not a contract. It will break without notice, and the
+  SLO says it must degrade to JP alone, loudly.
 
 ## Open questions
 
-- Is there a legitimate programmatic route at all? Everything above waits on
-  it. The capture found a JSON API; it did not find permission.
-- What exactly does the payload expose — the three probabilities, or only what
-  the web renders?
-- Does its player identity carry a stable id, or only a display name?
+Both of the original ones are answered above: the payload exposes a starting
+probability and a points projection, and identity carries a stable `playerId`.
+What replaces them is narrower — the scoring system, the read time, and
+permission.
