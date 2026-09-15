@@ -29,8 +29,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | `decide_offer`: wrap it in the retry helper, or not? | One repeated PUT on the next real offer · [analysis](openspec/specs/core/biwenger-writes/spec.md) |
-| ⏳ | Move the Biwenger-only two thirds of `core` into its package | A second package needing a domain-model layer · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
+| ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — **not** the old trigger, which can no longer fire: `be_water` arrived and wrote its own `domain.py` without touching `core` · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
 
 ## biwenger_tools
 

@@ -80,6 +80,12 @@ defined `core` this way since before there were other packages.
 **Triggers:** a second package needing a domain-model layer, or a package that
 wants none of the Biwenger SDK and has to justify carrying it.
 
+**The trigger as written can no longer fire.** It said "a second package needing a domain-model layer". `be_water` is that second package, and it
+wrote its own `domain.py` without importing anything from `core/domain` —
+which is the answer, not the wait: a package that needs a domain model
+writes the one it needs. So the trigger is now `core` becoming an obstacle,
+i.e. a change made for Biwenger that breaks another package.
+
 ## Lloros Awards → Competiciones
 
 **Decided and shipped.** The league kept Sheets, chose option (a), and the key
