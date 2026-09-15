@@ -290,3 +290,28 @@ def standings(rounds: list[Round]) -> list[Standing]:
         entry.tie_unresolved = ranked[(entry.puntos, entry.dif, entry.pg)] > 1
 
     return ordered
+
+
+def champion(rounds: list[Round]) -> Standing | None:
+    """Art. 3.5's champion of the Liga H2H, or None when there is not one yet.
+
+    Two ways there is no champion, and both must answer None rather than the
+    top row:
+
+    - **The season is not over.** Art. 3.5 proclaims a champion of a finished
+      league; leading in March is not winning, and a palmarés entry written
+      then reads as settled while being wrong for months.
+    - **The top of the table carries `tie_unresolved`.** `standings` already
+      refuses to break a tie art. 3.4 cannot break here, because the third
+      criterion is not in this spreadsheet. Taking the first of those rows
+      would turn that honest marker into a coin toss presented as a title.
+
+    Returns the `Standing`, whose `equipo` is the reglamento's spelling —
+    `constants.h2h_member_id` crosses it to a Biwenger manager.
+    """
+    if not rounds or not all(round_.played for round_ in rounds):
+        return None
+    table = standings(rounds)
+    if not table or table[0].tie_unresolved:
+        return None
+    return table[0]

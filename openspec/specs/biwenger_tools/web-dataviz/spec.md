@@ -268,3 +268,36 @@ standings.
   `test_a_name_both_universes_agree_on_needs_no_alias`,
   `test_an_unknown_name_resolves_to_nothing_rather_than_guessing`,
   `test_the_member_id_is_reachable_from_a_reglamento_name`
+
+### Requirement: The H2H champion is proclaimed only when there is one
+
+`h2h.champion` SHALL return the top `Standing` of a finished Liga H2H, and
+`None` in the two cases where naming one would be a claim the data does not
+support:
+
+- **The season is unfinished.** Art. 3.5 proclaims a champion of a completed
+  league. A leader in March is not a winner, and an entry written then reads as
+  settled while being wrong for months.
+- **The top row carries `tie_unresolved`.** `standings` already refuses to
+  break a tie art. 3.4 cannot break here, since its third criterion is not in
+  this spreadsheet. Taking the first of those rows would convert an honest
+  marker into a coin toss presented as a title.
+
+`SPECIAL_TOURNAMENTS` SHALL carry a `liga-h2h` slot so the palmarés can show a
+graphic once one exists; until then it renders no image, exactly as it does for
+seasons predating the cups.
+
+The competitions page SHALL show the champion when there is one and nothing
+when there is not.
+
+#### Scenario: champion, and the two ways there is not one
+- **WHEN** the calendar still has an unplayed duel **THEN** `None`
+- **WHEN** the season is complete **THEN** the top of the table, `position` 1
+- **WHEN** the top two are flagged `tie_unresolved` **THEN** `None`
+- **WHEN** a champion is found **THEN** `h2h_member_id` crosses their
+  reglamento name to a Biwenger manager id
+- *Verifies:* `test_there_is_no_champion_until_the_season_is_over`,
+  `test_the_champion_is_the_top_of_a_finished_table`,
+  `test_an_unresolved_tie_at_the_top_yields_no_champion`,
+  `test_the_champion_is_reachable_as_a_biwenger_manager`,
+  `test_the_page_shows_no_champion_mid_season`

@@ -4,6 +4,8 @@ Each test names the article it pins. The rules were read from the reglamento
 and cross-checked against the organiser's spreadsheet formulas, not inferred.
 """
 
+from unittest.mock import patch
+
 from packages.biwenger_tools.constants import H2H_MATCHDAYS, H2H_ROUNDS
 from packages.biwenger_tools.web import h2h
 
@@ -308,3 +310,86 @@ def test_the_member_id_is_reachable_from_a_reglamento_name():
 
     assert h2h_member_id("Lillo") == 1372802
     assert h2h_member_id("Quienquiera") is None
+
+
+# --- art. 3.5: the champion, and when there is not one yet ----------------
+
+
+def _duel(partido, home, away, hp, ap):
+    return h2h.Duel(
+        partido=partido, home=home, away=away, home_points=hp, away_points=ap
+    )
+
+
+def _season(*, complete: bool, leader="Manu", runner_up="Fabio"):
+    """A calendar where `leader` wins every duel it plays. `complete=False`
+    leaves the last matchday unplayed."""
+    rounds = []
+    for index in range(H2H_MATCHDAYS):
+        jornada = index + 1
+        base = H2H_ROUNDS[index % len(H2H_ROUNDS)]
+        played = complete or jornada < H2H_MATCHDAYS
+        duels = []
+        for partido, key in enumerate(("p1", "p2", "p3"), start=1):
+            home, away = base[key]
+            if not played:
+                duels.append(_duel(partido, home, away, None, None))
+            elif leader in (home, away):
+                hp, ap = (60, 40) if home == leader else (40, 60)
+                duels.append(_duel(partido, home, away, hp, ap))
+            else:
+                duels.append(_duel(partido, home, away, 50, 50))
+        rounds.append(
+            h2h.Round(jornada=jornada, duels=tuple(duels), descansa=base["descansa"])
+        )
+    return rounds
+
+
+def test_there_is_no_champion_until_the_season_is_over():
+    """Art. 3.5 proclaims a champion of a finished league. Leading in March is
+    not winning, and a palmarés entry written then would be wrong for months
+    while looking settled."""
+    assert h2h.champion(_season(complete=False)) is None
+
+
+def test_the_champion_is_the_top_of_a_finished_table():
+    winner = h2h.champion(_season(complete=True))
+    assert winner is not None
+    assert winner.equipo == "Manu"
+    assert winner.position == 1
+
+
+def test_an_unresolved_tie_at_the_top_yields_no_champion():
+    """The same rule `standings` already applies: art. 3.4's third criterion
+    is not in this spreadsheet, so a tie it cannot break is marked rather than
+    invented. A champion picked out of that marker would be a coin toss
+    presented as a title."""
+    rounds = _season(complete=True)
+    standings = h2h.standings(rounds)
+    for row in standings[:2]:
+        row.tie_unresolved = True
+    with patch.object(h2h, "standings", return_value=standings):
+        assert h2h.champion(rounds) is None
+
+
+def test_the_champion_is_reachable_as_a_biwenger_manager():
+    """What the palmarés needs: the reglamento's name resolved to an id."""
+    from packages.biwenger_tools.constants import h2h_member_id
+
+    winner = h2h.champion(_season(complete=True, leader="Lillo"))
+    assert winner.equipo == "Lillo"
+    assert h2h_member_id(winner.equipo) == 1372802
+
+
+def test_the_page_shows_no_champion_mid_season():
+    """The banner is absent rather than crowning whoever leads in March."""
+    from packages.biwenger_tools.web.app import app
+
+    with app.test_request_context():
+        from flask import render_template_string
+
+        out = render_template_string(
+            "{% if h2h_champion %}CAMPEON {{ h2h_champion.equipo }}{% endif %}",
+            h2h_champion=h2h.champion(_season(complete=False)),
+        )
+    assert out.strip() == ""
