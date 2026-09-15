@@ -346,6 +346,7 @@ def _render_competiciones(season: str, tab: str) -> str:
         active_tab=tab,
         h2h_rounds=data["rounds"],
         h2h_standings=data["standings"],
+        h2h_champion=data.get("champion"),
         competitions=data["competitions"],
         issues=data["issues"],
     )
@@ -430,6 +431,10 @@ def _load_competiciones(season: str) -> dict:
     data = {
         "rounds": rounds,
         "standings": standings,
+        # None until the last duel is in, and None again if the top is a tie
+        # art. 3.4 cannot break here. The page shows nothing rather than
+        # crowning a leader.
+        "champion": h2h_logic.champion(rounds),
         "competitions": competitions,
         "issues": issues,
         "error": None,

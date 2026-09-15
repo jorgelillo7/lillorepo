@@ -68,6 +68,10 @@ SPECIAL_TOURNAMENTS_BUCKET = os.getenv("SPECIAL_TOURNAMENTS_BUCKET", "biwenger")
 SPECIAL_TOURNAMENTS = [
     {"slug": "santa-cup", "label": "Copa Santa Claus"},
     {"slug": "castolo-cup", "label": "Copa Castolo"},
+    # Art. 3.5 proclaims a Liga H2H champion. The slot exists so the graphic
+    # can be dropped in the bucket when there is one; until then the palmarés
+    # simply shows no image for it, like any season before a cup existed.
+    {"slug": "liga-h2h", "label": "Liga H2H"},
 ]
 # The cups started in 25-26; older palmarés seasons never get a graphic, so the
 # block is skipped for them (no broken-image flash, no wasted 404s).
