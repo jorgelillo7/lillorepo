@@ -121,7 +121,7 @@
             <div class="special-tournaments mt-8 pt-6 border-t border-gray-200">
                 <h3 class="font-header text-xl font-bold text-gray-800 mb-4">🏆 Copas especiales</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {% for t in special_tournaments %}
+                    {% for t in data.tournaments or special_tournaments %}
                     {% set win = (data.copas or {}).get(t.slug) %}
                     <figure class="special-cup">
                         <img src="{{ special_base }}/{{ t.slug }}/{{ season }}.png"

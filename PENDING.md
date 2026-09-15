@@ -36,7 +36,6 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | A second projection source beside Jornada Perfecta (Oráculo / Analítica Fantasy) | You: the next step is a browser capture with the projections screen open · plan and first capture in [PR #417](https://github.com/jorgelillo7/lillorepo/pull/417), which stays open |
-| ⏳ | `Lucen`/`Lillo`/`Rubén` in the sheets vs `Lucena`/`Jorge`/`Ruben` in `LEAGUE_MEMBERS` | Harmless today · becomes load-bearing when art. 3.5 puts the H2H champion in the palmarés and art. 3.6 makes H2H the league tiebreak |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | More promotions to read against real points · **one in 12 months:** Valverde (328) displaced Giuliano Simeone on 2026-09-09, which 350 would have prevented · `log_promotions` records the bet but not what either scored, so grading it needs that first |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
 | ⏳ | What to do when JP and Biwenger disagree on availability | Far more than a season · **verified wired, 0 events in 12 months** · the 1-in-481 baseline was measured league-wide but `observe()` only sees my ~20 squad rows, so ≈1 expected per 24 lineups |

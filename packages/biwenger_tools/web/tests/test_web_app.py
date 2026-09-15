@@ -1216,3 +1216,36 @@ def test_refresh_competiciones_requires_login(client):
     response = client.post("/admin/refresh-competiciones", follow_redirects=False)
     assert response.status_code == 302
     assert "/admin" in response.headers["Location"]
+
+
+# --- a tournament does not exist before its first season ------------------
+
+
+def test_each_special_tournament_declares_the_season_it_started():
+    """One global `SINCE` worked while every cup started together. The Liga
+    H2H starts a year later, and without a per-tournament gate the 25-26
+    palmarés advertises a competition nobody played."""
+    from packages.biwenger_tools.web import config
+
+    for tournament in config.SPECIAL_TOURNAMENTS:
+        assert tournament["since"], tournament["slug"]
+
+
+def test_the_h2h_is_absent_from_a_palmares_older_than_itself():
+    from packages.biwenger_tools.web.routes.main import tournaments_for
+
+    slugs = [t["slug"] for t in tournaments_for("25-26")]
+    assert "santa-cup" in slugs
+    assert "liga-h2h" not in slugs
+
+
+def test_the_h2h_appears_from_its_own_first_season():
+    from packages.biwenger_tools.web.routes.main import tournaments_for
+
+    assert "liga-h2h" in [t["slug"] for t in tournaments_for("26-27")]
+
+
+def test_no_tournament_shows_before_the_cups_existed():
+    from packages.biwenger_tools.web.routes.main import tournaments_for
+
+    assert tournaments_for("2024-2025") == []
