@@ -61,6 +61,21 @@
     {% if photo_tmp %}<input type="hidden" name="photo_tmp" value="{{ photo_tmp }}">{% endif %}
     {% if label_tmp %}<input type="hidden" name="label_tmp" value="{{ label_tmp }}">{% endif %}
     {% if ocr_fields %}<input type="hidden" name="ocr_fields" value="{{ ocr_fields }}">{% endif %}
+    {% if photo_tmp and not (prefill.get('spring') and prefill.get('province')) %}
+    <div class="rounded-2xl bg-amber-50 ring-1 ring-amber-200/70 p-4">
+        <p class="font-bold text-amber-900 text-sm">🗺️ Falta el origen</p>
+        <p class="text-xs text-amber-800/80 mt-1 mb-3">
+            El manantial y la provincia suelen ir en otra cara, en la letra pequeña junto a
+            la dirección del envasador. Si la fotografías, la leo — esa foto no se guarda.
+        </p>
+        <input id="origin" name="origin" type="file" accept="image/*"
+               class="block w-full text-sm text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-amber-500 file:text-white file:font-semibold hover:file:bg-amber-600 file:transition mb-3">
+        <button type="submit" formaction="{{ url_for('add_water_origin') }}" formnovalidate
+                class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition">
+            Leer esta cara
+        </button>
+    </div>
+    {% endif %}
     <fieldset class="space-y-4">
         <legend class="font-bold text-slate-800">🪪 Identidad</legend>
         <div class="grid sm:grid-cols-2 gap-4">
