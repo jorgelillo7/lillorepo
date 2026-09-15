@@ -180,6 +180,10 @@ directly:
   `Municipality (Province)`. `_PROVINCE` matches on the closing parenthesis, so
   it would return nothing for every row of 26 tables. That was a suspicion
   here before; it is now checked.
+- **The snapshot is current.** `AESAN_VERSION` reads `EU/2026-07-16` and the
+  live PDF's own "Last update" is `16.07.2026` — the same document. The monthly
+  refresh failing on a 429 therefore cost nothing; there was no new list to
+  miss. Worth knowing before treating a failed run as urgent.
 
 ### What (a) has to avoid breaking
 

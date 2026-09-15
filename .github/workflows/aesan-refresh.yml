@@ -8,7 +8,13 @@ name: Recognised-waters refresh
 # to review, a dead source as a red run and a Telegram message.
 on:
   schedule:
-    - cron: "0 6 1 * *" # day 1, ~08:00 Madrid — ahead of the catalog sync
+    # Day 1, ~08:00 Madrid. This used to claim it ran "ahead of the catalog
+    # sync" at 09:00, which it cannot deliver: this job opens a *PR*, and the
+    # sync reads `aesan_snapshot.py` from the deployed image. A refreshed list
+    # only reaches it after that PR is merged and shipped. Harmless — the sync
+    # uses the snapshot for a coverage figure in its summary, never to create
+    # or update a water — so the hour is arbitrary, not load-bearing.
+    - cron: "0 6 1 * *"
   workflow_dispatch:
 
 permissions:
