@@ -236,3 +236,35 @@ empty grid, never crash.
   `test_calendario_event_detail_data_is_embedded_for_the_click_modal`,
   `test_calendario_colours_events_by_category`,
   `test_calendario_hides_filter_bar_for_a_single_category`
+
+### Requirement: The reglamento's names resolve to Biwenger's, or fail loudly
+
+`H2H_ROUNDS` carries the spellings the reglamento and the organiser's
+spreadsheet print; `LEAGUE_MEMBERS` carries Biwenger's. Three managers differ
+(`Lillo`/`Jorge`, `Lucen`/`Lucena`, `Rubén`/`Ruben`), and both sets are correct
+where they live.
+
+`H2H_NAME_ALIASES` SHALL map between them, with `resolve_h2h_name` returning a
+`LEAGUE_MEMBERS` name and `h2h_member_id` a manager id. Both SHALL return
+`None` for a name they cannot place: returning the input unchanged would seat a
+stranger in the standings and look like it worked.
+
+It SHALL be a table, not a normalisation rule. `Rubén`/`Ruben` is an accent,
+but `Lillo`/`Jorge` are different names — a rule that solves the first while
+silently failing the second is worse than no rule.
+
+A test SHALL assert every name in `H2H_ROUNDS` resolves, so a manager added to
+the calendar without an alias fails the build instead of disappearing from the
+standings.
+
+#### Scenario: crossing between the two name universes
+- **WHEN** every name in `H2H_ROUNDS` is resolved **THEN** none is left over
+- **WHEN** `Lillo` / `Lucen` / `Rubén` are resolved
+- **THEN** `Jorge` / `Lucena` / `Ruben`, and `Lillo` reaches id `1372802`
+- **WHEN** a name both sides already agree on is resolved **THEN** itself
+- **WHEN** an unknown name is resolved **THEN** `None`, never a guess
+- *Verifies:* `test_every_h2h_name_resolves_to_a_league_member`,
+  `test_the_three_known_spellings_map_across`,
+  `test_a_name_both_universes_agree_on_needs_no_alias`,
+  `test_an_unknown_name_resolves_to_nothing_rather_than_guessing`,
+  `test_the_member_id_is_reachable_from_a_reglamento_name`

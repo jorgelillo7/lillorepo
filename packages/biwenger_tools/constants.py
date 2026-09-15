@@ -103,5 +103,40 @@ H2H_ROUNDS: tuple[dict, ...] = (
     },
 )
 
+
+# The reglamento and Biwenger spell three managers differently, and both are
+# right where they live: `H2H_ROUNDS` quotes the articles, `LEAGUE_MEMBERS`
+# mirrors the game. Nothing crossed between them until the palmarés had to name
+# a champion, so the drift was harmless — and then was not.
+#
+# A table rather than normalisation: `Rubén`/`Ruben` is an accent, but
+# `Lillo`/`Jorge` are two different names, and a rule that solves one while
+# silently failing the other is worse than no rule.
+H2H_NAME_ALIASES: dict[str, str] = {
+    "Lillo": "Jorge",
+    "Lucen": "Lucena",
+    "Rubén": "Ruben",
+}
+
+_MEMBER_IDS_BY_NAME = {name: member_id for member_id, name in LEAGUE_MEMBERS.items()}
+
+
+def resolve_h2h_name(name: str) -> str | None:
+    """A reglamento spelling as its `LEAGUE_MEMBERS` name, or None.
+
+    None rather than the input: a caller that cannot find the manager must say
+    so. Returning the unknown name unchanged would put a stranger in the
+    standings and look like it worked.
+    """
+    resolved = H2H_NAME_ALIASES.get(name, name)
+    return resolved if resolved in _MEMBER_IDS_BY_NAME else None
+
+
+def h2h_member_id(name: str) -> int | None:
+    """A reglamento spelling as a Biwenger manager id, or None."""
+    resolved = resolve_h2h_name(name)
+    return _MEMBER_IDS_BY_NAME.get(resolved) if resolved else None
+
+
 # The competition runs over the first 35 official LaLiga matchdays (art. 3.1).
 H2H_MATCHDAYS = 35
