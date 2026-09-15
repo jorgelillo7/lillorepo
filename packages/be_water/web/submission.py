@@ -121,6 +121,28 @@ def normalize_analysis_date(raw: Optional[str]) -> Optional[str]:
     return None
 
 
+# "27.02231/BA": a dotted number, then the province letters. Anchored, so
+# prose the reader may return instead of a number ("no consta") is rejected.
+_REGISTRY_RE = re.compile(r"^(\d{2}\.\d{3,6}\s*/\s*[A-Z]{1,3})$")
+_REGISTRY_PREFIX = re.compile(r"^R\.?\s*G\.?\s*S\.?\s*E\.?\s*A\.?\s*A\.?\s*", re.I)
+
+
+def normalize_registry_id(raw: Optional[str]) -> str:
+    """The sanitary registry number as printed, or "" when it is not one.
+
+    A malformed value is worse than none here: it looks like an official key
+    and would be trusted as one. The `RGSEAA` prefix is stripped — it names
+    the register, it is not part of the number.
+
+    Deliberately **not** used to derive the province. The suffix does appear
+    to encode it on the one bottle where it is legible, and one bottle is not
+    evidence.
+    """
+    text = _REGISTRY_PREFIX.sub("", (raw or "").strip()).strip().upper()
+    match = _REGISTRY_RE.match(text)
+    return match.group(1).replace(" ", "") if match else ""
+
+
 def merge_label_reads(primary: dict, secondary: Optional[dict]) -> dict:
     """One prefill from two photographed faces of the same bottle.
 
@@ -217,6 +239,8 @@ def build_water(
         province=province,
         community=community,
         country=country,
+        registry_id=normalize_registry_id(form.get("registry_id")),
+        bottler=form_field(form, "bottler"),
         sparkling=form.get("sparkling") == "on",
         minerals=minerals,
         photo_url=photo_url,
@@ -240,6 +264,8 @@ def apply_existing(
     water.minerals = {**existing.minerals, **water.minerals}
     water.sparkling = water.sparkling or existing.sparkling
     water.spring = water.spring or existing.spring
+    water.registry_id = water.registry_id or existing.registry_id
+    water.bottler = water.bottler or existing.bottler
     water.province = water.province or existing.province
     water.community = water.community or existing.community
     if not form_has_brand:

@@ -382,3 +382,22 @@ def test_no_second_face_changes_nothing():
     primary = {"name": "X", "tds": 10}
     assert submission.merge_label_reads(primary, None) == primary
     assert submission.merge_label_reads(primary, {}) == primary
+
+
+# --- the registry number, normalised but never invented --------------------
+
+
+def test_a_registry_number_is_kept_uppercase_and_trimmed():
+    assert submission.normalize_registry_id("  27.02231/ba  ") == "27.02231/BA"
+
+
+def test_text_that_is_not_a_registry_number_is_dropped():
+    """The reader is asked for it and will sometimes answer with prose. A
+    malformed number is worse than none: it looks like an official key."""
+    for junk in ("", None, "no consta", "RGSEAA", "12345"):
+        assert submission.normalize_registry_id(junk) == ""
+
+
+def test_the_registry_prefix_is_accepted_and_stripped():
+    assert submission.normalize_registry_id("RGSEAA 27.02231/BA") == "27.02231/BA"
+    assert submission.normalize_registry_id("R.G.S.E.A.A. 26.1234/M") == "26.1234/M"
