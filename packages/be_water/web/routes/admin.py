@@ -5,7 +5,12 @@ from flask import abort, redirect, render_template, request, session, url_for
 
 from core.web.csrf import verify_csrf_token
 from packages.be_water.web import config, data_audit, geo, helpers, repository
-from packages.be_water.web.submission import form_country, form_field, resolve_place
+from packages.be_water.web.submission import (
+    form_country,
+    form_field,
+    normalize_registry_id,
+    resolve_place,
+)
 
 
 def admin_page():
@@ -119,6 +124,8 @@ def admin_edit_water(water_id: str):
     water.brand = form_field(request.form, "brand") or water.name
     water.spring = form_field(request.form, "spring")
     water.retailer = form_field(request.form, "retailer") or None
+    water.registry_id = normalize_registry_id(request.form.get("registry_id"))
+    water.bottler = form_field(request.form, "bottler")
     water.country = country
     water.province = province
     water.community = community

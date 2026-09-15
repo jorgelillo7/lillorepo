@@ -238,3 +238,37 @@ country name — and `country_name` SHALL fall back to the raw code, never blank
   `test_cartographer_does_not_count_a_foreign_locality_as_a_province`,
   `test_a_foreign_water_earns_the_globetrotter_badge`,
   `test_an_unknown_country_code_still_renders_something`
+
+### Requirement: The label's own identity keys are kept
+
+`Water` SHALL carry `registry_id` (Spain's sanitary registry number, as the
+label prints it) and `bottler` (the company that fills the bottle), both
+defaulting to `""` so every existing ficha reads unchanged. The reader SHALL
+be asked for both, and the admin form SHALL edit them.
+
+They are the two things on the label that identify a water unambiguously, and
+neither had a field. Identity is otherwise matched by `aesan.registry_matches`
+— fuzzy token overlap on a commercial name — which cannot separate two springs
+of one brand and misses every white label, since those register under the
+producer. The bottler is the only thing that reveals two supermarket
+own-brands are the same water from the same spring.
+
+`normalize_registry_id` SHALL accept the number with or without its `RGSEAA`
+prefix, uppercase and strip it, and return `""` for anything that is not one.
+A malformed value is worse than none: it looks like an official key and would
+be trusted as one, and the reader will sometimes answer this field with prose.
+
+The suffix SHALL NOT be used to derive the province. It appears to encode it on
+the one bottle where it is legible, and one bottle is not evidence.
+
+#### Scenario: read, normalised, shown
+- **WHEN** the label reads `RGSEAA 27.02231/BA` **THEN** `27.02231/BA` is stored
+- **WHEN** the field holds `"no consta"`, `"RGSEAA"` or `"12345"` **THEN** `""`
+- **WHEN** a ficha carries either **THEN** the ficha renders them
+- **WHEN** an older document has neither **THEN** both read `""`
+- *Verifies:* `test_a_registry_number_is_kept_uppercase_and_trimmed`,
+  `test_text_that_is_not_a_registry_number_is_dropped`,
+  `test_the_registry_prefix_is_accepted_and_stripped`,
+  `test_a_water_carries_its_registry_number_and_bottler`,
+  `test_both_default_to_empty_for_every_existing_ficha`,
+  `test_the_ficha_shows_the_registry_number_and_bottler`

@@ -65,3 +65,28 @@ def test_an_unknown_country_code_still_renders_something():
         id="x", name="X", brand="X", spring="", province="", community="", country="ZZ"
     )
     assert water.country_name == "ZZ"
+
+
+# --- the identity the label prints and the model never kept ----------------
+
+
+def test_a_water_carries_its_registry_number_and_bottler():
+    water = Water(
+        id="x",
+        name="X",
+        brand="X",
+        spring="Encinas",
+        province="Badajoz",
+        community="Extremadura",
+        registry_id="27.02231/BA",
+        bottler="SONEPA",
+    )
+    assert water.to_firestore()["registry_id"] == "27.02231/BA"
+    assert water.to_firestore()["bottler"] == "SONEPA"
+
+
+def test_both_default_to_empty_for_every_existing_ficha():
+    water = Water(id="x", name="X", brand="X", spring="", province="", community="")
+    assert water.registry_id == ""
+    assert water.bottler == ""
+    assert Water.from_firestore("x", {"name": "X"}).registry_id == ""

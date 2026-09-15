@@ -47,6 +47,13 @@
             {% else %}
             <p class="text-slate-600 text-sm mt-2 font-medium">🌍 {{ water.province ~ ' · ' if water.province }}{{ water.country_name }}</p>
             {% endif %}
+            {% if water.registry_id or water.bottler %}
+            <p class="text-[11px] text-slate-400 mt-1.5">
+                {% if water.bottler %}<span title="Empresa envasadora">🏭 {{ water.bottler }}</span>{% endif %}
+                {% if water.registry_id and water.bottler %} · {% endif %}
+                {% if water.registry_id %}<span class="font-mono" title="Registro sanitario">{{ water.registry_id }}</span>{% endif %}
+            </p>
+            {% endif %}
             {% if water.source_of('province') == 'aesan' %}
             <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mt-0.5"
                title="Procedencia cruzada con el registro oficial AESAN">registro AESAN</p>

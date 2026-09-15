@@ -2315,3 +2315,22 @@ def test_the_tick_belongs_to_the_photo_that_is_stored_as_proof(client):
     ocr_fields = re.search(r'name="ocr_fields" value="([^"]*)"', body).group(1)
     assert "tds" in ocr_fields
     assert "sodium" not in ocr_fields  # present in the form, but unverified
+
+
+def test_the_ficha_shows_the_registry_number_and_bottler(client):
+    water = Water(
+        id="x",
+        name="X",
+        brand="X",
+        spring="Encinas",
+        province="Badajoz",
+        community="Extremadura",
+        registry_id="27.02231/BA",
+        bottler="SONEPA",
+    )
+    with patch(f"{_REPO}.get_water", return_value=water), patch(
+        f"{_REPO}.get_all_waters", return_value=[water]
+    ), patch(f"{_REPO}.list_analyses", return_value=[]):
+        body = client.get("/agua/x").get_data(as_text=True)
+    assert "27.02231/BA" in body
+    assert "SONEPA" in body
