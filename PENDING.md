@@ -52,10 +52,6 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · blocks every admin item below, `/admin` 404s without it · runbook in `packages/be_water/OPERATIONS.md` |
-| 🔨 | `/admin` cannot edit a ficha — a missing province or community needs the CLI | Sign-In above · 2 fichas of 51 need it today · the engine exists (`data_audit`, `save_revision`), it needs a form with selects · [what to reuse](docs/technical/parked-work.md#be_water--repairing-a-ficha-from-the-admin-page) |
+| 👤 | Activate Google Sign-In | ~10 min of Console clicks · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` |
 | ⏳ | The AESAN parser reads only Spain's table, of 28 in the PDF | A registered foreign water · **checked:** it would not have caught `FONTÉBIL`, and Portugal's place column is `Locality-Municipality`, which `_PROVINCE` cannot read · [measurements](docs/technical/parked-work.md#be_water-country-field) |
-| 🔨 | A third, optional photo: the identity panel nobody photographs | Nothing: **the trigger fired** · the form takes 2 photos and reads 1 — the pretty front is never OCR'd · `fuente-dehesa` hit `verified=True` with no origin · [what's on it](docs/technical/parked-work.md#be_water--the-third-photo-and-the-identity-on-it) |
-| 🔨 | The RGSEAA number and the bottler are on no ficha | Nothing · identity matching is fuzzy name overlap today · a registry number is unambiguous, and the bottler is what links two supermarket own-brands · same panel as above |
-| 🔨 | The optional `beauty` photo is uploaded and never read | Nothing · it is already in hand and already paid for; the OCR only ever sees the composition shot |
 | ⏳ | Tailwind ships as the Play CDN, which its own docs call development-only | A build step · **not** the `defer` this line used to ask for: deferring the compiler is what causes the unstyled flash · preconnect landed, the rest needs a Bazel node toolchain · affects `be_water` **and** `biwenger_tools/web` |
