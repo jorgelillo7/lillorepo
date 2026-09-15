@@ -201,38 +201,6 @@ is excluded from province/community views rather than silently absent from
 them. No geocoding service, no address parsing — the owner's call, and the
 right one.
 
-## be_water — repairing a ficha from the admin page
-
-`/admin` shows users and stranded photos. It cannot edit a water. Every repair
-— a missing community, a province that is really a municipality, a wrong
-source — runs through `scripts/audit_data.py` on a laptop with credentials, or
-by re-submitting the public add form and letting the merge rules win.
-
-Two waters added in one sitting made the gap concrete: one reached Firestore
-with no province (Badajoz was on the label and was not read), the other is
-Portuguese and has no province to have.
-
-Most of the engine is already built and tested — this is wiring, not new
-logic:
-
-| Need | Already exists |
-|---|---|
-| Change a mineral + its provenance | `data_audit.correct_field` / `set_source` |
-| Sign off a ficha | `data_audit.mark_verified` |
-| Fold a duplicate | `data_audit.merge_waters` |
-| Community-only write | `repository.set_water_community` |
-| Undo trail before an overwrite | `repository.save_revision` + `scripts/revert_water.py` |
-| Province / community vocabulary | `geo.ALL_PROVINCES`, `geo.ALL_COMMUNITIES` |
-
-**Use selects, not free text.** `resolve_place`'s docstring records what free
-text cost once: `tramuntana` reached Firestore with `province="Talarrubias"`
-(a municipality) and `community="Badajoz"` (a province), shifted one slot, and
-vanished from every province and community view. An admin form that offers the
-two canonical lists cannot reproduce that.
-
-**Blocked on:** Google Sign-In. `admin_page` 404s while `GOOGLE_CLIENT_ID` is
-unset, so there is nowhere to put the form until that is configured.
-
 ## be_water — the origin the camera never saw
 
 `Una Dehesa` (id `fuente-dehesa`) was saved with no spring, province or
@@ -262,66 +230,3 @@ question and another answers the origin one.
 Nothing else here would have caught it either. An AESAN `place → province`
 index — considered earlier — needs a municipality to key on, and the stored
 document has none, for the same reason.
-
-## be_water — the third photo, and the identity on it
-
-The add form takes **two** photos and reads **one**:
-
-| Field | Required | Fed to the OCR? | What it becomes |
-|---|:-:|:-:|---|
-| `photo` — "foto de la composición" | ✅ | ✅ | `label_photo_url`, the verification proof |
-| `beauty` — "foto para la ficha" | — | ❌ | `photo_url`, the display shot |
-
-The pretty front is **never read**. So the catalog sees exactly one face of the
-bottle, and it is the face chosen for a table of minerals.
-
-`fuente-dehesa` is what that costs: the composition shot frames the
-`ANÁLISIS QUÍMICO` panel, and everything identifying the water runs down the
-clipped left edge. Measured — the same prompt reads the origin correctly off
-the other face (see "the origin the camera never saw").
-
-### What is on that panel and nowhere in the model
-
-From the two bottles photographed:
-
-| On the label | Field today |
-|---|---|
-| `MANANTIAL ENCINAS` | `spring` — exists, was empty |
-| `Herrera del Duque` (municipality) | **none** |
-| `(Badajoz)` | `province` — exists, was empty |
-| `RGSEAA 27.02231/BA` | **none** |
-| `Envasada por SONEPA` / `OUTEIRINHO TURISMO INDÚSTRIA S.A` | **none** |
-| `España` / `Portugal` | `country` — exists now |
-
-Two of those are worth more than the ones we already model:
-
-**The RGSEAA number** is the official sanitary registry key. Identity matching
-today is `aesan.registry_matches`, fuzzy token overlap on a commercial name —
-the machinery that cannot tell `Sierra Natura`'s two candidate springs apart,
-and that misses every white label because those register under the producer.
-A printed registry number is unambiguous. On the one bottle where it is legible
-the suffix also matches the province (`/BA`, Badajoz); whether that holds
-generally is unchecked and worth confirming before relying on it.
-
-**The bottler** is the only thing that reveals that two supermarket own-brands
-are the same water from the same spring. Mercadona and Lidl waters are a real
-part of this catalog and nothing currently connects them.
-
-Neither is captured, because nothing ever photographs the panel they are on.
-
-### The shape
-
-Not a third *fixed* upload — a prompt that appears only when `spring` or
-`province` comes back empty from the OCR pass. Today that would be 2 fichas in
-51, so the form does not get heavier for everyone. The extraction is the same
-shape as the mineral one, and the vocabulary already exists
-(`geo.ALL_PROVINCES`, `submission.resolve_place`, the AESAN cross-check).
-
-It would also close a gap in the provenance vocabulary: `label` (✓ etiqueta)
-can only be earned by a mineral today. Identity can be `aesan` or `manual` and
-never "confirmed from a photograph", even when a photograph is exactly what
-proves it.
-
-Cheaper half worth doing either way: **read the `beauty` shot too** when one is
-uploaded. It is already in hand, already paid for, and currently thrown away by
-the reader.
