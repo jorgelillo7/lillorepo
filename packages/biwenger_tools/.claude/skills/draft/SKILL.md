@@ -423,6 +423,7 @@ reported alongside as a depth reading).
 | `--pick-position 3 --managers 7` | Añade el **plan de picks**: en qué turno global coger a cada uno |
 | `--decision fichero.md` | Escribe además el **pliego de decisión**: los 15 en orden, alternativas para los 5 primeros y reglas de ejecución. Con `--force` sigue tu elección, no el ranking |
 | `--keep-placeholder` | No descartar a los que JP puntúa por defecto |
+| `--starts-penalty` | **Descuenta los totales de cameo.** `sf` es un total de temporada, y 143 puntos en 32 apariciones con 10 titularidades no se trasladan a un rol titular — pero en el ranking por defecto le ganan a un titular regular. Descuenta linealmente por debajo de 19 titularidades de 38; por encima no toca nada, y a quien no tiene datos medidos tampoco (un ascendido). **Apagado por defecto**: el draft es anual e irreversible, así que se usa para comparar los dos quinces antes de comprometerse con uno |
 | `--max-per-team 2` | Tope de jugadores por club. Los bonus de victoria y portería a cero son de equipo: tres compañeros los ganan y los pierden el mismo fin de semana |
 
 Los otros dos scripts de la skill, que no son del generador:

@@ -381,3 +381,66 @@ def test_build_honours_a_requested_shape():
     shape = {"PT": 2, "DF": 5, "MC": 7, "DL": 1}
     squad, _, _ = archetypes.build(rows, 20_000_000, shape=shape)
     assert {c: len(squad[c]) for c in archetypes.POS} == shape
+
+
+# --- the starts penalty: a cameo total is not a season -------------------
+
+
+def _row(name, sf, starts, pos="DEL", price=1_000_000, team="X"):
+    return {
+        "name": name,
+        "sf": sf,
+        "starts": starts,
+        "pos": pos,
+        "price": price,
+        "team": team,
+        "sofascore": sf,
+    }
+
+
+def test_without_the_penalty_a_cameo_total_outranks_a_regular():
+    """Today's behaviour, and the reason the item exists: Aspas scored 143
+    across 32 appearances having started 10, and outbids a regular starter."""
+    cameo = _row("Aspas", sf=143, starts=10)
+    regular = _row("Titular", sf=130, starts=34)
+    assert archetypes.ranking_score(cameo) > archetypes.ranking_score(regular)
+
+
+def test_with_the_penalty_the_regular_wins():
+    archetypes.set_starts_penalty(True)
+    try:
+        cameo = _row("Aspas", sf=143, starts=10)
+        regular = _row("Titular", sf=130, starts=34)
+        assert archetypes.ranking_score(regular) > archetypes.ranking_score(cameo)
+    finally:
+        archetypes.set_starts_penalty(False)
+
+
+def test_a_full_season_is_never_penalised():
+    """At or above the threshold the score is untouched — the penalty
+    discounts a total built on cameos, it does not tax playing."""
+    archetypes.set_starts_penalty(True)
+    try:
+        regular = _row("Titular", sf=130, starts=archetypes.STARTER_THRESHOLD)
+        assert archetypes.ranking_score(regular) == 130
+    finally:
+        archetypes.set_starts_penalty(False)
+
+
+def test_unknown_starts_are_not_penalised():
+    """Same rule `is_starter` already applies: no measured data means the
+    projection already assumes a regular role, and penalising it would
+    silently drop every player promoted from Segunda."""
+    archetypes.set_starts_penalty(True)
+    try:
+        promoted = _row("Ascendido", sf=100, starts=None)
+        assert archetypes.ranking_score(promoted) == 100
+    finally:
+        archetypes.set_starts_penalty(False)
+
+
+def test_the_penalty_is_off_by_default():
+    """The draft is annual and irreversible. Nothing changes until the flag
+    is passed deliberately."""
+    cameo = _row("Aspas", sf=143, starts=10)
+    assert archetypes.ranking_score(cameo) == 143
