@@ -229,6 +229,20 @@ the confirmation the caller reports back: an accepted offer comes back
 `processed` — Biwenger has already executed the transaction — while a rejected
 one stays `rejected`.
 
+`decide_offer` SHALL NOT be wrapped in
+[`http-retry`](../http-retry/spec.md). It is unlike the admin mutations in one
+way that looks like it should matter — it answers with a body, so a retry could
+in principle read the echoed status instead of guessing — and like them in the
+one that decides it: accepting an offer moves money, and a reply lost in
+transit is still indistinguishable from a request that never arrived. The
+window where a retry would help is exactly the window where it would accept
+twice.
+
+The rule for callers is the one already stated above and in
+`docs/technical/backend/python-conventions.md` § 3: a caller that needs
+certainty re-reads Biwenger state rather than trusting a status code. Nothing
+about this endpoint lets it prove it is the same write.
+
 #### Scenario: the guard, the route and the settled status
 - **WHEN** the decision is anything but `accepted` or `rejected`
 - **THEN** `ValueError` is raised and no request is made
