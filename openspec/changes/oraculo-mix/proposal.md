@@ -32,6 +32,10 @@ arguable.
 
 ## Status
 
-**Blocked on permission, not on code.** `robots.txt` allows these pages; the
-terms of service are a separate question and the owner's to answer before any
-of this ships.
+**Feasibility proved, permission decided.** The endpoint was called once and
+answers with Biwenger-scored data and the eight lists; the page route covers
+the squad the endpoint does not reach. Both `robots.txt` and the terms of
+service were read and quoted before the owner decided to proceed on
+personal, non-commercial grounds — recorded in `design.md` along with what
+that decision obliges: an honestly identified client, one cached call per run,
+and a request for express authorisation, which is what would make it durable.

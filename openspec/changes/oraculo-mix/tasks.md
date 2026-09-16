@@ -5,16 +5,23 @@ Five phases, one PR each, merged before the next starts. Test-first throughout
 
 ## 1 · The reader — `core/sdk/oraculo.py`
 
-- [ ] `_flight(html)` and `_objects(payload, key)`, the only fragile parts
-- [ ] `fetch_biwenger_predictions()` → `/biwenger/predicciones`
-- [ ] `fetch_oraculo_lists()` → the named arrays
-- [ ] `next_matchday(rows)` → filter on `fixtureDate`
+Two sources, because neither covers the other's half (see design):
+
+- [ ] `fetch_picks(sistema="biwenger-sofascore")` → the API. Returns the eight
+      lists, `matchday`, `generatedAt`, `modelTag`, `fixtures`
+- [ ] **Assert the echoed `sistema` matches what was asked**, and raise if not.
+      This is the single check that stops the projections silently halving the
+      day the site changes a default
+- [ ] `fetch_predictions()` → `/biwenger/predicciones`, the broad coverage
+      (~366 players)
+- [ ] `_flight(html)` / `_objects(payload, key)` for the page route — the only
+      fragile parts, isolated so a layout change breaks one test loudly
 - [ ] `OraculoError`, raised — never a silent empty list
-- [ ] **Fixtures are saved HTML** under `core/tests/fixtures/`; no test touches
-      the network
-- [ ] A test asserting the payload really is Biwenger-scored, so the day the
-      site changes its default the suite says so rather than the projections
-      quietly halving
+- [ ] Honest `User-Agent` with a contact address. **Never browser headers.**
+- [ ] One call per run per source, cached for an hour (`modelTag` /
+      `generatedAt` make the cache key honest)
+- [ ] **Fixtures are saved payloads** under `core/tests/fixtures/`; no test
+      touches the network
 
 ## 2 · The third join — `logic/rows.py`
 
@@ -50,17 +57,16 @@ Five phases, one PR each, merged before the next starts. Test-first throughout
 
 ## Open questions — answer before phase 3
 
-1. **Which route.** `GET /api/v1/oraculo/140?sistema=…` takes the scoring
-   system server-side and returns the eight lists, the fixtures, the round
-   metadata and a `generatedAt` in one unauthenticated call — and is the one
-   thing `robots.txt` disallows. The allowed pages give the right data in the
-   wrong system, except `/biwenger/predicciones`, which is Biwenger-scored but
-   carries no lists. **This is a permission question, not a technical one,
-   and it decides phases 1-3.**
+1. ~~Which route.~~ **Answered by measurement.** The API gives the lists in
+   Biwenger scoring but only 43 unique players — a highlights endpoint, not a
+   projection list. `/biwenger/predicciones` gives 366 players and no lists.
+   Both are needed, each for its half. Permission decided by the owner and
+   recorded in `design.md`.
 2. **Calibration.** Shadow-log the thresholds for a week and fit, or start with
    the guessed numbers and adjust by feel?
-3. **Read time.** The 09:00 digest may read a half-empty round. Accept it, or
-   read later and closer to kickoff for the lineup specifically?
+3. **Read time.** `fixtures[].hasPrediction` now makes a half-filled round
+   *detectable* rather than guessed — but the 09:00 digest may still read one.
+   Accept it, or read later and closer to kickoff for the lineup specifically?
 4. **Unreachable Oráculo.** Fall back to bare JP silently, or say so? (The SLO
    says loudly.)
 5. **Which removals actually go** — all three, or only the ones that have never

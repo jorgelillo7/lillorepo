@@ -25,47 +25,90 @@ A source read through the wrong scoring system is the kind that looks like it
 works and quietly poisons every decision. **The number must come from
 `/biwenger/predicciones`.**
 
-## The endpoint the second capture found
+## The endpoint, called and measured
 
-A later export, taken with the Oráculo page open, found what the first one
-missed:
+`GET https://server.analiticafantasy.com/api/v1/oraculo/140?sistema=biwenger-sofascore`
+— no authentication, and `sistema` is a **required query parameter resolved
+server-side**, which is exactly what the page routes cannot do.
 
-```
-GET /api/v1/oraculo/140?sistema=<sistema>     # no authentication
-```
-
-`sistema` is a **required query parameter**, resolved server-side. That is
-precisely what the page routes cannot do, and it collapses most of this design:
-
-| Response field | What it settles |
-|---|---|
-| `sistema` | Echoed back, so a read can **verify** it got Biwenger and not assume it |
-| `picks` | All eight lists — `chollos`, `goleadores`, `asistentes`, `capitanes`, `porteros`, `defensas`, `centrocampistas`, `delanteros` — in the requested system |
-| `fixtures` | With `hasPrediction`, so a half-filled round is detectable rather than inferred |
-| `rounds[]` | `isCurrent`, `isFinished`, `hasLineups`, `matchday` — "the next matchday" stops being a guess |
-| `generatedAt`, `modelTag` | The staleness stamp this plan asks for, given rather than invented |
-
-Each `picks` entry carries `playerId`, `slug`, `predictedPoints`, `chance`,
-`goalProbability`, `assistProbability`, `pointsPerMillion`, `marketValue`,
-`position`, `fixtureId`.
-
-**One call replaces eleven page reads, and the lists arrive in the right
-scoring system.** Open question 1 — "the list flags come from the wrong system"
-— disappears entirely if this route is used.
-
-### And it is the one route `robots.txt` forbids
+Called once to establish feasibility. It answers `200` and, crucially, **echoes
+the system back**, so a reader can verify rather than assume:
 
 ```
-Allow: /                 ← the pages: right data, wrong system
-Disallow: /api/          ← this: right system, right lists, one call
+sistema     biwenger-sofascore
+matchday    7  ·  "Jornada 7"
+generatedAt 2026-09-16T15:06:01Z
+modelTag    poisson-team-strength-v2
 ```
 
-So the technical question is now fully answered and the whole decision is a
-permission one. Nothing in this repo calls it, and nothing should until that
-question has an answer that is not a guess. The two designs below are kept
-side by side because which one gets built depends entirely on it.
+The numbers are Biwenger's, confirmed against the same players read from the
+LaLiga-Fantasy pages:
 
-## How the data arrives (the allowed route)
+| | page (LaLiga Fantasy) | API (`biwenger-sofascore`) |
+|---|---|---|
+| Ferran Jutglà | 7.38 | **3.60** |
+| Ionut Radu | 6.28 | **4.92** |
+| Marcos Alonso | 5.53 | **4.74** |
+
+### What it settles
+
+- **The lists arrive in the right system.** All eight `picks` — `chollos`,
+  `goleadores`, `asistentes`, `capitanes` and the four positions — scored as
+  Biwenger. This was the sharpest open question and it is gone.
+- **The matchday is given, not computed.** Top-level `matchday` is
+  authoritative; `rounds[]` carries `isCurrent` / `isFinished` / `hasLineups`
+  per round. Note `isCurrent` marks the **upcoming** matchday (7 here), not the
+  one just played.
+- **Staleness is stamped.** `generatedAt` and `modelTag` replace the
+  `updated_at` treatment this plan was going to invent.
+- **`fixtures[].hasPrediction`** makes a half-filled round detectable.
+
+### What it does not settle: coverage
+
+**43 unique players in the whole response** — 39 across the eight lists, plus
+24 `topPlayers` slots spread thinly (six of ten fixtures carry none yet).
+
+This is a **highlights endpoint, not a projection list.** Most of a squad will
+not appear in it. That kills the idea of it being the single source.
+
+## Two sources, and each is the right one for its half
+
+| Need | Route | Why |
+|---|---|---|
+| Points + `chance` **for every squad player** | `/biwenger/predicciones` (page) | 366 players, Biwenger-scored, `Allow: /` in robots |
+| **List membership** | `/api/v1/oraculo/140?sistema=…` | The eight lists, in the right system |
+| Matchday, staleness, `hasPrediction` | same API call | Given rather than derived |
+
+The split is not a compromise. List membership is inherently a top-N signal —
+39 players *is* the complete set of recommendations, not a sample of it — while
+the projection has to cover whatever the squad happens to hold.
+
+## Permission — decided, and the scope of that decision
+
+`robots.txt` disallows `/api/`, and the terms of service prohibit
+«extracción, recolección o minería de datos (data scraping) **sin autorización
+expresa**».
+
+The owner has read both and decided to proceed on the grounds that this is a
+personal, non-commercial tool for a private league of eight, redistributing
+nothing and competing with nobody. That is their call to make on their own
+project, and it is recorded here rather than left implicit.
+
+What follows from it, and is not optional:
+
+- **The client identifies itself honestly.** A descriptive `User-Agent` with a
+  contact address, never a copy of browser headers. The site keeps the ability
+  to see, rate-limit or block this; nothing here hides from it. (There is
+  nothing to copy in any case — the capture recorded one header, `priority`.)
+- **One call per run, cached.** The model retrains hourly; reading more often
+  than that gets nothing and costs someone else's bandwidth.
+- **Ask anyway.** «Sin autorización expresa» is a default, not an absolute. A
+  short mail describing what is read, how often and why converts this from
+  tolerated to allowed, and is the only thing that makes it durable.
+
+## How the data arrives (the page route)
+
+
 
 Next.js App Router: everything is in the RSC flight payload embedded in the
 public HTML (`self.__next_f.push([1, "..."])`). No API call, no cookie, no key.
