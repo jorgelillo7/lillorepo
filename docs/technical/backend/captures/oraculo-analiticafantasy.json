@@ -1,0 +1,498 @@
+{
+ "_note": "Distilled from an OpenAPI DevTools export. Only the analiticafantasy host is kept; the other 24 were ad-tech noise picked up while browsing and carried no information about this investigation.",
+ "leafMap": {
+  "server.analiticafantasy.com": {
+   "/api/v1/configuration": {
+    "data": {
+     "authentication": {
+      "APIKEY_COOKIE_CONNECTID": {
+       "authType": "APIKEY_COOKIE_CONNECTID",
+       "description": "",
+       "in": "cookie",
+       "name": "connectid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_CTO_BIDID": {
+       "authType": "APIKEY_COOKIE_CTO_BIDID",
+       "description": "",
+       "in": "cookie",
+       "name": "cto_bidid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_PANORAMAID": {
+       "authType": "APIKEY_COOKIE_PANORAMAID",
+       "description": "",
+       "in": "cookie",
+       "name": "panoramaid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_PANORAMAID_EXPIRY": {
+       "authType": "APIKEY_COOKIE_PANORAMAID_EXPIRY",
+       "description": "",
+       "in": "cookie",
+       "name": "panoramaid_expiry",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE__CC_ID": {
+       "authType": "APIKEY_COOKIE__CC_ID",
+       "description": "",
+       "in": "cookie",
+       "name": "_cc_id",
+       "type": "apiKey"
+      },
+      "APIKEY_HEADER_COOKIE": {
+       "authType": "APIKEY_HEADER_COOKIE",
+       "description": "",
+       "in": "header",
+       "name": "COOKIE",
+       "type": "apiKey"
+      }
+     },
+     "methods": {
+      "GET": {
+       "requestHeaders": {
+        "properties": {
+         "cookie": {
+          "type": "string"
+         },
+         "priority": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "cookie",
+         "priority"
+        ],
+        "type": "object"
+       },
+       "response": {
+        "200": {
+         "application/json": {
+          "body": {
+           "properties": {
+            "data": {
+             "properties": {
+              "appFeatures": {
+               "properties": {
+                "fantasyTipsHub": {
+                 "type": "boolean"
+                },
+                "laLigaFantasyImports": {
+                 "type": "boolean"
+                }
+               },
+               "required": [
+                "fantasyTipsHub",
+                "laLigaFantasyImports"
+               ],
+               "type": "object"
+              },
+              "eliminatedTeamIds": {
+               "type": "array"
+              },
+              "minAndroidAppVersion": {
+               "type": "string"
+              },
+              "minIosAppVersion": {
+               "type": "string"
+              },
+              "seleccionPhotosEnabled": {
+               "type": "boolean"
+              },
+              "twitchMode": {
+               "type": "string"
+              },
+              "videos": {
+               "items": {
+                "properties": {
+                 "category": {
+                  "type": "string"
+                 },
+                 "url": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "url",
+                 "category"
+                ],
+                "type": "object"
+               },
+               "type": "array"
+              }
+             },
+             "required": [
+              "twitchMode",
+              "videos",
+              "eliminatedTeamIds",
+              "seleccionPhotosEnabled",
+              "minAndroidAppVersion",
+              "minIosAppVersion",
+              "appFeatures"
+             ],
+             "type": "object"
+            }
+           },
+           "required": [
+            "data"
+           ],
+           "type": "object"
+          }
+         }
+        }
+       },
+       "responseHeaders": {
+        "properties": {
+         "permissions-policy": {
+          "type": "string"
+         },
+         "x-content-type-options": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "permissions-policy",
+         "x-content-type-options"
+        ],
+        "type": "object"
+       }
+      }
+     },
+     "pathname": "/api/v1/configuration"
+    }
+   },
+   "/api/v1/fantasy-tips/config": {
+    "data": {
+     "methods": {
+      "GET": {
+       "requestHeaders": {
+        "properties": {
+         "priority": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "priority"
+        ],
+        "type": "object"
+       },
+       "response": {
+        "200": {
+         "application/json": {
+          "body": {
+           "properties": {
+            "data": {
+             "properties": {
+              "enabled": {
+               "type": "boolean"
+              }
+             },
+             "required": [
+              "enabled"
+             ],
+             "type": "object"
+            }
+           },
+           "required": [
+            "data"
+           ],
+           "type": "object"
+          }
+         }
+        }
+       },
+       "responseHeaders": {
+        "properties": {
+         "permissions-policy": {
+          "type": "string"
+         },
+         "x-content-type-options": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "permissions-policy",
+         "x-content-type-options"
+        ],
+        "type": "object"
+       }
+      }
+     },
+     "pathname": "/api/v1/fantasy-tips/config"
+    }
+   },
+   "/api/v1/fixtures/nav-strip": {
+    "data": {
+     "authentication": {
+      "APIKEY_COOKIE_CONNECTID": {
+       "authType": "APIKEY_COOKIE_CONNECTID",
+       "description": "",
+       "in": "cookie",
+       "name": "connectid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_CTO_BIDID": {
+       "authType": "APIKEY_COOKIE_CTO_BIDID",
+       "description": "",
+       "in": "cookie",
+       "name": "cto_bidid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_PANORAMAID": {
+       "authType": "APIKEY_COOKIE_PANORAMAID",
+       "description": "",
+       "in": "cookie",
+       "name": "panoramaid",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE_PANORAMAID_EXPIRY": {
+       "authType": "APIKEY_COOKIE_PANORAMAID_EXPIRY",
+       "description": "",
+       "in": "cookie",
+       "name": "panoramaid_expiry",
+       "type": "apiKey"
+      },
+      "APIKEY_COOKIE__CC_ID": {
+       "authType": "APIKEY_COOKIE__CC_ID",
+       "description": "",
+       "in": "cookie",
+       "name": "_cc_id",
+       "type": "apiKey"
+      },
+      "APIKEY_HEADER_COOKIE": {
+       "authType": "APIKEY_HEADER_COOKIE",
+       "description": "",
+       "in": "header",
+       "name": "COOKIE",
+       "type": "apiKey"
+      }
+     },
+     "methods": {
+      "GET": {
+       "queryParameters": {
+        "properties": {
+         "leagueId": {
+          "type": "string"
+         },
+         "season": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "leagueId",
+         "season"
+        ],
+        "type": "object"
+       },
+       "requestHeaders": {
+        "properties": {
+         "cookie": {
+          "type": "string"
+         },
+         "priority": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "cookie",
+         "priority"
+        ],
+        "type": "object"
+       },
+       "response": {
+        "200": {
+         "application/json": {
+          "body": {
+           "properties": {
+            "data": {
+             "items": {
+              "properties": {
+               "fixture": {
+                "properties": {
+                 "date": {
+                  "type": "string"
+                 },
+                 "id": {
+                  "type": "integer"
+                 },
+                 "referee": {
+                  "type": "string"
+                 },
+                 "status": {
+                  "properties": {
+                   "elapsed": {
+                    "type": "integer"
+                   },
+                   "extra": {
+                    "type": "integer"
+                   },
+                   "long": {
+                    "type": "string"
+                   },
+                   "short": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "long",
+                   "short"
+                  ],
+                  "type": "object"
+                 },
+                 "timezone": {
+                  "type": "string"
+                 },
+                 "venue": {
+                  "properties": {
+                   "city": {
+                    "type": "string"
+                   },
+                   "id": {
+                    "type": "integer"
+                   },
+                   "name": {
+                    "type": "string"
+                   }
+                  },
+                  "type": "object"
+                 }
+                },
+                "required": [
+                 "id",
+                 "timezone",
+                 "date",
+                 "venue",
+                 "status"
+                ],
+                "type": "object"
+               },
+               "goals": {
+                "properties": {
+                 "away": {
+                  "type": "integer"
+                 },
+                 "home": {
+                  "type": "integer"
+                 }
+                },
+                "required": [
+                 "home",
+                 "away"
+                ],
+                "type": "object"
+               },
+               "leagueId": {
+                "type": "integer"
+               },
+               "round": {
+                "type": "string"
+               },
+               "score": {
+                "properties": {
+                 "fulltime": {
+                  "properties": {
+                   "away": {
+                    "type": "integer"
+                   },
+                   "home": {
+                    "type": "integer"
+                   }
+                  },
+                  "required": [
+                   "home",
+                   "away"
+                  ],
+                  "type": "object"
+                 }
+                },
+                "required": [
+                 "fulltime"
+                ],
+                "type": "object"
+               },
+               "season": {
+                "type": "integer"
+               },
+               "teams": {
+                "properties": {
+                 "away": {
+                  "properties": {
+                   "id": {
+                    "type": "integer"
+                   },
+                   "name": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "id",
+                   "name"
+                  ],
+                  "type": "object"
+                 },
+                 "home": {
+                  "properties": {
+                   "id": {
+                    "type": "integer"
+                   },
+                   "name": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "id",
+                   "name"
+                  ],
+                  "type": "object"
+                 }
+                },
+                "required": [
+                 "home",
+                 "away"
+                ],
+                "type": "object"
+               }
+              },
+              "required": [
+               "leagueId",
+               "season",
+               "round",
+               "fixture",
+               "teams"
+              ],
+              "type": "object"
+             },
+             "type": "array"
+            }
+           },
+           "required": [
+            "data"
+           ],
+           "type": "object"
+          }
+         }
+        }
+       },
+       "responseHeaders": {
+        "properties": {
+         "permissions-policy": {
+          "type": "string"
+         },
+         "x-content-type-options": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "permissions-policy",
+         "x-content-type-options"
+        ],
+        "type": "object"
+       }
+      }
+     },
+     "pathname": "/api/v1/fixtures/nav-strip"
+    }
+   }
+  }
+ }
+}

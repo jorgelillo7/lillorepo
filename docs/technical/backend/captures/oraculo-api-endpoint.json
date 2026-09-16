@@ -1,0 +1,1084 @@
+{
+ "_note": "Distilled from an OpenAPI DevTools export. Only the analiticafantasy host is kept: the other 23 are ad-tech noise, and one of them carried a TCF consent string from the browser session, which has no place in a public repo.",
+ "leafMap": {
+  "server.analiticafantasy.com": {
+   "/api/v1/oraculo/140": {
+    "data": {
+     "methods": {
+      "GET": {
+       "queryParameters": {
+        "properties": {
+         "sistema": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "sistema"
+        ],
+        "type": "object"
+       },
+       "requestHeaders": {
+        "properties": {
+         "priority": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "priority"
+        ],
+        "type": "object"
+       },
+       "response": {
+        "200": {
+         "application/json": {
+          "body": {
+           "properties": {
+            "data": {
+             "properties": {
+              "fixtures": {
+               "items": {
+                "properties": {
+                 "awayTeamId": {
+                  "type": "integer"
+                 },
+                 "awayTeamName": {
+                  "type": "string"
+                 },
+                 "awayTopPlayers": {
+                  "items": {
+                   "properties": {
+                    "assistProbability": {
+                     "type": "number"
+                    },
+                    "chance": {
+                     "type": "integer"
+                    },
+                    "expectedPoints": {
+                     "type": "number"
+                    },
+                    "fixtureId": {
+                     "type": "integer"
+                    },
+                    "goalProbability": {
+                     "type": "number"
+                    },
+                    "isEstimate": {
+                     "type": "boolean"
+                    },
+                    "isHome": {
+                     "type": "boolean"
+                    },
+                    "marketValue": {
+                     "type": "integer"
+                    },
+                    "opponentTeamId": {
+                     "type": "integer"
+                    },
+                    "opponentTeamName": {
+                     "type": "string"
+                    },
+                    "playerId": {
+                     "type": "integer"
+                    },
+                    "playerName": {
+                     "type": "string"
+                    },
+                    "pointsPerMillion": {
+                     "type": "number"
+                    },
+                    "position": {
+                     "type": "string"
+                    },
+                    "positionId": {
+                     "type": "integer"
+                    },
+                    "predictedPoints": {
+                     "type": "number"
+                    },
+                    "slug": {
+                     "type": "string"
+                    },
+                    "teamId": {
+                     "type": "integer"
+                    },
+                    "teamName": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "playerId",
+                    "playerName",
+                    "slug",
+                    "positionId",
+                    "position",
+                    "teamId",
+                    "teamName",
+                    "fixtureId",
+                    "opponentTeamId",
+                    "opponentTeamName",
+                    "isHome",
+                    "predictedPoints",
+                    "isEstimate",
+                    "chance",
+                    "expectedPoints",
+                    "assistProbability",
+                    "marketValue",
+                    "pointsPerMillion"
+                   ],
+                   "type": "object"
+                  },
+                  "type": "array"
+                 },
+                 "awayWinPct": {
+                  "type": "integer"
+                 },
+                 "drawPct": {
+                  "type": "integer"
+                 },
+                 "fixtureDate": {
+                  "type": "string"
+                 },
+                 "fixtureId": {
+                  "type": "integer"
+                 },
+                 "hasPrediction": {
+                  "type": "boolean"
+                 },
+                 "homeTeamId": {
+                  "type": "integer"
+                 },
+                 "homeTeamName": {
+                  "type": "string"
+                 },
+                 "homeTopPlayers": {
+                  "items": {
+                   "properties": {
+                    "assistProbability": {
+                     "type": "number"
+                    },
+                    "chance": {
+                     "type": "integer"
+                    },
+                    "expectedPoints": {
+                     "type": "number"
+                    },
+                    "fixtureId": {
+                     "type": "integer"
+                    },
+                    "goalProbability": {
+                     "type": "number"
+                    },
+                    "isEstimate": {
+                     "type": "boolean"
+                    },
+                    "isHome": {
+                     "type": "boolean"
+                    },
+                    "marketValue": {
+                     "type": "integer"
+                    },
+                    "opponentTeamId": {
+                     "type": "integer"
+                    },
+                    "opponentTeamName": {
+                     "type": "string"
+                    },
+                    "playerId": {
+                     "type": "integer"
+                    },
+                    "playerName": {
+                     "type": "string"
+                    },
+                    "pointsPerMillion": {
+                     "type": "number"
+                    },
+                    "position": {
+                     "type": "string"
+                    },
+                    "positionId": {
+                     "type": "integer"
+                    },
+                    "predictedPoints": {
+                     "type": "number"
+                    },
+                    "slug": {
+                     "type": "string"
+                    },
+                    "teamId": {
+                     "type": "integer"
+                    },
+                    "teamName": {
+                     "type": "string"
+                    }
+                   },
+                   "required": [
+                    "playerId",
+                    "playerName",
+                    "slug",
+                    "positionId",
+                    "position",
+                    "teamId",
+                    "teamName",
+                    "fixtureId",
+                    "opponentTeamId",
+                    "opponentTeamName",
+                    "isHome",
+                    "predictedPoints",
+                    "isEstimate",
+                    "chance",
+                    "expectedPoints",
+                    "assistProbability",
+                    "marketValue",
+                    "pointsPerMillion"
+                   ],
+                   "type": "object"
+                  },
+                  "type": "array"
+                 },
+                 "homeWinPct": {
+                  "type": "integer"
+                 },
+                 "predictedAway": {
+                  "type": "integer"
+                 },
+                 "predictedHome": {
+                  "type": "integer"
+                 },
+                 "predictedScore": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "fixtureId",
+                 "fixtureDate",
+                 "homeTeamId",
+                 "homeTeamName",
+                 "awayTeamId",
+                 "awayTeamName",
+                 "predictedScore",
+                 "predictedHome",
+                 "predictedAway",
+                 "homeWinPct",
+                 "drawPct",
+                 "awayWinPct",
+                 "hasPrediction",
+                 "homeTopPlayers",
+                 "awayTopPlayers"
+                ],
+                "type": "object"
+               },
+               "type": "array"
+              },
+              "generatedAt": {
+               "type": "string"
+              },
+              "leagueId": {
+               "type": "integer"
+              },
+              "matchday": {
+               "type": "integer"
+              },
+              "modelTag": {
+               "type": "string"
+              },
+              "picks": {
+               "properties": {
+                "asistentes": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "capitanes": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "centrocampistas": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "chollos": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "defensas": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "delanteros": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "goleadores": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "goalProbability": {
+                    "type": "number"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "goalProbability",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                },
+                "porteros": {
+                 "items": {
+                  "properties": {
+                   "assistProbability": {
+                    "type": "number"
+                   },
+                   "chance": {
+                    "type": "integer"
+                   },
+                   "expectedPoints": {
+                    "type": "number"
+                   },
+                   "fixtureId": {
+                    "type": "integer"
+                   },
+                   "isEstimate": {
+                    "type": "boolean"
+                   },
+                   "isHome": {
+                    "type": "boolean"
+                   },
+                   "marketValue": {
+                    "type": "integer"
+                   },
+                   "opponentTeamId": {
+                    "type": "integer"
+                   },
+                   "opponentTeamName": {
+                    "type": "string"
+                   },
+                   "playerId": {
+                    "type": "integer"
+                   },
+                   "playerName": {
+                    "type": "string"
+                   },
+                   "pointsPerMillion": {
+                    "type": "number"
+                   },
+                   "position": {
+                    "type": "string"
+                   },
+                   "positionId": {
+                    "type": "integer"
+                   },
+                   "predictedPoints": {
+                    "type": "number"
+                   },
+                   "slug": {
+                    "type": "string"
+                   },
+                   "teamId": {
+                    "type": "integer"
+                   },
+                   "teamName": {
+                    "type": "string"
+                   }
+                  },
+                  "required": [
+                   "playerId",
+                   "playerName",
+                   "slug",
+                   "positionId",
+                   "position",
+                   "teamId",
+                   "teamName",
+                   "fixtureId",
+                   "opponentTeamId",
+                   "opponentTeamName",
+                   "isHome",
+                   "predictedPoints",
+                   "isEstimate",
+                   "chance",
+                   "expectedPoints",
+                   "assistProbability",
+                   "marketValue",
+                   "pointsPerMillion"
+                  ],
+                  "type": "object"
+                 },
+                 "type": "array"
+                }
+               },
+               "required": [
+                "capitanes",
+                "chollos",
+                "goleadores",
+                "asistentes",
+                "porteros",
+                "defensas",
+                "centrocampistas",
+                "delanteros"
+               ],
+               "type": "object"
+              },
+              "round": {
+               "type": "string"
+              },
+              "roundLabel": {
+               "type": "string"
+              },
+              "rounds": {
+               "items": {
+                "properties": {
+                 "firstFixtureDate": {
+                  "type": "string"
+                 },
+                 "hasLineups": {
+                  "type": "boolean"
+                 },
+                 "isCurrent": {
+                  "type": "boolean"
+                 },
+                 "isFinished": {
+                  "type": "boolean"
+                 },
+                 "lastFixtureDate": {
+                  "type": "string"
+                 },
+                 "matchday": {
+                  "type": "integer"
+                 },
+                 "round": {
+                  "type": "string"
+                 },
+                 "roundLabel": {
+                  "type": "string"
+                 }
+                },
+                "required": [
+                 "matchday",
+                 "round",
+                 "roundLabel",
+                 "firstFixtureDate",
+                 "lastFixtureDate",
+                 "hasLineups",
+                 "isFinished",
+                 "isCurrent"
+                ],
+                "type": "object"
+               },
+               "type": "array"
+              },
+              "season": {
+               "type": "integer"
+              },
+              "sistema": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "leagueId",
+              "sistema",
+              "season",
+              "round",
+              "roundLabel",
+              "matchday",
+              "modelTag",
+              "generatedAt",
+              "fixtures",
+              "picks",
+              "rounds"
+             ],
+             "type": "object"
+            }
+           },
+           "required": [
+            "data"
+           ],
+           "type": "object"
+          }
+         }
+        }
+       },
+       "responseHeaders": {
+        "properties": {
+         "permissions-policy": {
+          "type": "string"
+         },
+         "x-content-type-options": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "permissions-policy",
+         "x-content-type-options"
+        ],
+        "type": "object"
+       }
+      }
+     },
+     "pathname": "/api/v1/oraculo/140"
+    }
+   }
+  }
+ }
+}
