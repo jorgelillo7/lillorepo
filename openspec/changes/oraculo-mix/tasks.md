@@ -122,23 +122,52 @@ Display:
 - [ ] A test that the marker appears in both cases and **is absent** when the
       blend ran
 
-## 4b · The captain, and only the captain, gets the probabilities
+## 4b · The shortlists — a mark, not a score
+
+Oráculo's eight lists (goleadores, asistentes, chollos, capitanes, best per
+position) cover **38 players of ~500**, so they cannot be a term in the blend:
+only those 38 would move, and for the single reason that Oráculo looked at
+their fixture first.
+
+As a **mark** they are worth a lot. Measured on a real squad, **4 of 14**
+players were on some list — often enough to matter, rarely enough not to be
+noise. Three uses, none of which touches the ranking:
+
+- [ ] **Bid priority** (`auto_bid`) — a listed player reaching the market is
+      bid for ahead of an unlisted one at comparable value. Bidding is a
+      per-player decision, not a ranking, so partial coverage costs nothing
+- [ ] **Tie-break in the eleven** (`lineup`) — when two candidates are within a
+      small band of each other, the listed one starts. A tie-break only fires
+      between near-equals, so it cannot reorder anything that was not already
+      a coin flip
+- [ ] **Captain** — prefer goal probability over expectation. Weakest of the
+      three: Biwenger caps the captain at 3M and only 14 of the 38 fall under
+      it, so it is a real but narrow gain
+- [ ] The tie-break band is a guess like the rest — env-tunable
+- [ ] A test that an unlisted player never loses a place he won on points
+      alone; the mark breaks ties, it does not create them
+
+### Why the probabilities sit here and not in the blend
 
 `goalProbability` / `assistProbability` live only in `picks` (38 players), not
 in the 472-row predictions feed, so they cannot drive the blend. They are also
 a different quantity: `predictedPoints` is an expectation, these are the shape
 behind it.
 
-- [ ] Feed them to `_pick_captain`, which already reasons about variance versus
-      expectation and already works from a short list (Biwenger caps the
-      captain at 3M, and 14 of the 38 picks players are under it)
-- [ ] Not the blend, and not the eleven — a sum wants expectation; a doubled
-      single pick wants the tail
-- [ ] After phase 4, never before: the blend has to be trustworthy before the
-      captain starts disagreeing with it
+Correlated against `predictedPoints` over the 32 players carrying both:
+`goalProbability` r = +0.50, `assistProbability` r = +0.11, and by position
++0.56 / +0.18 / +0.10 for forwards, midfielders and defenders. So the points
+absorb about a quarter of the goal signal and leave three quarters — it is not
+redundant, and for defenders it is nearly independent.
+
+That is why it earns a place. It is *not* why it could join the blend: the
+coverage, not the redundancy, is what keeps it out.
+
+- [ ] After phase 4, never before: the blend has to be trustworthy before
+      anything starts disagreeing with it
 - [ ] A test on the real shape: Pedro Díaz 5.85 points at 3.9% goal against
-      Marcos Fernández 3.98 at 21.1% — the captain rule should prefer the
-      second and the eleven should still prefer the first
+      Marcos Fernández 3.98 at 21.1% — the captain should prefer the second
+      and the eleven should still prefer the first
 
 ## 5 · The removals
 

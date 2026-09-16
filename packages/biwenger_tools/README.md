@@ -62,18 +62,34 @@ is the base; Analítica Fantasy's Oráculo is a second opinion that nudges it.
 ```mermaid
 flowchart TD
     JP["📊 Jornada Perfecta"]
-    OR["🔮 Oráculo"]
+    OR["🔮 Oráculo · points"]
     CHK{"Enough data?"}
     MIX["⚖️ Blend · 70% JP + 30% Oráculo"]
     ONLY["📊 JP alone · flagged in the photo"]
     OUT(["⭐ Our projection"])
+    LST["🏅 Oráculo shortlists"]
+    BID["💸 Bid with priority"]
+    XI["📋 Tie-break in the eleven"]
+    CAP["🎖️ Captain"]
     JP --> CHK
     OR --> CHK
     CHK -->|yes| MIX
     CHK -->|no| ONLY
     MIX --> OUT
     ONLY --> OUT
+    OUT --> XI
+    LST --> BID
+    LST --> XI
+    LST --> CAP
 ```
+
+Two layers, deliberately separate. The **score** path blends the two
+projections into one number. The **shortlists** — Oráculo's goalscorers,
+assisters, bargains and best-per-position — never touch that number: they mark
+players, and a mark is worth more as a priority or a tie-break than as points.
+
+On a real squad 4 of 14 players were on some list, so it fires often enough to
+matter and rarely enough not to be noise.
 
 **JP never stops being the base.** Oráculo can only move it, and only when
 enough of the squad is covered — midweek a matchday is barely projected, so the
