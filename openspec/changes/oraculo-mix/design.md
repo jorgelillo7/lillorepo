@@ -211,6 +211,39 @@ probably will not play should not move JP's. Above it, do nothing.
 `W = 0.30` and the 25% floor are fitted to one squad on one matchday. They go
 in env vars, tunable without a deploy.
 
+## The goal and assist probabilities belong to the captain, not the blend
+
+`goalProbability` and `assistProbability` exist **only in `picks`** — 38
+players — and not in `/biwenger/predicciones`, which carries the 472 rows. So
+they cannot feed the blend: most of a squad would have no value and the ones
+that did would move for a reason nobody else's row shared.
+
+They are also **different information**. `predictedPoints` is an expectation;
+these two are the shape of the distribution behind it. Measured on the same
+matchday, both under 3M:
+
+| | points | goal | assist |
+|---|---|---|---|
+| Pedro Díaz | **5.85** | 3.9% | 2.4% |
+| Marcos Fernández | 3.98 | **21.1%** | 11.6% |
+
+Pedro Díaz scores more on average. Marcos Fernández has five times the ceiling.
+For a starter that difference barely matters — the eleven is a sum, and a sum
+wants expectation.
+
+**For the captain it is the whole question.** Captaincy doubles the return, so
+it pays for the tail rather than the mean, and `_pick_captain` already reasons
+this way: it refuses a promoted substitute because "starting him is a bet with
+the bench as insurance; captaining him doubles the bet and has none."
+
+The coverage lines up too. Biwenger caps the captain at a 3M market value, and
+**14 of the 38 `picks` players are under it** — the captain is always drawn
+from a short list, which is exactly the shape this signal comes in.
+
+So: `predictedPoints` drives the blend for everyone, and the probabilities feed
+`_pick_captain` alone. Deliberately a separate phase — the blend must be
+working before the captain starts arguing with it.
+
 ## Falling back to JP — three levels, not one
 
 The brief is "if it fails for any reason we keep JP". That failure arrives in
