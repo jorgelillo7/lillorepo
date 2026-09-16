@@ -149,6 +149,11 @@ a URL to compute.
 
 ## The blend
 
+**JP is the base and stays the base.** Oráculo is a second opinion that nudges
+it; it never replaces it and it never decides alone. If Oráculo is missing,
+wrong, thin or broken, every number in this project is exactly what it is
+today.
+
 JP ≈ 0-700, Oráculo ≈ 0-10. The scales are not comparable, so this is a
 multiplier on JP and never an average.
 
@@ -170,6 +175,86 @@ custom = round(base * (1 + clamp(bonus, -0.50, +0.50)))
 **Every number above is a guess**, fitted to one worked case: JP has Jutglà at
 500 and benched, Oráculo has him over 6.00 and likely to start, so he comes out
 around 1.4× instead of losing his place to JP's read alone.
+
+## Falling back to JP — three levels, not one
+
+The brief is "if it fails for any reason we keep JP". That failure arrives in
+three different shapes and each needs its own answer.
+
+### 1 · Per player — no opinion
+
+Oráculo does not carry this player, or carries him with no projection.
+`custom == jp_sf`. Nothing marked: this is the normal state for most of a
+squad most of the week.
+
+### 2 · Per read — too thin to use at all
+
+**This is the Wednesday case, and it is the one worth getting right.** Three
+days out the upcoming matchday held 67 projected players against a league of
+~500, so a squad of twenty would expect two or three opinions.
+
+A *partial* blend is worse than none. Three players get a 1.3× boost and
+seventeen do not, so those three jump the queue for no reason except that
+Oráculo happened to have looked at their fixture first. The ranking stops
+meaning anything and nobody can see why.
+
+So it is all-or-nothing, per read:
+
+```
+covered = rows with an Oráculo projection / rows being scored
+if covered < ORACULO_MIN_COVERAGE:   # 0.60 to start, a guess to calibrate
+    blend off for this whole read, and say so
+```
+
+### 3 · Per source — unreachable or wrong
+
+Timeout, HTTP error, unparseable payload, or **the echoed `sistema` is not the
+one asked for**. Blend off, log loudly, and say so. The SLO already demands
+this: a second provider must degrade to JP alone and never block the digest.
+
+A wrong `sistema` counts as a failure rather than a warning. Reading LaLiga
+Fantasy numbers while believing they are Biwenger's is the one outcome worse
+than having no second opinion at all.
+
+## Saying so — the marker
+
+Levels 2 and 3 are invisible unless the output says so, and an unmarked
+fallback is how a silent regression lives for months.
+
+`/analizar` and `/mercado` photos: the `Proyección` column header becomes
+**`Proyección (JP)`** and the title carries a suffix. Text first, colour
+second — `image_formatter`'s own rule is that shape carries the meaning and
+the hue reinforces it, so a red tint alone would not do.
+
+Telegram text surfaces (`/recomendar`, `/emergencia`, `/ofertas`) carry one
+line: *"⚠️ Solo JP — Oráculo no disponible"* or *"…sin datos suficientes"*,
+distinguishing level 3 from level 2 because they call for different reactions:
+one is broken, the other is just early in the week.
+
+## Every reader, and there are more than four
+
+The first draft of this plan listed four. A full sweep of what consults JP
+found **seven**, and one of them spends money:
+
+| Reader | What it decides | Kind |
+|---|---|---|
+| `lineup._sf` | the starting eleven, applied unattended every morning | decision |
+| `clausulazo_candidates.sf_of` | `/recomendar` + all three `/emergencia` pools | decision |
+| `auto_bid` | what to bid on | decision |
+| **`offers.py`** | **accept or reject an incoming offer** | **decision** |
+| `image_formatter` | the `Proyección` column in every photo | display |
+| `league_compare` | the league-wide squad ranking | display |
+| `actions.py` / `player_formatting` | row rendering for `/analizar`, `/mercado` | display |
+
+`offers.py` reads `get_predict_rate(..., 2)` directly in two places to value an
+incoming offer. It was missed because it does not go through `sf_of`, and it is
+the one place a wrong number costs money immediately rather than points on
+Sunday.
+
+Pass-throughs that need no change: `rows.py` (where the join goes),
+`orchestration.py` (where the fetch goes), `digests.py`, `player_matching.py`.
+Out of scope: the draft skill and `postdraft.py`, which are annual and run off
+exported CSVs.
 
 ## Failure modes this must not repeat
 

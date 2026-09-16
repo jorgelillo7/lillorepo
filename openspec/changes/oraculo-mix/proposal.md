@@ -14,14 +14,23 @@ probability) and **a second opinion on the points**.
 
 ## What changes
 
-JP stays the base. Oráculo nudges it up or down, and every input stays on the
-row beside the output so no export loses a column and the formula stays
-arguable.
+**JP is the base and stays the base.** Oráculo is a second opinion that nudges
+it up or down; it never replaces it and never decides alone. If Oráculo is
+missing, thin, unreachable or serving the wrong scoring system, every number in
+this project is exactly what it is today — and the output says so, because an
+unmarked fallback is how a silent regression lives for months.
 
-- A `core/sdk/oraculo.py` reader.
+Every consultation of JP becomes a consultation of JP + Oráculo, across all
+seven readers that consume it, and every input stays on the row beside the
+output so no export loses a column and the formula stays arguable.
+
+- A `core/sdk/oraculo.py` reader, over two sources.
 - A third join on the row, beside Biwenger and JP.
-- A `custom_prediction` that blends them.
-- The four readers that decide things move onto it, one at a time.
+- A `custom_prediction` that blends them, with three levels of fallback to JP.
+- The seven readers that consume JP move onto it, one at a time — including
+  `offers.py`, which the first draft of this plan missed and which is the one
+  that spends money.
+- A visible marker whenever the blend did not run.
 - Monitoring that twelve months proved silent comes out.
 
 ## What does not change
