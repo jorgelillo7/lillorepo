@@ -12,8 +12,9 @@ Two sources, because neither covers the other's half (see design):
 - [ ] **Assert the echoed `sistema` matches what was asked**, and raise if not.
       This is the single check that stops the projections silently halving the
       day the site changes a default
-- [ ] `fetch_predictions()` → `/biwenger/predicciones`, the broad coverage
-      (~366 players)
+- [ ] `fetch_predictions()` → `/biwenger/predicciones`. **Filter by
+      `fixtureDate`**: the 366 rows span two matchdays, and the upcoming one
+      held 67 projected players three days out against the current one's 252
 - [ ] `_flight(html)` / `_objects(payload, key)` for the page route — the only
       fragile parts, isolated so a layout change breaks one test loudly
 - [ ] `OraculoError`, raised — never a silent empty list
@@ -64,9 +65,12 @@ Two sources, because neither covers the other's half (see design):
    recorded in `design.md`.
 2. **Calibration.** Shadow-log the thresholds for a week and fit, or start with
    the guessed numbers and adjust by feel?
-3. **Read time.** `fixtures[].hasPrediction` now makes a half-filled round
-   *detectable* rather than guessed — but the 09:00 digest may still read one.
-   Accept it, or read later and closer to kickoff for the lineup specifically?
+3. **Read time — now a number, not a feeling.** The next matchday held **67**
+   projected players three days out and the current one **252**, so a Tuesday
+   read covers a fraction of the squad. `fixtures[].hasPrediction` is no help
+   here: it was `true` for all ten fixtures while only 67 players had numbers.
+   Accept a thin early read, or read late and close to kickoff for the lineup
+   specifically?
 4. **Unreachable Oráculo.** Fall back to bare JP silently, or say so? (The SLO
    says loudly.)
 5. **Which removals actually go** — all three, or only the ones that have never

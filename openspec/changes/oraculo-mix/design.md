@@ -75,13 +75,40 @@ not appear in it. That kills the idea of it being the single source.
 
 | Need | Route | Why |
 |---|---|---|
-| Points + `chance` **for every squad player** | `/biwenger/predicciones` (page) | 366 players, Biwenger-scored, `Allow: /` in robots |
+| Points + `chance` **for every squad player** | `/biwenger/predicciones` (page) | Biwenger-scored, `Allow: /` in robots — but see the coverage note below |
 | **List membership** | `/api/v1/oraculo/140?sistema=…` | The eight lists, in the right system |
 | Matchday, staleness, `hasPrediction` | same API call | Given rather than derived |
 
 The split is not a compromise. List membership is inherently a top-N signal —
 39 players *is* the complete set of recommendations, not a sample of it — while
 the projection has to cover whatever the squad happens to hold.
+
+### Coverage is a function of *when*, not of the route
+
+`/biwenger/predicciones` returns 366 rows, and that number is misleading: they
+span **two matchdays at once**, and most belong to the one being played rather
+than the one coming. Measured three days out from J7:
+
+| | rows with a projection > 0 |
+|---|---|
+| J6 (16-17 Sept, imminent) | 252 |
+| **J7 (19-20 Sept, the one we want)** | **67** |
+
+319 of the 366 carry a non-zero projection at all; 327 carry a starting
+`chance`. The tail is real — the site itself paginates to 366 and the last
+entries read `Esperado 0.00` at 20% titularidad.
+
+So the usable figure is not 366 and not 319: it is **whatever the next matchday
+has been filled in with at the moment of reading**, which was 67 at three days
+out and rises as kickoff approaches. `fixtureDate` filtering is not an
+optimisation, it is the thing that makes the number mean anything.
+
+This makes the read-time question (open question 3) quantitative rather than a
+matter of taste: a Tuesday read covers a fraction of the squad, a Saturday
+morning read covers most of it. Note also that `fixtures[].hasPrediction` was
+`true` for all ten J7 fixtures while only 67 players had numbers — the fixture
+flag means the model has an opinion on the *match*, not that its players are
+projected yet.
 
 ## Permission — decided, and the scope of that decision
 
