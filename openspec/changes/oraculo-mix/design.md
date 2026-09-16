@@ -269,7 +269,27 @@ exported CSVs.
 - **Scraping is not a contract.** The flight payload is a framework
   implementation detail. It will break without notice.
 
-## Read time
+## Read time — decided
+
+**One read per execution, cached an hour**, the same shape `core/sdk/jp.py`
+already uses. The model retrains hourly, so reading more often buys nothing and
+spends someone else's bandwidth.
+
+A midweek read simply falls under the coverage threshold and marks itself
+JP-only. That is the correct outcome rather than a compromise: the alternative
+designs — skipping the fetch entirely when kickoff is far, or moving the lineup
+tick to Saturday — both add a rule to maintain in exchange for an outcome the
+threshold already produces.
+
+### The thresholds must be tunable without a deploy
+
+There is no shadow week, so every guessed number goes live as written. They
+belong in env vars the way `LINEUP_SUB_STARTS_ABOVE` already is — and that
+precedent carries a warning: its default read 350 while production ran 300 for
+months, so the backlog spent that time asking about a number nobody executed.
+**The default in the code must be the value that runs.**
+
+## Read time (superseded note)
 
 A matchday fills in progressively: three days out, only 2 of 10 fixtures had
 any projection at all, and 79 of 366 rows belonged to the upcoming round. **When

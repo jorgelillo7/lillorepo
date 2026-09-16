@@ -59,9 +59,18 @@ Two sources, because neither covers the other's half (see design):
 The first draft of this plan listed four. A full sweep found seven, and
 `offers.py` spends money.
 
-**Shadow week first**: log `jp_sf` and `custom` side by side, change nothing.
+**No shadow week** — decided. The ±50% clamp and the tests are the safety net,
+and the order below is the rest of it: display first, then decisions, with the
+unattended one last.
 
-Decisions, in this order — safest first, the unattended one last:
+Display first, where a wrong number is visible and costs nothing:
+
+- [ ] `image_formatter` — the `Proyección` column, the new `Oráculo` column and
+      the marker
+- [ ] `league_compare` — the league-wide ranking
+- [ ] `actions.py` / `player_formatting` — row rendering
+
+Then the decisions, safest first:
 
 - [ ] `offers.py` — reads `get_predict_rate(..., 2)` directly in two places to
       value an incoming offer. Missed in the first draft because it does not
@@ -79,6 +88,15 @@ Display:
 - [ ] `league_compare` — the league-wide ranking
 - [ ] `actions.py` / `player_formatting` — row rendering
 
+### The new column — the inputs beside the output
+
+- [ ] A `Oráculo` column in the photos showing `points · chance` (e.g.
+      `7.4 · 80%`), beside the blended `Proyección`. The formula stays arguable
+      at a glance without leaving Telegram
+- [ ] Empty for a player Oráculo does not carry — an empty cell reads as "no
+      opinion", which is what it is
+- [ ] `_BASE_COLUMNS` widths need rebalancing; the table is already 7 columns
+
 ### The marker
 
 - [ ] Photos: column header becomes `Proyección (JP)` and the title takes a
@@ -94,9 +112,21 @@ Display:
 
 ## 5 · The removals
 
-- [ ] `provider_watch` — five watchers, twelve months, zero events
-- [ ] `log_promotions` — records a bet it cannot grade, ~once a year
-- [ ] `deploy-watchdog.yml` — confirm whether it has ever fired first
+- [ ] `provider_watch` — five watchers, twelve months, zero events. A real
+      second source makes "the providers disagree" the signal itself rather
+      than an anomaly to date. Takes #443's market widening with it, which is
+      the cost of the decision
+- [ ] `log_promotions` — records a bet it cannot grade, ~once a year, and we
+      decided against building the pipeline that would grade it
+- [ ] ~~`deploy-watchdog.yml`~~ — **keep. The check said so.** 40 runs since
+      2026-08-08, all "success", and it has **never dispatched**: the three
+      `workflow_dispatch` deploys on record are at 19:35, 21:02 and 21:48 UTC
+      while the watchdog runs at 07:47, so they were manual. But the failure it
+      guards is demonstrably alive — GitHub swallowed two push events on this
+      repo on 2026-09-16 alone. Both were on a feature branch, where the cost
+      is a missing CI run; on master the cost is a missing deploy, which is
+      exactly what this catches. Never having fired is what a working smoke
+      alarm looks like
 - [ ] Prune the backlog lines these leave behind
 
 ## Open questions — answer before phase 3
@@ -106,20 +136,22 @@ Display:
    projection list. `/biwenger/predicciones` gives 366 players and no lists.
    Both are needed, each for its half. Permission decided by the owner and
    recorded in `design.md`.
-2. **Calibration.** Two sets of guesses now, not one: the blend thresholds
-   (6.0 / 3.0 / 80 / 40 and the ±30/±10/±20) **and**
-   `ORACULO_MIN_COVERAGE = 0.60`. Shadow-log both for a week and fit, or start
-   with these and adjust by feel?
-3. **Read time — now a number, not a feeling.** The next matchday held **67**
-   projected players three days out and the current one **252**, so a Tuesday
-   read covers a fraction of the squad. `fixtures[].hasPrediction` is no help
-   here: it was `true` for all ten fixtures while only 67 players had numbers.
-   Accept a thin early read, or read late and close to kickoff for the lineup
-   specifically?
+2. **Calibration — the only one genuinely still open.** Two sets of guesses:
+   the blend thresholds (6.0 / 3.0 / 80 / 40 and the ±30/±10/±20) and
+   `ORACULO_MIN_COVERAGE = 0.60`. With no shadow week they go live as written,
+   so they must be **env-tunable without a deploy**, the way
+   `LINEUP_SUB_STARTS_ABOVE` already is — and that config drift has bitten once
+   already, so the default in the code must be the value that runs.
+3. ~~Read time.~~ **Answered: one read per execution, cached an hour**, the
+   same shape `jp.py` already uses. The model retrains hourly, so reading more
+   often buys nothing. A midweek read will simply fall under the coverage
+   threshold and mark itself as JP-only, which is the correct outcome rather
+   than a compromise.
 4. ~~Unreachable Oráculo.~~ **Answered.** Fall back to JP and say so — a
    marked column header and title in the photos, one line in the Telegram
    surfaces, distinguishing "unavailable" from "not enough data yet".
-5. **Which removals actually go** — all three, or only the ones that have never
-   produced a line?
+5. ~~Which removals.~~ **Answered: `provider_watch` and `log_promotions` go,
+   the deploy watchdog stays** — the check it was conditional on produced a
+   reason to keep it.
 6. **Permission.** `robots.txt` allows the pages; the terms of service are a
    separate question, and not one code can settle.
