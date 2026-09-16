@@ -50,10 +50,13 @@ Five phases, one PR each, merged before the next starts. Test-first throughout
 
 ## Open questions — answer before phase 3
 
-1. **The list flags come from the wrong system.** They exist only on
-   LaLiga-Fantasy-scored pages; `/biwenger/predicciones` has none. A "chollo"
-   under LaLiga scoring is not necessarily one under Biwenger. Keep them as a
-   weak signal, or drop the list half and use only points + chance?
+1. **Which route.** `GET /api/v1/oraculo/140?sistema=…` takes the scoring
+   system server-side and returns the eight lists, the fixtures, the round
+   metadata and a `generatedAt` in one unauthenticated call — and is the one
+   thing `robots.txt` disallows. The allowed pages give the right data in the
+   wrong system, except `/biwenger/predicciones`, which is Biwenger-scored but
+   carries no lists. **This is a permission question, not a technical one,
+   and it decides phases 1-3.**
 2. **Calibration.** Shadow-log the thresholds for a week and fit, or start with
    the guessed numbers and adjust by feel?
 3. **Read time.** The 09:00 digest may read a half-empty round. Accept it, or

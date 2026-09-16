@@ -25,7 +25,47 @@ A source read through the wrong scoring system is the kind that looks like it
 works and quietly poisons every decision. **The number must come from
 `/biwenger/predicciones`.**
 
-## How the data arrives
+## The endpoint the second capture found
+
+A later export, taken with the Oráculo page open, found what the first one
+missed:
+
+```
+GET /api/v1/oraculo/140?sistema=<sistema>     # no authentication
+```
+
+`sistema` is a **required query parameter**, resolved server-side. That is
+precisely what the page routes cannot do, and it collapses most of this design:
+
+| Response field | What it settles |
+|---|---|
+| `sistema` | Echoed back, so a read can **verify** it got Biwenger and not assume it |
+| `picks` | All eight lists — `chollos`, `goleadores`, `asistentes`, `capitanes`, `porteros`, `defensas`, `centrocampistas`, `delanteros` — in the requested system |
+| `fixtures` | With `hasPrediction`, so a half-filled round is detectable rather than inferred |
+| `rounds[]` | `isCurrent`, `isFinished`, `hasLineups`, `matchday` — "the next matchday" stops being a guess |
+| `generatedAt`, `modelTag` | The staleness stamp this plan asks for, given rather than invented |
+
+Each `picks` entry carries `playerId`, `slug`, `predictedPoints`, `chance`,
+`goalProbability`, `assistProbability`, `pointsPerMillion`, `marketValue`,
+`position`, `fixtureId`.
+
+**One call replaces eleven page reads, and the lists arrive in the right
+scoring system.** Open question 1 — "the list flags come from the wrong system"
+— disappears entirely if this route is used.
+
+### And it is the one route `robots.txt` forbids
+
+```
+Allow: /                 ← the pages: right data, wrong system
+Disallow: /api/          ← this: right system, right lists, one call
+```
+
+So the technical question is now fully answered and the whole decision is a
+permission one. Nothing in this repo calls it, and nothing should until that
+question has an answer that is not a guess. The two designs below are kept
+side by side because which one gets built depends entirely on it.
+
+## How the data arrives (the allowed route)
 
 Next.js App Router: everything is in the RSC flight payload embedded in the
 public HTML (`self.__next_f.push([1, "..."])`). No API call, no cookie, no key.

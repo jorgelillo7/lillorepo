@@ -18,6 +18,7 @@ not, and this repository is public.
 | File | Investigation | Taken |
 |---|---|---|
 | `oraculo-analiticafantasy.json` | [A second projection source](../second-projection-source.md) | Before 2026-09-14 |
+| `oraculo-api-endpoint.json` | [A second projection source](../second-projection-source.md) | 2026-09-16 |
 
 ## `oraculo-analiticafantasy.json`
 
@@ -32,3 +33,23 @@ names and numeric enums only.
 
 What it does and does not establish is in the linked doc. Short version: it
 found the host, not the projections.
+
+
+## `oraculo-api-endpoint.json`
+
+A second export, taken with the Oráculo page open, which found what the first
+one missed: `GET /api/v1/oraculo/140`, no authentication, with **`sistema` as a
+required query parameter**.
+
+That is the piece the page routes cannot give. On the pages the scoring system
+is applied client-side, so a server-rendered read is locked to LaLiga Fantasy;
+here it is chosen server-side, which means Biwenger numbers *and* the eight
+`picks` lists in one call.
+
+**Distilled, unlike the first one.** Only the `server.analiticafantasy.com`
+entry is kept. The other 23 hosts were ad-tech, and one carried a TCF consent
+string from the browser session — session data with no place in a public repo.
+The raw export stays on the author's machine; the root path is gitignored.
+
+**Recording an endpoint is not permission to call it.** `robots.txt` disallows
+`/api/`, and nothing in this repo reads it.
