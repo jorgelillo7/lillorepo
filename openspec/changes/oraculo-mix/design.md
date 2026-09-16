@@ -211,68 +211,76 @@ probably will not play should not move JP's. Above it, do nothing.
 `W = 0.30` and the 25% floor are fitted to one squad on one matchday. They go
 in env vars, tunable without a deploy.
 
-## The goal and assist probabilities belong to the captain, not the blend
+## One number, and the lists go into it
 
-`goalProbability` and `assistProbability` exist **only in `picks`** — 38
-players — and not in `/biwenger/predicciones`, which carries the 472 rows. So
-they cannot feed the blend: most of a squad would have no value and the ones
-that did would move for a reason nobody else's row shared.
+The projection field carries everything: JP as the base, the Oráculo blend when
+there is data, and a bonus for the shortlists a player appears on. One column to
+read, one number to argue with.
 
-They are also **different information**. `predictedPoints` is an expectation;
-these two are the shape of the distribution behind it. Measured on the same
-matchday, both under 3M:
+An earlier draft kept the lists out of the score on the grounds that they cover
+38 players of ~500. That reasoning was wrong, and the distinction is worth
+keeping straight:
 
-| | points | goal | assist |
-|---|---|---|---|
-| Pedro Díaz | **5.85** | 3.9% | 2.4% |
-| Marcos Fernández | 3.98 | **21.1%** | 11.6% |
+- The **points** coverage is arbitrary — it depends on which fixtures the model
+  has processed yet, which is why a partial blend distorts and is all-or-nothing.
+- The **lists** are not arbitrary. They are a deliberate top-N: being on one is
+  information, and being absent from one is the normal state of 92% of players,
+  not a gap in the data.
 
-Pedro Díaz scores more on average. Marcos Fernández has five times the ceiling.
-For a starter that difference barely matters — the eleven is a sum, and a sum
-wants expectation.
+So a list bonus is a real signal rather than noise, and stacking it is right —
+the players on three or four lists are exactly the ones you would expect
+(Aubameyang, Raphinha, Mbappé, Bellingham, Vini Jr., Lamine Yamal).
 
-**For the captain it is the whole question.** Captaincy doubles the return, so
-it pays for the tail rather than the mean, and `_pick_captain` already reasons
-this way: it refuses a promoted substitute because "starting him is a bet with
-the bench as insurance; captaining him doubles the bet and has none."
+    lists per player:   1 → 24 · 2 → 8 · 3 → 4 · 4 → 2
 
-The coverage lines up too. Biwenger caps the captain at a 3M market value, and
-**14 of the 38 `picks` players are under it** — the captain is always drawn
-from a short list, which is exactly the shape this signal comes in.
+### But not every list belongs in a points number
 
-### Measured: the points only half-absorb the goals
+Measured on one matchday:
 
-The obvious objection is that goals are where the points come from, so the
-probability is already inside `predictedPoints` and using it again would
-double-count. Correlated across the 32 picks players that carry both:
+| | mean price | mean points |
+|---|---|---|
+| `chollos` | **1.1M** | **4.10** |
+| every other list | 7.0M | 5.10 |
 
-| | vs `predictedPoints` |
-|---|---|
-| `goalProbability` | **r = +0.50** |
-| `assistProbability` | r = +0.11 |
+**`chollos` ranks value, not quality.** Its players are cheap and score *less*,
+and only 2 of its 10 also appear on a best-per-position list. Adding a points
+bonus for it would promote cheap players in the eleven, where price is
+irrelevant — the exact mistake the draft optimiser already makes with cameo
+totals.
 
-| by position | n | mean goal prob | r |
-|---|---|---|---|
-| Delantero | 12 | 0.232 | +0.56 |
-| Centrocampista | 11 | 0.098 | +0.18 |
-| Defensa | 9 | 0.037 | +0.10 |
+So `chollos` feeds **bid priority**, where price is the whole point, and never
+the projection.
 
-r = 0.50 means the points explain about **a quarter** of the variation in goal
-chance (r² = 0.25). Three quarters of it is information the points ordering
-does not carry — so it is not redundant, and for defenders and midfielders it
-is almost entirely independent.
+`capitanes` looks derived rather than independent — every 3-and-4-list player is
+on it — so it is excluded as double-counting until something shows otherwise.
 
-That settles the objection in favour of using it. What it does not settle is
-*where*: the signal exists for 38 players, so it still cannot be a term in a
-blend that has to rank a whole squad without promoting whoever Oráculo happened
-to look at.
+### The plus
 
-So: `predictedPoints` drives the blend for everyone, and the probabilities feed
-`_pick_captain` alone — the one decision whose candidate list is already short,
-and the one where the tail is worth more than the mean. Deliberately a separate
-phase: the blend must be working before the captain starts arguing with it, and
-revisiting them for the eleven is a real option once there is a season of
-evidence about how often the 38 overlap a squad.
+```
+qualifying = goleadores · asistentes · porteros · defensas ·
+             centrocampistas · delanteros          (chollos and capitanes out)
+
+custom = blended * (1 + LIST_BONUS * min(len(qualifying), 3))   # 0.03 to start
+```
+
+Capped at three so the bonus stays secondary to the blend, which moves ±15%.
+Mbappé on three qualifying lists gets +9%; a single-list player +3%.
+
+### Showing it without a wall of numbers
+
+`image_formatter` renders the photos in matplotlib, and its own comment records
+that anything above the BMP draws a dotted-circle placeholder — which is why
+`_strip_emoji` exists and why the bench markers are `●` and `○` rather than a
+chair. So the marks have to be BMP glyphs.
+
+One star per qualifying list, in the `Proyección` column:
+
+    Mbappé        857 ★★★
+    Aubameyang    556 ★★
+    Hancko        351
+
+Instantly countable, no legend needed, and it follows the file's own rule that
+shape carries the meaning while colour only reinforces it.
 
 ## Falling back to JP — three levels, not one
 

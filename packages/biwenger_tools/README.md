@@ -63,33 +63,30 @@ is the base; Analítica Fantasy's Oráculo is a second opinion that nudges it.
 flowchart TD
     JP["📊 Jornada Perfecta"]
     OR["🔮 Oráculo · points"]
+    LST["🏅 Shortlists · goals, assists, best per position"]
     CHK{"Enough data?"}
     MIX["⚖️ Blend · 70% JP + 30% Oráculo"]
     ONLY["📊 JP alone · flagged in the photo"]
+    PLUS["★ Bonus · +3% per list, max 3"]
     OUT(["⭐ Our projection"])
-    LST["🏅 Oráculo shortlists"]
-    BID["💸 Bid with priority"]
-    XI["📋 Tie-break in the eleven"]
-    CAP["🎖️ Captain"]
     JP --> CHK
     OR --> CHK
     CHK -->|yes| MIX
     CHK -->|no| ONLY
-    MIX --> OUT
-    ONLY --> OUT
-    OUT --> XI
-    LST --> BID
-    LST --> XI
-    LST --> CAP
+    MIX --> PLUS
+    ONLY --> PLUS
+    LST --> PLUS
+    PLUS --> OUT
 ```
 
-Two layers, deliberately separate. The **score** path blends the two
-projections into one number. The **shortlists** — Oráculo's goalscorers,
-assisters, bargains and best-per-position — never touch that number: they mark
-players, and a mark is worth more as a priority or a tie-break than as points.
+**Everything lands in one number.** JP is the base, the Oráculo blend moves it
+when there is data, and appearing on Oráculo's shortlists adds a bonus on top —
+stacked, so a player on three lists gains more than one on a single list.
 
-On a real squad 4 of 14 players were on some list, so it fires often enough to
-matter and rarely enough not to be noise.
+`chollos` is deliberately excluded from the bonus: it ranks *value*, and its
+players are cheap and score less (1.1M and 4.10 points on average, against 7.0M
+and 5.10 for the rest). Rewarding it in a points projection would promote cheap
+players in the eleven, where price is irrelevant. It feeds bid priority instead.
 
 **JP never stops being the base.** Oráculo can only move it, and only when
 enough of the squad is covered — midweek a matchday is barely projected, so the

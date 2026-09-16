@@ -122,52 +122,58 @@ Display:
 - [ ] A test that the marker appears in both cases and **is absent** when the
       blend ran
 
-## 4b · The shortlists — a mark, not a score
+## 4b · The list bonus, inside the one number
 
-Oráculo's eight lists (goleadores, asistentes, chollos, capitanes, best per
-position) cover **38 players of ~500**, so they cannot be a term in the blend:
-only those 38 would move, and for the single reason that Oráculo looked at
-their fixture first.
+Everything lands in the projection field: JP base, the Oráculo blend, and a
+bonus for each shortlist a player appears on. One column to read.
 
-As a **mark** they are worth a lot. Measured on a real squad, **4 of 14**
-players were on some list — often enough to matter, rarely enough not to be
-noise. Three uses, none of which touches the ranking:
+An earlier draft kept the lists out of the score because they cover 38 players
+of ~500. That conflated two different kinds of gap. The **points** coverage is
+arbitrary — it depends which fixtures the model processed first — which is why
+a partial blend distorts. The **lists** are a deliberate top-N: being absent is
+the normal state of 92% of players, not missing data.
 
-- [ ] **Bid priority** (`auto_bid`) — a listed player reaching the market is
-      bid for ahead of an unlisted one at comparable value. Bidding is a
-      per-player decision, not a ranking, so partial coverage costs nothing
-- [ ] **Tie-break in the eleven** (`lineup`) — when two candidates are within a
-      small band of each other, the listed one starts. A tie-break only fires
-      between near-equals, so it cannot reorder anything that was not already
-      a coin flip
-- [ ] **Captain** — prefer goal probability over expectation. Weakest of the
-      three: Biwenger caps the captain at 3M and only 14 of the 38 fall under
-      it, so it is a real but narrow gain
-- [ ] The tie-break band is a guess like the rest — env-tunable
-- [ ] A test that an unlisted player never loses a place he won on points
-      alone; the mark breaks ties, it does not create them
+- [ ] `LIST_BONUS` (0.03 to start) per qualifying list, capped at 3, applied
+      after the blend so the bonus stays secondary to it
+- [ ] Qualifying: `goleadores`, `asistentes`, `porteros`, `defensas`,
+      `centrocampistas`, `delanteros`
+- [ ] **`chollos` excluded.** It ranks *value*: its players average 1.1M and
+      4.10 points against 7.0M and 5.10 for every other list, and only 2 of 10
+      also appear on a best-per-position list. A points bonus for it would
+      promote cheap players in the eleven, where price is irrelevant — the
+      mistake the draft optimiser already makes with cameo totals. It feeds
+      **bid priority** instead, where price is the whole point
+- [ ] **`capitanes` excluded** as derived — every 3-and-4-list player is on it,
+      so it double-counts the others. Revisit if that stops being true
+- [ ] A test that stacking works and that the cap holds: on real data 24
+      players were on one list, 8 on two, 4 on three, 2 on four
+- [ ] Env-tunable, like every other guess here
 
-### Why the probabilities sit here and not in the blend
+### Showing it in the photos
 
-`goalProbability` / `assistProbability` live only in `picks` (38 players), not
-in the 472-row predictions feed, so they cannot drive the blend. They are also
-a different quantity: `predictedPoints` is an expectation, these are the shape
-behind it.
+- [ ] One `★` per qualifying list beside the projection — `857 ★★`. Countable
+      at a glance, no legend
+- [ ] **BMP glyphs only.** `image_formatter` records that anything above the
+      BMP draws a dotted-circle placeholder in matplotlib, which is why
+      `_strip_emoji` exists and the bench markers are `●`/`○`. `★` is U+2605
+      and safe; a medal emoji is not
+- [ ] Follows the file's own rule: shape carries the meaning, colour only
+      reinforces
+
+### The goal and assist probabilities
 
 Correlated against `predictedPoints` over the 32 players carrying both:
-`goalProbability` r = +0.50, `assistProbability` r = +0.11, and by position
-+0.56 / +0.18 / +0.10 for forwards, midfielders and defenders. So the points
-absorb about a quarter of the goal signal and leave three quarters — it is not
-redundant, and for defenders it is nearly independent.
+`goalProbability` r = +0.50, `assistProbability` r = +0.11; by position +0.56 /
++0.18 / +0.10 for forwards, midfielders, defenders. The points absorb about a
+quarter of the goal signal and leave three quarters — not redundant, and for
+defenders nearly independent.
 
-That is why it earns a place. It is *not* why it could join the blend: the
-coverage, not the redundancy, is what keeps it out.
-
-- [ ] After phase 4, never before: the blend has to be trustworthy before
-      anything starts disagreeing with it
+- [ ] Feed them to `_pick_captain`, which already reasons about tail versus
+      mean. Narrow by construction: Biwenger caps the captain at 3M and only 14
+      of the 38 fall under it
 - [ ] A test on the real shape: Pedro Díaz 5.85 points at 3.9% goal against
-      Marcos Fernández 3.98 at 21.1% — the captain should prefer the second
-      and the eleven should still prefer the first
+      Marcos Fernández 3.98 at 21.1% — the captain should prefer the second and
+      the eleven should still prefer the first
 
 ## 5 · The removals
 
