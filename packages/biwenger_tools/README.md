@@ -61,17 +61,16 @@ is the base; Analítica Fantasy's Oráculo is a second opinion that nudges it.
 
 ```mermaid
 flowchart TD
-    JP["📊 Jornada Perfecta<br/>base projection"]
-    OR["🔮 Oráculo<br/>points + starting %"]
-    CHK{"Enough Oráculo<br/>data this read?"}
-    MIX["⚖️ Blend<br/>70% JP · 30% Oráculo"]
-    ONLY["📊 JP alone<br/>flagged in the photo"]
+    JP["📊 Jornada Perfecta"]
+    OR["🔮 Oráculo"]
+    CHK{"Enough data?"}
+    MIX["⚖️ Blend · 70% JP + 30% Oráculo"]
+    ONLY["📊 JP alone · flagged in the photo"]
     OUT(["⭐ Our projection"])
-
     JP --> CHK
     OR --> CHK
     CHK -->|yes| MIX
-    CHK -->|"too thin, or the read failed"| ONLY
+    CHK -->|no| ONLY
     MIX --> OUT
     ONLY --> OUT
 ```

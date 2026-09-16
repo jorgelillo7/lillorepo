@@ -240,9 +240,39 @@ The coverage lines up too. Biwenger caps the captain at a 3M market value, and
 **14 of the 38 `picks` players are under it** — the captain is always drawn
 from a short list, which is exactly the shape this signal comes in.
 
+### Measured: the points only half-absorb the goals
+
+The obvious objection is that goals are where the points come from, so the
+probability is already inside `predictedPoints` and using it again would
+double-count. Correlated across the 32 picks players that carry both:
+
+| | vs `predictedPoints` |
+|---|---|
+| `goalProbability` | **r = +0.50** |
+| `assistProbability` | r = +0.11 |
+
+| by position | n | mean goal prob | r |
+|---|---|---|---|
+| Delantero | 12 | 0.232 | +0.56 |
+| Centrocampista | 11 | 0.098 | +0.18 |
+| Defensa | 9 | 0.037 | +0.10 |
+
+r = 0.50 means the points explain about **a quarter** of the variation in goal
+chance (r² = 0.25). Three quarters of it is information the points ordering
+does not carry — so it is not redundant, and for defenders and midfielders it
+is almost entirely independent.
+
+That settles the objection in favour of using it. What it does not settle is
+*where*: the signal exists for 38 players, so it still cannot be a term in a
+blend that has to rank a whole squad without promoting whoever Oráculo happened
+to look at.
+
 So: `predictedPoints` drives the blend for everyone, and the probabilities feed
-`_pick_captain` alone. Deliberately a separate phase — the blend must be
-working before the captain starts arguing with it.
+`_pick_captain` alone — the one decision whose candidate list is already short,
+and the one where the tail is worth more than the mean. Deliberately a separate
+phase: the blend must be working before the captain starts arguing with it, and
+revisiting them for the eleven is a real option once there is a season of
+evidence about how often the 38 overlap a squad.
 
 ## Falling back to JP — three levels, not one
 
