@@ -283,3 +283,121 @@ def test_a_dated_submission_keeps_its_own_date():
         water, _water(analysis_date="2025-02"), merge_into=False, form_has_brand=True
     )
     assert water.analysis_date == "2026-01"
+
+
+# --- country decides whether a community is expected at all ----------------
+
+
+def test_a_foreign_water_keeps_its_region_and_gets_no_community():
+    """`FONTÉBIL` is bottled in Fafe, Portugal. Run through the Spanish rules
+    it reached Firestore as `province='portugal', community='portugal'` —
+    asserting Portugal is at once a Spanish province and a Spanish autonomous
+    community. Outside Spain there is no community to derive, so none is
+    invented."""
+    province, community = submission.resolve_place("Fafe", "", country="PT")
+    assert province == "Fafe"
+    assert community == ""
+
+
+def test_a_foreign_water_never_shifts_its_fields():
+    """The province/community shift repair is a Spanish-geography rule. Applied
+    abroad it would move a foreign region into the wrong slot on a name that
+    merely happens to collide."""
+    province, community = submission.resolve_place("Braga", "Portugal", country="PT")
+    assert (province, community) == ("Braga", "")
+
+
+def test_a_spanish_water_still_derives_its_community():
+    province, community = submission.resolve_place("Badajoz", "", country="ES")
+    assert (province, community) == ("Badajoz", "Extremadura")
+
+
+def test_the_field_shift_repair_still_works_for_spain():
+    """`tramuntana` reached Firestore with a municipality in `province` and a
+    province in `community`. That repair must survive the country split."""
+    province, community = submission.resolve_place(
+        "Talarrubias", "Badajoz", country="ES"
+    )
+    assert (province, community) == ("Badajoz", "Extremadura")
+
+
+def test_country_defaults_to_spain_when_the_form_says_nothing():
+    """Every existing ficha and every unchanged form post is Spanish."""
+    assert submission.form_country({}) == "ES"
+
+
+def test_an_unknown_country_code_falls_back_to_spain():
+    """The form is public. An unrecognised code must not create a water in a
+    country that does not exist, and silently owning it as Spanish is the
+    behaviour every other free-text field here already has."""
+    assert submission.form_country({"country": "ZZ"}) == "ES"
+    assert submission.form_country({"country": ""}) == "ES"
+
+
+def test_a_recognised_country_is_kept():
+    assert submission.form_country({"country": "PT"}) == "PT"
+
+
+# --- two photographed faces, one prefill ----------------------------------
+
+
+def test_the_second_face_fills_gaps_the_first_left():
+    """The composition shot frames the mineral table; the origin is usually on
+    another face. `fuente-dehesa` was saved with no origin because only one of
+    them was ever read."""
+    merged = submission.merge_label_reads(
+        {"name": "Fuente Dehesa", "tds": 48, "spring": None, "province": None},
+        {"name": "Fuente Dehesa", "spring": "Encinas", "province": "Badajoz"},
+    )
+    assert merged["tds"] == 48
+    assert merged["spring"] == "Encinas"
+    assert merged["province"] == "Badajoz"
+
+
+def test_the_composition_shot_wins_every_field_it_declares():
+    """It is the photo kept as verification proof, so a value it read is the
+    one the ✓ will refer to. The other face never overrides it."""
+    merged = submission.merge_label_reads(
+        {"tds": 48, "province": "Badajoz"},
+        {"tds": 999, "province": "Cuenca"},
+    )
+    assert merged == {"tds": 48, "province": "Badajoz"}
+
+
+def test_a_false_is_a_value_and_not_a_gap():
+    """`sparkling: False` is an answer. Treating it as missing would let the
+    other face turn a still water sparkling."""
+    merged = submission.merge_label_reads({"sparkling": False}, {"sparkling": True})
+    assert merged["sparkling"] is False
+
+
+def test_an_empty_string_is_a_gap():
+    """The reader returns '' as readily as null for a field it could not
+    find, and an empty spring is exactly the gap this exists to fill."""
+    merged = submission.merge_label_reads({"spring": ""}, {"spring": "Encinas"})
+    assert merged["spring"] == "Encinas"
+
+
+def test_no_second_face_changes_nothing():
+    primary = {"name": "X", "tds": 10}
+    assert submission.merge_label_reads(primary, None) == primary
+    assert submission.merge_label_reads(primary, {}) == primary
+
+
+# --- the registry number, normalised but never invented --------------------
+
+
+def test_a_registry_number_is_kept_uppercase_and_trimmed():
+    assert submission.normalize_registry_id("  27.02231/ba  ") == "27.02231/BA"
+
+
+def test_text_that_is_not_a_registry_number_is_dropped():
+    """The reader is asked for it and will sometimes answer with prose. A
+    malformed number is worse than none: it looks like an official key."""
+    for junk in ("", None, "no consta", "RGSEAA", "12345"):
+        assert submission.normalize_registry_id(junk) == ""
+
+
+def test_the_registry_prefix_is_accepted_and_stripped():
+    assert submission.normalize_registry_id("RGSEAA 27.02231/BA") == "27.02231/BA"
+    assert submission.normalize_registry_id("R.G.S.E.A.A. 26.1234/M") == "26.1234/M"

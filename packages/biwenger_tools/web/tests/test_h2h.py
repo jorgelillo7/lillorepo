@@ -4,6 +4,8 @@ Each test names the article it pins. The rules were read from the reglamento
 and cross-checked against the organiser's spreadsheet formulas, not inferred.
 """
 
+from unittest.mock import patch
+
 from packages.biwenger_tools.constants import H2H_MATCHDAYS, H2H_ROUNDS
 from packages.biwenger_tools.web import h2h
 
@@ -260,3 +262,134 @@ def test_every_president_rests_once_per_cycle():
 
     assert sorted(resting) == sorted(h2h.teams())
     assert all(playing.count(name) == 6 for name in h2h.teams())
+
+
+# --- two name universes, one league ---------------------------------------
+
+
+def test_every_h2h_name_resolves_to_a_league_member():
+    """`H2H_ROUNDS` prints what the reglamento prints; `LEAGUE_MEMBERS` holds
+    what Biwenger holds. Both are correct where they live, and the palmarés has
+    to cross between them — so a name added to the calendar without an alias
+    must fail here rather than drop a manager from the standings."""
+    from packages.biwenger_tools.constants import H2H_ROUNDS, resolve_h2h_name
+
+    names = set()
+    for base in H2H_ROUNDS:
+        for key, value in base.items():
+            names.update(value if isinstance(value, tuple) else (value,))
+    unresolved = sorted(n for n in names if resolve_h2h_name(n) is None)
+    assert unresolved == []
+
+
+def test_the_three_known_spellings_map_across():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Lillo") == "Jorge"
+    assert resolve_h2h_name("Lucen") == "Lucena"
+    assert resolve_h2h_name("Rubén") == "Ruben"
+
+
+def test_a_name_both_universes_agree_on_needs_no_alias():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Manu") == "Manu"
+    assert resolve_h2h_name("Fabio") == "Fabio"
+
+
+def test_an_unknown_name_resolves_to_nothing_rather_than_guessing():
+    from packages.biwenger_tools.constants import resolve_h2h_name
+
+    assert resolve_h2h_name("Quienquiera") is None
+
+
+def test_the_member_id_is_reachable_from_a_reglamento_name():
+    """What the palmarés actually needs: the reglamento's champion, as a
+    Biwenger manager id."""
+    from packages.biwenger_tools.constants import h2h_member_id
+
+    assert h2h_member_id("Lillo") == 1372802
+    assert h2h_member_id("Quienquiera") is None
+
+
+# --- art. 3.5: the champion, and when there is not one yet ----------------
+
+
+def _duel(partido, home, away, hp, ap):
+    return h2h.Duel(
+        partido=partido, home=home, away=away, home_points=hp, away_points=ap
+    )
+
+
+def _season(*, complete: bool, leader="Manu", runner_up="Fabio"):
+    """A calendar where `leader` wins every duel it plays. `complete=False`
+    leaves the last matchday unplayed."""
+    rounds = []
+    for index in range(H2H_MATCHDAYS):
+        jornada = index + 1
+        base = H2H_ROUNDS[index % len(H2H_ROUNDS)]
+        played = complete or jornada < H2H_MATCHDAYS
+        duels = []
+        for partido, key in enumerate(("p1", "p2", "p3"), start=1):
+            home, away = base[key]
+            if not played:
+                duels.append(_duel(partido, home, away, None, None))
+            elif leader in (home, away):
+                hp, ap = (60, 40) if home == leader else (40, 60)
+                duels.append(_duel(partido, home, away, hp, ap))
+            else:
+                duels.append(_duel(partido, home, away, 50, 50))
+        rounds.append(
+            h2h.Round(jornada=jornada, duels=tuple(duels), descansa=base["descansa"])
+        )
+    return rounds
+
+
+def test_there_is_no_champion_until_the_season_is_over():
+    """Art. 3.5 proclaims a champion of a finished league. Leading in March is
+    not winning, and a palmarés entry written then would be wrong for months
+    while looking settled."""
+    assert h2h.champion(_season(complete=False)) is None
+
+
+def test_the_champion_is_the_top_of_a_finished_table():
+    winner = h2h.champion(_season(complete=True))
+    assert winner is not None
+    assert winner.equipo == "Manu"
+    assert winner.position == 1
+
+
+def test_an_unresolved_tie_at_the_top_yields_no_champion():
+    """The same rule `standings` already applies: art. 3.4's third criterion
+    is not in this spreadsheet, so a tie it cannot break is marked rather than
+    invented. A champion picked out of that marker would be a coin toss
+    presented as a title."""
+    rounds = _season(complete=True)
+    standings = h2h.standings(rounds)
+    for row in standings[:2]:
+        row.tie_unresolved = True
+    with patch.object(h2h, "standings", return_value=standings):
+        assert h2h.champion(rounds) is None
+
+
+def test_the_champion_is_reachable_as_a_biwenger_manager():
+    """What the palmarés needs: the reglamento's name resolved to an id."""
+    from packages.biwenger_tools.constants import h2h_member_id
+
+    winner = h2h.champion(_season(complete=True, leader="Lillo"))
+    assert winner.equipo == "Lillo"
+    assert h2h_member_id(winner.equipo) == 1372802
+
+
+def test_the_page_shows_no_champion_mid_season():
+    """The banner is absent rather than crowning whoever leads in March."""
+    from packages.biwenger_tools.web.app import app
+
+    with app.test_request_context():
+        from flask import render_template_string
+
+        out = render_template_string(
+            "{% if h2h_champion %}CAMPEON {{ h2h_champion.equipo }}{% endif %}",
+            h2h_champion=h2h.champion(_season(complete=False)),
+        )
+    assert out.strip() == ""

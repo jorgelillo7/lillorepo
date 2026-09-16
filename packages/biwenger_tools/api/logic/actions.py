@@ -21,6 +21,7 @@ from core.sdk.telegram import (
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import league_compare
+from packages.biwenger_tools.api.logic import pact_store
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
 from packages.biwenger_tools.api.logic import round_context
@@ -248,6 +249,30 @@ def list_managers() -> dict:
     ]
     items.sort(key=lambda m: (not m["is_me"], m["name"].lower()))
     return {"managers": items}
+
+
+def list_pact_managers() -> dict:
+    """League managers, each flagged with whether the pact protects them.
+
+    Backs the bot's `/pacto` picker: one screen showing who is currently off
+    limits, with a button per manager. Same shape as `list_managers` plus
+    `pacted`, so the bot can build the keyboard from one call.
+    """
+    protected = pact_store.load()
+    managers = list_managers()["managers"]
+    for manager in managers:
+        manager["pacted"] = manager["id"] in protected
+    return {"managers": managers}
+
+
+def toggle_pact(manager_id: int) -> dict:
+    """Add or remove one manager from the non-aggression pact.
+
+    Returns the manager's new state and the refreshed list, so the bot can
+    redraw the picker in place without a second round trip.
+    """
+    protected = pact_store.toggle(int(manager_id))
+    return {"manager_id": int(manager_id), "pacted": protected, **list_pact_managers()}
 
 
 def run_market() -> dict:

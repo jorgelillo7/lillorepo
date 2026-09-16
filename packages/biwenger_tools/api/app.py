@@ -95,6 +95,26 @@ def managers():
     return _run_action("managers", actions.list_managers)
 
 
+@app.route("/pact", methods=["GET"])
+def pact():
+    """Managers + who the non-aggression pact protects — the `/pacto` picker."""
+    return _run_action("pact", actions.list_pact_managers)
+
+
+@app.route("/pact/toggle", methods=["POST"])
+def pact_toggle():
+    """Flip one manager in or out of the pact."""
+    payload = request.get_json(silent=True) or {}
+    manager_id = payload.get("manager_id")
+    if manager_id is None:
+        return jsonify({"status": "error", "error": "manager_id is required"}), 400
+    try:
+        manager_id = int(manager_id)
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "error": "manager_id must be an int"}), 400
+    return _run_action("pact.toggle", lambda: actions.toggle_pact(manager_id))
+
+
 @app.route("/market", methods=["GET"])
 def market():
     """Transfer market only — was /mercado."""

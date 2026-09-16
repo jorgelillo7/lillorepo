@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
+from packages.be_water.web import geo
+
 # Mineral fields, in display order. Every value is mg/L except ph.
 MINERAL_FIELDS = [
     "tds",
@@ -121,6 +123,15 @@ class Water:
     # Supermarket own-brand waters ("Naturis" → Lidl): the retailer whose
     # shelves carry it. Often bottled from several springs, one entry each.
     retailer: Optional[str] = None
+    # Spain's sanitary registry number, as the label prints it
+    # ("RGSEAA 27.02231/BA"). The one unambiguous key a bottle carries:
+    # identity is otherwise matched by fuzzy overlap on a commercial name,
+    # which cannot separate two springs of the same brand and misses every
+    # white label, since those register under the producer.
+    registry_id: str = ""
+    # Who actually bottles it ("SONEPA"). The only thing that reveals two
+    # supermarket own-brands are the same water from the same spring.
+    bottler: str = ""
     sparkling: bool = False
     minerals: dict = field(default_factory=dict)
     photo_url: Optional[str] = None
@@ -179,6 +190,17 @@ class Water:
         )
 
     @property
+    def is_spanish(self) -> bool:
+        """Whether Spanish geography applies: provinces, communities, the
+        adjacency map, the 🗺️ badge. False for a foreign water, whose
+        `province` holds a region with no community to derive."""
+        return geo.is_spain(self.country)
+
+    @property
+    def country_name(self) -> str:
+        return geo.country_name(self.country)
+
+    @property
     def tds(self) -> Optional[float]:
         return self.minerals.get("tds")
 
@@ -205,6 +227,8 @@ class Water:
             community=data.get("community", ""),
             country=data.get("country", "ES"),
             retailer=data.get("retailer"),
+            registry_id=data.get("registry_id", "") or "",
+            bottler=data.get("bottler", "") or "",
             sparkling=bool(data.get("sparkling", False)),
             minerals=data.get("minerals", {}) or {},
             photo_url=data.get("photo_url"),
@@ -228,6 +252,8 @@ class Water:
             "community": self.community,
             "country": self.country,
             "retailer": self.retailer,
+            "registry_id": self.registry_id,
+            "bottler": self.bottler,
             "sparkling": self.sparkling,
             "minerals": self.minerals,
             "photo_url": self.photo_url,

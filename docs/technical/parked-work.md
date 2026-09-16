@@ -80,6 +80,12 @@ defined `core` this way since before there were other packages.
 **Triggers:** a second package needing a domain-model layer, or a package that
 wants none of the Biwenger SDK and has to justify carrying it.
 
+**The trigger as written can no longer fire.** It said "a second package needing a domain-model layer". `be_water` is that second package, and it
+wrote its own `domain.py` without importing anything from `core/domain` —
+which is the answer, not the wait: a package that needs a domain model
+writes the one it needs. So the trigger is now `core` becoming an obstacle,
+i.e. a change made for Biwenger that breaks another package.
+
 ## Lloros Awards → Competiciones
 
 **Decided and shipped.** The league kept Sheets, chose option (a), and the key
@@ -118,50 +124,115 @@ solved by moving the workbook ids into Firestore and editing them from
 
 ## be_water country field
 
-Add `country` to `Water`, defaulting to `"España"` — backward compatible, a
-one-line migration in `catalog_sync`.
+`Water.country` exists and defaults to `"ES"` (`domain.py`), but nothing writes
+it, nothing reads it and no form offers it. Every water in the catalog is
+therefore Spanish by assertion, not by evidence.
 
-It unlocks the international waters people actually find in Spanish
-supermarkets (Evian, Perrier, San Pellegrino…), a 🌍 achievement tier, and
+**The trigger has fired, and the stored document is worse than "no country".**
+`FONTÉBIL` (Mercadona, 1 L) is bottled by Outeirinho Turismo Indústria S.A. in
+Fafe, **Portugal**. Its ficha reads:
+
+```
+province  = 'portugal'
+community = 'portugal'
+country   = 'ES'
+```
+
+`resolve_place` kept both as typed — neither matches a Spanish province or
+community, and its documented policy is to preserve what the contributor saw —
+so the ficha now asserts that Portugal is simultaneously a Spanish province and
+a Spanish autonomous community, while declaring the country as Spain. It
+appears in no province view and no community view. It was caught by eye,
+reading the back of the bottle; nothing in the app could have flagged it.
+
+What it unlocks besides correctness: the international waters Spanish
+supermarkets actually stock (Evian, Perrier, San Pellegrino…), a 🌍 tier, and
 country chips on the home page.
 
-**Trigger:** the data verification pass finishing first. The recommender's
-"places" and the province achievements both assume Spanish geography and need
-a small rethink before a second country exists.
+### Two items, and only one of them fixes anything today
 
-## be_water — a second, optional label photo
+An earlier version of this note said the official registry would already know
+FONTÉBIL and that internationalisation was "one parser filter away". The PDF
+was downloaded and read to check. **Both halves of that need correcting**, so
+the work splits in two:
 
-The composition panel and the origin panel are rarely the same piece of
-label. Of five bottles photographed in one sitting, **three** carried the
-spring and its municipality on a face the composition shot never sees:
+**(a) The model and the UI accept a non-`ES` water.** ✅ **Shipped** — `country`
+is written on save from a closed vocabulary, the form offers it, `resolve_place`
+no longer invents a Spanish province out of a Portuguese locality, and the
+sitemap and the 🗺️ badge skip foreign waters. What remains of (a) is repairing
+`fontebil`'s stored document, which is a Firestore write and the owner's call.
 
-| Water | On the other panel |
-|---|---|
-| `22` | Manantial de Peñaclara · Torrecilla en Cameros (La Rioja) |
-| `sierra-natura` | Manantial Natura · Finca La Pandera · Los Villares (Jaén) |
-| `lunares` | Manantial Lunares · Jaraba (Zaragoza) |
+**(b) Parse the other 27 country tables.** This fixes *future* waters that the
+registry does know. It does **not** fix FONTÉBIL, and it is the larger half —
+see the measurements below. Its own item, not a prerequisite for (a).
 
-For `sierra-natura` that panel was the **only** source of the one thing its
-ficha lacked, and the official registry could not have supplied it — see the
-`_prefill_from_aesan` comment for why it would have supplied the wrong
-province instead.
+### What the PDF actually says, measured
 
-What it would look like: not a third fixed upload, but a prompt that appears
-only when `spring` or `province` comes back empty from the OCR pass — today
-that is 1 ficha in 46, so the form does not get heavier for everyone. The
-extraction is the same shape as the mineral one, and the fields already have
-their vocabulary and validation (`geo.ALL_PROVINCES`, `submission.resolve_place`,
-the AESAN cross-check).
+`refresh_aesan_snapshot.py` reads the EU-wide list
+(`mineral-waters_list_eu-recognised.pdf`, 110 pages). Downloaded and parsed
+directly:
 
-It would also close a gap in the provenance vocabulary: `label` (✓ etiqueta)
-can only be earned by a mineral today. Identity can be `aesan` or `manual`
-and never "confirmed from a photograph", even when a photograph is exactly
-what proves it.
+- **28 country tables** — Austria through the United Kingdom. `_SPAIN` keeps
+  Spain's, `_THIRD` drops the third-country one, `_OTHER` drops the remaining
+  26. So (b) genuinely needs no new data source, only a parser that stops
+  filtering. That much was right.
+- **FONTÉBIL is not in it.** Neither is its bottler (Outeirinho), nor Fafe.
+  Portugal's table has 29 real entries — Luso, Vidago, Monchique, Frize — and
+  ours is not among them. Either it is *água de nascente*, a category this list
+  does not cover, or it is registered under a name we do not have. **The
+  registry cannot repair this ficha; a human has to.**
+- **The place column has a different shape.** Portugal reads
+  `Locality-Municipality` (`Vidago – Chaves`, `Sampaio-Vila Flor`), not
+  `Municipality (Province)`. `_PROVINCE` matches on the closing parenthesis, so
+  it would return nothing for every row of 26 tables. That was a suspicion
+  here before; it is now checked.
+- **The snapshot is current.** `AESAN_VERSION` reads `EU/2026-07-16` and the
+  live PDF's own "Last update" is `16.07.2026` — the same document. The monthly
+  refresh failing on a 429 therefore cost nothing; there was no new list to
+  miss. Worth knowing before treating a failed run as urgent.
 
-**Cost:** a second Gemini call per submission, and a third object per water in
-the bucket.
+### What (a) has to avoid breaking
 
-**Trigger:** enough waters with an empty spring to be worth it, or the first
-time a contributor gets the province wrong in a way the registry cannot catch.
-One ficha does not justify it; the repair script that fixed `sierra-natura` by
-hand was cheaper.
+- `geo.community_of` is a Spanish province → autonomous community table.
+  `submission.resolve_place` derives `community` from `province` and keeps
+  unrecognised text as typed, which is exactly how `province='portugal',
+  community='portugal'` happened — the failure `resolve_place` was written to
+  prevent, arriving by a new door.
+- The recommender's "nearby" (`geo.adjacent_places`) and the 🗺️ Cartógrafo
+  badge (6+ provinces) both assume Spanish geography.
+
+The shape that avoids a rewrite: **`country` decides whether a community is
+expected at all.** A non-`ES` water declares country + a free-text region and
+is excluded from province/community views rather than silently absent from
+them. No geocoding service, no address parsing — the owner's call, and the
+right one.
+
+## be_water — the origin the camera never saw
+
+`Una Dehesa` (id `fuente-dehesa`) was saved with no spring, province or
+community, while `verified = True` over seven label-confirmed minerals.
+
+This note used to say the cause was `label_ocr._PROMPT` scoping the field to
+*"el lugar del manantial **en España**"*, and that rewording it was the fix.
+**That was wrong, and the prompt needs no change.** Measured by running the
+real `extract_label` against two photographs of the same bottle:
+
+| Photo | `spring` | `province` | `community` | minerals |
+|---|---|---|---|---|
+| The back panel, address legible | `Encinas` | `Badajoz` | `Extremadura` | — |
+| **The stored `label_photo_url`** | `None` | `None` | `None` | `tds=48`, `sodium=5.3` ✓ |
+
+Same prompt, same model. The origin was simply **not in the frame**: the
+composition shot frames the `ANÁLISIS QUÍMICO` panel, and the conservation
+paragraph that carries `Herrera del Duque (Badajoz)` runs down the left edge,
+rotated and clipped. The reader did not fail to understand the label — it was
+never shown it.
+
+So this is not an OCR item at all. It is the **second, optional label photo**
+below, and this is its trigger: a ficha that reached `verified = True` with its
+whole origin missing, because one face of the bottle answers the composition
+question and another answers the origin one.
+
+Nothing else here would have caught it either. An AESAN `place → province`
+index — considered earlier — needs a municipality to key on, and the stored
+document has none, for the same reason.

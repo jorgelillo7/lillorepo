@@ -12,7 +12,8 @@ the cross-cutting GCP/CI/policy one. What has **shipped** lives in
 `packages/biwenger_tools/release-notes.md`, and the current state of the repo
 in `STATUS.md` — neither belongs here.
 
-**👤 needs you** · **⏳ waiting on a trigger or on data** · **🔨 ready to pick up**
+**👤 needs you** · **⏳ waiting on a trigger or on data** · **🔨 ready to pick up** ·
+**🚧 blocked on you, and parked by your call** — not up for planning until you unblock it
 
 ---
 
@@ -20,16 +21,15 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| ⏳ | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
-| ⏳ | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
-| ⏳ | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
+| 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
+| 🚧 | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
+| 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
 
 ## core
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | `decide_offer`: wrap it in the retry helper, or not? | One repeated PUT on the next real offer · [analysis](openspec/specs/core/biwenger-writes/spec.md) |
-| ⏳ | Move the Biwenger-only two thirds of `core` into its package | A second package needing a domain-model layer · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
+| ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — **not** the old trigger, which can no longer fire: `be_water` arrived and wrote its own `domain.py` without touching `core` · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
 
 ## biwenger_tools
 
@@ -37,24 +37,21 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | A second projection source beside Jornada Perfecta (Analítica Fantasy) | You: **the technical question is answered** — `/biwenger/predicciones` is server-rendered, Biwenger-scored, 366 players with a starting chance and a points projection, no API and no key · what is left is permission, which is yours · [findings](docs/technical/backend/second-projection-source.md) |
 | 🔨 | Nothing records what was projected against what was scored | Worth doing whether or not a second source ever arrives — without it "is JP worth it" has no answer · [why](docs/technical/backend/second-projection-source.md) |
-| 👤 | The Liga H2H champion has no palmarés slot | You: art. 3.5 proclaims one, `SPECIAL_TOURNAMENTS` has no slug and it would need a graphic · decided at the first H2H rollover |
-| ⏳ | `Lucen`/`Lillo`/`Rubén` in the sheets vs `Lucena`/`Jorge`/`Ruben` in `LEAGUE_MEMBERS` | Harmless today · becomes load-bearing when art. 3.5 puts the H2H champion in the palmarés and art. 3.6 makes H2H the league tiebreak |
-| ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 350 the right bar? | A few rounds of `log_promotions` read against real points |
-| 👤 | The draft optimiser buys a cameo total at full value | You: `build()` ranks on raw `sf` with no starts penalty, so 143 points off 32 substitute appearances outbids a regular. `is_starter` only orders `_xi` and prints 🪑. Changing it moves which 15 get drafted |
-| ⏳ | What to do when JP and Biwenger disagree on availability | A season of `provider_watch` disagreements to count |
-| ⏳ | `nextMatch.status == "break"` has never been observed | The first international break — `provider_watch` logs the sighting |
+| ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | More promotions to read against real points · **one in 12 months:** Valverde (328) displaced Giuliano Simeone on 2026-09-09, which 350 would have prevented · `log_promotions` records the bet but not what either scored, so grading it needs that first |
+| ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
+| ⏳ | What to do when JP and Biwenger disagree on availability | Far more than a season · **verified wired, 0 events in 12 months** · the 1-in-481 baseline was measured league-wide but `observe()` only sees my ~20 squad rows, so ≈1 expected per 24 lineups |
+| ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
 
 ## my_photos
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
+| 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
 
 ## be_water
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Activate Google Sign-In and `/admin` | ~10 min of Console clicks · runbook in `packages/be_water/OPERATIONS.md` |
-| ⏳ | International waters — the `country` field exists, nothing uses it | The verification pass above · country chips, a 🌍 tier and a geography that stops assuming Spain · [analysis](docs/technical/parked-work.md#be_water-country-field) |
-| ⏳ | A second, optional label photo for the origin panel | Enough waters with an empty spring · 3 of 5 bottles carry the manantial on a face the composition shot never sees · [why parked](docs/technical/parked-work.md#be_water--a-second-optional-label-photo) |
-| 🔨 | Tailwind ships as the Play CDN script, no `defer` | Compiles styles in the browser on every load, on a mobile-first audience · needs a build step, not a one-line fix |
+| 🚧 | Activate Google Sign-In | ~10 min of Console clicks · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` |
+| ⏳ | The AESAN parser reads only Spain's table, of 28 in the PDF | A registered foreign water · **checked:** it would not have caught `FONTÉBIL`, and Portugal's place column is `Locality-Municipality`, which `_PROVINCE` cannot read · [measurements](docs/technical/parked-work.md#be_water-country-field) |
+| ⏳ | Tailwind ships as the Play CDN, which its own docs call development-only | A build step · **not** the `defer` this line used to ask for: deferring the compiler is what causes the unstyled flash · preconnect landed, the rest needs a Bazel node toolchain · affects `be_water` **and** `biwenger_tools/web` |

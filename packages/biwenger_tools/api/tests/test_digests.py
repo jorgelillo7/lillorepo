@@ -452,3 +452,32 @@ def test_a_failed_league_value_step_says_so_in_the_chat():
     assert any(
         "Valor de las plantillas" in t and "no pudo generarse" in t for t in texts
     )
+
+
+# --- the observation window is wider than the squad ------------------------
+
+
+def test_the_market_is_observed_too():
+    """`observe` saw ~20 squad rows while its own disagreement rate was
+    measured across the whole league — roughly one sighting per two dozen
+    lineups. The market rows are already built every morning, so watching them
+    costs no extra Biwenger call and multiplies the sample."""
+    from packages.biwenger_tools.api.logic import digests
+
+    rows = [{"name": "X", "bw_id": 1, "jp_player": {"status": "ok"}}]
+    with patch.object(digests, "build_market_rows", return_value=rows), patch.object(
+        digests.provider_watch, "observe"
+    ) as mock_observe:
+        digests._observed_market_rows(MagicMock(), object(), {}, {})
+    mock_observe.assert_called_once_with(rows)
+
+
+def test_a_failing_observer_never_costs_the_market_section():
+    """The observer is a bystander. If it throws, the digest still sends."""
+    from packages.biwenger_tools.api.logic import digests
+
+    rows = [{"name": "X"}]
+    with patch.object(digests, "build_market_rows", return_value=rows), patch.object(
+        digests.provider_watch, "observe", side_effect=RuntimeError("boom")
+    ):
+        assert digests._observed_market_rows(MagicMock(), object(), {}, {}) == rows

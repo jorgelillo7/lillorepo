@@ -83,7 +83,11 @@ DAILY_LEAGUE_VALUES_ENABLED = (
 # Tunable without a deploy — the right value is a judgement, not a measurement:
 #   gcloud run services update biwenger-api \
 #     --update-env-vars LINEUP_SUB_STARTS_ABOVE=400
-LINEUP_SUB_STARTS_ABOVE = int(os.getenv("LINEUP_SUB_STARTS_ABOVE", "350"))
+#
+# The default is what production actually runs. It read 350 for a while and the
+# service read 300, so the number in the repo was one nobody executed and the
+# backlog spent that time asking whether 350 was right.
+LINEUP_SUB_STARTS_ABOVE = int(os.getenv("LINEUP_SUB_STARTS_ABOVE", "300"))
 
 # What the rebuild leaves in the account, if anything. Zero by default: the
 # money a raid pays out lands in this same balance, so it is already the money

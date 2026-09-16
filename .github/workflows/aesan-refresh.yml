@@ -8,7 +8,13 @@ name: Recognised-waters refresh
 # to review, a dead source as a red run and a Telegram message.
 on:
   schedule:
-    - cron: "0 6 1 * *" # day 1, ~08:00 Madrid — ahead of the catalog sync
+    # Day 1, ~08:00 Madrid. This used to claim it ran "ahead of the catalog
+    # sync" at 09:00, which it cannot deliver: this job opens a *PR*, and the
+    # sync reads `aesan_snapshot.py` from the deployed image. A refreshed list
+    # only reaches it after that PR is merged and shipped. Harmless — the sync
+    # uses the snapshot for a coverage figure in its summary, never to create
+    # or update a water — so the hour is arbitrary, not load-bearing.
+    - cron: "0 6 1 * *"
   workflow_dispatch:
 
 permissions:
@@ -43,7 +49,7 @@ jobs:
             echo "chat=$(echo "$CFG" | jq -r .telegram_chat_id)"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -55,7 +61,12 @@ jobs:
       # Exits non-zero when the download is not a PDF, or the parse looks
       # wrong, rather than writing a damaged snapshot.
       - name: Regenerate the snapshot
-        run: python3 packages/be_water/scripts/refresh_aesan_snapshot.py
+        run: |
+          if ! python3 packages/be_water/scripts/refresh_aesan_snapshot.py \
+              2> "$RUNNER_TEMP/refresh-error.txt"; then
+            cat "$RUNNER_TEMP/refresh-error.txt" >&2
+            exit 1
+          fi
 
       - name: Is there news?
         id: diff
@@ -117,12 +128,23 @@ jobs:
       # The failure that matters: the source moved, or the document's layout
       # changed enough that the parse is no longer trustworthy. Both mean the
       # snapshot silently stops tracking reality.
+      # The script already works out *which* failure this is — a moved
+      # document reads differently from a throttled host, and it says so on
+      # stderr before exiting. This step forwards that verdict instead of
+      # guessing: a fixed "la fuente se ha movido" sent the owner hunting for
+      # a new URL after a transient 429 on a source that was fine.
       - name: Tell Telegram it broke
         if: failure() && steps.telegram.outputs.token != ''
         run: |
+          REASON=$(tail -c 600 "$RUNNER_TEMP/refresh-error.txt" 2>/dev/null)
+          if [ -z "$REASON" ]; then
+            REASON="Falló antes de llegar al script — mira el run."
+          fi
           curl -sS -X POST \
             "https://api.telegram.org/bot${{ steps.telegram.outputs.token }}/sendMessage" \
             -d chat_id="${{ steps.telegram.outputs.chat }}" \
             --data-urlencode text="⚠️ El refresco del registro de aguas ha fallado.
-          Probablemente la fuente se ha movido otra vez, o cambió el formato del PDF.
+
+          $REASON
+
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

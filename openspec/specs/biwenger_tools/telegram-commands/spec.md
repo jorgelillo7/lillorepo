@@ -97,3 +97,43 @@ SHALL be ignored without hitting the API.
   `test_ofertas_ignore_callback_edits_message_and_does_not_call_api`,
   `test_ofertas_malformed_callback_is_ignored`,
   `test_ofertas_non_int_offer_id_is_ignored`
+
+### Requirement: `/pacto` edits the non-aggression pact
+
+`/pacto` SHALL open an inline picker with one toggle per **rival** manager —
+the owner's own row is absent, since there is no pact with yourself — labelled
+🤝 when protected and ⚔️ when fair game. A `pact:<manager_id>` tap SHALL relay
+to `POST /pact/toggle` and redraw the picker **in place**, so editing several
+managers stays one message.
+
+The bot SHALL hold no pact state of its own: it renders what the api returns
+and relays taps, per the zero-logic bot rule. A malformed manager id SHALL be
+ignored without hitting the API, and an unreachable `/pact` SHALL say so rather
+than post an empty keyboard.
+
+Every step SHALL acknowledge itself before the work starts, because the picker
+sits behind a cold start plus a Biwenger league call:
+
+- `/pacto` SHALL post a "procesando…" line and fetch in the **background**.
+  Fetching inline blocks the worker past Telegram's timeout, which is how a
+  slow call becomes a retried webhook and a duplicate picker.
+- A `pact:` tap SHALL ack with a toast, the only feedback between the tap and
+  the redraw.
+- The redraw SHALL use the list `POST /pact/toggle` already returns, never a
+  second `GET /pact` — re-fetching paid for a second Biwenger round trip on
+  every tap, and made the button feel like it had not registered.
+
+#### Scenario: open, toggle, redraw, reject junk
+- **WHEN** `/pacto` **THEN** one `pact:<id>` button per rival, marked 🤝 / ⚔️
+- **WHEN** `/pacto` **THEN** a "procesando…" line precedes the picker
+- **WHEN** `pact:<id>` is tapped **THEN** the ack carries a toast, `/pact/toggle`
+  is posted once, `/pact` is **not** re-read, and the same message is edited
+  with the refreshed keyboard
+- **WHEN** the id is not an integer **THEN** ignored, no API call
+- **WHEN** `/pact` is unreachable **THEN** "No pude cargar el pacto"
+- *Verifies:* `test_pacto_command_opens_the_pact_picker`,
+  `test_pacto_command_says_it_is_working_before_the_picker_arrives`,
+  `test_pact_callback_acknowledges_the_tap_with_a_toast`,
+  `test_pact_callback_toggles_the_manager_and_redraws_in_place`,
+  `test_pact_callback_ignores_a_malformed_manager_id`,
+  `test_pacto_command_handles_a_fetch_failure`

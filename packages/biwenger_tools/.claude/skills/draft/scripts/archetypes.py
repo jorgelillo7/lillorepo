@@ -398,7 +398,7 @@ def build(
         return n < max_per_team
 
     byp = {
-        c: sorted([r for r in rows if r["pos"] == c], key=lambda x: -x["sf"])
+        c: sorted([r for r in rows if r["pos"] == c], key=lambda x: -ranking_score(x))
         for c in POS
     }
     forced_n = {_norm(f) for f in forced}
@@ -614,6 +614,44 @@ def sf_cell(r, placeholder=None):
 
 
 SOURCE_MARK = {"real": "✅", "proj": "~", "bet": "🎲"}
+
+
+_STARTS_PENALTY = False
+
+
+def set_starts_penalty(enabled: bool) -> None:
+    """Turn the starts penalty on for this run (`--starts-penalty`)."""
+    global _STARTS_PENALTY
+    _STARTS_PENALTY = bool(enabled)
+
+
+def ranking_score(r):
+    """The number `build` ranks on: `sf`, discounted when the penalty is on
+    and last season's total came from cameos.
+
+    `sf` is a season total, and a total earned in twenty minutes a week does
+    not carry over to a starting role — Aspas took 143 points across 32
+    appearances having started 10, which outbids a regular starter on raw
+    `sf` alone. `is_starter` already knows this and only ever ordered the XI
+    and printed a 🪑; nothing stopped the squad being bought that way.
+
+    Linear in starts up to the threshold, flat above it: the penalty discounts
+    a total built on cameos rather than taxing anyone for playing. Unknown
+    starts are untouched, the same rule `is_starter` applies — no measured data
+    means the projection already assumes a regular role, and penalising it
+    would silently drop every player promoted from Segunda.
+
+    **Off unless asked for.** The draft happens once a year and cannot be
+    undone, so this changes which fifteen are bought only when someone has
+    chosen to compare the two rankings.
+    """
+    sf = r["sf"]
+    if not _STARTS_PENALTY:
+        return sf
+    starts = r.get("starts")
+    if starts is None or starts >= STARTER_THRESHOLD:
+        return sf
+    return sf * (starts / STARTER_THRESHOLD)
 
 
 def is_starter(r):
@@ -930,6 +968,16 @@ def main():
     ap.add_argument("--budget", type=float, default=52.0, help="budget in millions")
     ap.add_argument("--exclude", default="", help="comma-separated names to ban (news)")
     ap.add_argument(
+        "--starts-penalty",
+        action="store_true",
+        help=(
+            "discount a season total earned from cameos, linearly in starts up "
+            f"to {STARTER_THRESHOLD} of 38. Off by default: the draft happens "
+            "once a year and cannot be undone, so this is for comparing the two "
+            "fifteens before committing to either"
+        ),
+    )
+    ap.add_argument(
         "--exclude-file",
         default="",
         help=(
@@ -1014,6 +1062,12 @@ def main():
         help="also write a decision sheet for the winning archetype to this path",
     )
     args = ap.parse_args()
+    set_starts_penalty(args.starts_penalty)
+    if args.starts_penalty:
+        print(
+            f"⚖️  Penalización por titularidad activa (<{STARTER_THRESHOLD} "
+            "titularidades de 38 descuenta proporcionalmente)."
+        )
 
     excluded = [x.strip() for x in args.exclude.split(",") if x.strip()]
     reasons = {}

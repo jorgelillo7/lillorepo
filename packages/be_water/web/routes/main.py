@@ -306,7 +306,11 @@ def sitemap():
     # Place pages serve real content to an anonymous crawler now, so they are
     # worth indexing. Only places the catalogue actually covers: a page whose
     # answer is "we know of none here" is not one to invite Google to.
-    places = sorted({w.province for w in catalog} | {w.community for w in catalog})
+    # Spanish waters only: `?lugar=` searches provinces and communities, so a
+    # foreign region in there invites a crawler to a page the recommender has
+    # no geography for.
+    spanish = [w for w in catalog if w.is_spanish]
+    places = sorted({w.province for w in spanish} | {w.community for w in spanish})
     urls += [(f"{base}/recomendar?lugar={quote(p)}", "") for p in places if p]
     body = "".join(
         f"<url><loc>{escape(u)}</loc>"

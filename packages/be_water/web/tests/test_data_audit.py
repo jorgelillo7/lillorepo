@@ -168,3 +168,64 @@ def test_dataset_drift_ignores_waters_the_dataset_never_seeded():
     live = _water(id="user-added", minerals={"tds": 10})
     with patch(f"{_MOD}.SEED_WATERS", _DATASET):
         assert data_audit.dataset_drift([live]) == []
+
+
+# --- geography is auditable, not just minerals -----------------------------
+
+
+def _placed(water_id, province, community, country="ES", spring="S"):
+    return Water(
+        id=water_id,
+        name=water_id,
+        brand=water_id,
+        spring=spring,
+        province=province,
+        community=community,
+        country=country,
+    )
+
+
+def test_a_province_that_is_not_one_is_flagged():
+    """`fontebil` stores `province='portugal'`. Nothing in the curation engine
+    looked at geography, so a ficha asserting Portugal is a Spanish province
+    passed every check and was `verified=True`."""
+    reasons = data_audit.geo_reasons(_placed("f", "portugal", "portugal"))
+    assert any("provincia" in r.lower() for r in reasons)
+
+
+def test_a_community_that_does_not_match_its_province_is_flagged():
+    reasons = data_audit.geo_reasons(_placed("x", "Badajoz", "Cataluña"))
+    assert any("comunidad" in r.lower() for r in reasons)
+
+
+def test_a_missing_origin_is_flagged():
+    """`fuente-dehesa` was saved with no spring, province or community while
+    `verified=True` — the OCR read the composition and nothing else."""
+    reasons = data_audit.geo_reasons(_placed("d", "", "", spring=""))
+    assert len(reasons) >= 2
+
+
+def test_a_correct_spanish_water_is_clean():
+    assert data_audit.geo_reasons(_placed("ok", "Badajoz", "Extremadura")) == []
+
+
+def test_a_foreign_water_is_not_judged_by_spanish_geography():
+    """A Portuguese *concelho* is not a province and has no community. Flagging
+    it would make every correct foreign ficha permanently suspicious."""
+    assert data_audit.geo_reasons(_placed("f", "Fafe", "", country="PT")) == []
+
+
+def test_a_foreign_water_still_needs_a_region():
+    reasons = data_audit.geo_reasons(_placed("f", "", "", country="PT", spring="S"))
+    assert any("región" in r.lower() or "provincia" in r.lower() for r in reasons)
+
+
+def test_find_geo_gaps_returns_only_the_broken_fichas():
+    """This is the admin page's worklist: what a human has to repair."""
+    catalog = [
+        _placed("ok", "Badajoz", "Extremadura"),
+        _placed("f", "portugal", "portugal"),
+        _placed("d", "", "", spring=""),
+    ]
+    flagged = {w.id for w, _ in data_audit.find_geo_gaps(catalog)}
+    assert flagged == {"f", "d"}

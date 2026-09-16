@@ -1,4 +1,5 @@
-"""Spanish province adjacency, for the recommender's nearby fallback.
+"""Spanish province adjacency, for the recommender's nearby fallback, and the
+country vocabulary that says when any of it applies.
 
 Canonical names match `seed_data.py` spelling; lookups are
 accent-insensitive. Symmetry is enforced by the test suite.
@@ -242,3 +243,71 @@ def adjacent_places(place: str) -> list[str]:
         if place_key(n) not in own_keys
     }
     return sorted(neighbors)
+
+
+SPAIN = "ES"
+
+# Countries a bottle on a Spanish shelf plausibly comes from: the EU/EEA list
+# the official registry itself is drawn from, plus the handful of non-EU
+# sources that actually reach these supermarkets.
+#
+# A closed vocabulary rather than free text, and for the reason the rest of
+# this module exists: `province` and `community` were free text, and one
+# submission wrote a country into both of them. A code that is not here is not
+# a country the catalog knows.
+COUNTRIES = {
+    "ES": "España",
+    "AT": "Austria",
+    "BE": "Bélgica",
+    "BG": "Bulgaria",
+    "CH": "Suiza",
+    "CY": "Chipre",
+    "CZ": "Chequia",
+    "DE": "Alemania",
+    "DK": "Dinamarca",
+    "EE": "Estonia",
+    "FI": "Finlandia",
+    "FJ": "Fiyi",
+    "FR": "Francia",
+    "GB": "Reino Unido",
+    "GR": "Grecia",
+    "HR": "Croacia",
+    "HU": "Hungría",
+    "IE": "Irlanda",
+    "IS": "Islandia",
+    "IT": "Italia",
+    "LT": "Lituania",
+    "LU": "Luxemburgo",
+    "LV": "Letonia",
+    "NL": "Países Bajos",
+    "NO": "Noruega",
+    "PL": "Polonia",
+    "PT": "Portugal",
+    "RO": "Rumanía",
+    "SE": "Suecia",
+    "SI": "Eslovenia",
+    "SK": "Eslovaquia",
+    "TR": "Turquía",
+}
+
+# Spain first, then alphabetical by name — the form's option order.
+COUNTRY_CHOICES = [("ES", COUNTRIES["ES"])] + sorted(
+    ((code, name) for code, name in COUNTRIES.items() if code != SPAIN),
+    key=lambda pair: pair[1],
+)
+
+
+def country_name(code: str) -> str:
+    """Display name for a country code, falling back to the code itself.
+
+    Never blank: an unknown code on a stored ficha must still render an origin
+    panel rather than an empty one.
+    """
+    code = (code or SPAIN).strip().upper()
+    return COUNTRIES.get(code, code)
+
+
+def is_spain(code: str) -> bool:
+    """True when Spanish geography — provinces, communities, adjacency —
+    applies to this water at all."""
+    return (code or SPAIN).strip().upper() == SPAIN

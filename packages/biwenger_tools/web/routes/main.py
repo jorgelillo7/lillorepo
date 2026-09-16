@@ -157,6 +157,19 @@ def _split_record(value: str) -> dict:
     return {"valor": number.strip(), "quien": holder}
 
 
+def tournaments_for(season: str) -> list[dict]:
+    """The special tournaments that had been played by `season`.
+
+    A tournament that did not exist yet must not appear: its caption would
+    stand over a permanently empty result, which reads as a missing graphic
+    rather than an absent competition.
+    """
+    year = _season_start_year(season)
+    return [
+        t for t in config.SPECIAL_TOURNAMENTS if year >= _season_start_year(t["since"])
+    ]
+
+
 @bp.route("/palmares")
 def palmares() -> str:
     """Display historical records and awards.
@@ -243,6 +256,7 @@ def palmares() -> str:
                         "show_special_cups": (
                             _season_start_year(p.temporada) >= cups_since
                         ),
+                        "tournaments": tournaments_for(p.temporada),
                         "copas": p.copas,
                         "comidas": comidas,
                         "paga_lo_suyo": solo,

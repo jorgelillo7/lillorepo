@@ -13,7 +13,9 @@ Two sources, because neither covers the other's half (see design):
       This is the single check that stops the projections silently halving the
       day the site changes a default
 - [ ] `fetch_predictions()` → `/biwenger/predicciones`. **Filter by
-      `fixtureDate`**: the 366 rows span two matchdays, and the upcoming one
+      `fixtureDate`** — and note the two sources disagree on the same player
+      (Mbappé 11.46 on the API vs 7.39 on the page, six hours apart), so the
+      number must come from **one** of them, never a mix: the 366 rows span two matchdays, and the upcoming one
       held 67 projected players three days out against the current one's 252
 - [ ] `_flight(html)` / `_objects(payload, key)` for the page route — the only
       fragile parts, isolated so a layout change breaks one test loudly
@@ -34,7 +36,17 @@ Two sources, because neither covers the other's half (see design):
 ## 3 · The blend — `logic/custom_prediction.py`
 
 - [ ] Pure function, no I/O
-- [ ] The worked case: JP 500 + benched + Oráculo > 6.00 → ≈ 1.4×
+- [ ] **No absolute thresholds.** `k = median(jp_sf / oraculo_points)` over the
+      covered rows of that read, then `custom = jp*(1-W) + oraculo*k*W`. The
+      6.0/3.0 guesses came from the LaLiga Fantasy scale and fail on
+      Biwenger's: on a real squad only Mbappé cleared 6.0 and four of thirteen
+      fell below 3.0
+- [ ] `chance` is a **guard, not a bonus** — `expectedPoints == predicted ×
+      chance` on the API and the page column is labelled "Esperado", so the
+      number is probably already post-chance and a bonus would double-count.
+      Below a floor (~25%) damp the contribution; above it, do nothing
+- [ ] The regression cases from the calibration squad: Aubameyang −15%,
+      Redondo +55%, Hancko unchanged
 - [ ] No Oráculo opinion → returns `jp_sf` **unchanged**
 - [ ] Clamped both ways, so one bad read cannot invert a ranking
 - [ ] Every input stays on the row beside the output
@@ -136,12 +148,12 @@ Display:
    projection list. `/biwenger/predicciones` gives 366 players and no lists.
    Both are needed, each for its half. Permission decided by the owner and
    recorded in `design.md`.
-2. **Calibration — the only one genuinely still open.** Two sets of guesses:
-   the blend thresholds (6.0 / 3.0 / 80 / 40 and the ±30/±10/±20) and
-   `ORACULO_MIN_COVERAGE = 0.60`. With no shadow week they go live as written,
-   so they must be **env-tunable without a deploy**, the way
-   `LINEUP_SUB_STARTS_ABOVE` already is — and that config drift has bitten once
-   already, so the default in the code must be the value that runs.
+2. **Calibration — narrowed, not closed.** The absolute thresholds are gone,
+   replaced by a self-calibrating median ratio. What is left to guess is
+   `W = 0.30` (how much Oráculo moves JP) and the ~25% `chance` floor, both
+   fitted to one squad on one matchday. Env-tunable without a deploy, the way
+   `LINEUP_SUB_STARTS_ABOVE` is — and the default in the code must be the
+   value that runs, since that drift has bitten once already.
 3. ~~Read time.~~ **Answered: one read per execution, cached an hour**, the
    same shape `jp.py` already uses. The model retrains hourly, so reading more
    often buys nothing. A midweek read will simply fall under the coverage

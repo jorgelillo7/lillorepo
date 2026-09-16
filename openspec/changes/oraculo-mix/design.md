@@ -147,34 +147,69 @@ Two fragile helpers isolate that — `_flight(html)` and `_objects(payload, key)
 the one coming, separated by `fixtureDate`. "Always the next" is a filter, not
 a URL to compute.
 
-## The blend
+## The blend — calibrated against a real squad
 
 **JP is the base and stays the base.** Oráculo is a second opinion that nudges
-it; it never replaces it and it never decides alone. If Oráculo is missing,
-wrong, thin or broken, every number in this project is exactly what it is
-today.
+it; it never replaces it and never decides alone.
 
-JP ≈ 0-700, Oráculo ≈ 0-10. The scales are not comparable, so this is a
-multiplier on JP and never an average.
+### The first formula was wrong, and the data says why
+
+The original proposal used absolute thresholds — "≥ 6.0 looks good, ≤ 3.0 looks
+bad". Those came from the **LaLiga Fantasy** scale, where Jutglà reads 7.38.
+Biwenger's scale runs much lower: the same player is 3.60.
+
+Checked against a real 14-man squad (Cebollitas, J7), only **Mbappé** clears
+6.0, and four of thirteen fall below 3.0. The formula would have marked most of
+a decent squad as "looks bad".
+
+**Any absolute threshold on this number is a bug waiting for a scale change.**
+
+### Self-calibrating instead
+
+Convert Oráculo to JP's scale using the **median ratio of the rows in that very
+read**, so there is no constant to get wrong and it survives either provider
+rescaling:
 
 ```
-base   = jp_sf                       # unchanged when Oráculo has no opinion
-bonus  = 0.0
-
-if   oraculo_points >= 6.0:  bonus += 0.30     # "looks good"
-elif oraculo_points <= 3.0:  bonus -= 0.30     # "looks bad"
-
-if   oraculo_chance >= 80:   bonus += 0.10     # near-certain starter
-elif oraculo_chance <= 40:   bonus -= 0.20     # probably benched
-
-if   oraculo_lists:          bonus += 0.10     # named in any recommended list
-
-custom = round(base * (1 + clamp(bonus, -0.50, +0.50)))
+k      = median(jp_sf / oraculo_points)   over covered rows   # ≈ 105 observed
+equiv  = oraculo_points * k                                   # Oráculo, in JP units
+custom = round(jp_sf * (1 - W) + equiv * W)                   # W ≈ 0.30
 ```
 
-**Every number above is a guess**, fitted to one worked case: JP has Jutglà at
-500 and benched, Oráculo has him over 6.00 and likely to start, so he comes out
-around 1.4× instead of losing his place to JP's read alone.
+Measured on the 13 covered players, the spread of `jp_sf / oraculo_points` was
+**37 to 210** with a median of 105 — which is the point: the two disagree
+wildly on individuals while agreeing on the population. That disagreement is
+the entire value of a second opinion, and a weighted average keeps it bounded.
+
+| | JP | Oráculo → JP | custom (W=0.30) | Δ |
+|---|---|---|---|---|
+| Mbappé | 892 | 777 | 857 | −4% |
+| Fermín | 688 | 413 | 606 | −12% |
+| Aubameyang | 654 | 327 | 556 | **−15%** |
+| Hancko | 351 | 351 | 351 | 0% |
+| Jon Martín | 381 | 526 | 425 | **+12%** |
+| Terrats | 354 | 510 | 401 | **+13%** |
+| Redondo | 103 | 294 | 160 | **+55%** |
+
+JP loves Aubameyang and Oráculo does not; Oráculo likes Redondo, Jon Martín and
+Terrats considerably more than JP. Those five rows are what this whole change
+is for.
+
+### `chance` is probably already inside the number
+
+On the API, `expectedPoints == predictedPoints × chance`, exactly. The
+`/biwenger/predicciones` page labels its column **"Esperado"**, so its number is
+very likely post-`chance` already — and adding a further `chance` bonus would
+double-count it.
+
+So `chance` is **a guard, not a bonus**: below a floor (say 25%) damp the
+Oráculo contribution toward zero, because a number built on a player who
+probably will not play should not move JP's. Above it, do nothing.
+
+### Everything here is still a guess
+
+`W = 0.30` and the 25% floor are fitted to one squad on one matchday. They go
+in env vars, tunable without a deploy.
 
 ## Falling back to JP — three levels, not one
 
@@ -272,7 +307,22 @@ exported CSVs.
 ## Read time — decided
 
 **One read per execution, cached an hour**, the same shape `core/sdk/jp.py`
-already uses. The model retrains hourly, so reading more often buys nothing and
+already uses.
+
+### The numbers move a lot within a day
+
+Measured six hours apart on the same matchday and the same fixture: Mbappé's
+expectation went **11.46 → 7.39**, Vini Jr **6.0 → 2.79**. That is the model
+reacting to lineup news, not noise.
+
+And coverage moves with it. The upcoming matchday went from **67** projected
+players at 15:00 to **260** at 21:00 the same day.
+
+Matchdays normally start **Friday 20:00**, and Biwenger locks lineup changes at
+the first kick-off. So the useful window closes then, and the **Friday 09:00
+digest is the natural best read** — latest data, still changeable. Anything
+read after the first match cannot change a lineup and is only worth having for
+the market and the clausulazo surfaces. The model retrains hourly, so reading more often buys nothing and
 spends someone else's bandwidth.
 
 A midweek read simply falls under the coverage threshold and marks itself

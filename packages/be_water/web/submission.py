@@ -121,13 +121,74 @@ def normalize_analysis_date(raw: Optional[str]) -> Optional[str]:
     return None
 
 
+# "27.02231/BA": a dotted number, then the province letters. Anchored, so
+# prose the reader may return instead of a number ("no consta") is rejected.
+_REGISTRY_RE = re.compile(r"^(\d{2}\.\d{3,6}\s*/\s*[A-Z]{1,3})$")
+_REGISTRY_PREFIX = re.compile(r"^R\.?\s*G\.?\s*S\.?\s*E\.?\s*A\.?\s*A\.?\s*", re.I)
+
+
+def normalize_registry_id(raw: Optional[str]) -> str:
+    """The sanitary registry number as printed, or "" when it is not one.
+
+    A malformed value is worse than none here: it looks like an official key
+    and would be trusted as one. The `RGSEAA` prefix is stripped — it names
+    the register, it is not part of the number.
+
+    Deliberately **not** used to derive the province. The suffix does appear
+    to encode it on the one bottle where it is legible, and one bottle is not
+    evidence.
+    """
+    text = _REGISTRY_PREFIX.sub("", (raw or "").strip()).strip().upper()
+    match = _REGISTRY_RE.match(text)
+    return match.group(1).replace(" ", "") if match else ""
+
+
+def merge_label_reads(primary: dict, secondary: Optional[dict]) -> dict:
+    """One prefill from two photographed faces of the same bottle.
+
+    The composition shot is `primary` and wins every field it declares: it is
+    the photo kept as verification proof, so a value it read is the one the ✓
+    will refer to. The second face only fills gaps.
+
+    A gap is `None` or `""` — the reader returns both for a field it could not
+    find. `False` is **not** a gap: `sparkling: False` is an answer, and
+    treating it as missing would let the other face turn a still water
+    sparkling.
+    """
+    merged = dict(primary)
+    for field, value in (secondary or {}).items():
+        if merged.get(field) in (None, "") and value not in (None, ""):
+            merged[field] = value
+    return merged
+
+
 def verified_fields_from_ocr(ocr_fields: str, minerals: dict) -> list[str]:
     """Label-declared mineral fields (human-reviewed) become verified_fields."""
     return sorted(f for f in ocr_fields.split(",") if f in minerals)
 
 
-def resolve_place(province: str, community: str) -> tuple[str, str]:
+def form_country(form: Mapping) -> str:
+    """Country code from the form, defaulting to Spain.
+
+    An unrecognised code becomes Spain rather than creating a water in a
+    country the catalog has no name for: the form is public, and `country`
+    now decides which geography rules apply, so a junk value would silently
+    switch them off.
+    """
+    code = (form.get("country") or "").strip().upper()
+    return code if code in geo.COUNTRIES else geo.SPAIN
+
+
+def resolve_place(
+    province: str, community: str, country: str = geo.SPAIN
+) -> tuple[str, str]:
     """Province and community as they should be stored, from what was typed.
+
+    **Outside Spain none of this applies.** There is no autonomous community to
+    derive and no province list to check a shift against, so the region is kept
+    as typed and the community stays empty. Running the Spanish rules on a
+    Portuguese bottle is what put `province='portugal', community='portugal'`
+    on a ficha — the country asserted twice, as two things it is not.
 
     Both are free-text inputs on a public form, and `tramuntana` shows what
     that costs: it reached Firestore with `province="Talarrubias"` — a town in
@@ -146,6 +207,8 @@ def resolve_place(province: str, community: str) -> tuple[str, str]:
     and `data_audit` is where a human decides. This only ever repairs a
     provable mistake.
     """
+    if not geo.is_spain(country):
+        return province, ""
     if not geo.community_of(province) and geo.community_of(community):
         province = community
     return province, geo.community_of(province) or community
@@ -164,8 +227,9 @@ def build_water(
     added_by: str,
 ) -> Water:
     """The submitted water before any merge with an existing doc."""
+    country = form_country(form)
     province, community = resolve_place(
-        form_field(form, "province"), form_field(form, "community")
+        form_field(form, "province"), form_field(form, "community"), country
     )
     return Water(
         id=water_id,
@@ -174,6 +238,9 @@ def build_water(
         spring=form_field(form, "spring"),
         province=province,
         community=community,
+        country=country,
+        registry_id=normalize_registry_id(form.get("registry_id")),
+        bottler=form_field(form, "bottler"),
         sparkling=form.get("sparkling") == "on",
         minerals=minerals,
         photo_url=photo_url,
@@ -197,6 +264,8 @@ def apply_existing(
     water.minerals = {**existing.minerals, **water.minerals}
     water.sparkling = water.sparkling or existing.sparkling
     water.spring = water.spring or existing.spring
+    water.registry_id = water.registry_id or existing.registry_id
+    water.bottler = water.bottler or existing.bottler
     water.province = water.province or existing.province
     water.community = water.community or existing.community
     if not form_has_brand:

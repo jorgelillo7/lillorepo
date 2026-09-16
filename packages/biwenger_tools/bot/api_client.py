@@ -120,6 +120,30 @@ def list_managers(base_url: str, timeout: int = 30) -> list[dict] | None:
         return None
 
 
+def list_pact_managers(base_url: str, timeout: int = 30) -> list[dict] | None:
+    """Managers + who the non-aggression pact protects — the /pacto picker.
+
+    Returns `{id, name, is_me, pacted}` per manager, or None on failure.
+    """
+    url = base_url.rstrip("/") + "/pact"
+    try:
+        token = _fetch_id_token(base_url)
+        resp = http_requests.get(
+            url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("managers", [])
+    except (
+        google.auth.exceptions.GoogleAuthError,
+        http_requests.RequestException,
+        ValueError,
+    ) as exc:
+        logger.warning("Failed to fetch the pact.", extra={"error": str(exc)})
+        return None
+
+
 def get_api_version(base_url: str, timeout: int = 10) -> dict | None:
     """Fetch /version from biwenger-api. Returns None on failure."""
     url = base_url.rstrip("/") + "/version"

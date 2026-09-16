@@ -1,5 +1,6 @@
 """Route smoke tests with the repository patched (no Firestore)."""
 
+import io
 import re
 from unittest.mock import patch
 
@@ -825,8 +826,10 @@ def test_photo_flow_prefills_form_and_runs_studio(client):
 
 
 def test_beauty_photo_becomes_the_display_shot(client):
-    """The optional front shot feeds the ficha photo; OCR still reads the
-    composition shot."""
+    """The optional front shot feeds the ficha photo — and is now read too.
+
+    Both faces go to the reader, the composition shot first; it stays the
+    verification proof and wins every field it declares."""
     _login(client)
     import io
 
@@ -834,7 +837,7 @@ def test_beauty_photo_becomes_the_display_shot(client):
         f"{_APP}.photos.upload_photo"
     ) as mock_upload, patch(
         f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
-    ) as mock_ocr:
+    ) as mock_ocr:  # noqa: E501
         resp = client.post(
             "/anadir/foto",
             data={
@@ -849,7 +852,7 @@ def test_beauty_photo_becomes_the_display_shot(client):
     assert label_call.args[0].endswith("-label.jpg")
     assert label_call.args[1] == b"label"
     assert display_call.args[1] == b"front"
-    mock_ocr.assert_called_once_with(b"label")
+    assert [c.args[0] for c in mock_ocr.call_args_list] == [b"label", b"front"]
     # The processing overlay ships with the form for the next visitor.
     assert 'id="processing"' in resp.get_data(as_text=True)
 
@@ -2058,3 +2061,362 @@ def test_a_verified_water_still_refuses_to_be_overwritten(client):
     assert "verificada" in response.get_data(as_text=True)
     mock_save.assert_not_called()
     mock_analysis.assert_not_called()
+
+
+def test_admin_page_lists_the_origins_that_need_a_human(client):
+    """The two fichas the curation engine could not see: one asserting a
+    country is a Spanish province, one with no origin at all."""
+    catalog = [
+        Water(
+            id="f",
+            name="FONTEBIL",
+            brand="F",
+            spring="S",
+            province="portugal",
+            community="portugal",
+        ),
+        Water(
+            id="d",
+            name="Fuente Dehesa",
+            brand="F",
+            spring="",
+            province="",
+            community="",
+        ),
+        Water(
+            id="ok",
+            name="Solan",
+            brand="S",
+            spring="S",
+            province="Cuenca",
+            community="Castilla-La Mancha",
+        ),
+    ]
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_all_users", return_value={}), patch(
+            f"{_REPO}.get_all_waters", return_value=catalog
+        ):
+            resp = client.get("/admin")
+    body = resp.get_data(as_text=True)
+    assert "Procedencia por revisar (2)" in body
+    assert "FONTEBIL" in body and "Fuente Dehesa" in body
+    assert "Solan" not in body
+
+
+# --- /admin/agua/<id>: repairing a ficha without the CLI -------------------
+
+
+def _csrf_from(body: str) -> str:
+    """The token the rendered form carries — posting it exercises the real
+    round trip instead of bypassing the check."""
+    return re.search(r'name="csrf_token" value="([^"]+)"', body).group(1)
+
+
+def _broken():
+    return Water(
+        id="f",
+        name="FONTEBIL",
+        brand="FONTEBIL",
+        spring="Fontebil 1",
+        province="portugal",
+        community="portugal",
+        verified=True,
+        minerals={"tds": 32.0},
+    )
+
+
+def test_admin_edit_form_is_admin_only(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        assert client.get("/admin/agua/f").status_code == 403  # signed out
+        _google_login(client, "otra@x.com")
+        assert client.get("/admin/agua/f").status_code == 403  # not an admin
+
+
+def test_admin_edit_form_offers_the_canonical_vocabularies(client):
+    """Free text is what stored `province='portugal'`. The form offers the
+    lists this repo already carries, so that shape cannot be retyped."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()):
+            resp = client.get("/admin/agua/f")
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert '<select id="province"' in body and "Badajoz" in body
+    assert '<select id="community"' in body and "Extremadura" in body
+    assert '<select id="country"' in body and "Portugal" in body
+    # The reasons it was flagged are shown next to the fields that cause them.
+    assert "no es una provincia" in body
+
+
+def test_admin_edit_saves_a_snapshot_before_overwriting(client):
+    """The undo trail `scripts/revert_water.py` reads. An admin edit is the
+    one write with no contributor behind it to ask what the label said."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision") as mock_rev:
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            resp = client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "FONTEBIL",
+                    "brand": "FONTEBIL",
+                    "spring": "Fontebil 1",
+                    "country": "PT",
+                    "province": "Fafe",
+                    "community": "",
+                    "retailer": "Mercadona",
+                },
+            )
+    assert resp.status_code == 302
+    mock_rev.assert_called_once()
+    assert mock_rev.call_args.kwargs["replaced_by"] == "admin@x.com"
+    saved = mock_save.call_args.args[0]
+    assert (saved.country, saved.province, saved.community) == ("PT", "Fafe", "")
+    assert saved.retailer == "Mercadona"
+
+
+def test_admin_edit_applies_the_country_rules_on_save(client):
+    """The admin form goes through `resolve_place` like the public one: a
+    Spanish province derives its community, so an admin cannot hand-type a
+    mismatch the curation engine would then flag."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision"):
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "X",
+                    "brand": "X",
+                    "spring": "S",
+                    "country": "ES",
+                    "province": "Badajoz",
+                    "community": "Cataluña",
+                },
+            )
+    saved = mock_save.call_args.args[0]
+    assert saved.community == "Extremadura"
+
+
+def test_admin_edit_keeps_what_the_form_does_not_carry(client):
+    """Minerals, photos, verification and authorship are not on this form and
+    must survive it — an origin repair is not a re-submission."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
+            f"{_REPO}.save_water"
+        ) as mock_save, patch(f"{_REPO}.save_revision"):
+            token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
+            client.post(
+                "/admin/agua/f",
+                data={
+                    "csrf_token": token,
+                    "name": "X",
+                    "brand": "X",
+                    "spring": "S",
+                    "country": "PT",
+                    "province": "Fafe",
+                    "community": "",
+                },
+            )
+    saved = mock_save.call_args.args[0]
+    assert saved.minerals == {"tds": 32.0}
+    assert saved.verified is True
+
+
+def test_admin_edit_404s_on_a_water_that_does_not_exist(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_water", return_value=None):
+            assert client.get("/admin/agua/nope").status_code == 404
+
+
+def test_the_front_shot_is_read_too_and_only_fills_gaps(client):
+    """The front photo was already uploaded and already paid for. Reading only
+    the composition shot is how `fuente-dehesa` reached `verified` with no
+    origin: the mineral table and the origin are on different faces."""
+    _login(client)
+    reads = [
+        {"name": "Fuente Dehesa", "tds": 48, "spring": None, "province": None},
+        {
+            "name": "Fuente Dehesa",
+            "spring": "Encinas",
+            "province": "Badajoz",
+            "tds": 999,
+        },
+    ]
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "photo": (io.BytesIO(b"composition"), "c.jpg"),
+                "beauty": (io.BytesIO(b"front"), "f.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    # The gap the second face filled.
+    assert 'name="province"' in body and "Badajoz" in body
+    assert "Encinas" in body
+    # The composition shot still wins its own fields.
+    assert "999" not in body
+
+
+def test_the_tick_belongs_to_the_photo_that_is_stored_as_proof(client):
+    """A mineral only the front shot declared must not become a
+    `verified_field`: `label_photo_url` is the composition shot, so the ✓ would
+    point at a photograph that does not show the value."""
+    _login(client)
+    reads = [
+        {"name": "X", "tds": 48, "sodium": None},
+        {"name": "X", "sodium": 5.3},
+    ]
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "photo": (io.BytesIO(b"composition"), "c.jpg"),
+                "beauty": (io.BytesIO(b"front"), "f.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    ocr_fields = re.search(r'name="ocr_fields" value="([^"]*)"', body).group(1)
+    assert "tds" in ocr_fields
+    assert "sodium" not in ocr_fields  # present in the form, but unverified
+
+
+def test_the_ficha_shows_the_registry_number_and_bottler(client):
+    water = Water(
+        id="x",
+        name="X",
+        brand="X",
+        spring="Encinas",
+        province="Badajoz",
+        community="Extremadura",
+        registry_id="27.02231/BA",
+        bottler="SONEPA",
+    )
+    with patch(f"{_REPO}.get_water", return_value=water), patch(
+        f"{_REPO}.get_all_waters", return_value=[water]
+    ), patch(f"{_REPO}.list_analyses", return_value=[]):
+        body = client.get("/agua/x").get_data(as_text=True)
+    assert "27.02231/BA" in body
+    assert "SONEPA" in body
+
+
+# --- the third photo: only asked for when the origin came back empty -------
+
+
+def _photo_post(client, reads, extra=None):
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
+    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        data = {
+            "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+            "photo": (io.BytesIO(b"composition"), "c.jpg"),
+        }
+        data.update(extra or {})
+        return client.post(
+            "/anadir/foto", data=data, content_type="multipart/form-data"
+        )
+
+
+def test_the_origin_upload_appears_only_when_the_origin_is_missing(client):
+    """2 fichas in 51 need it, so the form must not get heavier for the other
+    49. It is offered when the reader found no spring or no province."""
+    _login(client)
+    body = _photo_post(client, [{"name": "X", "spring": None, "province": None}])
+    assert 'name="origin"' in body.get_data(as_text=True)
+
+    body = _photo_post(
+        client, [{"name": "X", "spring": "Encinas", "province": "Badajoz"}]
+    )
+    assert 'name="origin"' not in body.get_data(as_text=True)
+
+
+def test_the_origin_photo_fills_the_gaps_and_keeps_what_was_typed(client):
+    """Everything already on the form survives — the contributor may have
+    corrected the reader before reaching for another photo."""
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
+        f"{_APP}.label_ocr.extract_label",
+        return_value={"spring": "Encinas", "province": "Badajoz", "tds": 999},
+    ), patch(f"{_REPO}.get_all_waters", return_value=[]):
+        resp = client.post(
+            "/anadir/origen",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "origin": (io.BytesIO(b"origin-face"), "o.jpg"),
+                "name": "Fuente Dehesa",
+                "tds": "48",
+                "ocr_fields": "tds",
+                "photo_tmp": "uploads/x.jpg",
+                "label_tmp": "uploads/x-label.jpg",
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert "Encinas" in body and "Badajoz" in body
+    assert 'value="Fuente Dehesa"' in body
+    assert 'value="48"' in body and "999" not in body  # typed value wins
+    # The proof photo is still the composition shot, so the ✓ set is unchanged.
+    assert re.search(r'name="ocr_fields" value="tds"', body)
+    assert 'value="uploads/x-label.jpg"' in body
+
+
+def test_the_origin_photo_never_becomes_the_stored_proof(client):
+    """It is a third face, read and discarded. `label_photo_url` must stay the
+    composition shot, which is what the ✓ refers to."""
+    _login(client)
+    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
+        f"{_APP}.photos.upload_photo"
+    ) as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label", return_value={"province": "Badajoz"}
+    ), patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        client.post(
+            "/anadir/origen",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "origin": (io.BytesIO(b"origin-face"), "o.jpg"),
+                "name": "X",
+                "label_tmp": "uploads/x-label.jpg",
+            },
+            content_type="multipart/form-data",
+        )
+    mock_upload.assert_not_called()

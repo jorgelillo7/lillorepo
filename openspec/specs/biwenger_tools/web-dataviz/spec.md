@@ -236,3 +236,68 @@ empty grid, never crash.
   `test_calendario_event_detail_data_is_embedded_for_the_click_modal`,
   `test_calendario_colours_events_by_category`,
   `test_calendario_hides_filter_bar_for_a_single_category`
+
+### Requirement: The reglamento's names resolve to Biwenger's, or fail loudly
+
+`H2H_ROUNDS` carries the spellings the reglamento and the organiser's
+spreadsheet print; `LEAGUE_MEMBERS` carries Biwenger's. Three managers differ
+(`Lillo`/`Jorge`, `Lucen`/`Lucena`, `Rubén`/`Ruben`), and both sets are correct
+where they live.
+
+`H2H_NAME_ALIASES` SHALL map between them, with `resolve_h2h_name` returning a
+`LEAGUE_MEMBERS` name and `h2h_member_id` a manager id. Both SHALL return
+`None` for a name they cannot place: returning the input unchanged would seat a
+stranger in the standings and look like it worked.
+
+It SHALL be a table, not a normalisation rule. `Rubén`/`Ruben` is an accent,
+but `Lillo`/`Jorge` are different names — a rule that solves the first while
+silently failing the second is worse than no rule.
+
+A test SHALL assert every name in `H2H_ROUNDS` resolves, so a manager added to
+the calendar without an alias fails the build instead of disappearing from the
+standings.
+
+#### Scenario: crossing between the two name universes
+- **WHEN** every name in `H2H_ROUNDS` is resolved **THEN** none is left over
+- **WHEN** `Lillo` / `Lucen` / `Rubén` are resolved
+- **THEN** `Jorge` / `Lucena` / `Ruben`, and `Lillo` reaches id `1372802`
+- **WHEN** a name both sides already agree on is resolved **THEN** itself
+- **WHEN** an unknown name is resolved **THEN** `None`, never a guess
+- *Verifies:* `test_every_h2h_name_resolves_to_a_league_member`,
+  `test_the_three_known_spellings_map_across`,
+  `test_a_name_both_universes_agree_on_needs_no_alias`,
+  `test_an_unknown_name_resolves_to_nothing_rather_than_guessing`,
+  `test_the_member_id_is_reachable_from_a_reglamento_name`
+
+### Requirement: The H2H champion is proclaimed only when there is one
+
+`h2h.champion` SHALL return the top `Standing` of a finished Liga H2H, and
+`None` in the two cases where naming one would be a claim the data does not
+support:
+
+- **The season is unfinished.** Art. 3.5 proclaims a champion of a completed
+  league. A leader in March is not a winner, and an entry written then reads as
+  settled while being wrong for months.
+- **The top row carries `tie_unresolved`.** `standings` already refuses to
+  break a tie art. 3.4 cannot break here, since its third criterion is not in
+  this spreadsheet. Taking the first of those rows would convert an honest
+  marker into a coin toss presented as a title.
+
+`SPECIAL_TOURNAMENTS` SHALL carry a `liga-h2h` slot so the palmarés can show a
+graphic once one exists; until then it renders no image, exactly as it does for
+seasons predating the cups.
+
+The competitions page SHALL show the champion when there is one and nothing
+when there is not.
+
+#### Scenario: champion, and the two ways there is not one
+- **WHEN** the calendar still has an unplayed duel **THEN** `None`
+- **WHEN** the season is complete **THEN** the top of the table, `position` 1
+- **WHEN** the top two are flagged `tie_unresolved` **THEN** `None`
+- **WHEN** a champion is found **THEN** `h2h_member_id` crosses their
+  reglamento name to a Biwenger manager id
+- *Verifies:* `test_there_is_no_champion_until_the_season_is_over`,
+  `test_the_champion_is_the_top_of_a_finished_table`,
+  `test_an_unresolved_tie_at_the_top_yields_no_champion`,
+  `test_the_champion_is_reachable_as_a_biwenger_manager`,
+  `test_the_page_shows_no_champion_mid_season`

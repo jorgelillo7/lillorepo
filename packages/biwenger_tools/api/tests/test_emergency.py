@@ -246,6 +246,19 @@ def test_pick_target_returns_none_when_no_candidates():
 # --- preview_clausulazo (end-to-end with mocks) --------------------------
 
 
+@pytest.fixture(autouse=True)
+def _no_pact():
+    """Default every test to an empty non-aggression pact.
+
+    `pact_store.load` is a real Firestore read on three `/emergencia` paths.
+    Left unpatched it hangs the suite on credential retries, and — worse — a
+    test would be asserting against whatever pact the live league happens to
+    hold. Tests about the pact patch this themselves.
+    """
+    with patch(_patches("pact_store.load"), return_value=set()):
+        yield
+
+
 def _patches(target):
     return f"packages.biwenger_tools.api.logic.emergency.{target}"
 
@@ -1440,3 +1453,91 @@ def test_execute_clausulazo_notifies_and_raises_on_failure():
 
     mock_send.assert_called_once()
     assert "rechazado" in mock_send.call_args.args[0]
+
+
+# --- The non-aggression pact binds `/emergencia` ---------------------------
+
+
+def test_preview_skips_a_pacted_managers_player_for_the_next_best(preview_env):
+    """The best DEF belongs to a manager under the pact, so the second best
+    is the target — `/emergencia` spends one irreversible call and must never
+    spend it on a friend."""
+    biwenger_players = {
+        10: _bw_player(10, "Gk", position=1),
+        11: _bw_player(11, "D1", position=2),
+    }
+    rivals = [
+        _cand(50, position=2, sf=900, owner_user_id=7, owner="Pablo"),
+        _cand(51, position=2, sf=500, owner_user_id=8, owner="Ana"),
+    ]
+    preview_env(
+        cash=10_000_000,
+        my_squad=_squad(10, 11),
+        biwenger_players=biwenger_players,
+        rivals=rivals,
+        affordable=rivals,
+        losses=[_loss(42, "MiDef", position=2)],
+    )
+    with patch(_patches("pact_store.load"), return_value={7}):
+        result = emergency.preview_clausulazo()
+
+    assert result["target"]["player_id"] == 51
+    assert result["target"]["owner"] == "Ana"
+
+
+def test_preview_reports_the_pact_when_it_leaves_nothing_to_buy(preview_env):
+    """Every affordable rival is a friend. The owner has cash and a hole, so
+    the message has to name the pact rather than the budget."""
+    biwenger_players = {
+        10: _bw_player(10, "Gk", position=1),
+        11: _bw_player(11, "D1", position=2),
+    }
+    rivals = [_cand(50, position=2, sf=900, owner_user_id=7, owner="Pablo")]
+    _, mock_send = preview_env(
+        cash=10_000_000,
+        my_squad=_squad(10, 11),
+        biwenger_players=biwenger_players,
+        rivals=rivals,
+        affordable=rivals,
+        losses=[_loss(42, "MiDef", position=2)],
+    )
+    with patch(_patches("pact_store.load"), return_value={7}):
+        result = emergency.preview_clausulazo()
+
+    assert result["target"] is None
+    assert result["pact_excluded"] == 1
+    text = mock_send.call_args.args[0]
+    assert "pacto" in text.lower()
+
+
+def test_rebuild_plan_never_signs_a_pacted_managers_player(preview_env):
+    """The rebuild path draws from the same pool as the single pick. Gating
+    only the single pick would let a multi-signing plan buy the friend the
+    pact exists to protect."""
+    biwenger_players = {10: _bw_player(10, "Gk", position=1)}
+    rivals = [
+        _cand(50, position=2, sf=900, owner_user_id=7, owner="Pablo"),
+        _cand(51, position=3, sf=800, owner_user_id=7, owner="Pablo"),
+    ]
+    captured = {}
+
+    def _capture(*, my_rows, affordable, cash, **kwargs):
+        captured["affordable"] = affordable
+        raise AssertionError("stop after the pool is built")
+
+    preview_env(
+        cash=10_000_000,
+        my_squad=_squad(10),
+        biwenger_players=biwenger_players,
+        rivals=rivals,
+        affordable=rivals,
+        my_rows=[{"bw_id": 10, "position_id": 1, "alt_positions": []}],
+    )
+    with patch(_patches("pact_store.load"), return_value={7}):
+        with patch.object(emergency.rebuild, "build_plan", side_effect=_capture):
+            try:
+                emergency.preview_clausulazo()
+            except AssertionError:
+                pass
+
+    assert captured["affordable"] == []

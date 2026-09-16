@@ -161,12 +161,30 @@ def drift(catalog) -> None:
         print("Actualiza packages/be_water/web/seed_data.py en una PR.\n")
 
 
+def geo(catalog) -> None:
+    """Read-only: fichas whose origin needs a human.
+
+    Never writes. Unlike a mineral, a wrong province cannot be resolved by
+    re-reading the label with a machine — someone has to know where the
+    bottle came from.
+    """
+    findings = data_audit.find_geo_gaps(catalog)
+    print(f"\n{len(findings)} fichas con la procedencia incompleta o incoherente.\n")
+    for water, reasons in findings:
+        country = "" if water.is_spanish else f" [{water.country_name}]"
+        print(f"{water.id} — {water.name}{country}")
+        for reason in reasons:
+            print(f"    ⚠ {reason}")
+        print()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--duplicates", action="store_true", help="review dupes")
     mode.add_argument("--suspicious", action="store_true", help="review bad values")
     mode.add_argument("--drift", action="store_true", help="dataset vs live catalog")
+    mode.add_argument("--geo", action="store_true", help="origins needing a human")
     parser.add_argument("--no-open", action="store_true", help="don't open photos")
     args = parser.parse_args()
 
@@ -177,6 +195,8 @@ def main() -> None:
         suspicious(catalog)
     elif args.drift:
         drift(catalog)
+    elif args.geo:
+        geo(catalog)
     else:
         sign_off(catalog, open_photos=not args.no_open)
 
