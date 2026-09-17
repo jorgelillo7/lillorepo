@@ -48,7 +48,11 @@ Two sources, because neither covers the other's half (see design):
 - [ ] The regression cases from the calibration squad: Aubameyang −15%,
       Redondo +55%, Hancko unchanged
 - [ ] No Oráculo opinion → returns `jp_sf` **unchanged**
-- [ ] Clamped both ways, so one bad read cannot invert a ranking
+- [ ] **Clamped at `ORACULO_MAX_MOVE = 0.25` both ways.** A weighted average
+      drags the extremes toward the population median: on the real squad a
+      backup keeper at JP 12 came out 37 (+212%) purely for existing in the
+      feed. The clamp only bites on outliers — every player in the body of the
+      distribution is bit-identical with and without it
 - [ ] Every input stays on the row beside the output
 
 ### The three fallbacks, each with its own test
@@ -264,6 +268,7 @@ eleven — these players average 1.1M and 4.10 points and will not be fielded.
    | `ORACULO_MIN_COVERAGE` | 0.60 |
    | `ORACULO_LIST_BONUS` | 0.03, capped at 3 lists |
    | `CHOLLO_MARGIN` | 150K flat |
+   | `ORACULO_MAX_MOVE` | 0.25 — found by running on the real squad |
    | chollo synthetic SF | 300 — the bare minimum to be seen |
 
    All env-tunable. The three columns keep it cheap to revisit: a week of

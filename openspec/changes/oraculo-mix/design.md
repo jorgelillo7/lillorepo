@@ -206,6 +206,41 @@ So `chance` is **a guard, not a bonus**: below a floor (say 25%) damp the
 Oráculo contribution toward zero, because a number built on a player who
 probably will not play should not move JP's. Above it, do nothing.
 
+### The clamp, and why running it on a real squad found it
+
+A weighted average pulls the extremes toward the population median. Run against
+the owner's own sixteen, that showed up immediately:
+
+    Fortuño   JP 12  ·  Oráculo 0.74  ·  k=131   →  37   (+212%)
+
+A backup keeper Jornada Perfecta scores at 12 — "will not play" — becomes 37
+purely by existing in Oráculo's feed. Nothing about him got better; the formula
+simply drags anything far below the median upward.
+
+`ORACULO_MAX_MOVE = 0.25` caps how far the blend can move any player:
+
+| | JP | unclamped | clamped |
+|---|---|---|---|
+| Fortuño | 12 | 37 (+212%) | **15 (+25%)** |
+| Rioja | 78 | 55 (−30%) | 58 (−25%) |
+| Bretones | 302 | 275 (−9%) | 275 (−9%) |
+| Dmitrovic | 404 | 447 (+11%) | 447 (+11%) |
+| Valverde | 561 | 524 (−7%) | 524 (−7%) |
+
+The property that matters: **it only bites on the outliers.** Everyone in the
+body of the distribution comes out identical, so the clamp costs nothing where
+the blend was already sensible.
+
+The original bonus-ladder draft had `clamp(bonus, -0.50, +0.50)` and it was
+lost in the move to a weighted average — the two are algebraically the same
+(`jp*(1-W) + eq*W == jp*(1 + W*(eq/jp - 1))`) and only one of them made the
+bound obvious.
+
+It changes no decision *today*: both 12 and 37 sit far below every threshold
+`lineup` compares against, so the eleven is identical either way. It is worth
+fixing anyway, because a number that inflates 212% is one nobody can trust when
+it does start deciding something — and it would be printed in the photo.
+
 ### Calibrated, and still tunable
 
 Chosen against the real squad with the numbers in front of the owner rather
@@ -218,6 +253,7 @@ than guessed:
 | `ORACULO_LIST_BONUS` | **0.03** | Capped at three lists, so +9% maximum — below the ±18% the blend moves. A mark is a hint, not a verdict |
 | `CHOLLO_MARGIN` | **150K** flat | On a ~1.1M chollo that is a 1.25M bid: weak on purpose |
 | chollo synthetic SF | **300** | The bare minimum to clear `auto_bid`'s skip, so they queue behind every real signing |
+| `ORACULO_MAX_MOVE` | **0.25** | Caps the blend's movement either way. Only bites on outliers — see above |
 
 All env-tunable without a deploy, the way `LINEUP_SUB_STARTS_ABOVE` is — and
 the default in the code must be the value that runs, since that exact drift
