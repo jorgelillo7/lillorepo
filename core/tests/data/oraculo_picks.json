@@ -1,0 +1,73 @@
+{
+ "data": {
+  "leagueId": 140,
+  "season": 2026,
+  "sistema": "biwenger-sofascore",
+  "matchday": 7,
+  "round": "Regular Season - 7",
+  "roundLabel": "Jornada 7",
+  "generatedAt": "2026-09-16T21:00:00+00:00",
+  "modelTag": "test-v1",
+  "rounds": [
+   {
+    "matchday": 7,
+    "isCurrent": true,
+    "isFinished": false,
+    "hasLineups": true
+   }
+  ],
+  "fixtures": [
+   {
+    "fixtureId": 1,
+    "fixtureDate": "2026-09-18T18:00:00+00:00",
+    "hasPrediction": true,
+    "homeTeamName": "Celta",
+    "awayTeamName": "Racing"
+   },
+   {
+    "fixtureId": 2,
+    "fixtureDate": "2026-09-20T19:00:00+00:00",
+    "hasPrediction": false,
+    "homeTeamName": "Valencia",
+    "awayTeamName": "Real Sociedad"
+   }
+  ],
+  "picks": {
+   "chollos": [
+    {
+     "playerId": 1,
+     "playerName": "Barato",
+     "slug": "barato-1",
+     "position": "Centrocampista",
+     "predictedPoints": 5.1,
+     "chance": 70
+    }
+   ],
+   "delanteros": [
+    {
+     "playerId": 2,
+     "playerName": "Punta",
+     "slug": "punta-2",
+     "position": "Delantero",
+     "predictedPoints": 7.4,
+     "chance": 80
+    }
+   ],
+   "goleadores": [
+    {
+     "playerId": 2,
+     "playerName": "Punta",
+     "slug": "punta-2",
+     "position": "Delantero",
+     "predictedPoints": 7.4,
+     "chance": 80
+    }
+   ],
+   "porteros": [],
+   "defensas": [],
+   "centrocampistas": [],
+   "asistentes": [],
+   "capitanes": []
+  }
+ }
+}

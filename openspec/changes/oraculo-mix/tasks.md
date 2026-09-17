@@ -48,7 +48,11 @@ Two sources, because neither covers the other's half (see design):
 - [ ] The regression cases from the calibration squad: Aubameyang −15%,
       Redondo +55%, Hancko unchanged
 - [ ] No Oráculo opinion → returns `jp_sf` **unchanged**
-- [ ] Clamped both ways, so one bad read cannot invert a ranking
+- [ ] **Clamped at `ORACULO_MAX_MOVE = 0.25` both ways.** A weighted average
+      drags the extremes toward the population median: on the real squad a
+      backup keeper at JP 12 came out 37 (+212%) purely for existing in the
+      feed. The clamp only bites on outliers — every player in the body of the
+      distribution is bit-identical with and without it
 - [ ] Every input stays on the row beside the output
 
 ### The three fallbacks, each with its own test
@@ -122,6 +126,113 @@ Display:
 - [ ] A test that the marker appears in both cases and **is absent** when the
       blend ran
 
+## 4b · The list bonus, inside the one number
+
+Everything lands in the projection field: JP base, the Oráculo blend, and a
+bonus for each shortlist a player appears on. One column to read.
+
+An earlier draft kept the lists out of the score because they cover 38 players
+of ~500. That conflated two different kinds of gap. The **points** coverage is
+arbitrary — it depends which fixtures the model processed first — which is why
+a partial blend distorts. The **lists** are a deliberate top-N: being absent is
+the normal state of 92% of players, not missing data.
+
+- [ ] `LIST_BONUS` (0.03 to start) per qualifying list, capped at 3, applied
+      after the blend so the bonus stays secondary to it
+- [ ] Qualifying: `goleadores`, `asistentes`, `porteros`, `defensas`,
+      `centrocampistas`, `delanteros`
+- [ ] **`chollos` excluded.** It ranks *value*: its players average 1.1M and
+      4.10 points against 7.0M and 5.10 for every other list, and only 2 of 10
+      also appear on a best-per-position list. A points bonus for it would
+      promote cheap players in the eleven, where price is irrelevant — the
+      mistake the draft optimiser already makes with cameo totals. It feeds
+      **bid priority** instead, where price is the whole point
+- [ ] **`capitanes` excluded** as derived — every 3-and-4-list player is on it,
+      so it double-counts the others. Revisit if that stops being true
+- [ ] A test that stacking works and that the cap holds: on real data 24
+      players were on one list, 8 on two, 4 on three, 2 on four
+- [ ] Env-tunable, like every other guess here
+
+### Showing it in the photos — three columns
+
+- [ ] `JP` and `Oráculo` join `Proyección` in `_BASE_COLUMNS`. Raw inputs beside
+      the output, so the formula is arguable without leaving Telegram
+- [ ] Every table gets them — squad, market and rival views all go through
+      `build_table_image`
+- [ ] `—` in the Oráculo column means no opinion, which makes a thin midweek
+      read **self-evident per row** rather than only in the title
+- [ ] One `★` per qualifying list beside the Oráculo number. **BMP glyphs
+      only**: `image_formatter` records that anything above the BMP draws a
+      dotted-circle placeholder in matplotlib, which is why `_strip_emoji`
+      exists and the bench markers are `●`/`○`. `★` is U+2605 and safe
+- [ ] **Raise `_BASE_FIG_WIDTH_IN` from 9 to ~10.8** in the same commit. The
+      existing `fig_w` formula only compensates for `extra_cols`; two new *base*
+      columns take the weight from 0.86 to 1.03 and would shrink every column
+      by 17% on an unchanged canvas — which is the exact bug the file's own
+      comment records from the clause view (1122 px, unreadable zoomed in)
+- [ ] A test on **pixels per column**, not on the weights. The property that
+      matters is that a column is no narrower than today, and it is the one
+      nobody checks by eye
+
+### The goal and assist probabilities
+
+Correlated against `predictedPoints` over the 32 players carrying both:
+`goalProbability` r = +0.50, `assistProbability` r = +0.11; by position +0.56 /
++0.18 / +0.10 for forwards, midfielders, defenders. The points absorb about a
+quarter of the goal signal and leave three quarters — not redundant, and for
+defenders nearly independent.
+
+- [ ] Feed them to `_pick_captain`, which already reasons about tail versus
+      mean. Narrow by construction: Biwenger caps the captain at 3M and only 14
+      of the 38 fall under it
+- [ ] A test on the real shape: Pedro Díaz 5.85 points at 3.9% goal against
+      Marcos Fernández 3.98 at 21.1% — the captain should prefer the second and
+      the eleven should still prefer the first
+
+## 4c · The chollos trade (an evaluated exception)
+
+Buy cheap from the `chollos` list, let the price rise, sell. Not for the
+eleven — these players average 1.1M and 4.10 points and will not be fielded.
+
+- [ ] Bid `price + CHOLLO_MARGIN` (100–200K) on **every** chollos player in the
+      day's market, not a selection among them
+- [ ] Rely on the bid being weak. The market sells to the highest offer, so
+      base + 200K loses to anyone who actually wants him — the ones that land
+      are the ones nobody else bid on, which is the premise of the trade. The
+      cap and the manual cancel are the second and third guards, not the first
+- [ ] Size the reserve from the day's real candidates (up to 3 × `price +
+      margin` for the chollos actually in the market), not a fixed figure that
+      is wrong on both a quiet and a busy day
+- [ ] **An eligibility floor for chollos only.** The ladder skips SF < 300 and
+      a chollo is low-SF by definition (the one in the squad reads 103), so
+      without this no speculative bid is ever placed. It lifts him into the
+      bidding set and changes his SF nowhere else
+- [ ] **A reserve, not leftovers.** Best-SF-first spending means "what is left"
+      is often nothing, which would make the rule fire only on quiet days. Hold
+      back roughly the day's speculative budget before the ladder starts
+- [ ] **Release the reserve when the all-in tier fires** (SF ≥ 800). That tier
+      bids the whole wallet by design and a genuine monster beats three lottery
+      tickets
+- [ ] **Its own cap**, and ~3 bids a day, so a good chollos week cannot convert
+      the wallet into bench filler. The owner reviews the day's bids in the app
+      and cancels what does not convince, so the ceiling is a safety net rather
+      than the only control
+- [ ] **Bypass `BENCH_PRICED_SF` explicitly for this path only.** That clamp
+      exists because the ladder once went all-in on a benched star; this is the
+      same shape and a different bet — a little, knowingly, rather than
+      everything, mistakenly. Loosening the clamp for everyone would reopen the
+      original bug
+- [ ] **No exit code needed — `/ofertas` rule 5 already is it.** `sf <
+      TIER_T3_MIN and roi_pct > 0 → ACEPTAR, "fondo de armario con plusvalía"`
+      is the exact shape of a chollo bought to trade, and `roi_pct` means the
+      purchase price is already known. Owner lists by hand daily, rival bids,
+      the digest recommends accepting with the percentage, one tap
+- [ ] Verify a bought-to-trade player really lands under `TIER_T3_MIN`. Above
+      it he reaches rule 3 — "useful player, that loss is excessive" — which is
+      correct behaviour but means he stopped being a trade and became a squad
+      decision
+- [ ] A test that a chollos bid never consumes cash the ladder wanted
+
 ## 5 · The removals
 
 - [ ] `provider_watch` — five watchers, twelve months, zero events. A real
@@ -148,20 +259,37 @@ Display:
    projection list. `/biwenger/predicciones` gives 366 players and no lists.
    Both are needed, each for its half. Permission decided by the owner and
    recorded in `design.md`.
-2. **Calibration — narrowed, not closed.** The absolute thresholds are gone,
-   replaced by a self-calibrating median ratio. What is left to guess is
-   `W = 0.30` (how much Oráculo moves JP) and the ~25% `chance` floor, both
-   fitted to one squad on one matchday. Env-tunable without a deploy, the way
-   `LINEUP_SUB_STARTS_ABOVE` is — and the default in the code must be the
-   value that runs, since that drift has bitten once already.
+2. ~~Calibration.~~ **Answered against the real squad**, with the effect of each
+   option on the table before choosing:
+
+   | | value |
+   |---|---|
+   | `ORACULO_W` | 0.30 |
+   | `ORACULO_MIN_COVERAGE` | 0.60 |
+   | `ORACULO_LIST_BONUS` | 0.03, capped at 3 lists |
+   | `CHOLLO_MARGIN` | 150K flat |
+   | `ORACULO_MAX_MOVE` | 0.25 — found by running on the real squad |
+   | chollo synthetic SF | 300 — the bare minimum to be seen |
+
+   All env-tunable. The three columns keep it cheap to revisit: a week of
+   photos shows whether the Oráculo column is usually full or usually dashes.
 3. ~~Read time.~~ **Answered: one read per execution, cached an hour**, the
    same shape `jp.py` already uses. The model retrains hourly, so reading more
    often buys nothing. A midweek read will simply fall under the coverage
    threshold and mark itself as JP-only, which is the correct outcome rather
    than a compromise.
-4. ~~Unreachable Oráculo.~~ **Answered.** Fall back to JP and say so — a
-   marked column header and title in the photos, one line in the Telegram
-   surfaces, distinguishing "unavailable" from "not enough data yet".
+4. ~~Unreachable Oráculo.~~ **Answered, and the three columns improved it.**
+   Fall back to JP and say so. With a raw `Oráculo` column, a failed or thin
+   read is visible **per row** as a column of em-dashes rather than inferred
+   from a header. The title marker and the Telegram line stay, still separating
+   "unavailable" from "not enough data yet".
+
+   Worth recording that this weakens — but does not remove — the case for the
+   all-or-nothing coverage rule. The original argument was that a partial blend
+   distorts the ranking *invisibly*; with the column it is no longer invisible.
+   It still distorts, though, and the eleven is applied unattended at 09:00
+   before anyone looks at a photo. So visibility helps the human afterwards,
+   not the decision that already happened.
 5. ~~Which removals.~~ **Answered: `provider_watch` and `log_promotions` go,
    the deploy watchdog stays** — the check it was conditional on produced a
    reason to keep it.
