@@ -74,6 +74,8 @@ packages/emulation_thor6/ROMs/*
 # there. They arrive full of ad-tech noise and sometimes carry session data
 # (one held a TCF consent string). A capture worth keeping is distilled into
 # docs/technical/backend/captures/ and committed there instead.
-*.har
-openapidevtools.json
-oraculo*.json
+# Anchored to the root on purpose: an unanchored `oraculo*.json` matches at
+# any depth and silently swallowed a test fixture in core/tests/data/.
+/*.har
+/openapidevtools.json
+/oraculo*.json
