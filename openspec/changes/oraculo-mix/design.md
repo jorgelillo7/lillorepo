@@ -206,10 +206,26 @@ So `chance` is **a guard, not a bonus**: below a floor (say 25%) damp the
 Oráculo contribution toward zero, because a number built on a player who
 probably will not play should not move JP's. Above it, do nothing.
 
-### Everything here is still a guess
+### Calibrated, and still tunable
 
-`W = 0.30` and the 25% floor are fitted to one squad on one matchday. They go
-in env vars, tunable without a deploy.
+Chosen against the real squad with the numbers in front of the owner rather
+than guessed:
+
+| | value | why |
+|---|---|---|
+| `ORACULO_W` | **0.30** | Moves enough for disagreement to mean something without letting one odd read reorder the squad. Fermín −18%, Jon Martín +12%, Hancko untouched |
+| `ORACULO_MIN_COVERAGE` | **0.60** | 9 of 14 is enough to blend. Coverage was 79% a day and a half out and far lower on Tuesday, so this switches on when the data is real and off when it is not |
+| `ORACULO_LIST_BONUS` | **0.03** | Capped at three lists, so +9% maximum — below the ±18% the blend moves. A mark is a hint, not a verdict |
+| `CHOLLO_MARGIN` | **150K** flat | On a ~1.1M chollo that is a 1.25M bid: weak on purpose |
+| chollo synthetic SF | **300** | The bare minimum to clear `auto_bid`'s skip, so they queue behind every real signing |
+
+All env-tunable without a deploy, the way `LINEUP_SUB_STARTS_ABOVE` is — and
+the default in the code must be the value that runs, since that exact drift
+has bitten once already.
+
+The measured constant `k` is **113** today (median `jp_sf / oraculo_points`),
+and it is deliberately not a setting: it recalculates per read so neither
+provider rescaling can break it.
 
 ## One number, and the lists go into it
 
@@ -266,21 +282,198 @@ custom = blended * (1 + LIST_BONUS * min(len(qualifying), 3))   # 0.03 to start
 Capped at three so the bonus stays secondary to the blend, which moves ±15%.
 Mbappé on three qualifying lists gets +9%; a single-list player +3%.
 
-### Showing it without a wall of numbers
+### Three columns, not one
 
-`image_formatter` renders the photos in matplotlib, and its own comment records
-that anything above the BMP draws a dotted-circle placeholder — which is why
-`_strip_emoji` exists and why the bench markers are `●` and `○` rather than a
-chair. So the marks have to be BMP glyphs.
+The photos show the inputs beside the output, so the formula is arguable
+without leaving Telegram:
 
-One star per qualifying list, in the `Proyección` column:
+    Jugador      Pos  Precio   JP   Oráculo   Proyección    Racha  Juega
+    Mbappé       DEL   24.9M  892   7.4 ★★    ▌▌▌▌▌ 883      10    fuera
+    Aubameyang   DEL   13.6M  654   3.8 ★★★   ▌▌▌▌  573      14    casa
+    Hancko       DEF    4.0M  351   3.3       ▌▌▌▌  351       3    casa
+    Iturbe       POR    0.1M   12   —         ▌      12       0    suplente
 
-    Mbappé        857 ★★★
-    Aubameyang    556 ★★
-    Hancko        351
+`Proyección` keeps the bar and stays the number every decision uses. `JP` and
+`Oráculo` are raw, and an em-dash in the Oráculo column says "no opinion" — the
+state most of a squad is in most of the week.
 
-Instantly countable, no legend needed, and it follows the file's own rule that
-shape carries the meaning while colour only reinforces it.
+This also makes the JP-only fallback **self-evident per row**: an empty Oráculo
+column down the whole table is the picture of a thin midweek read. The title
+marker stays as well, because a reader should not have to infer it from an
+absence.
+
+Applies to every table — squad, market and rival views all go through
+`build_table_image`.
+
+### The trap this walks into
+
+`image_formatter` already carries a scar from exactly this change. Its comment
+records that the clause view's two extra columns "worth 0.36 against the base's
+0.86" once shrank the base columns by 30% while the canvas grew 4%, and a
+fifteen-player squad came out 1122 px wide and unreadable when zoomed.
+
+The fix then was to widen the figure by what the **extra** columns weigh:
+
+```
+fig_w = _BASE_FIG_WIDTH_IN * total_weight / base_weight
+```
+
+That formula only compensates for `extra_cols`. Adding two **base** columns
+leaves `_BASE_FIG_WIDTH_IN` at 9 inches while the base weight goes 0.86 → 1.03,
+so every column loses 17% of its width and the bug comes back by a different
+door.
+
+So the change is two edits, not one:
+
+| | weight | canvas |
+|---|---|---|
+| base today | 0.86 | 9.0 in |
+| base + `JP` (0.08) + `Oráculo` (0.09) | 1.03 | **10.8 in** |
+| rival view (+0.36) | 1.39 | 14.5 in |
+
+`_BASE_FIG_WIDTH_IN` must rise to ~10.8 with the columns. A test should assert
+the rendered pixel width per column does not fall below today's, since that is
+the property that actually matters and the one nobody checks by eye.
+
+### The star marks
+
+One `★` per qualifying list, in the Oráculo column beside the number.
+
+**BMP glyphs only.** The same file records that anything above the BMP draws a
+dotted-circle placeholder in matplotlib — which is why `_strip_emoji` exists
+and the bench markers are `●` and `○` rather than a chair. `★` is U+2605 and
+safe; a medal emoji is not.
+
+## The chollos exception: buying to trade, not to field
+
+`chollos` is excluded from the projection because it ranks value, not quality.
+The same fact makes it the right list for a **different objective**: buy cheap,
+let the price rise, sell.
+
+Evaluated rather than accepted, because it runs against something
+`auto_bid` learned the hard way.
+
+### Why it holds up
+
+- **The list is literally about this.** `chollos` ranks `pointsPerMillion`, and
+  points per euro is what moves a Biwenger price.
+- **There is room.** `MAX_SQUAD_SIZE` is 25 and the squad sits at 14, so a
+  speculative buy costs a slot nobody needed.
+- **It is cheap.** Base price plus 100–200K on a ~1.1M player.
+- **It does not corrupt the tiers.** The SF ladder answers "who improves the
+  eleven"; this answers "what will be worth more next week". Different
+  questions, so the ladder's boundaries stay untouched.
+
+### Why it needs guarding
+
+**`auto_bid` already carries a scar here.** Its docstring records that a player
+who would not make the pitch has his SF clamped to `BENCH_PRICED_SF`, because
+"JP scores a benched star highly, and the ladder read that number alone; the
+wallet went all-in on players who were not going to play."
+
+This proposal deliberately buys players who will not play. That is the same
+shape as the old bug and a different bet: the bug spent *everything* on a
+non-player believing he would score; this spends *a little* knowing he will
+not. Legitimate — but the guard must be **bypassed explicitly for this path,
+with its own hard cap**, never loosened for everyone.
+
+Two conditions follow:
+
+1. **Last in the queue, leftover cash only.** `auto_bid` bids best-SF-first
+   until the money runs out. A speculative bid taken ahead of a T2 star is
+   strictly worse, so the ladder runs to completion first and chollos spend
+   what is left — or nothing.
+2. **Its own ceiling**, independent of the tiers: `price + CHOLLO_MARGIN`
+   (100–200K), and a cap on how many per matchday so a good chollos week cannot
+   quietly convert the whole wallet into bench filler.
+
+### The exit already exists, and it was built for this shape
+
+An earlier draft called this a buy-and-forget machine on the grounds that
+nothing sells. That was wrong twice over.
+
+The owner opens the app daily and lists players by hand, so the selling half is
+a habit rather than a gap. And `/ofertas` already advises on exactly this
+shape — rule 5 of `_recommend`:
+
+```python
+# 5. Descarte o fondo de armario con plusvalía → ACEPTAR.
+if sf < ab.TIER_T3_MIN and roi_pct is not None and roi_pct > 0:
+    return REC_ACCEPT, [f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"]
+```
+
+A chollo bought to trade is a low-SF player with a positive return over what
+was paid. That is the rule's exact antecedent, and `roi_pct` means the system
+already knows the purchase price.
+
+So the loop closes without a line of new code: buy automatically, list by hand,
+the rival bids, `/ofertas` fires in the next digest recommending **ACEPTAR**
+with the percentage, and it is one tap.
+
+The rules also partition correctly by accident of good design. Rule 3 refuses
+to sell a *useful* player at a loss; rule 5 sells a *fondo de armario* at a
+profit. A chollo is fondo de armario by construction, so it can only ever land
+in the second.
+
+Better still, the exit does not even need a rival. Biwenger's own market bids
+each day on whatever was listed the day before, and `/ofertas` already tells
+the two apart — `👤 rival` against `🤖 Mercado público`. So the trade closes
+against the house if nobody else wants him.
+
+No reminder line is needed. The one thing worth checking when this is built is
+that a bought-to-trade player really does fall below `TIER_T3_MIN` — if his SF
+is high enough to reach rule 3, he stops being a trade and becomes a squad
+decision, which is the correct outcome but a different one.
+
+### Getting them bought at all
+
+Two things stand between a chollo and a bid, and neither is the price.
+
+**The ladder skips him outright.** `auto_bid` drops anything under SF 300, and
+a chollo is a chollo precisely because he is cheap and low-scoring — the
+example in the squad reads SF 103. So the "bonus" this needs is not points on a
+projection: it is an **eligibility floor for chollos only**, enough to enter the
+bidding set. Nothing else about the ladder changes, and his SF stays what it is
+everywhere else.
+
+**Leftover cash may never arrive.** Bidding runs best-SF-first until the money
+is gone, so "spend what is left" means that on any busy market day no
+speculative bid happens at all — which defeats the point of having the rule.
+
+So a small **reserve** rather than leftovers: hold back roughly the cost of the
+day's speculative bids before the ladder starts, so speculation happens on
+ordinary days.
+
+With one waiver, because the reserve competes with the one tier that should
+never be starved: **when the all-in tier fires (SF ≥ 800), the reserve is
+released**. A genuine monster at 800+ is worth more than three lottery tickets,
+and that tier already bids the whole wallet by design.
+
+### Bid on every chollo that appears — softly, and that is the safety
+
+The rule is: any chollos player in the day's market gets a bid at base price
+plus a small margin. Not a selection among them, all of them.
+
+That sounds reckless and is not, because **a soft bid usually loses**. The
+computer market sells to the highest offer, and base + 200K is beaten by anyone
+who actually wants the player. So the ones that land are exactly the ones
+nobody else bid on — which is the same thing as saying they were available at
+close to base price, which is the entire premise of the trade.
+
+The strategy is cheap *because* it is weak. A ladder bid is meant to win; this
+one is meant to be there in case nobody else shows up.
+
+Three guards, in descending order of how often they matter:
+
+1. **It usually loses.** Self-limiting by construction.
+2. **A cap of ~3 bids a day**, so an unusual market where five chollos surface
+   at once cannot quietly commit 6M.
+3. **The owner cancels in the app.** Reviewed daily as a habit that already
+   exists, so the ceiling is a safety net rather than the only control.
+
+The reserve sizes itself from the day's actual candidates — up to three times
+`price + margin` for the chollos really in the market — rather than being a
+fixed figure that is wrong on both a quiet and a busy day.
 
 ## Falling back to JP — three levels, not one
 
