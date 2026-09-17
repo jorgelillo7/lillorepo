@@ -116,6 +116,40 @@ REBUILD_PLAN_TTL_SECONDS = int(os.getenv("REBUILD_PLAN_TTL_SECONDS", "1800"))
 #     --update-env-vars OFFERS_MUTE_REJECTED=0
 OFFERS_MUTE_REJECTED = os.getenv("OFFERS_MUTE_REJECTED", "1") not in ("0", "false", "")
 
+# --- ORÁCULO BLEND (see logic/custom_prediction.py) ------------------------
+# A second opinion nudges the JP-based projection; it never replaces it. All
+# five knobs are env-tunable without a deploy, calibrated against a real
+# squad rather than guessed.
+
+# Weight given to the Oráculo side of the blend, once converted to JP's
+# scale. 0.30 moves enough for real disagreement to matter without letting
+# one odd read reorder the squad.
+ORACULO_W = float(os.getenv("ORACULO_W", "0.30"))
+
+# Caps how far the blend can move jp_sf, either way, as a fraction of
+# jp_sf. A plain weighted average drags outliers toward the population
+# median — a backup keeper at JP 12 came out 37 (+212%) purely for existing
+# in Oráculo's feed. The clamp only bites on outliers; the body of the
+# distribution is unaffected.
+ORACULO_MAX_MOVE = float(os.getenv("ORACULO_MAX_MOVE", "0.25"))
+
+# Bonus per qualifying shortlist a player is on, capped at 3 (so +9% max) —
+# below the ±25% the blend itself can move. A shortlist mark is a hint,
+# not a verdict.
+ORACULO_LIST_BONUS = float(os.getenv("ORACULO_LIST_BONUS", "0.03"))
+
+# Minimum share of scored rows Oráculo must cover before the blend runs at
+# all, all-or-nothing per read. A partial blend is worse than none: whoever
+# Oráculo happened to have looked at first jumps the queue for no reason
+# anyone can see.
+ORACULO_MIN_COVERAGE = float(os.getenv("ORACULO_MIN_COVERAGE", "0.60"))
+
+# Below this starting-XI probability (%), damp Oráculo's contribution to
+# the blend toward zero rather than reward it. `expectedPoints ==
+# predictedPoints × chance` on the source API, so the number is already
+# post-chance and adding a further chance bonus would double-count it.
+ORACULO_CHANCE_FLOOR = int(os.getenv("ORACULO_CHANCE_FLOOR", "25"))
+
 # --- GCP TARGETS (the api needs to trigger the scraper Cloud Run Job) ---
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "biwenger-tools")
 CLOUD_RUN_REGION = os.getenv("CLOUD_RUN_REGION", "europe-southwest1")

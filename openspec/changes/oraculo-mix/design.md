@@ -241,6 +241,22 @@ It changes no decision *today*: both 12 and 37 sit far below every threshold
 fixing anyway, because a number that inflates 212% is one nobody can trust when
 it does start deciding something — and it would be printed in the photo.
 
+### The clamp bounds the blend, not the total — deliberately
+
+The clamp is applied to the blend and the list bonus goes on top, so the real
+ceiling is `1.25 × 1.09 ≈ +36%`, not +25%.
+
+That stacking is not a corner case: a player Oráculo rates far above JP is
+usually one of the players on its shortlists, so the two effects compound
+exactly when both point the same way. Decided to keep it.
+
+The reasoning is that the clamp exists for a specific pathology — a weighted
+average drags outliers toward the population median — and the list bonus does
+not have it. The bonus is bounded by construction at three lists, and absorbing
+it into the clamp would make a mark meaningless for anyone the blend already
+moved to the edge. Two independent signals agreeing is a stronger statement
+than either alone, and the number should say so.
+
 ### Calibrated, and still tunable
 
 Chosen against the real squad with the numbers in front of the owner rather
