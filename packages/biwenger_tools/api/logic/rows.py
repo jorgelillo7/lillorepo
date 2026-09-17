@@ -1,14 +1,21 @@
 """Row builders shared by every endpoint that renders a squad or market view.
 
-Pure functions over `(biwenger_player_dict, jp_index)`. Kept free of side
-effects so the same row dict feeds the PNG image builder, the JSON
+Pure functions over `(biwenger_player_dict, jp_index, oraculo_index)`. Kept
+free of side effects so the same row dict feeds the PNG image builder, the JSON
 recommendations endpoint, etc.
+
+Three providers meet here. Biwenger owns identity and price, Jornada Perfecta
+the base projection, and Oráculo a second opinion — each under its own keys, so
+a reader can always tell which of them said what.
 """
 
 import math
 import time
 
-from packages.biwenger_tools.api.logic.player_matching import find_player_match
+from packages.biwenger_tools.api.logic.player_matching import (
+    build_jp_index,
+    find_player_match,
+)
 
 SECONDS_PER_DAY = 86400
 
@@ -33,8 +40,50 @@ def clause_str(clause) -> str:
     return f"{m:.1f}M" if int(clause) % 1_000_000 else f"{int(m)}M"
 
 
-def build_row(biwenger_player: dict, jp_index: dict) -> dict:
+def build_oraculo_index(entries: list, lists: dict | None = None) -> dict:
+    """An index over Oráculo rows, matched by the same machinery as JP.
+
+    Oráculo is a **third naming universe** beside Biwenger and JP, so it goes
+    through `player_matching` rather than a bespoke comparison — the traps are
+    the same ones (accents, mononyms, two players sharing a surname) and they
+    are already solved once.
+
+    `lists` maps a list name to the slugs on it, so a row can carry which
+    shortlists its player appears on without a second scan per player.
+    """
+    normalised = [
+        {"name": entry.get("playerName"), "slug": entry.get("slug"), "_oraculo": entry}
+        for entry in entries or []
+        if entry.get("playerName")
+    ]
+    index = build_jp_index(normalised)
+    by_slug: dict[str, list[str]] = {}
+    for list_name, slugs in (lists or {}).items():
+        for slug in slugs or []:
+            by_slug.setdefault(slug, []).append(list_name)
+    index["lists_by_slug"] = {slug: sorted(names) for slug, names in by_slug.items()}
+    return index
+
+
+def oraculo_coverage(rows: list) -> float:
+    """Share of rows Oráculo has an opinion on, 0.0 for an empty list.
+
+    What `ORACULO_MIN_COVERAGE` is compared against: below it the blend is
+    switched off for the whole read, because a partial blend promotes whoever
+    Oráculo happened to look at first.
+    """
+    if not rows:
+        return 0.0
+    return sum(1 for row in rows if row.get("oraculo_matched")) / len(rows)
+
+
+def build_row(
+    biwenger_player: dict, jp_index: dict, oraculo_index: dict | None = None
+) -> dict:
     name = biwenger_player.get("name", "N/A")
+    oraculo = find_player_match(name, oraculo_index or {}) if oraculo_index else None
+    entry = (oraculo or {}).get("_oraculo") or {}
+    slug = entry.get("slug")
     return {
         "bw_id": biwenger_player.get("id"),
         "name": name,
@@ -42,6 +91,18 @@ def build_row(biwenger_player: dict, jp_index: dict) -> dict:
         "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
         "jp_player": find_player_match(name, jp_index),
+        # Oráculo, under its own keys and raw. `matched` is False rather than
+        # a zero projection: "not carried" and "expected to score nothing" are
+        # different states, and only the second should ever move a number. A
+        # silent zero for a missing player once took the league ranking down.
+        "oraculo_matched": oraculo is not None,
+        "oraculo_points": entry.get("predictedPoints") if oraculo else None,
+        "oraculo_chance": entry.get("chance") if oraculo else None,
+        "oraculo_lists": (
+            (oraculo_index or {}).get("lists_by_slug", {}).get(slug, [])
+            if oraculo
+            else []
+        ),
         # Biwenger's own read on the player. No decision uses it — JP is
         # the source of truth — but carrying it lets `provider_watch`
         # notice when the two disagree.
