@@ -370,6 +370,25 @@ def test_blended_rows_falls_back_to_jp_when_coverage_is_thin():
     assert enriched[0]["custom_prediction"] == 892  # unchanged: JP's own SF
 
 
+def test_blended_rows_marks_solo_jp_when_coverage_is_high_but_k_never_arrived():
+    """A real production shape: Oráculo has matched every player (coverage
+    1.0) but has not scored their fixture yet, so `k` — which needs positive
+    points, not just a match — came back `None` and the builder added no
+    `custom_prediction` key at all. `should_blend` alone cannot see that: it
+    only counts matches. Every number shown here is the raw JP rate, so the
+    header must say so, or it drifts from what the column actually displays."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    rows = [
+        _row(oraculo_matched=True, oraculo_points=None, jp_player=_jp_with_sf(300)),
+        _row(oraculo_matched=True, oraculo_points=None, jp_player=_jp_with_sf(400)),
+    ]
+    for row in rows:
+        del row["custom_prediction"]
+    _, blend_ran = imf._blended_rows(rows)
+    assert blend_ran is False
+
+
 def test_blended_rows_never_recomputes_a_prediction_the_row_already_carries():
     """`custom_prediction` now arrives already computed by the builder from a
     global `k` this function does not have. Recomputing `k` from just the

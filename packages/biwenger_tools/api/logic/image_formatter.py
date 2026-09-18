@@ -242,10 +242,14 @@ def _blended_rows(rows: list[dict]) -> tuple[list[dict], bool]:
     same rows, so the header mark can never drift from the numbers.
 
     A row that arrives with no `custom_prediction` at all (a call site that
-    has not been threaded through an Oráculo index/`k` yet) falls back to
-    the plain JP rate.
+    has not been threaded through an Oráculo index/`k` yet, or a read where
+    Oráculo matched the player but had not scored his fixture, so `k` came
+    back `None` despite full coverage) falls back to the plain JP rate — and
+    the header must say so: `should_blend` alone only counts matches, not
+    whether the builder actually had a `k` to blend with.
     """
-    blend_ran = cp.should_blend(rows, config.ORACULO_MIN_COVERAGE)
+    carries_a_blend = any("custom_prediction" in row for row in rows)
+    blend_ran = carries_a_blend and cp.should_blend(rows, config.ORACULO_MIN_COVERAGE)
     enriched = []
     for row in rows:
         custom = row.get("custom_prediction")

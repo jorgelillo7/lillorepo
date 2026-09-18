@@ -162,12 +162,26 @@ value and determines only the header mark, with the same `should_blend` call
 over the same rows the builder used, so the mark can never drift from the
 numbers.
 
+Coverage alone is not enough to declare the blend ran: `should_blend` counts
+*matches*, not whether `k` existed to blend with. A row can be matched with
+no points yet — Oráculo has picked the player but not scored his fixture —
+which counts toward coverage without ever earning a `custom_prediction` key.
+The header mark SHALL require both: at least one row carrying the key, and
+coverage over the floor.
+
 #### Scenario: the same player, two tables, one number
 - **WHEN** the same player appears in two different row-sets built with the
   same `k`
 - **THEN** his `custom_prediction` is identical in both
 - *Verifies:* `test_the_same_player_gets_the_same_projection_in_two_different_tables`,
   `test_global_conversion_factor_is_the_same_regardless_of_which_subset_asks`
+
+#### Scenario: matched but unscored still counts as no blend
+- **WHEN** every row is matched (coverage 1.0) but none carries a
+  `custom_prediction` key, because `k` came back `None`
+- **THEN** the blend is reported as not having run, never "Proyección"
+  without its "(solo JP)" mark
+- *Verifies:* `test_blended_rows_marks_solo_jp_when_coverage_is_high_but_k_never_arrived`
 
 #### Scenario: the formatter reads the number, it does not compute one
 - **WHEN** a row arrives at `image_formatter` already carrying
