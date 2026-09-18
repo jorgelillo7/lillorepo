@@ -124,13 +124,14 @@ reads Oráculo once per request and SHALL degrade to Jornada Perfecta alone on
 any failure — the index comes back empty, `oraculo_ok` false, and every reader
 already treats an empty index as "no opinion on anybody".
 
-The same read also derives `oraculo_k`, the JP/Oráculo scale conversion, once
-from the whole `biwenger_players` population
-(`custom_prediction.global_conversion_factor`) — never per table. It shares
-the index's fallback exactly: there is no state where the index survives a
-failure but `k` does not, or the reverse. Every reader that threads the index
-through to a row builder threads `oraculo_k` alongside it, so the same player
-blends to the same number wherever this context's rows end up rendered.
+The same read also derives `oraculo_scale`, the JP/Oráculo percentile map,
+once from the whole `biwenger_players` population
+(`custom_prediction.global_scale`) — never per table. It shares the index's
+fallback exactly: there is no state where the index survives a failure but
+the scale does not, or the reverse. Every reader that threads the index
+through to a row builder threads `oraculo_scale` alongside it, so the same
+player blends to the same number wherever this context's rows end up
+rendered.
 
 The catch there is deliberately broad rather than typed to `OraculoError`.
 Oráculo is read out of a page we do not control, so the likely failure is a
@@ -171,17 +172,17 @@ never shipped.
 
 #### Scenario: the second opinion is unreachable, or unreadable
 - **WHEN** the Oráculo read raises the SDK's own error, from either endpoint
-- **THEN** the context carries an empty index, `oraculo_k` is `None`,
+- **THEN** the context carries an empty index, `oraculo_scale` is `None`,
   `oraculo_ok` is false, and `build_context` returns normally
 - **WHEN** it raises something the SDK never declared, as a shape change would
 - **THEN** the same, rather than propagating into the digest
-- **WHEN** the index reads fine but deriving `k` from it raises
+- **WHEN** the index reads fine but deriving the scale from it raises
 - **THEN** the same degradation, not a half-broken context with an index and
-  no `k`
+  no scale
 - *Verifies:* `test_an_oraculo_error_leaves_the_index_empty_and_does_not_raise`,
   `test_an_oraculo_error_from_predictions_is_caught_too`,
   `test_a_shape_change_at_the_provider_is_caught_too`,
-  `test_a_failing_global_k_degrades_to_jp_alone_without_raising`
+  `test_a_failing_global_scale_degrades_to_jp_alone_without_raising`
 
 #### Scenario: top-level failure alerts
 - **WHEN** the inner run raises (e.g. Biwenger 5xx during build_context)
