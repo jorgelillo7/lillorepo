@@ -12,6 +12,9 @@ import pytest
 import requests
 
 from packages.biwenger_tools.api.logic import auto_bid
+from packages.biwenger_tools.api.logic import custom_prediction as cp
+from packages.biwenger_tools.api.logic import rows as rows_mod
+from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 
 # --- tier_bid -------------------------------------------------------------
 #
@@ -827,3 +830,101 @@ def test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched(run_env)
     text = mock_send.call_args.kwargs["text"]
     assert "🚑 No disponible" in text
     assert "rebajado" in text
+
+
+# --- the market and the squad are measured with one ruler ------------------
+
+
+def _oraculo_entry(name, slug, points):
+    return {"playerName": name, "slug": slug, "predictedPoints": points, "chance": 90}
+
+
+def _keeper(bw_id, name, price=1_000_000):
+    return {"id": bw_id, "name": name, "position": 1, "price": price}
+
+
+def test_the_market_and_the_squad_are_ranked_on_one_scale():
+    """`_would_be_bench` compares a market candidate's projection against the
+    squad's. Blending one side and not the other prices raw market numbers
+    against blended squad ones, and every bid tilts the same way without
+    anything in the output saying so.
+
+    Raw JP ranks the candidate below both keepers already owned, so he is
+    bench and no bid goes out. Oráculo rates him far above them; once both
+    sides are blended he breaks into the depth chart.
+    """
+    entries = [
+        _oraculo_entry("Newcomer", "newcomer-1", 9.0),
+        _oraculo_entry("Owned A", "owned-a-2", 1.0),
+        _oraculo_entry("Owned B", "owned-b-3", 0.9),
+    ]
+    oraculo_index = rows_mod.build_oraculo_index(entries)
+    jp_index = build_jp_index(
+        [
+            {"name": n, "slug": s, "predict": [{"type": 2, "rate": r}]}
+            for n, s, r in [
+                ("Newcomer", "newcomer", 400),
+                ("Owned A", "owned-a", 450),
+                ("Owned B", "owned-b", 440),
+            ]
+        ]
+    )
+    biwenger_players = {
+        1: _keeper(1, "Newcomer"),
+        2: _keeper(2, "Owned A"),
+        3: _keeper(3, "Owned B"),
+    }
+    scale = cp.build_scale(
+        [
+            {
+                "oraculo_matched": True,
+                "oraculo_points": pts,
+                "jp_player": {"predict": [{"type": 2, "rate": rate}]},
+            }
+            for pts, rate in [(9.0, 500), (1.0, 300), (0.9, 290)]
+        ]
+    )
+
+    squad = [{"id": 2}, {"id": 3}]
+    market = [{"player": {"id": 1}}]
+
+    raw_by_pos = auto_bid._squad_sf_by_position(
+        rows_mod.build_squad_rows(squad, biwenger_players, jp_index)
+    )
+    raw = auto_bid._build_candidates(market, biwenger_players, jp_index)[0]
+    assert auto_bid._would_be_bench(raw, raw_by_pos) is True
+
+    blended_by_pos = auto_bid._squad_sf_by_position(
+        rows_mod.build_squad_rows(
+            squad,
+            biwenger_players,
+            jp_index,
+            oraculo_index=oraculo_index,
+            oraculo_scale=scale,
+        )
+    )
+    blended = auto_bid._build_candidates(
+        market,
+        biwenger_players,
+        jp_index,
+        oraculo_index=oraculo_index,
+        oraculo_scale=scale,
+    )[0]
+    assert blended["sf"] > raw["sf"]
+    assert auto_bid._would_be_bench(blended, blended_by_pos) is False
+
+
+def test_without_a_scale_every_projection_stays_raw_jp():
+    """The Oráculo read fails often enough that this is the normal path, and
+    it bids real money: no scale must mean byte-identical behaviour."""
+    jp_index = build_jp_index(
+        [{"name": "Solo", "slug": "solo", "predict": [{"type": 2, "rate": 420}]}]
+    )
+    biwenger_players = {1: _keeper(1, "Solo")}
+    market = [{"player": {"id": 1}}]
+    assert auto_bid._build_candidates(
+        market, biwenger_players, jp_index, oraculo_index=None, oraculo_scale=None
+    ) == auto_bid._build_candidates(market, biwenger_players, jp_index)
+    assert (
+        auto_bid._build_candidates(market, biwenger_players, jp_index)[0]["sf"] == 420
+    )

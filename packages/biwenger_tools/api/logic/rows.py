@@ -122,10 +122,15 @@ def build_row(
     }
 
 
-def _enrich_with_custom_prediction(
+def enrich_with_custom_prediction(
     rows: list, oraculo_index: dict | None, oraculo_scale: "ProjectionScale | None"
 ) -> None:
     """Add `custom_prediction` to every row, in place — or add nothing.
+
+    Public because `auto_bid` builds its market candidates outside the two
+    builders here and still has to land on the same numbers: it compares
+    those candidates against squad rows, so a second blending path would
+    price one side differently from the other.
 
     `oraculo_scale` is a percentile map between two providers, not a
     property of this row-set (see
@@ -169,7 +174,7 @@ def build_market_rows(
         if not bw_player:
             continue
         rows.append(build_row(bw_player, jp_index, oraculo_index))
-    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
+    enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
     return rows
 
 
@@ -212,5 +217,5 @@ def build_squad_rows(
                 (locked_until - time.time()) <= 0
             )
         rows.append(row)
-    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
+    enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
     return rows
