@@ -221,8 +221,8 @@ def test_extra_columns_widen_the_canvas_instead_of_squeezing_the_others():
         io.BytesIO(build_table_image(rows, "T", extra_cols=["Clausulable", "Cláusula"]))
     )
 
-    plain_per_col = plain.width / 7  # the base column count
-    clause_per_col = clause.width / 9
+    plain_per_col = plain.width / 9  # the base column count (JP, Oráculo included)
+    clause_per_col = clause.width / 11
     # The extra columns are wider than the base average, so per-column space
     # must not fall — before this it dropped by a third.
     assert clause_per_col >= plain_per_col
@@ -233,3 +233,197 @@ def test_the_render_is_dense_enough_to_zoom_into():
     from packages.biwenger_tools.api.logic import image_formatter as imf
 
     assert imf._DPI >= 200
+
+
+def test_new_base_columns_do_not_shrink_a_pre_existing_column():
+    """`JP` and `Oráculo` are narrower than the base average on purpose, so
+    the *mean* px/column necessarily falls even when nothing shrank — that
+    is not the property that matters. `Jugador`'s own absolute pixel width
+    is: it must not regress from what the pre-existing 7-column table gave.
+
+    467 px is `1435 × (0.28 / 0.86)` — `Jugador`'s share of a real render of
+    this exact fixture measured against this file before this change (15
+    rows, no extra columns, the 7-column `_BASE_COLUMNS`/9in canvas)."""
+    from PIL import Image
+
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    rows = [
+        {"name": f"P{i}", "position_id": 2, "price": 3_000_000, "jp_player": _jp()}
+        for i in range(15)
+    ]
+    img = Image.open(io.BytesIO(build_table_image(rows, "T")))
+
+    jugador_weight = next(w for h, w in imf._BASE_COLUMNS if h == "Jugador")
+    base_weight = sum(w for _, w in imf._BASE_COLUMNS)
+    jugador_px = img.width * jugador_weight / base_weight
+
+    baseline_jugador_px = 1435 * (0.28 / 0.86)
+    assert jugador_px >= baseline_jugador_px * 0.98
+
+
+# --- the three columns: JP, Oráculo, and the blended Proyección ------------
+
+
+def _row(**overrides):
+    row = {
+        "name": "Jugador",
+        "position_id": 3,
+        "price": 1_000_000,
+        "jp_player": _jp(),
+        "oraculo_matched": False,
+        "oraculo_points": None,
+        "oraculo_lists": [],
+        "custom_prediction": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_an_unmatched_row_renders_an_em_dash_in_the_oraculo_column():
+    """No opinion is the normal state for most of a squad most of the week —
+    an em-dash says so without reading as a zero score."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._oraculo_cell(_row(oraculo_matched=False)) == "—"
+
+
+def test_a_matched_row_with_no_points_also_renders_an_em_dash():
+    """Matching the player is not the same as Oráculo having scored his next
+    fixture yet — a still-missing `oraculo_points` is level-1 'no opinion',
+    not a zero."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._oraculo_cell(_row(oraculo_matched=True, oraculo_points=None)) == "—"
+
+
+def test_a_zero_projection_is_shown_as_a_real_number():
+    """`0.0` is an answer (Oráculo expects him not to play), and must read
+    differently from 'no opinion' — see `oraculo_coverage`'s own contract."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._oraculo_cell(_row(oraculo_matched=True, oraculo_points=0.0)) == "0.0"
+
+
+def test_stars_count_qualifying_lists_only():
+    """`chollos` ranks value, `capitanes` is derived from the other lists —
+    neither is a quality signal, so neither earns a star."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    qualifying = _row(
+        oraculo_matched=True,
+        oraculo_points=7.4,
+        oraculo_lists=["goleadores", "asistentes"],
+    )
+    non_qualifying = _row(
+        oraculo_matched=True,
+        oraculo_points=7.4,
+        oraculo_lists=["chollos", "capitanes"],
+    )
+    assert imf._oraculo_cell(qualifying) == "7.4 ★★"
+    assert imf._oraculo_cell(non_qualifying) == "7.4"
+
+
+def test_jp_cell_is_an_em_dash_with_no_jp_data():
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._jp_cell(None) == "—"
+    assert imf._jp_cell(892) == "892"
+
+
+def test_projection_header_marks_only_when_the_blend_did_not_run():
+    """Text first, colour second — the header must say so on its own."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._projection_header(blend_ran=True) == "Proyección"
+    assert imf._projection_header(blend_ran=False) == "Proyección (JP)"
+
+
+def test_title_takes_a_suffix_only_when_the_blend_did_not_run():
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    assert imf._titled("Mi equipo", blend_ran=True) == "Mi equipo"
+    assert imf._titled("Mi equipo", blend_ran=False) == "Mi equipo (solo JP)"
+
+
+def _jp_with_sf(sf: int) -> dict:
+    """A JP player carrying a predicted SF rate, the shape `get_predict_rate`
+    reads — distinct from `_jp()` above, which only carries availability."""
+    from packages.biwenger_tools.api.player_formatting import SCORE_SF
+
+    return {"predict": [{"type": SCORE_SF, "rate": sf}]}
+
+
+def test_blended_rows_falls_back_to_jp_when_coverage_is_thin():
+    """Level 2 of the design's fallback: below `ORACULO_MIN_COVERAGE`, the
+    blend must not run for anybody in the read, even a fully-matched row."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    rows = [
+        _row(oraculo_matched=True, oraculo_points=4.0, jp_player=_jp_with_sf(892)),
+        _row(oraculo_matched=False, jp_player=_jp_with_sf(300)),
+        _row(oraculo_matched=False, jp_player=_jp_with_sf(300)),
+        _row(oraculo_matched=False, jp_player=_jp_with_sf(300)),
+    ]
+    enriched, blend_ran = imf._blended_rows(rows)
+    assert blend_ran is False
+    assert enriched[0]["custom_prediction"] == 892  # unchanged: JP's own SF
+
+
+def test_blended_rows_never_crashes_on_a_matched_row_with_no_jp_player():
+    """A real production shape: Oráculo matched him but the JP name-match
+    failed. `custom_prediction` needs a JP number to blend against, so this
+    row must come out with no projection rather than raising."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    rows = [_row(oraculo_matched=True, oraculo_points=4.0, jp_player=None)]
+    enriched, _ = imf._blended_rows(rows)
+    assert enriched[0]["custom_prediction"] is None
+
+
+# --- the table sorts and shades by the number it shows ---------------------
+
+
+def _shown_row(name, jp_sf, custom=None):
+    return {
+        "name": name,
+        "jp_player": {"predict": [{"type": 2, "rate": jp_sf}], "status": "ok"},
+        "custom_prediction": custom,
+    }
+
+
+def test_the_table_sorts_by_the_projection_it_displays():
+    """The blend moves players past each other. Sorting by the JP rate
+    underneath leaves the Proyección column visibly unsorted — Juan Iglesias
+    blended to 472 sat below a 437 in the rendered photo."""
+    from packages.biwenger_tools.api.player_formatting import sort_key_sf_desc
+
+    rows = [_shown_row("Canales", 461, 437), _shown_row("Iglesias", 430, 472)]
+    order = [r["name"] for r in sorted(rows, key=sort_key_sf_desc, reverse=True)]
+    assert order == ["Iglesias", "Canales"]
+
+
+def test_a_row_without_a_blend_sorts_on_its_jp_rate():
+    from packages.biwenger_tools.api.player_formatting import sort_key_sf_desc
+
+    rows = [_shown_row("Bajo", 200), _shown_row("Alto", 600)]
+    order = [r["name"] for r in sorted(rows, key=sort_key_sf_desc, reverse=True)]
+    assert order == ["Alto", "Bajo"]
+
+
+def test_the_colour_band_follows_the_blended_number():
+    """A player the blend lifts across a threshold must be shaded for where he
+    landed, not where JP left him."""
+    from packages.biwenger_tools.api.player_formatting import (
+        band_for_score,
+        shown_score,
+    )
+
+    lifted = _shown_row("Dmitrovic", 404, 461)
+    assert band_for_score(shown_score(lifted)) == band_for_score(461)
+
+
+def test_shown_score_is_none_when_there_is_no_projection_at_all():
+    from packages.biwenger_tools.api.player_formatting import shown_score
+
+    assert shown_score({"name": "X", "jp_player": None}) is None

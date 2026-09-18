@@ -15,6 +15,12 @@ from typing import Optional, Tuple
 
 from core.sdk.biwenger import BiwengerClient
 from core.sdk.jp import check_api_health, fetch_all_players
+from core.sdk.oraculo import (
+    fetch_picks,
+    fetch_predictions,
+    matchday_dates,
+    rows_for_dates,
+)
 from core.sdk.telegram import (
     TelegramDeliveryError,
     send_telegram_message,
@@ -23,6 +29,7 @@ from core.sdk.telegram import (
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+from packages.biwenger_tools.api.logic.rows import build_oraculo_index
 
 logger = get_logger(__name__)
 
@@ -34,15 +41,50 @@ class OrchestratorContext:
     `biwenger_players` is the cf-base player database keyed by id —
     callers must read prices and positions from here (the per-league
     `owner.price` is unreliable for server-side caps).
+
+    `oraculo_index` is `{}` and `oraculo_ok` is False whenever the second
+    opinion could not be read — level 3 of the Oráculo design's fallback.
+    Every reader must already treat an empty index as "no opinion on
+    anybody" rather than an error.
     """
 
     biwenger: BiwengerClient
     biwenger_players: dict
     jp_index: dict
+    oraculo_index: dict | None = None
+    oraculo_ok: bool = False
+
+
+def _read_oraculo() -> Tuple[dict, bool]:
+    """The Oráculo index for the upcoming matchday, or an empty one.
+
+    Never raises: an unreachable or wrong second opinion must degrade the
+    whole context to JP alone rather than break `build_context` — the SLO
+    already demands that a second provider never blocks the digest.
+
+    The catch is deliberately broad. Oráculo is read out of a page we do not
+    control, so the likely failure is a shape change surfacing as `KeyError`
+    or `TypeError`, not the `OraculoError` the SDK raises for the network.
+    A narrow catch would take the 09:00 digest down for a provider we chose
+    to treat as optional.
+    """
+    try:
+        picks_result = fetch_picks()
+        dates = matchday_dates(picks_result)
+        predictions = rows_for_dates(fetch_predictions(), dates)
+        lists = {
+            name: [entry.get("slug") for entry in entries or []]
+            for name, entries in (picks_result.get("picks") or {}).items()
+        }
+        return build_oraculo_index(predictions, lists=lists), True
+    except Exception:
+        logger.warning("Oráculo read failed — falling back to JP alone.", exc_info=True)
+        return {}, False
 
 
 def build_context() -> OrchestratorContext:
-    """JP health + JP players + JP index + Biwenger session + players map."""
+    """JP health + JP players + JP index + Biwenger session + players map
+    + Oráculo (best-effort — see `_read_oraculo`)."""
     check_api_health(
         config.JP_AUTH_TOKEN,
         competition=config.JP_COMPETITION,
@@ -65,10 +107,13 @@ def build_context() -> OrchestratorContext:
             p.get("name") for p in biwenger_players.values() if p.get("name")
         ],
     )
+    oraculo_index, oraculo_ok = _read_oraculo()
     return OrchestratorContext(
         biwenger=biwenger,
         biwenger_players=biwenger_players,
         jp_index=jp_index,
+        oraculo_index=oraculo_index,
+        oraculo_ok=oraculo_ok,
     )
 
 
