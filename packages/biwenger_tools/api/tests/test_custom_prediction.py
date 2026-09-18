@@ -7,6 +7,8 @@ assertion of whatever the code happens to compute today.
 """
 
 from packages.biwenger_tools.api.logic import custom_prediction as cp
+from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+from packages.biwenger_tools.api.logic.rows import build_oraculo_index
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
 
@@ -176,3 +178,42 @@ def test_should_blend_is_false_below_the_threshold():
     jump the queue for no reason anyone could see."""
     rows = [_row(matched=True), _row(matched=False), _row(matched=False)]
     assert cp.should_blend(rows, coverage_min=0.60) is False
+
+
+# --- global_conversion_factor: k over the whole population, not a table ----
+
+
+def test_global_conversion_factor_is_the_same_regardless_of_which_subset_asks():
+    """The whole point of computing `k` once per request: a caller passing
+    the full player population must get the population's median ratio, not
+    something a smaller table would have derived on its own."""
+    biwenger_players = {
+        1: {"id": 1, "name": "A", "position": 3, "price": 1},
+        2: {"id": 2, "name": "B", "position": 3, "price": 1},
+        3: {"id": 3, "name": "C", "position": 3, "price": 1},
+    }
+    jp_index = build_jp_index(
+        [
+            {"name": "A", "slug": "a", "predict": [{"type": SCORE_SF, "rate": 100}]},
+            {"name": "B", "slug": "b", "predict": [{"type": SCORE_SF, "rate": 200}]},
+            {"name": "C", "slug": "c", "predict": [{"type": SCORE_SF, "rate": 50}]},
+        ]
+    )
+    oraculo_index = build_oraculo_index(
+        [
+            {"playerName": "A", "slug": "a", "predictedPoints": 1.0, "chance": 80},
+            {"playerName": "B", "slug": "b", "predictedPoints": 2.0, "chance": 80},
+            {"playerName": "C", "slug": "c", "predictedPoints": 2.0, "chance": 80},
+        ]
+    )
+    # ratios: 100, 100, 25 -> median 100, same figure `conversion_factor`
+    # reaches directly over the equivalent rows in
+    # `test_conversion_factor_is_the_median_ratio_over_matched_rows`.
+    k = cp.global_conversion_factor(biwenger_players, jp_index, oraculo_index)
+    assert k == 100
+
+
+def test_global_conversion_factor_is_none_with_no_oraculo_data():
+    biwenger_players = {1: {"id": 1, "name": "A", "position": 3, "price": 1}}
+    jp_index = build_jp_index([{"name": "A", "slug": "a"}])
+    assert cp.global_conversion_factor(biwenger_players, jp_index, {}) is None

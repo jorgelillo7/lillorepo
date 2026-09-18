@@ -370,6 +370,40 @@ def test_blended_rows_falls_back_to_jp_when_coverage_is_thin():
     assert enriched[0]["custom_prediction"] == 892  # unchanged: JP's own SF
 
 
+def test_blended_rows_never_recomputes_a_prediction_the_row_already_carries():
+    """`custom_prediction` now arrives already computed by the builder from a
+    global `k` this function does not have. Recomputing `k` from just the
+    rows in front of it — the defect this change closes — would blend the
+    first row to a different number than the one the builder committed to."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    rows = [
+        _row(
+            oraculo_matched=True,
+            oraculo_points=4.0,
+            jp_player=_jp_with_sf(430),
+            custom_prediction=999,
+        ),
+        _row(oraculo_matched=True, oraculo_points=3.0, jp_player=_jp_with_sf(300)),
+        _row(oraculo_matched=True, oraculo_points=5.0, jp_player=_jp_with_sf(500)),
+    ]
+    enriched, blend_ran = imf._blended_rows(rows)
+    assert blend_ran is True
+    assert enriched[0]["custom_prediction"] == 999
+
+
+def test_blended_rows_falls_back_to_jp_when_the_row_carries_no_prediction():
+    """Several call sites still build rows with no `oraculo_index`/`k` at all —
+    those rows carry no `custom_prediction` key, and must render the plain JP
+    rate rather than an em-dash."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
+
+    row = _row(jp_player=_jp_with_sf(300))
+    del row["custom_prediction"]
+    enriched, _ = imf._blended_rows([row])
+    assert enriched[0]["custom_prediction"] == 300
+
+
 def test_blended_rows_never_crashes_on_a_matched_row_with_no_jp_player():
     """A real production shape: Oráculo matched him but the JP name-match
     failed. `custom_prediction` needs a JP number to blend against, so this

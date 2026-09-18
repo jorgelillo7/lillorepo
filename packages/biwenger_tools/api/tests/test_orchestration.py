@@ -88,6 +88,29 @@ def test_a_successful_read_builds_an_index_scoped_to_the_upcoming_matchday():
     assert find_player_match("Otra Jornada", ctx.oraculo_index) is None
 
 
+def test_a_failing_global_k_degrades_to_jp_alone_without_raising():
+    """`oraculo_k` shares the same broad fallback as `oraculo_index`: a
+    provider we treat as optional must never take the whole context down,
+    whether it fails on the index or on deriving `k` from it."""
+    with ExitStack() as stack:
+        _base_patches(stack)
+        stack.enter_context(patch(_patch("fetch_picks"), return_value=PICKS_RESULT))
+        stack.enter_context(
+            patch(_patch("fetch_predictions"), return_value=PREDICTIONS)
+        )
+        stack.enter_context(
+            patch(
+                _patch("global_conversion_factor"),
+                side_effect=KeyError("shape changed"),
+            )
+        )
+        ctx = orchestration.build_context()
+
+    assert ctx.oraculo_index == {}
+    assert ctx.oraculo_k is None
+    assert ctx.oraculo_ok is False
+
+
 def test_an_oraculo_error_leaves_the_index_empty_and_does_not_raise():
     """Level 3 of the design's fallback: unreachable or wrong must degrade to
     JP alone, never break the whole context."""

@@ -74,7 +74,12 @@ def _notify_auto_bid_paused(token: str, chat_id: str) -> None:
 
 
 def _observed_market_rows(
-    biwenger, market_players, biwenger_players, jp_index, oraculo_index=None
+    biwenger,
+    market_players,
+    biwenger_players,
+    jp_index,
+    oraculo_index=None,
+    oraculo_k=None,
 ):
     """Market rows, watched on the way past.
 
@@ -88,7 +93,9 @@ def _observed_market_rows(
     cost the digest its market section, which is the section most likely to be
     empty already.
     """
-    rows = build_market_rows(market_players, biwenger_players, jp_index, oraculo_index)
+    rows = build_market_rows(
+        market_players, biwenger_players, jp_index, oraculo_index, oraculo_k=oraculo_k
+    )
     try:
         provider_watch.observe(rows)
     except Exception:  # pragma: no cover - an observer must never break a send
@@ -262,7 +269,11 @@ def _run_daily_inner() -> dict:
             config.USER_SQUAD_URL, ctx.biwenger.user_id
         )
         return build_squad_rows(
-            my_squad, ctx.biwenger_players, ctx.jp_index, ctx.oraculo_index
+            my_squad,
+            ctx.biwenger_players,
+            ctx.jp_index,
+            ctx.oraculo_index,
+            oraculo_k=ctx.oraculo_k,
         )
 
     def _market_rows():
@@ -273,6 +284,7 @@ def _run_daily_inner() -> dict:
             ctx.biwenger_players,
             ctx.jp_index,
             ctx.oraculo_index,
+            oraculo_k=ctx.oraculo_k,
         )
 
     team_sent, team_count = _safe_send_section(

@@ -109,3 +109,24 @@ def should_blend(rows: list, coverage_min: float) -> bool:
     gets blended, because a partial blend promotes whoever Oráculo happened
     to have looked at first."""
     return oraculo_coverage(rows) >= coverage_min
+
+
+def global_conversion_factor(
+    biwenger_players: dict, jp_index: dict, oraculo_index: dict
+) -> float | None:
+    """`conversion_factor` over the whole player population, not a table.
+
+    `k` is a scale conversion between two providers, not a property of
+    which 15 players happen to be in front of a reader — computing it from a
+    table let the same player blend to a different number depending on who
+    shared his table. The import is function-local: `rows.py` already
+    imports `oraculo_coverage` from here, and a module-level import back
+    would make the two modules initialise each other.
+    """
+    from packages.biwenger_tools.api.logic.rows import build_row
+
+    rows = [
+        build_row(player, jp_index, oraculo_index)
+        for player in biwenger_players.values()
+    ]
+    return conversion_factor(rows)
