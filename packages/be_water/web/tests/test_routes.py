@@ -2284,8 +2284,11 @@ def test_the_front_shot_is_read_too_and_only_fills_gaps(client):
     # The gap the second face filled.
     assert 'name="province"' in body and "Badajoz" in body
     assert "Encinas" in body
-    # The composition shot still wins its own fields.
-    assert "999" not in body
+    # The composition shot still wins its own fields. Anchored on the input's
+    # value: a bare "999" also matches the random filename in the photo's src,
+    # which made this fail about one run in forty.
+    assert 'value="48"' in body
+    assert 'value="999"' not in body
 
 
 def test_the_tick_belongs_to_the_photo_that_is_stored_as_proof(client):
