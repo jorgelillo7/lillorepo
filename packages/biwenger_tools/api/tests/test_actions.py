@@ -259,5 +259,8 @@ def test_collect_ranks_every_squad_on_the_same_oraculo_scale():
     summary = league_compare.collect(ctx)
     league_compare.reset_cache()
 
-    assert summary["Ana"]["projection"] > summary["Beto"]["projection"]
+    # Both totals must reflect the blend — pinning only Ana's would also
+    # pass if Beto's squad had silently stayed on the raw JP rate.
+    assert summary["Ana"]["projection"] == 360  # 300 blended up via Oráculo
+    assert summary["Beto"]["projection"] == 275  # 350 blended down via Oráculo
     assert league_compare.rank(summary, "projection") == ["Ana", "Beto"]

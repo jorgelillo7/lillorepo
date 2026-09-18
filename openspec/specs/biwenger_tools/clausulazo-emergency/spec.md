@@ -78,6 +78,12 @@ against each other within the same flow, and a mismatch would repeat
 `league_compare`'s defect one level down — a plan priced against two different
 scales.
 
+#### Scenario: both pools in one flow share the index and scale
+- **WHEN** the owner's squad and the rival pool are built in the same request
+- **THEN** both carry the same blend, so a candidate is never ranked or priced
+  against a scale the owner's own squad was not measured on
+- *Verifies:* `test_gather_rivals_threads_the_oraculo_blend_into_every_rival_squad`
+
 ### Requirement: Preview resolves or offers a selector
 
 `preview_clausulazo` SHALL target the lost line directly when the loss is
