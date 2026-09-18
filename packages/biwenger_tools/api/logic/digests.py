@@ -79,7 +79,7 @@ def _observed_market_rows(
     biwenger_players,
     jp_index,
     oraculo_index=None,
-    oraculo_k=None,
+    oraculo_scale=None,
 ):
     """Market rows, watched on the way past.
 
@@ -94,7 +94,11 @@ def _observed_market_rows(
     empty already.
     """
     rows = build_market_rows(
-        market_players, biwenger_players, jp_index, oraculo_index, oraculo_k=oraculo_k
+        market_players,
+        biwenger_players,
+        jp_index,
+        oraculo_index,
+        oraculo_scale=oraculo_scale,
     )
     try:
         provider_watch.observe(rows)
@@ -273,7 +277,7 @@ def _run_daily_inner() -> dict:
             ctx.biwenger_players,
             ctx.jp_index,
             ctx.oraculo_index,
-            oraculo_k=ctx.oraculo_k,
+            oraculo_scale=ctx.oraculo_scale,
         )
 
     def _market_rows():
@@ -284,7 +288,7 @@ def _run_daily_inner() -> dict:
             ctx.biwenger_players,
             ctx.jp_index,
             ctx.oraculo_index,
-            oraculo_k=ctx.oraculo_k,
+            oraculo_scale=ctx.oraculo_scale,
         )
 
     team_sent, team_count = _safe_send_section(

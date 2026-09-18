@@ -29,7 +29,8 @@ from core.sdk.telegram import (
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.custom_prediction import (
-    global_conversion_factor,
+    ProjectionScale,
+    global_scale,
 )
 from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 from packages.biwenger_tools.api.logic.rows import build_oraculo_index
@@ -50,11 +51,11 @@ class OrchestratorContext:
     Every reader must already treat an empty index as "no opinion on
     anybody" rather than an error.
 
-    `oraculo_k` is the JP/Oráculo scale conversion, derived once from the
+    `oraculo_scale` is the JP/Oráculo percentile map, derived once from the
     whole `biwenger_players` population (see
-    `custom_prediction.global_conversion_factor`) rather than per table —
-    every reader passes it through unchanged so the same player blends to
-    the same number regardless of which table shows him.
+    `custom_prediction.global_scale`) rather than per table — every reader
+    passes it through unchanged so the same player blends to the same
+    number regardless of which table shows him.
     """
 
     biwenger: BiwengerClient
@@ -62,19 +63,20 @@ class OrchestratorContext:
     jp_index: dict
     oraculo_index: dict | None = None
     oraculo_ok: bool = False
-    oraculo_k: float | None = None
+    oraculo_scale: ProjectionScale | None = None
 
 
 def _read_oraculo(
     biwenger_players: dict, jp_index: dict
-) -> Tuple[dict, float | None, bool]:
-    """The Oráculo index and global `k` for the upcoming matchday, or empty ones.
+) -> Tuple[dict, ProjectionScale | None, bool]:
+    """The Oráculo index and global scale for the upcoming matchday, or empty ones.
 
     Never raises: an unreachable or wrong second opinion must degrade the
     whole context to JP alone rather than break `build_context` — the SLO
-    already demands that a second provider never blocks the digest. `k` is
-    derived from the same read and shares its fallback: there is no state
-    where the index survives a failure but `k` does not, or the reverse.
+    already demands that a second provider never blocks the digest. The
+    scale is derived from the same read and shares its fallback: there is no
+    state where the index survives a failure but the scale does not, or the
+    reverse.
 
     The catch is deliberately broad. Oráculo is read out of a page we do not
     control, so the likely failure is a shape change surfacing as `KeyError`
@@ -91,8 +93,8 @@ def _read_oraculo(
             for name, entries in (picks_result.get("picks") or {}).items()
         }
         oraculo_index = build_oraculo_index(predictions, lists=lists)
-        k = global_conversion_factor(biwenger_players, jp_index, oraculo_index)
-        return oraculo_index, k, True
+        scale = global_scale(biwenger_players, jp_index, oraculo_index)
+        return oraculo_index, scale, True
     except Exception:
         logger.warning("Oráculo read failed — falling back to JP alone.", exc_info=True)
         return {}, None, False
@@ -123,14 +125,14 @@ def build_context() -> OrchestratorContext:
             p.get("name") for p in biwenger_players.values() if p.get("name")
         ],
     )
-    oraculo_index, oraculo_k, oraculo_ok = _read_oraculo(biwenger_players, jp_index)
+    oraculo_index, oraculo_scale, oraculo_ok = _read_oraculo(biwenger_players, jp_index)
     return OrchestratorContext(
         biwenger=biwenger,
         biwenger_players=biwenger_players,
         jp_index=jp_index,
         oraculo_index=oraculo_index,
         oraculo_ok=oraculo_ok,
-        oraculo_k=oraculo_k,
+        oraculo_scale=oraculo_scale,
     )
 
 

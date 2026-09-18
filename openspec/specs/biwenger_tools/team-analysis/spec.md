@@ -143,62 +143,87 @@ starred Yamal is the table saying what his clause costs.
   `test_build_squad_rows_forwards_the_oraculo_index`,
   `test_build_market_rows_forwards_the_oraculo_index`
 
-### Requirement: `k` is global, coverage is per table
+### Requirement: The conversion is a percentile map, global, coverage per table
 
-The JP/Oráculo scale conversion (`k`, `custom_prediction.conversion_factor`)
-SHALL be derived once per request, from the whole player population
-(`custom_prediction.global_conversion_factor`), and passed into every row
-builder unchanged. `k` converts between two providers' scales; it is not a
-property of which players happen to share a table, and deriving it per table
-let the same player render a different projection depending on who else was
-in the photo — 24% apart on a real squad split in half.
+The JP/Oráculo conversion SHALL be a percentile map
+(`custom_prediction.ProjectionScale`, built by `build_scale`), not a single
+multiplier. A multiplier assumes the two providers are proportional; they are
+not — Oráculo has a floor a ratio cannot see, so `jp_sf / oraculo_points`
+runs from ~15 for the very lowest projections to ~91 for most of the squad to
+~133 at the top of the range. Most players are low-JP substitutes, so they
+set a single global ratio, and that ratio then under-converts the top of
+Oráculo's range: the league's best projection got blended *down* rather than
+confirmed. A percentile map has no such assumption — a reading at rank N
+converts to whatever sits at rank N in the other provider's own range,
+immune to either one rescaling its numbers (the reason the conversion
+self-calibrates in the first place).
+
+The scale SHALL be derived once per request, from the whole player population
+(`custom_prediction.global_scale`), and passed into every row builder
+unchanged. It is not a property of which players happen to share a table, and
+deriving it per table let the same player render a different projection
+depending on who else was in the photo — 24% apart on a real squad split in
+half.
 
 Coverage stays per table: whether *these exact rows* have enough Oráculo
 opinions to blend genuinely differs between a squad and the market, and
 `should_blend` keeps asking that question of the row-set in front of it.
 `logic/rows.py` computes `custom_prediction` at build time from the global
-`k`; `logic/image_formatter.py` never recomputes it — it reads the row's own
-value and determines only the header mark, with the same `should_blend` call
-over the same rows the builder used, so the mark can never drift from the
-numbers.
+scale; `logic/image_formatter.py` never recomputes it — it reads the row's
+own value and determines only the header mark, with the same `should_blend`
+call over the same rows the builder used, so the mark can never drift from
+the numbers.
 
 Coverage alone is not enough to declare the blend ran: `should_blend` counts
-*matches*, not whether `k` existed to blend with. A row can be matched with
-no points yet — Oráculo has picked the player but not scored his fixture —
-which counts toward coverage without ever earning a `custom_prediction` key.
-The header mark SHALL require both: at least one row carrying the key, and
-coverage over the floor.
+*matches*, not whether a scale existed to blend with. A row can be matched
+with no points yet — Oráculo has picked the player but not scored his
+fixture — which counts toward coverage without ever earning a
+`custom_prediction` key. The header mark SHALL require both: at least one
+row carrying the key, and coverage over the floor.
 
 #### Scenario: the same player, two tables, one number
 - **WHEN** the same player appears in two different row-sets built with the
-  same `k`
+  same scale
 - **THEN** his `custom_prediction` is identical in both
 - *Verifies:* `test_the_same_player_gets_the_same_projection_in_two_different_tables`,
-  `test_global_conversion_factor_is_the_same_regardless_of_which_subset_asks`
+  `test_global_scale_matches_build_scale_over_the_same_population`
+
+#### Scenario: the top of the range is never blended below its own JP number
+- **WHEN** a player sits at the top of both providers' ranges
+- **THEN** the blend lands at or above his own JP number, never below it —
+  the defect a single multiplier could not avoid
+- **WHEN** a player sits in the body of the distribution
+- **THEN** he converts close to his own JP level, not toward the
+  population's overall ratio
+- *Verifies:* `test_the_top_of_the_range_is_not_dragged_below_his_own_jp_projection`,
+  `test_a_mid_table_player_converts_close_to_his_own_jp_level`,
+  `test_build_scale_sorts_each_sequence_independently`,
+  `test_equivalent_jp_is_monotonic_even_with_duplicate_oraculo_values`
 
 #### Scenario: matched but unscored still counts as no blend
 - **WHEN** every row is matched (coverage 1.0) but none carries a
-  `custom_prediction` key, because `k` came back `None`
+  `custom_prediction` key, because the scale came back `None`
 - **THEN** the blend is reported as not having run, never "Proyección"
   without its "(solo JP)" mark
-- *Verifies:* `test_blended_rows_marks_solo_jp_when_coverage_is_high_but_k_never_arrived`
+- *Verifies:* `test_blended_rows_marks_solo_jp_when_coverage_is_high_but_scale_never_arrived`
 
 #### Scenario: the formatter reads the number, it does not compute one
 - **WHEN** a row arrives at `image_formatter` already carrying
   `custom_prediction`
-- **THEN** that value is rendered untouched, never recomputed from a `k`
+- **THEN** that value is rendered untouched, never recomputed from a scale
   derived from just this table
 - **WHEN** a row arrives with no `custom_prediction` at all (a call site with
-  no Oráculo index/`k` threaded yet) **THEN** it falls back to its raw JP rate
+  no Oráculo index/scale threaded yet) **THEN** it falls back to its raw JP
+  rate
 - *Verifies:* `test_blended_rows_never_recomputes_a_prediction_the_row_already_carries`,
   `test_blended_rows_falls_back_to_jp_when_the_row_carries_no_prediction`
 
-#### Scenario: no index, or no `k`, leaves the row exactly as it was
+#### Scenario: no index, or no scale, leaves the row exactly as it was
 - **WHEN** a row builder is called with no Oráculo index, or with an index but
-  no `k`
+  no scale
 - **THEN** its rows carry no `custom_prediction` key at all — every call site
   not yet threaded through keeps working unchanged
-- *Verifies:* `test_no_k_leaves_the_row_with_no_custom_prediction_key`,
+- *Verifies:* `test_no_scale_leaves_the_row_with_no_custom_prediction_key`,
   `test_build_squad_rows_with_no_index_matches_nothing`
 
 ### Requirement: The photo says when it is running on Jornada Perfecta alone
@@ -218,15 +243,15 @@ has only the photo.
 - **WHEN** coverage is sufficient **THEN** neither mark appears
 - **WHEN** a row Oráculo rated has no JP reading at all **THEN** the fallback
   still renders instead of raising
-- **WHEN** `k` is available but coverage on these exact rows is still below the
-  floor **THEN** the blend does not run despite `k` being present
+- **WHEN** a scale is available but coverage on these exact rows is still below
+  the floor **THEN** the blend does not run despite the scale being present
 - *Verifies:* `test_blended_rows_falls_back_to_jp_when_coverage_is_thin`,
   `test_projection_header_marks_only_when_the_blend_did_not_run`,
   `test_title_takes_a_suffix_only_when_the_blend_did_not_run`,
   `test_blended_rows_never_crashes_on_a_matched_row_with_no_jp_player`,
   `test_coverage_counts_rows_with_an_opinion`,
   `test_coverage_of_nothing_is_zero_not_a_crash`,
-  `test_low_coverage_still_skips_the_blend_even_with_a_k`
+  `test_low_coverage_still_skips_the_blend_even_with_a_scale`
 
 ### Requirement: Order and colour follow the number on screen
 

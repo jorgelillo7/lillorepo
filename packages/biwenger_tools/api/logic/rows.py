@@ -11,6 +11,7 @@ a reader can always tell which of them said what.
 
 import math
 import time
+from typing import TYPE_CHECKING
 
 from core.sdk.jp import get_predict_rate
 from packages.biwenger_tools.api import config
@@ -19,6 +20,13 @@ from packages.biwenger_tools.api.logic.player_matching import (
     find_player_match,
 )
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
+
+if TYPE_CHECKING:
+    # `custom_prediction` already imports `oraculo_coverage` from this module
+    # at load time; importing it back here would make the two initialise
+    # each other, so the real import stays function-local (see below) and
+    # this one only exists for the type checker.
+    from packages.biwenger_tools.api.logic.custom_prediction import ProjectionScale
 
 SECONDS_PER_DAY = 86400
 
@@ -115,23 +123,24 @@ def build_row(
 
 
 def _enrich_with_custom_prediction(
-    rows: list, oraculo_index: dict | None, k: float | None
+    rows: list, oraculo_index: dict | None, oraculo_scale: "ProjectionScale | None"
 ) -> None:
     """Add `custom_prediction` to every row, in place — or add nothing.
 
-    `k` is a scale conversion between two providers, not a property of this
-    row-set (see `logic/custom_prediction.py::global_conversion_factor`);
-    only `should_blend`'s coverage check is legitimately per-table, since
-    coverage genuinely asks "does Oráculo know these exact players". No
-    `oraculo_index` or no `k` means the caller has nothing to blend with —
-    rows come out exactly as they do without this step, so every call site
-    that has not been threaded yet keeps working unchanged.
+    `oraculo_scale` is a percentile map between two providers, not a
+    property of this row-set (see
+    `logic/custom_prediction.py::global_scale`); only `should_blend`'s
+    coverage check is legitimately per-table, since coverage genuinely asks
+    "does Oráculo know these exact players". No `oraculo_index` or no
+    `oraculo_scale` means the caller has nothing to blend with — rows come
+    out exactly as they do without this step, so every call site that has
+    not been threaded yet keeps working unchanged.
 
     Imports `custom_prediction` locally: that module already imports
     `oraculo_coverage` from here, and a module-level import back would make
     the two initialise each other.
     """
-    if not oraculo_index or k is None:
+    if not oraculo_index or oraculo_scale is None:
         return
     from packages.biwenger_tools.api.logic import custom_prediction as cp
 
@@ -139,7 +148,7 @@ def _enrich_with_custom_prediction(
     for row in rows:
         jp_sf = get_predict_rate(row.get("jp_player"), SCORE_SF)
         row["custom_prediction"] = (
-            cp.custom_prediction(row, jp_sf, k, blend_on=blend_on)
+            cp.custom_prediction(row, jp_sf, oraculo_scale, blend_on=blend_on)
             if jp_sf is not None
             else None
         )
@@ -150,7 +159,7 @@ def build_market_rows(
     biwenger_players: dict,
     jp_index: dict,
     oraculo_index: dict | None = None,
-    oraculo_k: float | None = None,
+    oraculo_scale: "ProjectionScale | None" = None,
 ) -> list:
     rows = []
     for sale in market_players:
@@ -160,7 +169,7 @@ def build_market_rows(
         if not bw_player:
             continue
         rows.append(build_row(bw_player, jp_index, oraculo_index))
-    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_k)
+    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
     return rows
 
 
@@ -170,7 +179,7 @@ def build_squad_rows(
     jp_index: dict,
     oraculo_index: dict | None = None,
     include_clause: bool = False,
-    oraculo_k: float | None = None,
+    oraculo_scale: "ProjectionScale | None" = None,
 ) -> list:
     rows = []
     for player_data in squad:
@@ -203,5 +212,5 @@ def build_squad_rows(
                 (locked_until - time.time()) <= 0
             )
         rows.append(row)
-    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_k)
+    _enrich_with_custom_prediction(rows, oraculo_index, oraculo_scale)
     return rows
