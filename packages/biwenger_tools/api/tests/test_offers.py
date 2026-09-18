@@ -256,6 +256,17 @@ def test_xi_impact_names_the_player_who_actually_comes_in():
     ]
 
 
+def test_xi_impact_reports_the_replacement_s_displayed_score_not_the_raw_jp_rate():
+    """`replacement_sf` feeds the "Recambio: X (SF n)" line the user reads.
+    If it kept reading the raw JP rate, that line would show a number the
+    projection column no longer displays once the Oráculo blend moved it."""
+    squad = _squad_with_two_keepers()
+    squad[1]["custom_prediction"] = 777  # Fortuño, the replacement.
+    base = offers._xi_baseline(squad)
+    impact = offers._xi_impact(squad, 1, base)
+    assert impact["replacement_sf"] == 777
+
+
 def test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him():
     """One keeper, and he is the one under offer."""
     squad = [
@@ -322,6 +333,22 @@ def test_a_starter_offer_does_pay_for_the_search():
             xi_base={"total_sf": 1, "starter_ids": set()},
         )
     impact.assert_called_once()
+
+
+def test_score_offer_scores_on_the_displayed_prediction_not_the_raw_jp_rate():
+    """`sf` drives both the tier label shown on the card and the accept/
+    reject recommendation. Reading the raw JP rate here would rank and
+    recommend on a number the row no longer displays once the blend ran —
+    the same class of bug the projection table had."""
+    scored = offers._score_offer(
+        {"id": 1, "requestedPlayers": [{"id": 99}], "amount": 1_000_000},
+        MagicMock(biwenger_players={99: {"name": "X", "price": 0}}, jp_index={}),
+        {99: {"jp_player": _sf_jp(50), "custom_prediction": ab.TIER_ALL_IN_MIN + 50}},
+        starter_ids=set(),
+        my_team=[],
+        xi_base={"total_sf": 1, "starter_ids": set()},
+    )
+    assert scored["sf"] == ab.TIER_ALL_IN_MIN + 50
 
 
 def test_xi_baseline_swallows_an_optimizer_failure():

@@ -46,6 +46,13 @@ football — never letting one stand in for the other:
   top / alta / media / baja", "Sin proyección") and never a squad role
 - *Verifies:* `test_tier_label_boundaries`
 
+#### Scenario: scoring reads the number the offer card displays
+- **WHEN** the offered player's row carries a blended prediction
+  (`custom_prediction`) alongside its raw JP rate
+- **THEN** `_score_offer`'s `sf` — which drives both the tier label and the
+  recommendation — is the blend, never the raw rate underneath it
+- *Verifies:* `test_score_offer_scores_on_the_displayed_prediction_not_the_raw_jp_rate`
+
 ### Requirement: Squad depth outranks the projection band
 
 A player's JP projection says how well he is expected to *score*; it does not say
@@ -104,6 +111,13 @@ The search is exhaustive backtracking (~0.13 s per solve on a 15-man squad,
   squad, the SF the eleven would lose, and the name of the player who would take
   his place
 - *Verifies:* `test_xi_impact_names_the_player_who_actually_comes_in`
+
+#### Scenario: the replacement's SF is the number his own row displays
+- **WHEN** the replacement's row carries a blended prediction alongside its
+  raw JP rate
+- **THEN** `replacement_sf` is the blend, so the "Recambio: X (SF n)" line
+  never quotes a number the projection column no longer shows for him
+- *Verifies:* `test_xi_impact_reports_the_replacement_s_displayed_score_not_the_raw_jp_rate`
 
 ### Requirement: Starter detection is resilient
 
