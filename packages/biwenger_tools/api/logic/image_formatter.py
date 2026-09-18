@@ -231,27 +231,30 @@ def _oraculo_cell(row: dict) -> str:
 
 
 def _blended_rows(rows: list[dict]) -> tuple[list[dict], bool]:
-    """Every row plus its `custom_prediction`, and whether the blend ran.
+    """Every row, its `custom_prediction` untouched, and whether the blend ran.
 
-    Computed per table rather than once for the whole read: `k` and coverage
-    are properties of the exact players being shown, so a squad and the
-    market can legitimately disagree about whether Oráculo covers them well
-    enough to blend.
+    `custom_prediction` is already on the row by the time it gets here —
+    `logic/rows.py` computed it from a global `k`, not one derived from
+    whoever happens to be in this table. Recomputing it here from just
+    these rows is the defect this closes: the same player rendered a
+    different number depending on who shared his table. `blend_ran` is
+    still read with the same `should_blend` call the builder used, over the
+    same rows, so the header mark can never drift from the numbers.
 
-    A row Oráculo matched but JP did not (a real production shape — the two
-    providers disagree on names independently) gets no `custom_prediction`
-    at all: there is no JP number to blend against.
+    A row that arrives with no `custom_prediction` at all (a call site that
+    has not been threaded through an Oráculo index/`k` yet, or a read where
+    Oráculo matched the player but had not scored his fixture, so `k` came
+    back `None` despite full coverage) falls back to the plain JP rate — and
+    the header must say so: `should_blend` alone only counts matches, not
+    whether the builder actually had a `k` to blend with.
     """
-    k = cp.conversion_factor(rows)
-    blend_ran = cp.should_blend(rows, config.ORACULO_MIN_COVERAGE) and k is not None
+    carries_a_blend = any("custom_prediction" in row for row in rows)
+    blend_ran = carries_a_blend and cp.should_blend(rows, config.ORACULO_MIN_COVERAGE)
     enriched = []
     for row in rows:
-        jp_sf = get_predict_rate(row.get("jp_player"), SCORE_SF)
-        custom = (
-            cp.custom_prediction(row, jp_sf, k, blend_on=blend_ran)
-            if jp_sf is not None
-            else None
-        )
+        custom = row.get("custom_prediction")
+        if custom is None:
+            custom = get_predict_rate(row.get("jp_player"), SCORE_SF)
         enriched.append({**row, "custom_prediction": custom})
     return enriched, blend_ran
 

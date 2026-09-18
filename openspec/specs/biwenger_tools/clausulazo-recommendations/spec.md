@@ -22,6 +22,24 @@ widens the affordability target as the wallet grows.
 - **THEN** margin is 2M / 2M / 5M / 8M / 10M (capped)
 - *Verifies:* `test_compute_dynamic_margin_scales_with_cash`
 
+### Requirement: Ranking reads the number the card displays
+
+`sf_of` SHALL read the blended prediction (`custom_prediction`) when one was
+computed for the row, falling back to the raw JP rate only when it was not.
+`filter_affordable`, `top_per_position` and `rebuild`'s value-per-clause both
+rank and cut candidates by this reader — reading the raw rate underneath would
+let the Oráculo blend move a card's displayed number without moving where it
+sorts or whether it clears the SF-0 cut.
+
+#### Scenario: the blend, when present, decides
+- **WHEN** a candidate row carries both a JP rate and a blended prediction
+- **THEN** `sf_of` returns the blend
+- **WHEN** no blend ran **THEN** it returns the JP rate
+- **WHEN** neither is available **THEN** it returns 0
+- *Verifies:* `test_sf_of_prefers_the_blended_prediction_over_the_raw_jp_rate`,
+  `test_sf_of_falls_back_to_the_raw_jp_rate_when_no_blend_ran`,
+  `test_sf_of_is_zero_for_a_player_with_no_projection_at_all`
+
 ### Requirement: Affordability filter + house rules
 
 `filter_affordable` SHALL exclude my own players, non-clausulable (locked)

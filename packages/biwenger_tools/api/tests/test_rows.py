@@ -139,3 +139,79 @@ def test_build_market_rows_forwards_the_oraculo_index():
         [sale], {1: _bw(1, "Pedri")}, build_jp_index([]), index
     )
     assert rows[0]["oraculo_matched"] is True
+
+
+# --- the blend: k is a global input, never recomputed per table ------------
+
+
+def _jp_with_rate(name, slug, rate):
+    return {"name": name, "slug": slug, "predict": [{"type": 2, "rate": rate}]}
+
+
+def test_the_same_player_gets_the_same_projection_in_two_different_tables():
+    """The defect this closes: `k` used to be derived from whichever rows a
+    given photo happened to render, so the same player could blend to three
+    different numbers depending on who shared his table. `k` is now an input
+    the caller supplies once per request — passing the same `k` into two
+    disjoint row-sets must land the shared player on the same number."""
+    index = _index(
+        [
+            _oraculo("A", "a-1", 4.0),
+            _oraculo("B", "b-2", 3.0),
+            _oraculo("C", "c-3", 5.0),
+        ]
+    )
+    jp = build_jp_index(
+        [
+            _jp_with_rate("A", "a", 430),
+            _jp_with_rate("B", "b", 300),
+            _jp_with_rate("C", "c", 500),
+        ]
+    )
+    biwenger_players = {1: _bw(1, "A"), 2: _bw(2, "B"), 3: _bw(3, "C")}
+    k = 100.0
+
+    rows_with_b = rows_mod.build_squad_rows(
+        [{"id": 1, "owner": {}}, {"id": 2, "owner": {}}],
+        biwenger_players,
+        jp,
+        index,
+        oraculo_k=k,
+    )
+    rows_with_c = rows_mod.build_squad_rows(
+        [{"id": 1, "owner": {}}, {"id": 3, "owner": {}}],
+        biwenger_players,
+        jp,
+        index,
+        oraculo_k=k,
+    )
+
+    a_with_b = next(r for r in rows_with_b if r["name"] == "A")
+    a_with_c = next(r for r in rows_with_c if r["name"] == "A")
+    assert a_with_b["custom_prediction"] is not None
+    assert a_with_b["custom_prediction"] == a_with_c["custom_prediction"]
+
+
+def test_no_k_leaves_the_row_with_no_custom_prediction_key():
+    """Every existing caller omits `oraculo_k`. Nothing must break for them,
+    and nothing must silently blend without a `k` to convert Oráculo's scale."""
+    index = _index([_oraculo("Pedri", "pedri-1", 5.4)])
+    squad = [{"id": 1, "owner": {}}]
+    rows = rows_mod.build_squad_rows(
+        squad, {1: _bw(1, "Pedri")}, build_jp_index([]), index
+    )
+    assert "custom_prediction" not in rows[0]
+
+
+def test_low_coverage_still_skips_the_blend_even_with_a_k():
+    """`k` alone is not enough — a read where Oráculo covers too few of these
+    exact players must not blend, per `ORACULO_MIN_COVERAGE`."""
+    index = _index([_oraculo("A", "a-1", 4.0)])
+    jp = build_jp_index([_jp_with_rate("A", "a", 430), _jp_with_rate("B", "b", 300)])
+    biwenger_players = {1: _bw(1, "A"), 2: _bw(2, "B")}
+    squad = [{"id": 1, "owner": {}}, {"id": 2, "owner": {}}]
+    rows = rows_mod.build_squad_rows(
+        squad, biwenger_players, jp, index, oraculo_k=100.0
+    )
+    a_row = next(r for r in rows if r["name"] == "A")
+    assert a_row["custom_prediction"] == 430

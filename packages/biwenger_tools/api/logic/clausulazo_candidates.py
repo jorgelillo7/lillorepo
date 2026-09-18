@@ -13,11 +13,10 @@ with cash-justo / no margin). Kept here so both flows agree on:
 import time
 
 from core.sdk.biwenger import BiwengerClient
-from core.sdk.jp import get_predict_rate
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
-from packages.biwenger_tools.api.player_formatting import SCORE_SF
+from packages.biwenger_tools.api.player_formatting import shown_score
 
 logger = get_logger(__name__)
 
@@ -25,10 +24,7 @@ GK_POSITION_ID = 1
 
 
 def sf_of(row: dict) -> int:
-    jp = row.get("jp_player")
-    if not jp:
-        return 0
-    return get_predict_rate(jp, SCORE_SF) or 0
+    return shown_score(row) or 0
 
 
 def gather_rivals(

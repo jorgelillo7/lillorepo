@@ -22,7 +22,6 @@ from html import escape
 from typing import Optional
 
 from core.constants import MADRID_TZ
-from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
@@ -35,6 +34,7 @@ from packages.biwenger_tools.api.logic.orchestration import (
     require_telegram,
 )
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
+from packages.biwenger_tools.api.player_formatting import shown_score
 
 logger = get_logger(__name__)
 
@@ -435,11 +435,7 @@ def _xi_impact(
             "xi_loss": max(0, base["total_sf"] - without["total_sf"]),
             "breaks_xi": False,
             "replacement_name": entrant.get("name") if entrant else None,
-            "replacement_sf": (
-                get_predict_rate(entrant.get("jp_player") or {}, 2) or 0
-                if entrant
-                else None
-            ),
+            "replacement_sf": (shown_score(entrant) or 0) if entrant else None,
         }
     except Exception:
         logger.exception("XI impact failed — scoring without the depth signal.")
@@ -466,10 +462,9 @@ def _score_offer(
     cf_price = int(bw.get("price") or 0)
     position = POSITION_NAMES.get(bw.get("position"), "?")
 
-    jp_player = (acq_by_id.get(player_id) or {}).get("jp_player")
-    sf = get_predict_rate(jp_player or {}, 2) or 0
-
     acq_row = acq_by_id.get(player_id) or {}
+    sf = shown_score(acq_row) or 0
+
     acq_price = acq_row.get("acq_price") or 0
     acq_date = acq_row.get("acq_date")
     acq_from = acq_row.get("acq_from")
