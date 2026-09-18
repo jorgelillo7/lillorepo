@@ -11,12 +11,16 @@ with cash-justo / no margin). Kept here so both flows agree on:
 """
 
 import time
+from typing import TYPE_CHECKING
 
 from core.sdk.biwenger import BiwengerClient
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import shown_score
+
+if TYPE_CHECKING:
+    from packages.biwenger_tools.api.logic.custom_prediction import ProjectionScale
 
 logger = get_logger(__name__)
 
@@ -31,6 +35,8 @@ def gather_rivals(
     biwenger: BiwengerClient,
     biwenger_players: dict,
     jp_index: dict,
+    oraculo_index: dict | None = None,
+    oraculo_scale: "ProjectionScale | None" = None,
 ) -> list[dict]:
     """Build the rival_rows list, tagged with owner name + user id.
 
@@ -40,6 +46,10 @@ def gather_rivals(
       `place_clausulazo`'s `to=<seller_user_id>` payload field.
     - `owner_gk_count` — used by `filter_affordable` to enforce the
       "don't leave a rival with zero GKs" house rule.
+
+    `oraculo_index`/`oraculo_scale` flow straight into `build_squad_rows` so
+    every rival's row carries the same blend as the caller's own squad — a
+    ranking that mixes blended and raw rows is not a ranking on one scale.
     """
     managers = biwenger.get_league_users(
         config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
@@ -49,7 +59,14 @@ def gather_rivals(
         if manager_id == biwenger.user_id:
             continue
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
-        rows = build_squad_rows(squad, biwenger_players, jp_index, include_clause=True)
+        rows = build_squad_rows(
+            squad,
+            biwenger_players,
+            jp_index,
+            oraculo_index,
+            include_clause=True,
+            oraculo_scale=oraculo_scale,
+        )
         gk_count = sum(1 for r in rows if r.get("position_id") == GK_POSITION_ID)
         for r in rows:
             r["owner"] = manager_name

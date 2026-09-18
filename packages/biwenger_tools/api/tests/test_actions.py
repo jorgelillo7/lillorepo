@@ -195,3 +195,72 @@ def test_collect_survives_a_player_jornada_perfecta_does_not_carry():
     assert summary["Jorge"]["value"] == 9_600_000
     assert summary["Jorge"]["projection"] == 538
     league_compare.reset_cache()
+
+
+def test_collect_ranks_every_squad_on_the_same_oraculo_scale():
+    """`/comparar`'s whole point is a cross-manager ranking, so every squad
+    read inside one `collect()` call must be built with the same Oráculo
+    index and scale — mixing a blended squad with a raw one is not a
+    ranking on one scale, it is noise.
+
+    Ana's player projects lower on raw JP (300) than Beto's (350). Oráculo
+    rates Ana's player highly and Beto's poorly; blended through the shared
+    scale, Ana's projection overtakes Beto's. That inversion can only appear
+    if `collect` reads the blend (not the raw JP rate) for both squads.
+    """
+    from unittest.mock import MagicMock
+
+    from packages.biwenger_tools.api.logic import custom_prediction as cp
+    from packages.biwenger_tools.api.logic import rows as rows_mod
+    from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+
+    def _jp(name, rate):
+        return {
+            "name": name,
+            "slug": name.lower(),
+            "predict": [{"type": 2, "rate": rate}],
+        }
+
+    def _oraculo(name, points):
+        return {
+            "playerName": name,
+            "slug": name.lower(),
+            "predictedPoints": points,
+            "chance": 90,
+        }
+
+    biwenger_players = {
+        1: {"id": 1, "name": "Alpha", "position": 3, "price": 1_000_000},
+        2: {"id": 2, "name": "Beta", "position": 3, "price": 1_000_000},
+    }
+    jp_index = build_jp_index([_jp("Alpha", 300), _jp("Beta", 350)])
+    oraculo_index = rows_mod.build_oraculo_index(
+        [_oraculo("Alpha", 5.0), _oraculo("Beta", 1.0)]
+    )
+    scale = cp.ProjectionScale(
+        oraculo=(1.0, 2.0, 3.0, 4.0, 5.0), jp=(100.0, 200.0, 300.0, 400.0, 500.0)
+    )
+
+    biwenger = MagicMock()
+    biwenger.get_league_users.return_value = {1: "Ana", 2: "Beto"}
+    biwenger.get_manager_squad.side_effect = lambda url, manager_id: (
+        [{"id": 1}] if manager_id == 1 else [{"id": 2}]
+    )
+
+    ctx = MagicMock(
+        biwenger=biwenger,
+        biwenger_players=biwenger_players,
+        jp_index=jp_index,
+        oraculo_index=oraculo_index,
+        oraculo_scale=scale,
+    )
+
+    league_compare.reset_cache()
+    summary = league_compare.collect(ctx)
+    league_compare.reset_cache()
+
+    # Both totals must reflect the blend — pinning only Ana's would also
+    # pass if Beto's squad had silently stayed on the raw JP rate.
+    assert summary["Ana"]["projection"] == 360  # 300 blended up via Oráculo
+    assert summary["Beto"]["projection"] == 275  # 350 blended down via Oráculo
+    assert league_compare.rank(summary, "projection") == ["Ana", "Beto"]

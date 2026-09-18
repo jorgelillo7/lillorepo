@@ -62,6 +62,28 @@ candidates it SHALL return `None`.
   `test_pick_target_falls_back_to_top_sf_when_position_empty`,
   `test_pick_target_returns_none_when_no_candidates`
 
+### Requirement: The blend, when present, reaches every pool `/emergencia` builds
+
+`preview_clausulazo`, `_preview_rebuild` and `execute_rebuild` SHALL build the
+owner's own squad and the rival pool with the same Oráculo index and scale the
+rest of the request uses. This flow decides which player to buy and how much
+to pay for it, so once the blend moves a projection the recommendation SHALL
+change accordingly — that is the intent of running a second opinion, not a
+regression to guard against.
+
+The two pools inside one request (the owner's rows and the rival pool feeding
+`rebuild.build_plan`, or the projected eleven and the fresh rival read at
+execution time) SHALL always share the same index and scale: they are compared
+against each other within the same flow, and a mismatch would repeat
+`league_compare`'s defect one level down — a plan priced against two different
+scales.
+
+#### Scenario: both pools in one flow share the index and scale
+- **WHEN** the owner's squad and the rival pool are built in the same request
+- **THEN** both carry the same blend, so a candidate is never ranked or priced
+  against a scale the owner's own squad was not measured on
+- *Verifies:* `test_gather_rivals_threads_the_oraculo_blend_into_every_rival_squad`
+
 ### Requirement: Preview resolves or offers a selector
 
 `preview_clausulazo` SHALL target the lost line directly when the loss is

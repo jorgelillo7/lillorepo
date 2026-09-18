@@ -492,6 +492,78 @@ def test_run_offers_inbox_skips_malformed_offer():
     assert result == {"sent": 0, "offers": 1, "actionable": 0, "muted": 0}
 
 
+def test_run_offers_inbox_scores_the_offer_on_the_blended_projection():
+    """`my_team` built inside the inbox must carry the same Oráculo blend
+    the projection table shows, or a raid on a player it rates highly is
+    scored on a raw JP rate nobody sees any more.
+
+    The player's raw JP rate (590) sits just under `TIER_T2_MIN` (600) — a
+    survivable T3 loss, DUDOSO. A strong Oráculo opinion blends it past 600,
+    which the recommendation cascade treats as a fixed titular and rejects
+    outright. The offer is priced exactly at cf-base so no money rule fires
+    first: the flip from DUDOSO/actionable to RECHAZAR/muted can only come
+    from `sf` reading the blend.
+    """
+    from packages.biwenger_tools.api.logic import custom_prediction as cp
+    from packages.biwenger_tools.api.logic import rows as rows_mod
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+    from packages.biwenger_tools.api.logic.player_matching import build_jp_index
+
+    player_id = 26566
+    cf_price = 10_000_000
+    jp_index = build_jp_index(
+        [{"name": "Rossi", "slug": "rossi", "predict": [{"type": 2, "rate": 590}]}]
+    )
+    oraculo_index = rows_mod.build_oraculo_index(
+        [
+            {
+                "playerName": "Rossi",
+                "slug": "rossi",
+                "predictedPoints": 5.0,
+                "chance": 90,
+            }
+        ]
+    )
+    scale = cp.ProjectionScale(oraculo=(1.0, 5.0), jp=(100.0, 1000.0))
+
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_current_lineup_player_ids.return_value = set()
+    biwenger.get_manager_squad.return_value = [{"id": player_id}]
+    fake_offer = {
+        "id": 1,
+        "amount": cf_price,
+        "from": None,
+        "requestedPlayers": [player_id],
+        "until": None,
+    }
+    biwenger.get_received_offers.return_value = [fake_offer]
+
+    ctx = OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={
+            player_id: {
+                "id": player_id,
+                "name": "Rossi",
+                "position": 3,
+                "price": cf_price,
+            }
+        },
+        jp_index=jp_index,
+        oraculo_index=oraculo_index,
+        oraculo_ok=True,
+        oraculo_scale=scale,
+    )
+
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("send_telegram_message")
+    ):
+        result = offers.run_offers_inbox(ctx)
+
+    assert result["actionable"] == 0
+    assert result["muted"] == 1
+
+
 # --- run_offer_decision: forwards + posts confirmation ---------------------
 
 

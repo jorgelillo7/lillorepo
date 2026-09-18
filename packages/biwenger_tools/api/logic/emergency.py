@@ -455,7 +455,13 @@ def preview_clausulazo(
         biwenger, ctx.biwenger_players, my_manager_name, now_epoch=time.time()
     )
 
-    my_rows = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+    my_rows = build_squad_rows(
+        my_squad,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     if not composition_ok(rebuild.eligibilities(my_rows)):
         # Structural, not circumstantial: this asks whether the players exist,
         # never whether they are fit. Rebuild outranks every other path,
@@ -474,7 +480,13 @@ def preview_clausulazo(
     if selector_payload is not None:
         return selector_payload
 
-    rivals = gather_rivals(biwenger, ctx.biwenger_players, ctx.jp_index)
+    rivals = gather_rivals(
+        biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     affordable = filter_affordable(rivals, my_ids, target=cash)
     # The pact binds here, unlike in `/recomendar`: this flow spends money on
     # one irreversible call, so a protected manager is never even proposed.
@@ -526,7 +538,13 @@ def _preview_rebuild(
     Entered instead of the single-signing flow when `composition_ok` says
     the squad cannot field a legal eleven at all — see `preview_clausulazo`.
     """
-    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+    rivals = gather_rivals(
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     affordable = filter_affordable(rivals, my_ids, target=cash)
     affordable = without_pacted(affordable, pact_store.load())
     plan = rebuild.build_plan(my_rows=my_rows, affordable=affordable, cash=cash)
@@ -727,7 +745,13 @@ def execute_rebuild(plan_id: str) -> dict:
         config.USER_SQUAD_URL, ctx.biwenger.user_id
     )
     my_ids = {p.get("id") for p in my_squad if p.get("id") is not None}
-    my_rows = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+    my_rows = build_squad_rows(
+        my_squad,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     elig = rebuild.eligibilities(my_rows)
 
     if composition_ok(elig):
@@ -737,7 +761,13 @@ def execute_rebuild(plan_id: str) -> dict:
     remaining_holes = rebuild.line_deficit(
         elig, _requirement_for_formation(doc["formation"])
     )
-    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+    rivals = gather_rivals(
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
 
     outcomes = []
     bought_rows = []
