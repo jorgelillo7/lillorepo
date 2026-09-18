@@ -48,20 +48,22 @@ not double-bid the players that already went through.
 import html
 import random
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import requests
 
 from core.constants import MADRID_TZ
 from core.sdk import firestore
-from core.sdk.jp import get_predict_rate
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.orchestration import build_context
-from packages.biwenger_tools.api.logic.player_matching import find_player_match
+from packages.biwenger_tools.api.logic import rows
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
-from packages.biwenger_tools.api.player_formatting import SCORE_SF, availability
+from packages.biwenger_tools.api.player_formatting import availability, shown_score
+
+if TYPE_CHECKING:  # the annotation only; importing it at run time cycles
+    from packages.biwenger_tools.api.logic.custom_prediction import ProjectionScale
 
 logger = get_logger(__name__)
 
@@ -216,6 +218,8 @@ def _build_candidates(
     market_players: list,
     biwenger_players: dict,
     jp_index: dict,
+    oraculo_index: dict | None = None,
+    oraculo_scale: "ProjectionScale | None" = None,
 ) -> list[dict]:
     """Daily-market players (computer-owned) enriched with SF + price.
 
@@ -230,27 +234,28 @@ def _build_candidates(
     players in both states — so without these two flags the all-in tier
     would empty the wallet on a player who is not going to be on the pitch.
     """
-    candidates: list[dict] = []
+    market_rows = []
     for sale in market_players:
         if sale.get("user") is not None:
             continue
         player_ref = sale.get("player") or {}
-        player_id = player_ref.get("id")
-        bw_player = biwenger_players.get(player_id)
+        bw_player = biwenger_players.get(player_ref.get("id"))
         if not bw_player:
             continue
-        name = bw_player.get("name") or player_ref.get("name") or "?"
-        price = int(bw_player.get("price") or 0)
-        jp_player = find_player_match(name, jp_index)
-        sf = get_predict_rate(jp_player or {}, SCORE_SF) or 0
+        market_rows.append(rows.build_row(bw_player, jp_index, oraculo_index))
+    rows.enrich_with_custom_prediction(market_rows, oraculo_index, oraculo_scale)
+
+    candidates: list[dict] = []
+    for row in market_rows:
+        jp_player = row.get("jp_player")
         candidates.append(
             {
-                "player_id": player_id,
-                "name": name,
-                "price": price,
-                "sf": sf,
-                "position_id": bw_player.get("position"),
-                "alt_positions": bw_player.get("altPositions") or [],
+                "player_id": row.get("bw_id"),
+                "name": row.get("name") or "?",
+                "price": int(row.get("price") or 0),
+                "sf": shown_score(row) or 0,
+                "position_id": row.get("position_id"),
+                "alt_positions": row.get("alt_positions") or [],
                 "unavailable": availability(jp_player) == "out",
                 "uncalled": ((jp_player or {}).get("nextMatch") or {}).get(
                     "playerInLineup"
@@ -273,7 +278,7 @@ def _squad_sf_by_position(squad_rows: list) -> dict[int, list[int]]:
     """
     by_pos: dict[int, list[int]] = {}
     for row in squad_rows:
-        sf = get_predict_rate(row.get("jp_player") or {}, SCORE_SF) or 0
+        sf = shown_score(row) or 0
         for pos in {row.get("position_id")} | set(row.get("alt_positions") or []):
             if pos is not None:
                 by_pos.setdefault(pos, []).append(sf)
@@ -456,7 +461,13 @@ def run_auto_bid() -> dict:
     ctx = build_context()
     biwenger = ctx.biwenger
     market_players = biwenger.get_market_players(config.MARKET_URL)
-    candidates = _build_candidates(market_players, ctx.biwenger_players, ctx.jp_index)
+    candidates = _build_candidates(
+        market_players,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        oraculo_index=ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
 
     # What we already own, so a bid can be priced against the squad instead
     # of in a vacuum. Best-effort: without it every candidate simply prices
@@ -464,7 +475,13 @@ def run_auto_bid() -> dict:
     try:
         my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
         squad_by_pos = _squad_sf_by_position(
-            build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+            build_squad_rows(
+                my_squad,
+                ctx.biwenger_players,
+                ctx.jp_index,
+                oraculo_index=ctx.oraculo_index,
+                oraculo_scale=ctx.oraculo_scale,
+            )
         )
     except Exception:
         logger.exception("Squad fetch failed — bidding without the depth signal.")

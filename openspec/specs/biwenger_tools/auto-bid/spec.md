@@ -3,8 +3,8 @@
 Daily aggressive auto-bidding on the Biwenger daily market. Cloud Scheduler
 posts `POST /market/auto-bid` at 09:00 Madrid. The system reads the rotating
 computer-owned free agents Biwenger exposes each morning, attaches SofaScore
-(SF) ratings from JP, and bids on each — best SF first — until cash runs out,
-then reports the run to Telegram.
+(SF) ratings from JP blended with Oráculo, and bids on each — best first —
+until cash runs out, then reports the run to Telegram.
 
 - **Source:** `packages/biwenger_tools/api/logic/auto_bid.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_auto_bid.py`
@@ -142,6 +142,38 @@ SF JP actually gave him.
   `test_would_be_bench_is_false_when_the_position_is_thin`,
   `test_would_be_bench_is_false_without_a_position`,
   `test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched`
+
+### Requirement: The market and the squad are measured with one ruler
+
+Both projections this module compares SHALL come from the same blend, built
+from the same scale in the same request: the market candidates and the squad
+rows they are weighed against.
+
+`_would_be_bench` asks whether a signing would sit behind players already
+owned, and that answer sets the bid. Blending one side and leaving the other
+on raw Jornada Perfecta tilts every bid the same way, and nothing in the
+output would say so — the module spends real money each morning with nobody
+watching, so a silent bias is the worst failure mode available to it.
+
+Market candidates are not built by `build_squad_rows`, so they SHALL go
+through `rows.build_row` and `rows.enrich_with_custom_prediction` rather than
+reading a projection of their own. A second blending path is the same defect
+wearing a different shape.
+
+The tier thresholds need no recalibration. The conversion is a percentile map
+**into JP units**, so a threshold expressed in those units keeps its meaning
+and is simply applied to a better estimate; the ±25% clamp bounds how far any
+one player can move.
+
+#### Scenario: the blend decides a signing the raw rate would have refused
+- **WHEN** Oráculo rates a market keeper far above the two already owned, while
+  JP ranks him below both
+- **THEN** on the raw rates he is bench and draws no bid, and once both sides
+  carry the blend he breaks into the depth chart
+- **WHEN** the Oráculo read failed and there is no scale
+- **THEN** every projection is the raw JP rate, identical to an unthreaded call
+- *Verifies:* `test_the_market_and_the_squad_are_ranked_on_one_scale`,
+  `test_without_a_scale_every_projection_stays_raw_jp`
 
 ### Requirement: Idempotent retries
 
