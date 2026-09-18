@@ -109,10 +109,11 @@ def run_teams(manager_id: int | None = None) -> dict:
       yourself — you already know your own clauses).
     """
     ctx = build_context()
-    biwenger, biwenger_players, jp_index = (
+    biwenger, biwenger_players, jp_index, oraculo_index = (
         ctx.biwenger,
         ctx.biwenger_players,
         ctx.jp_index,
+        ctx.oraculo_index,
     )
     telegram = require_telegram()
     if telegram is None:
@@ -138,7 +139,7 @@ def run_teams(manager_id: int | None = None) -> dict:
         is_me = manager_id == biwenger.user_id
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
         rows = build_squad_rows(
-            squad, biwenger_players, jp_index, include_clause=not is_me
+            squad, biwenger_players, jp_index, oraculo_index, include_clause=not is_me
         )
         title = "🛡️ Mi equipo" if is_me else f"👤 {manager_name}"
         extra_cols = None if is_me else ["Clausulable", "Cláusula"]
@@ -171,10 +172,10 @@ def run_teams(manager_id: int | None = None) -> dict:
             extra={"manager": manager_name, "size": len(squad)},
         )
         if mgr_id == biwenger.user_id:
-            my_team = build_squad_rows(squad, biwenger_players, jp_index)
+            my_team = build_squad_rows(squad, biwenger_players, jp_index, oraculo_index)
         else:
             rivals[manager_name] = build_squad_rows(
-                squad, biwenger_players, jp_index, include_clause=True
+                squad, biwenger_players, jp_index, oraculo_index, include_clause=True
             )
         time.sleep(0.5)
 
@@ -204,7 +205,9 @@ def run_teams(manager_id: int | None = None) -> dict:
     market_rows: list[dict] = []
     try:
         market_players = biwenger.get_market_players(config.MARKET_URL)
-        market_rows = build_market_rows(market_players, biwenger_players, jp_index)
+        market_rows = build_market_rows(
+            market_players, biwenger_players, jp_index, oraculo_index
+        )
         if send_image_or_text_fallback(
             token, chat_id, build_table_image(market_rows, "🛒 Mercado"), "🛒 Mercado"
         ):
@@ -278,10 +281,11 @@ def toggle_pact(manager_id: int) -> dict:
 def run_market() -> dict:
     """Send only the transfer market — used by /market (was /mercado)."""
     ctx = build_context()
-    biwenger, biwenger_players, jp_index = (
+    biwenger, biwenger_players, jp_index, oraculo_index = (
         ctx.biwenger,
         ctx.biwenger_players,
         ctx.jp_index,
+        ctx.oraculo_index,
     )
     telegram = require_telegram()
     if telegram is None:
@@ -289,7 +293,9 @@ def run_market() -> dict:
     token, chat_id = telegram
 
     market_players = biwenger.get_market_players(config.MARKET_URL)
-    market_rows = build_market_rows(market_players, biwenger_players, jp_index)
+    market_rows = build_market_rows(
+        market_players, biwenger_players, jp_index, oraculo_index
+    )
     _send_image(token, chat_id, build_table_image(market_rows, "Mercado"), "Mercado")
     logger.info("Market analysis sent.", extra={"size": len(market_rows)})
     return {"sent": 1, "size": len(market_rows)}

@@ -100,11 +100,8 @@ def count_bench(rows: list[dict]) -> int:
     return sum(is_bench(row.get("jp_player")) for row in rows)
 
 
-def sf_band(jp_player: dict | None) -> str:
-    """`"high"`, `"mid"`, `"low"` or `"none"` for the projected score alone."""
-    if jp_player is None:
-        return "none"
-    sf = get_predict_rate(jp_player, SCORE_SF)
+def band_for_score(sf: int | None) -> str:
+    """`"high"`, `"mid"`, `"low"` or `"none"` for a projection already read."""
     if sf is None:
         return "none"
     if sf >= SF_GREEN_THRESHOLD:
@@ -112,6 +109,13 @@ def sf_band(jp_player: dict | None) -> str:
     if sf >= SF_YELLOW_THRESHOLD:
         return "mid"
     return "low"
+
+
+def sf_band(jp_player: dict | None) -> str:
+    """`"high"`, `"mid"`, `"low"` or `"none"` for the projected score alone."""
+    if jp_player is None:
+        return "none"
+    return band_for_score(get_predict_rate(jp_player, SCORE_SF))
 
 
 def count_availability(rows: list[dict]) -> tuple[int, int, int]:
@@ -199,10 +203,24 @@ def play_status_label(jp_player: dict | None) -> str:
     return "casa" if next_match.get("isLocal") else "fuera"
 
 
-def sort_key_sf_desc(row: dict):
-    """Sort key: players with SF first, then by SF descending."""
+def shown_score(row: dict) -> int | None:
+    """The number the row actually displays: the blend when one was computed,
+    the raw JP projection otherwise.
+
+    Colour and order must both read this rather than the JP rate underneath,
+    or the table sorts and shades by a number nobody can see — the projection
+    column comes out visibly unsorted the moment the blend moves anyone.
+    """
+    custom = row.get("custom_prediction")
+    if custom is not None:
+        return custom
     jp = row.get("jp_player")
-    sf = get_predict_rate(jp, SCORE_SF) if jp else None
+    return get_predict_rate(jp, SCORE_SF) if jp else None
+
+
+def sort_key_sf_desc(row: dict):
+    """Sort key: players with a projection first, then by it descending."""
+    sf = shown_score(row)
     return (0 if sf is None else 1, sf or 0)
 
 

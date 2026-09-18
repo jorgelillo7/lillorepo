@@ -112,7 +112,10 @@ def build_row(
 
 
 def build_market_rows(
-    market_players: list, biwenger_players: dict, jp_index: dict
+    market_players: list,
+    biwenger_players: dict,
+    jp_index: dict,
+    oraculo_index: dict | None = None,
 ) -> list:
     rows = []
     for sale in market_players:
@@ -121,7 +124,7 @@ def build_market_rows(
         bw_player = biwenger_players.get(sale.get("player", {}).get("id"))
         if not bw_player:
             continue
-        rows.append(build_row(bw_player, jp_index))
+        rows.append(build_row(bw_player, jp_index, oraculo_index))
     return rows
 
 
@@ -129,6 +132,7 @@ def build_squad_rows(
     squad: list,
     biwenger_players: dict,
     jp_index: dict,
+    oraculo_index: dict | None = None,
     include_clause: bool = False,
 ) -> list:
     rows = []
@@ -136,7 +140,7 @@ def build_squad_rows(
         bw_player = biwenger_players.get(player_data.get("id"))
         if not bw_player:
             continue
-        row = build_row(bw_player, jp_index)
+        row = build_row(bw_player, jp_index, oraculo_index)
         # `row["price"]` MUST stay as the cf.biwenger.com base price (not
         # `owner.price`). Biwenger's server validates the 3M captain MV cap
         # against cf-base; using owner.price client-side passes then gets

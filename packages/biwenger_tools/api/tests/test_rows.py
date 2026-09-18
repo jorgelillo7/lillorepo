@@ -111,3 +111,31 @@ def test_coverage_counts_rows_with_an_opinion():
 
 def test_coverage_of_nothing_is_zero_not_a_crash():
     assert rows_mod.oraculo_coverage([]) == 0.0
+
+
+# --- the row builders forward the index -------------------------------------
+
+
+def test_build_squad_rows_forwards_the_oraculo_index():
+    index = _index([_oraculo("Pedri", "pedri-1", 5.4)])
+    squad = [{"id": 1, "owner": {}}]
+    rows = rows_mod.build_squad_rows(
+        squad, {1: _bw(1, "Pedri")}, build_jp_index([]), index
+    )
+    assert rows[0]["oraculo_matched"] is True
+
+
+def test_build_squad_rows_with_no_index_matches_nothing():
+    """Every existing caller omits the index; nothing must break for them."""
+    squad = [{"id": 1, "owner": {}}]
+    rows = rows_mod.build_squad_rows(squad, {1: _bw(1, "Pedri")}, build_jp_index([]))
+    assert rows[0]["oraculo_matched"] is False
+
+
+def test_build_market_rows_forwards_the_oraculo_index():
+    index = _index([_oraculo("Pedri", "pedri-1", 5.4)])
+    sale = {"player": {"id": 1}}
+    rows = rows_mod.build_market_rows(
+        [sale], {1: _bw(1, "Pedri")}, build_jp_index([]), index
+    )
+    assert rows[0]["oraculo_matched"] is True

@@ -16,6 +16,8 @@ from matplotlib.offsetbox import (  # noqa: E402
 
 from core.constants import MADRID_TZ  # noqa: E402
 from core.sdk.jp import get_predict_rate  # noqa: E402
+from packages.biwenger_tools.api import config  # noqa: E402
+from packages.biwenger_tools.api.logic import custom_prediction as cp  # noqa: E402
 from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     SCORE_SF,
     availability,
@@ -24,8 +26,9 @@ from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     count_bench,
     is_bench,
     play_status_label,
-    sf_band,
+    band_for_score,
     short_position,
+    shown_score,
     sort_key_sf_desc,
 )
 
@@ -102,11 +105,18 @@ _MARK_OUT = "\u2715"
 
 # Base columns: (header, relative_width). Keep header and width together so
 # adding/removing a column is a single-line edit instead of two parallel lists.
+#
+# `JP` and `Oráculo` are the raw inputs to `Proyección`, shown beside it so
+# the blend stays arguable without leaving Telegram (see the Oráculo design's
+# "Three columns, not one"). Both are *base* columns, not `extra_cols` — they
+# widen `_BASE_FIG_WIDTH_IN` accordingly, below.
 _BASE_COLUMNS: list[tuple[str, float]] = [
     ("", 0.03),
     ("Jugador", 0.28),
     ("Pos", 0.07),
     ("Precio", 0.09),
+    ("JP", 0.08),
+    ("Oráculo", 0.09),
     ("Proyección", 0.15),
     ("Racha", 0.08),
     ("Juega", 0.16),
@@ -115,7 +125,14 @@ _EXTRA_COL_WIDTH = 0.18
 
 # Canvas width for a table with no extra columns; the clause views scale up
 # from it in proportion to what they add.
-_BASE_FIG_WIDTH_IN = 9
+#
+# `JP` + `Oráculo` pushed the base weight from 0.86 to 1.03. `fig_w` below
+# only rescales for `extra_cols`, so two new *base* columns need the canvas
+# widened here too — the same bug the clause view already hit once, at 1122px
+# for a 15-player squad, when 0.36 of extra weight landed on an unwidened
+# canvas. 10.8 keeps every pre-existing column's absolute width, not just the
+# figure's total.
+_BASE_FIG_WIDTH_IN = 10.8
 
 # These are read on a phone, and read by zooming in — the row you care about
 # is one of fifteen at six-point type. 200 dpi over the old 150 is a third
@@ -193,6 +210,66 @@ def _row_bg(jp_player: dict | None) -> str:
     return _ROW_BG[state]
 
 
+def _jp_cell(sf) -> str:
+    """The raw JP number, or an em-dash when JP carries nothing for him."""
+    return "—" if sf is None else str(sf)
+
+
+def _oraculo_cell(row: dict) -> str:
+    """`points ★★` — one star per qualifying list — or an em-dash for "no
+    opinion". Matching the player and having a projection are different
+    states (`oraculo_matched=True` with `oraculo_points=None` is still "no
+    opinion yet"); only the second earns a number."""
+    if not row.get("oraculo_matched"):
+        return "—"
+    points = row.get("oraculo_points")
+    if points is None:
+        return "—"
+    stars = "★" * len(cp.qualifying_lists(row))
+    text = f"{points:.1f}"
+    return f"{text} {stars}" if stars else text
+
+
+def _blended_rows(rows: list[dict]) -> tuple[list[dict], bool]:
+    """Every row plus its `custom_prediction`, and whether the blend ran.
+
+    Computed per table rather than once for the whole read: `k` and coverage
+    are properties of the exact players being shown, so a squad and the
+    market can legitimately disagree about whether Oráculo covers them well
+    enough to blend.
+
+    A row Oráculo matched but JP did not (a real production shape — the two
+    providers disagree on names independently) gets no `custom_prediction`
+    at all: there is no JP number to blend against.
+    """
+    k = cp.conversion_factor(rows)
+    blend_ran = cp.should_blend(rows, config.ORACULO_MIN_COVERAGE) and k is not None
+    enriched = []
+    for row in rows:
+        jp_sf = get_predict_rate(row.get("jp_player"), SCORE_SF)
+        custom = (
+            cp.custom_prediction(row, jp_sf, k, blend_on=blend_ran)
+            if jp_sf is not None
+            else None
+        )
+        enriched.append({**row, "custom_prediction": custom})
+    return enriched, blend_ran
+
+
+def _projection_header(blend_ran: bool) -> str:
+    """`Proyección` normally; `Proyección (JP)` when the blend did not run.
+
+    Text carries the meaning on its own — this file's own colour rule is
+    that hue only ever reinforces a shape or a word, never stands alone.
+    """
+    return "Proyección" if blend_ran else "Proyección (JP)"
+
+
+def _titled(title: str, blend_ran: bool) -> str:
+    """The title's own marker, beside the column header's."""
+    return title if blend_ran else f"{title} (solo JP)"
+
+
 def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
     jp = row.get("jp_player")
     sf = get_predict_rate(jp, SCORE_SF) if jp else None
@@ -201,7 +278,9 @@ def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
         _strip_emoji(row.get("name", ""))[:22],
         _pos_str(row),
         _price_exact(row.get("price", 0)),
-        _sf_bar(sf),
+        _jp_cell(sf),
+        _oraculo_cell(row),
+        _sf_bar(row.get("custom_prediction")),
         str(jp.get("streak", 0)) if jp else "-",
         play_status_label(jp),
     ]
@@ -324,11 +403,23 @@ def build_table_image(
     `show_total_value` adds the summed cf-base price of the rows to the
     header. Off by default because the same renderer draws the market, where
     the total would be the price of other people's players.
+
+    Blends the Oráculo projection into `Proyección` here, per table: rows
+    already carry `oraculo_matched`/`oraculo_points`/`oraculo_lists` from
+    `logic/rows.py` if the caller passed an `oraculo_index` through, and an
+    empty read (or one below `ORACULO_MIN_COVERAGE`) falls back to plain JP
+    — marked in both the column header and the title, never silently.
     """
     extra_cols = extra_cols or []
+    rows, blend_ran = _blended_rows(rows)
+    title = _titled(title, blend_ran)
     base_headers = [h for h, _ in _BASE_COLUMNS]
     base_widths = [w for _, w in _BASE_COLUMNS]
-    headers = base_headers + extra_cols
+    proj_col = base_headers.index("Proyección")
+    display_headers = list(base_headers)
+    if not blend_ran:
+        display_headers[proj_col] = _projection_header(blend_ran)
+    headers = display_headers + extra_cols
 
     sorted_rows = sorted(rows, key=sort_key_sf_desc, reverse=True)
     cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
@@ -414,14 +505,15 @@ def build_table_image(
 
         mark_col = 0
         name_col = base_headers.index("Jugador")
-        sf_col = base_headers.index("Proyección")
+        sf_col = proj_col
         plays_col = base_headers.index("Juega")
         # Squad size is a per-league setting, commonly up to 25, so that is the
         # density this has to stay legible at. Below ~18 rows the figure still
         # grows; past that it is capped, so the type gives back the room.
         body_size = 9.5 if n_rows <= 18 else 8.5
         for i in range(1, n_rows + 1):
-            jp = sorted_rows[i - 1].get("jp_player")
+            source_row = sorted_rows[i - 1]
+            jp = source_row.get("jp_player")
             for j in range(n_cols):
                 cell = table[i, j]
                 cell.get_text().set_fontsize(body_size)
@@ -431,7 +523,9 @@ def build_table_image(
                 # columns nothing else recolours (Pos, Precio, Racha, Juega).
                 cell.get_text().set_color(_INK_SOFT)
             # Three independent signals, three independent colours.
-            table[i, sf_col].get_text().set_color(_BAND_FG[sf_band(jp)])
+            table[i, sf_col].get_text().set_color(
+                _BAND_FG[band_for_score(shown_score(source_row))]
+            )
             table[i, name_col].get_text().set_color(_INK)
             table[i, mark_col].get_text().set_color(_MARK_QUIET)
             if is_bench(jp):

@@ -119,6 +119,17 @@ be swallowed into the summary (`error` key) while the route stays 200 OK. A
 top-level failure SHALL send a Telegram alert before propagating — no silent
 failures.
 
+The second opinion SHALL be the most expendable step of all. `build_context`
+reads Oráculo once per request and SHALL degrade to Jornada Perfecta alone on
+any failure — the index comes back empty, `oraculo_ok` false, and every reader
+already treats an empty index as "no opinion on anybody".
+
+The catch there is deliberately broad rather than typed to `OraculoError`.
+Oráculo is read out of a page we do not control, so the likely failure is a
+shape change surfacing as `KeyError` or `TypeError`, not the network error the
+SDK raises. Catching only the typed one would take the 09:00 digest down for a
+source the design calls optional.
+
 A step that produces a **message of its own** SHALL also say in the chat that
 it died, the way a dead image section does. Swallowing is about protecting the
 rest of the digest, not about hiding: the league value step logged and said
@@ -149,6 +160,16 @@ never shipped.
   every other step still runs
 - *Verifies:* `test_a_failed_league_value_step_says_so_in_the_chat`,
   `test_the_league_value_step_cannot_break_the_lineup`
+
+#### Scenario: the second opinion is unreachable, or unreadable
+- **WHEN** the Oráculo read raises the SDK's own error, from either endpoint
+- **THEN** the context carries an empty index, `oraculo_ok` is false, and
+  `build_context` returns normally
+- **WHEN** it raises something the SDK never declared, as a shape change would
+- **THEN** the same, rather than propagating into the digest
+- *Verifies:* `test_an_oraculo_error_leaves_the_index_empty_and_does_not_raise`,
+  `test_an_oraculo_error_from_predictions_is_caught_too`,
+  `test_a_shape_change_at_the_provider_is_caught_too`
 
 #### Scenario: top-level failure alerts
 - **WHEN** the inner run raises (e.g. Biwenger 5xx during build_context)

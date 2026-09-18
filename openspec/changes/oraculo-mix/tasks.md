@@ -155,24 +155,29 @@ the normal state of 92% of players, not missing data.
 
 ### Showing it in the photos — three columns
 
-- [ ] `JP` and `Oráculo` join `Proyección` in `_BASE_COLUMNS`. Raw inputs beside
+- [x] `JP` and `Oráculo` join `Proyección` in `_BASE_COLUMNS`. Raw inputs beside
       the output, so the formula is arguable without leaving Telegram
-- [ ] Every table gets them — squad, market and rival views all go through
+- [x] Every table gets them — squad, market and rival views all go through
       `build_table_image`
-- [ ] `—` in the Oráculo column means no opinion, which makes a thin midweek
+- [x] `—` in the Oráculo column means no opinion, which makes a thin midweek
       read **self-evident per row** rather than only in the title
-- [ ] One `★` per qualifying list beside the Oráculo number. **BMP glyphs
+- [x] One `★` per qualifying list beside the Oráculo number. **BMP glyphs
       only**: `image_formatter` records that anything above the BMP draws a
       dotted-circle placeholder in matplotlib, which is why `_strip_emoji`
       exists and the bench markers are `●`/`○`. `★` is U+2605 and safe
-- [ ] **Raise `_BASE_FIG_WIDTH_IN` from 9 to ~10.8** in the same commit. The
+- [x] **Raise `_BASE_FIG_WIDTH_IN` from 9 to ~10.8** in the same commit. The
       existing `fig_w` formula only compensates for `extra_cols`; two new *base*
       columns take the weight from 0.86 to 1.03 and would shrink every column
       by 17% on an unchanged canvas — which is the exact bug the file's own
       comment records from the clause view (1122 px, unreadable zoomed in)
-- [ ] A test on **pixels per column**, not on the weights. The property that
+- [x] A test on **pixels per column**, not on the weights. The property that
       matters is that a column is no narrower than today, and it is the one
       nobody checks by eye
+
+- [x] The sort order and the colour band read `shown_score(row)`, not the raw
+      JP rate. Found after the columns shipped: the rendered `Proyección` came
+      out `525, 536, 494, 460, …` — the table was sorting on a number it was
+      no longer showing
 
 ### The goal and assist probabilities
 
