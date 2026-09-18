@@ -62,6 +62,11 @@ backup GK is fair game, and the rule SHALL NOT extend to outfield positions
 (feeding the house rule). `top_per_position` SHALL group candidates by primary
 position, mark multi-position players, and cap at `top_n`.
 
+`gather_rivals` SHALL forward the caller's Oráculo index and scale into every
+rival squad it builds. It reads one squad per manager, in a loop — threading
+the blend into some iterations and not others would rank the pool on two
+different scales, exactly the defect the shared scale exists to prevent.
+
 #### Scenario: annotation, grouping, cap
 - **WHEN** gathering rivals **THEN** each row carries owner GK count + user id
 - **WHEN** presenting **THEN** candidates group by primary position, multi-pos
@@ -69,6 +74,13 @@ position, mark multi-position players, and cap at `top_n`.
 - *Verifies:* `test_gather_rivals_annotates_owner_gk_count_and_user_id`,
   `test_top_per_position_groups_by_primary_and_marks_multi`,
   `test_top_per_position_caps_at_top_n`
+
+#### Scenario: every rival squad blends on the same scale
+- **WHEN** two rivals are gathered in the same call, and Oráculo would
+  reorder them against their raw JP rates
+- **THEN** `pick_top_in_position` picks the rival the blend favours, not the
+  one the raw rate favours
+- *Verifies:* `test_gather_rivals_threads_the_oraculo_blend_into_every_rival_squad`
 
 ### Requirement: Telegram formatting
 

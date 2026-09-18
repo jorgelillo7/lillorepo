@@ -53,6 +53,20 @@ football — never letting one stand in for the other:
   recommendation — is the blend, never the raw rate underneath it
 - *Verifies:* `test_score_offer_scores_on_the_displayed_prediction_not_the_raw_jp_rate`
 
+`run_offers_inbox` SHALL build `my_team` — the row-set `_score_offer` reads
+`sf` from — with the caller's Oráculo index and scale, or `sf` reading the
+blend is a promise the row-set underneath never keeps. Once threaded, the
+tier boundaries `_recommend` cascades on (`ab.TIER_*`) apply to the blended
+`sf` exactly as they do to a raw JP one — the recommendation is expected to
+change when the blend moves a player across one of them, which is the point
+of running a second opinion, not a regression.
+
+#### Scenario: the inbox scores on the same blend the table shows
+- **WHEN** the offered player's blended `sf` crosses a tier boundary that his
+  raw JP rate did not
+- **THEN** the recommendation follows the blended tier, not the raw one
+- *Verifies:* `test_run_offers_inbox_scores_the_offer_on_the_blended_projection`
+
 ### Requirement: Squad depth outranks the projection band
 
 A player's JP projection says how well he is expected to *score*; it does not say

@@ -162,7 +162,13 @@ def run_offers_inbox(
     my_squad = ctx.biwenger.get_manager_squad(
         config.USER_SQUAD_URL, ctx.biwenger.user_id
     )
-    my_team = build_squad_rows(my_squad, ctx.biwenger_players, ctx.jp_index)
+    my_team = build_squad_rows(
+        my_squad,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     acq_by_id = {row["bw_id"]: row for row in my_team}
     # The baseline eleven is the same for every offer in the inbox — solve it
     # once here rather than N times inside the loop.

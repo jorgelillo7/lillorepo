@@ -399,10 +399,12 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     chaining this step costs no extra JP + Biwenger round-trip.
     """
     ctx = ctx or build_context()
-    biwenger, biwenger_players, jp_index = (
+    biwenger, biwenger_players, jp_index, oraculo_index, oraculo_scale = (
         ctx.biwenger,
         ctx.biwenger_players,
         ctx.jp_index,
+        ctx.oraculo_index,
+        ctx.oraculo_scale,
     )
     telegram = require_telegram()
     if telegram is None:
@@ -410,7 +412,9 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     token, chat_id = telegram
 
     my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
-    my_team = build_squad_rows(my_squad, biwenger_players, jp_index)
+    my_team = build_squad_rows(
+        my_squad, biwenger_players, jp_index, oraculo_index, oraculo_scale=oraculo_scale
+    )
 
     by_status = _squad_breakdown(my_team)
     logger.info(

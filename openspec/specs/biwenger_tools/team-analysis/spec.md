@@ -343,3 +343,17 @@ cached for a few minutes.
   `test_render_says_who_bought_best_only_when_there_is_a_cost`,
   `test_the_two_rankings_are_independent`,
   `test_the_comparison_is_cached_so_a_second_tap_costs_nothing`
+
+Every squad read inside one `collect()` call SHALL be built with the same
+Oráculo index and scale, and the projection sum SHALL read each row's
+displayed number (`shown_score`), never the raw JP rate underneath. This is
+the one surface where blending some squads and not others is not a cosmetic
+difference but a wrong answer: `/comparar` exists to rank seven managers
+against each other, and a ranking that mixes a blended squad with a raw one
+is comparing two different scales, not one.
+
+#### Scenario: the same request, one scale, across every squad
+- **WHEN** two squads are read inside the same `collect()` call, and Oráculo
+  would reorder them against their raw JP totals
+- **THEN** the reported ranking follows the blended totals, not the raw ones
+- *Verifies:* `test_collect_ranks_every_squad_on_the_same_oraculo_scale`

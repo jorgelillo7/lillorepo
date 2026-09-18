@@ -194,7 +194,13 @@ def run_recommendations(
     margin = max(0, margin)
     target = cash + margin
 
-    rivals = gather_rivals(ctx.biwenger, ctx.biwenger_players, ctx.jp_index)
+    rivals = gather_rivals(
+        ctx.biwenger,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        oraculo_scale=ctx.oraculo_scale,
+    )
     affordable = filter_affordable(rivals, my_ids, target)
     annotate_pact(affordable, pact_store.load())
     recommendations = _pick_top_per_position(affordable, top)

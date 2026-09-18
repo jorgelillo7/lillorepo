@@ -19,11 +19,10 @@ squad cost, because half of it arrived by clause.
 
 import time
 
-from core.sdk.jp import get_predict_rate
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
-from packages.biwenger_tools.api.player_formatting import SCORE_SF
+from packages.biwenger_tools.api.player_formatting import shown_score
 
 logger = get_logger(__name__)
 
@@ -48,12 +47,16 @@ def collect(ctx) -> dict:
     out = {}
     for manager_id, name in managers.items():
         squad = ctx.biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
-        rows = build_squad_rows(squad, ctx.biwenger_players, ctx.jp_index)
+        rows = build_squad_rows(
+            squad,
+            ctx.biwenger_players,
+            ctx.jp_index,
+            ctx.oraculo_index,
+            oraculo_scale=ctx.oraculo_scale,
+        )
         out[name] = {
             "value": sum(r.get("price") or 0 for r in rows),
-            "projection": sum(
-                get_predict_rate(r.get("jp_player"), SCORE_SF) or 0 for r in rows
-            ),
+            "projection": sum(shown_score(r) or 0 for r in rows),
             "size": len(rows),
         }
         logger.info("Squad measured.", extra={"manager": name, "size": len(rows)})
