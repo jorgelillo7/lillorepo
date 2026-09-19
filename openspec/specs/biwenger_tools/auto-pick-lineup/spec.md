@@ -115,9 +115,9 @@ The saved eleven SHALL be scored by putting it back through the solver, and
 through `xi_snapshot` rather than `pick_lineup`. Summing `_sf()` over it is
 wrong — `_sf` reads `_promotion_capped`, which `_solve` flips between passes,
 so a total taken outside the search is not in the same units as
-`result["total_sf"]`. And `pick_lineup` writes to `provider_watch`, the trail
-that records the promotions actually bet on each morning; a counterfactual
-must not bury a real decision.
+`result["total_sf"]`. And `pick_lineup` writes to `provider_watch`, which
+reports what the providers sent that this code does not model; a
+counterfactual must not bury a real observation.
 
 A failed read SHALL degrade — the optimal eleven still goes out with a line
 saying the comparison could not be made — and SHALL NOT synthesise a lineup
@@ -528,47 +528,6 @@ would have been assigned elsewhere.
 - **THEN** the second run decides from scratch — a mark from the first can
   neither survive nor accumulate
 - *Verifies:* `test_the_promotion_mark_is_not_stale_across_calls`
-
-### Requirement: every promotion that starts is recorded with what it displaced
-
-`provider_watch.log_promotions` SHALL log one line per promoted player who
-**reaches the starting XI**, carrying his projection, the threshold in force,
-his line, and the highest-SF certain squad member he kept out of it.
-
-`LINEUP_SUB_STARTS_ABOVE` decides every morning whether the projection outranks
-the provider's own predicted XI, and the 350 default is a judgement nobody can
-improve without knowing how often that bet pays. Neither provider exposes
-whether a player featured: Jornada Perfecta's payload is forward-looking, and
-the Biwenger competition data these rows are built from carries no per-round
-points. So this records the bet rather than grading it — the verdict comes from
-reading a round's real points against the lines logged that morning.
-
-The displaced player is the point. *"659 started instead of 228"* can be graded
-later; *"659 started"* cannot.
-
-A promotion that loses its place to a better assignment is not logged: no bet
-was placed. Like everything in `provider_watch`, this decides nothing and
-SHALL NOT raise into the lineup path.
-
-#### Scenario: a promotion that starts
-- **WHEN** a promoted player makes the XI over a certain starter
-- **THEN** both names and both scores are logged, with the threshold in force
-- *Verifies:* `test_a_promotion_that_starts_is_logged_with_its_displaced_starter`
-
-#### Scenario: nobody was displaced
-- **WHEN** the line held no certain alternative
-- **THEN** the line is still logged, saying so explicitly rather than omitting it
-- *Verifies:* `test_a_promotion_with_no_certain_alternative_is_logged_with_displaced_none`
-
-#### Scenario: a promotion that never started
-- **WHEN** a promoted candidate does not make the XI
-- **THEN** nothing is logged for him
-- *Verifies:* `test_a_promotion_that_does_not_start_is_not_logged`
-
-#### Scenario: the recorder cannot break the lineup
-- **WHEN** `log_promotions` is handed malformed input
-- **THEN** it is swallowed and logged
-- *Verifies:* `test_log_promotions_never_raises`
 
 ### Requirement: notice what the providers send that this code does not model
 

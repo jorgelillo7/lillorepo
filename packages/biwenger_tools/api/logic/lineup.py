@@ -159,11 +159,6 @@ def pick_lineup(squad_rows: list) -> dict | None:
 
     best = _solve(squad_rows)
 
-    # Only a promotion that actually starts is a bet that was placed; one
-    # that lost out to a better assignment never reached the pitch.
-    if best is not None:
-        provider_watch.log_promotions(_promoted_starters(squad_rows, best["starters"]))
-
     return best
 
 
@@ -428,42 +423,6 @@ def _demote_surplus_promotions(starters: list) -> bool:
             loser["_promotion_capped"] = True
             demoted = True
     return demoted
-
-
-def _promoted_starters(squad_rows: list, starters: list) -> list[dict]:
-    """Build `provider_watch.log_promotions` payloads for the promotions
-    that made the XI.
-
-    "Displaced" is the highest-SF certain (`not _is_uncalled`) squad member
-    in the promoted player's assigned line who did not start — `None` when
-    the line has nobody else to displace. Computed from `squad_rows`, not
-    the trimmed candidate pool, so a certain starter dropped before
-    `_try_fill` still counts as the insurance that was bypassed.
-    """
-    starter_ids = {r["bw_id"] for r, _ in starters}
-    promotions = []
-    for row, pos_id in starters:
-        if not _is_promoted(row):
-            continue
-        certain_in_line = [
-            r
-            for r in squad_rows
-            if r["bw_id"] not in starter_ids
-            and r["position_id"] == pos_id
-            and not _is_uncalled(r)
-        ]
-        displaced = max(certain_in_line, key=_sf, default=None)
-        promotions.append(
-            {
-                "player": row.get("name"),
-                "projection": _sf(row),
-                "threshold": config.LINEUP_SUB_STARTS_ABOVE,
-                "position": _POSITION_LABELS.get(pos_id, pos_id),
-                "displaced_player": displaced.get("name") if displaced else None,
-                "displaced_sf": _sf(displaced) if displaced else None,
-            }
-        )
-    return promotions
 
 
 def _positions(row: dict) -> set:
