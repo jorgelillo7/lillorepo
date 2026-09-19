@@ -1457,3 +1457,38 @@ def test_an_injured_player_stays_at_zero_however_good_the_blend_is():
     row["custom_prediction"] = 900
     assert lineup._sf(row) == lineup._DOUBTFUL_SF
     assert lineup._fallback_rate(row) == 0
+
+
+# --- a match already played cannot score again -----------------------------
+
+
+def test_a_finished_fixture_scores_like_no_fixture_at_all():
+    """A LaLiga matchday runs Friday to Monday and the lineup is applied every
+    morning, so by Saturday some players have already played. JP reports
+    `finished` for them, which nothing here modelled — they kept their full
+    projection and could hold a slot against someone still to play.
+
+    Safe whichever way Biwenger locks a player: if he is locked our payload
+    for him is ignored, and if he is not, the slot goes to someone who can
+    still score. Points already banked are unaffected either way — they were
+    settled when his match kicked off.
+    """
+    row = _row(1, 2_500_000, sf=500)
+    row["jp_player"]["nextMatch"] = {"status": "finished"}
+    assert lineup._sf(row) == lineup._DOUBTFUL_SF
+    assert lineup._fallback_rate(row) == 0
+
+
+def test_a_finished_player_still_fills_a_slot_nobody_else_can():
+    """The ladder of last resorts holds: scoring zero is not being filtered
+    out. On a Monday, when every fixture has finished, an eleven must still
+    be fielded rather than left with holes."""
+    # 2 keepers, 5 defenders, 5 midfielders, 3 forwards — a fieldable squad.
+    shape = [1, 1] + [2] * 5 + [3] * 5 + [4] * 3
+    played = [_row(i, 2_500_000, sf=400) for i in range(1, len(shape) + 1)]
+    for row, position in zip(played, shape):
+        row["jp_player"]["nextMatch"] = {"status": "finished"}
+        row["position_id"] = position
+    assert all(lineup._sf(r) == lineup._DOUBTFUL_SF for r in played)
+    result = lineup.pick_lineup(played)
+    assert len(result["starters"]) == 11

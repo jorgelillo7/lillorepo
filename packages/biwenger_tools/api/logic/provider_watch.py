@@ -11,8 +11,10 @@ the moment the knowledge is cheapest to capture.
 
 The two sets below are **what has been seen in the wild**, not what the code
 handles — the distinction that matters. `break` is handled by `lineup._sf` and
-has never once been observed in 533 players, so its first appearance is
-precisely the event worth logging.
+had never once been observed in 533 players, so its first appearance is
+precisely the event worth logging. `finished` was such an appearance: it
+arrived with the season, `lineup._sf` did not model it, and a player whose
+match had already been played kept his full projection.
 """
 
 from core.utils import get_logger
@@ -23,9 +25,13 @@ logger = get_logger(__name__)
 OBSERVED_JP_STATUS = frozenset(
     {"ok", "ok-available", "injured", "doubt", "sanctioned", "other"}
 )
-# Every player reported `pending`; the season had not started. `break` is
-# handled but unseen, so its first sighting answers a standing question.
-OBSERVED_FIXTURE_STATUS = frozenset({"pending"})
+# `pending` was all the pre-season payload carried. `finished` arrived once the
+# season started — the daily 09:00 run meets it from Saturday on, because a
+# matchday runs Friday to Monday — and `lineup._sf` now models it, so it stops
+# being news. `break` is handled but still unseen, and its first sighting
+# answers a standing question. A watcher that keeps reporting what the code
+# already knows is one nobody reads.
+OBSERVED_FIXTURE_STATUS = frozenset({"pending", "finished"})
 
 # Biwenger's own vocabulary, from the competition payload the same day. Mapped
 # onto "can this player be fielded", so the two providers can be compared at

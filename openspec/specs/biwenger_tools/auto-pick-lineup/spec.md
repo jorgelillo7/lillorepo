@@ -213,6 +213,37 @@ basis and order on another.
   `test_fallback_ranking_reads_the_blend`,
   `test_an_injured_player_stays_at_zero_however_good_the_blend_is`
 
+### Requirement: A fixture already played earns no more points
+
+A player whose `nextMatch.status` says his match is done SHALL score
+`_DOUBTFUL_SF`, the same as one in an international break. Both mean the same
+thing to a lineup: nothing more is coming from him this matchday.
+
+A LaLiga matchday runs Friday to Monday and the lineup is applied **every**
+morning at 09:00, so from Saturday on some of the squad has already played.
+Nothing modelled that. They kept their full projection and could hold a slot
+against somebody still to play — four of the owner's own squad were in that
+state on one observed morning while an eleven was applied around them.
+
+The fix is safe whichever way Biwenger locks a player, which is why it does
+not depend on knowing: if he is locked, our payload for him is ignored; if he
+is not, the slot goes to somebody who can still score. Points already banked
+were settled at his kick-off and are untouched either way.
+
+Zero is not exclusion. The ladder of last resorts still holds, so a Monday on
+which every fixture has finished SHALL field an eleven rather than leave holes.
+
+`provider_watch.OBSERVED_FIXTURE_STATUS` SHALL gain the state at the same
+time. It was the watcher that surfaced this, and a watcher that keeps
+reporting what the code already models is one nobody reads.
+
+#### Scenario: Saturday morning, half the squad has played
+- **WHEN** a player's fixture has finished **THEN** he scores `_DOUBTFUL_SF`
+  and ranks last among fallbacks
+- **WHEN** every fixture has finished **THEN** a legal eleven is still fielded
+- *Verifies:* `test_a_finished_fixture_scores_like_no_fixture_at_all`,
+  `test_a_finished_player_still_fills_a_slot_nobody_else_can`
+
 ### Requirement: Captain by highest SF under the 3M price cap
 
 `_pick_captain` SHALL choose the starter with the highest SF whose price is
