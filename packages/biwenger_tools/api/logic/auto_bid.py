@@ -46,6 +46,7 @@ not double-bid the players that already went through.
 """
 
 import html
+import os
 import random
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional
@@ -115,8 +116,12 @@ BENCH_PRICED_SF = TIER_T2_MIN - 1
 # the ones nobody else bid on, which is the premise of the trade rather than a
 # flaw in it. The daily ceiling is a safety net, not the control — the owner
 # reviews the morning's bids in the app and cancels what does not convince.
-CHOLLO_MARGIN = 150_000
-CHOLLO_MAX_BIDS = 3
+# Both read from the environment so the trade can be tuned, or switched off
+# entirely with `CHOLLO_MAX_BIDS=0`, without a deploy. It is the one path here
+# that spends money on players nobody intends to field, so turning it off must
+# not require shipping code.
+CHOLLO_MARGIN = int(os.getenv("CHOLLO_MARGIN", "150000"))
+CHOLLO_MAX_BIDS = int(os.getenv("CHOLLO_MAX_BIDS", "3"))
 
 # Per-bid anti-pattern jitter. A bot that always bids in round euros
 # (10.000.000, 10.500.000, …) is a tell — humans dragging the slider

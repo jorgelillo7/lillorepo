@@ -1097,3 +1097,20 @@ def test_the_reserve_yields_rather_than_block_a_real_signing(run_env):
     auto_bid.run_auto_bid()
 
     biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_400_000)
+
+
+def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
+    """It spends money on players nobody intends to field, so the off switch
+    must not require shipping code."""
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Ganga", 800_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Ganga", 100)],
+        cash=50_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    with patch.object(auto_bid, "CHOLLO_MAX_BIDS", 0):
+        auto_bid.run_auto_bid()
+    biwenger.place_market_bid.assert_not_called()
