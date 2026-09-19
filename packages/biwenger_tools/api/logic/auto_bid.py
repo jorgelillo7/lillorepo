@@ -592,12 +592,16 @@ def run_auto_bid() -> dict:
         if (
             target_bid is not None
             and not candidate.get("chollo")
+            and priced_sf >= TIER_T3_MIN
             and target_bid > spendable
             and target_bid <= remaining_cash
         ):
-            # The reserve holds against the ladder, but never *blocks* it:
-            # skipping a real signing to keep three lottery tickets alive is
-            # the trade backwards. It yields exactly as far as this bid needs.
+            # The reserve yields to a real signing — skipping one to keep
+            # three lottery tickets alive is the trade backwards — but only
+            # down to T3. Below that the ladder is buying squad filler at
+            # 1.2x, and a ticket with an explicit exit (sell when the price
+            # rises) is worth more than a marginal body. It gives way exactly
+            # as far as this bid needs and no further.
             reserve = max(0, remaining_cash - target_bid)
             spendable = remaining_cash - reserve
         if target_bid is None and candidate.get("chollo"):

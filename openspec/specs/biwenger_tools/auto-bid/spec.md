@@ -205,11 +205,16 @@ actually on offer that morning. "Whatever is left over" is usually nothing,
 because the ladder spends best-first, so leftovers would fire the trade only
 on days it was not needed.
 
-The reserve SHALL yield in two cases. The all-in tier releases it outright —
-one genuine monster beats three lottery tickets. And it SHALL never *block* a
-ladder bid: where a real signing fits in the wallet but not beside the
-reserve, the reserve gives way exactly as far as that bid needs. Skipping a
-3.4M signing to keep a 950K lottery ticket alive is the trade backwards.
+The reserve SHALL yield to the ladder, down to T3 and no further. The all-in
+tier releases it outright — one genuine monster beats three lottery tickets —
+and where a signing at `TIER_T3_MIN` or above fits the wallet but not beside
+the reserve, the reserve gives way exactly as far as that bid needs. Skipping
+a 3.4M signing to keep a 950K lottery ticket alive is the trade backwards.
+
+Below T3 it SHALL hold. There the ladder is buying squad filler — SF 300 to
+399, bid at 1.2× the asking price — and a ticket with an explicit exit is
+worth more than a marginal body. The line falls at T3 because that is where
+the ladder stops buying players for the eleven and starts buying depth.
 
 No exit code is needed. `/ofertas` rule 5 — `sf < TIER_T3_MIN and roi_pct > 0
 → ACEPTAR` — is already the shape of a chollo bought to trade, and `roi_pct`
@@ -222,8 +227,10 @@ trade and became a squad decision.
   **THEN** he is bid his asking price plus the margin
 - **WHEN** a candidate reaches the all-in tier **THEN** the reserve is released
   and the speculation stands down
-- **WHEN** a ladder bid fits the wallet but not beside the reserve **THEN** the
-  reserve yields and the signing goes through
+- **WHEN** a T3-or-better bid fits the wallet but not beside the reserve
+  **THEN** the reserve yields and the signing goes through
+- **WHEN** the same is true of a bottom-tier bid **THEN** the reserve holds and
+  the chollo is bought instead
 - **WHEN** more chollos are on offer than the daily allowance **THEN** only
   `CHOLLO_MAX_BIDS` are placed
 - *Verifies:* `test_a_chollo_is_carried_off_the_shortlist_onto_the_candidate`,
@@ -234,6 +241,9 @@ trade and became a squad decision.
   `test_a_chollo_is_bought_with_cash_the_ladder_left_reserved`,
   `test_the_all_in_tier_takes_the_reserve_with_it`,
   `test_the_reserve_yields_rather_than_block_a_real_signing`,
+  `test_the_reserve_still_yields_to_a_third_tier_signing`,
+  `test_the_reserve_holds_against_a_bottom_tier_signing`,
+  `test_the_trade_can_be_switched_off_without_a_deploy`,
   `test_a_good_chollos_day_cannot_turn_the_wallet_into_bench_filler`
 
 ### Requirement: Idempotent retries

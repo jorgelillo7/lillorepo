@@ -1114,3 +1114,43 @@ def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
     with patch.object(auto_bid, "CHOLLO_MAX_BIDS", 0):
         auto_bid.run_auto_bid()
     biwenger.place_market_bid.assert_not_called()
+
+
+def test_the_reserve_holds_against_a_bottom_tier_signing(run_env):
+    """T4 is squad filler — SF 300-399, bid at 1.2x. A lottery ticket with an
+    explicit exit is worth more than a marginal body, so the reserve that
+    gives way to a real signing holds against this one."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Relleno", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Relleno", 350), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=3_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    # The T4 bid (2.4M) fits the wallet but not beside the reserve, and is not
+    # worth breaking it for. The chollo is bought instead.
+    biwenger.place_market_bid.assert_called_once_with(
+        player_id=2, amount=800_000 + auto_bid.CHOLLO_MARGIN
+    )
+
+
+def test_the_reserve_still_yields_to_a_third_tier_signing(run_env):
+    """The line is T3: at SF 400 and above the player is worth the wallet."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Util", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Util", 450), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=3_500_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_000_000)
