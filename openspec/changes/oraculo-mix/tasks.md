@@ -179,20 +179,42 @@ the normal state of 92% of players, not missing data.
       out `525, 536, 494, 460, …` — the table was sorting on a number it was
       no longer showing
 
-### The goal and assist probabilities
+### The goal and assist probabilities — **dropped, and why**
 
 Correlated against `predictedPoints` over the 32 players carrying both:
 `goalProbability` r = +0.50, `assistProbability` r = +0.11; by position +0.56 /
 +0.18 / +0.10 for forwards, midfielders, defenders. The points absorb about a
-quarter of the goal signal and leave three quarters — not redundant, and for
-defenders nearly independent.
+quarter of the goal signal and leave three quarters.
 
-- [ ] Feed them to `_pick_captain`, which already reasons about tail versus
-      mean. Narrow by construction: Biwenger caps the captain at 3M and only 14
-      of the 38 fall under it
-- [ ] A test on the real shape: Pedro Díaz 5.85 points at 3.9% goal against
-      Marcos Fernández 3.98 at 21.1% — the captain should prefer the second and
-      the eleven should still prefer the first
+The plan was to feed them to `_pick_captain`, preferring a cheap player with a
+real chance of scoring over a steadier projection. **The justification does not
+hold and the item is closed.**
+
+The captain *doubles* his score, and doubling is monotonic: multiplying every
+candidate by two cannot change which one ranks first. `E[2X] = 2E[X]`. In
+expected points the best captain is simply the highest projection, which is
+what `_pick_captain` already returns.
+
+The agreed acceptance example shows it rather than hiding it. Pedro Díaz at
+5.85 points and 3.9% against Marcos Fernández at 3.98 and 21.1%: captained,
+11.7 against 7.96. Closing 3.7 points would need the extra goal chance to be
+worth that much, and 17 points of probability on a midfielder's goal (+5, so
++10 captained) is worth 1.72. It does not reach. `predictedPoints` already
+prices the goal expectation too, so adding it again double-counts — three
+times over, since the blend has already absorbed Oráculo.
+
+There *is* a real argument for preferring the spikier player: **variance**, not
+expectation. Sacrificing expected points for a higher ceiling pays when you are
+behind in a head-to-head, where a narrow loss costs the same as a heavy one.
+That is a different feature with a different trigger — it needs the live H2H
+scoreline — and it was declined. Recorded here so the multiplier is not
+proposed a second time on the expectation argument.
+
+Measured while deciding, worth keeping: the probabilities live on the **picks**
+entries, not the predictions rows, and those entries also carry `marketValue`.
+16 of the 38 listed players fell under the 3M captain cap on the day this was
+checked, almost all via `chollos` — so the data is there for 4c even though the
+captain will not use it.
 
 ## 4c · The chollos trade (an evaluated exception)
 
