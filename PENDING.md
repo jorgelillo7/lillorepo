@@ -35,6 +35,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
+| ⏳ | Should the lineup skip players whose match has already been played? | Knowing when Biwenger locks a player. `finished` was shipped as unplayable and reverted the same day: the owner's reading is that the daily run exists to keep the *remaining* fixtures right, and dropping a settled player from the eleven risks the points he has banked. Needs the rule confirmed before anyone tries again |
 | 👤 | A second projection source beside Jornada Perfecta (Analítica Fantasy) | You: **the technical question is answered** — `/biwenger/predicciones` is server-rendered, Biwenger-scored, 366 players with a starting chance and a points projection, no API and no key · what is left is permission, which is yours · [findings](docs/technical/backend/second-projection-source.md) |
 | 🔨 | Nothing records what was projected against what was scored | Worth doing whether or not a second source ever arrives — without it "is JP worth it" has no answer · [why](docs/technical/backend/second-projection-source.md) |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | More promotions to read against real points · **one in 12 months:** Valverde (328) displaced Giuliano Simeone on 2026-09-09, which 350 would have prevented · `log_promotions` records the bet but not what either scored, so grading it needs that first |

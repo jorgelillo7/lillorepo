@@ -12,9 +12,9 @@ the moment the knowledge is cheapest to capture.
 The two sets below are **what has been seen in the wild**, not what the code
 handles — the distinction that matters. `break` is handled by `lineup._sf` and
 had never once been observed in 533 players, so its first appearance is
-precisely the event worth logging. `finished` was such an appearance: it
-arrived with the season, `lineup._sf` did not model it, and a player whose
-match had already been played kept his full projection.
+precisely the event worth logging. `finished` was such an appearance: it arrived
+with the season, and reading it correctly turned out to need a rule of the
+game rather than one in the code.
 """
 
 from core.utils import get_logger
@@ -25,12 +25,17 @@ logger = get_logger(__name__)
 OBSERVED_JP_STATUS = frozenset(
     {"ok", "ok-available", "injured", "doubt", "sanctioned", "other"}
 )
-# `pending` was all the pre-season payload carried. `finished` arrived once the
-# season started — the daily 09:00 run meets it from Saturday on, because a
-# matchday runs Friday to Monday — and `lineup._sf` now models it, so it stops
-# being news. `break` is handled but still unseen, and its first sighting
-# answers a standing question. A watcher that keeps reporting what the code
-# already knows is one nobody reads.
+# `pending` was all the pre-season payload carried. `finished` arrived with the
+# season — the daily 09:00 run meets it from Saturday on, because a matchday
+# runs Friday to Monday — and it is listed here as *seen and understood*, not
+# as acted upon. The lineup deliberately leaves those players at their full
+# projection: they are already settled, and dropping one from the eleven to
+# free his slot would risk the points he has banked, on a rule about when
+# Biwenger locks a player that nobody here has verified.
+#
+# `break` is handled but still unseen, so its first sighting answers a
+# standing question. A watcher that keeps reporting what is already understood
+# is one nobody reads.
 OBSERVED_FIXTURE_STATUS = frozenset({"pending", "finished"})
 
 # Biwenger's own vocabulary, from the competition payload the same day. Mapped
