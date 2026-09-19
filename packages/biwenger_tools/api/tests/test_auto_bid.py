@@ -1154,3 +1154,27 @@ def test_the_reserve_still_yields_to_a_third_tier_signing(run_env):
     auto_bid.run_auto_bid()
 
     biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_000_000)
+
+
+def test_a_chollo_is_bid_on_before_oraculo_has_projected_anybody(run_env):
+    """Monday through Wednesday the projections are nearly empty while the
+    shortlists are already out. Requiring a projection meant the trade only
+    ever fired on Thursday and Friday, losing most of the week's market."""
+    index = rows_mod.build_oraculo_index(
+        [],  # no projections yet
+        lists={"chollos": ["ganga-7"]},
+        shortlist_entries=[
+            {"playerName": "Ganga", "slug": "ganga-7", "predictedPoints": 3.8}
+        ],
+    )
+    biwenger, _ = run_env(
+        market_players=[_sale(1)],
+        biwenger_players={1: _bw(1, "Ganga", 800_000)},
+        jp_players=[_jp_with_sf("Ganga", 100)],
+        cash=10_000_000,
+        oraculo_index=index,
+    )
+    auto_bid.run_auto_bid()
+    biwenger.place_market_bid.assert_called_once_with(
+        player_id=1, amount=800_000 + auto_bid.CHOLLO_MARGIN
+    )

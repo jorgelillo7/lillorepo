@@ -88,11 +88,17 @@ def _read_oraculo(
         picks_result = fetch_picks()
         dates = matchday_dates(picks_result)
         predictions = rows_for_dates(fetch_predictions(), dates)
+        picks = picks_result.get("picks") or {}
         lists = {
             name: [entry.get("slug") for entry in entries or []]
-            for name, entries in (picks_result.get("picks") or {}).items()
+            for name, entries in picks.items()
         }
-        oraculo_index = build_oraculo_index(predictions, lists=lists)
+        shortlist_entries = [
+            entry for entries in picks.values() for entry in entries or []
+        ]
+        oraculo_index = build_oraculo_index(
+            predictions, lists=lists, shortlist_entries=shortlist_entries
+        )
         scale = global_scale(biwenger_players, jp_index, oraculo_index)
         return oraculo_index, scale, True
     except Exception:
