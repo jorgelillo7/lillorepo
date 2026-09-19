@@ -213,6 +213,26 @@ basis and order on another.
   `test_fallback_ranking_reads_the_blend`,
   `test_an_injured_player_stays_at_zero_however_good_the_blend_is`
 
+### Requirement: A played fixture is not a reason to move anybody
+
+The lineup SHALL leave a player at his full projection when his match is
+already over, exactly as if it had not been played.
+
+Biwenger freezes the eleven when the matchday's **first** match kicks off, and
+every edit after that applies to the following matchday or to a postponed
+fixture. So from Saturday morning the daily run is not adjusting this
+weekend's eleven at all — it is building next week's. Dropping a player
+because his fixture is done would change nothing now, and would act on stale
+information for the matchday it actually affects, where he has a fixture
+again.
+
+This was shipped the other way round and reverted the same day. The argument
+for it rested on a rule about when Biwenger locks a player, stated from
+memory rather than confirmed, and it missed the case where a settled player is
+pushed out of the eleven and his banked points go with him. The repo's first
+ground rule covers exactly this: never assert the behaviour of something
+external without checking.
+
 ### Requirement: Captain by highest SF under the 3M price cap
 
 `_pick_captain` SHALL choose the starter with the highest SF whose price is
