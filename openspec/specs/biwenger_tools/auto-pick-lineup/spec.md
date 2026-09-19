@@ -178,6 +178,41 @@ impossible to confuse.
   `test_every_formation_hitting_the_ceiling_is_not_reported_as_no_lineup`,
   `test_an_exhausted_search_leaves_offers_on_the_money_rules`
 
+### Requirement: The eleven is picked on the projection everything else shows
+
+`_sf` and `_fallback_rate` SHALL read `shown_score(row)` — the Oráculo blend
+where the row carries one, the raw Jornada Perfecta rate otherwise. They are
+the only two places in this module that read a projection at all; every other
+decision derives from them.
+
+This module is the last reader to move, deliberately: it applies a lineup
+unattended every morning. Leaving it on the raw rate once every other surface
+had moved would field an eleven that disagrees with the eleven the morning
+photo recommends, with nothing on screen explaining the difference.
+
+The guards SHALL keep running first. A blend cannot field a player who is
+injured, sanctioned or has no fixture — `CANNOT_PLAY` and a `break` fixture
+still return `_DOUBTFUL_SF` however good the second opinion is.
+
+`LINEUP_SUB_STARTS_ABOVE` needs no recalibration. The conversion is a
+percentile map **into JP units**, so a threshold expressed in those units
+keeps its meaning and is applied to a better estimate, and the blend is
+clamped to ±25% of the rate it came from. Comparing the promotion threshold
+against the raw rate while ranking the squad on the blend would promote on one
+basis and order on another.
+
+#### Scenario: the blend reaches every decision the lineup makes
+- **WHEN** a row carries a blended projection **THEN** `_sf` returns it
+- **WHEN** an uncalled player's blend clears `LINEUP_SUB_STARTS_ABOVE` while
+  his raw rate does not **THEN** he is promoted rather than floored
+- **WHEN** two floored fallbacks are ranked **THEN** the tie-break reads the
+  same blended number, so it cannot disagree with the ordering
+- **WHEN** the player cannot play **THEN** the blend changes nothing
+- *Verifies:* `test_sf_reads_the_blend_when_the_row_carries_one`,
+  `test_the_promotion_threshold_reads_the_blend_too`,
+  `test_fallback_ranking_reads_the_blend`,
+  `test_an_injured_player_stays_at_zero_however_good_the_blend_is`
+
 ### Requirement: Captain by highest SF under the 3M price cap
 
 `_pick_captain` SHALL choose the starter with the highest SF whose price is

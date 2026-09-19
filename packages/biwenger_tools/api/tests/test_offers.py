@@ -261,10 +261,14 @@ def test_xi_impact_reports_the_replacement_s_displayed_score_not_the_raw_jp_rate
     If it kept reading the raw JP rate, that line would show a number the
     projection column no longer displays once the Oráculo blend moved it."""
     squad = _squad_with_two_keepers()
-    squad[1]["custom_prediction"] = 777  # Fortuño, the replacement.
+    # The reserve keeper, still behind the starter once blended — a blend is
+    # clamped to +/-25% of the JP rate, so a number the rate could never
+    # reach would also make him the starter and leave nobody to come on.
+    squad[1]["jp_player"] = _sf_jp(200)
+    squad[1]["custom_prediction"] = 240
     base = offers._xi_baseline(squad)
     impact = offers._xi_impact(squad, 1, base)
-    assert impact["replacement_sf"] == 777
+    assert impact["replacement_sf"] == 240
 
 
 def test_xi_impact_flags_the_squad_that_cannot_field_an_eleven_without_him():

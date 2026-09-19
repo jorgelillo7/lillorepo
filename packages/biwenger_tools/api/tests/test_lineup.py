@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
+from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import lineup
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
@@ -1411,3 +1412,48 @@ def test_a_hole_closed_by_the_eleven_change_says_so():
     assert diff["bench_empty_slots"] and not diff["bench_incoming"]
     assert "el cambio de arriba cubre" in message
     assert "sin cubrir" not in message
+
+
+# --- the lineup is picked on the projection the rest of the system uses ----
+
+
+def test_sf_reads_the_blend_when_the_row_carries_one():
+    """Every other reader moved to the blended projection. A lineup still
+    picked on the raw rate would field a different eleven from the one the
+    morning photo recommends, and it applies itself unattended."""
+    row = _row(1, 2_500_000, sf=300)
+    assert lineup._sf(row) == 300
+    row["custom_prediction"] = 375
+    assert lineup._sf(row) == 375
+
+
+def test_the_promotion_threshold_reads_the_blend_too():
+    """`LINEUP_SUB_STARTS_ABOVE` decides whether an uncalled player is worth
+    starting anyway. Comparing it against the raw rate while the number the
+    squad is ranked on is the blend would promote on one basis and order on
+    another."""
+    row = _row(1, 2_500_000, sf=config.LINEUP_SUB_STARTS_ABOVE - 20)
+    row["jp_player"]["nextMatch"] = {"status": "pending", "playerInLineup": False}
+    assert lineup._sf(row) == lineup._UNCALLED_SF
+    row["custom_prediction"] = config.LINEUP_SUB_STARTS_ABOVE + 20
+    assert lineup._sf(row) == config.LINEUP_SUB_STARTS_ABOVE + 20
+
+
+def test_fallback_ranking_reads_the_blend():
+    """The tie-break between two floored fallbacks. On raw rates the first
+    outranks the second; blended, it is the other way round."""
+    low = _row(1, 2_500_000, sf=316)
+    high = _row(2, 2_500_000, sf=197)
+    assert lineup._fallback_rate(low) > lineup._fallback_rate(high)
+    low["custom_prediction"] = 237
+    high["custom_prediction"] = 246
+    assert lineup._fallback_rate(high) > lineup._fallback_rate(low)
+
+
+def test_an_injured_player_stays_at_zero_however_good_the_blend_is():
+    """The guards come first: a blend cannot field somebody who cannot play."""
+    row = _row(1, 2_500_000, sf=800)
+    row["jp_player"]["status"] = "injured"
+    row["custom_prediction"] = 900
+    assert lineup._sf(row) == lineup._DOUBTFUL_SF
+    assert lineup._fallback_rate(row) == 0
