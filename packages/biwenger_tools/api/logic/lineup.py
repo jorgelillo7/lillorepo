@@ -10,11 +10,10 @@ example that motivated exhaustive backtracking), see the
 
 from html import escape
 
-from core.sdk.jp import get_predict_rate
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import provider_watch
-from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, SCORE_SF
+from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, shown_score
 
 logger = get_logger(__name__)
 
@@ -273,7 +272,7 @@ def format_lineup_message(result: dict) -> str:
 
 
 def _sf(row: dict) -> int:
-    """Predicted SF score for a player.
+    """Predicted score for a player — the blend where there is one.
 
     A ladder of last resorts rather than a filter, so a slot is only ever left
     empty when the squad genuinely has nobody for it:
@@ -295,7 +294,7 @@ def _sf(row: dict) -> int:
     next_match = jp.get("nextMatch") or {}
     if next_match.get("status") == "break":
         return _DOUBTFUL_SF
-    rate = get_predict_rate(jp, SCORE_SF) or 0
+    rate = shown_score(row) or 0
     if next_match.get("playerInLineup") is False:
         if row.get("_promotion_capped"):
             return _UNCALLED_SF
@@ -507,7 +506,8 @@ def _back_bias_one(player: dict, slot: int) -> int:
 
 def _fallback_rate(row: dict) -> int:
     """The projection hiding behind a floored score, used only to rank
-    fallbacks against each other.
+    fallbacks against each other. Reads the same blended number `_sf` does,
+    so the tie-break and the ordering cannot disagree.
 
     `_sf` flattens every uncalled player below the threshold to the same
     `_UNCALLED_SF`, which threw away the fact that one projects 316 and
@@ -525,7 +525,7 @@ def _fallback_rate(row: dict) -> int:
         return 0
     if (jp.get("nextMatch") or {}).get("status") == "break":
         return 0
-    return get_predict_rate(jp, SCORE_SF) or 0
+    return shown_score(row) or 0
 
 
 def _fallback_total(assignment: list) -> int:
