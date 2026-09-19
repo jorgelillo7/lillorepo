@@ -175,6 +175,67 @@ one player can move.
 - *Verifies:* `test_the_market_and_the_squad_are_ranked_on_one_scale`,
   `test_without_a_scale_every_projection_stays_raw_jp`
 
+### Requirement: The chollos trade buys to sell, with pocket money
+
+A player on Oráculo's `chollos` shortlist SHALL be bid `price +
+CHOLLO_MARGIN` — a thin margin over the asking price, on **every** chollo in
+the day's market rather than a selection among them.
+
+The bid is weak on purpose. Biwenger sells to the highest offer, so anyone who
+actually wants the player outbids it; the ones that land are the ones nobody
+else bid on, which is the premise of the trade rather than a flaw in it. The
+daily ceiling and the owner's manual cancel in the app are the second and
+third guards, not the first.
+
+That shortlist is excluded from the projection bonus for the opposite reason
+it is used here: it ranks by price rather than quality, and its players will
+not be fielded. Buying them is a different question from fielding them.
+
+The speculative path SHALL sit outside `tier_bid` rather than inside it with a
+loosened clamp. `bid_sf` holds a would-be substitute down to
+`BENCH_PRICED_SF` because the ladder once went all-in on a benched star; a
+chollo is that same shape with a different intent — a little, knowingly,
+rather than everything, mistakenly. A flat price bypasses the clamp for this
+path alone, where weakening the clamp would reopen the original bug for every
+candidate. Nothing about the player's projection is consulted: the trade does
+not care whether he plays.
+
+Cash SHALL be reserved before the ladder starts, sized from the chollos
+actually on offer that morning. "Whatever is left over" is usually nothing,
+because the ladder spends best-first, so leftovers would fire the trade only
+on days it was not needed.
+
+The reserve SHALL yield in two cases. The all-in tier releases it outright —
+one genuine monster beats three lottery tickets. And it SHALL never *block* a
+ladder bid: where a real signing fits in the wallet but not beside the
+reserve, the reserve gives way exactly as far as that bid needs. Skipping a
+3.4M signing to keep a 950K lottery ticket alive is the trade backwards.
+
+No exit code is needed. `/ofertas` rule 5 — `sf < TIER_T3_MIN and roi_pct > 0
+→ ACEPTAR` — is already the shape of a chollo bought to trade, and `roi_pct`
+means the purchase price is known. A chollo whose projection climbs past
+`TIER_T3_MIN` reaches rule 3 instead, which is correct: he stopped being a
+trade and became a squad decision.
+
+#### Scenario: the day's speculation, and what outranks it
+- **WHEN** a chollo is in the market and the ladder has taken its man
+  **THEN** he is bid his asking price plus the margin
+- **WHEN** a candidate reaches the all-in tier **THEN** the reserve is released
+  and the speculation stands down
+- **WHEN** a ladder bid fits the wallet but not beside the reserve **THEN** the
+  reserve yields and the signing goes through
+- **WHEN** more chollos are on offer than the daily allowance **THEN** only
+  `CHOLLO_MAX_BIDS` are placed
+- *Verifies:* `test_a_chollo_is_carried_off_the_shortlist_onto_the_candidate`,
+  `test_a_chollo_bid_is_the_asking_price_plus_a_thin_margin`,
+  `test_a_chollo_never_reaches_the_expensive_tiers`,
+  `test_the_reserve_is_sized_on_the_day_s_own_chollos`,
+  `test_the_reserve_never_exceeds_the_wallet`,
+  `test_a_chollo_is_bought_with_cash_the_ladder_left_reserved`,
+  `test_the_all_in_tier_takes_the_reserve_with_it`,
+  `test_the_reserve_yields_rather_than_block_a_real_signing`,
+  `test_a_good_chollos_day_cannot_turn_the_wallet_into_bench_filler`
+
 ### Requirement: Idempotent retries
 
 Cloud Scheduler retries 5xx responses. The system SHALL log each placed bid to

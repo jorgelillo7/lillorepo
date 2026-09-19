@@ -221,44 +221,50 @@ captain will not use it.
 Buy cheap from the `chollos` list, let the price rise, sell. Not for the
 eleven — these players average 1.1M and 4.10 points and will not be fielded.
 
-- [ ] Bid `price + CHOLLO_MARGIN` (100–200K) on **every** chollos player in the
+- [x] Bid `price + CHOLLO_MARGIN` (100–200K) on **every** chollos player in the
       day's market, not a selection among them
-- [ ] Rely on the bid being weak. The market sells to the highest offer, so
+- [x] Rely on the bid being weak. The market sells to the highest offer, so
       base + 200K loses to anyone who actually wants him — the ones that land
       are the ones nobody else bid on, which is the premise of the trade. The
       cap and the manual cancel are the second and third guards, not the first
-- [ ] Size the reserve from the day's real candidates (up to 3 × `price +
+- [x] Size the reserve from the day's real candidates (up to 3 × `price +
       margin` for the chollos actually in the market), not a fixed figure that
       is wrong on both a quiet and a busy day
-- [ ] **An eligibility floor for chollos only.** The ladder skips SF < 300 and
+- [x] **An eligibility floor for chollos only.** The ladder skips SF < 300 and
       a chollo is low-SF by definition (the one in the squad reads 103), so
       without this no speculative bid is ever placed. It lifts him into the
       bidding set and changes his SF nowhere else
-- [ ] **A reserve, not leftovers.** Best-SF-first spending means "what is left"
+- [x] **A reserve, not leftovers.** Best-SF-first spending means "what is left"
       is often nothing, which would make the rule fire only on quiet days. Hold
       back roughly the day's speculative budget before the ladder starts
-- [ ] **Release the reserve when the all-in tier fires** (SF ≥ 800). That tier
+- [x] **Release the reserve when the all-in tier fires** (SF ≥ 800). That tier
       bids the whole wallet by design and a genuine monster beats three lottery
       tickets
-- [ ] **Its own cap**, and ~3 bids a day, so a good chollos week cannot convert
+- [x] **Its own cap**, and ~3 bids a day, so a good chollos week cannot convert
       the wallet into bench filler. The owner reviews the day's bids in the app
       and cancels what does not convince, so the ceiling is a safety net rather
       than the only control
-- [ ] **Bypass `BENCH_PRICED_SF` explicitly for this path only.** That clamp
+- [x] **Bypass `BENCH_PRICED_SF` explicitly for this path only.** That clamp
       exists because the ladder once went all-in on a benched star; this is the
       same shape and a different bet — a little, knowingly, rather than
       everything, mistakenly. Loosening the clamp for everyone would reopen the
       original bug
-- [ ] **No exit code needed — `/ofertas` rule 5 already is it.** `sf <
+- [x] **No exit code needed — `/ofertas` rule 5 already is it.** `sf <
       TIER_T3_MIN and roi_pct > 0 → ACEPTAR, "fondo de armario con plusvalía"`
       is the exact shape of a chollo bought to trade, and `roi_pct` means the
       purchase price is already known. Owner lists by hand daily, rival bids,
       the digest recommends accepting with the percentage, one tap
-- [ ] Verify a bought-to-trade player really lands under `TIER_T3_MIN`. Above
+- [x] Verify a bought-to-trade player really lands under `TIER_T3_MIN`. Above
       it he reaches rule 3 — "useful player, that loss is excessive" — which is
       correct behaviour but means he stopped being a trade and became a squad
       decision
-- [ ] A test that a chollos bid never consumes cash the ladder wanted
+- [x] A test that a chollos bid never consumes cash the ladder wanted
+
+- [x] **The reserve yields rather than blocks.** Found by the first test: with
+      4M cash it held back 950K and skipped a 3.4M T2 signing to keep three
+      lottery tickets alive — the trade backwards. It now gives way exactly as
+      far as a ladder bid needs, so the speculation is protected on days the
+      ladder has room and never costs a real signing on days it does not
 
 ## 5 · The removals
 
