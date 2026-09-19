@@ -191,6 +191,20 @@ That shortlist is excluded from the projection bonus for the opposite reason
 it is used here: it ranks by price rather than quality, and its players will
 not be fielded. Buying them is a different question from fielding them.
 
+Membership SHALL NOT depend on the player carrying a projection. Oráculo's
+projections fill up as the matchday approaches — 67 players three days out,
+260 six hours later, 497 on the eve — while the shortlists are published from
+the start. Resolving a market player only through the projections left the
+shortlists invisible from Monday to Wednesday, which is most of the trading
+week: the chollo was on the list and in the market, and we could not see him.
+The shortlist entries carry their own names, so they are indexed separately
+and consulted when no projection matches.
+
+Being on a list is still not a number. A player found this way has
+`oraculo_matched` False and no points, and contributes nothing to any
+projection — the market path asks a different question and only it is
+answered.
+
 The speculative path SHALL sit outside `tier_bid` rather than inside it with a
 loosened clamp. `bid_sf` holds a would-be substitute down to
 `BENCH_PRICED_SF` because the ladder once went all-in on a benched star; a
@@ -225,6 +239,8 @@ trade and became a squad decision.
 #### Scenario: the day's speculation, and what outranks it
 - **WHEN** a chollo is in the market and the ladder has taken its man
   **THEN** he is bid his asking price plus the margin
+- **WHEN** he is on the shortlist but Oráculo has projected nobody yet
+  **THEN** he is still recognised and still bid on
 - **WHEN** a candidate reaches the all-in tier **THEN** the reserve is released
   and the speculation stands down
 - **WHEN** a T3-or-better bid fits the wallet but not beside the reserve

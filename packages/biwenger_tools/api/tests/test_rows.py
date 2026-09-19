@@ -219,3 +219,38 @@ def test_low_coverage_still_skips_the_blend_even_with_a_scale():
     )
     a_row = next(r for r in rows if r["name"] == "A")
     assert a_row["custom_prediction"] == 430
+
+
+# --- the shortlists are readable before the projections exist --------------
+
+
+def test_a_shortlisted_player_is_found_even_with_no_prediction_for_him():
+    """Oráculo's projections fill up as the matchday approaches — 67 players
+    three days out, 325 by the eve — while the shortlists are published from
+    the start. Resolving a player only through the projections made the
+    shortlists invisible for most of the week, which is most of the market."""
+    index = rows_mod.build_oraculo_index(
+        [],  # no projections yet, as on a Monday
+        lists={"chollos": ["ganga-7"]},
+        shortlist_entries=[
+            {"playerName": "Ganga", "slug": "ganga-7", "predictedPoints": 3.8}
+        ],
+    )
+    row = rows_mod.build_row(_bw(1, "Ganga"), build_jp_index([]), index)
+    assert row["oraculo_lists"] == ["chollos"]
+    # Still no projection: being on a list is not a number.
+    assert row["oraculo_matched"] is False
+    assert row["oraculo_points"] is None
+
+
+def test_a_projection_still_wins_when_both_carry_the_player():
+    index = rows_mod.build_oraculo_index(
+        [_oraculo("Ganga", "ganga-7", 4.2)],
+        lists={"chollos": ["ganga-7"]},
+        shortlist_entries=[
+            {"playerName": "Ganga", "slug": "ganga-7", "predictedPoints": 3.8}
+        ],
+    )
+    row = rows_mod.build_row(_bw(1, "Ganga"), build_jp_index([]), index)
+    assert row["oraculo_points"] == 4.2
+    assert row["oraculo_lists"] == ["chollos"]

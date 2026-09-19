@@ -51,7 +51,11 @@ def clause_str(clause) -> str:
     return f"{m:.1f}M" if int(clause) % 1_000_000 else f"{int(m)}M"
 
 
-def build_oraculo_index(entries: list, lists: dict | None = None) -> dict:
+def build_oraculo_index(
+    entries: list,
+    lists: dict | None = None,
+    shortlist_entries: list | None = None,
+) -> dict:
     """An index over Oráculo rows, matched by the same machinery as JP.
 
     Oráculo is a **third naming universe** beside Biwenger and JP, so it goes
@@ -61,6 +65,13 @@ def build_oraculo_index(entries: list, lists: dict | None = None) -> dict:
 
     `lists` maps a list name to the slugs on it, so a row can carry which
     shortlists its player appears on without a second scan per player.
+
+    `shortlist_entries` are the shortlist rows themselves, indexed separately
+    so a player can be recognised by name even when no projection carries
+    him. Oráculo's projections fill up as the matchday approaches — 67
+    players three days out against 497 on the eve — while the shortlists are
+    published from the start. Resolving only through the projections left the
+    shortlists invisible for most of the week, which is most of the market.
     """
     normalised = [
         {"name": entry.get("playerName"), "slug": entry.get("slug"), "_oraculo": entry}
@@ -73,6 +84,13 @@ def build_oraculo_index(entries: list, lists: dict | None = None) -> dict:
         for slug in slugs or []:
             by_slug.setdefault(slug, []).append(list_name)
     index["lists_by_slug"] = {slug: sorted(names) for slug, names in by_slug.items()}
+    index["shortlist_index"] = build_jp_index(
+        [
+            {"name": e.get("playerName"), "slug": e.get("slug"), "_oraculo": e}
+            for e in shortlist_entries or []
+            if e.get("playerName")
+        ]
+    )
     return index
 
 
@@ -95,6 +113,13 @@ def build_row(
     oraculo = find_player_match(name, oraculo_index or {}) if oraculo_index else None
     entry = (oraculo or {}).get("_oraculo") or {}
     slug = entry.get("slug")
+    if slug is None and oraculo_index:
+        # No projection for him yet. The shortlists are published earlier, so
+        # try those before concluding Oráculo has never heard of him — being
+        # on a list is not a number, but it is an answer to a different
+        # question and the market path asks that one.
+        listed = find_player_match(name, oraculo_index.get("shortlist_index") or {})
+        slug = ((listed or {}).get("_oraculo") or {}).get("slug")
     return {
         "bw_id": biwenger_player.get("id"),
         "name": name,
@@ -109,11 +134,7 @@ def build_row(
         "oraculo_matched": oraculo is not None,
         "oraculo_points": entry.get("predictedPoints") if oraculo else None,
         "oraculo_chance": entry.get("chance") if oraculo else None,
-        "oraculo_lists": (
-            (oraculo_index or {}).get("lists_by_slug", {}).get(slug, [])
-            if oraculo
-            else []
-        ),
+        "oraculo_lists": (oraculo_index or {}).get("lists_by_slug", {}).get(slug, []),
         # Biwenger's own read on the player. No decision uses it — JP is
         # the source of truth — but carrying it lets `provider_watch`
         # notice when the two disagree.
