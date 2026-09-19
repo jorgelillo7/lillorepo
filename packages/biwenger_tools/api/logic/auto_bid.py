@@ -46,6 +46,7 @@ not double-bid the players that already went through.
 """
 
 import html
+import os
 import random
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional
@@ -105,6 +106,22 @@ SQUAD_DEPTH_SLOTS = {1: 2, 2: 6, 3: 6, 4: 5}
 # only place to buy. The clamp lands one point under T2, i.e. the top of the
 # T3 ladder — the most a bench signing can cost.
 BENCH_PRICED_SF = TIER_T2_MIN - 1
+
+# The chollos trade. Oráculo's `chollos` shortlist ranks by price rather than
+# quality — its players average 1.1M and will never be fielded — so it is
+# excluded from the projection bonus and used here instead: bid a thin margin
+# over the asking price on every one in the day's market, let the price rise,
+# sell. The bid is weak on purpose. Biwenger sells to the highest offer, so
+# anyone who actually wants the player outbids this; the ones that land are
+# the ones nobody else bid on, which is the premise of the trade rather than a
+# flaw in it. The daily ceiling is a safety net, not the control — the owner
+# reviews the morning's bids in the app and cancels what does not convince.
+# Both read from the environment so the trade can be tuned, or switched off
+# entirely with `CHOLLO_MAX_BIDS=0`, without a deploy. It is the one path here
+# that spends money on players nobody intends to field, so turning it off must
+# not require shipping code.
+CHOLLO_MARGIN = int(os.getenv("CHOLLO_MARGIN", "150000"))
+CHOLLO_MAX_BIDS = int(os.getenv("CHOLLO_MAX_BIDS", "3"))
 
 # Per-bid anti-pattern jitter. A bot that always bids in round euros
 # (10.000.000, 10.500.000, …) is a tell — humans dragging the slider
@@ -256,6 +273,7 @@ def _build_candidates(
                 "sf": shown_score(row) or 0,
                 "position_id": row.get("position_id"),
                 "alt_positions": row.get("alt_positions") or [],
+                "chollo": "chollos" in (row.get("oraculo_lists") or []),
                 "unavailable": availability(jp_player) == "out",
                 "uncalled": ((jp_player or {}).get("nextMatch") or {}).get(
                     "playerInLineup"
@@ -265,6 +283,39 @@ def _build_candidates(
         )
     candidates.sort(key=lambda c: c["sf"], reverse=True)
     return candidates
+
+
+def chollo_bid(candidate: dict) -> tuple[int, str]:
+    """A thin margin over the asking price, for a player bought to trade.
+
+    Deliberately outside `tier_bid`. `bid_sf` clamps a would-be substitute to
+    `BENCH_PRICED_SF` because the ladder once went all-in on a benched star,
+    and a chollo is that same shape wearing a different intent — a little,
+    knowingly, rather than everything, mistakenly. Giving this path its own
+    flat price bypasses the clamp for the trade alone; loosening the clamp
+    would reopen the original bug for every candidate.
+
+    Price, not projection: nothing about his SF is consulted, because the
+    trade does not care whether he plays.
+    """
+    return candidate["price"] + CHOLLO_MARGIN + _jitter(), "chollo (especulativo)"
+
+
+def _chollo_reserve(candidates: list, remaining_cash: int) -> int:
+    """Cash held back before the ladder starts, for the day's speculation.
+
+    Sized from the chollos actually on offer this morning rather than a fixed
+    figure, which would be too much on a quiet day and too little on a busy
+    one. The ladder spends best-first, so "what is left over" is usually
+    nothing and the trade would only ever fire on days it was not needed.
+
+    Held back is not spent: an all-in candidate releases it, because one
+    genuine monster beats three lottery tickets.
+    """
+    wanted = [c["price"] + CHOLLO_MARGIN for c in candidates if c.get("chollo")][
+        :CHOLLO_MAX_BIDS
+    ]
+    return min(sum(wanted), remaining_cash)
 
 
 def _squad_sf_by_position(squad_rows: list) -> dict[int, list[int]]:
@@ -492,6 +543,13 @@ def run_auto_bid() -> dict:
     day = _today_madrid()
     already_bid = _already_bid_ids(day)
 
+    # Held back before the ladder starts. Candidates arrive best-first, so an
+    # all-in candidate is met before any chollo and releases it on the way
+    # past — the reserve only survives a morning the ladder did not want the
+    # whole wallet for.
+    reserve = _chollo_reserve(candidates, remaining_cash)
+    chollo_bids = 0
+
     placed: list[dict] = []
     skipped: list[dict] = []
 
@@ -522,11 +580,36 @@ def run_auto_bid() -> dict:
         priced_sf, cap_reason = bid_sf(
             candidate, _would_be_bench(candidate, squad_by_pos)
         )
+        if priced_sf >= TIER_ALL_IN_MIN:
+            # One genuine monster beats three lottery tickets.
+            reserve = 0
+        spendable = remaining_cash - reserve
         target_bid, label = tier_bid(
-            priced_sf, candidate["price"], remaining_cash, label_sf=candidate["sf"]
+            priced_sf, candidate["price"], spendable, label_sf=candidate["sf"]
         )
         if cap_reason:
             label = f"{label} · rebajado: {cap_reason}"
+        if (
+            target_bid is not None
+            and not candidate.get("chollo")
+            and priced_sf >= TIER_T3_MIN
+            and target_bid > spendable
+            and target_bid <= remaining_cash
+        ):
+            # The reserve yields to a real signing — skipping one to keep
+            # three lottery tickets alive is the trade backwards — but only
+            # down to T3. Below that the ladder is buying squad filler at
+            # 1.2x, and a ticket with an explicit exit (sell when the price
+            # rises) is worth more than a marginal body. It gives way exactly
+            # as far as this bid needs and no further.
+            reserve = max(0, remaining_cash - target_bid)
+            spendable = remaining_cash - reserve
+        if target_bid is None and candidate.get("chollo"):
+            speculative, label = chollo_bid(candidate)
+            if chollo_bids < CHOLLO_MAX_BIDS and speculative <= remaining_cash:
+                target_bid = speculative
+                reserve = max(0, reserve - speculative)
+                chollo_bids += 1
         if target_bid is None:
             # Below the SF floor — record as skipped only if it's borderline
             # interesting (price < 30M and SF > 200) to keep the message short.
@@ -541,7 +624,8 @@ def run_auto_bid() -> dict:
                     }
                 )
             continue
-        if target_bid <= 0 or target_bid > remaining_cash:
+        affordable = remaining_cash if candidate.get("chollo") else spendable
+        if target_bid <= 0 or target_bid > affordable:
             # Out-of-budget skip carries the SF + tier label so the summary
             # shows what a richer wallet would have grabbed (and so this skip
             # is visually distinct from a tier_low "irrelevant" skip).

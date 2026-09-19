@@ -391,6 +391,7 @@ def run_env():
         bid_side_effect=None,
         telegram=True,
         squad=None,
+        oraculo_index=None,
     ):
         stack = ExitStack()
         mock_cfg = stack.enter_context(patch(_patches("config")))
@@ -407,6 +408,7 @@ def run_env():
             biwenger=biwenger,
             biwenger_players=biwenger_players,
             jp_index=build_jp_index(jp_players),
+            oraculo_index=oraculo_index,
         )
         stack.enter_context(patch(_patches("build_context"), return_value=ctx))
         stack.enter_context(
@@ -928,3 +930,227 @@ def test_without_a_scale_every_projection_stays_raw_jp():
     assert (
         auto_bid._build_candidates(market, biwenger_players, jp_index)[0]["sf"] == 420
     )
+
+
+# --- the chollos trade: buy cheap, let it rise, sell ------------------------
+
+
+def _chollo_candidate(player_id, price, sf=100, chollo=True):
+    return {
+        "player_id": player_id,
+        "name": f"Chollo {player_id}",
+        "price": price,
+        "sf": sf,
+        "position_id": 3,
+        "alt_positions": [],
+        "unavailable": False,
+        "uncalled": False,
+        "chollo": chollo,
+    }
+
+
+def test_a_chollo_is_carried_off_the_shortlist_onto_the_candidate():
+    entries = [
+        {"playerName": "Ganga", "slug": "ganga-1", "predictedPoints": 2.0, "chance": 80}
+    ]
+    index = rows_mod.build_oraculo_index(entries, lists={"chollos": ["ganga-1"]})
+    jp = build_jp_index(
+        [{"name": "Ganga", "slug": "ganga", "predict": [{"type": 2, "rate": 100}]}]
+    )
+    candidates = auto_bid._build_candidates(
+        [{"player": {"id": 1}}],
+        {1: {"id": 1, "name": "Ganga", "position": 3, "price": 900_000}},
+        jp,
+        oraculo_index=index,
+    )
+    assert candidates[0]["chollo"] is True
+
+
+def test_the_reserve_is_sized_on_the_day_s_own_chollos():
+    """A fixed figure is wrong on both a quiet day and a busy one."""
+    quiet = [_chollo_candidate(1, 500_000)]
+    busy = [_chollo_candidate(i, 1_000_000) for i in range(1, 6)]
+    assert (
+        auto_bid._chollo_reserve(quiet, 50_000_000) == 500_000 + auto_bid.CHOLLO_MARGIN
+    )
+    # Never more than the day's bid allowance, however many are on offer.
+    assert auto_bid._chollo_reserve(busy, 50_000_000) == auto_bid.CHOLLO_MAX_BIDS * (
+        1_000_000 + auto_bid.CHOLLO_MARGIN
+    )
+    assert auto_bid._chollo_reserve([], 50_000_000) == 0
+
+
+def test_the_reserve_never_exceeds_the_wallet():
+    lots = [_chollo_candidate(i, 9_000_000) for i in range(1, 6)]
+    assert auto_bid._chollo_reserve(lots, 1_000_000) == 1_000_000
+
+
+def test_a_chollo_bid_is_the_asking_price_plus_a_thin_margin():
+    """Weak on purpose: the market sells to the highest offer, so anyone who
+    actually wants him outbids this. The ones that land are the ones nobody
+    else bid on, which is the whole premise of the trade."""
+    with patch.object(auto_bid, "_jitter", return_value=0):
+        bid, label = auto_bid.chollo_bid(_chollo_candidate(1, 800_000))
+    assert bid == 800_000 + auto_bid.CHOLLO_MARGIN
+    assert "chollo" in label.lower()
+
+
+def test_a_chollo_never_reaches_the_expensive_tiers():
+    """The ladder is bypassed rather than loosened. `BENCH_PRICED_SF` exists
+    because the ladder once went all-in on a benched star; a chollo is the
+    same shape and a different bet, so it gets its own flat path instead of
+    a clamp that would have to be weakened for everybody."""
+    rich = _chollo_candidate(1, 20_000_000, sf=900)
+    with patch.object(auto_bid, "_jitter", return_value=0):
+        bid, _ = auto_bid.chollo_bid(rich)
+    assert bid == 20_000_000 + auto_bid.CHOLLO_MARGIN
+
+
+def _chollo_index(*names):
+    return rows_mod.build_oraculo_index(
+        [
+            {
+                "playerName": n,
+                "slug": f"{n.lower()}-s",
+                "predictedPoints": 2.0,
+                "chance": 80,
+            }
+            for n in names
+        ],
+        lists={"chollos": [f"{n.lower()}-s" for n in names]},
+    )
+
+
+def test_a_chollo_is_bought_with_cash_the_ladder_left_reserved(run_env):
+    """The ladder spends best-first, so "whatever is left" is usually nothing
+    and the trade would only fire on days it was not needed. The reserve is
+    held back before the ladder starts."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Lewa", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Lewa", 720), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=5_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    bids = {
+        c.kwargs["player_id"]: c.kwargs["amount"]
+        for c in biwenger.place_market_bid.call_args_list
+    }
+    assert bids[2] == 800_000 + auto_bid.CHOLLO_MARGIN
+    assert 1 in bids  # the ladder still got its man
+
+
+def test_the_all_in_tier_takes_the_reserve_with_it(run_env):
+    """One genuine monster beats three lottery tickets: SF >= 800 bids the
+    whole wallet by design, and the speculation stands down."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Vini", 12_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Vini", 910), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=30_000_000)
+
+
+def test_a_good_chollos_day_cannot_turn_the_wallet_into_bench_filler(run_env):
+    """The daily ceiling. The owner cancels what does not convince in the
+    app, so this is the safety net rather than the control."""
+    names = ["G1", "G2", "G3", "G4", "G5"]
+    market = [_sale(i) for i in range(1, 6)]
+    biwenger_players = {i: _bw(i, n, 500_000) for i, n in enumerate(names, start=1)}
+    jp_players = [_jp_with_sf(n, 100) for n in names]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=50_000_000,
+        oraculo_index=_chollo_index(*names),
+    )
+    auto_bid.run_auto_bid()
+    assert biwenger.place_market_bid.call_count == auto_bid.CHOLLO_MAX_BIDS
+
+
+def test_the_reserve_yields_rather_than_block_a_real_signing(run_env):
+    """Skipping a signing to keep three lottery tickets alive is the trade
+    backwards. With room for only one of them, the ladder wins."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Lewa", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Lewa", 720), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=4_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_400_000)
+
+
+def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
+    """It spends money on players nobody intends to field, so the off switch
+    must not require shipping code."""
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Ganga", 800_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Ganga", 100)],
+        cash=50_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    with patch.object(auto_bid, "CHOLLO_MAX_BIDS", 0):
+        auto_bid.run_auto_bid()
+    biwenger.place_market_bid.assert_not_called()
+
+
+def test_the_reserve_holds_against_a_bottom_tier_signing(run_env):
+    """T4 is squad filler — SF 300-399, bid at 1.2x. A lottery ticket with an
+    explicit exit is worth more than a marginal body, so the reserve that
+    gives way to a real signing holds against this one."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Relleno", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Relleno", 350), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=3_000_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    # The T4 bid (2.4M) fits the wallet but not beside the reserve, and is not
+    # worth breaking it for. The chollo is bought instead.
+    biwenger.place_market_bid.assert_called_once_with(
+        player_id=2, amount=800_000 + auto_bid.CHOLLO_MARGIN
+    )
+
+
+def test_the_reserve_still_yields_to_a_third_tier_signing(run_env):
+    """The line is T3: at SF 400 and above the player is worth the wallet."""
+    market = [_sale(1), _sale(2)]
+    biwenger_players = {1: _bw(1, "Util", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
+    jp_players = [_jp_with_sf("Util", 450), _jp_with_sf("Ganga", 100)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=3_500_000,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_000_000)
