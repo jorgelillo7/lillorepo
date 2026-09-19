@@ -42,7 +42,15 @@ state beyond Firestore and Google Secret Manager.
 
 The Lloros League reglamento and Biwenger's own limits are **environment, not
 behaviour** — nothing here implements them, but several capabilities are only
-correct because of them. Recorded once so they are not rediscovered per module:
+correct because of them. Recorded once so they are not rediscovered per module.
+
+Biwenger's own rules, transcribed from the app's `REGLAS` screen rather than
+remembered, are in
+[`docs/technical/backend/biwenger-official-rules.md`](../docs/technical/backend/biwenger-official-rules.md).
+**Read it before asserting how the game scores or when it locks.** It also
+marks which rules a league configures — including the scoring system, which
+ours customises — so nothing in it is a fact about the Lloros League until it
+is read from our own screen.
 
 | Rule | Where it bites |
 |---|---|
@@ -50,6 +58,9 @@ correct because of them. Recorded once so they are not rediscovered per module:
 | **Jornada única** — *"entregar puntos y abonos tras disputarse todos los partidos"* (reglamento 2.5.8) | A matchday is not final until every match in it is played. 2026/27 opened with a round spanning **twelve days**, so standings, prizes and points are provisional until it closes — and no lineup set on day one is right for the whole round |
 | **Per-matchday prize money** (2.5.7): 75k per point, 500k per Once Ideal player, 100k for the MVP, paid automatically by Biwenger | Cash grows every matchday without anyone selling, which is the budget auto-bid and the clausulazo recommender read |
 | **Captain must cost < 3M** (Biwenger hard cap) | Enforced in `lineup.py`; the draft ranks the best sub-3M starter accordingly |
+| **The lineup is registered before the matchday begins** — *"antes del comienzo de cada jornada, el sistema registrará la alineación y estrategia de equipo"*. Every later edit lands on the following matchday, or on a postponed fixture | The daily 09:00 run is building **next** round's eleven from Saturday on. A fixture already played is stale input, not a slot to reclaim — `auto-pick-lineup` leaves those players alone, and says so |
+| **−4 points per unoccupied position**, except a completely empty lineup, which scores 0 | `lineup.py`'s ladder of last resorts is not tidiness: an empty slot has a price, so a player projecting zero is still worth fielding |
+| **A negative balance at the matchday's start scores nothing** — no points and no payout for that round, even if it returns to positive during it | The ceiling every bidding path runs under. Auto-bid never offers more than the cash it has read, which is what keeps this from being reachable |
 | **15 players able to field some legal XI**, bench unconstrained; snake draft; prices frozen to the export day | The draft capability, `specs/biwenger_tools/draft/spec.md` |
 | **Clauses freeze 24 h before a matchday's first kickoff** (Biwenger platform rule). Nobody can be claused in that window, in either direction, and it reopens once the round is under way | Cash has to be positive *before* the freeze, not during the round: the auto-bid and the clausulazo recommender both have a deadline nothing in the code knows about. Stated by the league owner from Biwenger's own behaviour — **not** read from the API, so it belongs with the assumptions in `STATUS.md` until something verifies it |
 | **A "next matchday" is not the next number.** 2026/27 interleaves postponed rounds: with Jornada 3 active, the next round to be played is **Jornada 6**, and Jornada 4 follows it | Anything reasoning about "the next round" must take Biwenger's own `next`, never the round number or the array order. `season.rounds[]` is not chronological |
