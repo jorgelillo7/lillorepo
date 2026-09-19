@@ -316,13 +316,18 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
         --project=biwenger-tools --limit=20 --freshness=7d
     ```
 
-    **Silence is the normal state.** Three things break it, and each means
+    It watches **Biwenger and Jornada Perfecta only** — Oráculo is not
+    watched, because nothing reads a *state* from it; the blend reads a
+    number and treats a missing one as no opinion.
+
+    **Silence is the normal state.** Four things break it, and each means
     something different:
 
     | Log line | What it means | What to do |
     |---|---|---|
     | *JP status never seen before* | JP invented a status outside the six measured on 2026-08-08 (`ok`, `ok-available`, `injured`, `doubt`, `sanctioned`, `other`). It is being treated as playable | Decide whether it belongs in `CANNOT_PLAY`, then add it to `OBSERVED_JP_STATUS` |
-    | *Fixture status never seen before* | A `nextMatch.status` other than `pending`. **This is the one worth waiting for**: `_sf` has scored `break` as 0 for months and the value has never been observed in 533 players | Confirm the player really had no fixture. If `break` never appears, delete the branch — as happened with `suspended` |
+    | *No Jornada Perfecta entry for this player* | Biwenger has him, JP does not, so he scores 0 and is invisible to the optimizer. A couple of dozen missing names league-wide is normal; one of them *in the squad* is not | Check whether he is really unavailable, or whether the name match failed |
+    | *Fixture status never seen before* | A `nextMatch.status` other than `pending`. `finished` arrived with the season and is **deliberately not acted on**: Biwenger freezes the eleven at the matchday's first kick-off, so from Saturday the daily run is building next week's lineup and a played fixture is stale input | Confirm what the value means before modelling it. `break` is handled but still unseen, so its first sighting is the one worth waiting for |
     | *Providers disagree on availability* | One says the player can be fielded and the other does not. Two cases in 533 on 2026-08-08: JP `ok` vs Biwenger `injured` (indefinite return), and JP `other` vs Biwenger `discarded` ("Sanción FIFA") | Nothing automatic. JP remains the only source a decision reads. Collect these until there are enough to justify a rule |
 
     The constants are named `OBSERVED_*` rather than `HANDLED_*` on purpose:
