@@ -268,12 +268,27 @@ eleven — these players average 1.1M and 4.10 points and will not be fielded.
 
 ## 5 · The removals
 
-- [ ] `provider_watch` — five watchers, twelve months, zero events. A real
-      second source makes "the providers disagree" the signal itself rather
-      than an anomaly to date. Takes #443's market widening with it, which is
-      the cost of the decision
+- [x] ~~`provider_watch`~~ — **keep. The premise died before the work started.**
+      It was to go because it had run twelve months with zero events. Checked
+      in Cloud Logging before deleting: **27 events across three matchday
+      mornings** — 13, 16 and 19 September. The season starting is what woke
+      it, and the two things it caught are exactly what it was built for:
+
+      - `nextMatch.status = "finished"`, a state nothing in the code models.
+        `lineup._sf` branches on `"break"` and nothing else, so a player whose
+        fixture has already been played is scored as though it had not.
+      - Biwenger and JP disagreeing on one player: `discarded` with the note
+        "Asuntos incompatibles con la práctica deportiva" against JP's
+        `other`, which is fieldable.
+
+      A second projection source does not replace this. Oráculo disagreeing
+      about a *number* is the blend's business; a provider reporting a *state*
+      nobody has modelled is a different question, and the blend is blind to
+      it. Deleting the watcher would have deleted the only thing that noticed
 - [ ] `log_promotions` — records a bet it cannot grade, ~once a year, and we
-      decided against building the pipeline that would grade it
+      decided against building the pipeline that would grade it. Checked
+      alongside `observe`: zero events in 30 days, so this half of the removal
+      stands
 - [ ] ~~`deploy-watchdog.yml`~~ — **keep. The check said so.** 40 runs since
       2026-08-08, all "success", and it has **never dispatched**: the three
       `workflow_dispatch` deploys on record are at 19:35, 21:02 and 21:48 UTC

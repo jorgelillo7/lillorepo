@@ -35,6 +35,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
+| 👤 | `nextMatch.status = "finished"` is a state the lineup does not model | You: `lineup._sf` branches on `"break"` only, so a player whose fixture has already been played is scored as though it had not — caught by `provider_watch` on three matchday mornings. Whether it costs anything depends on when Biwenger locks a player, which is your call to confirm |
 | 👤 | A second projection source beside Jornada Perfecta (Analítica Fantasy) | You: **the technical question is answered** — `/biwenger/predicciones` is server-rendered, Biwenger-scored, 366 players with a starting chance and a points projection, no API and no key · what is left is permission, which is yours · [findings](docs/technical/backend/second-projection-source.md) |
 | 🔨 | Nothing records what was projected against what was scored | Worth doing whether or not a second source ever arrives — without it "is JP worth it" has no answer · [why](docs/technical/backend/second-projection-source.md) |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | More promotions to read against real points · **one in 12 months:** Valverde (328) displaced Giuliano Simeone on 2026-09-09, which 350 would have prevented · `log_promotions` records the bet but not what either scored, so grading it needs that first |
