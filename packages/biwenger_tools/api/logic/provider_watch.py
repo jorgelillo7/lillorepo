@@ -28,10 +28,14 @@ OBSERVED_JP_STATUS = frozenset(
 # `pending` was all the pre-season payload carried. `finished` arrived with the
 # season — the daily 09:00 run meets it from Saturday on, because a matchday
 # runs Friday to Monday — and it is listed here as *seen and understood*, not
-# as acted upon. The lineup deliberately leaves those players at their full
-# projection: they are already settled, and dropping one from the eleven to
-# free his slot would risk the points he has banked, on a rule about when
-# Biwenger locks a player that nobody here has verified.
+# as acted upon.
+#
+# Biwenger freezes the lineup when the matchday's first match kicks off, and
+# every later edit applies to the next matchday (or to a postponed fixture).
+# So from Saturday on the daily run is not adjusting the weekend at all; it is
+# building next week's eleven. Dropping a player because his match is over
+# would change nothing this matchday and act on stale information for the
+# next, where he has a fixture again.
 #
 # `break` is handled but still unseen, so its first sighting answers a
 # standing question. A watcher that keeps reporting what is already understood
