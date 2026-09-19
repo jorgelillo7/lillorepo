@@ -60,6 +60,15 @@ _CAPTAIN_MAX_PRICE = 3_000_000
 # beats leaving a hole and taking Biwenger's -4. Above the threshold this does
 # not apply — see `_sf`.
 _UNCALLED_SF = 1
+
+# Fixture states that mean "no more points from him this matchday". `break` is
+# an international window; `finished` is his match already played, which the
+# daily 09:00 run meets from Saturday onwards because a LaLiga matchday runs
+# Friday to Monday. Treating `finished` as unplayable is safe whichever way
+# Biwenger locks a player: locked, our payload for him is ignored; unlocked,
+# the slot goes to somebody who can still score. Points already banked were
+# settled at his kick-off and are not touched either way.
+_PLAYED_OUT = frozenset({"break", "finished"})
 # Injured, suspended, no fixture or no data. Still ahead of an empty slot.
 _DOUBTFUL_SF = 0
 
@@ -292,7 +301,7 @@ def _sf(row: dict) -> int:
     if jp.get("status") in CANNOT_PLAY:
         return _DOUBTFUL_SF
     next_match = jp.get("nextMatch") or {}
-    if next_match.get("status") == "break":
+    if next_match.get("status") in _PLAYED_OUT:
         return _DOUBTFUL_SF
     rate = shown_score(row) or 0
     if next_match.get("playerInLineup") is False:
@@ -523,7 +532,7 @@ def _fallback_rate(row: dict) -> int:
     jp = row.get("jp_player") or {}
     if jp.get("status") in CANNOT_PLAY:
         return 0
-    if (jp.get("nextMatch") or {}).get("status") == "break":
+    if (jp.get("nextMatch") or {}).get("status") in _PLAYED_OUT:
         return 0
     return shown_score(row) or 0
 
