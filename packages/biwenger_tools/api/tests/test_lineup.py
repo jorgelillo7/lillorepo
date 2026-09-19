@@ -705,20 +705,35 @@ def test_a_matched_player_is_not_reported_as_missing(caplog):
     assert "No Jornada Perfecta entry" not in caplog.text
 
 
+def test_the_goal_bonus_is_the_one_the_reglamento_publishes():
+    """Art. 2.2 plus Anexo I: DEL 3, MED 4, DEF 5, POR 5 with a further +1
+    for a keeper's goal, so 6. Identical to Biwenger's SofaScore baseline —
+    what this league customises is everything else in that annex.
+
+    Pinned because these numbers were carried for a year as 10/7/5/4, taken
+    from nobody's published table, and every lineup tie was broken with
+    them. See `docs/technical/backend/biwenger-official-rules.md`.
+    """
+    from packages.biwenger_tools.api.logic.lineup import GOAL_BONUS
+
+    assert GOAL_BONUS == {GK: 6, DEF: 5, MID: 4, FWD: 3}
+
+
 def test_playing_a_forward_in_midfield_is_worth_one_bonus_point():
-    """Biwenger pays more for a goal the further back it is scored: DEL 4,
-    MED 5. A DEL/MED covering midfield gains that difference."""
+    """A goal is worth more the further back it is scored, one point per
+    line. A DEL/MED covering midfield gains that difference."""
     from packages.biwenger_tools.api.logic.lineup import _back_bias_one
 
     assert _back_bias_one(_player(1, 400, FWD, (MID,)), MID) == 1
 
 
-def test_pushing_a_defender_into_midfield_costs_two():
-    """DEF 7 → MED 5. This is why moving one player back to make room by
-    moving another forward is usually a loss, not a wash."""
+def test_pushing_a_defender_into_midfield_costs_one():
+    """DEF 5 → MED 4. The real ladder is evenly spaced, so a swap that moves
+    one player back and another forward is a wash rather than a loss — which
+    is the opposite of what the invented numbers said."""
     from packages.biwenger_tools.api.logic.lineup import _back_bias_one
 
-    assert _back_bias_one(_player(1, 400, DEF, (MID,)), MID) == -2
+    assert _back_bias_one(_player(1, 400, DEF, (MID,)), MID) == -1
 
 
 def test_a_player_in_his_own_position_is_worth_nothing_either_way():
@@ -730,21 +745,21 @@ def test_a_player_in_his_own_position_is_worth_nothing_either_way():
         assert _back_bias_one(_player(1, 400, pos), pos) == 0
 
 
-def test_the_two_candidate_elevens_no_longer_tie():
+def test_the_two_candidate_elevens_tie_on_bias_and_split_on_moves():
     """The squad that raised this: 5-4-1 and 4-6-0 projected the same 4326,
-    and under a direction-only bias both scored +1 — so the winner was
-    whichever came first in `FORMATIONS`, a list transcribed from the app in
-    no meaningful order.
+    and the winner was whichever came first in `FORMATIONS`, a list
+    transcribed from the app in no meaningful order.
 
-    Asserted on the bias itself rather than on the formation `pick_lineup`
-    returns: the old code also returned 5-4-1, by accident of list position,
-    so asserting the formation proves nothing about why.
+    It was once claimed the bonus magnitudes split them. They do not — that
+    claim rested on a bonus table of 10/7/5/4 which nobody published. On the
+    real ladder every line is worth one more than the one in front, so
+    pushing Bretones out of defence costs exactly what fielding Romero in
+    midfield gains, and the two elevens are worth the same.
 
-    Fielding Iván Romero in midfield gains 1 (DEL 4 → MED 5), but frees the
-    slot only by pushing Bretones out of defence, which costs 2 (DEF 7 → MED
-    5). The eleven that leaves both where they belong is worth more.
+    What separates them is how many players each moves: one against three.
+    Same expectation, fewer bets.
     """
-    from packages.biwenger_tools.api.logic.lineup import _back_bias
+    from packages.biwenger_tools.api.logic.lineup import _back_bias, _displacements
 
     romero = _player(10, 416, FWD, (MID,))
     bretones = _player(6, 303, DEF, (MID,))
@@ -754,9 +769,9 @@ def test_the_two_candidate_elevens_no_longer_tie():
     as_5_4_1 = [(keeper, GK), (bretones, DEF), (romero, FWD), (danjuma, MID)]
     as_4_6_0 = [(keeper, GK), (bretones, MID), (romero, MID), (danjuma, MID)]
 
-    assert _back_bias(as_5_4_1) == 1
-    assert _back_bias(as_4_6_0) == 0
-    assert _back_bias(as_5_4_1) > _back_bias(as_4_6_0)
+    assert _back_bias(as_5_4_1) == _back_bias(as_4_6_0) == 1
+    assert _displacements(as_5_4_1) == 1
+    assert _displacements(as_4_6_0) == 3
 
 
 def test_between_two_fallbacks_the_better_projection_starts():

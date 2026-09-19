@@ -340,12 +340,13 @@ def _best_eleven(squad_rows: list) -> dict | None:
     # ties between formations (3-4-3 vs 4-4-2 with the same SF) are broken in
     # favour of the one that places more players further back than their
     # primary position.
-    # Lexicographic (sum_sf, fallback projection, back_bias). The fallback
+    # Lexicographic (sum_sf, fallback projection, back_bias, fewest moved).
+    # The fallback
     # projection outranks the bias deliberately: the bias is worth a point or
     # two of goal bonus, while the gap between two fallbacks is hundreds of
     # projected points. Ranked the other way round, a 197 who gains +1 by
     # dropping back beat a 316 who does not.
-    best_score: tuple[int, int, int] = (-1, -1, -(10**9))
+    best_score: tuple[int, int, int, int] = (-1, -1, -(10**9), -(10**9))
 
     abandoned = 0
     for label, n_def, n_mid, n_fwd in FORMATIONS:
@@ -372,7 +373,12 @@ def _best_eleven(squad_rows: list) -> dict | None:
 
         total_sf = sum(_sf(r) for r, _ in assignment)
         total_bias = _back_bias(assignment)
-        score = (total_sf, _fallback_total(assignment), total_bias)
+        score = (
+            total_sf,
+            _fallback_total(assignment),
+            total_bias,
+            -_displacements(assignment),
+        )
         if score <= best_score:
             continue
 
@@ -432,32 +438,30 @@ def _positions(row: dict) -> set:
     return {primary} | set(alts)
 
 
-# Our league's goal bonus by the position a player is FIELDED in. **Not
-# Biwenger's defaults**: the plain SofaScore system pays 6/5/4/3, and this
-# league customises it. These figures came from the owner and have not been
-# read off the league's own rules screen — see
-# `docs/technical/backend/biwenger-official-rules.md`, which separates what
-# Biwenger fixes from what a league configures.
+# The goal bonus by the position a player is FIELDED in, from the reglamento's
+# art. 2.2 and Anexo I: DEL 3, MED 4, DEF 5, POR 5 plus a further +1 for a
+# keeper's goal. Identical to Biwenger's SofaScore baseline — what this league
+# customises is everything else in that annex.
 #
 # JP's SF is a single per-player number that does not model the slot, so this
-# is what breaks ties between assignments that project the same.
-GOAL_BONUS = {GK: 10, DEF: 7, MID: 5, FWD: 4}
+# is what breaks ties between assignments that project the same. The ladder is
+# evenly spaced at one point per line, so a swap moving one player back and
+# another forward is a wash; nothing here should be tuned to make it not be.
+GOAL_BONUS = {GK: 6, DEF: 5, MID: 4, FWD: 3}
 
 
 def _back_bias_one(player: dict, slot: int) -> int:
     """What playing this player out of position is worth, in bonus points.
 
     The difference between the goal bonus of the slot he fills and of his
-    natural one: a FWD played as MID gains +1 (4 → 5), a DEF pushed to MID
-    loses -2 (7 → 5), a player in his own position scores 0.
+    natural one: a FWD played as MID gains +1 (3 → 4), a DEF pushed to MID
+    loses 1 (5 → 4), a player in his own position scores 0.
 
-    It used to return only the **direction** — +1 back, -1 forward — which
-    made those two look like they cancelled out. They do not: moving one
-    player back to make room by moving another forward is usually a loss,
-    because the bonus grows faster the further back you go. With magnitudes
-    the two candidate elevens of a real squad stopped tying at +1 and split,
-    which also removed a tiebreak that had fallen through to the order of
-    `FORMATIONS` — a list transcribed from the app, in no meaningful order.
+    Returning the difference rather than the direction is the same thing on
+    an evenly spaced ladder, and it stays a difference because the ladder is
+    not guaranteed to stay even: the annex is the league's to change. It was
+    once argued that magnitudes split a tie the direction could not, and that
+    argument rested on a bonus table of 10/7/5/4 that nobody published.
 
     Deltas, not absolute bonuses: summing the slots' own values would score
     the *formation* rather than the placement, and would always prefer five
@@ -502,6 +506,24 @@ def _back_bias(assignment: list) -> int:
     """Bonus points gained or lost across an assignment by playing people out
     of position. Higher is better; 0 means nobody was moved."""
     return sum(_back_bias_one(p, slot) for p, slot in assignment)
+
+
+def _displacements(assignment: list) -> int:
+    """How many players are fielded outside their primary position.
+
+    The last tiebreak, and only reached when the projections, the fallbacks
+    and the bonus all tie. The real ladder is evenly spaced — one point per
+    line — so a swap that moves one man back and another forward nets to
+    zero, and two elevens can be genuinely indistinguishable on bias alone.
+
+    Fewer moves wins. Each displacement is a bet that the goal bonus is what
+    decides the round, and at equal expectation the eleven that places fewer
+    of them carries less of that risk. Stated here because the alternative is
+    the tie falling through to the order of `FORMATIONS`, a list transcribed
+    from the app in no meaningful order — which is the defect this whole
+    tiebreak chain exists to prevent.
+    """
+    return sum(1 for p, slot in assignment if p.get("position_id") != slot)
 
 
 def _is_available(row: dict) -> bool:

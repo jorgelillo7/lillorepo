@@ -335,34 +335,52 @@ on the pitch, and ranking him first would field him.
 ### Requirement: ties are broken by what playing out of position is worth
 
 When two elevens project the same total SF, `_back_bias` SHALL decide between
-them with the **difference in Biwenger's goal bonus** for each player moved
-from his natural position — `GOAL_BONUS = {POR 10, DEF 7, MED 5, DEL 4}` — and
-not merely with the direction of the move.
+them with the **difference in the goal bonus** for each player moved from his
+natural position. The bonus is the one the reglamento publishes in art. 2.2
+and Anexo I — `GOAL_BONUS = {POR 6, DEF 5, MED 4, DEL 3}` — and SHALL be kept
+equal to it rather than tuned.
 
-JP's SF is one number per player and does not model the slot bonus, so this is
-the only thing left to compare on. Direction alone made a gain and a loss
-cancel: a forward covering midfield gains 1, and the defender pushed out to
-free that slot loses 2. Two candidate elevens of a real squad therefore tied at
-+1, and the winner fell through to the order of `FORMATIONS` — a list
-transcribed from the app, in no meaningful order.
+It was carried as `{POR 10, DEF 7, MED 5, DEL 4}` for a year, from no
+published table, and every lineup tie was decided with it. The argument that
+magnitudes split a tie the direction could not rested entirely on those
+numbers: the real ladder is evenly spaced at one point per line, so a swap
+moving one player back and another forward nets to **zero**, and the two
+candidate elevens that motivated the change are genuinely worth the same.
 
 Deltas rather than the slots' own bonuses: summing those would score the
 *formation* instead of the placement, and would always prefer five defenders
 even with nobody out of position.
 
+Where the bias also ties, `_displacements` SHALL break it in favour of the
+eleven that **moves fewer players**. Each displacement is a bet that the goal
+bonus decides the round, and at equal expectation the eleven placing fewer of
+them carries less of that risk. Without it the tie falls through to the order
+of `FORMATIONS`, a list transcribed from the app in no meaningful order, which
+is the defect this whole chain exists to prevent.
+
+**Known simplification.** The goal bonus is a proxy for everything the annex
+pays by position, and it is not the whole of it: a clean sheet is worth +2 to a
+keeper and +1 to a defender, and an assist 3 and 2 against a midfielder's 1. So
+pushing a defender into midfield costs more than the 1 point scored here.
+Modelling it properly needs a per-match clean-sheet probability, which no
+provider on these paths supplies, and inventing weights instead is what
+produced the 10/7/5/4 in the first place. The shortfall can only bite on a
+tie, since the projection outranks the bias.
+
 #### Scenario: what a move is worth
 - **WHEN** a forward fills a midfield slot **THEN** it is worth +1
-- **WHEN** a defender is pushed into midfield **THEN** it costs -2
+- **WHEN** a defender is pushed into midfield **THEN** it costs -1
+- **WHEN** the bias ties too **THEN** the eleven that moves fewer players wins
 - **WHEN** a player fills his own position **THEN** it is worth nothing
 - *Verifies:* `test_playing_a_forward_in_midfield_is_worth_one_bonus_point`,
-  `test_pushing_a_defender_into_midfield_costs_two`,
+  `test_pushing_a_defender_into_midfield_costs_one`,
   `test_a_player_in_his_own_position_is_worth_nothing_either_way`
 
 #### Scenario: the elevens that used to tie
 - **WHEN** one eleven moves only a forward back and the other also pushes a
   defender forward to make room
 - **THEN** the first is strictly better, and no list order is consulted
-- *Verifies:* `test_the_two_candidate_elevens_no_longer_tie`
+- *Verifies:* `test_the_two_candidate_elevens_tie_on_bias_and_split_on_moves`
 
 ### Requirement: a full bench beats an empty slot
 

@@ -27,8 +27,8 @@ league's own screen:
 - **the scoring system itself**
 
 > **Our league does not use the plain SofaScore system.** It is based on it
-> with additional bonuses, so the goal table transcribed below is the
-> *baseline*, not what we score. See "What this file does not establish".
+> with additional bonuses — see "The Lloros League's own scoring" below, which
+> carries them from the reglamento.
 
 ## Generales
 
@@ -131,12 +131,56 @@ with recalculation, except **no payout and no points until every match of the
 matchday has been played** — which can be weeks or months later. It avoids
 paying a bottom-of-the-table bonus that a postponed result then invalidates.
 
-## What this file does not establish
+## The Lloros League's own scoring
 
-- **Our league's scoring.** It is based on SofaScore *with additional bonuses*,
-  so the goal table above is the baseline and not our values. The figures the
-  code uses live in `packages/biwenger_tools/api/logic/lineup.py::GOAL_BONUS`
-  and have **not** been checked against our league's own screen.
+From the league reglamento, **art. 2.2 and Anexo I**, published at
+`/reglamento` on the `biwenger-summary` service:
+
+> Puntuación oficial = conversión de la nota SofaScore + bonificaciones −
+> penalizaciones. Si Biwenger o SofaScore rectifican una valoración una vez
+> cerrada la jornada, la corrección se aplica automáticamente a todas las
+> competiciones de la Lloros League.
+
+The conversion table is the baseline one above. Anexo I's bonuses and
+penalties:
+
+| Action | Points |
+|---|---:|
+| Team win (playing more than 65 min) | +1 |
+| Team defeat (playing more than 65 min) | −1 |
+| Clean sheet — keeper, more than 65 min | +2 |
+| Clean sheet — defender, more than 65 min | +1 |
+| Yellow card | −1 |
+| Playing more than 65 minutes | +1 |
+| Match MVP | +3 |
+| Penalty saved | +2 |
+| Penalty missed | −2 |
+| Goal from a penalty (deducted from the normal goal) | −1 |
+| Own goal | −1 |
+| Goal by a DL | +3 |
+| Goal by a MC | +4 |
+| Goal by a DF | +5 |
+| Goal by a POR | +5, **plus a further +1** |
+| Assist | +1 |
+| Assist by a DF (additional) | +1 |
+| Assist by a POR (additional) | +2 |
+
+So the **goal ladder is identical to the baseline** — 6/5/4/3 once the
+keeper's extra point is added. What this league customises is everything
+around it: the win and defeat points, clean sheets, cards, minutes, MVP,
+penalties and the keeper's and defender's assists.
+
+`lineup.py::GOAL_BONUS` holds these figures and is pinned to them by a test.
+It had carried `{10, 7, 5, 4}` for a year, from no published table, and every
+lineup tie was broken with it.
+
+Note that goals are not the only thing paid by position: a clean sheet is
+worth 2 to a keeper and 1 to a defender, and an assist 3 and 2 against a
+midfielder's 1. `GOAL_BONUS` is a proxy for that whole shape and understates
+it for the back line — see the known simplification in
+`openspec/specs/biwenger_tools/auto-pick-lineup/spec.md`.
+
+## What this file does not establish
 - **Our league's other settings**: starting balance, market expiry, payout
   formula, split-matchday mode.
 - The app version or rules revision — the screen shows neither.
