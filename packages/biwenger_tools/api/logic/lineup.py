@@ -432,9 +432,15 @@ def _positions(row: dict) -> set:
     return {primary} | set(alts)
 
 
-# Biwenger's goal bonus by the position a player is FIELDED in. JP's SF is a
-# single per-player number that does not model it, so it is what breaks ties
-# between assignments that project the same.
+# Our league's goal bonus by the position a player is FIELDED in. **Not
+# Biwenger's defaults**: the plain SofaScore system pays 6/5/4/3, and this
+# league customises it. These figures came from the owner and have not been
+# read off the league's own rules screen — see
+# `docs/technical/backend/biwenger-official-rules.md`, which separates what
+# Biwenger fixes from what a league configures.
+#
+# JP's SF is a single per-player number that does not model the slot, so this
+# is what breaks ties between assignments that project the same.
 GOAL_BONUS = {GK: 10, DEF: 7, MID: 5, FWD: 4}
 
 
