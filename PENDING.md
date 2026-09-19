@@ -35,11 +35,10 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | A second projection source beside Jornada Perfecta (Analítica Fantasy) | You: **the technical question is answered** — `/biwenger/predicciones` is server-rendered, Biwenger-scored, 366 players with a starting chance and a points projection, no API and no key · what is left is permission, which is yours · [findings](docs/technical/backend/second-projection-source.md) |
 | 🔨 | Nothing records what was projected against what was scored | Worth doing whether or not a second source ever arrives — without it "is JP worth it" has no answer · [why](docs/technical/backend/second-projection-source.md) |
 | 🚧 | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | Nothing, and that is the answer: `log_promotions` was the only record and it is gone. It logged the bet without what either player scored, so grading needed a pipeline that was declined — and at **one promotion in 12 months** (Valverde 328 displacing Giuliano Simeone on 2026-09-09, which 350 would have prevented) a decade of logs would still be one data point. Reopen only with a way to read real points |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
-| ⏳ | What to do when JP and Biwenger disagree on availability | Far more than a season · **verified wired, 0 events in 12 months** · the 1-in-481 baseline was measured league-wide but `observe()` only sees my ~20 squad rows, so ≈1 expected per 24 lineups |
+| ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
 | ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
 
 ## my_photos
