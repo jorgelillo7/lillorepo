@@ -188,10 +188,9 @@ Now that the library is available to Bazel, go to `core/BUILD.bazel` and add it 
 
 | Target | When to add here |
 |---|---|
-| `//core:gcp` | Library used by `sdk/gcp.py` or `utils.py` |
-| `//core:telegram` | Library used by `sdk/telegram.py` |
-| `//core:biwenger` | Library used by `sdk/biwenger.py` |
-| `//core` (umbrella) | Shared by all of the above |
+| `//core:biwenger` · `:domain` · `:firestore` · `:gcp` · `:gemini` · `:http` · `:jp` · `:oraculo` · `:serving` · `:telegram` · `:web` | Library used by the matching `sdk/`, `domain/`, `serving/` or `web/` module |
+| `//core:_init` (private) | Library used by `utils.py` or `constants.py` — **every** slice deps on it, so a dependency added here reaches every package |
+| `//core` (umbrella) | Never add here: it holds no sources, only the other targets |
 
 Remember that Bazel converts hyphens (-) to underscores (_). For numpy, the name is the same.
 

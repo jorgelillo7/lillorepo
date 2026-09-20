@@ -21,6 +21,14 @@ python_service(
     service = service(
         main = "app.py",
         secrets = [".env"],
+        core_deps = [
+            "//core:firestore",
+            "//core:gcp",
+            "//core:gemini",
+            "//core:serving",
+            "//core:telegram",
+            "//core:web",
+        ],
         deps = [
             "@pypi//google_auth",
             "@pypi//pillow",

@@ -45,10 +45,11 @@ surgery, and further away since the sync guard now catches the drift this
 would have prevented, at a fraction of the risk. *Trigger:* a package whose
 dependencies materially diverge from the base image.
 
-Related: `core_deps` on `service(…)` exists and lets a package link only the
-slices of `//core` it uses, but it cannot shrink an image while
-`Dockerfile.base` installs every dependency and all six images share one base.
-The size win needs both this item and per-service bases.
+Related: every package now passes `core_deps` and links only the slices of
+`//core` it uses, which scopes the build graph (see "The shape of `core`"). It
+still cannot shrink an **image**: `Dockerfile.base` installs every dependency,
+all six images share one base, and `core_srcs.tar` ships all of `core/`
+regardless. The size win needs both this item and per-service bases.
 
 ## The shape of `core`
 
@@ -56,35 +57,86 @@ Measured across the repo, excluding tests:
 
 | Module | Lines | Consumers |
 |---|---:|---|
-| `sdk/telegram` | 426 | be_water · biwenger_tools · chucknorris_bot |
-| `sdk/firestore` | 177 | be_water · biwenger_tools |
-| `web/csrf` + `web/ratelimit` | 67 | be_water · biwenger_tools |
-| `utils` | 60 | all three |
-| `sdk/http` | 109 | core itself · biwenger_tools |
-| `sdk/biwenger` | 824 | biwenger_tools only |
+| `sdk/biwenger` | 939 | biwenger_tools only |
+| `sdk/telegram` | 502 | be_water · biwenger_tools · chucknorris_bot |
 | `domain/models` | 364 | biwenger_tools only |
-| `sdk/jp` | 203 | biwenger_tools only |
-| `sdk/gcp` | 99 | biwenger_tools only |
-| `sdk/gemini` | 168 | be_water only |
+| `sdk/gcp` | 212 | be_water · biwenger_tools |
+| `sdk/jp` | 211 | biwenger_tools only |
+| `sdk/gemini` | 209 | be_water only |
+| `sdk/oraculo` | 204 | biwenger_tools only |
+| `sdk/firestore` | 177 | be_water · biwenger_tools |
+| `sdk/http` | 109 | core itself · biwenger_tools |
+| `web/csrf` + `web/proxy` + `web/ratelimit` | 87 | be_water · biwenger_tools |
+| `utils` | 60 | all three |
+| `serving/gunicorn` | 22 | all three |
 
-Genuinely shared: ~730 lines. Single-consumer: ~1,718.
+Genuinely shared: ~1,169 lines. Single-consumer: ~1,718.
 
 This is expiry rather than a design error: `core` grew when `web` and
 `scraper_job` started sharing Biwenger code, which was correct then, and the
 split into packages left the rest stranded. The league constants have already
 moved out — they were riding into every other service's image through `_init`.
 
-The rest stays. It is a large refactor with no runtime gain, and the README has
-defined `core` this way since before there were other packages.
+**The rest stays, and the reason is now measured rather than asserted.**
 
-**Triggers:** a second package needing a domain-model layer, or a package that
-wants none of the Biwenger SDK and has to justify carrying it.
+### The cost was real, and it was not the file layout
 
-**The trigger as written can no longer fire.** It said "a second package needing a domain-model layer". `be_water` is that second package, and it
-wrote its own `domain.py` without importing anything from `core/domain` —
-which is the answer, not the wait: a package that needs a domain model
-writes the one it needs. So the trigger is now `core` becoming an obstacle,
-i.e. a change made for Biwenger that breaks another package.
+Asked of the build graph — the same query `scripts/affected_tests.py` runs in
+CI — a one-line edit to Biwenger's API client used to run **10 of the 13 test
+suites**, including `be_water` and `chucknorris_bot`:
+
+```
+bazelisk query "kind('.*_test rule', rdeps(//..., //core:sdk/biwenger.py))"
+```
+
+Two control files returned the *identical* list: `sdk/gemini.py` (be_water
+only) and `domain/models.py` (biwenger_tools only). Every file in `core/` had
+the same blast radius, which is the tell: the cause could not be where the
+files lived.
+
+It was the umbrella. `core/BUILD.bazel` has always sliced `core` into granular
+targets and `service(…)` has always accepted `core_deps`, and **no package
+passed it** — all six `*_lib` targets linked `//core`, which deps on
+everything. Wiring the slices per package, plus lifting `domain/models.py` out
+of the `_init` base that every slice deps on, took the same three queries to:
+
+| Changed file | Suites before | after |
+|---|---:|---:|
+| `sdk/biwenger.py` | 10 | 5 |
+| `sdk/gemini.py` | 10 | 3 |
+| `domain/models.py` | 10 | 3 |
+| `sdk/telegram.py` (control — genuinely shared) | 10 | 9 |
+
+That is the whole benefit the move was supposed to buy, for ~60 lines of
+Bazel and no import rewrites.
+
+### What is left to park
+
+The move itself: ~1,718 source lines, plus ~1,729 test lines — and
+`core/tests/conftest.py` goes with them, since it imports `BiwengerClient` and
+its fixtures are Biwenger's. It has no runtime gain, and after the slicing it
+has no measurable obstacle left to point at.
+
+Two things a future session should know before re-opening it:
+
+- **`sdk/http` would cascade.** Its only in-`core` consumer is `biwenger.py`.
+  If `biwenger.py` leaves, `http` has one consumer left and is biwenger-only in
+  fact — while its own spec (`openspec/specs/core/http-retry`) presents it as
+  generic plumbing. Decide that explicitly rather than by omission.
+- **Slicing does not shrink an image.** `//core:core_srcs` is
+  `glob(["**/*.py"])` and every image copies the whole tar to `/app`, so all of
+  `core` is importable at runtime regardless of what was linked. Only a move
+  out of `core/` changes that. The flip side is the useful one: a wrong
+  `core_deps` fails in the Bazel sandbox, loudly, pre-merge — it cannot reach
+  production as a container that dies at import.
+
+**Triggers:** `core` becoming an obstacle — a change made for Biwenger that
+breaks another package. The original trigger ("a second package needing a
+domain-model layer") can no longer fire: `be_water` is that second package and
+it wrote its own `domain.py` without importing anything from `core/domain`,
+which is the answer rather than the wait. A package that needs a domain model
+writes the one it needs.
+
 
 ## Lloros Awards → Competiciones
 

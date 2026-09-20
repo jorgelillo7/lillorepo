@@ -12,6 +12,12 @@ python_job(
         main = "main.py",
         package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = [".env"],
+        core_deps = [
+            "//core:biwenger",
+            "//core:domain",
+            "//core:firestore",
+            "//core:telegram",
+        ],
         deps = [
             "@pypi//unidecode",
             "@pypi//beautifulsoup4",
@@ -19,7 +25,6 @@ python_job(
             "//packages/biwenger_tools:constants",
         ],
         test_deps = [
-            "//core",
             "@pypi//requests_mock",
             "@pypi//freezegun",
         ],

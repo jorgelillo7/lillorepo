@@ -8,6 +8,15 @@ python_service(
         main = "app.py",
         package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = [".env"],
+        core_deps = [
+            "//core:biwenger",
+            "//core:firestore",
+            "//core:gcp",
+            "//core:jp",
+            "//core:oraculo",
+            "//core:serving",
+            "//core:telegram",
+        ],
         deps = [
             "@pypi//matplotlib",
             "@pypi//requests",

@@ -60,7 +60,7 @@ for per-package build/test/deploy detail. Quick summary:
 # Full build
 bazel build //...
 
-# Tests — all eleven suites, or one module
+# Tests — all thirteen suites, or one module
 bazel test --build_tests_only //... --test_output=streamed --test_arg=-v
 bazel test //core:core_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
@@ -72,6 +72,8 @@ bazel test //packages/biwenger_tools/.claude/skills/draft/scripts:draft_skill_te
 bazel test //packages/be_water/web:web_tests
 bazel test //packages/be_water/scripts:scripts_tests              # recognised-waters parser
 bazel test //packages/chucknorris_bot/bot:bot_tests
+bazel test //packages/emulation_thor6/scripts:scripts_tests
+bazel test //.claude/skills/audit-apple-contacts/scripts:audit_apple_contacts_tests
 bazel test //scripts:scripts_tests                                # the CI test-selector
 
 # What CI would run for the current branch (see docs/operations.md)

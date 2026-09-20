@@ -7,6 +7,18 @@ python_service(
     service = service(
         main = "app.py",
         secrets = [".env"],
+        core_deps = [
+            "//core:serving",
+            "//core:telegram",
+        ],
+        # `api_client` signs its call to biwenger-api with a Google ID token
+        # and issues it with `requests`, so both are the bot's own
+        # dependencies. They used to arrive by accident through the `//core`
+        # umbrella's `gcp` and `telegram` slices.
+        deps = [
+            "@pypi//google_auth",
+            "@pypi//requests",
+        ],
     ),
     image = image(
         env = {

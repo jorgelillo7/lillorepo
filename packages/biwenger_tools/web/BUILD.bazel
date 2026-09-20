@@ -8,6 +8,14 @@ python_service(
         main = "app.py",
         package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = ["biwenger-tools-sa.json", ".env"],
+        core_deps = [
+            "//core:domain",
+            "//core:firestore",
+            "//core:gcp",
+            "//core:http",
+            "//core:serving",
+            "//core:web",
+        ],
         deps = [
             "@pypi//bleach",
             "@pypi//icalendar",
