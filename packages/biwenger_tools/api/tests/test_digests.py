@@ -604,3 +604,39 @@ def test_the_digest_captures_once_not_twice():
         "the digest must not capture separately — it chains the lineup pick, "
         "which captures"
     )
+
+
+# --- collecting a finished round's outcome, without a human ----------------
+
+
+def test_the_lineup_pick_also_collects_one_finished_round():
+    """Depending on somebody remembering to run a script is how a ledger ends
+    up half empty. One round per run, so a backlog drains a round a day
+    instead of spending the morning's request budget in a spike."""
+    from packages.biwenger_tools.api.logic import projection_ledger_capture as cap
+
+    ctx = MagicMock()
+    ctx.biwenger.get_round.return_value = {
+        "id": 10,
+        "games": [],
+        "season": {"rounds": [{"id": 8, "status": "finished"}]},
+    }
+    stored = [{"season": "26-27", "round_id": 8, "blended_xi": {}, "jp_only_xi": {}}]
+    base = "packages.biwenger_tools.api.logic.projection_ledger_capture"
+    with patch(f"{base}.projection_ledger_store.list_all", return_value=stored), patch(
+        f"{base}._outcome_for", return_value={"applied_total": 41}
+    ), patch(f"{base}.projection_ledger_store.write_actual") as write_actual:
+        cap.collect(ctx)
+
+    write_actual.assert_called_once()
+    assert write_actual.call_args[0][1] == 8
+
+
+def test_collecting_never_costs_the_lineup():
+    """It runs beside a step that applies a lineup unattended; a rate limit
+    on a reporting read must not reach it."""
+    from packages.biwenger_tools.api.logic import projection_ledger_capture as cap
+
+    ctx = MagicMock()
+    ctx.biwenger.get_round.side_effect = RuntimeError("429")
+    assert "error" in cap.collect(ctx)

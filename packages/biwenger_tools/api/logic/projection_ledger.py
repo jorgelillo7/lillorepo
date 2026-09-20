@@ -216,3 +216,29 @@ def grade(documents: list) -> dict:
         "total_delta": sum(deltas),
         "verdict": (f"{won} of {len(compared)} to the blend" if enough else None),
     }
+
+
+def next_round_to_collect(documents: list, finished_ids: set) -> int | None:
+    """The oldest stored round Biwenger calls finished that has no outcome.
+
+    One per run, oldest first. A backlog then drains a round a day rather
+    than spending a whole morning's request budget in a single spike, on a
+    path that shares its rate limit with the phone app.
+
+    Presence of the key decides, not its contents: a round whose outcome is
+    legitimately empty must not be re-read every morning for the rest of the
+    season.
+
+    A round Biwenger has not finished is skipped rather than read early:
+    under *jornada única* it is not final until every match in it is played,
+    so an early read would store a partial total as though it were the
+    result — and the outcome of a finished round never changes, which is the
+    only reason caching it is safe at all.
+    """
+    pending = [
+        document.get("round_id")
+        for document in documents or []
+        if document.get("round_id") in (finished_ids or set())
+        and "actual" not in document
+    ]
+    return min(pending) if pending else None

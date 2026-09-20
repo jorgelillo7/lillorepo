@@ -333,3 +333,30 @@ def test_a_verdict_appears_once_there_is_enough_to_read():
     assert summary["verdict"] is not None
     assert summary["blend_won"] == MIN_ROUNDS_FOR_VERDICT
     assert summary["rounds_needed"] == 0
+
+
+# --- which finished round still needs its outcome --------------------------
+
+
+def test_the_oldest_round_without_an_outcome_is_next():
+    """One per run, oldest first: a backlog drains a round a day instead of
+    spending a morning's budget in one spike."""
+    docs = [
+        {"round_id": 7, "actual": {"applied_total": 3}},
+        {"round_id": 9},
+        {"round_id": 8},
+    ]
+    assert pl.next_round_to_collect(docs, {7, 8, 9}) == 8
+
+
+def test_a_round_biwenger_has_not_finished_is_not_collected():
+    """Under *jornada única* a round is not final until every match in it is
+    played, so reading it early would store a partial total as if it were the
+    result."""
+    docs = [{"round_id": 8}]
+    assert pl.next_round_to_collect(docs, set()) is None
+
+
+def test_nothing_to_collect_is_not_an_error():
+    assert pl.next_round_to_collect([], {1, 2}) is None
+    assert pl.next_round_to_collect([{"round_id": 1, "actual": {}}], {1}) is None
