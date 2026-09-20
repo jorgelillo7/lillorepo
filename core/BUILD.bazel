@@ -10,8 +10,6 @@ py_library(
         "__init__.py",
         "constants.py",
         "utils.py",
-        "domain/__init__.py",
-        "domain/models.py",
         "sdk/__init__.py",
     ],
     deps = [
@@ -25,6 +23,20 @@ py_library(
 # `job(…)`; they scope the build graph, not the image, while
 # Dockerfile.base installs every dependency anyway.
 # ------------------------------------------------------------------
+
+# `domain` is a slice like any other, not part of `_init`. Every slice deps on
+# `_init`, so anything living there reaches every package: while these models
+# sat inside it, a `Clausulazo` edit rebuilt and re-tested the Chuck Norris
+# bot. The same reason the league constants left `core.constants`.
+py_library(
+    name = "domain",
+    srcs = [
+        "domain/__init__.py",
+        "domain/models.py",
+    ],
+    deps = [":_init"],
+    visibility = ["//visibility:public"],
+)
 
 py_library(
     name = "gcp",
@@ -146,6 +158,7 @@ py_library(
     name = "core",
     deps = [
         ":biwenger",
+        ":domain",
         ":firestore",
         ":gcp",
         ":gemini",

@@ -119,15 +119,23 @@ This scopes the **build graph**, not the image: `docker/Dockerfile.base` pip-ins
 
 | Target | Contains |
 |--------|----------|
-| `//core:gcp` | Sheets API + Cloud Run Jobs trigger helpers |
-| `//core:telegram` | Telegram Bot API client + webhook helpers (parse, secret validation) |
 | `//core:biwenger` | Biwenger API client (URL constants, paginators, market offers) |
-| `//core:jp` | Jornada Perfecta private API client (in-process cache + freshness probe) |
+| `//core:domain` | Domain models — `LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares` |
 | `//core:firestore` | Thin Firestore CRUD helpers (get/set/list/query/count/batch_write/delete_collection) |
-| `//core` | Umbrella — all of the above + shared constants (`MADRID_TZ`, `LEAGUE_ID`) |
+| `//core:gcp` | Sheets API + Cloud Run Jobs trigger helpers + GCS object upload/download |
+| `//core:gemini` | Gemini client behind the label OCR |
+| `//core:http` | `retry_http_request` — the shared retry/backoff wrapper |
+| `//core:jp` | Jornada Perfecta private API client (in-process cache + freshness probe) |
+| `//core:oraculo` | Analítica Fantasy's Oráculo reader (API + RSC payload) |
+| `//core:serving` | Gunicorn production runner |
+| `//core:telegram` | Telegram Bot API client + webhook helpers (parse, secret validation) |
+| `//core:web` | Flask helpers — CSRF, rate limiting, proxy trust |
+| `//core` | Umbrella — all of the above |
 | `//core:core_srcs` | Tar of sources for Docker layers |
 
-Domain models (`LeagueMessage`, `Participation`, `Clausulazo`, `JusticeEntry`, `Palmares`) live in `core/domain/` with symmetric `from_firestore` / `to_firestore` methods.
+Every slice also carries `core/utils.py` and `core/constants.py` (`MADRID_TZ`), which are small and genuinely cross-package. `LEAGUE_ID` is **not** among them — league-specific values live in `packages/biwenger_tools/constants.py`, because anything in that shared base reaches every package that links any slice at all.
+
+Domain models live in `core/domain/` with symmetric `from_firestore` / `to_firestore` methods. They are a slice of their own rather than part of that shared base: they are read by `biwenger_tools` alone, and while they sat in the base a `Clausulazo` edit rebuilt and re-tested the Chuck Norris bot.
 
 ## Deployment
 

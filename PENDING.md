@@ -29,7 +29,8 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — **not** the old trigger, which can no longer fire: `be_water` arrived and wrote its own `domain.py` without touching `core` · [numbers](docs/technical/parked-work.md#the-shape-of-core) |
+| 🔨 | Eight of `core`'s twelve modules ship with no `openspec/` spec | Nothing — ready to pick up with `openspec-backfill`. Highest value first: `sdk/oraculo` (the scoring-system trap), `sdk/jp`, `core/web` (CSRF + rate limit), `sdk/firestore`, `domain/models` |
+| ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — a Biwenger change that breaks another package. **The CI cost that looked like the trigger is gone**: it was the unused `core_deps`, not the file layout, and wiring the slices cut a `sdk/biwenger` edit from 10 suites to 5 · [measured](docs/technical/parked-work.md#the-shape-of-core) |
 
 ## biwenger_tools
 

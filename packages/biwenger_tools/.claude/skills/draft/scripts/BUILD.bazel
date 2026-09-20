@@ -13,7 +13,8 @@ py_test(
         "tests/*.py",
     ]),
     deps = [
-        "//core",
+        "//core:firestore",
+        "//core:jp",
         # The composition rule lives in the api's pure engine. The skill
         # imports it rather than restating it: two copies of "what is a legal
         # squad" is exactly how the docs came to describe a rule the code

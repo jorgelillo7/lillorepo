@@ -7,6 +7,10 @@ python_service(
     service = service(
         main = "app.py",
         secrets = [".env"],
+        core_deps = [
+            "//core:serving",
+            "//core:telegram",
+        ],
         deps = ["@pypi//requests"],
     ),
     image = image(
