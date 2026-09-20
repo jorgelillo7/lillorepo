@@ -23,9 +23,9 @@ Four modules working together to archive, visualise and analyse data from a Biwe
 
 ```
 ┌────────────┐  weekly cron     ┌──────────────┐
-│ scraper_job│ ────────────────▶│   Firestore  │
-└────────────┘                  │  (native, EU)│
-                                └──────┬───────┘
+│ scraper_job│ ────────────────▶│   Firestore  │◀── api writes here too:
+└────────────┘                  │  (native, EU)│    bid log, pacts, rebuild
+                                └──────┬───────┘    plans, projection ledger
                                        │ server-side query (composite index)
                                        ▼
                                ┌───────────────┐
@@ -86,19 +86,29 @@ stacked, so a player on three lists gains more than one on a single list.
 `chollos` is deliberately excluded from the bonus: it ranks *value*, and its
 players are cheap and score less (1.1M and 4.10 points on average, against 7.0M
 and 5.10 for the rest). Rewarding it in a points projection would promote cheap
-players in the eleven, where price is irrelevant. It feeds bid priority instead.
+players in the eleven, where price is irrelevant. It feeds the chollos trade
+instead: a thin margin over the asking price on every one in the day's market,
+bought to resell rather than to field.
 
 **JP never stops being the base.** Oráculo can only move it, and only when
 enough of the squad is covered — midweek a matchday is barely projected, so the
 blend switches off and the photo says so rather than ranking three lucky
 players above everyone else.
 
-The two are not on the same scale (JP runs to ~900, Oráculo to ~10), so the
-conversion calibrates itself from the median of whatever the read contains
-instead of carrying a magic constant.
+The two are not on the same scale (JP runs to ~900, Oráculo to ~10), so a
+reading is converted to **the JP value at the same rank** rather than through a
+multiplier. A single factor was tried first and dragged good players *down*:
+Oráculo has a floor, so the ratio between the two collapses at the bottom — 133
+among players projecting 400+, 91 below, 15 for one at JP 12 — and with most of
+the league being substitutes, they set the median. The percentile map has no
+such bias and survives either provider rescaling its own numbers.
 
-Detail, including why an absolute threshold was the wrong idea:
-[`openspec/changes/oraculo-mix/design.md`](../../openspec/changes/oraculo-mix/design.md).
+Behaviour is specified in
+[`team-analysis`](../../openspec/specs/biwenger_tools/team-analysis/spec.md) and
+[`auto-pick-lineup`](../../openspec/specs/biwenger_tools/auto-pick-lineup/spec.md).
+Whether any of it actually beats JP alone is being measured — see
+[`projection-ledger.md`](../../docs/technical/backend/projection-ledger.md),
+which also explains why that question cannot be answered yet.
 
 ## Operational commands
 
