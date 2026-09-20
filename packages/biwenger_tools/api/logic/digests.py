@@ -37,6 +37,7 @@ from packages.biwenger_tools.api.logic.orchestration import (
     require_telegram,
     send_image_or_text_fallback,
 )
+from packages.biwenger_tools.api.logic import projection_ledger, projection_ledger_store
 from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
@@ -179,6 +180,58 @@ def _notify_step_failed(token: str, chat_id: str, title: str) -> None:
         logger.exception("Could not notify a failed digest step.")
 
 
+def _round_name_for(round_data: dict, round_id: int) -> str | None:
+    """The round's own `name`, whichever of (current, `next`) matched."""
+    if round_data.get("id") == round_id:
+        return round_data.get("name")
+    return (round_data.get("next") or {}).get("name")
+
+
+def _safe_write_projection_ledger(ctx) -> dict:
+    """Snapshot the blend against Jornada Perfecta alone for the round this
+    morning's lineup actually lands on. Never raises, and never writes once
+    that round may already have kicked off — see
+    `projection_ledger.target_round`.
+
+    Reuses the digest's ctx (JP + Oráculo already read) but pays its own
+    squad and round reads rather than reaching into the lineup step's: the
+    two must stay independent, or a failure in one could cost the other.
+    """
+    try:
+        round_data = ctx.biwenger.get_round()
+        now = datetime.now(MADRID_TZ)
+        round_id = projection_ledger.target_round(round_data, now)
+        if round_id is None:
+            return {"skipped": "kicked_off_or_unknown"}
+
+        my_squad = ctx.biwenger.get_manager_squad(
+            config.USER_SQUAD_URL, ctx.biwenger.user_id
+        )
+        rows = build_squad_rows(
+            my_squad,
+            ctx.biwenger_players,
+            ctx.jp_index,
+            ctx.oraculo_index,
+            oraculo_scale=ctx.oraculo_scale,
+        )
+        snapshot = projection_ledger.build_snapshot(
+            round_id,
+            _round_name_for(round_data, round_id),
+            config.CURRENT_SEASON,
+            rows,
+            now,
+        )
+        projection_ledger_store.write(snapshot)
+        return {
+            "written": True,
+            "round_id": round_id,
+            "xi_differs": snapshot["xi_differs"],
+        }
+    except Exception as exc:
+        logger.exception("Projection ledger step failed inside daily digest.")
+        return {"error": str(exc)}
+
+
 def _safe_send_league_values(ctx, token: str, chat_id: str) -> dict:
     """Send the daily snapshot of what every squad is worth. Never raises.
 
@@ -299,6 +352,7 @@ def _run_daily_inner() -> dict:
     )
 
     lineup_result = _safe_run_auto_pick(ctx)
+    projection_ledger_result = _safe_write_projection_ledger(ctx)
     league_values_result = _safe_send_league_values(ctx, token, chat_id)
 
     if _auto_bid_pause_active():
@@ -316,6 +370,7 @@ def _run_daily_inner() -> dict:
             "market": market_count,
             "images_sent": sent_count,
             "lineup_applied": lineup_result.get("applied"),
+            "projection_ledger_written": projection_ledger_result.get("written"),
             "auto_bid_placed": auto_bid_result.get("bid_count"),
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
             "league_values": league_values_result.get("managers"),
@@ -328,6 +383,7 @@ def _run_daily_inner() -> dict:
         "my_team": team_count,
         "market": market_count,
         "lineup": lineup_result,
+        "projection_ledger": projection_ledger_result,
         "league_values": league_values_result,
         "auto_bid": auto_bid_result,
         "offers": offers_result,

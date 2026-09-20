@@ -157,13 +157,20 @@ def pick_lineup(squad_rows: list) -> dict | None:
     # code does not model. Observation only — it changes no pick.
     provider_watch.observe(squad_rows)
 
-    best = _solve(squad_rows)
+    best = solve_lineup(squad_rows)
 
     return best
 
 
-def _solve(squad_rows: list) -> dict | None:
-    """The search itself, with none of the observation `pick_lineup` adds."""
+def solve_lineup(squad_rows: list) -> dict | None:
+    """The search itself, with none of the observation `pick_lineup` adds.
+
+    Public so a caller building a counterfactual eleven — `xi_snapshot`, and
+    the projection ledger's "Jornada Perfecta alone" run — can reach the
+    search directly. Going through `pick_lineup` instead would write a
+    hypothetical pick to `provider_watch`'s audit trail, which only ever
+    means to record what was actually bet on.
+    """
     _reset_promotion_cap(squad_rows)
 
     # The cap is enforced against the line a player is actually ASSIGNED to,
@@ -195,7 +202,7 @@ def xi_snapshot(squad_rows: list) -> dict | None:
     a player names the man who takes his shirt, and it is by construction the
     same man the SF difference is measuring.
     """
-    best = _solve(squad_rows)
+    best = solve_lineup(squad_rows)
     if best is None:
         return None
     return {
@@ -843,8 +850,8 @@ def diff_against_current(result: dict, squad_rows: list, current: dict) -> dict:
          "formation_changed", "captain_changed", "current_sf", "delta"}
 
     The cost is the honest part. Summing `_sf()` over the saved eleven would
-    be wrong: `_sf` reads `_promotion_capped`, which `_solve` flips between
-    passes, so a total taken outside the search is not in the same units as
+    be wrong: `_sf` reads `_promotion_capped`, which `solve_lineup` flips
+    between passes, so a total taken outside the search is not in the same units as
     `result["total_sf"]`. The saved eleven is scored by putting it through the
     solver again — same machine, same state, two numbers that subtract.
 

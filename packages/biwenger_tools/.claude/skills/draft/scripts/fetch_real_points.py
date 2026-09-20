@@ -28,19 +28,30 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import paths  # noqa: E402
 
+# `PYTHONPATH=.` (see the docstring above) puts the repo root on the path,
+# so the api's own logic is reachable the same way `archetypes.py` and
+# `board.py` already reach `logic.draft` — one definition of this league's
+# scoring, not a second copy that can drift from it.
+from packages.biwenger_tools.api.logic.real_points import (  # noqa: E402
+    DEF,
+    GK,
+    STARTER_MINUTES,
+    personalizado,
+)
+
 CF_BASE = "https://cf.biwenger.com/api/v2"
 COMPETITION_URL = f"{CF_BASE}/competitions/la-liga/data?lang=es&score=2"
 PLAYER_URL = CF_BASE + "/players/la-liga/{slug}?fields=*,reports(*),seasons(*)"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# Biwenger position ids.
-GK, DEF = 1, 2
 POSITION_CODE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
-# A start, not an appearance: below this a player came off the bench, and
-# the league's play/win bonuses only trigger past 65 minutes anyway.
-STARTER_MINUTES = 60
 SEASON_ROUNDS = 38
 SOFASCORE_SEASON_KEY = "2"
+
+# `GK`/`DEF`/`STARTER_MINUTES` are not used below — they are re-exported so
+# `frp.GK` etc. keep resolving for `test_draft_skill.py`, which predates
+# this move.
+_ = (GK, DEF, STARTER_MINUTES)  # noqa: F841
 
 
 def _norm(text: str) -> str:
@@ -49,59 +60,6 @@ def _norm(text: str) -> str:
         for c in unicodedata.normalize("NFD", (text or "").lower())
         if unicodedata.category(c) != "Mn"
     ).strip()
-
-
-def personalizado(reports: list, position: int) -> dict:
-    """This league's custom total from per-match `rawStats`.
-
-    Verified to the point against two controls of different lines: Vinícius
-    Jr 330 (forward, 296 SofaScore base) and Joan García 274 (goalkeeper, 190).
-
-    Biwenger's `star` flag is deliberately ignored — including it as the
-    config's MVP bonus overshoots both controls (345 and 277).
-    """
-    total = base = games = minutes = wins = clean = started = 0
-    for report in reports:
-        stats = report.get("rawStats") or {}
-        played = stats.get("minutesPlayed") or 0
-        if not played:
-            continue
-        games += 1
-        minutes += played
-        if played >= STARTER_MINUTES:
-            started += 1
-        score = stats.get("score2") or 0
-        base += score
-        points = score
-        # Being on the pitch is worth points by itself, and again if the team
-        # wins — the single biggest reason a starter beats a better substitute.
-        if played > 65:
-            points += 1
-            if stats.get("win"):
-                points += 1
-                wins += 1
-            if stats.get("lost"):
-                points -= 1
-        if stats.get("cleanSheet"):
-            clean += 1
-            points += 2 if position == GK else (1 if position == DEF else 0)
-        points -= stats.get("yellowCard") or 0
-        points -= stats.get("goalsPenalty") or 0  # a penalty goal scores less
-        points -= 2 * (stats.get("penaltyMissed") or 0)
-        if position == GK:
-            points += (stats.get("goals") or 0) + 2 * (stats.get("assists") or 0)
-        elif position == DEF:
-            points += stats.get("assists") or 0
-        total += points
-    return {
-        "points": total,
-        "sofascore_real": base,
-        "games": games,
-        "starts": started,
-        "minutes": minutes,
-        "wins": wins,
-        "clean_sheets": clean,
-    }
 
 
 def _season_row(seasons: list, season_slug: str) -> dict:

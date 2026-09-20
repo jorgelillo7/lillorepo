@@ -1,0 +1,4 @@
+# The fetched-player-report cache: reproducible from Biwenger's public
+# endpoint, and it says nothing a reader would ever want to read (raw
+# `rawStats` payloads). Mirrors the draft skill's own `.cache/` exclusion.
+.cache/

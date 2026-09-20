@@ -6,7 +6,10 @@ its swallow-on-failure behaviour. The HTTP route is tested in
 """
 
 from contextlib import ExitStack
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+
+from core.constants import MADRID_TZ
 
 
 def _patches(target):
@@ -52,14 +55,26 @@ def _digest_env(
     offers_result=None,
     offers_raises=None,
     paused_until="",
+    round_data=None,
+    round_raises=None,
 ):
-    """Helper: wire `run_daily`'s collaborators so only the varying step changes."""
+    """Helper: wire `run_daily`'s collaborators so only the varying step changes.
+
+    `round_data`/`round_raises` control `biwenger.get_round()` for the
+    projection ledger step; left unset, it returns `None`, which
+    `projection_ledger.target_round` treats as "cannot confirm a kickoff" —
+    the step skips, exactly as it did before this step existed.
+    """
     stack = ExitStack()
     mock_cfg = stack.enter_context(patch(_patches("config")))
     biwenger = MagicMock()
     biwenger.user_id = 1
     biwenger.get_manager_squad.return_value = []
     biwenger.get_market_players.return_value = []
+    if round_raises is not None:
+        biwenger.get_round.side_effect = round_raises
+    else:
+        biwenger.get_round.return_value = round_data
     stack.enter_context(
         patch(_patches("build_context"), return_value=_build_ctx(biwenger))
     )
@@ -164,6 +179,75 @@ def test_run_daily_continues_to_auto_bid_when_first_photo_fails():
     mock_auto_bid.assert_called_once()
     assert result["sent"] == 0
     assert result["auto_bid"]["bid_count"] == 1
+
+
+def test_run_daily_writes_the_projection_ledger_for_the_round_it_targets():
+    """The current round has already kicked off (the usual 09:00 state
+    under *jornada única*), so the snapshot is written for `next`, the
+    round the lineup pick actually lands on — not `get_round()`'s own `id`."""
+    now = datetime.now(MADRID_TZ)
+    past = int(now.timestamp()) - 3600
+    future = int(now.timestamp()) + 3600
+    round_data = {
+        "id": 4901,
+        "name": "Jornada 3",
+        "games": [{"status": "finished", "date": past}],
+        "next": {"id": 4904, "name": "Jornada 6", "games": [{"date": future}]},
+    }
+    stack, mock_send, _, _ = _digest_env(round_data=round_data)
+    try:
+        with patch(_patches("projection_ledger_store.write")) as mock_write:
+            from packages.biwenger_tools.api.logic import digests
+
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_write.assert_called_once()
+    written = mock_write.call_args[0][0]
+    assert written["round_id"] == 4904
+    assert written["round_name"] == "Jornada 6"
+    assert result["projection_ledger"] == {
+        "written": True,
+        "round_id": 4904,
+        "xi_differs": False,
+    }
+
+
+def test_run_daily_skips_the_projection_ledger_when_the_round_cannot_be_confirmed():
+    """No games data for either round: writing would be a guess about
+    whether the matchday has started, so nothing is written."""
+    stack, mock_send, _, _ = _digest_env(round_data={"id": 4901, "games": []})
+    try:
+        with patch(_patches("projection_ledger_store.write")) as mock_write:
+            from packages.biwenger_tools.api.logic import digests
+
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_write.assert_not_called()
+    assert result["projection_ledger"] == {"skipped": "kicked_off_or_unknown"}
+
+
+def test_run_daily_swallows_a_projection_ledger_failure():
+    """A broken round read must not cost the digest already sent, or the
+    lineup / auto-bid steps that follow it."""
+    stack, mock_send, mock_auto_bid, _ = _digest_env(
+        round_raises=RuntimeError("biwenger 503"),
+        auto_bid_result={"bid_count": 0, "skipped_count": 0, "total_bid_eur": 0},
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    finally:
+        stack.close()
+
+    assert mock_send.call_count == 2
+    mock_auto_bid.assert_called_once()
+    assert "error" in result["projection_ledger"]
+    assert "biwenger 503" in result["projection_ledger"]["error"]
 
 
 def test_send_image_or_text_fallback_sends_text_on_telegram_delivery_error():

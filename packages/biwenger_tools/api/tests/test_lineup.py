@@ -1142,6 +1142,35 @@ def test_the_comparison_does_not_write_to_provider_watch():
     observe.assert_not_called()
 
 
+def test_solve_lineup_does_not_write_to_provider_watch():
+    """The projection ledger runs the search twice a morning — once blended,
+    once with the blend stripped — to build its counterfactual "Jornada
+    Perfecta alone" eleven. Neither run is the pick actually bet on, so
+    `solve_lineup` must give it a way in that skips `pick_lineup`'s own
+    `provider_watch.observe` call, or the ledger would double it up (and,
+    for the JP-alone side, log a promotion nobody ever fielded)."""
+    squad = _squad_for_diff()
+
+    with patch.object(provider_watch, "observe") as observe:
+        result = lineup.solve_lineup(squad)
+
+    observe.assert_not_called()
+    assert result is not None
+    assert result["formation"]
+
+
+def test_pick_lineup_still_observes_exactly_once():
+    """`solve_lineup` is the shared, non-observing core; `pick_lineup` is
+    still the only path that writes to the audit trail, and still writes to
+    it — the rename must not silently drop the observation."""
+    squad = _squad_for_diff()
+
+    with patch.object(provider_watch, "observe") as observe:
+        pick_lineup(squad)
+
+    observe.assert_called_once()
+
+
 def test_an_equivalent_eleven_reports_a_zero_delta():
     """A different eleven that scores the same. The bet is free, and saying so
     is more useful than "hay cambios" — printing nothing would hide that the

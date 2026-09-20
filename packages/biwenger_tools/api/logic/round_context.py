@@ -58,6 +58,20 @@ def _kickoff(game: dict) -> datetime | None:
     return datetime.fromtimestamp(stamp, MADRID_TZ)
 
 
+def first_kickoff(games: list | None) -> datetime | None:
+    """The earliest kickoff among `games`, or `None` if none can be read.
+
+    Public because the projection ledger needs the same "when does this
+    round actually start" reading for the *current* round, not just the
+    `next` one this module was written for — one definition of a kickoff
+    rather than two.
+    """
+    kickoffs = [
+        k for k in (_kickoff(g) for g in (games or []) if isinstance(g, dict)) if k
+    ]
+    return min(kickoffs) if kickoffs else None
+
+
 def read(round_data: dict | None) -> RoundContext:
     """A `RoundContext` from `get_round()`'s payload. Never raises.
 
@@ -72,11 +86,6 @@ def read(round_data: dict | None) -> RoundContext:
     played = sum(1 for g in games if g.get("status") == _PLAYED)
 
     nxt = round_data.get("next") or {}
-    kickoffs = [
-        k
-        for k in (_kickoff(g) for g in (nxt.get("games") or []) if isinstance(g, dict))
-        if k is not None
-    ]
 
     return RoundContext(
         name=round_data.get("name"),
@@ -86,7 +95,7 @@ def read(round_data: dict | None) -> RoundContext:
         played=played,
         total=len(games),
         next_name=nxt.get("name"),
-        next_kickoff=min(kickoffs) if kickoffs else None,
+        next_kickoff=first_kickoff(nxt.get("games")),
     )
 
 
