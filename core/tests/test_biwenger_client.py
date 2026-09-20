@@ -1119,3 +1119,58 @@ def test_get_round_asks_the_cf_host_without_the_api_session(
 
     assert request.headers["User-Agent"].startswith("Mozilla/")
     assert "Authorization" not in request.headers
+
+
+def test_get_round_league_reports_standings_and_lineups(biwenger_client_authenticated):
+    """Unlike `get_round` (cf host, unauthenticated), `/rounds/league` sits on
+    the authenticated api host and is the only read that carries what each
+    manager actually fielded — `lineup.players` — alongside `points`."""
+    payload = {
+        "status": 200,
+        "data": {
+            "league": {
+                "standings": [
+                    {
+                        "id": 1372802,
+                        "points": 46,
+                        "lineup": {
+                            "type": "4-4-2",
+                            "captain": {"id": 30},
+                            "players": [1, 10, 11, 12, 13, 20, 21, 22, 23, 30, 31],
+                            "reserves": [None, None, None, None],
+                        },
+                    }
+                ]
+            }
+        },
+    }
+    url = "https://biwenger.as.com/api/v2/rounds/league"
+    with requests_mock.Mocker() as m:
+        m.get(url, json=payload, status_code=200)
+        data = biwenger_client_authenticated.get_round_league()
+        request = m.request_history[-1]
+
+    assert "Authorization" in request.headers
+    standings = data["league"]["standings"]
+    assert standings[0]["points"] == 46
+    assert standings[0]["lineup"]["players"][-1] == 31
+
+
+def test_get_round_league_asks_for_a_specific_round(biwenger_client_authenticated):
+    url = "https://biwenger.as.com/api/v2/rounds/league/4899"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200, "data": {"league": {}}}, status_code=200)
+        data = biwenger_client_authenticated.get_round_league(4899)
+
+    assert data == {"league": {}}
+
+
+def test_get_round_league_returns_empty_on_a_missing_data_block(
+    biwenger_client_authenticated,
+):
+    url = "https://biwenger.as.com/api/v2/rounds/league"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200}, status_code=200)
+        data = biwenger_client_authenticated.get_round_league()
+
+    assert data == {}

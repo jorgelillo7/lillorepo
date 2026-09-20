@@ -334,6 +334,19 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     they record what has been **seen in the wild**, so a value the code handles
     but has never encountered still reports its first sighting.
 
+    The digest also writes the **projection ledger** — one document per round
+    in `proyecciones`, holding the eleven the blend picked and the eleven
+    Jornada Perfecta alone would have picked. It is written on every run
+    while the round has not kicked off, overwriting, so what survives is the
+    last projection before Biwenger freezes the eleven.
+
+    Grade it by hand with
+    `packages/biwenger_tools/scripts/projections/report.py`. **Read
+    [`projection-ledger.md`](../../docs/technical/backend/projection-ledger.md)
+    before acting on what it prints** — only rounds where the two elevens
+    differed are evidence, and the script deliberately refuses a verdict until
+    there are enough of them.
+
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
     default in `api/config.py`) — pause semantics are specified in
     [`daily-digest`](../../openspec/specs/biwenger_tools/daily-digest/spec.md)

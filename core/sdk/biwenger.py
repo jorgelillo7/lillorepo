@@ -37,6 +37,7 @@ USER_LINEUP_URL = (
     f"{BIWENGER_API_BASE}/user" "?fields=lineup(date,type,captain,playersID,reservesID)"
 )
 ROUND_URL = f"{BIWENGER_CF_BASE}/rounds/la-liga"
+ROUND_LEAGUE_URL = f"{BIWENGER_API_BASE}/rounds/league"
 ALL_PLAYERS_DATA_URL = f"{BIWENGER_CF_BASE}/competitions/la-liga/data?lang=es&score=100"
 
 
@@ -727,6 +728,29 @@ class BiwengerClient:
         """Just the starting eleven's ids — what `/ofertas` needs to ask
         "is this player currently a starter"."""
         return self.get_current_lineup(user_lineup_url)["player_ids"]
+
+    def get_round_league(
+        self, round_id: Optional[int] = None, round_league_url: str = ROUND_LEAGUE_URL
+    ) -> dict:
+        """Standings + full settings for a round, one entry per manager.
+
+        Unlike `get_round` (`cf.biwenger.com`, unauthenticated), this is the
+        authenticated `biwenger.as.com` host and needs the session. No
+        `round_id` asks for the current round.
+
+        `data.league.standings[]` carries `points`, `position`, `teamValue`
+        and `lineup` (`type`, `captain`, `players`/`reserves`/`discarded`
+        ids) per manager — the only read that says what was actually fielded
+        for a round, as opposed to what `get_round`'s fixture list schedules.
+        """
+        url = (
+            round_league_url
+            if round_id is None
+            else f"{round_league_url}/{int(round_id)}"
+        )
+        response = self.session.get(url, timeout=30)
+        response.raise_for_status()
+        return (response.json() or {}).get("data") or {}
 
     def get_round(self, round_id: Optional[int] = None) -> dict:
         """A LaLiga round as Biwenger sees it: `games[]` with per-match
