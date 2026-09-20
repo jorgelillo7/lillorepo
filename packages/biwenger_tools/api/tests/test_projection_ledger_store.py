@@ -93,3 +93,22 @@ def test_list_all_reads_every_round_in_the_collection(monkeypatch):
     rounds = {doc["round_id"] for doc in store.list_all()}
 
     assert rounds == {4901, 4904}
+
+
+# --- Firestore map keys are strings; player ids are not --------------------
+
+
+def test_player_points_survive_the_round_trip_as_integers():
+    """`player_points` is keyed by Biwenger id, and Firestore refuses a map
+    whose keys are not strings — the backfill died on exactly that. Callers
+    work in ids, so the conversion belongs here rather than in each of them.
+    """
+    actual = {"player_points": {17021: 8, 39924: -2}, "applied_total": 6}
+    stored = store._for_firestore(actual)
+    assert set(stored["player_points"]) == {"17021", "39924"}
+    assert store._from_firestore(stored)["player_points"] == {17021: 8, 39924: -2}
+
+
+def test_a_document_without_player_points_is_left_alone():
+    assert store._for_firestore({"applied_total": 3}) == {"applied_total": 3}
+    assert store._from_firestore({"applied_total": 3}) == {"applied_total": 3}

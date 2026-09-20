@@ -41,7 +41,11 @@ from packages.biwenger_tools.api.logic.real_points import (  # noqa: E402
 
 CF_BASE = "https://cf.biwenger.com/api/v2"
 COMPETITION_URL = f"{CF_BASE}/competitions/la-liga/data?lang=es&score=2"
-PLAYER_URL = CF_BASE + "/players/la-liga/{slug}?fields=*,reports(*),seasons(*)"
+# Nested expansions must be named: `reports(*)` alone stopped returning `match`
+# and `rawStats`, and every report came back as `{"home": true}` — which reads
+# as a season of zeros rather than as no data at all.
+_REPORTS = "reports(*,match(*,round(*)),rawStats(*))"
+PLAYER_URL = CF_BASE + "/players/la-liga/{slug}?fields=*," + _REPORTS + ",seasons(*)"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 POSITION_CODE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
