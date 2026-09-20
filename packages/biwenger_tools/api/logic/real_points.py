@@ -83,8 +83,8 @@ def reports_for_round(reports: list, round_id: int) -> list:
     ]
 
 
-def missing_reports(fielded_ids: list, points: dict) -> list:
-    """The fielded players no report came back for at all.
+def missing_reports(fielded_ids: list, points: dict, counted: dict) -> list:
+    """The fielded players no report actually backs.
 
     `personalizado` sums whatever list it is handed, so no reports scores 0 —
     the same number as a player who had a dreadful afternoon. A backfill once
@@ -92,7 +92,17 @@ def missing_reports(fielded_ids: list, points: dict) -> list:
     selector had gone stale and every report arrived empty, and nothing in
     the output distinguished that from a genuinely terrible squad.
 
-    Scoring nothing is an answer. Having nothing to score is not, and the
-    caller must be able to say so out loud.
+    `counted` says how many reports each player's total was computed from,
+    and it is the only thing that separates the two. An earlier version of
+    this asked whether the id was *present* — which it always is, carrying
+    its zero — and a split round walked straight through: Biwenger files a
+    postponed match under a different round id, so the original came back as
+    eleven exact zeros and would have been stored as a matchday.
+
+    Scoring nothing is an answer. Having nothing to score is not.
     """
-    return [player_id for player_id in fielded_ids if player_id not in points]
+    return [
+        player_id
+        for player_id in fielded_ids
+        if player_id not in points or not (counted or {}).get(player_id)
+    ]

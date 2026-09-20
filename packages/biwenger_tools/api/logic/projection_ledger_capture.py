@@ -99,7 +99,7 @@ def _outcome_for(ctx, round_id: int) -> dict | None:
     if applied is None:
         return None
 
-    points = {}
+    points, counted = {}, {}
     for bw_id in sorted(set(applied["player_ids"])):
         player = (ctx.biwenger_players or {}).get(bw_id) or {}
         slug = player.get("slug")
@@ -108,9 +108,10 @@ def _outcome_for(ctx, round_id: int) -> dict | None:
         detail = ctx.biwenger.get_player_reports(slug)
         matches = reports_for_round(detail.get("reports") or [], round_id)
         points[bw_id] = personalizado(matches, detail.get("position"))["points"]
+        counted[bw_id] = len(matches)
         time.sleep(_PLAYER_READ_DELAY)
 
-    if missing_reports(applied["player_ids"], points):
+    if missing_reports(applied["player_ids"], points, counted):
         return None
     return {
         "fetched_at": datetime.now(MADRID_TZ).isoformat(),
