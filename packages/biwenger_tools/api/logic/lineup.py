@@ -446,9 +446,14 @@ def _positions(row: dict) -> set:
 
 
 # The goal bonus by the position a player is FIELDED in, from the reglamento's
-# art. 2.2 and Anexo I: DEL 3, MED 4, DEF 5, POR 5 plus a further +1 for a
-# keeper's goal. Identical to Biwenger's SofaScore baseline — what this league
-# customises is everything else in that annex.
+# art. 2.2 and Anexo I: DEL 3, MED 4, DEF 5 — identical to Biwenger's SofaScore
+# baseline, since what this league customises is everything else in that annex.
+#
+# The keeper's 6 is **disputed**: the annex reads 5 plus 1 additional, while
+# `fetch_real_points.py` adds its +1 on top of a `score2` that already pays a
+# keeper 6, which would make it 7. Nothing available settles it, and it is
+# inert — reaching it needs a player Biwenger lists as goalkeeper *and*
+# something else. See `docs/technical/backend/biwenger-official-rules.md`.
 #
 # JP's SF is a single per-player number that does not model the slot, so this
 # is what breaks ties between assignments that project the same. The ladder is
