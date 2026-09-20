@@ -22,6 +22,7 @@ from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic import pact_store
+from packages.biwenger_tools.api.logic import projection_ledger_capture
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
 from packages.biwenger_tools.api.logic import round_context
@@ -399,6 +400,9 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     chaining this step costs no extra JP + Biwenger round-trip.
     """
     ctx = ctx or build_context()
+    # Before anything reaches Biwenger: a failure applying the lineup must not
+    # cost the record of what was projected.
+    projection_ledger_capture.capture(ctx)
     biwenger, biwenger_players, jp_index, oraculo_index, oraculo_scale = (
         ctx.biwenger,
         ctx.biwenger_players,

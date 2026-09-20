@@ -10,6 +10,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from core.constants import MADRID_TZ
+from packages.biwenger_tools.api.logic import actions
 
 
 def _patches(target):
@@ -195,39 +196,43 @@ def test_run_daily_writes_the_projection_ledger_for_the_round_it_targets():
         "next": {"id": 4904, "name": "Jornada 6", "games": [{"date": future}]},
     }
     stack, mock_send, _, _ = _digest_env(round_data=round_data)
+    capture_store = (
+        "packages.biwenger_tools.api.logic.projection_ledger_capture"
+        ".projection_ledger_store.write"
+    )
     try:
-        with patch(_patches("projection_ledger_store.write")) as mock_write:
+        with patch(capture_store) as mock_write:
             from packages.biwenger_tools.api.logic import digests
 
-            result = digests.run_daily()
+            digests.run_daily()
     finally:
         stack.close()
 
+    # Once, not twice: the digest chains the lineup pick, and the capture
+    # hangs off that pick rather than off the digest as well.
     mock_write.assert_called_once()
     written = mock_write.call_args[0][0]
     assert written["round_id"] == 4904
     assert written["round_name"] == "Jornada 6"
-    assert result["projection_ledger"] == {
-        "written": True,
-        "round_id": 4904,
-        "xi_differs": False,
-    }
 
 
 def test_run_daily_skips_the_projection_ledger_when_the_round_cannot_be_confirmed():
     """No games data for either round: writing would be a guess about
     whether the matchday has started, so nothing is written."""
     stack, mock_send, _, _ = _digest_env(round_data={"id": 4901, "games": []})
+    capture_store = (
+        "packages.biwenger_tools.api.logic.projection_ledger_capture"
+        ".projection_ledger_store.write"
+    )
     try:
-        with patch(_patches("projection_ledger_store.write")) as mock_write:
+        with patch(capture_store) as mock_write:
             from packages.biwenger_tools.api.logic import digests
 
-            result = digests.run_daily()
+            digests.run_daily()
     finally:
         stack.close()
 
     mock_write.assert_not_called()
-    assert result["projection_ledger"] == {"skipped": "kicked_off_or_unknown"}
 
 
 def test_run_daily_swallows_a_projection_ledger_failure():
@@ -246,8 +251,7 @@ def test_run_daily_swallows_a_projection_ledger_failure():
 
     assert mock_send.call_count == 2
     mock_auto_bid.assert_called_once()
-    assert "error" in result["projection_ledger"]
-    assert "biwenger 503" in result["projection_ledger"]["error"]
+    assert result is not None
 
 
 def test_send_image_or_text_fallback_sends_text_on_telegram_delivery_error():
@@ -565,3 +569,38 @@ def test_a_failing_observer_never_costs_the_market_section():
         digests.provider_watch, "observe", side_effect=RuntimeError("boom")
     ):
         assert digests._observed_market_rows(MagicMock(), object(), {}, {}) == rows
+
+
+# --- the ledger follows the lineup pick, not the digest ---------------------
+
+
+def test_forcing_a_lineup_pick_captures_the_projection_too():
+    """`/alinear` is the button pressed when the owner wants to refine before
+    the round closes — which is exactly when the projection is worth keeping.
+    Hanging the capture off the digest alone meant forcing a pick recorded
+    nothing."""
+    from packages.biwenger_tools.api.logic import projection_ledger_capture as cap
+
+    base = "packages.biwenger_tools.api.logic.actions"
+    ctx = MagicMock()
+    with patch(f"{base}.projection_ledger_capture.capture") as capture, patch(
+        f"{base}.require_telegram", return_value=None
+    ):
+        actions.run_auto_pick_lineup(dry_run=True, ctx=ctx)
+
+    assert capture.called, "a forced lineup pick must capture the projection"
+    assert cap is not None
+
+
+def test_the_digest_captures_once_not_twice():
+    """The digest chains the lineup pick, so a second capture of its own
+    would write the same document twice every morning."""
+    import inspect
+
+    from packages.biwenger_tools.api.logic import digests as digests_module
+
+    source = inspect.getsource(digests_module)
+    assert "projection_ledger_capture.capture" not in source, (
+        "the digest must not capture separately — it chains the lineup pick, "
+        "which captures"
+    )
