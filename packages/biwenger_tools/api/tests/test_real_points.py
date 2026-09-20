@@ -66,9 +66,30 @@ def test_a_fielded_player_with_no_report_is_not_a_zero():
     gone stale upstream and every report came back empty, and nothing in the
     output could tell that from a genuinely terrible squad.
     """
-    assert real_points.missing_reports([1, 2, 3], {1: 4, 2: 0}) == [3]
+    assert real_points.missing_reports(
+        [1, 2, 3], {1: 4, 2: 0}, counted={1: 1, 2: 1}
+    ) == [3]
 
 
 def test_a_real_zero_is_not_reported_missing():
     """Scoring nothing is an answer; having no report is not."""
-    assert real_points.missing_reports([1, 2], {1: 0, 2: -3}) == []
+    assert (
+        real_points.missing_reports([1, 2], {1: 0, 2: -3}, counted={1: 1, 2: 1}) == []
+    )
+
+
+def test_a_player_whose_round_has_no_reports_is_missing_not_zero():
+    """The fourth time this shape bit: `personalizado([])` returns 0, and an
+    id present with a zero passed the earlier guard, which only looked for
+    ids that were absent.
+
+    A split round exposed it — Biwenger filed the reports under the postponed
+    round's id, so the original stored eleven exact zeros and called it a
+    matchday. Presence of the key is not evidence; a report is.
+    """
+    assert real_points.missing_reports([1, 2], {1: 0, 2: 0}, counted={1: 1}) == [2]
+
+
+def test_counted_reports_make_a_real_zero_legible():
+    """A player who played and scored nothing keeps his zero."""
+    assert real_points.missing_reports([1], {1: 0}, counted={1: 1}) == []

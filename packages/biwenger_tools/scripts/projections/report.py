@@ -103,9 +103,10 @@ def _slug_index(biwenger) -> dict:
 def _real_points_for(
     fetcher: _PlayerFetcher, slug_by_id: dict, player_ids, round_id: int
 ) -> dict:
-    """`{bw_id: personalizado points}` for exactly the players named,
-    exactly the round asked for — never the season, never the market."""
-    points = {}
+    """`({bw_id: points}, {bw_id: reports counted})` for exactly the players
+    named and exactly the round asked for — never the season, never the
+    market. The second map is what tells a real zero from an empty read."""
+    points, counted = {}, {}
     for player_id in sorted(set(player_ids)):
         slug = slug_by_id.get(player_id)
         if not slug:
@@ -115,7 +116,8 @@ def _real_points_for(
             continue
         matches = reports_for_round(player.get("reports") or [], round_id)
         points[player_id] = personalizado(matches, player.get("position"))["points"]
-    return points
+        counted[player_id] = len(matches)
+    return points, counted
 
 
 def _fetch_actual_for_projection(biwenger, fetcher, slug_by_id, doc: dict) -> dict:
@@ -125,7 +127,7 @@ def _fetch_actual_for_projection(biwenger, fetcher, slug_by_id, doc: dict) -> di
     blended = doc.get("blended_xi") or {}
     jp_only = doc.get("jp_only_xi") or {}
     ids = set(blended.get("player_ids") or []) | set(jp_only.get("player_ids") or [])
-    real_points = _real_points_for(fetcher, slug_by_id, ids, doc["round_id"])
+    real_points, _ = _real_points_for(fetcher, slug_by_id, ids, doc["round_id"])
 
     return {
         "fetched_at": datetime.now(MADRID_TZ).isoformat(),
@@ -259,10 +261,12 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
             )
             continue
 
-        real_points = _real_points_for(
+        real_points, counted = _real_points_for(
             fetcher, slug_by_id, applied["player_ids"], round_id
         )
-        missing = real_points_mod.missing_reports(applied["player_ids"], real_points)
+        missing = real_points_mod.missing_reports(
+            applied["player_ids"], real_points, counted
+        )
         if missing:
             print(
                 f"Jornada {round_id}: {len(missing)} de "
