@@ -47,12 +47,16 @@ from core.sdk.biwenger import BIWENGER_CF_BASE
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import projection_ledger, projection_ledger_store
 from packages.biwenger_tools.api.logic.orchestration import build_biwenger_session
+from packages.biwenger_tools.api.logic import real_points as real_points_mod
 from packages.biwenger_tools.api.logic.real_points import (
     personalizado,
     reports_for_round,
 )
 
-PLAYER_URL = BIWENGER_CF_BASE + "/players/la-liga/{slug}?fields=*,reports(*)"
+PLAYER_URL = (
+    BIWENGER_CF_BASE
+    + "/players/la-liga/{slug}?fields=*,reports(*,match(*,round(*)),rawStats(*))"
+)
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 
@@ -258,6 +262,14 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
         real_points = _real_points_for(
             fetcher, slug_by_id, applied["player_ids"], round_id
         )
+        missing = real_points_mod.missing_reports(applied["player_ids"], real_points)
+        if missing:
+            print(
+                f"Jornada {round_id}: {len(missing)} de "
+                f"{len(applied['player_ids'])} alineados sin informe — "
+                "no es un cero, es que no hay dato. Se omite."
+            )
+            continue
         applied_total = projection_ledger.xi_real_points(
             applied["player_ids"], applied["captain_id"], real_points
         )

@@ -33,12 +33,34 @@ def read(season: str, round_id: int) -> Optional[dict]:
     return fs.get_document(COLLECTION, doc_id(season, round_id))
 
 
+def _for_firestore(actual: dict) -> dict:
+    """`player_points` keyed by string, because Firestore refuses anything
+    else for a map key. Callers work in Biwenger ids, which are integers, so
+    the conversion lives here rather than in each of them — the backfill died
+    on exactly this, three modules away from where it could be fixed once."""
+    points = (actual or {}).get("player_points")
+    if not isinstance(points, dict):
+        return actual
+    return {**actual, "player_points": {str(k): v for k, v in points.items()}}
+
+
+def _from_firestore(actual: dict) -> dict:
+    """The inverse, so a reader never has to know it was ever a string."""
+    points = (actual or {}).get("player_points")
+    if not isinstance(points, dict):
+        return actual
+    return {**actual, "player_points": {int(k): v for k, v in points.items()}}
+
+
 def write_actual(season: str, round_id: int, actual: dict) -> None:
     """Merge a round's real outcome into whatever document already exists —
     a projection snapshot gaining its comparison, or a `write_backfill`
     record gaining the outcome it was seeded for."""
     fs.set_document(
-        COLLECTION, doc_id(season, round_id), {"actual": actual}, merge=True
+        COLLECTION,
+        doc_id(season, round_id),
+        {"actual": _for_firestore(actual)},
+        merge=True,
     )
 
 
@@ -57,11 +79,18 @@ def write_backfill(
             "round_name": round_name,
             "captured_at": captured_at,
             "has_projection": False,
-            "actual": actual,
+            "actual": _for_firestore(actual),
         },
     )
 
 
+def _restored(document: dict) -> dict:
+    actual = document.get("actual")
+    if not isinstance(actual, dict):
+        return document
+    return {**document, "actual": _from_firestore(actual)}
+
+
 def list_all() -> list:
     """Every round's document, for the grading script to walk."""
-    return [data for _, data in fs.list_documents(COLLECTION)]
+    return [_restored(data) for _, data in fs.list_documents(COLLECTION)]

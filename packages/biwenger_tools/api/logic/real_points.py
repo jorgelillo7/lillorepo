@@ -81,3 +81,18 @@ def reports_for_round(reports: list, round_id: int) -> list:
         for report in reports or []
         if ((report.get("match") or {}).get("round") or {}).get("id") == round_id
     ]
+
+
+def missing_reports(fielded_ids: list, points: dict) -> list:
+    """The fielded players no report came back for at all.
+
+    `personalizado` sums whatever list it is handed, so no reports scores 0 —
+    the same number as a player who had a dreadful afternoon. A backfill once
+    printed `0 pts reales` across eight rounds because an upstream field
+    selector had gone stale and every report arrived empty, and nothing in
+    the output distinguished that from a genuinely terrible squad.
+
+    Scoring nothing is an answer. Having nothing to score is not, and the
+    caller must be able to say so out loud.
+    """
+    return [player_id for player_id in fielded_ids if player_id not in points]
