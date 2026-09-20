@@ -63,11 +63,32 @@ If it is indistinguishable, the honest reading is that the blend is not paying
 for its complexity, and `ORACULO_W=0` is the conclusion. Knowing that is worth
 more than a number that flatters the work.
 
-## Running it
+## What happens without anybody running anything
 
-Dry run by default: the grading mode reads, prints, and writes nothing until
-`--apply`, which caches each finished round's outcome so a second run never
-re-fetches it. A finished round's points do not change.
+Both halves are automatic, and both hang off the lineup pick — the daily
+digest chains it, and forcing `/alinear` triggers it too:
+
+- **The projection** is captured while the round has not kicked off,
+  overwriting on each run.
+- **The outcome** of **one** finished round that has none yet is collected
+  per run, oldest first. One at a time so a backlog drains a round a day
+  rather than spending a morning's request budget at once — the player
+  endpoint's rate limit is shared with the phone app.
+
+A round is only collected once Biwenger reports it **finished**. Under
+*jornada única* it is not final until every match in it is played, so reading
+it early would store a partial total as though it were the result.
+
+If any fielded player's report is missing, the whole round is **refused**
+rather than stored short. An absent report scores zero, which is the same
+number as a dreadful afternoon, so a partial read would become a result
+nobody ever questioned. Leaving it pending costs a day and cannot lie.
+
+## Running the script
+
+The script remains for reading the comparison, and for backfilling rounds
+that finished before the ledger existed. Dry run by default: it prints and
+writes nothing until `--apply`.
 
 Per-player points come from Biwenger's public player-detail endpoint, read
 **sequentially with a delay** and cached on disk. Parallel reads return 429,
@@ -88,3 +109,11 @@ it; running one afterwards writes nothing.
 
 Each document holds both elevens, the per-player projections behind them, and
 once graded, the real outcome. 38 documents a season.
+
+
+## When the numbers look wrong
+
+Clear `packages/biwenger_tools/scripts/projections/.cache/` first. The script
+caches player reads on disk, and it once kept serving broken responses long
+after the cause had been fixed — eight rounds of `0 pts reales` that looked
+like a terrible squad rather than an empty read.

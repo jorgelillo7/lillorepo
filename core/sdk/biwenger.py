@@ -789,6 +789,33 @@ class BiwengerClient:
         )
         return data
 
+    def get_player_reports(self, slug: str) -> dict:
+        """One player's per-match reports, with the raw stats behind them.
+
+        Nested expansions must be **named**: `reports(*)` alone stopped
+        returning `match` and `rawStats`, and every report came back as
+        `{"home": true}` — which reads downstream as a season of zeros rather
+        than as no data, and cost eight rounds of a backfill before anyone
+        noticed. See `docs/external/biwenger-api.yaml`.
+
+        Unauthenticated like `get_round`: `cf.biwenger.com` rejects the API
+        session and answers a plain request with a browser User-Agent.
+
+        Rate limited hard. A `429` means the window is spent for every
+        consumer of this account, the phone app included, so it is surfaced
+        rather than retried into a deeper hole.
+        """
+        fields = "*,reports(*,match(*,round(*)),rawStats(*))"
+        url = f"{BIWENGER_CF_BASE}/players/la-liga/{slug}"
+        response = requests.get(
+            url,
+            params={"fields": fields},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        return (response.json() or {}).get("data") or {}
+
     def decide_offer(
         self, offer_id: int, decision: str, offers_url: str = OFFERS_URL
     ) -> dict:
