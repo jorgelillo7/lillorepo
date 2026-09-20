@@ -165,10 +165,25 @@ penalties:
 | Assist by a DF (additional) | +1 |
 | Assist by a POR (additional) | +2 |
 
-So the **goal ladder is identical to the baseline** — 6/5/4/3 once the
-keeper's extra point is added. What this league customises is everything
-around it: the win and defeat points, clean sheets, cards, minutes, MVP,
-penalties and the keeper's and defender's assists.
+So for outfielders the **goal ladder is identical to the baseline** — DEF 5,
+MED 4, DEL 3. What this league customises is everything around it: the win and
+defeat points, clean sheets, cards, minutes, MVP, penalties and the keeper's
+and defender's assists.
+
+**The keeper's goal is unresolved, and nothing here settles it.** The annex
+reads `+5` plus `+1` additional, which is 6. But `fetch_real_points.py` — the
+reconstruction verified against two controls — adds its `+1` on top of
+`score2`, and `score2` is the SofaScore system, whose own table already pays a
+keeper 6. That route gives **7**. The verification cannot arbitrate: its
+keeper control never scored a goal, so the term was never exercised.
+
+`/rounds/league` does not answer it either. Its `bonus*` settings are **prize
+money**, not scoring — `bonusPoint` is the 75K per point, `bonusIdealLineup`
+the 500K per Once Ideal player — and `bonusGoal` reads 0.
+
+It would take a keeper who actually scores, compared against his `score2`.
+Until then `lineup.py` carries 6 with the ambiguity stated, and it is inert:
+reaching it needs a player Biwenger lists as goalkeeper *and* something else.
 
 `lineup.py::GOAL_BONUS` holds these figures and is pinned to them by a test.
 It had carried `{10, 7, 5, 4}` for a year, from no published table, and every
@@ -181,6 +196,9 @@ it for the back line — see the known simplification in
 `openspec/specs/biwenger_tools/auto-pick-lineup/spec.md`.
 
 ## What this file does not establish
-- **Our league's other settings**: starting balance, market expiry, payout
-  formula, split-matchday mode.
+- **Our league's starting balance and market expiry.** The rest came back from
+  `/rounds/league`: `splitRound = "end"` (points and payouts only once every
+  match of the round is played), `bonusPoint = 75000`, `bonusIdealLineup =
+  500000`, and **`lineupRoundChanges = 0`** — which is the API confirming, in
+  its own words, that the eleven cannot be changed once the round is under way.
 - The app version or rules revision — the screen shows neither.
