@@ -344,8 +344,14 @@ Personalizado = SofaScore base
               + 2  clean sheet (GK)     · + 1 clean sheet (DF)
               − 1  yellow card          · − 1 penalty goal
               − 2  penalty missed
-              + 1  GK goal              · + 2 GK assist · + 1 DF assist
+              + 2  GK assist            · + 1 DF assist
 ```
+
+A keeper's **goal** adds nothing here: it is worth 6 and the SofaScore base
+already pays 6. The annex's "+1 adicional" reads like an addition and is a
+restatement — confirmed by the league owner, whose own screenshot of that row
+carries the figure wrong. Neither control exercised it, since keepers do not
+score.
 
 **Verified to the point against two controls of different lines:** Vinícius Jr
 `296 → 330` (forward) and Joan García `190 → 274` (goalkeeper). Biwenger's

@@ -170,20 +170,15 @@ MED 4, DEL 3. What this league customises is everything around it: the win and
 defeat points, clean sheets, cards, minutes, MVP, penalties and the keeper's
 and defender's assists.
 
-**The keeper's goal is unresolved, and nothing here settles it.** The annex
-reads `+5` plus `+1` additional, which is 6. But `fetch_real_points.py` — the
-reconstruction verified against two controls — adds its `+1` on top of
-`score2`, and `score2` is the SofaScore system, whose own table already pays a
-keeper 6. That route gives **7**. The verification cannot arbitrate: its
-keeper control never scored a goal, so the term was never exercised.
+**The keeper's goal is 6**, confirmed by the league owner — who also confirms
+that the annex's own screenshot carries that row wrong. SofaScore's base table
+already pays a keeper 6, so the annex's "+1 adicional" restates the base rather
+than adding to it.
 
-`/rounds/league` does not answer it either. Its `bonus*` settings are **prize
-money**, not scoring — `bonusPoint` is the 75K per point, `bonusIdealLineup`
-the 500K per Once Ideal player — and `bonusGoal` reads 0.
-
-It would take a keeper who actually scores, compared against his `score2`.
-Until then `lineup.py` carries 6 with the ambiguity stated, and it is inert:
-reaching it needs a player Biwenger lists as goalkeeper *and* something else.
+That distinction was live in the code: `personalizado` added the +1 on top of
+`score2` and would have paid a keeper 7 for a goal. Nothing had caught it,
+because the reconstruction's keeper control never scored one. His **assist** is
+a genuine addition and keeps its +2 — 1 in the base, 3 in this league.
 
 `lineup.py::GOAL_BONUS` holds these figures and is pinned to them by a test.
 It had carried `{10, 7, 5, 4}` for a year, from no published table, and every

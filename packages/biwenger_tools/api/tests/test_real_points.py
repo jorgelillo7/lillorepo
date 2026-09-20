@@ -93,3 +93,43 @@ def test_a_player_whose_round_has_no_reports_is_missing_not_zero():
 def test_counted_reports_make_a_real_zero_legible():
     """A player who played and scored nothing keeps his zero."""
     assert real_points.missing_reports([1], {1: 0}, counted={1: 1}) == []
+
+
+def test_a_keeper_s_goal_is_not_paid_twice():
+    """Confirmed by the league owner: a keeper's goal is worth 6, and the
+    Anexo's screenshot of it carries the figure wrong. SofaScore's own table
+    already pays a keeper 6, so adding the annex's "+1 adicional" on top of
+    `score2` counted the same goal twice.
+
+    His assist still gains 2: the base pays 1 and the annex's additional 2
+    takes it to 3, which is a real addition rather than a restatement.
+    """
+    scored = [
+        {
+            "rawStats": {
+                "minutesPlayed": 90,
+                "score2": 6,
+                "goals": 1,
+                "assists": 0,
+                "cleanSheet": False,
+            }
+        }
+    ]
+    # 6 for the goal-inclusive base, +1 for playing past 65 minutes.
+    assert real_points.personalizado(scored, GK)["points"] == 7
+
+
+def test_a_keeper_s_assist_is_still_worth_three():
+    assisted = [
+        {
+            "rawStats": {
+                "minutesPlayed": 90,
+                "score2": 1,
+                "goals": 0,
+                "assists": 1,
+                "cleanSheet": False,
+            }
+        }
+    ]
+    # 1 base + 2 additional + 1 for the minutes.
+    assert real_points.personalizado(assisted, GK)["points"] == 4

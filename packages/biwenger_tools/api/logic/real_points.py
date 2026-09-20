@@ -52,7 +52,12 @@ def personalizado(reports: list, position: int) -> dict:
         points -= stats.get("goalsPenalty") or 0  # a penalty goal scores less
         points -= 2 * (stats.get("penaltyMissed") or 0)
         if position == GK:
-            points += (stats.get("goals") or 0) + 2 * (stats.get("assists") or 0)
+            # Assists only. A keeper's goal is worth 6 and `score2` already
+            # pays him 6 for it — the annex's "+1 adicional" reads like an
+            # addition but restates what the base gives, and adding it
+            # counted the same goal twice. His assist is a real addition:
+            # 1 in the base, 3 in this league.
+            points += 2 * (stats.get("assists") or 0)
         elif position == DEF:
             points += stats.get("assists") or 0
         total += points
