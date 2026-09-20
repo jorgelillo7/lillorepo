@@ -109,11 +109,13 @@ for its build/test/deploy commands.
 
 ## Core Library
 
-`//core` exposes granular Bazel targets. A service links the umbrella by default; pass `core_deps` to `service(…)` / `job(…)` to link only the slices it uses:
+`//core` exposes granular Bazel targets. **Every service and job passes `core_deps`** and links only the slices its imports name:
 
 ```starlark
-service(main = "app.py", core_deps = ["//core:telegram"])
+service(main = "app.py", core_deps = ["//core:serving", "//core:telegram"])
 ```
+
+The macro still defaults to the `//core` umbrella when `core_deps` is omitted, so a new package builds without it — but do not leave it out. While nothing passed it, every file in `core/` reached every package: a one-line edit to Biwenger's API client ran 10 of the 13 test suites, including a bot that has never heard of Biwenger. Omitting a slice a package needs fails in the Bazel sandbox, loudly, which is the cheap direction to be wrong in.
 
 This scopes the **build graph**, not the image: `docker/Dockerfile.base` pip-installs every dependency regardless, so narrowing `core_deps` does not make a container smaller. Nor does it shrink `core_srcs.tar`, which ships all of `core/` unconditionally. A size win needs two more things that do not exist yet — that base image generated from the lock (see `PENDING.md`) **and** a per-service base, since today all six images share one.
 
