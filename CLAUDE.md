@@ -114,10 +114,11 @@ feature.
 
 - **Python conventions of this repo:** `docs/technical/backend/python-conventions.md`
   — layer rules (pure logic / service / thin route / zero-logic bot), the
-  loud-failure and no-retry policies, the test-first loop (§ 6: for `logic/` and
+  loud-failure and no-retry policies, the test-first loop (LP-18: for `logic/` and
   `core/`, the test is written and observed failing before the code), testing
-  patterns and stack traps.
-  Read it before writing new Python; each rule states its motive.
+  patterns and stack traps. Rules are numbered `LP-1` … `LP-24`, each with its
+  motive and how it is checked (CI or review).
+  Read it before writing new Python.
 - Linter: Flake8 (`max-line-length = 88`, compatible with Black)
 - Formatter: Black (format on save in VS Code)
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`

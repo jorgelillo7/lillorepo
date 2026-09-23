@@ -59,7 +59,7 @@ watch it fail for the reason you expect, then implement until it passes. A test
 written alongside its implementation is anchored to that implementation, which
 is exactly how the three green tests above ended up pinning defects. The red run
 is the only proof the test can fail at all. Full rule and its scope:
-`docs/technical/backend/python-conventions.md` §6.
+`docs/technical/backend/python-conventions.md` LP-18.
 
 ## What you return
 

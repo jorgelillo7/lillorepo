@@ -41,7 +41,7 @@ Create a todo file at `~/.claude/rpi/todos/<name>-todo.md`. The todo file must c
 
 A task that adds or changes behaviour in `logic/` or `core/` is written as
 three lines, not one — the loop from
-`docs/technical/backend/python-conventions.md` § 6, made visible in the artifact
+`docs/technical/backend/python-conventions.md` LP-18, made visible in the artifact
 this skill already produces:
 
 ```markdown

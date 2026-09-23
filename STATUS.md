@@ -25,7 +25,8 @@ still unconfirmed.
    two GCP projects, with €1 budget alarms, prepaid AI credits that cannot
    overspend, and a cost script auditing both projects' free tiers.
 2. **Keyless deploys.** Workload Identity Federation end to end, including the
-   cross-project be_water deploy. No service-account key exists to leak.
+   cross-project be_water deploy. No key is involved in building or deploying;
+   the one key left is runtime, the Sheets reader in `biwenger_tools/web`.
 3. **One source of truth, and it holds.** The 2026-08-08 docs audit found
    **zero broken links across 49 documents**. Facts had drifted; structure had
    not.
