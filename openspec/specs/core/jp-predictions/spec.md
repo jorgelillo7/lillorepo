@@ -11,18 +11,18 @@ availability and projected points.
 
 ### Requirement: A masked auth failure is an error, not an empty league
 
-`fetch_all_players` and `check_api_health` SHALL raise `RuntimeError` when JP
-answers with a non-200 status, or with a 200 whose payload has no `players`.
-The message SHALL say the token has probably rotated and how to extract a new
-one from the app's bundle. `check_api_health` SHALL also wrap network failures
-in `RuntimeError`.
+`fetch_all_players` SHALL raise `RuntimeError` when JP answers 200 with no
+`players`. The message SHALL say the token has probably rotated and how to
+extract a new one from the app's bundle. A non-2xx status escapes from it as
+`requests.HTTPError`. `check_api_health` SHALL raise `RuntimeError` in every
+failure case: a non-200, an empty payload, or JP being unreachable.
 
 JP answers a rotated or invalid token with HTTP 200 and `{"error": "auth"}`.
 Checking the status alone would parse that as an empty league, and the digest
 would run on no data. The token lives in the mobile app's JS bundle, so the
-fix is always the same extraction, and the error carries it. Wrapping network
-errors gives the orchestrator's top-level handler one well-known type to
-catch, so `requests`' own exceptions do not leak.
+fix is always the same extraction, and the error carries it. The health probe
+wraps everything in `RuntimeError` so the orchestrator's top-level handler has
+one well-known type to catch.
 
 #### Scenario: auth error, empty payload, HTTP error, network error
 - **WHEN** JP returns 200 with `{"error": "auth"}` **THEN** `fetch_all_players`
@@ -37,6 +37,12 @@ catch, so `requests`' own exceptions do not leak.
   `test_check_api_health_raises_on_http_error`,
   `test_check_api_health_wraps_connection_error`,
   `test_check_api_health_passes_on_success`
+
+> **GAP — unverified.** Nothing asserts what `fetch_all_players` raises on a
+> non-2xx or a network error: it lets `requests` exceptions escape, unlike the
+> health probe. A test would mock a 500 and pin the type. Whether it should
+> wrap them like `check_api_health` is an open question, not a requirement.
+> Candidate for the next test-hardening pass.
 
 ### Requirement: Re-fetch only when JP has refreshed
 
