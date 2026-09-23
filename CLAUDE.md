@@ -36,7 +36,7 @@ because it went wrong, not because it sounds sensible.
     scraper_job/    League message scraper → Firestore
     web/            Flask app on Cloud Run for data visualisation
 /docker         Docker configurations
-/docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format)
+/docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
 /scripts        Utility scripts (GCP cleanup, costs)
 /tools          Bazel extensions and tools
@@ -60,7 +60,7 @@ for per-package build/test/deploy detail. Quick summary:
 # Full build
 bazel build //...
 
-# Tests — all thirteen suites, or one module
+# Tests — all twelve suites, or one module
 bazel test --build_tests_only //... --test_output=streamed --test_arg=-v
 bazel test //core:core_tests --test_output=streamed --test_arg=-v
 bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
@@ -72,7 +72,6 @@ bazel test //packages/biwenger_tools/.claude/skills/draft/scripts:draft_skill_te
 bazel test //packages/be_water/web:web_tests
 bazel test //packages/be_water/scripts:scripts_tests              # recognised-waters parser
 bazel test //packages/chucknorris_bot/bot:bot_tests
-bazel test //packages/emulation_thor6/scripts:scripts_tests
 bazel test //.claude/skills/audit-apple-contacts/scripts:audit_apple_contacts_tests
 bazel test //scripts:scripts_tests                                # the CI test-selector
 
