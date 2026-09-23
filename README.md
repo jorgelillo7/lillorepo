@@ -41,31 +41,13 @@ graph TD
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 
-## A note on `packages/emulation_thor6`
-
-That package is **documentation for organising a personal retro-game
-collection**: setup notes, a folder layout and checklists, plus a script that
-copies files from the owner's own disk onto an SD card.
-
-It contains **no ROMs, no disc images, no BIOS dumps, no encryption keys and
-no copyrighted game data**, it links to none, and it does not say where to
-obtain any. The directories in it are empty and gitignored — they describe
-where a file would go, and `.gitkeep` is the only thing committed inside them.
-This is verifiable in one command:
-
-```bash
-git ls-files packages/emulation_thor6/   # Markdown, two scripts, .gitkeep
-```
-
-Its [README](packages/emulation_thor6/README.md) says the same at more length.
-
 ## Repository Structure
 
 ```
 /core           Shared library: Biwenger SDK, JP SDK, GCP, Telegram, domain models
 /packages       Self-contained projects, one per subdirectory. Most are
-                deployed services (table above); a few — my_photos,
-                emulation_thor6 — are personal projects with no code to ship
+                deployed services (table above); my_photos is a personal
+                project with no code to ship yet
 /docker         Pre-built Python base image (all deps pre-installed)
 /tools          Custom Bazel macros (python_service, python_job)
 /platforms      Platform definitions (linux/amd64, linux/arm64)

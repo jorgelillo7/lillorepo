@@ -51,12 +51,6 @@ python3 "$REPO_ROOT/scripts/check_base_sync.py"
 echo "==> behaviour specs…"
 python3 "$REPO_ROOT/scripts/check_specs.py"
 
-# The emulation package's README tells anyone arriving at this public
-# repository that it holds no game data, and invites them to verify it. This
-# runs that verification, so the claim cannot quietly stop being true.
-echo "==> emulation package…"
-python3 "$REPO_ROOT/scripts/check_no_game_data.py"
-
 # A comment between backslash-continued lines truncates the command and the
 # truncated version often succeeds — the web service ran for an hour on a new
 # image and the previous revision's environment. Twice now.
