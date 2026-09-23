@@ -170,3 +170,15 @@ def test_check_api_health_wraps_connection_error():
         m.get(JP_URL, exc=requests.exceptions.ConnectionError("DNS down"))
         with pytest.raises(RuntimeError, match="JP API unreachable"):
             check_api_health(TOKEN)
+
+
+def test_fetch_all_players_lets_a_server_error_escape_as_http_error():
+    """A 500 is a real outage, not a rotated token, and it surfaces as
+    `requests.HTTPError` — loud, and distinct from the 200-with-no-players case
+    that gets the token-extraction hint. In production `check_api_health` runs
+    first with the same token and wraps everything in `RuntimeError`; the
+    scripts that call this directly see the HTTP error as it is."""
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, status_code=500, json={})
+        with pytest.raises(requests.HTTPError):
+            fetch_all_players(TOKEN)

@@ -13,8 +13,8 @@ availability and projected points.
 
 `fetch_all_players` SHALL raise `RuntimeError` when JP answers 200 with no
 `players`. The message SHALL say the token has probably rotated and how to
-extract a new one from the app's bundle. A non-2xx status escapes from it as
-`requests.HTTPError`. `check_api_health` SHALL raise `RuntimeError` in every
+extract a new one from the app's bundle. A non-2xx status SHALL escape from it
+as `requests.HTTPError`. `check_api_health` SHALL raise `RuntimeError` in every
 failure case: a non-200, an empty payload, or JP being unreachable.
 
 JP answers a rotated or invalid token with HTTP 200 and `{"error": "auth"}`.
@@ -38,11 +38,13 @@ one well-known type to catch.
   `test_check_api_health_wraps_connection_error`,
   `test_check_api_health_passes_on_success`
 
-> **GAP — unverified.** Nothing asserts what `fetch_all_players` raises on a
-> non-2xx or a network error: it lets `requests` exceptions escape, unlike the
-> health probe. A test would mock a 500 and pin the type. Whether it should
-> wrap them like `check_api_health` is an open question, not a requirement.
-> Candidate for the next test-hardening pass.
+#### Scenario: a server error is not a rotated token
+- **WHEN** JP answers 500 to the full fetch **THEN** `fetch_all_players`
+  raises `requests.HTTPError`, not the token-rotation `RuntimeError`. An
+  outage is loud on its own terms and does not send anyone to re-extract a
+  token that still works. In production `check_api_health` runs first and
+  wraps it in `RuntimeError`.
+- *Verifies:* `test_fetch_all_players_lets_a_server_error_escape_as_http_error`
 
 ### Requirement: Re-fetch only when JP has refreshed
 
