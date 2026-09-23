@@ -10,6 +10,8 @@ py_test(
     timeout = "short",
     srcs = glob(["tests/**/*.py"]) + [
         "affected_tests.py",
+        "check_base_sync.py",
+        "check_import_paths.py",
         "check_specs.py",
     ],
     main = "tests/main.py",

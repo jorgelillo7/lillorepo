@@ -13,6 +13,10 @@ Three checks:
    regenerated `requirements.in` that silently dropped a module.
 2. Every runtime package in the lock is installed in the image.
 3. Their versions match.
+4. Every `@pypi//x` / `requirement("x")` a BUILD or .bzl file consumes is
+   declared directly in some module `requirements.txt` (python-conventions
+   LP-2). A transitive-only pin is a version someone else's resolution chose,
+   and the next regeneration can move it with no diff anyone reviews.
 
 Runtime vs dev is derived from pip-compile's own `# via` annotations, walked
 down from the roots each module declares — never from a list maintained here,
@@ -25,6 +29,7 @@ Exits non-zero on any mismatch.
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,8 +38,8 @@ DEV_MARKER = "# dev-only"
 
 
 def canonical(name: str) -> str:
-    """PyPI names are case-insensitive and treat `-` and `_` alike."""
-    return re.sub(r"\[.*\]$", "", name.strip()).lower().replace("_", "-")
+    """PEP 503 normalisation: case-insensitive, and `-`, `_`, `.` alike."""
+    return re.sub(r"[-_.]+", "-", re.sub(r"\[.*\]$", "", name.strip()).lower())
 
 
 def module_requirements() -> dict[Path, tuple[set[str], set[str]]]:
@@ -60,6 +65,40 @@ def module_requirements() -> dict[Path, tuple[set[str], set[str]]]:
                 (dev if in_dev else runtime).add(name)
             out[path] = (runtime, dev)
     return out
+
+
+_LABEL = re.compile(
+    r'@pypi//([A-Za-z0-9_.-]+)|requirement\(\s*"([A-Za-z0-9_.-]+)"\s*\)'
+)
+
+
+def consumed_distributions(build_text: str) -> set[str]:
+    """Every distribution a BUILD or .bzl file consumes, canonicalised."""
+    return {canonical(a or b) for a, b in _LABEL.findall(build_text)}
+
+
+def undeclared_labels(
+    build_texts: dict[str, str], declared: set[str]
+) -> list[tuple[str, str]]:
+    """`[(file, distribution)]` consumed without a direct declaration."""
+    return [
+        (path, name)
+        for path, text in sorted(build_texts.items())
+        for name in sorted(consumed_distributions(text))
+        if name not in declared
+    ]
+
+
+def build_files() -> dict[str, str]:
+    """`{path: text}` for every tracked BUILD.bazel and .bzl file."""
+    listed = subprocess.run(
+        ["git", "ls-files", "*BUILD.bazel", "*.bzl"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    return {path: (REPO_ROOT / path).read_text() for path in listed}
 
 
 def parse_lock() -> tuple[dict[str, str], dict[str, set[str]]]:
@@ -150,6 +189,14 @@ def main() -> int:
                 f"{package}: lock has {versions[package]}, "
                 f"Dockerfile.base has {docker[package]}"
             )
+
+    # 4. Every consumed label is a direct declaration (LP-2).
+    declared = set().union(*(runtime | dev for runtime, dev in modules.values()))
+    for path, name in undeclared_labels(build_files(), declared):
+        errors.append(
+            f"{path} consumes {name}, which no module requirements.txt declares "
+            f"— add it where it is used (python-conventions LP-2)"
+        )
 
     if errors:
         print("Dependency layers are out of sync:\n", file=sys.stderr)

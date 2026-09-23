@@ -31,7 +31,7 @@ prove they are the same write; these can prove nothing.
 The consequence for callers is stated rather than hidden: an empty `204`
 confirms nothing, so a caller that needs certainty SHALL re-read Biwenger state
 rather than trust the status code. This is the repo-wide rule in
-`docs/technical/backend/python-conventions.md` § 3, and this is the code it was
+`docs/technical/backend/python-conventions.md` LP-13, and this is the code it was
 written for.
 
 #### Scenario: a failing admin write is not repeated
@@ -239,7 +239,7 @@ window where a retry would help is exactly the window where it would accept
 twice.
 
 The rule for callers is the one already stated above and in
-`docs/technical/backend/python-conventions.md` § 3: a caller that needs
+`docs/technical/backend/python-conventions.md` LP-13: a caller that needs
 certainty re-reads Biwenger state rather than trusting a status code. Nothing
 about this endpoint lets it prove it is the same write.
 

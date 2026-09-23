@@ -54,6 +54,12 @@ python3 "$REPO_ROOT/scripts/check_specs.py"
 # A comment between backslash-continued lines truncates the command and the
 # truncated version often succeeds — the web service ran for an hour on a new
 # image and the previous revision's environment. Twice now.
+# Stdlib-only. Shared code must be a Bazel edge, not a path: the test
+# selector reasons over the graph, and a consumer it cannot see is a consumer
+# it will not re-test (python-conventions LP-9).
+echo "==> import paths…"
+python3 "$REPO_ROOT/scripts/check_import_paths.py"
+
 echo "==> workflow shell…"
 python3 "$REPO_ROOT/scripts/check_workflow_shell.py"
 
