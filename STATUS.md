@@ -29,7 +29,7 @@ still unconfirmed.
 3. **One source of truth, and it holds.** The 2026-08-08 docs audit found
    **zero broken links across 49 documents**. Facts had drifted; structure had
    not.
-4. **Behaviour specs wired to tests.** 22 specs, 129 scenarios, every one
+4. **Behaviour specs wired to tests.** 39 specs, 327 scenarios, every one
    naming a test that exists — checked, not assumed.
 5. **CI that reasons about the graph.** Pull requests run only the suites a
    change can break, derived from `rdeps` rather than a list that would rot;
