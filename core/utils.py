@@ -36,16 +36,23 @@ def read_secret_from_file(secret_path: str, fallback=None):
 
 
 def load_json_secret(env_var: str) -> dict:
+    """Parse a JSON-object secret from `env_var`.
+
+    Unset or blank returns `{}`: local dev and tests fall back to individual
+    env vars. Set but not a JSON object raises `ValueError` naming the variable,
+    never its value — a corrupted production secret must fail at startup, not
+    turn into empty credentials that fail later somewhere else.
     """
-    Reads a JSON-encoded secret from an env var and parses it.
-    Returns an empty dict if the var is missing or invalid JSON so callers can
-    safely chain `.get(...)` over the result.
-    """
-    raw = os.getenv(env_var, "{}")
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
+    raw = os.getenv(env_var, "").strip()
+    if not raw:
         return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        raise ValueError(f"{env_var} is set but is not valid JSON") from None
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{env_var} is set but is not a JSON object")
+    return parsed
 
 
 def format_euros(n: int | None) -> str:
