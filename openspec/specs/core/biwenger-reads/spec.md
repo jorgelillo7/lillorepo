@@ -239,10 +239,12 @@ must not erase: a null `from` is Biwenger's own public-market offer, raised
 automatically when a player is listed, while a populated one is a rival manager
 bidding.
 
-> **GAP — unverified.** Nothing exercises the filter. A test would assert that
-> an offer addressed to another user, and one already processed, are both
-> dropped, and that a null `from` survives to the caller — the recommendation
-> message renders differently for the two.
+#### Scenario: only waiting offers addressed to me, `from` untouched
+- **WHEN** the user endpoint returns offers to me, offers I sent and offers
+  already settled **THEN** only the waiting ones addressed to me are returned
+- **WHEN** one of them has a null `from` **THEN** it reaches the caller with
+  `from` still null
+- *Verifies:* `test_received_offers_keep_only_waiting_offers_addressed_to_me`
 
 ### Requirement: "In my XI" means the lineup Biwenger has saved
 
@@ -260,6 +262,10 @@ not counted.
 The consumer contract is in
 [`offers-inbox`](../../biwenger_tools/offers-inbox/spec.md).
 
-> **GAP — unverified.** No test reads a lineup payload through the SDK. One
-> would assert that null slots are skipped and that the ids of a partially
-> filled formation come back intact.
+#### Scenario: empty slots are skipped, not counted
+- **WHEN** a saved 4-4-2 has three filled slots and eight nulls **THEN** the
+  three ids come back, and the lineup reads as incomplete rather than as a
+  smaller team
+- **WHEN** `/ofertas` asks for the ids **THEN** it still gets a plain set
+- *Verifies:* `test_an_empty_slot_makes_the_lineup_short_not_smaller`,
+  `test_get_current_lineup_player_ids_still_returns_just_the_ids`

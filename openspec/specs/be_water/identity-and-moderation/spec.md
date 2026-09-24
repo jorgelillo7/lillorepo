@@ -124,9 +124,10 @@ The flag is written when a save cannot move a photo out of `uploads/`, and that
 prefix is swept on a lifecycle rule: the ficha works for weeks and then does
 not. Nothing read the flag, which made it an alarm with no bell.
 
-> **GAP — unverified.** No test asserts that a water with
-> `photo_promotion_failed` appears on the admin page. A test would set the flag
-> on a catalogue water, sign in as an admin, and assert the id renders.
+#### Scenario: a stranded photo is listed
+- **WHEN** an admin opens the page and one water carries the flag **THEN** the
+  "Fotos sin promover (1)" block names that water and no other
+- *Verifies:* `test_admin_page_lists_the_stranded_photos`
 
 ### Requirement: State-changing posts carry a CSRF token and a rate limit
 
@@ -153,9 +154,12 @@ and SHALL do so only with a valid CSRF token.
 Clearing one and not the other would leave a visitor who believes they left
 still holding admin.
 
-> **GAP — unverified.** No test posts `/logout` and asserts the session is
-> empty. A test would sign in both ways, post `/logout`, and assert `nickname`,
-> `google_email` and `google_name` are all gone.
+#### Scenario: both identities go, and only with a token
+- **WHEN** a signed-in admin posts `/logout` **THEN** `nickname`,
+  `google_email` and `google_name` are all gone from the session
+- **WHEN** it is posted without a valid token **THEN** the session is kept
+- *Verifies:* `test_logout_drops_both_identities`,
+  `test_logout_without_a_token_keeps_the_session`
 
 ### Requirement: An admin repairs a ficha's origin from the page, not the CLI
 

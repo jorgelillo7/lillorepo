@@ -69,11 +69,13 @@ web app's traffic, not from a contract. That is also their weakness — nothing
 here records which of them Biwenger actually enforces, and `X-Version` pins a
 web-app build that the live app moves past.
 
-> **GAP — unverified.** No test asserts the identity headers survive onto the
-> session alongside `Authorization`, and nothing observes what Biwenger does
-> with a stale `X-Version` — that answer can only come from the wild. A test
-> could at least pin the merge: after construction, the session carries the
-> bearer token *and* the three identity headers.
+#### Scenario: identity travels with the token
+- **WHEN** a client is constructed **THEN** its session carries the bearer
+  token and the `User-Agent`, `X-Lang` and `X-Version` identity headers
+- *Verifies:* `test_the_session_carries_the_web_identity_alongside_the_token`
+
+What Biwenger does with a stale `X-Version` is still unobserved, and can only
+be learned from the live API.
 
 ### Requirement: Opening a session costs two Biwenger requests
 
@@ -88,6 +90,10 @@ cost roughly three requests per pick. Holding one client for the life of a run
 is therefore a caller obligation this SDK cannot enforce, only make cheap to
 honour.
 
-> **GAP — unverified.** Nothing asserts the request count of construction, and
-> nothing in `core` guards against a caller re-authenticating in a loop. A test
-> would assert two HTTP calls for one constructor.
+#### Scenario: two requests per client
+- **WHEN** a client is constructed **THEN** exactly one POST and one GET are
+  sent
+- *Verifies:* `test_opening_a_session_costs_one_login_and_one_account_read`
+
+Nothing in `core` stops a caller from re-authenticating in a loop; holding one
+client per run stays the caller's job.

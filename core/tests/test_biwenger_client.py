@@ -1174,3 +1174,58 @@ def test_get_round_league_returns_empty_on_a_missing_data_block(
         data = biwenger_client_authenticated.get_round_league()
 
     assert data == {}
+
+
+# --- The inbox filter ---
+
+
+def test_received_offers_keep_only_waiting_offers_addressed_to_me(
+    biwenger_client_authenticated,
+):
+    """The user endpoint also returns offers I sent and ones already settled.
+    A null `from` is Biwenger's own public-market offer and has to reach the
+    caller as sent: the recommendation renders it differently from a rival's."""
+    me, rival = 98765, 111
+    offers = [
+        {"id": 1, "status": "waiting", "to": {"id": me}, "from": {"id": rival}},
+        {"id": 2, "status": "waiting", "to": {"id": me}, "from": None},
+        {"id": 3, "status": "waiting", "to": {"id": rival}, "from": {"id": me}},
+        {"id": 4, "status": "accepted", "to": {"id": me}, "from": {"id": rival}},
+    ]
+    with requests_mock.Mocker() as m:
+        m.get(
+            TEST_USER_OFFERS_URL,
+            json={"status": 200, "data": {"offers": offers}},
+            status_code=200,
+        )
+        inbox = biwenger_client_authenticated.get_received_offers(TEST_USER_OFFERS_URL)
+
+    assert [o["id"] for o in inbox] == [1, 2]
+    assert inbox[1]["from"] is None
+
+
+# --- What opening a session costs, and what it carries ---
+
+
+def test_opening_a_session_costs_one_login_and_one_account_read(load_json_fixture):
+    """Biwenger's quota is per account and shared by every caller; a client
+    per operation spends two requests before doing any work."""
+    with requests_mock.Mocker() as m:
+        m.post(TEST_LOGIN_URL, json=load_json_fixture("login_response.json"))
+        m.get(TEST_ACCOUNT_URL, json=load_json_fixture("account_response.json"))
+        BiwengerClient(
+            TEST_EMAIL, TEST_PASSWORD, TEST_LOGIN_URL, TEST_ACCOUNT_URL, TEST_LEAGUE_ID
+        )
+        assert [r.method for r in m.request_history] == ["POST", "GET"]
+
+
+def test_the_session_carries_the_web_identity_alongside_the_token(
+    biwenger_client_authenticated,
+):
+    """The identity headers are set on the login and must travel with the
+    bearer token on every later call, not only on the login itself."""
+    headers = biwenger_client_authenticated.session.headers
+    assert headers["Authorization"] == "Bearer test_token_12345"
+    assert headers["X-Lang"] == "es"
+    assert headers["X-Version"]
+    assert "Mozilla" in headers["User-Agent"]

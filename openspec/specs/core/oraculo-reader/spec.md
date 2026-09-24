@@ -106,6 +106,8 @@ shorter cache would spend someone else's bandwidth and gain nothing.
 - *Verifies:* `test_the_reader_identifies_itself`,
   `test_the_second_call_is_served_from_cache`
 
-> **GAP — unverified.** Expiry is untested. A test would have to advance
-> `time.monotonic` past `CACHE_TTL_SECONDS` and assert that a second read
-> reaches the network. Candidate for the next test-hardening pass.
+#### Scenario: the cache expires
+- **WHEN** a second read comes one second inside the TTL **THEN** it is served
+  from the cache
+- **WHEN** a read comes past the TTL **THEN** it reaches the network again
+- *Verifies:* `test_the_cache_expires_after_its_ttl`

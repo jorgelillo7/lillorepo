@@ -161,3 +161,55 @@ def test_download_object_returns_none_when_missing(monkeypatch):
         m.get(gcp._GCS_OBJECT_URL.format(bucket="b", name="missing"), status_code=404)
 
         assert gcp.download_object("b", "missing") is None
+
+
+# --- Sheets client construction ---
+
+
+def test_google_service_passes_the_key_scopes_and_version_through(monkeypatch):
+    """The Sheets reader is built from a mounted key with the scopes it was
+    given; a dropped scope only shows up as a 403 at read time."""
+    loaded = MagicMock()
+    from_file = MagicMock(return_value=loaded)
+    build = MagicMock(return_value="client")
+    monkeypatch.setattr(
+        gcp.service_account.Credentials, "from_service_account_file", from_file
+    )
+    monkeypatch.setattr(gcp, "build", build)
+
+    client = gcp.get_google_service("sheets", "v4", "/k.json", ["scope-a"])
+
+    assert client == "client"
+    from_file.assert_called_once_with("/k.json", scopes=["scope-a"])
+    build.assert_called_once_with("sheets", "v4", credentials=loaded)
+
+
+# --- Cloud Run Jobs ---
+
+
+def _patched_adc(monkeypatch):
+    credentials = MagicMock(token="adc-tok")
+    monkeypatch.setattr(gcp.google.auth, "default", lambda scopes: (credentials, "p"))
+    return credentials
+
+
+def test_trigger_cloud_run_job_returns_the_short_execution_name(monkeypatch):
+    _patched_adc(monkeypatch)
+    url = gcp._CLOUD_RUN_JOBS_API.format(project="p", region="r", job="scraper")
+    with requests_mock.Mocker() as m:
+        m.post(url, json={"name": "projects/p/locations/r/executions/scraper-abc12"})
+        execution = gcp.trigger_cloud_run_job("p", "r", "scraper")
+
+    assert execution == "scraper-abc12"
+    assert m.last_request.headers["Authorization"] == "Bearer adc-tok"
+
+
+def test_trigger_cloud_run_job_raises_when_denied(monkeypatch):
+    """A trigger the service account may not run has to reach whoever asked
+    for it — the bot and the admin panel both report the error."""
+    _patched_adc(monkeypatch)
+    url = gcp._CLOUD_RUN_JOBS_API.format(project="p", region="r", job="scraper")
+    with requests_mock.Mocker() as m:
+        m.post(url, status_code=403, json={})
+        with pytest.raises(requests.HTTPError):
+            gcp.trigger_cloud_run_job("p", "r", "scraper")

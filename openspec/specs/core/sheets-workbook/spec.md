@@ -43,7 +43,8 @@ key file and the given scopes.
 Sheets is the one Google API here that still reads through a mounted key
 instead of ADC.
 
-> **GAP — unverified.** Client construction is untested. A test would patch
-> `service_account.Credentials.from_service_account_file` and `build`, and
-> assert that the scopes and API version are passed through. Candidate for the
-> next test-hardening pass.
+#### Scenario: key, scopes and version passed through
+- **WHEN** the client is built from a key file with a set of scopes **THEN**
+  the credentials are loaded from that file with exactly those scopes, and the
+  API is built at the requested version with them
+- *Verifies:* `test_google_service_passes_the_key_scopes_and_version_through`

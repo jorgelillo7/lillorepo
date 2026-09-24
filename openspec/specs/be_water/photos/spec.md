@@ -4,7 +4,7 @@ Photo handling for water entries: the studio-image pipeline (process, watermark,
 upload) and the audit engine that diagnoses and repairs the catalog's shots.
 
 - **Source:** `packages/be_water/web/photos.py`, `photo_audit.py`
-- **Verified by:** `packages/be_water/web/tests/test_photo_audit.py`
+- **Verified by:** `packages/be_water/web/tests/test_photo_audit.py`, `packages/be_water/web/tests/test_photos.py`
 
 ---
 
@@ -61,13 +61,22 @@ can't be read — never crashing. `suggest_verdict` SHALL map a status to `OK` o
 normalise an uploaded shot, compose it onto the studio canvas and stamp the
 watermark, producing the bytes uploaded to storage.
 
-> **GAP — unverified.** Every test mocks `process_image` / `studio_photo`; the
-> real byte transformation (resize, canvas composition, watermark, EXIF) has no
-> direct test (coverage of `photos.py` is ~34%). Given the daily digest ships
-> Telegram photos and there is history of studio-photo failures, this is the
-> top candidate for the next test-hardening pass: feed a synthetic image and
-> assert output dimensions, watermark presence, and error handling on a corrupt
-> input.
+#### Scenario: real bytes through the pipeline
+- **WHEN** a large photo is processed **THEN** it is downscaled within
+  `MAX_SIDE` keeping its aspect ratio, re-encoded as RGB JPEG, and its EXIF is
+  dropped; a small one keeps its size
+- **WHEN** the studio step runs on Gemini's cutout **THEN** the result is the
+  square white canvas with the watermark stamped bottom-right only
+- **WHEN** Gemini fails **THEN** the failure propagates to the caller
+- **WHEN** the upload is not an image **THEN** processing raises instead of
+  producing bytes to store
+- *Verifies:* `test_process_image_downscales_within_max_side_keeping_aspect`,
+  `test_process_image_leaves_small_images_untouched_in_size`,
+  `test_process_image_strips_exif`,
+  `test_studio_photo_builds_square_watermarked_canvas`,
+  `test_stamp_watermark_marks_bottom_right_only`,
+  `test_studio_photo_propagates_gemini_failure`,
+  `test_process_image_refuses_bytes_that_are_not_an_image`
 
 ### Requirement: The studio shot lands on white, whatever the model returns
 
