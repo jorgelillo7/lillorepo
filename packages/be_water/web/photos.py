@@ -73,11 +73,19 @@ def public_url(object_name: str) -> str:
     return f"{_STORAGE_API}/{config.PHOTOS_BUCKET}/{object_name}"
 
 
+class NotAnImage(ValueError):
+    """The upload could not be decoded as a photo."""
+
+
 def process_image(data: bytes) -> bytes:
-    """Upright, ≤1200px, JPEG, EXIF-free."""
-    img = Image.open(io.BytesIO(data))
-    img = ImageOps.exif_transpose(img)
-    img = img.convert("RGB")
+    """Upright, ≤1200px, JPEG, EXIF-free. Raises `NotAnImage` on anything
+    Pillow cannot decode, including a file truncated mid-upload."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img)
+        img = img.convert("RGB")
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise NotAnImage(str(exc)) from exc
     img.thumbnail((MAX_SIDE, MAX_SIDE))
     out = io.BytesIO()
     img.save(out, "JPEG", quality=85, optimize=True)
