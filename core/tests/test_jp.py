@@ -182,3 +182,44 @@ def test_fetch_all_players_lets_a_server_error_escape_as_http_error():
         m.get(JP_URL, status_code=500, json={})
         with pytest.raises(requests.HTTPError):
             fetch_all_players(TOKEN)
+
+
+def test_a_failed_probe_with_a_warm_cache_falls_through_to_a_full_fetch():
+    """The probe swallows its own failure. What it must not do is serve the
+    cache on a failed probe: the full fetch runs, and raises loudly if JP is
+    really down."""
+    batch = _batch(start_ts=1779000000)
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json={"players": batch})
+        fetch_all_players(TOKEN)
+        m.get(
+            JP_URL,
+            [
+                {"exc": requests.exceptions.ConnectionError("probe down")},
+                {"json": {"players": batch}},
+            ],
+        )
+        assert fetch_all_players(TOKEN) == batch
+        limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
+        assert limits == ["600", "5", "600"]
+
+
+def test_a_failed_probe_never_matches_a_cache_without_timestamps():
+    """A cached list with no `updated_at` has no fingerprint either, and a
+    failed probe reports none: two absent fingerprints are not a match."""
+    batch = _batch(start_ts=1779000000)
+    for player in batch:
+        player["predict"] = []
+    with requests_mock.Mocker() as m:
+        m.get(JP_URL, json={"players": batch})
+        fetch_all_players(TOKEN)
+        m.get(
+            JP_URL,
+            [
+                {"exc": requests.exceptions.ConnectionError("probe down")},
+                {"json": {"players": batch}},
+            ],
+        )
+        fetch_all_players(TOKEN)
+        limits = [req.qs.get("limit", [""])[0] for req in m.request_history]
+        assert limits == ["600", "5", "600"]

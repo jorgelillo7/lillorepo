@@ -209,3 +209,29 @@ def test_palmares_with_standings_table_roundtrip():
     assert doc["standings_table"][1]["note"] == "abandono"
     parsed = Palmares.from_firestore("2025-2026", doc)
     assert parsed == p
+
+
+def test_an_unparseable_fecha_is_stored_as_given():
+    """Keeping the raw string, rather than dropping it, means a date in a
+    format nobody anticipated is never lost on the way into Firestore."""
+    msg = LeagueMessage(
+        id_hash="h",
+        fecha="ayer por la tarde",
+        autor="Jorge",
+        titulo="t",
+        contenido="c",
+        categoria="dato",
+    )
+    doc = msg.to_firestore()
+    assert doc["fecha"] == "ayer por la tarde"
+    assert LeagueMessage.from_firestore("h", doc).fecha == "ayer por la tarde"
+
+
+def test_palmares_cup_winners_round_trip():
+    """The palmarés names each cup's winner beside its graphic, so the stored
+    shape has to survive the trip, not just the in-memory model."""
+    copas = {"castolo-cup": {"ganador": "Jorge", "equipo": "Farolillo United"}}
+    p = Palmares(temporada="25-26", campeon="Jorge", copas=copas)
+    doc = p.to_firestore()
+    assert doc["copas"] == copas
+    assert Palmares.from_firestore("25-26", doc).copas == copas

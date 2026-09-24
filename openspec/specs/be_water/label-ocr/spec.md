@@ -112,9 +112,10 @@ were merely slow were being thrown away. The worker allows 240 s, and the call
 now runs beside the studio photo rather than after it, so the wait is
 affordable.
 
-> **GAP — unverified.** No test asserts the timeout and retry values reaching
-> the Gemini client. A test would patch `gemini.generate_json` and assert
-> `timeout=90, retries=1`.
+#### Scenario: 90 seconds, one retry
+- **WHEN** a label is read **THEN** the Gemini call carries `timeout=90` and
+  `retries=1`
+- *Verifies:* `test_the_label_read_waits_90_seconds_and_retries_once`
 
 ### Requirement: Both photographed faces are read, and only one carries the ✓
 

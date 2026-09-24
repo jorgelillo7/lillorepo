@@ -52,10 +52,10 @@ string, instead of dropping it, means no data is lost silently.
   `test_league_message_firestore_roundtrip`,
   `test_clausulazo_firestore_roundtrip`
 
-> **GAP — unverified.** The raw-string fallback for an unparseable `fecha` is
-> untested. A test would serialise a model whose `fecha` matches no format and
-> assert that the same string is stored and read back. Candidate for the next
-> test-hardening pass.
+#### Scenario: an unparseable date survives as given
+- **WHEN** a message's `fecha` matches no known format **THEN** the same string
+  is stored and read back
+- *Verifies:* `test_an_unparseable_fecha_is_stored_as_given`
 
 ### Requirement: Collections are native arrays, with derived totals
 
@@ -100,7 +100,7 @@ to the podium when it is empty.
   `test_palmares_with_standings_table_roundtrip`,
   `test_season_standing_firestore_roundtrip`
 
-> **GAP — unverified.** The `copas` field (cup winners by tournament slug) is
-> not part of any model round-trip. The web tests render it from a model built
-> in memory, so the stored shape is unchecked. A test would round-trip a
-> palmarés with `copas` set. Candidate for the next test-hardening pass.
+#### Scenario: cup winners round-trip
+- **WHEN** a palmarés with a cup winner is stored and read back **THEN** `copas`
+  comes back unchanged
+- *Verifies:* `test_palmares_cup_winners_round_trip`

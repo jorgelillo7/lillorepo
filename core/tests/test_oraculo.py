@@ -168,3 +168,19 @@ def test_the_reader_identifies_itself(picks_body):
         agent = m.last_request.headers["User-Agent"]
     assert "lillorepo" in agent
     assert "Mozilla" not in agent
+
+
+def test_the_cache_expires_after_its_ttl(picks_body, monkeypatch):
+    """The model retrains hourly; past the TTL the next read has to reach the
+    site again, or a warm instance would serve yesterday's picks forever."""
+    now = [1000.0]
+    monkeypatch.setattr(oraculo.time, "monotonic", lambda: now[0])
+    with requests_mock.Mocker() as m:
+        m.get(oraculo.picks_url(), json=picks_body)
+        oraculo.fetch_picks()
+        now[0] += oraculo.CACHE_TTL_SECONDS - 1
+        oraculo.fetch_picks()
+        assert m.call_count == 1
+        now[0] += 2
+        oraculo.fetch_picks()
+        assert m.call_count == 2

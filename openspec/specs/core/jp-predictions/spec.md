@@ -75,11 +75,13 @@ while a full fetch costs seconds.
   `test_fetch_all_players_invalidates_when_any_top_player_refreshes`,
   `test_fetch_all_players_probe_resilient_to_player_without_timestamp`
 
-> **GAP — unverified.** A failed probe (network error, auth error, no
-> timestamps) with a warm cache is meant to fall through to the full fetch,
-> which then raises loudly. Nothing exercises that path. A test would warm the
-> cache, make the `limit=5` request fail, and assert that a full request
-> follows. Candidate for the next test-hardening pass.
+#### Scenario: a failed probe never serves the cache
+- **WHEN** the probe fails with a warm cache **THEN** the full list is fetched
+  again (`600`, `5`, `600`)
+- **WHEN** the cached list has no timestamps and the probe fails **THEN** two
+  absent fingerprints are not a match, and the full list is fetched
+- *Verifies:* `test_a_failed_probe_with_a_warm_cache_falls_through_to_a_full_fetch`,
+  `test_a_failed_probe_never_matches_a_cache_without_timestamps`
 
 ### Requirement: No projection is one state, read in one place
 

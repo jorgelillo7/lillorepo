@@ -2423,3 +2423,61 @@ def test_the_origin_photo_never_becomes_the_stored_proof(client):
             content_type="multipart/form-data",
         )
     mock_upload.assert_not_called()
+
+
+def test_admin_page_lists_the_stranded_photos(client):
+    """A save that could not move a photo out of `uploads/` flags the water.
+    That prefix is swept, so the page is the only place the flag is seen
+    before the ficha loses its photo."""
+    stranded = Water(
+        id="lost",
+        name="Agua Perdida",
+        brand="B",
+        spring="S",
+        province="Cuenca",
+        community="Castilla-La Mancha",
+        photo_promotion_failed=True,
+    )
+    fine = _catalog()[0]
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
+        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    ):
+        _google_login(client, "admin@x.com")
+        with patch(f"{_REPO}.get_all_users", return_value={}), patch(
+            f"{_REPO}.get_all_waters", return_value=[stranded, fine]
+        ):
+            body = client.get("/admin").get_data(as_text=True)
+    assert "Fotos sin promover (1)" in body
+    assert "Agua Perdida" in body
+    assert fine.name not in body.split("Fotos sin promover")[1].split("</section>")[0]
+
+
+def test_logout_drops_both_identities(client):
+    """Clearing the nickname and not the Google identity would leave a visitor
+    who believes they left still holding admin."""
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"):
+        _google_login(client, "admin@x.com")
+    with client.session_transaction() as sess:
+        assert sess.get("nickname") and sess.get("google_email")
+    client.post("/logout")
+    with client.session_transaction() as sess:
+        assert not {"nickname", "google_email", "google_name"} & set(sess.keys())
+
+
+def test_logout_without_a_token_keeps_the_session(client):
+    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"):
+        _google_login(client, "admin@x.com")
+    client.post("/logout", data={"csrf_token": "wrong"})
+    with client.session_transaction() as sess:
+        assert sess.get("google_email") == "admin@x.com"
+
+
+def test_the_label_read_waits_90_seconds_and_retries_once():
+    """Slow reads used to be thrown away as timeouts; the read now waits well
+    past the client default, and retries once."""
+    from packages.be_water.web import label_ocr
+
+    with patch.object(label_ocr.gemini, "generate_json", return_value={}) as call:
+        label_ocr.extract_label(b"jpeg")
+    assert call.call_args.kwargs["timeout"] == 90
+    assert call.call_args.kwargs["retries"] == 1

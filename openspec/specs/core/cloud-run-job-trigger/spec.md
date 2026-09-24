@@ -4,7 +4,7 @@ Starts a Cloud Run Job on demand. This is how the bot and the web admin panel
 run the league scraper outside its schedule.
 
 - **Source:** `core/sdk/gcp.py` (`trigger_cloud_run_job`)
-- **Verified by:** no test covers it directly.
+- **Verified by:** `core/tests/test_gcp_services.py`
 
 ---
 
@@ -20,7 +20,9 @@ no key file to mount. The caller shows the execution name to the user so the
 run can be found in the console. A failed trigger has to reach whoever asked
 for it, not disappear.
 
-> **GAP — unverified.** No test covers the request or its errors. A test would
-> patch `google.auth.default`, mock the `:run` URL, and assert the bearer
-> header, the returned short name and a raise on 403. Candidate for the next
-> test-hardening pass.
+#### Scenario: execution name, and a refused trigger
+- **WHEN** the job starts **THEN** the request carries the ADC bearer token and
+  the short execution name is returned
+- **WHEN** the API answers 403 **THEN** `requests.HTTPError` is raised
+- *Verifies:* `test_trigger_cloud_run_job_returns_the_short_execution_name`,
+  `test_trigger_cloud_run_job_raises_when_denied`

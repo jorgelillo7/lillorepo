@@ -5,7 +5,8 @@ documents, simple queries, bulk writes and transactions, authenticated with
 Application Default Credentials.
 
 - **Source:** `core/sdk/firestore.py`
-- **Verified by:** `core/tests/test_firestore_sdk.py`, **against the local
+- **Verified by:** `core/tests/test_firestore_client.py` (client construction,
+  run in CI) and `core/tests/test_firestore_sdk.py`, **against the local
   emulator only**. The module skips when `FIRESTORE_EMULATOR_HOST` is unset,
   so CI does not run it. Run it by hand as its docstring describes before
   relying on these scenarios.
@@ -23,10 +24,16 @@ Removing the service-account key file was the reason to move the data layer
 to Firestore. Inside Cloud Run the runtime service account is picked up with
 nothing mounted. Locally, `gcloud auth application-default login` is enough.
 
-> **GAP — unverified.** Nothing tests project resolution from the environment
-> or the reuse of a single client. A test would patch `firestore.Client` and
-> assert which `project` it is built with, and that it is built once.
-> Candidate for the next test-hardening pass.
+#### Scenario: which project, and one client
+- **WHEN** `FIRESTORE_PROJECT` and `GOOGLE_CLOUD_PROJECT` are both set **THEN**
+  `FIRESTORE_PROJECT` wins; with only the second, it is used; with neither, the
+  credentials decide
+- **WHEN** the client is asked for twice **THEN** it is built once
+- *Verifies:* `test_the_project_comes_from_the_environment_first`,
+  `test_google_cloud_project_is_the_fallback`,
+  `test_with_no_project_set_the_credentials_decide`,
+  `test_the_client_is_built_once_per_process` (in `test_firestore_client.py`,
+  which CI runs; the emulator suite does not)
 
 ### Requirement: Document CRUD with Firestore's own semantics
 
