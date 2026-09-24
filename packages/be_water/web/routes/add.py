@@ -23,6 +23,8 @@ from packages.be_water.web import (
 )
 from packages.be_water.web.domain import MINERAL_FIELDS
 
+_NOT_AN_IMAGE = "Ese archivo no parece una foto — prueba con un JPG o PNG."
+
 logger = get_logger(__name__)
 
 
@@ -417,6 +419,14 @@ def add_water_origin():
 
     try:
         extracted = label_ocr.extract_label(photos.process_image(raw))
+    except photos.NotAnImage:
+        return _render_add_form(
+            prefill=prefill,
+            photo_tmp=photo_tmp,
+            label_tmp=label_tmp,
+            ocr_fields=ocr_fields,
+            error=_NOT_AN_IMAGE,
+        )
     except (GeminiError, requests.RequestException) as exc:
         logger.warning("Origin-face read failed.", extra={"error": str(exc)[:300]})
         return _render_add_form(
@@ -459,7 +469,24 @@ def add_water_photo():
     if len(raw) > photos.MAX_UPLOAD_BYTES:
         return _render_add_form(error="La foto es demasiado grande (máx. 15 MB).")
 
-    processed = photos.process_image(raw)
+    # Both faces are decoded before anything is uploaded, so a bad second file
+    # does not leave the first one orphaned under uploads/.
+    beauty = request.files.get("beauty")
+    beauty_raw = None
+    if beauty is not None and beauty.filename:
+        beauty_raw = beauty.read(photos.MAX_UPLOAD_BYTES + 1)
+        if len(beauty_raw) > photos.MAX_UPLOAD_BYTES:
+            return _render_add_form(
+                error="La foto de la ficha es demasiado grande (máx. 15 MB)."
+            )
+    try:
+        processed = photos.process_image(raw)
+        display_src = (
+            processed if beauty_raw is None else photos.process_image(beauty_raw)
+        )
+    except photos.NotAnImage:
+        return _render_add_form(error=_NOT_AN_IMAGE)
+
     uid = uuid.uuid4().hex
     # Both tmps live under uploads/, and every attempt writes two objects
     # before the OCR is even tried — three failed reads leave six. A lifecycle
@@ -471,15 +498,6 @@ def add_water_photo():
 
     # The display photo prefers the optional front shot — a composition
     # label is usually the ugly side of the bottle.
-    display_src = processed
-    beauty = request.files.get("beauty")
-    if beauty is not None and beauty.filename:
-        beauty_raw = beauty.read(photos.MAX_UPLOAD_BYTES + 1)
-        if len(beauty_raw) > photos.MAX_UPLOAD_BYTES:
-            return _render_add_form(
-                error="La foto de la ficha es demasiado grande (máx. 15 MB)."
-            )
-        display_src = photos.process_image(beauty_raw)
 
     # Two independent Gemini calls, run together rather than in a queue. They
     # used to be sequential and the wait was their sum — the studio photo

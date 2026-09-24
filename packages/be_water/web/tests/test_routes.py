@@ -2481,3 +2481,79 @@ def test_the_label_read_waits_90_seconds_and_retries_once():
         label_ocr.extract_label(b"jpeg")
     assert call.call_args.kwargs["timeout"] == 90
     assert call.call_args.kwargs["retries"] == 1
+
+
+# --- An upload that is not a photo ---
+
+_NOT_AN_IMAGE = b"%PDF-1.7 this is a document, not a photo"
+
+
+def _real_image_bytes() -> bytes:
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (40, 60), "blue").save(out, "JPEG")
+    return out.getvalue()
+
+
+def test_a_non_image_photo_gets_a_message_not_a_500(client):
+    """The picker says `image/*`, but nothing stops a PDF or a truncated file
+    reaching the route. It must come back to the form with a sentence, and
+    nothing may be uploaded or sent to the reader."""
+    _login(client)
+    with patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
+        f"{_APP}.label_ocr.extract_label"
+    ) as mock_read:
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (io.BytesIO(_NOT_AN_IMAGE), "etiqueta.pdf")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    assert "no parece una foto" in resp.get_data(as_text=True)
+    mock_upload.assert_not_called()
+    mock_read.assert_not_called()
+
+
+def test_a_non_image_front_shot_gets_a_message_not_a_500(client):
+    _login(client)
+    with patch(f"{_APP}.photos.upload_photo"), patch(
+        f"{_APP}.label_ocr.extract_label"
+    ) as mock_read:
+        resp = client.post(
+            "/anadir/foto",
+            data={
+                "photo": (io.BytesIO(_real_image_bytes()), "etiqueta.jpg"),
+                "beauty": (io.BytesIO(_NOT_AN_IMAGE), "frontal.pdf"),
+            },
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    assert "no parece una foto" in resp.get_data(as_text=True)
+    mock_read.assert_not_called()
+
+
+def test_a_non_image_origin_photo_keeps_the_form(client):
+    """The origin face is the third photo of a form already half filled in;
+    losing the form to a bad file would cost the contributor everything."""
+    _login(client)
+    with patch(f"{_APP}.label_ocr.extract_label") as mock_read, patch(
+        f"{_REPO}.get_all_waters", return_value=[]
+    ):
+        resp = client.post(
+            "/anadir/origen",
+            data={
+                "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
+                "origin": (io.BytesIO(_NOT_AN_IMAGE), "origen.pdf"),
+                "name": "Fuente Dehesa",
+                "photo_tmp": "uploads/x.jpg",
+                "label_tmp": "uploads/x-label.jpg",
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "no parece una foto" in body
+    assert 'value="Fuente Dehesa"' in body
+    assert "uploads/x-label.jpg" in body
+    mock_read.assert_not_called()

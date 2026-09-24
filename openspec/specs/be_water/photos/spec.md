@@ -68,15 +68,43 @@ watermark, producing the bytes uploaded to storage.
 - **WHEN** the studio step runs on Gemini's cutout **THEN** the result is the
   square white canvas with the watermark stamped bottom-right only
 - **WHEN** Gemini fails **THEN** the failure propagates to the caller
-- **WHEN** the upload is not an image **THEN** processing raises instead of
-  producing bytes to store
+- **WHEN** the upload is not an image, or is a JPEG cut off mid-upload
+  **THEN** processing raises `NotAnImage` instead of producing bytes to store
 - *Verifies:* `test_process_image_downscales_within_max_side_keeping_aspect`,
   `test_process_image_leaves_small_images_untouched_in_size`,
   `test_process_image_strips_exif`,
   `test_studio_photo_builds_square_watermarked_canvas`,
   `test_stamp_watermark_marks_bottom_right_only`,
   `test_studio_photo_propagates_gemini_failure`,
-  `test_process_image_refuses_bytes_that_are_not_an_image`
+  `test_process_image_refuses_bytes_that_are_not_an_image`,
+  `test_a_truncated_jpeg_is_not_an_image_either`
+
+### Requirement: A file that is not a photo gets a sentence, not a 500
+
+Each of the three upload points on the add form (the label shot, the optional
+front shot and the origin face) SHALL answer an undecodable file by
+re-rendering the form with "Ese archivo no parece una foto". Nothing SHALL be
+uploaded to the bucket and nothing SHALL be sent to the label reader. The
+origin face SHALL keep everything already on the form. Both photo-flow shots
+SHALL be decoded before either is uploaded.
+
+The picker asks for `image/*`, but nothing stops a PDF or a truncated file
+reaching the route, and the app has no error page: an unhandled decode error
+was a bare 500. The origin face is the third photo of a half-filled form, so
+losing the form there would cost the contributor everything they typed.
+Decoding both shots first means a bad front shot does not leave the label
+shot orphaned under `uploads/`.
+
+#### Scenario: label shot, front shot, origin face
+- **WHEN** the label shot is not an image **THEN** the form comes back with
+  the sentence, and nothing is uploaded or read
+- **WHEN** the label shot is fine but the front shot is not **THEN** the same,
+  and the reader is not called
+- **WHEN** the origin face is not an image **THEN** the sentence appears and
+  the typed name and the temporary photos survive
+- *Verifies:* `test_a_non_image_photo_gets_a_message_not_a_500`,
+  `test_a_non_image_front_shot_gets_a_message_not_a_500`,
+  `test_a_non_image_origin_photo_keeps_the_form`
 
 ### Requirement: The studio shot lands on white, whatever the model returns
 

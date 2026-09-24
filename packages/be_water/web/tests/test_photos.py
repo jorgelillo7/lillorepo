@@ -9,7 +9,7 @@ import io
 from unittest.mock import patch
 
 import pytest
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 
 from core.sdk.gemini import GeminiError
 from packages.be_water.web import photos
@@ -164,5 +164,12 @@ def test_public_url_points_at_the_bucket():
 def test_process_image_refuses_bytes_that_are_not_an_image():
     """It raises rather than producing something to upload; a corrupt file
     must never reach the bucket as a broken JPEG."""
-    with pytest.raises(UnidentifiedImageError):
+    with pytest.raises(photos.NotAnImage):
         photos.process_image(b"definitely not a jpeg")
+
+
+def test_a_truncated_jpeg_is_not_an_image_either():
+    """A photo cut off mid-upload opens fine and fails only when decoded."""
+    whole = _img_bytes((200, 200))
+    with pytest.raises(photos.NotAnImage):
+        photos.process_image(whole[: len(whole) // 2])
