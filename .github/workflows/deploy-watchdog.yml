@@ -7,7 +7,10 @@ name: Deploy watchdog
 
 on:
   schedule:
-    - cron: "47 7 * * *" # daily ~09:47 Madrid, after the usual merge hours
+    # 09:47 Madrid on paper; GitHub starts scheduled runs hours late, so in
+    # practice mid-afternoon. The hour is not load-bearing: it only has to run
+    # once a day.
+    - cron: "47 7 * * *"
   workflow_dispatch:
 
 permissions:
@@ -55,7 +58,9 @@ jobs:
           # would dispatch full deploys for changes deploy.yml ignores.
           CHANGED=$(git diff --name-only "$LAST_SHA"..HEAD -- \
             core/ tools/ docker/ MODULE.bazel \
-            packages/biwenger_tools/ packages/chucknorris_bot/ packages/be_water/ \
+            packages/biwenger_tools/web/ packages/biwenger_tools/scraper_job/ \
+            packages/biwenger_tools/bot/ packages/biwenger_tools/api/ \
+            packages/chucknorris_bot/ packages/be_water/ \
             .github/workflows/deploy.yml)
           if [ -z "$CHANGED" ]; then
             echo "✅ Only non-deployable paths changed since $LAST_SHA — no drift."

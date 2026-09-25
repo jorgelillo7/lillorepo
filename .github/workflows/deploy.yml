@@ -404,7 +404,11 @@ jobs:
           BOT_URL=$(gcloud run services describe biwenger-bot \
             --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} \
             --format='value(status.url)')
-          pip install --quiet requests python-dotenv python-json-logger
+          # Pinned by the lock. pip refuses a constraint with extras, so any
+          # `name[extra]==x` line is stripped to its plain name.
+          sed 's/\[[^]]*\]==/==/' requirements_lock.txt > "$RUNNER_TEMP/constraints.txt"
+          pip install --quiet -c "$RUNNER_TEMP/constraints.txt" \
+            requests python-dotenv python-json-logger
           PYTHONPATH=. \
             TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             TELEGRAM_WEBHOOK_SECRET="$TELEGRAM_WEBHOOK_SECRET" \
@@ -545,7 +549,11 @@ jobs:
           CFG=$(gcloud secrets versions access latest \
             --secret=chucknorris-bot-config-regional --project=${{ env.PROJECT_ID }})
           TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
-          pip install --quiet requests python-dotenv python-json-logger
+          # Pinned by the lock. pip refuses a constraint with extras, so any
+          # `name[extra]==x` line is stripped to its plain name.
+          sed 's/\[[^]]*\]==/==/' requirements_lock.txt > "$RUNNER_TEMP/constraints.txt"
+          pip install --quiet -c "$RUNNER_TEMP/constraints.txt" \
+            requests python-dotenv python-json-logger
           PYTHONPATH=. \
             TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             python3 packages/chucknorris_bot/bot/setup_commands.py

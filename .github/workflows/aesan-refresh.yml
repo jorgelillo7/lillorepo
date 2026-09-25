@@ -54,9 +54,14 @@ jobs:
           python-version: "3.13"
 
       # pypdf stays out of the runtime image on purpose — the service never
-      # parses a PDF. Here it costs nothing.
+      # parses a PDF — so it is pinned here rather than in the lock. black comes
+      # from the lock: an unpinned one could format the snapshot in a way Lint
+      # then rejects.
       - name: Install the generator's dependencies
-        run: pip install --quiet pypdf black
+        run: |
+          # pip refuses a constraint with extras; strip them to plain names.
+          sed 's/\[[^]]*\]==/==/' requirements_lock.txt > "$RUNNER_TEMP/constraints.txt"
+          pip install --quiet -c "$RUNNER_TEMP/constraints.txt" pypdf==6.19.0 black
 
       # Exits non-zero when the download is not a PDF, or the parse looks
       # wrong, rather than writing a damaged snapshot.
