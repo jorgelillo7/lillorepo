@@ -154,10 +154,13 @@ recognised natural mineral waters. Refresh it every few months, by hand —
 the Commission's host refuses GitHub's runners, so there is no scheduled job:
 
 ```bash
-pip3 install pypdf     # one-time; not a Bazel dependency
-python3 packages/be_water/scripts/refresh_aesan_snapshot.py
+pip3 install pypdf==6.19.0   # one-time; not a Bazel dependency
+python3 packages/be_water/scripts/refresh_aesan_snapshot.py   # from the repo root
 git diff packages/be_water/web/aesan_snapshot.py
 ```
+
+The script formats the snapshot with Bazel's hermetic `black`, the one Lint
+runs, so the result passes CI whatever `black` the machine has installed.
 
 - **No diff** → nothing to do.
 - **A diff** → that is the news: waters Spain recognised or dropped. Open a PR
