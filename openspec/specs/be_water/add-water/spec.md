@@ -4,8 +4,7 @@ The public add-a-water flow: a contributor photographs a bottle, reviews what
 was read off the label, and saves. This capability owns **who may save, what
 lands in the doc, and what happens when the water is already in the
 catalogue** — the reading of the label is `label-ocr`, the per-field sourcing
-and the dated series are `provenance`, and the reconciliation with the seed
-dataset is `catalog-sync`.
+and the dated series are `provenance`.
 
 - **Source:** `packages/be_water/web/submission.py`,
   `packages/be_water/web/routes/add.py`, `packages/be_water/web/notifications.py`

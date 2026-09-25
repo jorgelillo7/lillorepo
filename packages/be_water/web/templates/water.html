@@ -170,10 +170,6 @@
                         <a href="{{ url_for('about') }}#fuente-a-mano"
                            class="{{ badge }} text-amber-600"
                            title="Aportado a mano por la comunidad">a mano</a>
-                        {% elif src == 'manufacturer' %}
-                        <a href="{{ url_for('about') }}#fuente-fabricante"
-                           class="{{ badge }} text-slate-400"
-                           title="Datos publicados por el fabricante">fabricante</a>
                         {% endif %}
                     </dd>
                 </div>
@@ -181,8 +177,8 @@
             </dl>
             <p class="mt-4 text-[11px] text-slate-400 leading-relaxed">
                 <span class="text-teal-600 font-semibold">✓ etiqueta</span> confirmado de foto ·
-                <span class="text-slate-500 font-semibold">fabricante</span> datos publicados ·
-                <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad.
+                <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad ·
+                <a href="{{ url_for('about') }}#fuente-sin-marca" class="underline hover:text-sky-600">sin marca</a>: sin confirmar todavía.
                 <a href="{{ url_for('about') }}#fuentes" class="underline hover:text-sky-600">Más sobre las fuentes</a>
             </p>
         </div>

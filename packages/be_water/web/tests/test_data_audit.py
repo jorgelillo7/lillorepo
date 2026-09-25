@@ -88,9 +88,9 @@ def test_suspicious_clean_water_has_no_reasons():
 def test_set_source_moves_field_in_and_out_of_verified():
     water = _water(verified_fields=["tds"], sources={})
     with patch(f"{_MOD}.repository.save_water"):
-        data_audit.set_source(water, "tds", "manufacturer")
+        data_audit.set_source(water, "tds", "manual")
     assert water.verified_fields == []
-    assert water.sources["tds"] == "manufacturer"
+    assert water.sources["tds"] == "manual"
     with patch(f"{_MOD}.repository.save_water"):
         data_audit.set_source(water, "tds", "label")
     assert water.verified_fields == ["tds"]
@@ -103,7 +103,7 @@ def test_merge_waters_folds_and_deletes_drop():
         id="drop",
         minerals={"tds": 999, "calcium": 50},  # tds conflict → keep wins
         label_photo_url="lbl",
-        sources={"calcium": "manufacturer"},
+        sources={"calcium": "manual"},
     )
     with patch(f"{_MOD}.repository.save_water") as save, patch(
         f"{_MOD}.repository.list_analyses", return_value=[]
@@ -111,7 +111,7 @@ def test_merge_waters_folds_and_deletes_drop():
         data_audit.merge_waters(keep, drop)
     assert keep.minerals == {"tds": 100, "calcium": 50}
     assert keep.label_photo_url == "lbl"  # filled from drop
-    assert keep.sources["calcium"] == "manufacturer"
+    assert keep.sources["calcium"] == "manual"
     save.assert_called_once_with(keep)
     delete.assert_called_once_with("drop")
 
@@ -141,33 +141,6 @@ def test_merging_a_duplicate_rescues_its_analysis_series():
     assert [w.analysis_date for w in saved] == ["2019"], "solo la que se perdía"
     assert saved[0].id == "keep", "reescrita bajo el agua que sobrevive"
     assert saved[0].minerals == {"tds": 880}
-
-
-# --- dataset drift ----------------------------------------------------------
-
-_DATASET = [{"id": "w", "minerals": {"tds": 490, "calcium": 120.0, "sodium": 5.0}}]
-
-
-def test_dataset_drift_reports_where_the_repo_disagrees_with_the_catalog():
-    live = _water(minerals={"tds": 649, "calcium": 120.0}, verified_fields=["tds"])
-    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
-        ((water, differences),) = data_audit.dataset_drift([live])
-    assert water is live
-    # Only the moved field, tagged so a stale dataset is told from a bad value;
-    # `sodium` is absent from the ficha, so there is nothing to compare.
-    assert differences == ["Residuo seco: dataset 490 vs ficha 649 [etiqueta]"]
-
-
-def test_dataset_drift_is_silent_when_the_dataset_agrees():
-    live = _water(minerals={"tds": 490, "calcium": 120.0})
-    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
-        assert data_audit.dataset_drift([live]) == []
-
-
-def test_dataset_drift_ignores_waters_the_dataset_never_seeded():
-    live = _water(id="user-added", minerals={"tds": 10})
-    with patch(f"{_MOD}.SEED_WATERS", _DATASET):
-        assert data_audit.dataset_drift([live]) == []
 
 
 # --- geography is auditable, not just minerals -----------------------------

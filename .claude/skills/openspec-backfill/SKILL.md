@@ -47,7 +47,7 @@ mapping is deliberately not one-to-one:
   whatever uses it.
 
 Name the capability in kebab-case for what it *does* (`auto-pick-lineup`,
-`catalog-sync`), never for the file it lives in.
+`label-ocr`), never for the file it lives in.
 
 Do not create the capability directory until you have the `spec.md` to put in
 it: `check_specs.py` **fails** on a capability directory with no spec.

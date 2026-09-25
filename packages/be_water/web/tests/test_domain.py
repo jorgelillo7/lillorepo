@@ -13,10 +13,10 @@ def test_sources_round_trip():
     water = _water(
         minerals={"tds": 261, "calcium": 59.5},
         verified_fields=["calcium"],
-        sources={"tds": "manufacturer", "province": "aesan"},
+        sources={"tds": "manual", "province": "aesan"},
     )
     restored = Water.from_firestore(water.id, water.to_firestore())
-    assert restored.sources == {"tds": "manufacturer", "province": "aesan"}
+    assert restored.sources == {"tds": "manual", "province": "aesan"}
     assert restored.verified_fields == ["calcium"]
 
 
@@ -27,11 +27,11 @@ def test_from_firestore_defaults_sources_to_empty():
 def test_source_of_prefers_label_from_verified_fields():
     water = _water(
         verified_fields=["calcium"],
-        sources={"calcium": "manual", "tds": "manufacturer"},
+        sources={"calcium": "manual", "tds": "manual"},
     )
     # verified_fields wins even if sources also lists the field.
     assert water.source_of("calcium") == "label"
-    assert water.source_of("tds") == "manufacturer"
+    assert water.source_of("tds") == "manual"
     assert water.source_of("sodium") is None
 
 

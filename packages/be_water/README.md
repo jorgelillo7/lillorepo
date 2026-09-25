@@ -33,7 +33,6 @@ graph TD
     USR(("Anyone with<br/>the link"))
 
     subgraph REPO["lillorepo — reference data lives in git, not in Firestore"]
-        SEED["seed_data.py<br/>catalog dataset"]
         SNAP["aesan_snapshot.py<br/>recognised-waters registry"]
     end
 
@@ -45,8 +44,6 @@ graph TD
 
     subgraph GCP["GCP · be-water-app"]
         RUN["be-water · Cloud Run service<br/>europe-southwest1 · min 0 / max 20"]
-        JOB["be-water-catalog-sync · Cloud Run Job<br/>reuses the web image"]
-        SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid · paused"]
         FS[("Firestore · europe-southwest1<br/>waters · water_analyses<br/>users · water_revisions")]
         GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ 30-day TTL")]
         SEC["Secret Manager<br/>flask-web-config-regional"]
@@ -61,25 +58,19 @@ graph TD
     RUN -->|"photos + label proof"| GCS
     SNAP -->|"compiled into the image"| RUN
     SEC --> RUN
-    SEC --> JOB
-    SCH --> JOB
-    SEED --> JOB
-    JOB -->|"dataset in, verified fichas untouched"| FS
-    JOB -->|"summary + coverage"| TG
+    RUN -->|"one notice per saved water"| TG
     DEP -->|"image"| RUN
-    DEP -->|"image refresh"| JOB
     EU -->|"refreshed by hand · refresh_aesan_snapshot.py"| SNAP
-    REF -->|"changed · or source dead"| TG
 ```
 
 Two things the picture is meant to make obvious:
 
 - **Reference data is in git, runtime data is in Firestore.** The registry
-  (`aesan_snapshot.py`) and the dataset (`seed_data.py`) ship inside the image;
-  what users contribute lives in Firestore. That is why a registry refresh
+  (`aesan_snapshot.py`) ships inside the image; the catalog — every water and
+  what contributors photographed — lives in Firestore. That is why a registry refresh
   arrives as a pull request you review, and why its `git diff` *is* the news.
-- **Nothing overwrites a verified ficha.** The catalog sync skips them
-  outright, and the add flow snapshots the previous document to
+- **Nothing overwrites a verified ficha.** The add flow refuses to, and it
+  snapshots the previous document to
   `water_revisions` before it changes a composition
   (`scripts/revert_water.py` puts it back).
 
@@ -92,8 +83,8 @@ composition.
 - **App** (`app.py`) — catalog, water page, favorites, /comunidad (ranking +
   achievements), recommender, photo + OCR add flow, /acerca, /admin (dormant).
 - **Data** — `domain.py` (`Water`, with **per-field provenance** in `sources`
-  and `verified_fields`), `repository.py` (Firestore), `seed_data.py`,
-  `aesan_snapshot.py` (official AESAN registry), `catalog_sync.py` (on-demand sync of the seed dataset).
+  and `verified_fields`), `repository.py` (Firestore), `aesan_snapshot.py`
+  (official AESAN registry), `notifications.py` (a Telegram notice per save).
 - **Photos + AI** — `photos.py` (GCS + admin-gated *studio* treatment with
   Gemini), `label_ocr.py` (label OCR). Shared SDK in `core/sdk/gemini.py`.
 - **Reusable engines** (also reused by `/admin`): `provenance.py` (derives each
@@ -102,24 +93,21 @@ composition.
 
 ## Data trust model
 
-Every number on a ficha says where it came from. Four sources, and they are
-not interchangeable — the whole point is that a reader can tell a photographed
-label from a figure somebody typed.
+Every number on a ficha says where it came from — or, when nobody recorded
+that, says nothing rather than guess. The point is that a reader can tell a
+photographed label from a figure somebody typed.
 
 ```mermaid
 graph LR
     LBL["📸 Label photo<br/><i>a contributor's bottle</i>"] -->|OCR + human review| V["verified_fields<br/><b>✓ etiqueta</b>"]
-    SEED["seed_data.py<br/><i>manufacturer sites,<br/>in git</i>"] -->|value still matches the seed| M["sources<br/><b>fabricante</b>"]
-    TYPED["✍️ Typed in the form"] -->|no label, no seed match| H["sources<br/><b>a mano</b>"]
+    TYPED["✍️ Submitted in the form"] -->|no label behind it| H["sources<br/><b>a mano</b>"]
     REG["aesan_snapshot.py<br/><i>state register</i>"] -->|name + spring + province only| A["sources<br/><b>AESAN</b>"]
 
     V --> DOC["waters/{id}"]
-    M --> DOC
     H --> DOC
     A --> DOC
 
     style V fill:#ccfbf1,stroke:#0d9488
-    style M fill:#f1f5f9,stroke:#94a3b8
     style H fill:#fef3c7,stroke:#d97706
     style A fill:#e0f2fe,stroke:#0284c7
 ```
@@ -127,20 +115,20 @@ graph LR
 | Source | Means | Who can produce it | Trust |
 |---|---|---|---|
 | **`label`** → ✓ etiqueta | Read off a photographed label, kept as proof | Any contributor with a bottle | Highest — the legal source |
-| **`manufacturer`** → fabricante | Still equal to this water's value in `seed_data.py`, transcribed from brand sites | Nobody: it is the state a water ships in | Approximate; analytics move between batches and years |
-| **`manual`** → a mano | Somebody typed it: no label behind it, and it does not match the seed | Any contributor | Lowest, and the only one nothing can cross-check |
+| **`manual`** → a mano | The contributor submitted it and no label backs it | Any contributor | Low: nothing can cross-check it |
 | **`aesan`** | Identity cross-checked against the state register | Automatic on save | Authoritative — **for identity only** |
+| *(none)* → sin marca | The catalog's first fichas, not yet confirmed against a label | — | Approximate until a label photo replaces it |
 
 Two rules that fall out of the table and are easy to get wrong:
 
 - **AESAN never supplies a composition.** The register carries name, spring and
-  province and nothing else. Every mineral comes from a label or a manufacturer.
-- **`manual` is a claim about a person, not a fallback.** It renders as
-  *"aportado a mano por la comunidad"*, so it may not be used as the catch-all
-  for "not confirmed by a label" — a seeded value that nobody has touched is
-  `manufacturer`. Lunares shipped two seeded numbers credited to the
-  contributor who photographed its label; that is the bug this rule exists to
-  prevent.
+  province and nothing else. Every mineral comes from a label or a contributor.
+- **No source is ever guessed.** `manual` is a claim about a person, so a value
+  merged through from the ficha that the contributor never submitted keeps the
+  source it had, or none. Lunares once shipped two such values credited to
+  whoever photographed its label, and a retired seed dataset once marked
+  values the photographed label did not print as "fabricante"; both were
+  corrected.
 
 A ficha is **verified and locked** against overwrite two ways: auto-promotion
 (every declared value label-backed) or admin sign-off (a photographed label +

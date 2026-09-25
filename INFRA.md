@@ -32,8 +32,6 @@ The Be Water catalog (package `be_water`).
 | Product | In use | Notes |
 |---|---|---|
 | Cloud Run (services) | `be-water` | minScale=0, public |
-| Cloud Run (jobs) | `be-water-catalog-sync` | on demand (its Scheduler is paused); reuses the `web` image with a command override (extracts `core_srcs.tar`, runs `catalog_sync`) — CI refreshes its image on every be_water deploy |
-| Cloud Scheduler | `be-water-catalog-sync-monthly` — **`europe-west1`** | day 1, 09:00 Madrid — **paused** |
 | Firestore | `(default)` — `europe-southwest1` | waters, users, water_revisions (created on the first composition overwrite) |
 | Cloud Storage | `be-water-photos` — **`us-central1`** | bottle photos, public read. Deliberately US: Storage's 5 GB always-free tier only exists in US regions; Madrid would bill from byte one |
 | Artifact Registry | `be-water-docker` | `web` image (base pulled from `biwenger-docker`) |
@@ -55,9 +53,10 @@ repo so the CI cleanup job can delete old digests.
 
 ## Cost guardrails
 
-- Cloud Scheduler is at **3/3** free jobs across the billing account (the
-  quota is per billing account, not per project — the next cron needs a paid
-  job or a consolidation), and photo storage rides the US always-free tier.
+- Cloud Scheduler uses **2 of 3** free jobs across the billing account (the
+  quota is per billing account, not per project — one more cron is free, the
+  one after that needs a paid job or a consolidation), and photo storage rides
+  the US always-free tier.
 - **Secret Manager sits at 6/6 with no slack.** The free tier is 6 *active*
   versions per billing account, and "active" counts **Enabled and Disabled
   alike** — disabling a version does not stop it billing, only destroying it

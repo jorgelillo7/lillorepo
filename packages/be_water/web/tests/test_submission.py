@@ -203,7 +203,7 @@ def test_finalize_auto_verifies_when_label_backs_every_mineral():
         verified_fields=["tds"],
         label_photo_url="gs://x/label.jpg",
     )
-    submission.finalize_provenance(water, existing=None)
+    submission.finalize_provenance(water, existing=None, submitted={"tds"})
     assert water.verified is True
 
 
@@ -213,7 +213,7 @@ def test_finalize_does_not_verify_without_full_label_backing():
         verified_fields=["tds"],  # calcium not label-backed
         label_photo_url="gs://x/label.jpg",
     )
-    submission.finalize_provenance(water, existing=None)
+    submission.finalize_provenance(water, existing=None, submitted={"tds", "calcium"})
     assert water.verified is False
     assert water.sources["calcium"] == "manual"
 

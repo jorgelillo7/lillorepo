@@ -261,7 +261,7 @@ def add_water():
             merge_into=bool(merge_into),
             form_has_brand=bool(submission.form_field(request.form, "brand")),
         )
-    submission.finalize_provenance(water, existing)
+    submission.finalize_provenance(water, existing, set(minerals))
     if stranded:
         water.photo_promotion_failed = True
 

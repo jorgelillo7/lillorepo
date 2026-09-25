@@ -72,28 +72,6 @@ reconstruct.
   `test_merge_waters_folds_and_deletes_drop`,
   `test_merging_a_duplicate_rescues_its_analysis_series`
 
-### Requirement: Dataset drift is detectable
-
-`dataset_drift` SHALL report, per ficha, every mineral where the in-repo
-dataset and the live catalog disagree, tagging `[etiqueta]` when the live
-value is label-backed. Waters the dataset never seeded, and fields the ficha
-does not carry, SHALL be ignored.
-
-Seven waters once drifted this way: a label photo corrected Firestore and
-nobody backported the numbers, so the dataset kept seeding values no bottle
-supports. `suspicious_reasons` could not catch it — the wrong values were
-internally coherent — so the comparison is its own check, and read-only: the
-fix belongs in `seed_data.py`, not in Firestore.
-
-#### Scenario: drift reporting
-- **WHEN** a seeded ficha's stored value differs from the dataset's
-- **THEN** the difference is reported, tagged `[etiqueta]` when label-backed
-- **WHEN** the dataset agrees, or the water was never seeded
-- **THEN** nothing is reported
-- *Verifies:* `test_dataset_drift_reports_where_the_repo_disagrees_with_the_catalog`,
-  `test_dataset_drift_is_silent_when_the_dataset_agrees`,
-  `test_dataset_drift_ignores_waters_the_dataset_never_seeded`
-
 ### Requirement: Geography is audited, and a foreign water is not judged by Spain's
 
 `geo_reasons` SHALL flag a ficha whose origin cannot be right: no spring, no

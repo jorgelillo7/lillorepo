@@ -1,85 +1,56 @@
 """Derive per-field provenance (``Water.sources``) from what we know.
 
 Label-confirmed fields live in ``verified_fields`` (they drive the ✓); this
-fills the source of everything else so the UI can name it — "fabricante"
-(seed came from manufacturer sites), "AESAN" (identity cross-checked against
-the official registry) or "a mano" (a contributor typed it).
+records the source of everything else so the UI can name it — "AESAN"
+(identity cross-checked against the official registry) or "a mano" (the
+contributor submitted it). A field nobody recorded a source for stays
+unknown: naming one would be inventing it.
 
-Pure functions: the backfill script and the future curation engine both call
-``derive_sources``.
+Pure functions: the save path and the backfill script both call them.
 """
 
 from packages.be_water.web import aesan, geo
-from packages.be_water.web.domain import (
-    MINERAL_FIELDS,
-    SOURCE_AESAN,
-    SOURCE_MANUAL,
-    SOURCE_MANUFACTURER,
-    Water,
-)
-from packages.be_water.web.seed_data import SEED_WATERS
-
-# The seed values are manufacturer-site / label transcriptions (see
-# seed_data.py). A non-label value that still matches its seed is manufacturer
-# data; once a contributor changed it — or added a value the seed never had —
-# it is hand-entered. Using added_by would misfire: seed waters adopted by a
-# contributor keep their seeded numbers but lose the "seed" author.
-_SEED_MINERALS = {w["id"]: (w.get("minerals") or {}) for w in SEED_WATERS}
+from packages.be_water.web.domain import SOURCE_AESAN, SOURCE_MANUAL, Water
 
 # Non-mineral fields whose provenance is worth keeping in `sources`.
 _IDENTITY_KEYS = ("province", "community", "spring")
 
 
 def sources_on_save(
-    minerals: dict, verified_fields: list, existing_sources: dict, water_id: str = ""
+    minerals: dict,
+    verified_fields: list,
+    existing_sources: dict,
+    submitted: set,
 ) -> dict:
-    """Provenance after a form save. Label fields are implied by
-    `verified_fields` (so they are dropped here); identity sources and prior
-    mineral sources survive a merge.
+    """Provenance after a form save.
 
-    A remaining mineral is `manufacturer` when it still matches this water's
-    seeded value and `manual` otherwise — the same test `derive_sources`
-    applies. Defaulting the lot to `manual` made the ficha assert that a
-    contributor typed a number nobody had touched: Lunares' label declares
-    eight minerals, the seed carried ten, and the two the label never printed
-    were merged through and then credited to whoever photographed it.
+    Label fields are implied by `verified_fields`, so they are dropped here.
+    A mineral the contributor `submitted` that was not read off the label is
+    `manual`. A mineral merged through from the ficha keeps the source it
+    had, or none: Lunares' label declares eight minerals, the ficha held ten,
+    and crediting the two merged-through values to whoever photographed the
+    bottle made the ficha assert they had typed them.
     """
     verified = set(verified_fields)
     keep = set(minerals) | set(_IDENTITY_KEYS)
-    seed_minerals = _SEED_MINERALS.get(water_id, {})
     result = {
         field_name: source
         for field_name, source in existing_sources.items()
         if field_name in keep and field_name not in verified
     }
-    for field_name, value in minerals.items():
-        if field_name in verified:
-            continue
-        source = (
-            SOURCE_MANUFACTURER
-            if seed_minerals.get(field_name) == value
-            else SOURCE_MANUAL
-        )
-        result.setdefault(field_name, source)
+    for field_name in minerals:
+        if field_name in submitted and field_name not in verified:
+            result[field_name] = SOURCE_MANUAL
     return result
 
 
 def derive_sources(water: Water) -> dict:
-    """Provenance map for a water's non-label fields. Only fills gaps — any
-    source already on the water is kept, so the backfill is idempotent."""
+    """Provenance map for a water: the sources it already records, plus the
+    AESAN identity sources the registry can vouch for. Minerals are never
+    filled in — who wrote an unrecorded number cannot be known after the
+    fact. Any source already on the water is kept, so the backfill is
+    idempotent."""
     sources = dict(water.sources)
-    seed_minerals = _SEED_MINERALS.get(water.id, {})
-    for field_name in MINERAL_FIELDS:
-        if field_name not in water.minerals:
-            continue
-        if field_name in water.verified_fields:  # label — implied, not stored
-            continue
-        source = (
-            SOURCE_MANUFACTURER
-            if seed_minerals.get(field_name) == water.minerals[field_name]
-            else SOURCE_MANUAL
-        )
-        sources.setdefault(field_name, source)
 
     # Identity: province/community are AESAN-sourced when the registry lists
     # this name under a single province that matches the ficha.

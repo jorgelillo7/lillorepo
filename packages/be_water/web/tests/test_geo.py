@@ -1,7 +1,7 @@
 """Integrity of the province-adjacency map."""
 
 from packages.be_water.web import geo
-from packages.be_water.web.seed_data import SEED_WATERS
+from packages.be_water.web.aesan_snapshot import AESAN_WATERS
 
 
 def test_adjacency_is_symmetric():
@@ -19,11 +19,12 @@ def test_no_province_borders_itself():
         assert province not in neighbors
 
 
-def test_every_seed_province_is_mapped():
-    """Seed spellings must match the map or the fallback silently misses."""
-    provinces = {raw["province"] for raw in SEED_WATERS if raw.get("province")}
-    for province in provinces:
-        assert province in geo.PROVINCE_ADJACENCY, f"unmapped: {province}"
+def test_every_registry_province_resolves_to_a_community():
+    """The add form fills the community from the registry's province. The
+    registry spells some in capitals (`ASTURIAS`) or in Spanish (`Baleares`),
+    so a lookup that missed one would silently leave the field empty."""
+    for province in {entry["province"] for entry in AESAN_WATERS}:
+        assert geo.community_of(province), f"unresolved: {province}"
 
 
 def test_lookup_is_accent_insensitive():
