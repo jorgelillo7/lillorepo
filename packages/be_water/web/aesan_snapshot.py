@@ -5,8 +5,8 @@ Do not edit by hand — regenerate with:
 A git diff here means Spain recognised (or dropped) waters.
 """
 
-AESAN_VERSION = "EU/2026-07-16"
-AESAN_DATE = "16/07/2026"
+AESAN_VERSION = "EU/2026-09-21"
+AESAN_DATE = "21/09/2026"
 
 AESAN_WATERS = [
     {
@@ -182,6 +182,12 @@ AESAN_WATERS = [
         "spring": "Sierra Nevada",
         "place": "Dúrcal",
         "province": "Granada",
+    },
+    {
+        "name": "Aquadomus",
+        "spring": "Aquadomus",
+        "place": "Saldaña",
+        "province": "Palencia",
     },
     {
         "name": "Aquarel",

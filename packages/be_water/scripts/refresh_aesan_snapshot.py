@@ -7,7 +7,7 @@ consolidated list the Commission publishes under Article 1 of Directive
 2009/54/EC, whose "recognised by Spain" section is the same registry. Run this
 manually (or from a Claude session) every few months:
 
-    pip3 install pypdf   # one-time, local only — not a Bazel dep
+    pip3 install pypdf==6.19.0   # one-time, local only — not a Bazel dep
     python3 packages/be_water/scripts/refresh_aesan_snapshot.py
 
 A non-empty `git diff` on the snapshot IS the news: waters Spain has recognised
@@ -277,8 +277,20 @@ def main() -> None:
         )
     lines.append("]")
     SNAPSHOT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    # The generated file must pass the repo linters (88-col black style).
-    subprocess.run(["black", "--quiet", str(SNAPSHOT_PATH)], check=True)
+    # The generated file must pass Lint, so it is formatted by the same
+    # hermetic black `scripts/lint.sh` runs — not whichever one is on PATH.
+    subprocess.run(
+        [
+            "bazel",
+            "run",
+            "--ui_event_filters=-info,-stdout,-stderr",
+            "//tools/lint:black",
+            "--",
+            "--quiet",
+            str(SNAPSHOT_PATH.resolve()),
+        ],
+        check=True,
+    )
     print(f"{date}: {len(entries)} waters → {SNAPSHOT_PATH}")
 
 
