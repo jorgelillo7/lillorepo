@@ -1,6 +1,6 @@
 """Idempotent catalog sync: merges the in-repo dataset into Firestore.
 
-Merge semantics (safe to re-run monthly as the dataset grows):
+Merge semantics (safe to re-run whenever the dataset changes):
 - Water not in Firestore      → created.
 - Exists and NOT verified     → dataset wins, but user-owned fields
                                 (photo_url, added_by, verified) and
@@ -11,7 +11,7 @@ Merge semantics (safe to re-run monthly as the dataset grows):
 
 Optional Telegram notification when something changed: creds come from the
 TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID env vars (local runs) or from the
-consolidated Secret Manager JSON (the monthly Cloud Run Job); missing creds
+consolidated Secret Manager JSON (the Cloud Run Job); missing creds
 → silent skip.
 
     bazel run //packages/be_water/web:sync_local

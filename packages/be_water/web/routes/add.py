@@ -17,6 +17,7 @@ from packages.be_water.web import (
     geo,
     helpers,
     label_ocr,
+    notifications,
     photos,
     repository,
     submission,
@@ -296,6 +297,9 @@ def add_water():
     if outcome == submission.HISTORY:
         # The ficha keeps the newer composition it already had.
         repository.touch_user(session["nickname"])
+        _notify_save(
+            notifications.HISTORY, water, analysis_date, minerals, verified_fields
+        )
         return redirect(
             url_for("water_detail", water_id=water_id, analisis=analysis_date)
         )
@@ -308,7 +312,33 @@ def add_water():
         )
     repository.save_water(water)
     repository.touch_user(session["nickname"])
+    _notify_save(
+        notifications.NEW if existing is None else notifications.UPDATED,
+        water,
+        analysis_date,
+        minerals,
+        verified_fields,
+    )
     return redirect(url_for("water_detail", water_id=water_id))
+
+
+def _notify_save(event, water, analysis_date, minerals, verified_fields) -> None:
+    """Tell the be_water chat what was just saved, and by whom."""
+    url = url_for(
+        "water_detail",
+        water_id=water.id,
+        _external=True,
+        **({"analisis": analysis_date} if event == notifications.HISTORY else {}),
+    )
+    notifications.notify_save(
+        event,
+        water_name=water.name,
+        nickname=session["nickname"],
+        url=url,
+        analysis_date=analysis_date,
+        minerals=len(minerals),
+        label_verified=len(verified_fields),
+    )
 
 
 def _prefill_from_aesan(prefill: dict) -> str:

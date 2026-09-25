@@ -2557,3 +2557,57 @@ def test_a_non_image_origin_photo_keeps_the_form(client):
     assert 'value="Fuente Dehesa"' in body
     assert "uploads/x-label.jpg" in body
     mock_read.assert_not_called()
+
+
+# --- the Telegram notice on save ---
+
+_NOTIFY = "packages.be_water.web.notifications.notify_save"
+
+
+def test_saving_a_new_water_sends_a_notice(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=None
+    ), patch(f"{_REPO}.touch_user"), patch(_NOTIFY) as notify:
+        client.post(
+            "/anadir",
+            data={"name": "Font Nova", "tds": "180", "ocr_fields": "tds"},
+        )
+    event = notify.call_args.args[0]
+    kwargs = notify.call_args.kwargs
+    assert event == "new"
+    assert kwargs["water_name"] == "Font Nova" and kwargs["nickname"] == "jorge"
+    assert kwargs["url"].endswith("/agua/font-nova")
+    assert kwargs["minerals"] == 1 and kwargs["label_verified"] == 1
+
+
+def test_updating_an_existing_water_sends_an_update_notice(client):
+    _login(client)
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=_catalog()[1]
+    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
+        _NOTIFY
+    ) as notify:
+        client.post("/anadir", data={"name": "Bezoya", "tds": "30"})
+    assert notify.call_args.args[0] == "updated"
+
+
+def test_an_older_analysis_sends_a_history_notice(client):
+    _login(client)
+    existing = _catalog()[1]
+    existing.analysis_date = "2025-02"
+    with patch(f"{_REPO}.save_water"), patch(
+        f"{_REPO}.get_water", return_value=existing
+    ), patch(f"{_REPO}.touch_user"), patch(
+        f"{_REPO}.get_analysis", return_value=None
+    ), patch(
+        f"{_REPO}.save_analysis"
+    ), patch(
+        _NOTIFY
+    ) as notify:
+        client.post(
+            "/anadir",
+            data={"name": "Bezoya", "tds": "26.5", "analysis_date": "2024-01"},
+        )
+    assert notify.call_args.args[0] == "history"
+    assert notify.call_args.kwargs["analysis_date"] == "2024-01"

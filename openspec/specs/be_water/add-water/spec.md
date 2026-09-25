@@ -4,12 +4,13 @@ The public add-a-water flow: a contributor photographs a bottle, reviews what
 was read off the label, and saves. This capability owns **who may save, what
 lands in the doc, and what happens when the water is already in the
 catalogue** — the reading of the label is `label-ocr`, the per-field sourcing
-and the dated series are `provenance`, and the monthly reconciliation is
-`catalog-sync`.
+and the dated series are `provenance`, and the reconciliation with the seed
+dataset is `catalog-sync`.
 
 - **Source:** `packages/be_water/web/submission.py`,
-  `packages/be_water/web/routes/add.py`
+  `packages/be_water/web/routes/add.py`, `packages/be_water/web/notifications.py`
 - **Verified by:** `packages/be_water/web/tests/test_submission.py`,
+  `packages/be_water/web/tests/test_notifications.py`,
   `packages/be_water/web/tests/test_routes.py`
 
 ---
@@ -116,7 +117,7 @@ A submission targeting a **verified** water SHALL be refused with an
 explanation, except when the submitted analysis predates the one on file, which
 SHALL be accepted into the history.
 
-A verified water is bottle-checked and data-frozen against the monthly sync, so
+A verified water is bottle-checked and data-frozen against the catalog sync, so
 nothing may quietly replace its numbers. But the guard once ran before the
 submitted date was parsed and refused everything — blocking the one case the
 history exists for, photographing an older label of a water already verified,
@@ -272,3 +273,39 @@ the one bottle where it is legible, and one bottle is not evidence.
   `test_a_water_carries_its_registry_number_and_bottler`,
   `test_both_default_to_empty_for_every_existing_ficha`,
   `test_the_ficha_shows_the_registry_number_and_bottler`
+
+### Requirement: Every save tells the be_water chat what changed, and who changed it
+
+A successful save SHALL send one Telegram message to the be_water chat, naming
+the water and the contributor's nickname, with a link to the ficha:
+🆕 for a new water, ♻️ for an existing one whose current composition changed,
+📚 for an older dated analysis that joined the history. A new or updated water
+SHALL also say how many minerals were saved and how many were read off the
+label. User text SHALL be HTML-escaped. Without a configured bot and chat
+nothing SHALL be sent, and a failed delivery SHALL be logged, never raised.
+
+The catalog now grows from contributors' photos, not from the seed dataset,
+so the save is the event worth hearing about. The message is best-effort
+because the save has already happened: a Telegram outage must not turn a
+stored water into a 500. The escaping matters because Telegram rejects the
+whole message over one unescaped `<` or `&` in a water's name.
+
+#### Scenario: new, updated, history
+- **WHEN** a new water is saved **THEN** a 🆕 notice names it, its author, the
+  mineral count and how many came from the label, and links the ficha
+- **WHEN** an existing water's composition is replaced **THEN** the notice is ♻️
+- **WHEN** an older dated label joins the history **THEN** the notice is 📚 and
+  names that analysis date
+- *Verifies:* `test_saving_a_new_water_sends_a_notice`,
+  `test_updating_an_existing_water_sends_an_update_notice`,
+  `test_an_older_analysis_sends_a_history_notice`,
+  `test_a_new_water_names_the_water_its_author_and_what_was_read`,
+  `test_an_update_and_a_history_entry_say_which_they_are`
+
+#### Scenario: escaped, optional, never fatal
+- **WHEN** a name contains `<` or `&` **THEN** it reaches Telegram escaped
+- **WHEN** no bot or chat is configured **THEN** nothing is sent
+- **WHEN** delivery fails **THEN** it is logged and the save stands
+- *Verifies:* `test_user_text_cannot_break_the_html_the_message_is_sent_as`,
+  `test_nothing_is_sent_without_a_configured_chat`,
+  `test_a_failed_delivery_is_logged_not_raised`
