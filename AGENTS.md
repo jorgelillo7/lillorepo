@@ -41,7 +41,7 @@ Three things are real:
   and the evidence, not the noise. In a long session this is the scarce
   resource.
 - **Cold eyes.** The author cannot question an assumption they still hold. The
-  three defects of 2026-08-08/09 were all tests asserting a bug as correct
+  defect this repo meets most often is a test asserting a bug as correct
   behaviour, written by whoever wrote the bug.
 
 Three things are not:

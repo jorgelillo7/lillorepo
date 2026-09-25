@@ -28,12 +28,10 @@ This is the only thing you should ask the user. Don't ask anything else.
 
 The research should be saved in `~/.claude/rpi/researchs/<name>-research.md`
 
-To conduct your research you should use `Explore type subagents in parallel that use haiku as a model`. Use between 1 and 5 subagents.
-
-To research on the internet `use the WebFetch tool, never use WebSearch,` as the organization's policies prohibit it.
+Gather the research with Explore subagents, run in parallel when the questions are independent of each other.
 
 Once you finish your research and have filled in the <name>-research.md with all the information obtained, use the plannotator tool by running `plannotator annotate` with the full path to the research file.
 
-`Wait for the annotations that the user provides about the research`. It is important that you understand that this research -> human review flow is infinite in this session. Your objective should be only that. Do not try to implement or do anything else that is not this.
+Then wait for the user's annotations and revise the file against them. The session stays in this research → review loop until the user ends it; implementing anything is out of scope.
 
-`Within the research it is crucial that you do not ask questions or give your opinion. Dedicate yourself only to investigating using the techniques I mentioned above.`
+The research file records findings, not recommendations or open questions: the plan stage is where choices get made.

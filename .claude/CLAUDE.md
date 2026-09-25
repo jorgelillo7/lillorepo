@@ -16,7 +16,7 @@ Claude-specific notes for this repository.
 - Agents: `.claude/agents/` — the four subagent roles, documented in
   [`../AGENTS.md`](../AGENTS.md)
 - Hooks: `.claude/hooks/`
-- Runtime config: `.claude/settings.json`
+- Runtime config: `.claude/settings.local.json` — per machine and gitignored; the repo ships no shared `settings.json`
 
 ## Where a skill belongs
 
@@ -74,9 +74,9 @@ here.
 ## Code comments — no testaments
 
 Comments and docstrings must explain *what the reader needs to know to use the
-code*, not the history of how it got written. Two audits already had to clean
-this up: `695eb39` (drop dated/narrative code comments) and `ccb5314` (trim
-over-verbose comments). Do not make it a third.
+code*, not the history of how it got written. Narrative comments are the kind
+that turn false after the next refactor, and they have had to be swept out of
+the codebase before.
 
 **Allowed:**
 - One-line docstring stating the contract (inputs, outputs, side effects).
