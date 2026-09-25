@@ -46,7 +46,7 @@ graph TD
     subgraph GCP["GCP · be-water-app"]
         RUN["be-water · Cloud Run service<br/>europe-southwest1 · min 0 / max 20"]
         JOB["be-water-catalog-sync · Cloud Run Job<br/>reuses the web image"]
-        SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid"]
+        SCH["Cloud Scheduler · europe-west1<br/>day 1, 09:00 Madrid · paused"]
         FS[("Firestore · europe-southwest1<br/>waters · water_analyses<br/>users · water_revisions")]
         GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ 30-day TTL")]
         SEC["Secret Manager<br/>flask-web-config-regional"]
@@ -78,7 +78,7 @@ Two things the picture is meant to make obvious:
   (`aesan_snapshot.py`) and the dataset (`seed_data.py`) ship inside the image;
   what users contribute lives in Firestore. That is why a registry refresh
   arrives as a pull request you review, and why its `git diff` *is* the news.
-- **Nothing overwrites a verified ficha.** The monthly sync skips them
+- **Nothing overwrites a verified ficha.** The catalog sync skips them
   outright, and the add flow snapshots the previous document to
   `water_revisions` before it changes a composition
   (`scripts/revert_water.py` puts it back).
@@ -93,7 +93,7 @@ composition.
   achievements), recommender, photo + OCR add flow, /acerca, /admin (dormant).
 - **Data** — `domain.py` (`Water`, with **per-field provenance** in `sources`
   and `verified_fields`), `repository.py` (Firestore), `seed_data.py`,
-  `aesan_snapshot.py` (official AESAN registry), `catalog_sync.py` (monthly sync).
+  `aesan_snapshot.py` (official AESAN registry), `catalog_sync.py` (on-demand sync of the seed dataset).
 - **Photos + AI** — `photos.py` (GCS + admin-gated *studio* treatment with
   Gemini), `label_ocr.py` (label OCR). Shared SDK in `core/sdk/gemini.py`.
 - **Reusable engines** (also reused by `/admin`): `provenance.py` (derives each

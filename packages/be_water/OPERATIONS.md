@@ -32,8 +32,12 @@ operational how-to; the specs are the single source of *what must be true*.
 
   * **🔄 Catalog sync (idempotent, merges the in-repo dataset into Firestore):**
 
-    Runs monthly in production (Scheduler `be-water-catalog-sync-monthly`,
-    day 1 09:00 Madrid → Cloud Run Job `be-water-catalog-sync`). Manual runs:
+    Runs **on demand**. The Scheduler `be-water-catalog-sync-monthly` (day 1
+    09:00 Madrid → Cloud Run Job `be-water-catalog-sync`) is **paused**: the
+    catalog grows from photographs now, and a monthly re-run of an unchanging
+    seed only risks undoing a hand correction on an unverified water. Resume
+    it with `gcloud scheduler jobs resume be-water-catalog-sync-monthly
+    --location europe-west1 --project be-water-app`. Manual runs:
 
     ```bash
       # local, against prod Firestore via ADC

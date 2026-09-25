@@ -307,7 +307,7 @@ def stale_analysis_warning(
 
 def finalize_provenance(water: Water, existing: Optional[Water]) -> None:
     """Record per-field sources and auto-promote to verified when a label photo
-    backs every declared mineral (data-frozen against the monthly sync)."""
+    backs every declared mineral (data-frozen against the catalog sync)."""
     water.sources = provenance.sources_on_save(
         water.minerals,
         water.verified_fields,

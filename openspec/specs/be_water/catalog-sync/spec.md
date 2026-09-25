@@ -4,6 +4,12 @@ Idempotent sync of the curated seed dataset into Firestore: create missing
 waters, refresh unverified ones without clobbering user contributions, never
 overwrite bottle-verified data, and notify newcomers on Telegram.
 
+It runs **on demand**. The seed dataset was the catalogue's starting point;
+the catalogue now grows from contributors' photos, each announced as it is
+saved (`add-water`). The monthly schedule is therefore paused: re-running
+the sync monthly only re-applied an unchanging seed, and on an unverified
+water it would undo a hand correction the seed disagrees with.
+
 - **Source:** `packages/be_water/web/catalog_sync.py`
 - **Verified by:** `packages/be_water/web/tests/test_catalog_sync.py`
 
