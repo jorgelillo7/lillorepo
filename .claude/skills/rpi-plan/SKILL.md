@@ -30,12 +30,12 @@ The first thing you should do is use `AskUserQuestion` to ask the user if there 
 
 The plan should be saved in `~/.claude/rpi/plans/<name>-plan.md`
 
-The plan must be extensive and detailed. It must include code snippets showing the exact changes intended to be made — new functions, modified signatures, updated logic, etc. These snippets are not illustrative; they must reflect the actual code that would need to be written or changed. It is very important to show the before vs after.
+The plan shows every change as before/after snippets of the real code — new functions, changed signatures, updated logic — not illustrations. `rpi-implement` executes it without re-deciding anything, so a change the plan does not show is a change that will not be made.
 
 If a prior research file was provided, read it before starting to plan. The research is your primary source — base the plan on it. You may still use subagents to clarify specific things that were not fully covered in the research, but the research drives the plan.
 
-If no prior research was provided, use `Explore type subagents in parallel that use haiku as a model` (between 1 and 5 subagents) to gather the necessary information before planning.
+If no prior research was provided, gather what the plan needs with Explore subagents first, in parallel when the questions are independent.
 
 Once you finish your plan and have filled in the <name>-plan.md with all the information obtained, use the plannotator tool by running `plannotator annotate` with the full path to the plan file.
 
-`Wait for the annotations that the user provides about the plan`. It is important that you understand that this plan -> human review flow is infinite in this session. Your objective should be only that. Do not try to implement or do anything else that is not this.
+Then wait for the user's annotations and revise the file against them. The session stays in this plan → review loop until the user ends it; implementing anything is out of scope.
