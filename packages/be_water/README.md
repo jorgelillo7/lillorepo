@@ -39,7 +39,6 @@ graph TD
 
     subgraph CI["GitHub Actions"]
         DEP["deploy.yml<br/>on push to master"]
-        REF["aesan-refresh.yml<br/>monthly · day 1"]
     end
 
     EU["EU Commission<br/>recognised-waters PDF"]
@@ -69,8 +68,7 @@ graph TD
     JOB -->|"summary + coverage"| TG
     DEP -->|"image"| RUN
     DEP -->|"image refresh"| JOB
-    EU --> REF
-    REF -->|"PR with the diff"| SNAP
+    EU -->|"refreshed by hand · refresh_aesan_snapshot.py"| SNAP
     REF -->|"changed · or source dead"| TG
 ```
 

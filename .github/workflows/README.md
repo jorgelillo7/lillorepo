@@ -1,13 +1,12 @@
 # CI/CD
 
-Four workflows. The two that test deliberately do **not** run the same tests.
+Three workflows. The two that test deliberately do **not** run the same tests.
 
 | Workflow | Runs on | Tests |
 |---|---|---|
 | [`ci.yml`](#ciyml--the-pull-request-gate) | every pull request | only the suites the change can break |
 | [`deploy.yml`](#deployyml) | push to `master` touching a deployable path | `//...`, always |
 | [`deploy-watchdog.yml`](#deploy-watchdogyml) | daily | — (dispatches `deploy.yml` if a push event was lost) |
-| [`aesan-refresh.yml`](#aesan-refreshyml) | monthly, day 1 | — (regenerates a snapshot, opens a PR) |
 
 Scoping is a pull-request optimisation. The branch that deploys keeps verifying
 everything, so nothing reaches production having been tested selectively.
@@ -105,24 +104,6 @@ everything.
 GitHub starts scheduled runs hours late — the cron says 09:47 Madrid, the run
 usually begins mid-afternoon. It only has to run once a day, so that is fine.
 
-## aesan-refresh.yml
-
-Monthly regeneration of the recognised-waters snapshot the be_water catalog
-measures itself against. It runs the generator, and:
-
-- **nothing changed** → the run ends silently;
-- **the list changed** → it opens a PR with the diff and tells Telegram;
-- **the generator refused to write** (the download was not a PDF, or a row's
-  province did not parse) → the run fails red and tells Telegram.
-
-That last case is the point. The source has moved once already: AESAN retired
-the whole `/AECOSAN/` tree, and the snapshot sat eight years stale on a URL
-returning 404 until a bottle happened to raise the question.
-
-The PR it opens **starts with no checks** — GitHub does not fire workflows for
-pull requests created with `GITHUB_TOKEN`. Close and reopen it to run `Lint`
-and `Test`. Swapping `github.token` for a PAT would remove that step.
-
 ## Required GitHub secrets
 
 | Secret | Description |
@@ -156,7 +137,6 @@ Service account: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`
 | Resource | Role | Why |
 |----------|------|-----|
 | `319945089838-compute@developer.gserviceaccount.com` | `roles/iam.serviceAccountUser` | Allow the deploy SA to act as the Cloud Run runtime SA (`actAs` permission required by `gcloud run deploy`) |
-| `flask-web-config-regional` (secret, project `be-water-app`) | `roles/secretmanager.secretAccessor` | Let `aesan-refresh.yml` read be_water's own bot token and chat id, so its notifications land where the catalog sync's already do |
 
 ### Cross-project grants on `be-water-app`
 

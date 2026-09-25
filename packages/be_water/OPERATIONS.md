@@ -147,6 +147,28 @@ operational how-to; the specs are the single source of *what must be true*.
        jorge.lillo9@gmail.com · 🛡️ Admin appears in the nav (admin emails
        live in `BEWATER_ADMIN_EMAILS` in deploy.yml).
 
+## 📜 Refreshing the recognised-waters snapshot
+
+`web/aesan_snapshot.py` is Spain's section of the Commission's list of
+recognised natural mineral waters. Refresh it every few months, by hand —
+the Commission's host refuses GitHub's runners, so there is no scheduled job:
+
+```bash
+pip3 install pypdf     # one-time; not a Bazel dependency
+python3 packages/be_water/scripts/refresh_aesan_snapshot.py
+git diff packages/be_water/web/aesan_snapshot.py
+```
+
+- **No diff** → nothing to do.
+- **A diff** → that is the news: waters Spain recognised or dropped. Open a PR
+  with it, and before merging check that no water already in the catalog lost
+  its registry match. The coverage figure on `/comunidad` moves with the
+  unique-name count, which is expected.
+- **The script refuses to write** → it says why on stderr. "Not a PDF" means the
+  document moved: find it from
+  <https://food.ec.europa.eu/food-safety/labelling-and-nutrition/natural-mineral-waters-and-spring-water_en>.
+  A 429 is throttling, not a move — wait and re-run.
+
 ## 🧹 Reclaiming abandoned upload photos
 
 Every `/anadir/foto` attempt writes **two** objects to
