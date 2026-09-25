@@ -43,9 +43,7 @@ The Be Water catalog (package `be_water`).
 Deploys to this project run from the shared WIF service account
 (`biwenger-tools-sa`), granted `run.admin` + `artifactregistry.writer` +
 actAs here, plus `artifactregistry.repoAdmin` on the `be-water-docker`
-repo so the CI cleanup job can delete old digests, plus
-`secretmanager.secretAccessor` on `flask-web-config-regional` so
-`aesan-refresh.yml` can notify with be_water's own bot rather than biwenger's.
+repo so the CI cleanup job can delete old digests.
 
 ## Outside GCP (but part of the picture)
 
