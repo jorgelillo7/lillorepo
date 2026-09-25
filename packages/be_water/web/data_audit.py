@@ -12,11 +12,9 @@ from unidecode import unidecode
 from packages.be_water.web import geo, repository
 from packages.be_water.web.domain import (
     MINERAL_FIELDS,
-    MINERAL_LABELS,
     SOURCE_LABEL,
     Water,
 )
-from packages.be_water.web.seed_data import SEED_WATERS
 
 _SLUG = re.compile(r"[^a-z0-9]+")
 # Major dissolved ions whose sum should track the dry residue (tds).
@@ -42,7 +40,7 @@ def verifiable(water: Water) -> bool:
 
 def mark_verified(water: Water) -> None:
     """Admin sign-off: freeze the ficha as verified. Non-label values keep
-    their provenance (they still render as 'fabricante' / 'a mano'); the model
+    their provenance (they still render as 'a mano' or unmarked); the model
     no longer conflates a verified ficha with every field being label-backed."""
     if not water.label_photo_url or not water.verified_fields:
         raise ValueError(
@@ -120,33 +118,6 @@ def suspicious_reasons(water: Water) -> list[str]:
             f"residuo seco {tds} incoherente con la suma de iones {round(ion_sum)}"
         )
     return reasons
-
-
-def dataset_drift(catalog: list[Water]) -> list[tuple]:
-    """(water, [differences]) where a ficha's stored composition disagrees with
-    the in-repo dataset on a field the dataset also declares.
-
-    Seven waters once drifted this way: a label photo corrected Firestore and
-    nobody backported the confirmed numbers, so the dataset kept seeding values
-    no bottle supports. A label-backed difference means the dataset is stale
-    and should be updated; a difference on an unverified field means one of the
-    two is simply wrong.
-    """
-    seeded = {raw["id"]: raw.get("minerals", {}) for raw in SEED_WATERS}
-    drifted = []
-    for water in catalog:
-        dataset = seeded.get(water.id)
-        if not dataset:
-            continue
-        differences = [
-            f"{MINERAL_LABELS.get(f, f)}: dataset {v} vs ficha {water.minerals[f]}"
-            + (" [etiqueta]" if f in water.verified_fields else "")
-            for f, v in dataset.items()
-            if f in water.minerals and float(water.minerals[f]) != float(v)
-        ]
-        if differences:
-            drifted.append((water, differences))
-    return drifted
 
 
 def find_suspicious(catalog: list[Water]) -> list[tuple]:

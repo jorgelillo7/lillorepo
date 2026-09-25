@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """One-shot backfill of ``Water.sources`` for existing catalog docs.
 
-Derives the provenance of every non-label field (see web/provenance.py):
-minerals not confirmed from a label → "manufacturer" for seed-origin waters,
-"manual" otherwise; province/community → "AESAN" when the registry agrees.
+Adds the provenance the registry can vouch for (see web/provenance.py):
+province/community → "AESAN" when the registry agrees. Minerals are never
+filled in: who wrote an unrecorded number cannot be known after the fact.
 
 Idempotent — only fills gaps. Dry-run by default; pass --apply to write.
 

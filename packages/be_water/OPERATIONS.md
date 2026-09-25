@@ -30,30 +30,6 @@ operational how-to; the specs are the single source of *what must be true*.
       bazel test //packages/be_water/web:web_tests --test_output=streamed --test_arg=-v
     ```
 
-  * **🔄 Catalog sync (idempotent, merges the in-repo dataset into Firestore):**
-
-    Runs **on demand**. The Scheduler `be-water-catalog-sync-monthly` (day 1
-    09:00 Madrid → Cloud Run Job `be-water-catalog-sync`) is **paused**: the
-    catalog grows from photographs now, and a monthly re-run of an unchanging
-    seed only risks undoing a hand correction on an unverified water. Resume
-    it with `gcloud scheduler jobs resume be-water-catalog-sync-monthly
-    --location europe-west1 --project be-water-app`. Manual runs:
-
-    ```bash
-      # local, against prod Firestore via ADC
-      bazel run //packages/be_water/web:sync_local
-
-      # or execute the production job
-      gcloud run jobs execute be-water-catalog-sync \
-          --region europe-southwest1 --project be-water-app
-    ```
-
-    > Safe to re-run: verified waters are never clobbered, label-backed
-    > minerals and user photos survive. It notifies Telegram (creds from the
-    > consolidated secret, or `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` env
-    > locally) about changes and about waters the dataset doesn't know
-    > (typos or novelties).
-
   * **🧹 Curation & audit tooling (local, ADC — read-only until you confirm a write):**
 
     Interactive maintenance CLIs over the live catalog. Each shares the same
@@ -71,10 +47,6 @@ operational how-to; the specs are the single source of *what must be true*.
       bazel run //packages/be_water/scripts:audit_data
       bazel run //packages/be_water/scripts:audit_data -- --duplicates
       bazel run //packages/be_water/scripts:audit_data -- --suspicious
-
-      # Drift — where the in-repo dataset and the live catalog disagree.
-      # Read-only: the fix is a PR against seed_data.py, not a Firestore write.
-      bazel run //packages/be_water/scripts:audit_data -- --drift
 
       # Revert — undo a contribution that overwrote a composition, from the
       # snapshot the add flow stores in water_revisions.

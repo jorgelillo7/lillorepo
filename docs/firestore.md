@@ -340,8 +340,8 @@ same doc and re-adds/updates are idempotent.
 
 **Provenance:** a field's source is `label` when it's in `verified_fields`, else
 whatever `sources` records (`Water.source_of`). This is what lets the UI say
-"✓ etiqueta" / "fabricante" / "registro AESAN" / "a mano" per value instead of
-a blanket "sin verificar".
+"✓ etiqueta" / "registro AESAN" / "a mano" per value, and nothing at all where
+no source was recorded, rather than guess one.
 
 #### `water_analyses/{water_id}__{analysis_date}` — composition history
 

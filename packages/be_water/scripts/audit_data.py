@@ -6,10 +6,9 @@ Three read-then-repair passes over the live catalog (ADC, be-water-app):
     bazel run //packages/be_water/scripts:audit_data                 # verify sign-off
     bazel run //packages/be_water/scripts:audit_data -- --duplicates # merge dupes
     bazel run //packages/be_water/scripts:audit_data -- --suspicious # fix bad values
-    bazel run //packages/be_water/scripts:audit_data -- --drift       # dataset vs live
 
 Sign-off freezes a ficha as verified (label photo + ≥1 label-confirmed value);
-non-label values keep their "fabricante" / "a mano" provenance. Every write is
+non-label values keep their provenance. Every write is
 behind a confirmation."""
 
 import argparse
@@ -24,10 +23,9 @@ from packages.be_water.web.domain import (  # noqa: E402
     MINERAL_LABELS,
     SOURCE_LABEL,
     SOURCE_MANUAL,
-    SOURCE_MANUFACTURER,
 )
 
-_SOURCES = {"l": SOURCE_LABEL, "f": SOURCE_MANUFACTURER, "m": SOURCE_MANUAL}
+_SOURCES = {"l": SOURCE_LABEL, "m": SOURCE_MANUAL}
 
 
 def _prompt(text: str) -> str:
@@ -44,7 +42,7 @@ def _fields_summary(water) -> str:
     label = ", ".join(MINERAL_LABELS.get(f, f) for f in water.verified_fields)
     other = [f for f in water.minerals if f not in water.verified_fields]
     other_str = ", ".join(MINERAL_LABELS.get(f, f) for f in other) or "—"
-    return f"    etiqueta: {label}\n    resto (fabricante/a mano): {other_str}"
+    return f"    etiqueta: {label}\n    resto (a mano/sin marca): {other_str}"
 
 
 def sign_off(catalog, open_photos: bool) -> None:
@@ -119,9 +117,7 @@ def _correct(water) -> None:
     except ValueError:
         print("      valor no numérico.")
         return
-    src = _SOURCES.get(
-        _prompt("      fuente [l]etiqueta/[f]abricante/[m]ano: ").lower()
-    )
+    src = _SOURCES.get(_prompt("      fuente [l]etiqueta/[m]ano: ").lower())
     if not src:
         print("      fuente no válida.")
         return
@@ -142,23 +138,6 @@ def suspicious(catalog) -> None:
         if answer == "c":
             _correct(water)
         print()
-
-
-def drift(catalog) -> None:
-    """Read-only: where the in-repo dataset and the live catalog disagree.
-
-    A `[etiqueta]` difference means seed_data.py is stale and should be
-    updated in a PR — the fix belongs in the repo, not in Firestore, so this
-    pass never writes."""
-    findings = data_audit.dataset_drift(catalog)
-    print(f"\n{len(findings)} fichas difieren del dataset del repo.\n")
-    for water, differences in findings:
-        print(f"{water.id} — {water.name}")
-        for difference in differences:
-            print(f"    ≠ {difference}")
-        print()
-    if findings:
-        print("Actualiza packages/be_water/web/seed_data.py en una PR.\n")
 
 
 def geo(catalog) -> None:
@@ -183,7 +162,6 @@ def main() -> None:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--duplicates", action="store_true", help="review dupes")
     mode.add_argument("--suspicious", action="store_true", help="review bad values")
-    mode.add_argument("--drift", action="store_true", help="dataset vs live catalog")
     mode.add_argument("--geo", action="store_true", help="origins needing a human")
     parser.add_argument("--no-open", action="store_true", help="don't open photos")
     args = parser.parse_args()
@@ -193,8 +171,6 @@ def main() -> None:
         duplicates(catalog)
     elif args.suspicious:
         suspicious(catalog)
-    elif args.drift:
-        drift(catalog)
     elif args.geo:
         geo(catalog)
     else:

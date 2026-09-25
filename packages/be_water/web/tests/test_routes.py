@@ -105,12 +105,12 @@ def test_water_detail_renders_provenance_badges(client):
         community="Castilla-La Mancha",
         minerals={"tds": 261, "calcium": 59.5, "sodium": 5.2},
         verified_fields=["calcium"],  # ✓ etiqueta
-        sources={"tds": "manufacturer", "sodium": "manual", "province": "aesan"},
+        sources={"sodium": "manual", "province": "aesan"},  # tds: none recorded
     )
     with patch(f"{_REPO}.get_all_waters", return_value=[solan]):
         body = client.get("/agua/solan-de-cabras").get_data(as_text=True)
     assert "✓ etiqueta" in body  # calcium (label)
-    assert "fabricante" in body  # tds
+    assert "fabricante" not in body  # tds carries no invented source
     assert "a mano" in body  # sodium
     assert "registro AESAN" in body  # province provenance
     assert "sin verificar" not in body  # blanket warning is gone
@@ -1852,7 +1852,7 @@ def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
     catalog = _catalog()
     catalog[1].minerals = {"tds": 26.5, "sodium": 1.1, "calcium": 9.0}
     catalog[1].verified_fields = ["tds"]
-    catalog[1].sources = {"sodium": "manual", "calcium": "manufacturer"}
+    catalog[1].sources = {"sodium": "manual"}
     with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
         f"{_REPO}.list_analyses", return_value=[]
     ):
@@ -1863,7 +1863,7 @@ def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
     assert anchors == {
         "fuente-etiqueta",
         "fuente-a-mano",
-        "fuente-fabricante",
+        "fuente-sin-marca",
         "fuentes",  # the legend at the foot of the card
     }
     for name in anchors:

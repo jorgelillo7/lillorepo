@@ -78,7 +78,7 @@ ADMIN_EMAILS = {
     if e.strip()
 }
 
-# --- Telegram (catalog-sync notifications) ---
+# --- Telegram (a notice for every saved water) ---
 TELEGRAM_BOT_TOKEN = _FLASK_CFG.get("telegram_bot_token", "")
 TELEGRAM_CHAT_ID = _FLASK_CFG.get("telegram_chat_id", "")
 

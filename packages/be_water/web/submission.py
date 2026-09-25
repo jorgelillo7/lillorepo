@@ -305,14 +305,17 @@ def stale_analysis_warning(
     )
 
 
-def finalize_provenance(water: Water, existing: Optional[Water]) -> None:
+def finalize_provenance(
+    water: Water, existing: Optional[Water], submitted: set
+) -> None:
     """Record per-field sources and auto-promote to verified when a label photo
-    backs every declared mineral (data-frozen against the catalog sync)."""
+    backs every declared mineral. `submitted` is the minerals the contributor
+    sent in this form, as opposed to those merged through from the ficha."""
     water.sources = provenance.sources_on_save(
         water.minerals,
         water.verified_fields,
         existing.sources if existing is not None else {},
-        water.id,
+        submitted,
     )
     if (
         water.label_photo_url

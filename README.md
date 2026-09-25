@@ -24,8 +24,7 @@ graph TD
     USR -->|browse + add waters| BW[be_water/web<br/>Cloud Run Service]
     BW --> BWFS[(Firestore + GCS<br/>be-water-app project)]
     GEM[Gemini API] -->|label OCR + studio| BW
-    BWSYNC[be-water-catalog-sync<br/>Cloud Run Job, monthly] --> BWFS
-    EUL[EU recognised-waters list] -->|monthly CI refresh, opens a PR| BW
+    EUL[EU recognised-waters list] -->|refreshed by hand, reviewed as a PR| BW
     GS[Google Sheets] -->|competiciones| WEB
     USR -->|browse| WEB
 ```

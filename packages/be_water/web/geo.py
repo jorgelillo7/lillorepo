@@ -1,8 +1,9 @@
 """Spanish province adjacency, for the recommender's nearby fallback, and the
 country vocabulary that says when any of it applies.
 
-Canonical names match `seed_data.py` spelling; lookups are
-accent-insensitive. Symmetry is enforced by the test suite.
+Canonical names are the Spanish province names; lookups are accent- and
+case-insensitive, so the official registry's spellings resolve too. Symmetry
+is enforced by the test suite.
 """
 
 from unidecode import unidecode

@@ -38,20 +38,19 @@
                 humana). La foto original de cada etiqueta se conserva como prueba
                 y puede verse desde la ficha del agua.
             </li>
-            <li id="fuente-fabricante" class="scroll-mt-24">
-                <span class="font-semibold text-slate-700">Datos publicados por fabricantes</span> —
-                para las aguas que aún nadie ha fotografiado, la composición proviene
-                de la información publicada por las propias marcas. Son valores
-                aproximados (las analíticas cambian entre lotes y años) y están
-                pendientes de verificación botella en mano.
-            </li>
             <li id="fuente-a-mano" class="scroll-mt-24">
                 <span class="font-semibold text-amber-600">A mano</span> —
-                alguien tecleó ese valor al dar de alta el agua y no viene ni de una
-                etiqueta fotografiada ni del dato publicado por la marca. Es la
-                procedencia más débil de las cuatro y la única que no se puede
-                contrastar con nada: si ves un número así y tienes la botella
-                delante, fotografía la etiqueta y el ✓ lo sustituye.
+                alguien tecleó ese valor al dar de alta el agua y no viene de una
+                etiqueta fotografiada. No se puede contrastar con nada: si ves un
+                número así y tienes la botella delante, fotografía la etiqueta y el
+                ✓ lo sustituye.
+            </li>
+            <li id="fuente-sin-marca" class="scroll-mt-24">
+                <span class="font-semibold text-slate-700">Sin marca</span> —
+                un valor sin ninguna indicación viene de las primeras fichas del
+                catálogo y nadie lo ha confirmado todavía con una foto de la
+                etiqueta. Tómalo como aproximado: cuando alguien fotografíe la
+                botella, el ✓ lo sustituye.
             </li>
             <li id="fuente-aesan" class="scroll-mt-24">
                 <span class="font-semibold text-slate-700">Lista oficial AESAN</span> —
@@ -62,10 +61,10 @@
                 <strong>{{ aesan.covered }}</strong> de ellas. Las procedencias
                 (manantial, municipio, provincia) se contrastan — y se autorellenan
                 al dar de alta — con la
-                <a href="https://www.aesan.gob.es/AECOSAN/web/seguridad_alimentaria/subdetalle/lista_aguas_envasadas.htm"
+                <a href="https://food.ec.europa.eu/food-safety/labelling-and-nutrition/natural-mineral-waters-and-spring-water_en"
                    target="_blank" rel="noopener" class="text-sky-600 underline hover:text-sky-700">lista
                 oficial</a>. El registro solo aporta identidad, nunca composiciones:
-                esas salen siempre de una etiqueta o del fabricante.
+                esas salen siempre de una etiqueta o de quien las aportó.
             </li>
         </ul>
     </section>

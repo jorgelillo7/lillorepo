@@ -28,10 +28,9 @@ MINERAL_FIELDS_EXTRA = MINERAL_FIELDS[7:]
 
 # Where a field's value came from. Label-confirmed fields live in
 # `verified_fields` (they drive the ✓); `sources` records the provenance of
-# everything else, so the UI can name it ("fabricante" / "AESAN" / "a mano")
-# instead of a blanket "sin verificar".
+# everything else, so the UI can name it ("AESAN" / "a mano"). A field with no
+# recorded source shows none: naming one would be inventing it.
 SOURCE_LABEL = "label"
-SOURCE_MANUFACTURER = "manufacturer"
 SOURCE_AESAN = "aesan"
 SOURCE_MANUAL = "manual"
 

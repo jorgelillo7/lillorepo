@@ -1,8 +1,8 @@
 # Capability: provenance
 
 Per-field sourcing for a water's mineral values, so the UI can name where each
-number came from (`label` / `manufacturer` / `aesan` / `manual`) instead of a
-blanket "sin verificar".
+number came from (`label` / `aesan` / `manual`), or say nothing when nobody
+recorded it — never a source guessed after the fact.
 
 - **Source:** `packages/be_water/web/provenance.py`, `domain.py`,
   `submission.py`, `routes/add.py`
@@ -11,21 +11,25 @@ blanket "sin verificar".
 
 ---
 
-### Requirement: Derive sources from seed + registry
+### Requirement: Derive sources from the registry, never invent a mineral's
 
-`derive_sources` SHALL assign, per mineral field: `label` fields (those in
-`verified_fields`) are **not stored** (their source is implied); a value equal
-to the seed dataset is `manufacturer`; a value changed from the seed, or absent
-from it, is `manual`; an already-recorded source is preserved. Province and
-community SHALL be sourced `aesan` only when the AESAN registry match agrees
-with the stored value.
+`derive_sources` SHALL keep every source a water already records, and SHALL
+add `aesan` to province and community only when the AESAN registry match
+agrees with the stored value. It SHALL NOT fill in a source for a mineral:
+who wrote a number nobody recorded cannot be known after the fact, and
+naming a source for it would be inventing one.
 
-#### Scenario: mineral field sourcing
-- **WHEN** a field is label-verified / matches seed / differs from seed /
-  is new / already has a source
-- **THEN** it is omitted / `manufacturer` / `manual` / `manual` / kept as-is
-- *Verifies:* `test_seed_matching_values_are_manufacturer_label_fields_excluded`,
-  `test_value_changed_from_seed_is_manual`, `test_value_absent_from_seed_is_manual`,
+That is the rule, because it once was broken. A seed dataset of values
+transcribed from brands' sites let the ficha label any matching number
+"fabricante"; two documents were found carrying that mark on values no
+photographed label printed, or on values a label did print but was not
+credited for. The seed is gone, those documents were corrected, and an
+unrecorded mineral now renders with no badge at all.
+
+#### Scenario: minerals are left alone, recorded sources kept
+- **WHEN** a mineral has no recorded source **THEN** none is derived
+- **WHEN** it already has one **THEN** it is kept
+- *Verifies:* `test_a_mineral_with_no_recorded_source_stays_unknown`,
   `test_existing_source_is_kept`
 
 #### Scenario: identity from AESAN only on agreement
@@ -66,17 +70,17 @@ a human decides. Only a provable mistake is repaired.
   `test_a_place_nobody_has_mapped_is_kept_as_typed`,
   `test_build_water_leaves_an_unknown_province_without_a_community`
 
-### Requirement: The four sources mean four different things, and the ficha says so
+### Requirement: Each source means one thing, and the ficha says so
 
-`label` / `manufacturer` / `manual` / `aesan` are a vocabulary shown to
-readers, not internal states, and each SHALL keep its meaning:
+`label` / `manual` / `aesan` — and the absence of any — are a vocabulary shown
+to readers, not internal states, and each SHALL keep its meaning:
 
 | Value | Renders | Means |
 |---|---|---|
 | `label` | ✓ etiqueta | Read off a photographed label kept as proof |
-| `manufacturer` | fabricante | Still equal to this water's seeded value |
-| `manual` | a mano | Somebody typed it: no label, no seed match |
+| `manual` | a mano | The contributor submitted it, and no label backs it |
 | `aesan` | AESAN | Identity cross-checked against the state register — **never a composition** |
+| *(none)* | no badge | Nobody recorded where it came from — explained as "sin marca" |
 
 The ficha SHALL let a reader reach the explanation of any badge it shows. The
 badges carried their meaning in a `title` attribute alone, which does nothing
@@ -90,35 +94,37 @@ repurposed as "not confirmed by a label" without a single test or spec
 objecting.
 
 #### Scenario: a reader can find out where a number came from
-- **WHEN** a ficha shows fields sourced from a label, from the seed and from a
-  contributor
+- **WHEN** a ficha shows fields sourced from a label, from a contributor, and
+  with no recorded source
 - **THEN** each badge links to the entry in `/acerca` that explains that
   source, and every anchor it links to exists on that page
 - *Verifies:* `test_every_provenance_badge_links_to_an_explanation_that_exists`
 
 ### Requirement: Sources recomputed on save
 
-`sources_on_save` SHALL mark a new mineral `manufacturer` when its value still
-matches this water's seeded one and `manual` otherwise — the same test
-`derive_sources` applies, so the two provenance paths cannot disagree about the
-same number. It SHALL drop fields that became label-backed or that no longer
-exist as minerals, and preserve prior mineral sources and identity
-(province/community) sources.
+`sources_on_save` SHALL mark `manual` every mineral the contributor submitted
+in the form that was not read off the label. A mineral merged through from the
+ficha, which the contributor never submitted, SHALL keep the source it had, or
+none. Fields that became label-backed or no longer exist as minerals SHALL be
+dropped; identity (province/community) sources SHALL be preserved.
 
-`manual` means a contributor typed it, and SHALL NOT be used as the catch-all
-for "not confirmed by a label". A seeded value merged onto a submission that
-never mentioned it was being credited to whoever photographed the bottle.
+`manual` means a contributor submitted it, and SHALL NOT be used as the
+catch-all for "not confirmed by a label". Lunares' label declares eight
+minerals; the ficha held ten, and the two merged-through values were credited
+to whoever photographed the bottle.
 
 #### Scenario: save recomputation
-- **WHEN** saving with new minerals, label promotions, and vanished fields
-- **THEN** new → `manual`, label/vanished → dropped, prior + identity → kept
-- **WHEN** a new mineral still holds its seeded value **THEN** `manufacturer`
-- **WHEN** that value was changed from the seed **THEN** `manual`
-- *Verifies:* `test_sources_on_save_marks_new_minerals_manual_labels_implied`,
-  `test_sources_on_save_preserves_prior_and_identity_sources`,
-  `test_sources_on_save_drops_vanished_and_label_fields`,
-  `test_a_seeded_value_is_not_credited_to_the_contributor`,
-  `test_a_value_a_contributor_changed_is_no_longer_the_manufacturer_s`
+- **WHEN** the contributor submits minerals, some read off the label **THEN**
+  the rest are `manual` and the label ones are not stored
+- **WHEN** a value was merged from the ficha, not submitted **THEN** it keeps
+  its source, or has none
+- **WHEN** a value is resubmitted **THEN** it becomes `manual`
+- **WHEN** a field became label-backed or vanished **THEN** it is dropped
+- *Verifies:* `test_what_the_contributor_submitted_is_manual_labels_implied`,
+  `test_a_value_merged_from_the_ficha_is_not_credited_to_the_contributor`,
+  `test_a_merged_value_keeps_the_source_it_had`,
+  `test_resubmitting_a_value_makes_it_the_contributor_s`,
+  `test_sources_on_save_drops_vanished_and_label_fields`
 
 ### Requirement: The label's analysis date dates the whole composition
 
