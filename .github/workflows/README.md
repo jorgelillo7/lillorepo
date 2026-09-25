@@ -1,11 +1,12 @@
 # CI/CD
 
-Two workflows, and they deliberately do **not** run the same tests.
+Four workflows. The two that test deliberately do **not** run the same tests.
 
 | Workflow | Runs on | Tests |
 |---|---|---|
 | [`ci.yml`](#ciyml--the-pull-request-gate) | every pull request | only the suites the change can break |
-| [`deploy.yml`](#deployyml) | every push to `master` | `//...`, always |
+| [`deploy.yml`](#deployyml) | push to `master` touching a deployable path | `//...`, always |
+| [`deploy-watchdog.yml`](#deploy-watchdogyml) | daily | — (dispatches `deploy.yml` if a push event was lost) |
 | [`aesan-refresh.yml`](#aesan-refreshyml) | monthly, day 1 | — (regenerates a snapshot, opens a PR) |
 
 Scoping is a pull-request optimisation. The branch that deploys keeps verifying
@@ -17,9 +18,16 @@ everything, so nothing reaches production having been tested selectively.
 
 Two parallel jobs, `Lint` and `Test`, both required by branch protection.
 
-**Lint** runs flake8 and `black --check` through Bazel's hermetic toolchain
-(`scripts/lint.sh`), plus `scripts/check_base_sync.py`, which guards the gap
-between the lock Bazel resolves and the image production runs.
+**Lint** runs `scripts/lint.sh`: flake8 and `black --check` through Bazel's
+hermetic toolchain, then four stdlib checks —
+
+- `check_base_sync.py`: the lock Bazel resolves and the image production runs
+  agree, and every `@pypi` label is a direct dependency (python-conventions
+  LP-1–LP-3);
+- `check_specs.py`: every test a spec names exists;
+- `check_import_paths.py`: no code reaches other code by path (LP-9);
+- `check_workflow_shell.py`: no comment truncates a multi-line command in
+  these workflows.
 
 **Test** picks its targets from the build graph rather than from a list in this
 file:
@@ -29,7 +37,8 @@ scripts/affected_tests.py  →  changed files → Bazel labels → rdeps → tes
 ```
 
 So a change under `packages/be_water/` runs be_water's suite alone, a change
-under `core/` runs all ten, and a documentation change runs none. An earlier
+under `core/` runs every suite that links it, and a documentation change runs
+none. An earlier
 version of this idea kept a per-module target list in each workflow; the two
 copies drifted until `draft_skill_tests` ran on pull requests and never on
 master. A list of "what belongs to what" rots because nothing checks it —
@@ -51,7 +60,11 @@ required check permanently pending and block every documentation PR.
 
 ## `deploy.yml`
 
-Runs on every push to `master` when files under `core/`, `packages/`, `tools/`, `docker/`, `MODULE.bazel` or `.github/workflows/` change.
+Runs on a push to `master` that touches `core/`, `tools/`, `docker/`,
+`MODULE.bazel`, `.github/workflows/deploy.yml`, or a deployable package:
+`packages/biwenger_tools/{web,scraper_job,bot,api}/`, `packages/chucknorris_bot/`,
+`packages/be_water/`. A merge touching nothing else — docs, skills, `scripts/`,
+`openspec/` — deploys nothing, and that is expected.
 
 ## Stages
 
@@ -84,7 +97,13 @@ deploy run and the workflow cannot guard itself). It compares master HEAD
 with the latest `deploy.yml` run's snapshot; when deployable paths changed
 without a run, it dispatches a full deploy. Docs-only merges (which
 legitimately trigger no run) are recognised and skipped. Its path filter
-must mirror `deploy.yml`'s `on.push.paths` — update both together.
+must mirror `deploy.yml`'s `on.push.paths` exactly — update both together. A
+wider filter here dispatches a full deploy of all six services for a change
+`deploy.yml` ignores, which is how a `release-notes.md` merge once redeployed
+everything.
+
+GitHub starts scheduled runs hours late — the cron says 09:47 Madrid, the run
+usually begins mid-afternoon. It only has to run once a day, so that is fine.
 
 ## aesan-refresh.yml
 
