@@ -197,6 +197,24 @@ nothing errored, the feature was simply blind.
   respectively, and the admin builder is not the transfer one
 - *Verifies:* `test_each_board_builder_pins_its_own_type`
 
+### Requirement: The whole board is read only as far back as the caller needs
+
+`league_board_all_url` SHALL filter on no type, and SHALL carry only
+`fields=*`: the board answers any parameter it does not filter on — `lang`
+included — with a 400, "Invalid filter parameters".
+
+The board pages newest first. Given `until_type`, `get_all_board_messages`
+SHALL stop after the page holding an entry of that type, so a season read
+ends at `seasonStarted` instead of walking every past season.
+
+#### Scenario: an unfiltered feed that stops at the season start
+- **WHEN** the all-types URL is built **THEN** it carries no `type` and ends
+  in `?fields=*`
+- **WHEN** paging with `until_type="seasonStarted"` **THEN** no page after the
+  one holding it is requested
+- *Verifies:* `test_league_board_all_url_filters_no_type`,
+  `test_get_all_board_messages_stops_at_the_page_holding_until_type`
+
 ### Requirement: The competition catalogue is public, unwrapped, and downloaded once
 
 `get_competition_maps` SHALL return both the player map and the team map from a

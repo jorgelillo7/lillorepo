@@ -1,6 +1,7 @@
 """Generates PNG table images for Telegram using matplotlib."""
 
 import io
+import unicodedata
 from datetime import datetime
 
 import matplotlib
@@ -552,6 +553,95 @@ def build_table_image(
                 table[i, j].set_width(width)
 
     _draw_generated_stamp(ax)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight", facecolor=_SURFACE)
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
+
+def _eur(amount: int) -> str:
+    return f"{amount:,} €".replace(",", ".")
+
+
+def _plain(text: str) -> str:
+    """`_strip_emoji`, plus the pictographs inside the BMP (⭐, ✅, ⚠) that
+    DejaVu Sans draws as empty boxes — manager names carry them."""
+    return "".join(
+        c for c in _strip_emoji(text) if unicodedata.category(c) != "So"
+    ).strip()
+
+
+def build_cash_image(rows: list[dict], title: str, notes: list[str]) -> bytes:
+    """PNG of `/saldos`: manager, cash and maximum bid, in the order given.
+
+    `rows` carry `name`, `cash`, `max_bid` and an optional `is_me`, drawn in
+    bold. `notes` go underneath; a line opening with ⚠️ is a warning and is
+    drawn in the critical colour, spelled out in words since the font has no
+    emoji.
+    """
+    headers = ["Manager", "Saldo", "Puja máx."]
+    cell_data = [[_plain(r["name"]), _eur(r["cash"]), _eur(r["max_bid"])] for r in rows]
+    n_rows = len(cell_data)
+    fig_h = 1.6 + 0.42 * n_rows + 0.3 * len(notes)
+    fig, ax = plt.subplots(figsize=(6.4, fig_h))
+    fig.patch.set_facecolor(_SURFACE)
+    ax.set_facecolor(_SURFACE)
+    ax.axis("off")
+
+    table_top = 1 - 0.75 / fig_h
+    table_bottom = (0.3 * len(notes) + 0.25) / fig_h
+    ax.text(
+        0.5,
+        1.0,
+        _strip_emoji(title),
+        transform=ax.transAxes,
+        fontsize=14,
+        fontweight="bold",
+        ha="center",
+        va="top",
+        color=_TITLE_FG,
+    )
+    table = ax.table(
+        cellText=cell_data,
+        colLabels=headers,
+        cellLoc="right",
+        colWidths=[0.44, 0.28, 0.28],
+        loc="center",
+        bbox=[0, table_bottom, 1, table_top - table_bottom],
+    )
+    for (i, j), cell in table.get_celld().items():
+        cell.set_edgecolor(_EDGE)
+        text = cell.get_text()
+        if j == 0:
+            cell._loc = "left"
+            text.set_horizontalalignment("left")
+        if i == 0:
+            cell.set_facecolor(_HEADER_BG)
+            text.set_color(_HEADER_FG)
+            text.set_fontweight("bold")
+            text.set_fontsize(10)
+            continue
+        cell.set_facecolor(_ROW_BG["plays"])
+        text.set_color(_INK)
+        text.set_fontsize(10.5)
+        if rows[i - 1].get("is_me") or j == 2:
+            text.set_fontweight("bold")
+
+    for k, note in enumerate(notes):
+        warning = note.startswith("⚠️")
+        line = _plain(note)
+        ax.text(
+            0,
+            table_bottom - (0.1 + 0.3 * k) / fig_h,
+            f"Atención: {line}" if warning else line,
+            transform=ax.transAxes,
+            fontsize=8.5,
+            ha="left",
+            va="top",
+            color=_CRITICAL if warning else _INK_SOFT,
+        )
 
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=_DPI, bbox_inches="tight", facecolor=_SURFACE)

@@ -191,7 +191,9 @@ it for the back line — see the known simplification in
 `openspec/specs/biwenger_tools/auto-pick-lineup/spec.md`.
 
 ## What this file does not establish
-- **Our league's starting balance and market expiry.** The rest came back from
+- **Our league's market expiry.** The starting balance is known: 50M for every
+  manager, rebuilt to the euro from the board (see
+  the [`league-cash` spec](../../../openspec/specs/biwenger_tools/league-cash/spec.md)). The rest came back from
   `/rounds/league`: `splitRound = "end"` (points and payouts only once every
   match of the round is played), `bonusPoint = 75000`, `bonusIdealLineup =
   500000`, and **`lineupRoundChanges = 0`** — which is the API confirming, in

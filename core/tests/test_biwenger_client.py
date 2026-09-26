@@ -9,6 +9,7 @@ from core.sdk.biwenger import (
     BiwengerClient,
     admin_transfers_url,
     clausulazos_url,
+    league_board_all_url,
     league_board_url,
 )
 
@@ -972,6 +973,37 @@ def test_get_all_clausulazos_accepts_a_dict_shaped_page(
         m.get(f"{base}&limit=50&offset=50", json={"data": []}, status_code=200)
         result = client.get_all_clausulazos(base, limit=50)
     assert result == {"data": [{"id": 1}, {"id": 2}]}
+
+
+def test_get_all_board_messages_stops_at_the_page_holding_until_type(
+    biwenger_client_authenticated,
+):
+    """The board pages newest first; the page holding `until_type` is the last
+    one a season read needs, so the rest of the history is never requested."""
+    client = biwenger_client_authenticated
+    pages = [
+        {"data": [{"type": "market"}] * 200},
+        {"data": [{"type": "bonus"}] * 150 + [{"type": "seasonStarted"}] * 50},
+        {"data": [{"type": "article"}] * 200},
+    ]
+    seen_urls = []
+
+    def stub(url):
+        seen_urls.append(url)
+        return pages.pop(0)
+
+    client.get_board_messages = stub
+    messages = client.get_all_board_messages(
+        "http://test.com", until_type="seasonStarted"
+    )
+    assert len(messages) == 400
+    assert len(seen_urls) == 2
+
+
+def test_league_board_all_url_filters_no_type():
+    assert "type=" not in league_board_all_url(TEST_LEAGUE_ID)
+    # The board 400s on parameters it does not filter on, `lang` included.
+    assert league_board_all_url(TEST_LEAGUE_ID).endswith("/board?fields=*")
 
 
 # --- board feeds are chosen by `type`, and the wrong one fails silently ---

@@ -170,7 +170,10 @@ Then edit:
    `BUDGET_OVERRIDES`. The Copa Castolo winner carries a +2M draft bonus into
    the new season. Keyed **by manager id**, never by draft position — the order
    changes yearly, so a positional key would silently hand the bonus to
-   whoever happens to pick third.
+   whoever happens to pick third. In Biwenger itself the bonus must land as an
+   admin **bonus** on top of the common starting balance, never as a different
+   starting figure: `/saldos` rebuilds everyone's cash from `DEFAULT_BUDGET`
+   plus the board, and only a board entry is visible to it.
 3. **League membership** — `packages/biwenger_tools/constants.py`:
    `LEAGUE_MEMBERS` and `NON_PLAYING_MEMBER_IDS`, if anyone joined, left, or
    switched between playing and spectating.

@@ -151,6 +151,24 @@ def test_league_compare_rejects_get(client):
     assert client.get("/league/compare").status_code == 405
 
 
+# --- /league/cash ---
+
+
+def test_league_cash_calls_the_action(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_league_cash",
+        return_value={"sent": 1, "managers": 7, "self_check_ok": True},
+    ) as mock_run:
+        resp = client.post("/league/cash")
+    mock_run.assert_called_once()
+    assert resp.status_code == 200
+    assert resp.get_json()["self_check_ok"] is True
+
+
+def test_league_cash_rejects_get(client):
+    assert client.get("/league/cash").status_code == 405
+
+
 # --- /market/auto-bid ---
 
 

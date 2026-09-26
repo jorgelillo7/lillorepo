@@ -38,6 +38,10 @@ COMMANDS = [
         "description": "Valor y proyección de todas las plantillas",
     },
     {
+        "command": "saldos",
+        "description": "Saldo y puja máxima de cada manager",
+    },
+    {
         "command": "pujar",
         "description": "Lanza el auto-bid del mercado diario por tiers",
     },

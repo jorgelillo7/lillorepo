@@ -4,6 +4,7 @@ import io
 from datetime import datetime
 
 from packages.biwenger_tools.api.logic.image_formatter import (
+    build_cash_image,
     _BENCH,
     _BENCH_BG,
     _MARK_BENCH,
@@ -482,3 +483,22 @@ def test_shown_score_is_none_when_there_is_no_projection_at_all():
     from packages.biwenger_tools.api.player_formatting import shown_score
 
     assert shown_score({"name": "X", "jp_player": None}) is None
+
+
+# --- /saldos ---------------------------------------------------------------
+
+
+def test_build_cash_image_returns_a_png():
+    """One row per manager with full figures, and the trust notes underneath,
+    including a warning line — the renderer must not choke on either."""
+    rows = [
+        {"name": "La Luceneta", "cash": 35_954_400, "max_bid": 52_386_900},
+        {"name": "Farolillo", "cash": 16_376_085, "max_bid": 29_556_085, "is_me": True},
+        {"name": "El Tercer Reich", "cash": 89_890, "max_bid": 16_892_390},
+    ]
+    notes = [
+        "✅ Tu saldo reconstruido cuadra con Biwenger.",
+        "⚠️ Movimientos de un tipo desconocido en el tablón (loan).",
+    ]
+    png = build_cash_image(rows, "💰 Saldos", notes)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"

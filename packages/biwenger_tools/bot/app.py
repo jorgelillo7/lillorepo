@@ -53,6 +53,7 @@ _HELP_TEXT = (
     "/recomendar — Qué fichar si me clausulan (top 3 por posición)\n"
     "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
     "/comparar — Valor y proyección de todas las plantillas de la liga\n"
+    "/saldos — Saldo y puja máxima de cada manager\n"
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/pacto — Pacto de no agresión: a quién no clausular\n"
@@ -87,6 +88,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "recomendar": ("/budget/recommendations", "GET", None),
     "pujar": ("/market/auto-bid", "POST", None),
     "comparar": ("/league/compare", "POST", None),
+    "saldos": ("/league/cash", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
     "emergencia": ("/emergency/clausulazo/preview", "POST", None),
     "ofertas": ("/offers/inbox", "POST", None),
@@ -720,6 +722,8 @@ def _handle_owner_message(text: str) -> None:
         _run_in_background(_send_pact_picker)
     elif cmd == "/comparar":
         _dispatch_action("comparar", "⚖️ Comparar")
+    elif cmd == "/saldos":
+        _dispatch_action("saldos", "💰 Saldos")
     elif cmd == "/ofertas":
         _dispatch_action("ofertas", "📥 Ofertas")
     elif cmd == "/help":
