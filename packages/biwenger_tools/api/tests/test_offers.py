@@ -476,6 +476,31 @@ def test_run_offers_inbox_sends_one_message_per_actionable_offer():
     assert callbacks == ["o:a:99", "o:r:99", "o:i:99"]
 
 
+def test_accept_only_mode_sends_only_the_offers_worth_taking():
+    """The digest interrupts for an offer only when the advice is to take it.
+
+    A DUDOSO or a RECHAZAR stays silent there — no message of its own and no
+    "descartadas" summary — because `/ofertas` still shows every one on demand.
+    """
+    inbox = [{"id": 1}, {"id": 2}, {"id": 3}]
+    scored = [
+        {"offer_id": 1, "recommendation": offers.REC_ACCEPT},
+        {"offer_id": 2, "recommendation": offers.REC_DOUBTFUL},
+        {"offer_id": 3, "recommendation": offers.REC_REJECT},
+    ]
+    ctx = _ctx_with_offers(inbox)
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("send_telegram_message")
+    ) as mock_send, patch(_p("_starter_ids"), return_value=set()), patch(
+        _p("_score_offer"), side_effect=scored
+    ), patch(
+        _p("_format_offer_message"), side_effect=lambda s: f"offer {s['offer_id']}"
+    ):
+        result = offers.run_offers_inbox(ctx, only_accept=True)
+    assert [c.kwargs["text"] for c in mock_send.call_args_list] == ["offer 1"]
+    assert result["sent"] == 1 and result["offers"] == 3
+
+
 def test_run_offers_inbox_skips_malformed_offer():
     """An offer with empty `requestedPlayers` must be skipped, not crash."""
     bad = {

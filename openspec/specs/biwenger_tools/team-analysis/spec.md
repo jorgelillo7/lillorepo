@@ -344,6 +344,13 @@ cached for a few minutes.
   `test_the_two_rankings_are_independent`,
   `test_the_comparison_is_cached_so_a_second_tap_costs_nothing`
 
+#### Scenario: a squad holding a player JP does not carry
+- **WHEN** a manager owns a player with no Jornada Perfecta match
+- **THEN** the squad is still measured — value from Biwenger alone, the
+  missing projection counted as zero
+- *Verifies:* `test_collect_survives_a_player_jornada_perfecta_does_not_carry`,
+  `test_get_predict_rate_treats_a_missing_player_as_no_projection`
+
 Every squad read inside one `collect()` call SHALL be built with the same
 Oráculo index and scale, and the projection sum SHALL read each row's
 displayed number (`shown_score`), never the raw JP rate underneath. This is

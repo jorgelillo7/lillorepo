@@ -221,16 +221,20 @@ only an id to quote.
 `run_offers_inbox` SHALL send one Telegram message per offer (with decide
 buttons), skip malformed offers (empty `requestedPlayers`) without crashing, and
 on an empty inbox stay silent in digest mode but send "📭 Sin ofertas…" when
-`notify_empty=True` (on-demand). An invalid decision SHALL raise;
+`notify_empty=True` (on-demand). With `only_accept=True` — the digest — it
+SHALL send only the offers scored ACEPTAR, and nothing for the rest: no
+message of their own and no "descartadas" summary. An invalid decision SHALL raise;
 `run_offer_decision` SHALL forward a valid one to the SDK.
 
 #### Scenario: per-offer send, empty modes, decision
 - **WHEN** offers exist **THEN** one message each; a malformed one is skipped
 - **WHEN** the inbox is empty **THEN** silent (digest) or a note (on-demand)
+- **WHEN** accept-only **THEN** only ACEPTAR offers are sent, the rest silently
 - **WHEN** a decision is made **THEN** valid → SDK, invalid → raises
 - *Verifies:* `test_run_offers_inbox_sends_one_message_per_actionable_offer`,
   `test_run_offers_inbox_skips_malformed_offer`,
   `test_run_offers_inbox_silent_when_empty_default`,
   `test_run_offers_inbox_notifies_when_empty_and_requested`,
+  `test_accept_only_mode_sends_only_the_offers_worth_taking`,
   `test_run_offer_decision_invalid_raises`,
   `test_run_offer_decision_stays_quiet_when_biwenger_agrees`

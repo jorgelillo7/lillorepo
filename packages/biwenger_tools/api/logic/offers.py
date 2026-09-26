@@ -123,6 +123,7 @@ def run_offers_inbox(
     ctx: Optional[OrchestratorContext] = None,
     *,
     notify_empty: bool = False,
+    only_accept: bool = False,
 ) -> dict:
     """Fetch + score the inbox, post one Telegram message per offer.
 
@@ -136,6 +137,9 @@ def run_offers_inbox(
       - `True` — on-demand `/ofertas` from the bot: send a "📭 Sin ofertas
         pendientes" message so the user gets a clear answer instead of
         staring at the "procesando…" line forever.
+
+    `only_accept` (the digest) sends only the offers scored ACEPTAR, each with
+    its buttons, and nothing else — no DUDOSO, no "descartadas" summary.
     """
     ctx = ctx or build_context()
     telegram = require_telegram()
@@ -186,7 +190,9 @@ def run_offers_inbox(
                 "Skipping malformed offer.", extra={"offer_id": offer.get("id")}
             )
             continue
-        if _is_muted(scored):
+        if only_accept and scored["recommendation"] != REC_ACCEPT:
+            muted.append(scored)
+        elif _is_muted(scored):
             muted.append(scored)
         else:
             actionable.append(scored)
@@ -201,7 +207,7 @@ def run_offers_inbox(
         )
         sent += 1
 
-    if muted:
+    if muted and not only_accept:
         send_telegram_message(
             bot_token=token, chat_id=chat_id, text=_format_muted_digest(muted)
         )
