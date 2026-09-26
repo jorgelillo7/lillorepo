@@ -247,3 +247,61 @@ def test_collect_ranks_every_squad_on_the_same_oraculo_scale():
     assert summary["Ana"]["projection"] == 360  # 300 blended up via Oráculo
     assert summary["Beto"]["projection"] == 275  # 350 blended down via Oráculo
     assert league_compare.rank(summary, "projection") == ["Ana", "Beto"]
+
+
+# --- the protection watch (daily digest) -----------------------------------
+
+_SEASON_START = [{"type": "seasonStarted", "content": {}, "date": 1}]
+
+
+def _watch_ctx(my_lock):
+    """Me (1) with one player whose clause lock is `my_lock`; one rival (2)
+    at the 50M start with an empty squad."""
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_league_users.return_value = {1: "Me", 2: "Luceneta"}
+    biwenger.get_all_board_messages.return_value = _SEASON_START
+
+    def squad(_url, manager_id):
+        if manager_id != 1:
+            return []
+        return [{"id": 7, "owner": {"clause": 9_000_000, "clauseLockedUntil": my_lock}}]
+
+    biwenger.get_manager_squad.side_effect = squad
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    return OrchestratorContext(
+        biwenger=biwenger,
+        biwenger_players={7: {"id": 7, "name": "Parrott", "position": 2, "price": 1}},
+        jp_index={"by_name": {}, "by_slug": {}},
+    )
+
+
+def _watch(ctx):
+    from packages.biwenger_tools.api.logic import actions
+
+    with patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
+        _patches("send_telegram_message_or_raise")
+    ) as mock_send, patch(_patches("pact_store.load"), return_value=set()):
+        result = actions.run_protection_watch(ctx)
+    return result, mock_send
+
+
+def test_protection_watch_reads_nothing_more_on_a_quiet_morning():
+    """No lock ending means no board read and no rival squads: a normal
+    morning costs the digest one squad read and no message."""
+    ctx = _watch_ctx(my_lock=None)
+    result, mock_send = _watch(ctx)
+    mock_send.assert_not_called()
+    ctx.biwenger.get_all_board_messages.assert_not_called()
+    assert result == {"ending": 0, "sent": 0}
+
+
+def test_protection_watch_warns_when_a_lock_ends_and_a_rival_can_pay():
+    import time
+
+    ctx = _watch_ctx(my_lock=int(time.time()) + 3_600)
+    result, mock_send = _watch(ctx)
+    text = mock_send.call_args.kwargs["text"]
+    assert "Parrott" in text and "Luceneta" in text
+    assert result == {"ending": 1, "sent": 1}

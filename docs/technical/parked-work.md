@@ -296,8 +296,8 @@ Four outside projects were read against this package:
 [`jbujalance/biwenger-transfers`](https://github.com/jbujalance/biwenger-transfers),
 [`pablominue/pybiwenger`](https://github.com/pablominue/pybiwenger) and
 [alexmolas' fantasy knapsack](https://www.alexmolas.com/2024/07/15/fantasy-knapsack.html).
-Four ideas survived, each checked against the live API; the first shipped as
-`/saldos`, the other three wait in `PENDING.md`.
+Four ideas survived, each checked against the live API; the first two shipped
+(`/saldos` and its clause warnings), the other two wait in `PENDING.md`.
 
 ### Rival cash — shipped as `/saldos`
 
@@ -309,17 +309,12 @@ The same board read would serve the overbid item in `PENDING.md`, since
 `market` entries carry the losing bids too (`marketShowBids`, capped at
 `transfersShowBidders = 3`).
 
-### Defensive clause alert
+### Defensive clause alert — shipped
 
-`/recomendar` attacks and `/emergencia` reacts after a loss; nothing warns
-*before* one of the owner's players is claused. `/saldos` already rebuilds
-every rival's max bid (`logic/league_cash.py`), so the alert is a join: my players whose clause is ≤ some rival's max bid. Two
-tiers are worth telling apart: payable from cash, and payable only by going
-negative — which costs the rival that round's points if not repaired before
-the matchday starts. Read-only by
-design — biwenger-agent's own raise-clause write is marked unconfirmed there,
-and raising a clause costs money (`clauseIncrement` entries). It has to reach
-the owner before the 24 h clause freeze (`openspec/project.md`).
+A standing "who is at risk" list would name all fourteen players every morning
+(three rivals could pay any of them from cash). What shipped instead: a digest
+warning when a protection is about to end, and the top three by projection in
+`/saldos` — see the [`league-cash` spec](../../openspec/specs/biwenger_tools/league-cash/spec.md).
 
 ### Price history
 

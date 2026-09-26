@@ -179,6 +179,16 @@ def _notify_step_failed(token: str, chat_id: str, title: str) -> None:
         logger.exception("Could not notify a failed digest step.")
 
 
+def _safe_run_protection_watch(ctx) -> dict:
+    """Warn about clause protection ending on one of my players. Never raises:
+    a board or squad read failing must not cost the offers step after it."""
+    try:
+        return actions.run_protection_watch(ctx)
+    except Exception as exc:
+        logger.exception("Protection watch failed inside daily digest.")
+        return {"error": str(exc)}
+
+
 def _safe_run_offers_inbox(ctx) -> dict:
     """Run the offers inbox step but never raise. Reuses the digest's ctx
     so we don't pay a second JP+Biwenger round-trip. Accept-only: the morning
@@ -275,6 +285,7 @@ def _run_daily_inner() -> dict:
         auto_bid_result = {"paused_until": config.AUTO_BID_PAUSED_UNTIL}
     else:
         auto_bid_result = _safe_run_auto_bid()
+    protection_result = _safe_run_protection_watch(ctx)
     offers_result = _safe_run_offers_inbox(ctx)
 
     sent_count = int(team_sent) + int(market_sent)
@@ -297,5 +308,6 @@ def _run_daily_inner() -> dict:
         "market": market_count,
         "lineup": lineup_result,
         "auto_bid": auto_bid_result,
+        "protection": protection_result,
         "offers": offers_result,
     }

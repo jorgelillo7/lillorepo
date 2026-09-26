@@ -13,7 +13,6 @@ from datetime import datetime
 import requests
 
 from core.constants import MADRID_TZ
-from core.sdk.biwenger import BiwengerClient
 from core.sdk.telegram import (
     send_telegram_message,
     send_telegram_message_or_raise,
@@ -368,33 +367,32 @@ def run_league_compare() -> dict:
     return {"sent": 1, "managers": len(summary)}
 
 
-def run_league_cash() -> dict:
-    """Send every manager's cash and maximum bid, rebuilt from the board.
+_PROTECTION_WINDOW_S = 24 * 3600
 
-    Owner-only, like `/comparar`: the league hides these figures from all its
-    members. Rebuilt on every call — ~15 sequential reads, nothing stored.
+
+def _league_money(
+    biwenger, players: dict
+) -> tuple[list[dict], dict, "league_cash.CashBook", int]:
+    """Every playing manager's cash and max bid, rebuilt from the board.
+
+    Returns `(rows, squads_by_manager_id, book, board_entries)`; rows carry
+    `id`, `name`, `cash`, `max_bid`, `is_me`. ~12 sequential reads.
     """
-    telegram = require_telegram()
-    if telegram is None:
-        return {"sent": 0, "reason": "telegram_credentials_missing"}
-    token, chat_id = telegram
-
-    biwenger = build_biwenger_session()
     entries = biwenger.get_all_board_messages(
         config.LEAGUE_BOARD_ALL_URL, until_type=league_cash.SEASON_START_TYPE
     )
     book = league_cash.rebuild(entries, draft.DEFAULT_BUDGET)
-    players, _ = BiwengerClient.get_competition_maps(config.ALL_PLAYERS_DATA_URL)
     managers = biwenger.get_league_users(
         config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
     )
-
-    rows = []
+    rows, squads = [], {}
     for manager_id, name in managers.items():
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        squads[manager_id] = squad
         cash = book.cash_of(manager_id)
         rows.append(
             {
+                "id": manager_id,
                 "name": name,
                 "cash": cash,
                 "max_bid": league_cash.max_bid(
@@ -403,30 +401,104 @@ def run_league_cash() -> dict:
                 "is_me": manager_id == biwenger.user_id,
             }
         )
+    return rows, squads, book, len(entries)
+
+
+def _rivals(money_rows: list[dict]) -> list[dict]:
+    """The other managers, each flagged when the non-aggression pact covers
+    them. A pact read that fails costs the flag, never the answer."""
+    try:
+        pacted = pact_store.load()
+    except Exception:
+        logger.exception("Could not read the pact — rivals go unflagged.")
+        pacted = set()
+    return [
+        {**row, "pacted": row["id"] in pacted} for row in money_rows if not row["is_me"]
+    ]
+
+
+def _my_clause_rows(ctx, squad: list) -> list[dict]:
+    return build_squad_rows(
+        squad,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        include_clause=True,
+        oraculo_scale=ctx.oraculo_scale,
+    )
+
+
+def run_league_cash() -> dict:
+    """Send every manager's cash and maximum bid, rebuilt from the board, with
+    the owner's three best-projected players and who can reach their clause.
+
+    Owner-only, like `/comparar`: the league hides these figures from all its
+    members. Rebuilt on every call — nothing stored.
+    """
+    telegram = require_telegram()
+    if telegram is None:
+        return {"sent": 0, "reason": "telegram_credentials_missing"}
+    token, chat_id = telegram
+
+    ctx = build_context()
+    biwenger = ctx.biwenger
+    money, squads, book, n_entries = _league_money(biwenger, ctx.biwenger_players)
+    top = league_cash.exposed(_my_clause_rows(ctx, squads[biwenger.user_id]), 3)
+    exposure = league_cash.exposure_rows(top, _rivals(money))
 
     real_mine = biwenger.get_account_state()["cash"]
     rebuilt_mine = book.cash_of(biwenger.user_id)
     notes = league_cash.notes(book.unknown_types, rebuilt_mine, real_mine)
     today = datetime.now(MADRID_TZ).strftime("%d/%m %H:%M")
     title = f"💰 Saldos · {today}"
-    send_telegram_photo_or_raise(
-        token, chat_id, build_cash_image(league_cash.ranked(rows), title, notes), title
-    )
+    image = build_cash_image(league_cash.ranked(money), title, notes, exposure=exposure)
+    send_telegram_photo_or_raise(token, chat_id, image, title)
     logger.info(
         "League cash sent.",
         extra={
-            "managers": len(rows),
-            "board_entries": len(entries),
+            "managers": len(money),
+            "board_entries": n_entries,
             "self_check_ok": rebuilt_mine == real_mine,
             "unknown_types": sorted(book.unknown_types),
         },
     )
     return {
         "sent": 1,
-        "managers": len(rows),
+        "managers": len(money),
         "self_check_ok": rebuilt_mine == real_mine,
         "unknown_types": sorted(book.unknown_types),
     }
+
+
+def run_protection_watch(ctx) -> dict:
+    """Warn when one of the owner's players stops being clause-protected within
+    a day and some rival could pay the clause. Chained into the daily digest.
+
+    A quiet morning costs one squad read: the board and the rival squads are
+    only read once a lock is actually ending.
+    """
+    telegram = require_telegram()
+    if telegram is None:
+        return {"sent": 0, "reason": "telegram_credentials_missing"}
+    token, chat_id = telegram
+
+    biwenger = ctx.biwenger
+    mine = _my_clause_rows(
+        ctx, biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
+    )
+    ending = league_cash.protection_ending(mine, time.time(), _PROTECTION_WINDOW_S)
+    if not ending:
+        return {"ending": 0, "sent": 0}
+
+    money, _, _, _ = _league_money(biwenger, ctx.biwenger_players)
+    text = league_cash.protection_alert(ending, _rivals(money))
+    if text:
+        send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=text)
+    logger.info(
+        "Protection watch ran.",
+        extra={"ending": len(ending), "sent": bool(text)},
+    )
+    return {"ending": len(ending), "sent": int(bool(text))}
 
 
 def _round_context(biwenger) -> "round_context.RoundContext":

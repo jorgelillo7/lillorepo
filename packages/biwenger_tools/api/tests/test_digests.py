@@ -430,6 +430,26 @@ def test_run_daily_sends_no_league_value_snapshot():
     assert "league_values" not in result
 
 
+def test_run_daily_runs_the_protection_watch_and_survives_its_failure():
+    """The clause-protection step sits between the bids and the offers; if it
+    raises, the offers step still runs."""
+    stack, _, _, mock_offers = _digest_env()
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(
+            _patches("actions.run_protection_watch"),
+            side_effect=RuntimeError("board down"),
+        ) as mock_watch:
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_watch.assert_called_once()
+    mock_offers.assert_called_once()
+    assert "error" in result["protection"]
+
+
 def test_run_daily_swallows_offers_inbox_failure():
     """A blown offers step must not break the digest — the auto-bid summary
     is already delivered."""

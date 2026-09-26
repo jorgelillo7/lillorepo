@@ -1,6 +1,7 @@
 """Generates PNG table images for Telegram using matplotlib."""
 
 import io
+import time
 import unicodedata
 from datetime import datetime
 
@@ -19,6 +20,7 @@ from core.constants import MADRID_TZ  # noqa: E402
 from core.sdk.jp import get_predict_rate  # noqa: E402
 from packages.biwenger_tools.api import config  # noqa: E402
 from packages.biwenger_tools.api.logic import custom_prediction as cp  # noqa: E402
+from packages.biwenger_tools.api.logic.rows import clausulable_str  # noqa: E402
 from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     SCORE_SF,
     availability,
@@ -573,43 +575,16 @@ def _plain(text: str) -> str:
     ).strip()
 
 
-def build_cash_image(rows: list[dict], title: str, notes: list[str]) -> bytes:
-    """PNG of `/saldos`: manager, cash and maximum bid, in the order given.
-
-    `rows` carry `name`, `cash`, `max_bid` and an optional `is_me`, drawn in
-    bold. `notes` go underneath; a line opening with ⚠️ is a warning and is
-    drawn in the critical colour, spelled out in words since the font has no
-    emoji.
-    """
-    headers = ["Manager", "Saldo", "Puja máx."]
-    cell_data = [[_plain(r["name"]), _eur(r["cash"]), _eur(r["max_bid"])] for r in rows]
-    n_rows = len(cell_data)
-    fig_h = 1.6 + 0.42 * n_rows + 0.3 * len(notes)
-    fig, ax = plt.subplots(figsize=(6.4, fig_h))
-    fig.patch.set_facecolor(_SURFACE)
-    ax.set_facecolor(_SURFACE)
-    ax.axis("off")
-
-    table_top = 1 - 0.75 / fig_h
-    table_bottom = (0.3 * len(notes) + 0.25) / fig_h
-    ax.text(
-        0.5,
-        1.0,
-        _strip_emoji(title),
-        transform=ax.transAxes,
-        fontsize=14,
-        fontweight="bold",
-        ha="center",
-        va="top",
-        color=_TITLE_FG,
-    )
+def _draw_cash_table(ax, headers, cells, widths, bottom, top, bold):
+    """One dark table between `bottom` and `top` (axes fraction); column 0
+    left-aligned, the rest right-aligned; `bold(i, j)` picks bold body cells."""
     table = ax.table(
-        cellText=cell_data,
+        cellText=cells,
         colLabels=headers,
         cellLoc="right",
-        colWidths=[0.44, 0.28, 0.28],
+        colWidths=widths,
         loc="center",
-        bbox=[0, table_bottom, 1, table_top - table_bottom],
+        bbox=[0, bottom, 1, top - bottom],
     )
     for (i, j), cell in table.get_celld().items():
         cell.set_edgecolor(_EDGE)
@@ -626,21 +601,115 @@ def build_cash_image(rows: list[dict], title: str, notes: list[str]) -> bytes:
         cell.set_facecolor(_ROW_BG["plays"])
         text.set_color(_INK)
         text.set_fontsize(10.5)
-        if rows[i - 1].get("is_me") or j == 2:
+        if bold(i - 1, j):
             text.set_fontweight("bold")
 
+
+def build_cash_image(
+    rows: list[dict],
+    title: str,
+    notes: list[str],
+    exposure: list[dict] | None = None,
+) -> bytes:
+    """PNG of `/saldos`: manager, cash and maximum bid, in the order given.
+
+    `rows` carry `name`, `cash`, `max_bid` and an optional `is_me`, drawn in
+    bold. `notes` go underneath; a line opening with ⚠️ is a warning and is
+    drawn in the critical colour, spelled out in words since the font has no
+    emoji. `exposure` (see `league_cash.exposure_rows`) adds a second table:
+    the owner's best players, their clause and how many rivals reach it.
+    """
+    exposure = exposure or []
+    line_in = 0.42
+    main_in = 0.75 + line_in * (len(rows) + 1) + 0.3 * len(notes) + 0.25
+    expo_in = (0.55 + line_in * (len(exposure) + 1)) if exposure else 0
+    fig_h = main_in + expo_in + 0.2
+    fig, ax = plt.subplots(figsize=(6.4, fig_h))
+    fig.patch.set_facecolor(_SURFACE)
+    ax.set_facecolor(_SURFACE)
+    ax.axis("off")
+
+    def y(inches_from_top: float) -> float:
+        return 1 - inches_from_top / fig_h
+
+    ax.text(
+        0.5,
+        1.0,
+        _strip_emoji(title),
+        transform=ax.transAxes,
+        fontsize=14,
+        fontweight="bold",
+        ha="center",
+        va="top",
+        color=_TITLE_FG,
+    )
+    main_top = 0.75
+    main_bottom = main_top + line_in * (len(rows) + 1)
+    _draw_cash_table(
+        ax,
+        ["Manager", "Saldo", "Puja máx."],
+        [[_plain(r["name"]), _eur(r["cash"]), _eur(r["max_bid"])] for r in rows],
+        [0.44, 0.28, 0.28],
+        y(main_bottom),
+        y(main_top),
+        lambda i, j: rows[i].get("is_me") or j == 2,
+    )
     for k, note in enumerate(notes):
         warning = note.startswith("⚠️")
         line = _plain(note)
         ax.text(
             0,
-            table_bottom - (0.1 + 0.3 * k) / fig_h,
+            y(main_bottom + 0.1 + 0.3 * k),
             f"Atención: {line}" if warning else line,
             transform=ax.transAxes,
             fontsize=8.5,
             ha="left",
             va="top",
             color=_CRITICAL if warning else _INK_SOFT,
+        )
+
+    if exposure:
+        now = time.time()
+        expo_title = main_in + 0.1
+        ax.text(
+            0,
+            y(expo_title),
+            "Tus mejores por proyección: ¿quién llega a su cláusula?",
+            transform=ax.transAxes,
+            fontsize=11,
+            fontweight="bold",
+            ha="left",
+            va="top",
+            color=_TITLE_FG,
+        )
+        cells = []
+        for e in exposure:
+            locked = e["locked_until"] is not None and e["locked_until"] > now
+            cells.append(
+                [
+                    _plain(e["name"]),
+                    "—" if e.get("projection") is None else str(e["projection"]),
+                    _eur(e["clause"]) if e["clause"] else "—",
+                    str(e["by_cash"]),
+                    str(e["by_max_bid"]),
+                    clausulable_str(e["locked_until"]) if locked else "Sí",
+                ]
+            )
+        _draw_cash_table(
+            ax,
+            [
+                "Jugador",
+                "Proyección",
+                "Cláusula",
+                "Con saldo",
+                "En negativo",
+                "Clausulable",
+            ],
+            cells,
+            [0.24, 0.13, 0.21, 0.13, 0.15, 0.14],
+            y(expo_title + 0.45 + line_in * (len(exposure) + 1)),
+            y(expo_title + 0.45),
+            lambda i, j: False,
         )
 
     buf = io.BytesIO()

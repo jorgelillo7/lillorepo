@@ -3,18 +3,24 @@
 Every manager's cash and maximum bid, which the league hides
 (`settings.balance = "hidden"`): no endpoint returns a rival's balance. It is
 rebuilt from the league board, where Biwenger logs every movement of money,
-and sent as one image to the owner's chat on `/saldos`.
+and sent as one image to the owner's chat on `/saldos`. The same figures warn
+the owner, in the daily digest, when one of their players is about to lose
+its clause protection.
 
 Rebuilt from scratch on every request — nothing is stored. The board is the
 source of truth, so a fresh read cannot drift the way an incremental ledger
 could, and the whole read is ~15 sequential requests in under 5 seconds.
 
 - **Source:** `packages/biwenger_tools/api/logic/league_cash.py` (pure),
-  `packages/biwenger_tools/api/logic/actions.py` (`run_league_cash`),
+  `packages/biwenger_tools/api/logic/actions.py` (`run_league_cash`,
+  `run_protection_watch`), `packages/biwenger_tools/api/logic/digests.py`,
   `packages/biwenger_tools/api/logic/image_formatter.py` (`build_cash_image`),
   `packages/biwenger_tools/api/app.py` (`POST /league/cash`),
   `packages/biwenger_tools/bot/app.py` (`/saldos`)
 - **Verified by:** `packages/biwenger_tools/api/tests/test_league_cash.py`,
+  `packages/biwenger_tools/api/tests/test_actions.py`,
+  `packages/biwenger_tools/api/tests/test_digests.py`,
+  `packages/biwenger_tools/api/tests/test_rows.py`,
   `packages/biwenger_tools/api/tests/test_image_formatter.py`,
   `packages/biwenger_tools/api/tests/test_routes.py`,
   `packages/biwenger_tools/bot/tests/test_bot.py`
@@ -159,3 +165,66 @@ numbers from everyone, and the tooling is the owner's edge.
 - *Verifies:* `test_saldos_command_dispatches`,
   `test_league_cash_calls_the_action`, `test_league_cash_rejects_get`,
   `test_rows_are_ranked_by_max_bid`, `test_build_cash_image_returns_a_png`
+
+### Requirement: Who can pay a clause of mine, in two tiers
+
+For a clause of the owner's, rivals SHALL be split into those who can pay it
+**from cash** and those who can only reach it **by going negative** (cash <
+clause ≤ max bid). The second is a lesser threat: a rival still negative when
+the matchday starts scores nothing for it. A missing clause is reached by
+nobody. A rival under the non-aggression pact SHALL be marked, not dropped —
+the pact binds the owner, and nothing says it binds the rival.
+
+#### Scenario: the two tiers
+- **WHEN** a clause sits above one rival's cash and below two others' max bid
+- **THEN** one is listed by cash, two by max bid
+- **WHEN** it sits above every max bid **THEN** nobody reaches it
+- *Verifies:* `test_reach_splits_rivals_by_cash_and_by_max_bid`,
+  `test_reach_is_nobody_above_every_max_bid`,
+  `test_exposure_rows_count_who_reaches_each_top_player`
+
+### Requirement: `/saldos` shows who reaches my best players' clauses
+
+The `/saldos` image SHALL add a second table: the owner's three players with
+the best shown projection, each with that projection, its clause, how many
+rivals reach it from
+cash, how many only by going negative, and whether it is clausable now.
+
+Measured on the day it shipped, every one of the owner's fourteen players was
+reachable by three rivals from cash — a warning of "who is at risk" would be
+the same fourteen names every morning. So the standing picture lives here, on
+demand, next to the figures it is computed from; the digest only speaks when
+something changes.
+
+#### Scenario: the block
+- **WHEN** the squad has projections **THEN** the three best are shown, best
+  first, unprojected players left out
+- **WHEN** the block is drawn **THEN** the image grows to hold it
+- *Verifies:* `test_exposed_takes_the_best_projections_first`,
+  `test_build_cash_image_draws_the_exposure_block`
+
+### Requirement: The digest warns when a protection is about to end
+
+`run_protection_watch`, chained into the daily digest, SHALL send one message
+when a player of the owner's has a clause lock (`clauseLockedUntil`) ending
+within the next 24 hours **and** some rival could pay that clause, naming the
+rivals by tier. Otherwise it SHALL send nothing.
+
+A quiet morning SHALL cost one squad read: the board and the rival squads are
+read only once a lock is actually ending. A failure SHALL NOT stop the digest.
+
+#### Scenario: quiet, ending, unreachable
+- **WHEN** no lock ends within a day **THEN** nothing is sent and the board is
+  not read
+- **WHEN** a lock ends and a rival can pay **THEN** the player, clause, the
+  moment it opens and the rivals by tier are sent
+- **WHEN** a lock ends but nobody can pay **THEN** nothing is sent
+- **WHEN** the watch raises **THEN** the digest records it and runs the offers
+  step anyway
+- *Verifies:* `test_protection_ending_keeps_only_locks_ending_inside_the_window`,
+  `test_protection_watch_reads_nothing_more_on_a_quiet_morning`,
+  `test_protection_watch_warns_when_a_lock_ends_and_a_rival_can_pay`,
+  `test_protection_alert_names_who_can_pay_and_marks_the_pact`,
+  `test_protection_alert_is_silent_when_nobody_reaches`,
+  `test_run_daily_runs_the_protection_watch_and_survives_its_failure`,
+  `test_a_squad_row_carries_the_raw_clause_lock`

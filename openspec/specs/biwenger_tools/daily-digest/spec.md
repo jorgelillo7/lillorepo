@@ -1,7 +1,8 @@
 # Capability: daily-digest
 
 The 09:00 Madrid cron orchestration (`POST /digests/daily`): send the squad +
-market images to Telegram, then chain the lineup, auto-bid and any offer worth
+market images to Telegram, then chain the lineup, auto-bid, a warning when a
+clause protection is about to end (`league-cash` spec) and any offer worth
 accepting. This is
 the capability the project SLO covers.
 

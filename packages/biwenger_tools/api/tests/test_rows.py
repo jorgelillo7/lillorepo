@@ -254,3 +254,19 @@ def test_a_projection_still_wins_when_both_carry_the_player():
     row = rows_mod.build_row(_bw(1, "Ganga"), build_jp_index([]), index)
     assert row["oraculo_points"] == 4.2
     assert row["oraculo_lists"] == ["chollos"]
+
+
+# --- clause fields ----------------------------------------------------------
+
+
+def test_a_squad_row_carries_the_raw_clause_lock():
+    """The protection-ending alert needs the epoch itself, not the rendered
+    "No (3d)" cell."""
+    squad = [
+        {"id": 1, "owner": {"clause": 9_000_000, "clauseLockedUntil": 1_790_000_000}}
+    ]
+    rows = rows_mod.build_squad_rows(
+        squad, {1: _bw(1, "Pedri")}, build_jp_index([]), include_clause=True
+    )
+    assert rows[0]["clause_locked_until"] == 1_790_000_000
+    assert rows[0]["clause_value"] == 9_000_000
