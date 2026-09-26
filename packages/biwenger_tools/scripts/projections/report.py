@@ -71,11 +71,21 @@ class _PlayerFetcher:
         self.rate_limited = False
         os.makedirs(cache_dir, exist_ok=True)
 
-    def player(self, slug: str) -> dict | None:
+    def player(self, slug: str, round_id: int | None = None) -> dict | None:
+        """The player's detail, from disk when it already covers `round_id`.
+
+        A copy read before that round was played has no report for it, and
+        serving it would pass for "no data" — the cache once made a finished
+        round look empty. Such a copy is fetched again, once, and replaced.
+        """
         cached = os.path.join(self.cache_dir, f"{slug}.json")
         if os.path.exists(cached):
             with open(cached, encoding="utf-8") as fh:
-                return json.load(fh)
+                data = json.load(fh)
+            if round_id is None or reports_for_round(
+                data.get("reports") or [], round_id
+            ):
+                return data
         if self.rate_limited or self.remaining <= 0:
             return None
         self.remaining -= 1
@@ -111,7 +121,7 @@ def _real_points_for(
         slug = slug_by_id.get(player_id)
         if not slug:
             continue
-        player = fetcher.player(slug)
+        player = fetcher.player(slug, round_id)
         if player is None:
             continue
         matches = reports_for_round(player.get("reports") or [], round_id)
@@ -250,6 +260,7 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
         return 0
 
     slug_by_id = _slug_index(biwenger)
+    filled, skipped = 0, 0
     for round_id in finished_ids:
         round_league = biwenger.get_round_league(round_id)
         applied = projection_ledger.extract_applied_lineup(
@@ -259,6 +270,7 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
             print(
                 f"Jornada {round_id}: no encuentro tu alineación aplicada — se omite."
             )
+            skipped += 1
             continue
 
         real_points, counted = _real_points_for(
@@ -273,6 +285,7 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
                 f"{len(applied['player_ids'])} alineados sin informe — "
                 "no es un cero, es que no hay dato. Se omite."
             )
+            skipped += 1
             continue
         applied_total = projection_ledger.xi_real_points(
             applied["player_ids"], applied["captain_id"], real_points
@@ -288,16 +301,17 @@ def _run_backfill(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
             f"Jornada {round_name or round_id}: "
             f"{applied['formation']}, {applied_total} pts reales."
         )
+        filled += 1
         if apply:
             projection_ledger_store.write_backfill(
                 season, round_id, round_name, actual["fetched_at"], actual
             )
 
-    if not apply:
-        print(
-            f"\nEnsayo — {len(finished_ids)} jornadas se rellenarían. "
-            "Repite con --apply."
-        )
+    summary = f"{filled} jornadas" + (f", {skipped} omitidas" if skipped else "")
+    if apply:
+        print(f"\nRellenadas: {summary}.")
+    else:
+        print(f"\nEnsayo — se rellenarían {summary}. Repite con --apply.")
     return 0
 
 

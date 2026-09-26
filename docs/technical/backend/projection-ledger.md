@@ -113,7 +113,12 @@ once graded, the real outcome. 38 documents a season.
 
 ## When the numbers look wrong
 
-Clear `packages/biwenger_tools/scripts/projections/.cache/` first. The script
-caches player reads on disk, and it once kept serving broken responses long
-after the cause had been fixed — eight rounds of `0 pts reales` that looked
-like a terrible squad rather than an empty read.
+The script caches player reads on disk. A cached player that has no report
+for the round being asked about is fetched again, because a copy read before
+the round was played would otherwise pass for "no data" — that once made a
+finished round look empty. If numbers still look wrong, clear
+`packages/biwenger_tools/scripts/projections/.cache/`: it once kept serving
+broken responses long after the cause had been fixed, eight rounds of
+`0 pts reales` that looked like a terrible squad rather than an empty read.
+
+The daily collection does not use this cache: it reads each player live.
