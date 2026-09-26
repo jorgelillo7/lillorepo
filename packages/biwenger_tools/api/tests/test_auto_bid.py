@@ -24,7 +24,7 @@ from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 
 
 def test_tier_all_in_uses_remaining_cash_regardless_of_price():
-    """SF > 800 must bid ~`remaining_cash` (minus jitter), NOT price+anything.
+    """SF ≥ 700 must bid ~`remaining_cash` (minus jitter), NOT price+anything.
     A 26M player against 30M cash → ~30M bid (never leave cash on the table,
     never go negative on `maxBid`)."""
     bid, label = auto_bid.tier_bid(sf=910, price=26_000_000, remaining_cash=30_000_000)
@@ -43,7 +43,7 @@ def test_tier_all_in_when_cash_is_zero_returns_zero_so_caller_skips():
 def test_tier_t2_cap_wins_on_expensive_player():
     """T2: at 8M price the cap (+5M = 13M) is cheaper than the multiplier
     (8M × 1.7 = 13.6M), so the cap wins."""
-    bid, label = auto_bid.tier_bid(sf=720, price=8_000_000, remaining_cash=50_000_000)
+    bid, label = auto_bid.tier_bid(sf=620, price=8_000_000, remaining_cash=50_000_000)
     # min(8M × 1.7, 8M + 5M) = min(13.6M, 13M) = 13M
     assert 13_000_000 <= bid <= 13_000_000 + auto_bid.BID_JITTER_MAX
     assert "T2" in label
@@ -52,7 +52,7 @@ def test_tier_t2_cap_wins_on_expensive_player():
 def test_tier_t2_multiplier_wins_on_cheap_player():
     """T2: at 5M price the multiplier (5M × 1.7 = 8.5M) is cheaper than
     the cap (5M + 5M = 10M), so the multiplier wins."""
-    bid, label = auto_bid.tier_bid(sf=720, price=5_000_000, remaining_cash=50_000_000)
+    bid, label = auto_bid.tier_bid(sf=620, price=5_000_000, remaining_cash=50_000_000)
     # min(5M × 1.7, 5M + 5M) = min(8.5M, 10M) = 8.5M
     assert 8_500_000 <= bid <= 8_500_000 + auto_bid.BID_JITTER_MAX
     assert "T2" in label
@@ -106,12 +106,12 @@ def test_tier_below_floor_returns_none():
 @pytest.mark.parametrize(
     "sf,expected_band",
     [
-        (801, "T1"),
-        (800, "T1"),  # 800 inclusive — lands in T1, not T2
-        (799, "T2"),
-        (601, "T2"),
-        (600, "T2"),  # 600 inclusive — T2, not T3
-        (599, "T3"),
+        (701, "T1"),
+        (700, "T1"),  # 700 inclusive — lands in T1, not T2
+        (699, "T2"),
+        (551, "T2"),
+        (550, "T2"),  # 550 inclusive — T2, not T3
+        (549, "T3"),
         (401, "T3"),
         (400, "T3"),  # 400 inclusive — T3, not T4 (user-requested boundary)
         (399, "T4"),
@@ -233,15 +233,15 @@ def test_format_telegram_text_renders_placed_skipped_and_totals():
         {
             "name": "Lewandowski",
             "bid": 13_000_000,
-            "tier_label": "T2 precio+5M (SF 720)",
+            "tier_label": "T2 precio+5M (SF 620)",
         },
     ]
     skipped = [
         {
             "name": "Bellingham",
             "kind": "no_cash",
-            "sf": 750,
-            "tier_label": "T2 (SF 750)",
+            "sf": 650,
+            "tier_label": "T2 (SF 650)",
             "bid": 14_000_000,
             "cash": 3_000_000,
         },
@@ -270,8 +270,8 @@ def test_format_telegram_text_no_cash_skip_shows_sf_and_tier():
         {
             "name": "Bellingham",
             "kind": "no_cash",
-            "sf": 750,
-            "tier_label": "T2 (SF 750)",
+            "sf": 650,
+            "tier_label": "T2 (SF 650)",
             "bid": 14_000_000,
             "cash": 3_000_000,
         }
@@ -284,7 +284,7 @@ def test_format_telegram_text_no_cash_skip_shows_sf_and_tier():
         remaining_cash=3_000_000,
     )
     assert "💸 Sin pasta para <b>Bellingham</b>" in text
-    assert "T2 (SF 750)" in text
+    assert "T2 (SF 650)" in text
     # `>` gets HTML-escaped to `&gt;` so Telegram's HTML parser doesn't
     # read it as a tag start (this is the 2026-05-24 regression).
     assert "puja 14.000.000 € &gt; cash 3.000.000 €" in text
@@ -328,10 +328,10 @@ def test_format_telegram_text_html_escapes_user_content():
         {
             "name": "Bellingham",
             "kind": "no_cash",
-            "sf": 750,
+            "sf": 650,
             # Tier label is rendered as-is; if it ever carries `<` or `&`
             # the escape must catch it.
-            "tier_label": "T2 (SF 750)",
+            "tier_label": "T2 (SF 650)",
             "bid": 14_000_000,
             "cash": 3_000_000,
         }
@@ -468,7 +468,7 @@ def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
     }
     jp_players = [
         _jp_with_sf("Vinicius", 910),
-        _jp_with_sf("Lewa", 720),
+        _jp_with_sf("Lewa", 620),
         _jp_with_sf("Pedri", 500),
     ]
     biwenger, mock_send = run_env(
@@ -497,8 +497,8 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
 
     Setup:
     - cash = 5M.
-    - P1 (SF 750, price 8M) → T2 bid 13M → no_cash skip (13M > 5M cash).
-    - P2 (SF 720, price 2M) → T2 bid 3.4M → placed.
+    - P1 (SF 650, price 8M) → T2 bid 13M → no_cash skip (13M > 5M cash).
+    - P2 (SF 620, price 2M) → T2 bid 3.4M → placed.
     - P3 (SF 280) → tier_low skip (below SF 300 floor, but >200 so it
       lands in the summary).
     """
@@ -509,8 +509,8 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
         3: _bw(3, "LowSf", 500_000),
     }
     jp_players = [
-        _jp_with_sf("Expensive", 750),
-        _jp_with_sf("Cheaper", 720),
+        _jp_with_sf("Expensive", 650),
+        _jp_with_sf("Cheaper", 620),
         _jp_with_sf("LowSf", 280),
     ]
     biwenger, mock_send = run_env(
@@ -531,7 +531,7 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
     # the budget skip (with SF + tier), ⏭️ for the irrelevant skip.
     text = mock_send.call_args.kwargs["text"]
     assert "💸 Sin pasta para <b>Expensive</b>" in text
-    assert "T2 (SF 750)" in text
+    assert "T2 (SF 650)" in text
     assert "⏭️ Saltado <b>LowSf</b>" in text
 
 
@@ -594,7 +594,7 @@ def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
     """A 4xx on one bid must not abort the loop — the next candidate still
     gets its chance. Mirrors set_lineup's "log + continue" stance.
 
-    Both candidates are SF 720 at price 1M → T2 bid =
+    Both candidates are SF 620 at price 1M → T2 bid =
     min(1M × 1.7, 1M + 5M) = 1.7M (multiplier wins on cheap players)."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {
@@ -602,8 +602,8 @@ def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
         2: _bw(2, "Lewa", 1_000_000),
     }
     jp_players = [
-        _jp_with_sf("Vinicius", 720),  # T2 → bid 1.7M
-        _jp_with_sf("Lewa", 720),  # T2 → bid 1.7M
+        _jp_with_sf("Vinicius", 620),  # T2 → bid 1.7M
+        _jp_with_sf("Lewa", 620),  # T2 → bid 1.7M
     ]
     err = requests.HTTPError("409 conflict")
     biwenger, _ = run_env(
@@ -1027,7 +1027,7 @@ def test_a_chollo_is_bought_with_cash_the_ladder_left_reserved(run_env):
     held back before the ladder starts."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {1: _bw(1, "Lewa", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
-    jp_players = [_jp_with_sf("Lewa", 720), _jp_with_sf("Ganga", 100)]
+    jp_players = [_jp_with_sf("Lewa", 620), _jp_with_sf("Ganga", 100)]
     biwenger, _ = run_env(
         market_players=market,
         biwenger_players=biwenger_players,
@@ -1046,7 +1046,7 @@ def test_a_chollo_is_bought_with_cash_the_ladder_left_reserved(run_env):
 
 
 def test_the_all_in_tier_takes_the_reserve_with_it(run_env):
-    """One genuine monster beats three lottery tickets: SF >= 800 bids the
+    """One genuine monster beats three lottery tickets: SF >= 700 bids the
     whole wallet by design, and the speculation stands down."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {1: _bw(1, "Vini", 12_000_000), 2: _bw(2, "Ganga", 800_000)}
@@ -1086,7 +1086,7 @@ def test_the_reserve_yields_rather_than_block_a_real_signing(run_env):
     backwards. With room for only one of them, the ladder wins."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {1: _bw(1, "Lewa", 2_000_000), 2: _bw(2, "Ganga", 800_000)}
-    jp_players = [_jp_with_sf("Lewa", 720), _jp_with_sf("Ganga", 100)]
+    jp_players = [_jp_with_sf("Lewa", 620), _jp_with_sf("Ganga", 100)]
     biwenger, _ = run_env(
         market_players=market,
         biwenger_players=biwenger_players,

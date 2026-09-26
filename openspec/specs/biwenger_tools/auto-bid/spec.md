@@ -20,14 +20,20 @@ cheap players and the absolute cap bounds expensive ones.
 
 | Tier | SF band | Bid formula |
 |---|---|---|
-| T1 (all-in) | SF ≥ 800 | `remaining_cash − jitter` |
-| T2 | 600 ≤ SF < 800 | `min(price × 1.7, price + 5M) + jitter` |
-| T3 | 400 ≤ SF < 600 | `min(price × 1.5, price + 2M) + jitter` |
+| T1 (all-in) | SF ≥ 700 | `remaining_cash − jitter` |
+| T2 | 550 ≤ SF < 700 | `min(price × 1.7, price + 5M) + jitter` |
+| T3 | 400 ≤ SF < 550 | `min(price × 1.5, price + 2M) + jitter` |
 | T4 | 300 ≤ SF < 400 | `min(price × 1.2, price + 500K) + jitter` |
 | skip | SF < 300 | — |
 
 Crossover prices (multiplier == cap): T2 ≈ 7.14M, T3 = 4M, T4 = 2.5M. Below
 the crossover the multiplier wins; above it the cap wins.
+
+The cut-offs are set against the league as it scores, not a round number: at
+800/600 only two players in LaLiga reached the all-in tier and five reached
+T2, and 24 logged bids over 16 days held one T2 and no T1. At 700/550 the
+all-in tier holds the handful of genuine stars and T2 the next nine — the
+expensive regulars (Pedri, Güler) that had been bid as T3 with a +2M cap.
 
 #### Scenario: multiplier wins on a cheap player
 - **WHEN** a T3 player (SF 400) is priced at 750K
@@ -45,14 +51,14 @@ Tier thresholds SHALL be inclusive on the lower end: a player at exactly a
 tier's minimum SF lands in that tier, not the one below.
 
 #### Scenario: SF exactly on a boundary
-- **WHEN** a player has SF = 800 / 600 / 400 / 300
+- **WHEN** a player has SF = 700 / 550 / 400 / 300
 - **THEN** they land in T1 / T2 / T3 / T4 respectively
 - **AND** SF = 299 is skipped (below the T4 floor of 300)
 - *Verifies:* `test_tier_boundaries`
 
 ### Requirement: All-in tier spends the full wallet
 
-For T1 (SF ≥ 800) the system SHALL bid the entire `remaining_cash` regardless
+For T1 (SF ≥ 700) the system SHALL bid the entire `remaining_cash` regardless
 of the player's price, so it never leaves cash on the table on a top target.
 The bid SHALL never exceed `remaining_cash` (jitter is *subtracted* here, and
 a zero wallet yields a zero bid rather than a negative one).
