@@ -567,3 +567,26 @@ def test_collecting_never_costs_the_lineup():
     ctx = MagicMock()
     ctx.biwenger.get_round.side_effect = RuntimeError("429")
     assert "error" in cap.collect(ctx)
+
+
+# --- the market section carries the fixture column --------------------------
+
+
+def test_the_digest_market_carries_the_fixture_column_and_the_squad_does_not():
+    stack, _, _, _ = _digest_env()
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        mock_image = stack.enter_context(
+            patch(_patches("build_table_image"), return_value=b"")
+        )
+        stack.enter_context(
+            patch(_patches("actions.read_fixture_runs"), return_value=None)
+        )
+        digests.run_daily()
+    finally:
+        stack.close()
+
+    by_title = {c.args[1]: c.kwargs for c in mock_image.call_args_list}
+    assert by_title["Mercado"].get("extra_cols") == ["Calendario (sin datos)"]
+    assert not by_title["Mi equipo"].get("extra_cols")

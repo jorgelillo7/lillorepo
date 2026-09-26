@@ -3,9 +3,11 @@
 The `/analizar` surface: render squad tables as Telegram images — one manager or
 all managers plus the market — resilient to per-image delivery failures.
 
-- **Source:** `packages/biwenger_tools/api/logic/actions.py`
+- **Source:** `packages/biwenger_tools/api/logic/actions.py`,
+  `packages/biwenger_tools/api/logic/fixture_run.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_actions.py`,
-  `test_routes.py`, `test_image_formatter.py`
+  `test_routes.py`, `test_image_formatter.py`, `test_fixture_run.py`,
+  `test_digests.py`, `test_rows.py`
 
 > Coverage note: `actions.py` line coverage is ~32%; the multi-image resilience
 > path is unit-tested, the rest goes through route tests. A candidate for the
@@ -364,3 +366,52 @@ is comparing two different scales, not one.
   would reorder them against their raw JP totals
 - **THEN** the reported ranking follows the blended totals, not the raw ones
 - *Verifies:* `test_collect_ranks_every_squad_on_the_same_oraculo_scale`
+
+---
+
+### Requirement: The market shows how hard each player's next five games are
+
+Every market image — `/mercado`, the market in `/analizar` TODOS and the
+digest's "Mercado" — SHALL carry a `Calendario (5)` column: the average of
+Biwenger's `difficulty.rating` over the player's club's next five games,
+with a band — `fácil` below 45, `difícil` above 55, `medio` between.
+
+It is **display only**. No bid, clause or offer decision reads it: how much a
+kind run should weigh against Jornada Perfecta's projection is an open
+question, and a weight invented overnight on a path that spends money is the
+one thing to avoid.
+
+The rating is the difficulty *that club faces* (Barcelona at home to Getafe
+read 25, Getafe 94). Games are ordered by kickoff, never by round number or
+the order of `season.rounds[]` — a postponed round sits among later ones. A
+played game, or a pending one with no published rating, does not count.
+
+The rounds are read once per run (~7 public requests to the cf host,
+under a second) and shared by every image that run sends. If they cannot be
+read, the images still go out and the header reads `Calendario (sin datos)`,
+so a failed read never passes for "no games ahead".
+
+Five averaged games pull toward the middle: at 40/60 no club in LaLiga read
+`difícil`; 45/55 split the twenty 10 / 8 / 2 the day it shipped.
+
+#### Scenario: the run, its order, and its band
+- **WHEN** a postponed game falls before a later round's **THEN** it comes first
+- **WHEN** a game is played or unrated **THEN** it is left out
+- **WHEN** the average is 44 / 45 / 55 / 56 **THEN** the band is fácil / medio / medio / difícil
+- **WHEN** a player has no club or no game ahead **THEN** the cell reads `—`
+- *Verifies:* `test_upcoming_orders_each_team_by_kickoff_not_by_round`,
+  `test_played_and_unrated_games_are_left_out`,
+  `test_next_ratings_stops_at_n`, `test_label_bands_the_average`,
+  `test_rounds_to_read_takes_open_rounds_in_the_listed_order`,
+  `test_annotate_names_the_column_and_marks_each_row`,
+  `test_a_row_carries_the_players_team`
+
+#### Scenario: wiring and failure
+- **WHEN** `/mercado` runs **THEN** its image carries the column
+- **WHEN** the digest runs **THEN** "Mercado" carries it and "Mi equipo" does not
+- **WHEN** the calendar cannot be read **THEN** the column reads `Calendario (sin datos)`
+- *Verifies:* `test_the_market_image_carries_the_fixture_column`,
+  `test_the_digest_market_carries_the_fixture_column_and_the_squad_does_not`,
+  `test_read_fixture_runs_walks_the_open_rounds`,
+  `test_read_fixture_runs_is_none_when_the_calendar_cannot_be_read`,
+  `test_annotate_says_so_when_the_calendar_could_not_be_read`

@@ -21,6 +21,7 @@ from core.sdk.telegram import (
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft
+from packages.biwenger_tools.api.logic import fixture_run
 from packages.biwenger_tools.api.logic import league_cash
 from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic import pact_store
@@ -235,9 +236,8 @@ def run_teams(manager_id: int | None = None) -> dict:
             oraculo_index,
             oraculo_scale=oraculo_scale,
         )
-        if send_image_or_text_fallback(
-            token, chat_id, build_table_image(market_rows, "🛒 Mercado"), "🛒 Mercado"
-        ):
+        image = _market_image(market_rows, "🛒 Mercado", read_fixture_runs(biwenger))
+        if send_image_or_text_fallback(token, chat_id, image, "🛒 Mercado"):
             sent_count += 1
     except Exception:
         logger.exception("Market section failed; squads already sent.")
@@ -328,7 +328,8 @@ def run_market() -> dict:
         oraculo_index,
         oraculo_scale=oraculo_scale,
     )
-    _send_image(token, chat_id, build_table_image(market_rows, "Mercado"), "Mercado")
+    image = _market_image(market_rows, "Mercado", read_fixture_runs(biwenger))
+    _send_image(token, chat_id, image, "Mercado")
     logger.info("Market analysis sent.", extra={"size": len(market_rows)})
     return {"sent": 1, "size": len(market_rows)}
 
@@ -499,6 +500,38 @@ def run_protection_watch(ctx) -> dict:
         extra={"ending": len(ending), "sent": bool(text)},
     )
     return {"ending": len(ending), "sent": int(bool(text))}
+
+
+# Enough open rounds to give every team its next `GAMES_AHEAD` games: a
+# postponed round holds a single fixture, so one round is not one game each.
+_FIXTURE_ROUNDS_MAX = fixture_run.GAMES_AHEAD + 2
+
+
+def read_fixture_runs(biwenger) -> dict | None:
+    """`{team_id: [difficulty, …]}` for the games ahead, or `None` when the
+    calendar could not be read. Sequential public reads on the cf host.
+
+    Never raises: the column it feeds decorates a market image, and the
+    image must still go out — marked as missing its calendar, not silently
+    short of it.
+    """
+    try:
+        current = biwenger.get_round()
+        if not current:
+            return None
+        rounds = [current]
+        for round_id in fixture_run.rounds_to_read(current)[:_FIXTURE_ROUNDS_MAX]:
+            if round_id != current.get("id"):
+                rounds.append(biwenger.get_round(round_id))
+        return fixture_run.upcoming_by_team(rounds, time.time())
+    except Exception:
+        logger.exception("Fixture calendar unreadable — market goes without it.")
+        return None
+
+
+def _market_image(rows: list[dict], title: str, upcoming: dict | None) -> bytes:
+    column = fixture_run.annotate(rows, upcoming)
+    return build_table_image(rows, title, extra_cols=[column])
 
 
 def _round_context(biwenger) -> "round_context.RoundContext":

@@ -336,6 +336,10 @@ It adds little to `/alinear`, where JP already projects the next round. It
 matters for decisions that outlive one round: auto-bid, the clausulazo
 recommender and offer calls. How to weigh it against JP is the open question.
 
+**First step shipped as display only**: the market images carry a
+`Calendario (5)` column (see the `team-analysis` spec). Nothing decides on it
+until the owner picks where it should weigh — the options are in that PR.
+
 ### Read and rejected
 
 - **An ILP lineup solver** (the knapsack article, biwenger-agent's PuLP):

@@ -124,6 +124,7 @@ def build_row(
         "bw_id": biwenger_player.get("id"),
         "name": name,
         "position_id": biwenger_player.get("position"),
+        "team_id": biwenger_player.get("teamID"),
         "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
         "jp_player": find_player_match(name, jp_index),

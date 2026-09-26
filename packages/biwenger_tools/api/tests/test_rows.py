@@ -270,3 +270,11 @@ def test_a_squad_row_carries_the_raw_clause_lock():
     )
     assert rows[0]["clause_locked_until"] == 1_790_000_000
     assert rows[0]["clause_value"] == 9_000_000
+
+
+def test_a_row_carries_the_players_team():
+    """The market's fixture column looks the player's club up by id."""
+    row = rows_mod.build_row(
+        {**_bw(1, "Pedri"), "teamID": 3}, build_jp_index([]), _index([])
+    )
+    assert row["team_id"] == 3
