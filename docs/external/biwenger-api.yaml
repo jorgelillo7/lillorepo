@@ -1,7 +1,7 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: Biwenger API (unofficial)
-  version: "0.1.0"
+  version: "0.2.0"
   summary: Reverse-engineered spec of the Biwenger backend used by this monorepo.
   description: |
     **⚠️ UNOFFICIAL — this is NOT documented by Biwenger.**
@@ -131,6 +131,13 @@ paths:
         `data.sales[*].user is None` marks a computer-owned daily-market
         entry (the auto-bid loop only acts on these). Anything with a
         `user` is a user-listed sale.
+
+        `data.offers[]` are **the authenticated user's own pending bids**
+        (`id`, `amount`, `created`, `until`, `status: waiting`,
+        `type: purchase`, `from`, `to`, `requestedPlayers`). They are not
+        deducted from `balance`, but the app deducts them from the "Puja
+        máxima" it shows — and a rival's are invisible, which is why a rebuilt
+        rival max bid is an upper bound.
       responses:
         "200":
           description: Market snapshot.
@@ -146,7 +153,11 @@ paths:
                       sales:
                         type: array
                         items: {$ref: '#/components/schemas/MarketSale'}
-      x-verified-at: "2026-06-25"
+                      offers:
+                        type: array
+                        description: The authenticated user's own pending bids.
+                        items: {$ref: '#/components/schemas/Offer'}
+      x-verified-at: "2026-09-27"
 
   /offers:
     get:
@@ -529,6 +540,23 @@ paths:
       description: |
         Use `?fields=standings` for the ranking. Each entry includes the
         user id + name + season points + position.
+
+        `?fields=settings` returns the league's configuration. Keys that
+        change what the tooling can compute (values as in the Lloros League):
+
+        | Key | Value | Meaning |
+        |---|---|---|
+        | `balance` | `hidden` | No endpoint returns a rival's cash — it has to be rebuilt from the board |
+        | `maximumBid` | `quarterTeam` | A manager can bid or pay a clause up to cash + ¼ of their squad's value |
+        | `clause` / `clauseIncrement` / `clauseDecrement` | `steal` / `1` / `75` | Clauses can be paid; raising costs 1:1; lowering refunds 75 % |
+        | `immediateSales` | `50` | Selling to the market pays this percentage |
+        | `loans`, `exchanges` | `allow`, `true` | Enabled, but no board entry of either seen yet |
+        | `marketShowBids`, `transfersShowBidders` | `true`, `3` | Losing market bids are published, up to three |
+        | `lineupCaptainMaxValue` | `3` | Captain cap, in millions |
+        | `splitRound` | `end` | Points and payouts only once every match of the round is played |
+
+        The same object carries a `secret` (the league's invite code) — do not
+        copy it into docs or logs.
       parameters:
         - name: leagueID
           in: path
@@ -559,21 +587,43 @@ paths:
                             name: {type: string}
                             position: {type: integer}
                             points: {type: integer}
-      x-verified-at: "2026-05-15"
+      x-verified-at: "2026-09-27"
 
   /league/{leagueID}/board:
     get:
       tags: [league]
-      summary: League board entries (messages + transfers).
+      summary: League board — every event in the league, money movements included.
       description: |
-        Polymorphic by `type`:
+        Paginated with `limit` / `offset`, **newest first**. Filter with
+        `type=` (one type, or a comma list); leave it out to get every type.
 
-        - `text` — chat-style messages posted by managers (the comunicados
-          our scraper ingests).
-        - `transfer&fields=*,content(*,player(*))` — release-clause
-          purchases (clausulazos) including the player they targeted.
+        **Unknown parameters are rejected**: `lang=es` answers `400 "Invalid
+        filter parameters"`. The unfiltered feed that `/saldos` reads therefore
+        carries only `fields=*`, which the paginator needs as a query to append
+        `&limit=` to.
 
-        Both modes are paginated via `limit` / `offset` query params.
+        Entry types seen in the Lloros League (one season ≈ 400 entries,
+        ~3,100 across every season). Those that move money — enough to rebuild
+        every manager's hidden balance to the euro (see
+        `openspec/specs/biwenger_tools/league-cash/spec.md`):
+
+        | `type` | `content` | Money |
+        |---|---|---|
+        | `transfer` | `[{player, from, to?, amount, type?}]` | `amount` leaves `to`, reaches `from`. No `to` = sold to the market; `type: clause` = clausulazo. Only plain and `clause` kinds seen so far |
+        | `market` | `[{player, to, amount, bids[]}]` | Won at the daily market. `bids[]` lists the **losing** bids too (user + amount), capped by the league's `transfersShowBidders` |
+        | `adminTransfer` | `[{player, to?, from?, amount, admin}]` | Admin-made move — the draft. A draft undo has a `from` and moves 0 € |
+        | `clauseIncrement` | `[{user, player, amount, releaseClause}]` | Raising a clause costs `amount`. A **negative** amount is the refund (75 %, `clauseDecrement`) on lowering it or selling the player |
+        | `bonus` | `[{user, amount, reason?}]` | Admin bonus: draft-undo refunds, cup prizes, fines (negative) |
+        | `roundFinished` | `{round, results[{user, points, bonus, reason?}], reason?}` | Each `bonus` is that manager's round payout. A score correction **republishes the whole round** as a new entry (`reason: ["Corrección de puntuaciones"]`); count the latest per `round.id` |
+        | `seasonStarted` | `{season, distribution}` | Marks where the current season's entries begin |
+
+        Seen, no money: `text`, `adminText`, `article`, `bettingPool`, `poll`,
+        `playerMovements`, `teamMovements`, `roundStarted`, `seasonFinished`,
+        `leagueSettings` (a setting change, e.g. `{clauseDecrement: 75}`),
+        `leagueAdmins`, `leaguePremium`, `userName`, `userJoin`.
+
+        With `type=transfer&fields=*,content(*,player(*))` each entry inlines
+        the targeted player.
       parameters:
         - name: leagueID
           in: path
@@ -581,14 +631,13 @@ paths:
           schema: {type: integer}
         - name: type
           in: query
-          required: true
-          schema:
-            type: string
-            enum: [text, transfer]
+          required: false
+          description: One type or a comma list; omit for every type.
+          schema: {type: string, example: "transfer,market"}
         - name: fields
           in: query
           required: false
-          schema: {type: string, example: "*,content(*,player(*))"}
+          schema: {type: string, example: "*"}
         - name: limit
           in: query
           schema: {type: integer, default: 200}
@@ -598,7 +647,22 @@ paths:
       responses:
         "200":
           description: Board page.
-      x-verified-at: "2026-05-25"
+          content:
+            application/json:
+              examples:
+                clause-refund-then-sale:
+                  summary: Clause raised by 2M earlier; 75 % back one second before the sale
+                  value:
+                    data:
+                      - type: clauseIncrement
+                        date: 1790188304
+                        content: [{user: {id: 13753285}, player: 25769, amount: -1500000, releaseClause: 18175000}]
+                      - type: transfer
+                        date: 1790188305
+                        content: [{player: 25769, from: {id: 13753285}, amount: 14874500}]
+        "400":
+          description: '`Invalid filter parameters` — a query parameter the board does not filter on (e.g. `lang`).'
+      x-verified-at: "2026-09-27"
 
   /league/{leagueID}/transfer:
     post:
@@ -721,8 +785,13 @@ paths:
       summary: One player's history — per-season totals and per-match raw stats.
       description: |
         The only endpoint that exposes **per-match** data. Returns just the
-        basic player fields unless `fields` asks for more; the two useful
-        expansions are `seasons(*)` and `reports(*)`.
+        basic player fields unless `fields` asks for more; the useful
+        expansions are `seasons(*)`, `reports(*)` and `prices`.
+
+        `fields=*,prices` returns the daily market-value history as
+        `[[YYMMDD, price], …]` — about a year of it (366 points observed),
+        public on the cf host. Enough for a 3- and 7-day price trend without
+        storing anything.
 
         `seasons[].points` and `reports[].points` are dicts keyed by
         **scoring-system id**, so one call yields every system at once and the
@@ -770,7 +839,7 @@ paths:
         - name: fields
           in: query
           description: Field selector; without it neither expansion is returned.
-          schema: {type: string, example: "*,reports(*),seasons(*)"}
+          schema: {type: string, example: "*,reports(*),seasons(*),prices"}
       responses:
         "200":
           description: Player with the requested expansions.
@@ -830,6 +899,22 @@ paths:
     get:
       tags: [competition]
       summary: One specific LaLiga round.
+      description: |
+        Pending games carry Biwenger's own **fixture difficulty** per side,
+        for rounds weeks ahead, not only the next one:
+
+        ```json
+        "home": {"id": 65, "name": "Málaga",
+                 "difficulty": {"rating": 39, "standings": [41, 35],
+                                "homeAway": [18, 20], "form": [47, 25],
+                                "goalDiff": [48, 20]}}
+        ```
+
+        Each component is `[score 0–100, weight %]`; the weights sum to 100
+        (standings 35, home/away 20, form 25, goal difference 20) and `rating`
+        is their weighted mean, rounded — higher is harder. The competition
+        catalogue (`/competitions/la-liga/data`) does **not** carry it on
+        either host.
       parameters:
         - name: roundID
           in: path
@@ -844,7 +929,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Envelope'}
-      x-verified-at: "2026-08-28"
+      x-verified-at: "2026-09-27"
 
   /competitions/la-liga:
     get:

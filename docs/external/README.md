@@ -9,7 +9,7 @@ in the wild.
 
 | File | What |
 |---|---|
-| `biwenger-api.yaml` | Biwenger backend used by `core/sdk/biwenger.py`. Covers auth, account, market, offers (inbox + decisions), squad, lineup, league reports and the cf-base player DB. |
+| `biwenger-api.yaml` | Biwenger backend used by `core/sdk/biwenger.py`. Covers auth, account, market (incl. your pending bids), offers (inbox + decisions), squad, lineup, league settings and reports, the board's money movements (enough to rebuild hidden balances), per-player price history, fixture difficulty and the cf-base player DB. OpenAPI 3.1. |
 
 ## How to view
 
