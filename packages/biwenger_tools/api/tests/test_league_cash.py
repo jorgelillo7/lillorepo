@@ -243,9 +243,10 @@ def test_reach_is_nobody_above_every_max_bid():
     assert not got.by_cash and not got.by_max_bid and not got.anyone
 
 
-def _mine(name, score, clause, locked_until=None):
+def _mine(name, score, clause, locked_until=None, price=0):
     return {
         "name": name,
+        "price": price,
         "position_id": 3,
         "custom_prediction": score,
         "clause_value": clause,
@@ -290,11 +291,15 @@ def test_protection_alert_is_silent_when_nobody_reaches():
 
 
 def test_exposure_rows_count_who_reaches_each_top_player():
-    rows = [_mine("Gueye", 600, 12_500_025), _mine("Parrott", 400, 60_000_000)]
+    rows = [
+        _mine("Gueye", 600, 12_500_025, price=8_050_000),
+        _mine("Parrott", 400, 60_000_000),
+    ]
     got = league_cash.exposure_rows(rows, RIVALS)
     assert got[0] == {
         "name": "Gueye",
         "projection": 600,
+        "value": 8_050_000,
         "clause": 12_500_025,
         "by_cash": 1,
         "by_max_bid": 2,

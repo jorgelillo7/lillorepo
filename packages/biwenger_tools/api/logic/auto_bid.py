@@ -15,9 +15,9 @@ ones (a 10M T3 stops climbing at +2M instead of going to +50%). Every
 non-skipped bid then adds a 0–`BID_JITTER_MAX` € random offset so the
 amounts don't look botty:
 
-    SF ≥ 800             → bid = remaining_cash - jitter           (all-in)
-    600 ≤ SF < 800  (T2) → bid = min(price × 1.7, price + 5M) + jitter
-    400 ≤ SF < 600  (T3) → bid = min(price × 1.5, price + 2M) + jitter
+    SF ≥ 700             → bid = remaining_cash - jitter           (all-in)
+    550 ≤ SF < 700  (T2) → bid = min(price × 1.7, price + 5M) + jitter
+    400 ≤ SF < 550  (T3) → bid = min(price × 1.5, price + 2M) + jitter
     300 ≤ SF < 400  (T4) → bid = min(price × 1.2, price + 500K) + jitter
     SF < 300             → skip
 
@@ -72,8 +72,8 @@ logger = get_logger(__name__)
 # constants so the unit tests can pin every band without reaching into
 # private helpers. Each non-T1 tier bids `min(price × MULT, price + CAP)`
 # — see module docstring for the rationale + crossover prices.
-TIER_ALL_IN_MIN = 800
-TIER_T2_MIN = 600
+TIER_ALL_IN_MIN = 700
+TIER_T2_MIN = 550
 TIER_T3_MIN = 400
 TIER_T4_MIN = 300
 TIER_T2_MULTIPLIER = 1.7
