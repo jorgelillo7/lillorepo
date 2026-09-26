@@ -288,3 +288,69 @@ question and another answers the origin one.
 Nothing else here would have caught it either. An AESAN `place → province`
 index — considered earlier — needs a municipality to key on, and the stored
 document has none, for the same reason.
+
+## Ideas from other Biwenger projects
+
+Four outside projects were read against this package:
+[`miguelmartt/biwenger-agent`](https://github.com/miguelmartt/biwenger-agent),
+[`jbujalance/biwenger-transfers`](https://github.com/jbujalance/biwenger-transfers),
+[`pablominue/pybiwenger`](https://github.com/pablominue/pybiwenger) and
+[alexmolas' fantasy knapsack](https://www.alexmolas.com/2024/07/15/fantasy-knapsack.html).
+Four ideas survived, each checked against the live API; the first shipped as
+`/saldos`, the other three wait in `PENDING.md`.
+
+### Rival cash — shipped as `/saldos`
+
+Rebuilt from the league board and validated to the euro on two managers. The
+formula, the evidence and what is still unobserved (loans, exchanges, a score
+correction that changes a payout) now live in the
+[`league-cash` spec](../../openspec/specs/biwenger_tools/league-cash/spec.md).
+The same board read would serve the overbid item in `PENDING.md`, since
+`market` entries carry the losing bids too (`marketShowBids`, capped at
+`transfersShowBidders = 3`).
+
+### Defensive clause alert
+
+`/recomendar` attacks and `/emergencia` reacts after a loss; nothing warns
+*before* one of the owner's players is claused. `/saldos` already rebuilds
+every rival's max bid (`logic/league_cash.py`), so the alert is a join: my players whose clause is ≤ some rival's max bid. Two
+tiers are worth telling apart: payable from cash, and payable only by going
+negative — which costs the rival that round's points if not repaired before
+the matchday starts. Read-only by
+design — biwenger-agent's own raise-clause write is marked unconfirmed there,
+and raising a clause costs money (`clauseIncrement` entries). It has to reach
+the owner before the 24 h clause freeze (`openspec/project.md`).
+
+### Price history
+
+`cf.biwenger.com/api/v2/players/la-liga/{slug}?fields=*,prices` is public and
+returns one `[YYMMDD, price]` per day, ~366 of them. A 3- and 7-day trend is
+enough to feed `/ofertas` (a falling price is a reason to accept; today it only
+weighs ROI against `owner.price`) and auto-bid (a rising price means more
+competition). Nothing needs storing; Biwenger keeps the history.
+
+### Fixture difficulty over the coming rounds
+
+`cf.biwenger.com/api/v2/rounds/la-liga/{id}` — the host `ROUND_URL` already
+reads — carries `home/away.difficulty` on pending games: a `rating` 0–100 plus
+its `standings`, `homeAway`, `form` and `goalDiff` components. It is there for
+rounds several weeks out, not only the next one. The competition catalogue does
+**not** carry it, on either host, despite biwenger-agent reading it there.
+
+It adds little to `/alinear`, where JP already projects the next round. It
+matters for decisions that outlive one round: auto-bid, the clausulazo
+recommender and offer calls. How to weigh it against JP is the open question.
+
+### Read and rejected
+
+- **An ILP lineup solver** (the knapsack article, biwenger-agent's PuLP):
+  `/alinear` already searches all fourteen formations exhaustively, which is
+  exact.
+- **Sniping at market close**: bids are blind, so a late bid hides nothing.
+- **biwenger-agent's self-calibration**: its `calib_factor` scales every
+  player equally and cannot change which eleven is chosen. The projection
+  ledger is the measuring tool here.
+- **Ownership differentials for the captain**: the captain must cost under
+  3M, which leaves too little room for the bonus to matter.
+- **Rival rule-compliance checks**: depend on reglamento rules this repo does
+  not hold.

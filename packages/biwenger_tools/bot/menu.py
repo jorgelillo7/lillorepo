@@ -25,6 +25,7 @@ MAIN_MENU_ACTIONS = [
     ("alinear", "📋 Alinear"),
     ("recomendar", "💡 Recomendar"),
     ("comparar", "⚖️ Comparar"),
+    ("saldos", "💰 Saldos"),
     ("ofertas", "📥 Ofertas"),
     ("pujar", "💸 Pujar"),
     ("emergencia", "🚨 Emergencia"),

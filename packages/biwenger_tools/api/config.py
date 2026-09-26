@@ -47,6 +47,7 @@ LEAGUE_DATA_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
 USER_SQUAD_URL = biwenger_sdk.manager_squad_url("{manager_id}")
 CLAUSULAZOS_URL = biwenger_sdk.clausulazos_url(LEAGUE_ID)
 ADMIN_TRANSFERS_URL = biwenger_sdk.admin_transfers_url(LEAGUE_ID)
+LEAGUE_BOARD_ALL_URL = biwenger_sdk.league_board_all_url(LEAGUE_ID)
 OFFERS_URL = biwenger_sdk.OFFERS_URL
 
 # --- JORNADA PERFECTA (private API) ---

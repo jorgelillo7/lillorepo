@@ -53,6 +53,16 @@ def league_board_url(league_id: Union[str, int], type_filter: str = "text") -> s
     return f"{league_url(league_id)}/board?type={type_filter}"
 
 
+def league_board_all_url(league_id: Union[str, int]) -> str:
+    """Board feed of every entry type, newest first — every movement of money.
+
+    Carries `fields=*` so the paginator's `&limit=` has a query to join. Not
+    `lang`: the board answers any parameter it does not filter on with a 400,
+    "Invalid filter parameters".
+    """
+    return f"{league_url(league_id)}/board?fields=*"
+
+
 def clausulazos_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/board?type=transfer&fields=*,content(*,player(*))"
 
@@ -282,13 +292,20 @@ class BiwengerClient:
         return response.json()
 
     def get_all_board_messages(
-        self, base_url: str, limit: int = DEFAULT_PAGE_LIMIT
+        self,
+        base_url: str,
+        limit: int = DEFAULT_PAGE_LIMIT,
+        until_type: Optional[str] = None,
     ) -> list:
         """Paginates board messages from `base_url` until exhausted.
 
         `base_url` already contains the query string up to (but not including)
         `limit`/`offset`, e.g. ".../board?type=text".
         Returns a flat list of message entries.
+
+        `until_type` stops after the page holding an entry of that type: the
+        board pages newest first, so a season read ends at `seasonStarted`
+        instead of walking every past season.
         """
         all_messages: list = []
         offset = 0
@@ -304,6 +321,8 @@ class BiwengerClient:
             all_messages.extend(messages)
             offset += limit
             if len(messages) < limit:
+                break
+            if until_type and any(m.get("type") == until_type for m in messages):
                 break
         logger.info("All board messages fetched.", extra={"total": len(all_messages)})
         return all_messages

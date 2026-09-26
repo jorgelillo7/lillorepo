@@ -23,6 +23,8 @@ from packages.biwenger_tools.api.logic.player_matching import normalize_name
 NUM_ROUNDS = 15
 SQUAD_SIZE = NUM_ROUNDS  # one pick per round per manager
 
+# Also every manager's Biwenger balance when the season starts, which is what
+# `/saldos` rebuilds cash from. A cup prize arrives as a separate board bonus.
 DEFAULT_BUDGET = 50_000_000
 
 # Resolved from `core.constants` so the api and the published rulebook cannot

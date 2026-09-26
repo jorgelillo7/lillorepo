@@ -936,6 +936,14 @@ def test_comparar_command_dispatches(client):
     assert mock.call_args[0][0] == "comparar"
 
 
+def test_saldos_command_dispatches(client):
+    with patch("packages.biwenger_tools.bot.app._dispatch_action") as mock:
+        resp = _post(client, _update(_VALID_CHAT, "/saldos"))
+    assert resp.status_code == 200
+    mock.assert_called_once()
+    assert mock.call_args[0][0] == "saldos"
+
+
 # --- The decision is written onto the offer it settled --------------------
 
 _OFFER_TEXT = (

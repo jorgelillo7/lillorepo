@@ -556,6 +556,12 @@ def league_compare_route():
     return _run_action("league.compare", actions.run_league_compare)
 
 
+@app.route("/league/cash", methods=["POST"])
+def league_cash_route():
+    """Every manager's cash and max bid, rebuilt from the board — `/saldos`."""
+    return _run_action("league.cash", actions.run_league_cash)
+
+
 @app.route("/market/auto-bid", methods=["POST"])
 def market_auto_bid():
     """Cron-triggered (09:00 Madrid): tiered auto-bid on the daily market.

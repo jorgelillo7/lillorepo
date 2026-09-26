@@ -13,6 +13,7 @@ from datetime import datetime
 import requests
 
 from core.constants import MADRID_TZ
+from core.sdk.biwenger import BiwengerClient
 from core.sdk.telegram import (
     send_telegram_message,
     send_telegram_message_or_raise,
@@ -20,10 +21,15 @@ from core.sdk.telegram import (
 )
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import draft
+from packages.biwenger_tools.api.logic import league_cash
 from packages.biwenger_tools.api.logic import league_compare
 from packages.biwenger_tools.api.logic import pact_store
 from packages.biwenger_tools.api.logic import projection_ledger_capture
-from packages.biwenger_tools.api.logic.image_formatter import build_table_image
+from packages.biwenger_tools.api.logic.image_formatter import (
+    build_cash_image,
+    build_table_image,
+)
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
 from packages.biwenger_tools.api.logic import round_context
 from packages.biwenger_tools.api.logic.lineup import (
@@ -360,6 +366,67 @@ def run_league_compare() -> dict:
     )
     logger.info("League comparison sent.", extra={"managers": len(summary)})
     return {"sent": 1, "managers": len(summary)}
+
+
+def run_league_cash() -> dict:
+    """Send every manager's cash and maximum bid, rebuilt from the board.
+
+    Owner-only, like `/comparar`: the league hides these figures from all its
+    members. Rebuilt on every call — ~15 sequential reads, nothing stored.
+    """
+    telegram = require_telegram()
+    if telegram is None:
+        return {"sent": 0, "reason": "telegram_credentials_missing"}
+    token, chat_id = telegram
+
+    biwenger = build_biwenger_session()
+    entries = biwenger.get_all_board_messages(
+        config.LEAGUE_BOARD_ALL_URL, until_type=league_cash.SEASON_START_TYPE
+    )
+    book = league_cash.rebuild(entries, draft.DEFAULT_BUDGET)
+    players, _ = BiwengerClient.get_competition_maps(config.ALL_PLAYERS_DATA_URL)
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
+
+    rows = []
+    for manager_id, name in managers.items():
+        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        cash = book.cash_of(manager_id)
+        rows.append(
+            {
+                "name": name,
+                "cash": cash,
+                "max_bid": league_cash.max_bid(
+                    cash, league_cash.squad_value(squad, players)
+                ),
+                "is_me": manager_id == biwenger.user_id,
+            }
+        )
+
+    real_mine = biwenger.get_account_state()["cash"]
+    rebuilt_mine = book.cash_of(biwenger.user_id)
+    notes = league_cash.notes(book.unknown_types, rebuilt_mine, real_mine)
+    today = datetime.now(MADRID_TZ).strftime("%d/%m %H:%M")
+    title = f"💰 Saldos · {today}"
+    send_telegram_photo_or_raise(
+        token, chat_id, build_cash_image(league_cash.ranked(rows), title, notes), title
+    )
+    logger.info(
+        "League cash sent.",
+        extra={
+            "managers": len(rows),
+            "board_entries": len(entries),
+            "self_check_ok": rebuilt_mine == real_mine,
+            "unknown_types": sorted(book.unknown_types),
+        },
+    )
+    return {
+        "sent": 1,
+        "managers": len(rows),
+        "self_check_ok": rebuilt_mine == real_mine,
+        "unknown_types": sorted(book.unknown_types),
+    }
 
 
 def _round_context(biwenger) -> "round_context.RoundContext":
