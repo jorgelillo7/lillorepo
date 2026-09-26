@@ -1170,6 +1170,32 @@ def test_pacto_command_says_it_is_working_before_the_picker_arrives(client):
     assert mock_send.call_args_list[-1].kwargs.get("reply_markup") is not None
 
 
+def test_reply_keyboard_pacto_label_opens_the_pact_picker(client):
+    """The '🤝 Pacto' button opens the same picker as `/pacto` — it is a picker,
+    not an api action, so it must not reach the generic dispatcher."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call, patch(
+        "packages.biwenger_tools.bot.app.send_telegram_message"
+    ) as mock_send:
+        resp = _post(client, _update(_VALID_CHAT, "🤝 Pacto"))
+    assert resp.status_code == 200
+    mock_call.assert_not_called()
+    rows = mock_send.call_args_list[-1].kwargs["reply_markup"]["inline_keyboard"]
+    assert [r[0]["callback_data"] for r in rows] == ["pact:2"]
+
+
+def test_every_menu_button_has_somewhere_to_go():
+    """A button whose key is neither an api route nor a picker is dead on tap."""
+    from packages.biwenger_tools.bot.app import _ACTION_ROUTES, _PICKER_ACTIONS
+
+    dead = (
+        {k for k, _ in MAIN_MENU_ACTIONS} - set(_ACTION_ROUTES) - set(_PICKER_ACTIONS)
+    )
+    assert not dead, f"botones sin destino: {sorted(dead)}"
+
+
 def test_pacto_command_handles_a_fetch_failure(client):
     with patch(
         "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
