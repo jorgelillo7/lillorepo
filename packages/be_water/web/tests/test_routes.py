@@ -1863,7 +1863,6 @@ def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
     assert anchors == {
         "fuente-etiqueta",
         "fuente-a-mano",
-        "fuente-sin-marca",
         "fuentes",  # the legend at the foot of the card
     }
     for name in anchors:
@@ -2611,3 +2610,51 @@ def test_an_older_analysis_sends_a_history_notice(client):
         )
     assert notify.call_args.args[0] == "history"
     assert notify.call_args.kwargs["analysis_date"] == "2024-01"
+
+
+# --- a water nobody has photographed yet has no composition ---
+
+
+def _unphotographed():
+    return Water(
+        id="bezoya-vacia",
+        name="Bezoya Vacía",
+        brand="Bezoya",
+        spring="Ortigosa",
+        province="Segovia",
+        community="Castilla y León",
+        minerals={},
+    )
+
+
+def test_every_page_serves_a_water_with_no_composition(client):
+    """The catalogue shows only numbers someone can stand behind, so a ficha
+    nobody has photographed has none. Every page has to cope with that."""
+    catalog = _catalog() + [_unphotographed()]
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.get_favorites", return_value=[catalog[-1]]
+    ), patch(f"{_REPO}.list_analyses", return_value=[]), patch(
+        f"{_REPO}.get_all_users", return_value={}
+    ), patch(
+        f"{_REPO}.all_analyses", return_value=[]
+    ):
+        for path in (
+            "/",
+            "/agua/bezoya-vacia",
+            "/recomendar?lugar=Segovia",
+            "/recomendar",
+            "/comunidad",
+            "/acerca",
+            "/sitemap.xml",
+        ):
+            assert client.get(path).status_code == 200, path
+
+
+def test_an_empty_ficha_asks_for_the_label_photo(client):
+    catalog = _catalog() + [_unphotographed()]
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
+        f"{_REPO}.list_analyses", return_value=[]
+    ):
+        body = client.get("/agua/bezoya-vacia").get_data(as_text=True)
+    assert "Composición pendiente" in body
+    assert 'href="/anadir"' in body

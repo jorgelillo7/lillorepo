@@ -1,6 +1,6 @@
-"""The decision `purge_manufacturer_sources` makes for each 'fabricante' value."""
+"""The decision `purge_unbacked_minerals` makes for each unbacked mineral."""
 
-from packages.be_water.scripts.purge_manufacturer_sources import plan
+from packages.be_water.scripts.purge_unbacked_minerals import plan, unbacked
 
 _LABEL = "https://storage.googleapis.com/be-water-photos/originals/x__2024.jpg"
 
@@ -52,3 +52,21 @@ def test_a_different_value_or_photo_is_not_backing():
     ficha["minerals"]["tds"] = 235
     ficha["label_photo_url"] = _LABEL + "?other"
     assert plan(entry, backing=ficha)[2] == ["tds"]
+
+
+def test_a_value_with_no_source_and_no_label_is_unbacked():
+    """The seed's other legacy: values nobody recorded a source for."""
+    ficha = {
+        "minerals": {"tds": 261, "calcium": 60.0, "sodium": 5.2},
+        "verified_fields": ["calcium"],
+        "sources": {"sodium": "manual"},
+    }
+    assert unbacked(ficha) == ["tds"]
+    new, _, removed = plan(ficha, backing=None)
+    assert removed == ["tds"]
+    assert new["minerals"] == {"calcium": 60.0, "sodium": 5.2}
+
+
+def test_an_unphotographed_ficha_is_emptied():
+    ficha = {"minerals": {"tds": 100, "ph": 7.0}, "verified_fields": [], "sources": {}}
+    assert plan(ficha, backing=None)[0]["minerals"] == {}

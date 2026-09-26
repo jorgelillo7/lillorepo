@@ -63,12 +63,13 @@ py_binary(
     deps = ["//packages/be_water/web:web_lib"],
 )
 
-# Removes every "fabricante" source: re-marks label-backed values, removes
-# the rest behind a revision snapshot. Dry-run by default.
+# Keeps only minerals backed by a label or a recorded source: re-marks the
+# label-backed ones, removes the rest behind a revision snapshot. Dry-run
+# by default.
 py_binary(
-    name = "purge_manufacturer_sources",
-    srcs = ["purge_manufacturer_sources.py"],
-    main = "purge_manufacturer_sources.py",
+    name = "purge_unbacked_minerals",
+    srcs = ["purge_unbacked_minerals.py"],
+    main = "purge_unbacked_minerals.py",
     deps = ["//packages/be_water/web:web_lib"],
 )
 
@@ -81,7 +82,7 @@ py_test(
     srcs = glob(["tests/**/*.py"]) + [
         "refresh_aesan_snapshot.py",
         "backfill_analyses.py",
-        "purge_manufacturer_sources.py",
+        "purge_unbacked_minerals.py",
     ],
     main = "tests/main.py",
     deps = [

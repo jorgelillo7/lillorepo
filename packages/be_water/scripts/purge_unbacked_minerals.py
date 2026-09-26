@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Remove every "fabricante" source from be_water's Firestore (ADC, be-water-app).
+"""Keep only minerals someone can stand behind (ADC, be-water-app).
 
-A mineral marked `manufacturer` came from the retired seed dataset, not from
-the bottle anyone photographed. Each one ends in one of two ways:
+A mineral is *backed* when it was read off a photographed label
+(`verified_fields`) or carries a recorded source (`manual`: a contributor
+submitted it). Everything else — values marked `manufacturer` by the retired
+seed dataset, and values nobody recorded a source for — is unbacked, and ends
+in one of two ways:
 
 - **The same label backs it.** An analysis entry whose ficha shares its label
   photo, and holds the same value marked as read off that label: the value is
@@ -10,8 +13,8 @@ the bottle anyone photographed. Each one ends in one of two ways:
 - **Nothing backs it.** The value is removed. On a ficha the previous document
   is snapshotted to `water_revisions` first, so `revert_water` can undo it.
 
-    bazel run //packages/be_water/scripts:purge_manufacturer_sources  # dry run
-    bazel run //packages/be_water/scripts:purge_manufacturer_sources -- --apply
+    bazel run //packages/be_water/scripts:purge_unbacked_minerals  # dry run
+    bazel run //packages/be_water/scripts:purge_unbacked_minerals -- --apply
 """
 
 import argparse
@@ -26,6 +29,17 @@ from packages.be_water.web.domain import Water  # noqa: E402
 MANUFACTURER = "manufacturer"
 
 
+def unbacked(doc: dict) -> list[str]:
+    """Minerals neither label-verified nor carrying a real source."""
+    verified = set(doc.get("verified_fields") or [])
+    sources = doc.get("sources") or {}
+    return sorted(
+        field
+        for field in (doc.get("minerals") or {})
+        if field not in verified and sources.get(field) in (None, MANUFACTURER)
+    )
+
+
 def plan(doc: dict, backing: dict | None) -> tuple[dict, list[str], list[str]]:
     """`(new_doc, verified, removed)` for one document.
 
@@ -37,8 +51,8 @@ def plan(doc: dict, backing: dict | None) -> tuple[dict, list[str], list[str]]:
     minerals = dict(doc.get("minerals") or {})
     verified_fields = list(doc.get("verified_fields") or [])
     verified, removed = [], []
-    for field in sorted(k for k, v in sources.items() if v == MANUFACTURER):
-        del sources[field]
+    for field in unbacked(doc):
+        sources.pop(field, None)
         same_label = (
             backing is not None
             and backing.get("label_photo_url")
@@ -75,7 +89,8 @@ def main() -> None:
 
     touched = 0
     for collection, doc_id, doc, backing in targets:
-        if MANUFACTURER not in (doc.get("sources") or {}).values():
+        stale_marks = MANUFACTURER in (doc.get("sources") or {}).values()
+        if not unbacked(doc) and not stale_marks:
             continue
         touched += 1
         new_doc, verified, removed = plan(doc, backing)
@@ -89,13 +104,13 @@ def main() -> None:
         if collection == repository.WATERS and removed:
             repository.save_revision(
                 Water.from_firestore(doc_id, doc),
-                replaced_by="purge_manufacturer_sources",
+                replaced_by="purge_unbacked_minerals",
                 reason="unbacked_values_removed",
             )
         firestore.set_document(collection, doc_id, new_doc)
 
     if not touched:
-        print("No 'fabricante' source left anywhere.")
+        print("Every mineral left is backed by a label or a recorded source.")
     elif not args.apply:
         print(f"\nDry run: {touched} document(s). Re-run with --apply to write.")
 
