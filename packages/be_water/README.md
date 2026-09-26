@@ -93,9 +93,10 @@ composition.
 
 ## Data trust model
 
-Every number on a ficha says where it came from — or, when nobody recorded
-that, says nothing rather than guess. The point is that a reader can tell a
-photographed label from a figure somebody typed.
+Every number on a ficha says where it came from, and a number nobody can
+stand behind is not shown at all: a water nobody has photographed yet has no
+composition, and says so. The point is that a reader can tell a photographed
+label from a figure somebody typed.
 
 ```mermaid
 graph LR
@@ -117,7 +118,6 @@ graph LR
 | **`label`** → ✓ etiqueta | Read off a photographed label, kept as proof | Any contributor with a bottle | Highest — the legal source |
 | **`manual`** → a mano | The contributor submitted it and no label backs it | Any contributor | Low: nothing can cross-check it |
 | **`aesan`** | Identity cross-checked against the state register | Automatic on save | Authoritative — **for identity only** |
-| *(none)* → sin marca | The catalog's first fichas, not yet confirmed against a label | — | Approximate until a label photo replaces it |
 
 Two rules that fall out of the table and are easy to get wrong:
 
@@ -126,9 +126,9 @@ Two rules that fall out of the table and are easy to get wrong:
 - **No source is ever guessed.** `manual` is a claim about a person, so a value
   merged through from the ficha that the contributor never submitted keeps the
   source it had, or none. Lunares once shipped two such values credited to
-  whoever photographed its label, and a retired seed dataset once marked
-  values the photographed label did not print as "fabricante"; both were
-  corrected.
+  whoever photographed its label, and a retired seed dataset left values no
+  photographed label printed — marked "fabricante" or not marked at all. All
+  of them were removed; the fichas they emptied wait for a label photo.
 
 A ficha is **verified and locked** against overwrite two ways: auto-promotion
 (every declared value label-backed) or admin sign-off (a photographed label +

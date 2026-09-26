@@ -1,8 +1,8 @@
 # Capability: provenance
 
 Per-field sourcing for a water's mineral values, so the UI can name where each
-number came from (`label` / `aesan` / `manual`), or say nothing when nobody
-recorded it — never a source guessed after the fact.
+number came from (`label` / `aesan` / `manual`) — never a source guessed after
+the fact, and never a number nobody can stand behind.
 
 - **Source:** `packages/be_water/web/provenance.py`, `domain.py`,
   `submission.py`, `routes/add.py`
@@ -23,8 +23,7 @@ That is the rule, because it once was broken. A seed dataset of values
 transcribed from brands' sites let the ficha label any matching number
 "fabricante"; two documents were found carrying that mark on values no
 photographed label printed, or on values a label did print but was not
-credited for. The seed is gone, those documents were corrected, and an
-unrecorded mineral now renders with no badge at all.
+credited for. The seed is gone and those documents were corrected.
 
 #### Scenario: minerals are left alone, recorded sources kept
 - **WHEN** a mineral has no recorded source **THEN** none is derived
@@ -80,7 +79,6 @@ to readers, not internal states, and each SHALL keep its meaning:
 | `label` | ✓ etiqueta | Read off a photographed label kept as proof |
 | `manual` | a mano | The contributor submitted it, and no label backs it |
 | `aesan` | AESAN | Identity cross-checked against the state register — **never a composition** |
-| *(none)* | no badge | Nobody recorded where it came from — explained as "sin marca" |
 
 The ficha SHALL let a reader reach the explanation of any badge it shows. The
 badges carried their meaning in a `title` attribute alone, which does nothing
@@ -94,11 +92,43 @@ repurposed as "not confirmed by a label" without a single test or spec
 objecting.
 
 #### Scenario: a reader can find out where a number came from
-- **WHEN** a ficha shows fields sourced from a label, from a contributor, and
-  with no recorded source
+- **WHEN** a ficha shows fields sourced from a label and from a contributor
 - **THEN** each badge links to the entry in `/acerca` that explains that
   source, and every anchor it links to exists on that page
 - *Verifies:* `test_every_provenance_badge_links_to_an_explanation_that_exists`
+
+### Requirement: Only a backed number is shown; an unphotographed ficha says so
+
+Every stored mineral SHALL be backed: read off a photographed label, or
+carrying a recorded source. A water nobody has photographed SHALL have no
+composition, and its ficha SHALL say so and point to the add flow, rather than
+show numbers nobody can stand behind. Every page SHALL serve such a water.
+
+The catalogue started from a seed of values transcribed from brand sites.
+Checked against the photographed labels, none of the unbacked values that
+survived on photographed fichas appeared on the bottle, so the seed's numbers
+were removed wherever no label backed them: 28 fichas were emptied and seven
+lost the values their label does not print. The empty ones fill themselves as
+bottles are photographed. `scripts/purge_unbacked_minerals.py` enforces the
+invariant on existing data, dry-run by default.
+
+#### Scenario: an empty ficha, and pages that cope with it
+- **WHEN** a water has no composition **THEN** its ficha says "Composición
+  pendiente" and links to the add flow
+- **WHEN** such a water is in the catalogue, the favourites or a search
+  **THEN** the home, ficha, search, community, about and sitemap pages serve it
+- *Verifies:* `test_an_empty_ficha_asks_for_the_label_photo`,
+  `test_every_page_serves_a_water_with_no_composition`
+
+#### Scenario: what the purge keeps
+- **WHEN** a mineral has no label and no real source **THEN** it is unbacked
+  and removed; an unphotographed ficha is emptied
+- **WHEN** an analysis entry's value is verified on its ficha from the same
+  photo **THEN** it is re-marked as label-verified instead
+- *Verifies:* `test_a_value_with_no_source_and_no_label_is_unbacked`,
+  `test_an_unphotographed_ficha_is_emptied`,
+  `test_a_value_no_label_backs_is_removed_with_its_source`,
+  `test_an_entry_value_its_ficha_read_off_the_same_label_becomes_verified`
 
 ### Requirement: Sources recomputed on save
 

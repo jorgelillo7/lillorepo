@@ -137,6 +137,15 @@
                 {% if water.analysis_date %}Análisis de la etiqueta: <span class="tabular-nums font-medium text-slate-500">{{ water.analysis_date }}</span>{% else %}Sin fecha de análisis{% endif %}
             </p>
             {% endif %}
+            {% if not water.minerals %}
+            <div class="rounded-2xl bg-slate-50 ring-1 ring-slate-200 p-4 text-sm text-slate-600">
+                <p class="font-semibold text-slate-700">Composición pendiente</p>
+                <p class="mt-1">Nadie ha fotografiado todavía la etiqueta de esta agua, y aquí
+                solo se muestran números que salen de una. Si tienes la botella a mano,
+                <a href="{{ url_for('add_water') }}" class="text-sky-600 underline hover:text-sky-700">fotografía su etiqueta</a>
+                y la composición aparecerá con su ✓.</p>
+            </div>
+            {% endif %}
             <dl class="space-y-3">
                 {% for field in mineral_fields if water.minerals.get(field) is not none %}
                 {% set val = water.minerals[field] %}
@@ -177,8 +186,7 @@
             </dl>
             <p class="mt-4 text-[11px] text-slate-400 leading-relaxed">
                 <span class="text-teal-600 font-semibold">✓ etiqueta</span> confirmado de foto ·
-                <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad ·
-                <a href="{{ url_for('about') }}#fuente-sin-marca" class="underline hover:text-sky-600">sin marca</a>: sin confirmar todavía.
+                <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad.
                 <a href="{{ url_for('about') }}#fuentes" class="underline hover:text-sky-600">Más sobre las fuentes</a>
             </p>
         </div>

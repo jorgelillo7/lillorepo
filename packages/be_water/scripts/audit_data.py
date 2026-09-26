@@ -42,7 +42,7 @@ def _fields_summary(water) -> str:
     label = ", ".join(MINERAL_LABELS.get(f, f) for f in water.verified_fields)
     other = [f for f in water.minerals if f not in water.verified_fields]
     other_str = ", ".join(MINERAL_LABELS.get(f, f) for f in other) or "—"
-    return f"    etiqueta: {label}\n    resto (a mano/sin marca): {other_str}"
+    return f"    etiqueta: {label}\n    resto (a mano): {other_str}"
 
 
 def sign_off(catalog, open_photos: bool) -> None:
