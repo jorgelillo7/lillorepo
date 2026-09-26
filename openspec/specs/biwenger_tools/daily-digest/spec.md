@@ -1,7 +1,8 @@
 # Capability: daily-digest
 
 The 09:00 Madrid cron orchestration (`POST /digests/daily`): send the squad +
-market images to Telegram, then chain auto-bid and the offers inbox. This is
+market images to Telegram, then chain the lineup, auto-bid and any offer worth
+accepting. This is
 the capability the project SLO covers.
 
 - **Source:** `packages/biwenger_tools/api/logic/digests.py`,
@@ -21,7 +22,8 @@ breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 
 `run_daily` SHALL send both images ("Mi equipo", then "Mercado") **before**
 setting the lineup and running auto-bid exactly once, so the chat reads
-squad → market → lineup → bids. It then chains the offers inbox after auto-bid.
+squad → market → lineup → bids. It then chains the offers inbox, accept-only,
+after auto-bid.
 
 The lineup step SHALL reuse the context the digest already built, so chaining it
 costs no second JP + Biwenger round-trip, and SHALL be switchable off by
@@ -43,52 +45,21 @@ sends.
   `telegram_credentials_missing`
 - *Verifies:* `test_run_daily_skips_send_when_telegram_creds_missing`
 
-### Requirement: A daily photograph of what every squad is worth
+### Requirement: The morning interrupts only for what needs acting on
 
-`run_daily` SHALL send the league's squad values as a message **after** the
-lineup, ranked and with the league total, and SHALL be switchable off by
-`DAILY_LEAGUE_VALUES_ENABLED`.
+`run_daily` SHALL NOT send the league's squad values, and SHALL send an offer
+only when it is scored ACEPTAR — no DUDOSO, no "descartadas" summary.
 
-Value only, no projection: projection changes every matchday and the lineup
-message sent moments earlier already speaks to it, while value moves slowly and
-is the number worth having a dated snapshot of. `/comparar` remains the on-
-demand view that shows both.
+Both are available on demand (`/comparar`, `/ofertas`), and a briefing that
+arrives with six to eight messages every morning trains its reader to skim
+past the one that matters. The squad values also cost a squad read per
+manager for a number that barely moves from one day to the next.
 
-It costs one squad read per manager on top of the digest, which is why it has a
-switch — it is the first step to drop if the 09:00 budget gets tight. It runs
-after the lineup because it answers a different question and must not be able
-to disturb the one write of the morning.
-
-An empty summary SHALL send nothing: a league read that comes back with no
-managers means the fetch failed, not that everyone owns nothing.
-
-#### Scenario: the snapshot goes out ranked
-- **WHEN** the league summary has managers
-- **THEN** one message ranks them by value and carries the league total
-- *Verifies:* `test_run_daily_sends_the_league_value_snapshot`,
-  `test_render_values_ranks_every_squad_and_totals_the_league`
-
-#### Scenario: it cannot disturb the lineup
-- **WHEN** the league read fails
-- **THEN** the digest records the error and every other step stands
-- *Verifies:* `test_the_league_value_step_cannot_break_the_lineup`
-
-#### Scenario: a squad holding a player JP does not carry
-- **WHEN** a manager owns a player with no Jornada Perfecta match
-- **THEN** the squad is still measured — value from Biwenger alone, the
-  missing projection counted as zero
-- *Verifies:* `test_collect_survives_a_player_jornada_perfecta_does_not_carry`,
-  `test_get_predict_rate_treats_a_missing_player_as_no_projection`
-
-#### Scenario: nothing to rank, nothing sent
-- **WHEN** the summary is empty
-- **THEN** no ranking is sent and the reason is recorded
-- *Verifies:* `test_an_empty_league_sends_no_ranking`
-
-#### Scenario: switchable without a deploy
-- **WHEN** `DAILY_LEAGUE_VALUES_ENABLED` is false
-- **THEN** the step is skipped and no squad reads are paid for
-- *Verifies:* `test_the_league_value_step_can_be_turned_off`
+#### Scenario: a quieter morning
+- **WHEN** the digest runs **THEN** no league value ranking is built or sent
+- **WHEN** the offers step runs **THEN** it asks for accept-only mode
+- *Verifies:* `test_run_daily_sends_no_league_value_snapshot`,
+  `test_run_daily_chains_offers_inbox_after_auto_bid`
 
 ### Requirement: A squad image carries what the squad is worth
 
@@ -162,13 +133,6 @@ never shipped.
 - **THEN** the error is captured in the summary and the digest is not lost
 - *Verifies:* `test_run_daily_swallows_auto_bid_failure_and_still_returns_digest_summary`,
   `test_run_daily_swallows_offers_inbox_failure`
-
-#### Scenario: a dead step is visible in the chat
-- **WHEN** the league value step raises
-- **THEN** the chat gets the same short note a dead image section gets, and
-  every other step still runs
-- *Verifies:* `test_a_failed_league_value_step_says_so_in_the_chat`,
-  `test_the_league_value_step_cannot_break_the_lineup`
 
 #### Scenario: the second opinion is unreachable, or unreadable
 - **WHEN** the Oráculo read raises the SDK's own error, from either endpoint

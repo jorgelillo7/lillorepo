@@ -1,4 +1,4 @@
-"""Daily digest — "my team + market + lineup + auto-bid + offers inbox" to Telegram.
+"""Daily digest — "my team + market + lineup + auto-bid + offers to accept" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
 chain (squad → market → lineup → bids → offers) is fired in this order so the
@@ -30,7 +30,7 @@ from core.constants import MADRID_TZ
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, auto_bid, league_compare, offers
+from packages.biwenger_tools.api.logic import actions, auto_bid, offers
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
@@ -179,42 +179,12 @@ def _notify_step_failed(token: str, chat_id: str, title: str) -> None:
         logger.exception("Could not notify a failed digest step.")
 
 
-def _safe_send_league_values(ctx, token: str, chat_id: str) -> dict:
-    """Send the daily snapshot of what every squad is worth. Never raises.
-
-    Chained after the lineup because it answers a different question and must
-    not be able to disturb the one write of the morning. Reuses the digest's
-    ctx, but still costs one squad read per manager — see
-    `DAILY_LEAGUE_VALUES_ENABLED` when the 09:00 budget gets tight.
-    """
-    if not config.DAILY_LEAGUE_VALUES_ENABLED:
-        return {"skipped": "disabled"}
-    try:
-        summary = league_compare.collect_cached(ctx)
-        if not summary:
-            # No managers means the league read came back empty; an empty
-            # ranking in the chat says less than nothing.
-            return {"sent": 0, "reason": "no_managers"}
-        send_telegram_message(
-            bot_token=token,
-            chat_id=chat_id,
-            text=league_compare.render_values(summary),
-        )
-        return {"sent": 1, "managers": len(summary)}
-    except Exception as exc:
-        logger.exception("League value step failed inside daily digest.")
-        # Say so in the chat, the way a failed image section does. Logging
-        # alone made the first failure look like the feature had never
-        # shipped: nothing arrived and nothing said why.
-        _notify_step_failed(token, chat_id, "Valor de las plantillas")
-        return {"error": str(exc)}
-
-
 def _safe_run_offers_inbox(ctx) -> dict:
     """Run the offers inbox step but never raise. Reuses the digest's ctx
-    so we don't pay a second JP+Biwenger round-trip."""
+    so we don't pay a second JP+Biwenger round-trip. Accept-only: the morning
+    interrupts for an offer worth taking; `/ofertas` shows every one."""
     try:
-        return offers.run_offers_inbox(ctx)
+        return offers.run_offers_inbox(ctx, only_accept=True)
     except Exception as exc:
         logger.exception("Offers inbox step failed inside daily digest.")
         return {"error": str(exc)}
@@ -299,7 +269,6 @@ def _run_daily_inner() -> dict:
     )
 
     lineup_result = _safe_run_auto_pick(ctx)
-    league_values_result = _safe_send_league_values(ctx, token, chat_id)
 
     if _auto_bid_pause_active():
         _notify_auto_bid_paused(token, chat_id)
@@ -318,7 +287,6 @@ def _run_daily_inner() -> dict:
             "lineup_applied": lineup_result.get("applied"),
             "auto_bid_placed": auto_bid_result.get("bid_count"),
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
-            "league_values": league_values_result.get("managers"),
             "offers_inbox": offers_result.get("offers"),
             "offers_sent": offers_result.get("sent"),
         },
@@ -328,7 +296,6 @@ def _run_daily_inner() -> dict:
         "my_team": team_count,
         "market": market_count,
         "lineup": lineup_result,
-        "league_values": league_values_result,
         "auto_bid": auto_bid_result,
         "offers": offers_result,
     }
