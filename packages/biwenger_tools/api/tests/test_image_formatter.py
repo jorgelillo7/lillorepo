@@ -512,6 +512,7 @@ def test_build_cash_image_draws_the_exposure_block():
         {
             "name": "Gueye",
             "projection": 557,
+            "value": 8_050_000,
             "clause": 12_500_025,
             "by_cash": 3,
             "by_max_bid": 3,
@@ -520,6 +521,7 @@ def test_build_cash_image_draws_the_exposure_block():
         {
             "name": "Parrott",
             "projection": None,
+            "value": 4_960_000,
             "clause": 10_878_292,
             "by_cash": 3,
             "by_max_bid": 3,
