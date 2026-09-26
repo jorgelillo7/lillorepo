@@ -47,7 +47,9 @@ SHALL send an error message with the exception HTML-escaped inside `<code>`.
 `/menu` (and `/start`) SHALL attach the persistent reply keyboard; its labels
 SHALL dispatch the same actions as the commands. `/analizar` (command or label)
 SHALL open a manager picker rather than calling `/teams` directly, and SHALL
-tell the user when the managers list is unreachable.
+tell the user when the managers list is unreachable. The `🤝 Pacto` button
+SHALL open the same pact picker as `/pacto`. Every menu button SHALL resolve to
+either an api route or a picker — a button with neither is dead on tap.
 
 #### Scenario: keyboard and picker
 - **WHEN** `/menu` or `/start` **THEN** the persistent keyboard is sent
@@ -55,13 +57,17 @@ tell the user when the managers list is unreachable.
 - **WHEN** `/analizar` **THEN** a manager picker opens; a manager tap calls
   `/teams?manager=<id>`, the TODOS tap calls `/teams` with no filter
 - **WHEN** the managers fetch fails **THEN** the user is told
+- **WHEN** `🤝 Pacto` is tapped **THEN** the pact picker opens, no api action
+- **WHEN** the menu is built **THEN** no button lacks a destination
 - *Verifies:* `test_menu_sends_persistent_reply_keyboard`, `test_start_aliases_menu`,
   `test_reply_keyboard_label_dispatches_action`,
   `test_reply_keyboard_analizar_label_opens_picker`,
   `test_analizar_text_command_opens_manager_picker`,
   `test_analizar_text_command_handles_manager_fetch_failure`,
   `test_analizar_id_callback_calls_teams_with_filter`,
-  `test_analizar_all_callback_calls_teams_without_filter`
+  `test_analizar_all_callback_calls_teams_without_filter`,
+  `test_reply_keyboard_pacto_label_opens_the_pact_picker`,
+  `test_every_menu_button_has_somewhere_to_go`
 
 ### Requirement: Emergency callbacks
 

@@ -664,6 +664,27 @@ def _handle_callback(cb: dict) -> None:
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
 
 
+def _open_pact_picker() -> None:
+    """Status first, then the pact picker fetched in the background: it costs a
+    cold start plus a Biwenger league call, and doing that inline blocks the
+    worker past Telegram's timeout — which is how a slow call becomes a retried
+    webhook and a second picker."""
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text="⏳ <b>🤝 Pacto</b> — procesando…",
+    )
+    _run_in_background(_send_pact_picker)
+
+
+# Menu buttons that open a picker instead of calling an api route. Lambdas so
+# the picker is looked up when tapped, not bound at import.
+_PICKER_ACTIONS = {
+    "analizar": lambda: _send_manager_picker(),
+    "pacto": lambda: _open_pact_picker(),
+}
+
+
 def _try_dispatch_label(text: str) -> bool:
     """Reply-keyboard taps arrive as plain text matching a button label.
 
@@ -674,8 +695,8 @@ def _try_dispatch_label(text: str) -> bool:
     action_key = menu.LABEL_TO_ACTION.get(text)
     if action_key is None:
         return False
-    if action_key == "analizar":
-        _send_manager_picker()
+    if action_key in _PICKER_ACTIONS:
+        _PICKER_ACTIONS[action_key]()
     else:
         _dispatch_action(action_key, text)
     return True
@@ -710,16 +731,7 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("emergencia", "🚨 Emergencia")
     elif cmd == "/pacto":
         logger.info("Webhook: /pacto received — sending picker")
-        # Status first, fetch in the background: the picker costs a cold start
-        # plus a Biwenger league call, and doing that inline blocks the worker
-        # past Telegram's timeout — which is how a slow call becomes a retried
-        # webhook and a second picker.
-        send_telegram_message(
-            bot_token=config.TELEGRAM_BOT_TOKEN,
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text="⏳ <b>🤝 Pacto</b> — procesando…",
-        )
-        _run_in_background(_send_pact_picker)
+        _open_pact_picker()
     elif cmd == "/comparar":
         _dispatch_action("comparar", "⚖️ Comparar")
     elif cmd == "/saldos":
