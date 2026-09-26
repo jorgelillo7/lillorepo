@@ -219,3 +219,84 @@ def test_rows_are_ranked_by_max_bid():
         ]
     )
     assert [r["name"] for r in rows] == ["b", "c", "a"]
+
+
+# --- Requirement: who can pay a clause of mine -----------------------------
+
+RIVALS = [
+    {"name": "Luceneta", "cash": 35_954_400, "max_bid": 52_386_900, "pacted": False},
+    {"name": "Kairat", "cash": 3_833_440, "max_bid": 20_725_940, "pacted": True},
+    {"name": "Reich", "cash": 89_890, "max_bid": 16_892_390, "pacted": False},
+]
+NOW = 1_790_000_000
+DAY = 86_400
+
+
+def test_reach_splits_rivals_by_cash_and_by_max_bid():
+    got = league_cash.reach(12_500_025, RIVALS)
+    assert [r["name"] for r in got.by_cash] == ["Luceneta"]
+    assert [r["name"] for r in got.by_max_bid] == ["Kairat", "Reich"]
+
+
+def test_reach_is_nobody_above_every_max_bid():
+    got = league_cash.reach(60_000_000, RIVALS)
+    assert not got.by_cash and not got.by_max_bid and not got.anyone
+
+
+def _mine(name, score, clause, locked_until=None):
+    return {
+        "name": name,
+        "position_id": 3,
+        "custom_prediction": score,
+        "clause_value": clause,
+        "clause_locked_until": locked_until,
+    }
+
+
+def test_protection_ending_keeps_only_locks_ending_inside_the_window():
+    rows = [
+        _mine("already open", 500, 1, NOW - 60),
+        _mine("ends tonight", 500, 1, NOW + DAY // 2),
+        _mine("ends next week", 500, 1, NOW + 7 * DAY),
+        _mine("never locked", 500, 1, None),
+    ]
+    ending = league_cash.protection_ending(rows, now=NOW, within=DAY)
+    assert [r["name"] for r in ending] == ["ends tonight"]
+
+
+def test_exposed_takes_the_best_projections_first():
+    rows = [
+        _mine("c", 300, 1),
+        _mine("a", 700, 1),
+        _mine("none", None, 1),
+        _mine("b", 500, 1),
+        _mine("d", 100, 1),
+    ]
+    assert [r["name"] for r in league_cash.exposed(rows, 3)] == ["a", "b", "c"]
+
+
+def test_protection_alert_names_who_can_pay_and_marks_the_pact():
+    row = _mine("Parrott", 400, 10_878_292, NOW + DAY // 2)
+    text = league_cash.protection_alert([row], RIVALS)
+    assert "Parrott" in text and "10.878.292" in text
+    assert "Luceneta" in text
+    assert "Kairat (pacto)" in text
+    assert text.index("Luceneta") < text.index("Kairat")
+
+
+def test_protection_alert_is_silent_when_nobody_reaches():
+    row = _mine("Caro", 400, 90_000_000, NOW + DAY // 2)
+    assert league_cash.protection_alert([row], RIVALS) is None
+
+
+def test_exposure_rows_count_who_reaches_each_top_player():
+    rows = [_mine("Gueye", 600, 12_500_025), _mine("Parrott", 400, 60_000_000)]
+    got = league_cash.exposure_rows(rows, RIVALS)
+    assert got[0] == {
+        "name": "Gueye",
+        "clause": 12_500_025,
+        "by_cash": 1,
+        "by_max_bid": 2,
+        "locked_until": None,
+    }
+    assert got[1]["by_cash"] == 0 and got[1]["by_max_bid"] == 0

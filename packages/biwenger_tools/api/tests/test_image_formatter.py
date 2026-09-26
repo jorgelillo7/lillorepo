@@ -502,3 +502,32 @@ def test_build_cash_image_returns_a_png():
     ]
     png = build_cash_image(rows, "💰 Saldos", notes)
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_build_cash_image_draws_the_exposure_block():
+    """The top-3 block adds a second table; the image grows rather than
+    squeezing the first one."""
+    rows = [{"name": "Luceneta", "cash": 1, "max_bid": 2}]
+    exposure = [
+        {
+            "name": "Gueye",
+            "clause": 12_500_025,
+            "by_cash": 3,
+            "by_max_bid": 3,
+            "locked_until": None,
+        },
+        {
+            "name": "Parrott",
+            "clause": 10_878_292,
+            "by_cash": 3,
+            "by_max_bid": 3,
+            "locked_until": 4_102_444_800,
+        },
+    ]
+    plain = build_cash_image(rows, "Saldos", [])
+    with_block = build_cash_image(rows, "Saldos", [], exposure=exposure)
+    assert with_block[:8] == b"\x89PNG\r\n\x1a\n"
+    from PIL import Image
+
+    height = lambda png: Image.open(io.BytesIO(png)).size[1]  # noqa: E731
+    assert height(with_block) > height(plain)

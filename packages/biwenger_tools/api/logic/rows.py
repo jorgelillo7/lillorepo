@@ -234,6 +234,7 @@ def build_squad_rows(
             # Don't show up in PNG output (only "Clausulable"/"Cláusula" are
             # rendered as extra columns there).
             row["clause_value"] = int(clause_raw) if clause_raw else 0
+            row["clause_locked_until"] = locked_until
             row["clausulable_now"] = locked_until is None or (
                 (locked_until - time.time()) <= 0
             )

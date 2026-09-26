@@ -10,6 +10,11 @@ Spec: `openspec/specs/biwenger_tools/league-cash/spec.md`.
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
+from html import escape
+
+from core.constants import MADRID_TZ
+from packages.biwenger_tools.api.player_formatting import short_position, shown_score
 
 SEASON_START_TYPE = "seasonStarted"
 
@@ -138,3 +143,97 @@ def notes(
 def ranked(rows: list[dict]) -> list[dict]:
     """Rows ordered by maximum bid, highest first."""
     return sorted(rows, key=lambda r: r["max_bid"], reverse=True)
+
+
+@dataclass(frozen=True)
+class Reach:
+    """Who can pay a clause: from cash alone, or only by going negative."""
+
+    by_cash: tuple[dict, ...] = ()
+    by_max_bid: tuple[dict, ...] = ()
+
+    @property
+    def anyone(self) -> bool:
+        return bool(self.by_cash or self.by_max_bid)
+
+
+def reach(clause: int, rivals: list[dict]) -> Reach:
+    """Split `rivals` (`name`, `cash`, `max_bid`) by how they could pay `clause`.
+
+    Paying past cash leaves the rival negative, which costs them the round if
+    it is still negative when the matchday starts — a real but lesser threat.
+    """
+    if not clause:
+        return Reach()
+    by_cash = tuple(r for r in rivals if r["cash"] >= clause)
+    by_max_bid = tuple(r for r in rivals if r["cash"] < clause <= r["max_bid"])
+    return Reach(by_cash, by_max_bid)
+
+
+def protection_ending(rows: list[dict], now: float, within: float) -> list[dict]:
+    """Squad rows whose clause lock ends in `(now, now + within]`."""
+    return [
+        r
+        for r in rows
+        if r.get("clause_locked_until") is not None
+        and now < r["clause_locked_until"] <= now + within
+    ]
+
+
+def exposed(rows: list[dict], n: int) -> list[dict]:
+    """The `n` rows with the best shown projection; unprojected rows last out."""
+    scored = [r for r in rows if shown_score(r) is not None]
+    return sorted(scored, key=shown_score, reverse=True)[:n]
+
+
+def _names(rivals: tuple[dict, ...]) -> str:
+    return ", ".join(
+        escape(r["name"]) + (" (pacto)" if r.get("pacted") else "") for r in rivals
+    )
+
+
+def protection_alert(rows: list[dict], rivals: list[dict]) -> str | None:
+    """Telegram HTML for players whose protection is ending, or `None` when no
+    rival could pay any of their clauses — then there is nothing to act on."""
+    blocks = []
+    for row in rows:
+        who = reach(row.get("clause_value") or 0, rivals)
+        if not who.anyone:
+            continue
+        opens = datetime.fromtimestamp(row["clause_locked_until"], MADRID_TZ)
+        lines = [
+            f"<b>{escape(row['name'])}</b> ({short_position(row.get('position_id'))})"
+            f" · cláusula {_eur(row['clause_value'])}",
+            f"   Clausulable desde el {opens.strftime('%d/%m a las %H:%M')}",
+        ]
+        if who.by_cash:
+            lines.append(f"   🔴 Con su saldo: {_names(who.by_cash)}")
+        if who.by_max_bid:
+            lines.append(f"   🟠 Quedándose en negativo: {_names(who.by_max_bid)}")
+        blocks.append("\n".join(lines))
+    if not blocks:
+        return None
+    return (
+        "🔓 <b>Se acaba la protección</b>\n\n"
+        + "\n\n".join(blocks)
+        + "\n\n<i>Si te interesa, sube la cláusula en la app.</i>"
+    )
+
+
+def exposure_rows(rows: list[dict], rivals: list[dict]) -> list[dict]:
+    """For each squad row: its clause, how many rivals reach it from cash and
+    how many only by going negative, and its lock (`None` when open)."""
+    out = []
+    for row in rows:
+        clause = row.get("clause_value") or 0
+        who = reach(clause, rivals)
+        out.append(
+            {
+                "name": row["name"],
+                "clause": clause,
+                "by_cash": len(who.by_cash),
+                "by_max_bid": len(who.by_max_bid),
+                "locked_until": row.get("clause_locked_until"),
+            }
+        )
+    return out
