@@ -221,8 +221,9 @@ def protection_alert(rows: list[dict], rivals: list[dict]) -> str | None:
 
 
 def exposure_rows(rows: list[dict], rivals: list[dict]) -> list[dict]:
-    """For each squad row: its clause, how many rivals reach it from cash and
-    how many only by going negative, and its lock (`None` when open)."""
+    """For each squad row: its shown projection, its clause, how many rivals
+    reach it from cash and how many only by going negative, and its lock
+    (`None` when open)."""
     out = []
     for row in rows:
         clause = row.get("clause_value") or 0
@@ -230,6 +231,7 @@ def exposure_rows(rows: list[dict], rivals: list[dict]) -> list[dict]:
         out.append(
             {
                 "name": row["name"],
+                "projection": shown_score(row),
                 "clause": clause,
                 "by_cash": len(who.by_cash),
                 "by_max_bid": len(who.by_max_bid),

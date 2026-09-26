@@ -294,6 +294,7 @@ def test_exposure_rows_count_who_reaches_each_top_player():
     got = league_cash.exposure_rows(rows, RIVALS)
     assert got[0] == {
         "name": "Gueye",
+        "projection": 600,
         "clause": 12_500_025,
         "by_cash": 1,
         "by_max_bid": 2,

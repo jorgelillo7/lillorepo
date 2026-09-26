@@ -688,6 +688,7 @@ def build_cash_image(
             cells.append(
                 [
                     _plain(e["name"]),
+                    "—" if e.get("projection") is None else str(e["projection"]),
                     _eur(e["clause"]) if e["clause"] else "—",
                     str(e["by_cash"]),
                     str(e["by_max_bid"]),
@@ -696,9 +697,16 @@ def build_cash_image(
             )
         _draw_cash_table(
             ax,
-            ["Jugador", "Cláusula", "Con saldo", "En negativo", "Clausulable"],
+            [
+                "Jugador",
+                "Proyección",
+                "Cláusula",
+                "Con saldo",
+                "En negativo",
+                "Clausulable",
+            ],
             cells,
-            [0.28, 0.24, 0.15, 0.17, 0.16],
+            [0.24, 0.13, 0.21, 0.13, 0.15, 0.14],
             y(expo_title + 0.45 + line_in * (len(exposure) + 1)),
             y(expo_title + 0.45),
             lambda i, j: False,

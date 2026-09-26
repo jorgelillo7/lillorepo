@@ -186,7 +186,8 @@ the pact binds the owner, and nothing says it binds the rival.
 ### Requirement: `/saldos` shows who reaches my best players' clauses
 
 The `/saldos` image SHALL add a second table: the owner's three players with
-the best shown projection, each with its clause, how many rivals reach it from
+the best shown projection, each with that projection, its clause, how many
+rivals reach it from
 cash, how many only by going negative, and whether it is clausable now.
 
 Measured on the day it shipped, every one of the owner's fourteen players was

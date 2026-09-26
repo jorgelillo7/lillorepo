@@ -511,6 +511,7 @@ def test_build_cash_image_draws_the_exposure_block():
     exposure = [
         {
             "name": "Gueye",
+            "projection": 557,
             "clause": 12_500_025,
             "by_cash": 3,
             "by_max_bid": 3,
@@ -518,6 +519,7 @@ def test_build_cash_image_draws_the_exposure_block():
         },
         {
             "name": "Parrott",
+            "projection": None,
             "clause": 10_878_292,
             "by_cash": 3,
             "by_max_bid": 3,
