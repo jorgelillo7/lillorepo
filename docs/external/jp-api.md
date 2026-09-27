@@ -13,7 +13,7 @@ GET https://www.jornadaperfecta.com/api/fitness-daily
 
 | Param | Value | Meaning |
 |---|---|---|
-| `auth` | (token) | Hardcoded in the app's JS bundle. We store it as `jp_auth_token` inside the `biwenger-credentials-regional` secret — never in git. |
+| `auth` | (token) | Hardcoded in the app's JS bundle. We store it as `jp_auth_token` inside the `biwenger-secrets` secret — never in git. |
 | `competition` | `1` | LaLiga |
 | `score` | `2` | SofaScore (the Automanager system) |
 | `limit` | `600` | Full league in one page |

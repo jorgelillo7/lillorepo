@@ -109,13 +109,13 @@ operational how-to; the specs are the single source of *what must be true*.
        destroy the old one after verifying):
 
        ```bash
-       gcloud secrets versions access latest --secret=flask-web-config-regional \
+       gcloud secrets versions access latest --secret=be-water-secrets \
            --project=be-water-app | \
            python3 -c "import json,sys; d=json.load(sys.stdin); d['google_client_id']='PASTE_CLIENT_ID'; print(json.dumps(d))" | \
-           gcloud secrets versions add flask-web-config-regional \
+           gcloud secrets versions add be-water-secrets \
            --project=be-water-app --data-file=-
        # after verifying login works:
-       gcloud secrets versions destroy 1 --secret=flask-web-config-regional --project=be-water-app
+       gcloud secrets versions destroy 1 --secret=be-water-secrets --project=be-water-app
        ```
     4. Redeploy be-water (any merge, or Actions → Deploy → Run workflow) so
        the new secret version binds.
@@ -207,7 +207,7 @@ got pinned while production could not call it at all — it answered locally and
 Always measure with the production key:
 
 ```bash
-KEY=$(gcloud secrets versions access latest --secret=flask-web-config-regional \
+KEY=$(gcloud secrets versions access latest --secret=be-water-secrets \
   --project=be-water-app | python3 -c "import json,sys; print(json.load(sys.stdin)['gemini_api_key'])")
 ```
 
@@ -240,7 +240,7 @@ The Gemini **tier is a property of the key's project**, not of the call:
 | `gemini_api_key` | `gen-lang-client-0434934257` | ❌ | free |
 | `gemini_api_key_paid` | `gen-lang-client-0059905191` | ✅ | paid |
 
-Both live in `flask-web-config-regional`. The client tries the first, and only
+Both live in `be-water-secrets`. The client tries the first, and only
 on a **429 that survives the retries** does it repeat the call with the second
 (`core/sdk/gemini.py`) — free while the free allowance lasts, paid only when it
 is spent. Leave `gemini_api_key_paid` empty and nothing is ever charged.
@@ -265,10 +265,10 @@ an outage, not a rollback — and it happened.
 To roll a secret back, **add a new version carrying the old content**:
 
 ```bash
-gcloud secrets versions access latest --secret=flask-web-config-regional \
+gcloud secrets versions access latest --secret=be-water-secrets \
   --project=be-water-app --out-file=/tmp/cfg.json     # never to stdout
 # edit /tmp/cfg.json
-gcloud secrets versions add flask-web-config-regional --data-file=/tmp/cfg.json \
+gcloud secrets versions add be-water-secrets --data-file=/tmp/cfg.json \
   --project=be-water-app
 rm /tmp/cfg.json
 ```

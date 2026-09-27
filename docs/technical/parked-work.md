@@ -352,58 +352,20 @@ near-tie break in `/recomendar`. Auto-bid still does not read it.
   publicly): dropped by the owner. `/ofertas` already weighs the offer against
   today's value and what was paid, and a few days' drift adds little to that.
 
-## Secrets consolidation
+## Secrets consolidation — done
 
-The billing account sits at **6/6** free Secret Manager versions (five in
-`biwenger-tools`, one in `be-water-app`), so the next secret — or a rotation
-that disables instead of destroying — costs money. Audited on the live
-projects; the owner parked the decision.
+Shipped on the owner's call. The billing account went from **6/6** free
+Secret Manager versions to **3/6**: `biwenger-secrets`, `chucknorris-secrets`,
+`be-water-secrets` — one per package, named after it. The web reads Google
+Sheets as its Cloud Run identity, so the `biwenger-tools-sa` key and its
+secret are gone. How it works: [`docs/gcp.md`](../gcp.md); the accepted cost
+(public services can read credentials they do not use): `STATUS.md`.
 
-| Secret | Keys | Read by |
-|---|---|---|
-| `biwenger-credentials-regional` | email, password, jp_auth_token, gdrive_folder_id (unused) | api, scraper |
-| `telegram-bot-config-regional` | bot_token, chat_id, draft_chat_id, draft_admin_telegram_id, webhook_secret | api, bot, scraper |
-| `chucknorris-bot-config-regional` | bot_token, webhook_secret | chucknorris-bot |
-| `biwenger-tools-sa-regional` | a private key of `biwenger-tools-sa` (its only user-managed key, 2025-09-01) | web, for Google Sheets |
-| `flask-web-config-regional` (biwenger) | secret_key, admin_password | web |
-| `flask-web-config-regional` (be-water) | two Gemini keys, secret_key, Telegram token and chat | be-water |
+Two things the move taught, both in `docs/operations.md`:
 
-The options, cheapest first:
-
-- **A — keyless Sheets (−1, 5/6).** The web reads the competitions workbooks
-  as its own Cloud Run identity instead of a key file: share the two Sheets
-  with the compute service account, switch `core/sdk/gcp.py` to the ambient
-  credentials, drop the mount, then destroy the secret and the key. Frees a
-  version *and* removes a long-lived key of the deploy account. Local runs of
-  the web then need `gcloud auth application-default login` with the Sheets
-  scope. Unlike the Sheets-only account declined in `STATUS.md`, this frees a
-  secret rather than costing one.
-- **B — one secret per package (3/6, with A).** The three biwenger JSONs have
-  no colliding keys, so one secret can be mounted under all three env var
-  names with no logic change. The cost is least privilege: the bot and the
-  web — the two public services — would hold the Biwenger password and the JP
-  token. Every rotation redeploys all four biwenger services.
-- Rejected: merging the Telegram config into the Biwenger credentials alone
-  (the same exposure for one version), and merging the two bots (each would
-  hold the other's token, across packages).
-- `gdrive_folder_id` is dead; drop it at the next rotation of that secret.
-
-**Rename them while at it.** The current names do not say whose secret is
-whose: `flask-web-config-regional` exists twice, once per project, for two
-unrelated webs; `biwenger-tools-sa-regional` names an account rather than a
-use; and `-regional` is on every one, so it tells a reader nothing. One
-pattern — the package, then what it holds:
-
-| Today | Proposed |
-|---|---|
-| `biwenger-credentials-regional` + `telegram-bot-config-regional` + `flask-web-config-regional` (biwenger) | `biwenger-secrets` (option B), or `biwenger-account`, `biwenger-telegram`, `biwenger-web` kept apart |
-| `biwenger-tools-sa-regional` | gone with option A |
-| `chucknorris-bot-config-regional` | `chucknorris-secrets` |
-| `flask-web-config-regional` (be-water) | `be-water-secrets` |
-
-Secret Manager cannot rename: a new name is a new secret, rebound in
-`deploy.yml`, and the old one destroyed once the redeploy works. Both exist
-for a moment, so a rename on its own briefly goes over 6/6. Done inside the
-consolidation — which frees versions first — it costs nothing.
-
-**Trigger:** the next secret anyone needs, or the owner's call.
+- `gcloud run … --update-secrets` never removes a mount, and `--remove-secrets`
+  leaves the secret's volume behind: both had to go explicitly, on the web and
+  on the scraper job (which still mounted the key it never read), before the
+  secret could be deleted.
+- A value piped through a filtered shell was truncated on the way into its new
+  secret (121 of 148 bytes), and the bot it fed was down for eight minutes.

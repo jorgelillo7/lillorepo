@@ -46,7 +46,7 @@ graph TD
         RUN["be-water · Cloud Run service<br/>europe-southwest1 · min 0 / max 20"]
         FS[("Firestore · europe-southwest1<br/>waters · water_analyses<br/>users · water_revisions")]
         GCS[("be-water-photos · us-central1<br/>id.jpg · originals/<br/>uploads/ 30-day TTL")]
-        SEC["Secret Manager<br/>flask-web-config-regional"]
+        SEC["Secret Manager<br/>be-water-secrets"]
     end
 
     GEM["Gemini<br/>label OCR + studio photo"]

@@ -140,29 +140,27 @@ id, and running step 8's `setup_commands.py` again.
 
 ## 6. Secrets
 
-Two JSON secrets. **Regional** replication, never the automatic
+**One** JSON secret holds everything: the Biwenger login, the JP token, the
+bot and, if you deploy the web, its session key and admin password. Each
+service reads only its own keys. **Regional** replication, never the automatic
 (multi-region) default: every replica counts as a billed version, and the free
 tier is 6 active versions per *billing account*, not per project.
 
 ```bash
-new_secret() {  # name, then the value on stdin
-  gcloud secrets create "$1" --data-file=- \
-    --replication-policy=user-managed --locations=$REGION
-}
-
-jq -n --arg email "<BIWENGER_EMAIL>" --arg password "<BIWENGER_PASSWORD>" \
-  --arg jp "<JORNADA_PERFECTA_TOKEN — requested from the project owner>" \
-  '{email: $email, password: $password, jp_auth_token: $jp}' \
-  | new_secret biwenger-credentials-regional
-
 # draft_admin: your Telegram user id (in a private chat, the same as chat_id) —
 # the only one allowed to /deshacer a pick.
-jq -n --arg token "<BOT_TOKEN>" --arg chat "<YOUR_CHAT_ID>" \
+jq -n --arg email "<BIWENGER_EMAIL>" --arg password "<BIWENGER_PASSWORD>" \
+  --arg jp "<JORNADA_PERFECTA_TOKEN — requested from the project owner>" \
+  --arg token "<BOT_TOKEN>" --arg chat "<YOUR_CHAT_ID>" \
   --arg draft "<DRAFT_GROUP_ID or empty>" --arg admin "<YOUR_CHAT_ID>" \
   --arg hook "$(openssl rand -hex 32)" \
-  '{bot_token: $token, chat_id: $chat, draft_chat_id: $draft,
-    draft_admin_telegram_id: $admin, webhook_secret: $hook}' \
-  | new_secret telegram-bot-config-regional
+  --arg key "$(openssl rand -hex 32)" --arg pw "<WEB_ADMIN_PASSWORD>" \
+  '{email: $email, password: $password, jp_auth_token: $jp,
+    bot_token: $token, chat_id: $chat, draft_chat_id: $draft,
+    draft_admin_telegram_id: $admin, webhook_secret: $hook,
+    secret_key: $key, admin_password: $pw}' \
+  | gcloud secrets create biwenger-secrets --data-file=- \
+      --replication-policy=user-managed --locations=$REGION
 ```
 
 Changing one later: add the new version, redeploy, then **destroy** the old
@@ -197,7 +195,7 @@ off**, so nothing spends money or touches your team until step 10 checks out.
 bazel run //packages/biwenger_tools/api:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-api --image $REGISTRY/api --region $REGION \
   --no-allow-unauthenticated --memory=512Mi --cpu=1 --concurrency=10 --timeout=300 \
-  --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
+  --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27,GCP_PROJECT_ID=$PROJECT_ID,PERIODICO_BUCKET=$BUCKET,DRAFT_APPLY_TO_BIWENGER=false,AUTO_BID_PAUSED_UNTIL=2099-01-01,CHOLLO_MAX_BIDS=0,DAILY_LINEUP_ENABLED=false"
 API_URL=$(gcloud run services describe biwenger-api --region $REGION --format='value(status.url)')
 gcloud run services add-iam-policy-binding biwenger-api --region $REGION \
@@ -207,12 +205,12 @@ gcloud run services add-iam-policy-binding biwenger-api --region $REGION \
 bazel run //packages/biwenger_tools/bot:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-bot --image $REGISTRY/bot --region $REGION \
   --allow-unauthenticated --memory=256Mi --cpu=0.5 --concurrency=1 --timeout=300 \
-  --update-secrets="TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
+  --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="BIWENGER_API_URL=$API_URL"
 
 # Register the webhook and the command menu with Telegram.
 pip3 install requests python-dotenv python-json-logger
-CFG=$(gcloud secrets versions access latest --secret=telegram-bot-config-regional)
+CFG=$(gcloud secrets versions access latest --secret=biwenger-secrets)
 BOT_URL=$(gcloud run services describe biwenger-bot --region $REGION --format='value(status.url)')
 PYTHONPATH=. TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token) \
   TELEGRAM_WEBHOOK_SECRET=$(echo "$CFG" | jq -r .webhook_secret) \
@@ -223,7 +221,7 @@ PYTHONPATH=. TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token) \
 bazel run //packages/biwenger_tools/scraper_job:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run jobs create biwenger-scraper-data --image $REGISTRY/scraper_job --region $REGION \
   --memory=512Mi --cpu=1 --task-timeout=600s --max-retries=3 \
-  --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
+  --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27"
 ```
 
@@ -267,7 +265,7 @@ The bot arbitrates it in the draft group; `DRAFT_APPLY_TO_BIWENGER` decides
 whether picks are also written to Biwenger.
 
 1. The Biwenger account in the secret is a **league admin** (step 0).
-2. `draft_chat_id` is set in `telegram-bot-config-regional` (step 5).
+2. `draft_chat_id` is set in `biwenger-secrets` (step 5).
 3. Turn the writes on:
    ```bash
    gcloud run services update biwenger-api --region $REGION \
@@ -306,18 +304,16 @@ running all month and leaves the free tier — not worth it for a league.
 
 ## 13. Optional: the web
 
-The public dashboard (comunicados, salseo, market, competitions). One more
-secret, and for the competitions tabs a Google Sheet shared, as Viewer, with
-`$SA` (step 7) — no key file. Skip it if the bot is all you want.
+The public dashboard (comunicados, salseo, market, competitions). It reads its
+session key and admin password from `biwenger-secrets` (step 6), and the
+competitions tabs from Google Sheets shared, as Viewer, with `$SA` (step 7) —
+no key file. Skip it if the bot is all you want.
 
 ```bash
-jq -n --arg key "$(openssl rand -hex 32)" --arg pw "<ADMIN_PASSWORD>" \
-  '{secret_key: $key, admin_password: $pw}' | new_secret flask-web-config-regional
-
 bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-summary --image $REGISTRY/web --region $REGION \
   --allow-unauthenticated --timeout=300 \
-  --update-secrets="FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
+  --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27,GCP_PROJECT_ID=$PROJECT_ID,CLOUD_RUN_REGION=$REGION,CLOUD_RUN_JOB_NAME=biwenger-scraper-data,PERIODICO_BUCKET=$BUCKET,SPECIAL_TOURNAMENTS_BUCKET=$BUCKET"
 ```
 
@@ -336,4 +332,4 @@ What this repo does: `.github/workflows/deploy.yml` deploys on each push to
   a deploy service account with, at least, `roles/artifactregistry.writer`,
   `roles/run.developer`, `roles/iam.serviceAccountUser` on the compute service
   account, and `roles/secretmanager.secretAccessor` on
-  `telegram-bot-config-regional` (the bot deploy step reads it).
+  `biwenger-secrets` (the bot deploy step reads it).

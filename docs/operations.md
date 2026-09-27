@@ -172,30 +172,24 @@ Then `bazel build //...` and `bash scripts/lint.sh` to confirm.
   * **Local development:** Use `.env` files at the root of each module.
   * **Production:** Use **Google Secret Manager**.
 
-### Examples: creating secrets in GCP
+### One secret per package
+
+Each package keeps all its credentials in **one regional JSON secret**:
+`biwenger-secrets`, `chucknorris-secrets`, `be-water-secrets`. Services mount
+it under the env var names their config already reads
+(`BIWENGER_CREDENTIALS_JSON`, `TELEGRAM_BOT_CONFIG_JSON`, …), each picking only
+its own keys. Why, and what it costs, in [`gcp.md`](gcp.md).
+
 ```bash
-# Create a secret from a file (e.g. service account)
-gcloud secrets create biwenger-tools-sa-regional \
-  --data-file="biwenger-tools-sa.json" \
-  --replication-policy="user-managed" \
-  --locations="$REGION"
-
-# Create secrets from the command line
-echo -n "YOUR_EMAIL@gmail.com" | gcloud secrets create biwenger-email-regional \
-  --data-file=- \
-  --replication-policy="user-managed" \
-  --locations="$REGION"
-
-echo -n "YOUR_PASSWORD" | gcloud secrets create biwenger-password-regional \
-  --data-file=- \
-  --replication-policy="user-managed" \
-  --locations="$REGION"
-
-echo -n "DRIVE_FOLDER_ID" | gcloud secrets create gdrive-folder-id-regional \
-  --data-file=- \
-  --replication-policy="user-managed" \
-  --locations="$REGION"
+# Create (regional: one billable version, see gcp.md)
+jq -n '{key: "value"}' | gcloud secrets create <package>-secrets \
+  --data-file=- --replication-policy=user-managed --locations="$REGION"
 ```
+
+**Never pipe a secret's value through a filtered shell.** A hook that
+shortens long command output (such as `rtk`) truncates the value silently,
+and the service reads a broken JSON: copy values with `rtk proxy gcloud …`
+or from Python, and compare sizes before switching a service over.
 
 ### Updating a secret
 
@@ -214,8 +208,8 @@ gcloud secrets versions destroy <old-version> --secret=<secret-name> --project=<
 
 `scripts/check-gcp-costs.sh` prints the account-wide total and flags 🚨 when it
 goes over. It only reports — nothing prunes versions automatically, so step 2
-is on you. `telegram-bot-config-regional` accumulated three versions this way
-before anyone noticed.
+is on you. The Telegram config secret once accumulated three versions this
+way before anyone noticed.
 
 ## 💅 Linter and Auto-formatter
 

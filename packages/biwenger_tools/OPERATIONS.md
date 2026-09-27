@@ -211,7 +211,7 @@ single source of *what must be true*.
           gcloud run jobs create biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 \
-              --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
+              --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest"
         ```
       * **Update the Job (when changing the image or secrets):**
         ```bash
@@ -594,7 +594,7 @@ asignado allí, se pierde el rastro de que existe. Si los deshiciste con
 ### 5. Deshacer un fichaje
 
 `/deshacer` en el grupo, sólo el admin (`draft_admin_telegram_id` en el secreto
-`telegram-bot-config-regional`, un id de **usuario**, siempre positivo). Devuelve
+`biwenger-secrets`, un id de **usuario**, siempre positivo). Devuelve
 el jugador al mercado, reintegra el precio y rebobina el turno. Encadenable: cada
 llamada deshace el último fichaje.
 
