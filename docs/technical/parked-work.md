@@ -296,8 +296,9 @@ Four outside projects were read against this package:
 [`jbujalance/biwenger-transfers`](https://github.com/jbujalance/biwenger-transfers),
 [`pablominue/pybiwenger`](https://github.com/pablominue/pybiwenger) and
 [alexmolas' fantasy knapsack](https://www.alexmolas.com/2024/07/15/fantasy-knapsack.html).
-Four ideas survived, each checked against the live API; the first two shipped
-(`/saldos` and its clause warnings), the other two wait in `PENDING.md`.
+Four ideas survived, each checked against the live API. Three shipped —
+`/saldos` and its clause warnings, and the fixture calendar — and the price
+trend was dropped.
 
 ### Rival cash — shipped as `/saldos`
 
@@ -315,14 +316,6 @@ A standing "who is at risk" list would name all fourteen players every morning
 (three rivals could pay any of them from cash). What shipped instead: a digest
 warning when a protection is about to end, and the top three by projection in
 `/saldos` — see the [`league-cash` spec](../../openspec/specs/biwenger_tools/league-cash/spec.md).
-
-### Price history
-
-`cf.biwenger.com/api/v2/players/la-liga/{slug}?fields=*,prices` is public and
-returns one `[YYMMDD, price]` per day, ~366 of them. A 3- and 7-day trend is
-enough to feed `/ofertas` (a falling price is a reason to accept; today it only
-weighs ROI against `owner.price`) and auto-bid (a rising price means more
-competition). Nothing needs storing; Biwenger keeps the history.
 
 ### Fixture difficulty over the coming rounds
 
@@ -355,3 +348,6 @@ near-tie break in `/recomendar`. Auto-bid still does not read it.
   3M, which leaves too little room for the bonus to matter.
 - **Rival rule-compliance checks**: depend on reglamento rules this repo does
   not hold.
+- **Price trend** (`fields=*,prices`, a daily history the cf host serves
+  publicly): dropped by the owner. `/ofertas` already weighs the offer against
+  today's value and what was paid, and a few days' drift adds little to that.
