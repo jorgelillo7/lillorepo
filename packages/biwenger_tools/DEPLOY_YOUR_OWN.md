@@ -155,9 +155,13 @@ jq -n --arg email "<BIWENGER_EMAIL>" --arg password "<BIWENGER_PASSWORD>" \
   '{email: $email, password: $password, jp_auth_token: $jp}' \
   | new_secret biwenger-credentials-regional
 
+# draft_admin: your Telegram user id (in a private chat, the same as chat_id) —
+# the only one allowed to /deshacer a pick.
 jq -n --arg token "<BOT_TOKEN>" --arg chat "<YOUR_CHAT_ID>" \
-  --arg draft "<DRAFT_GROUP_ID or empty>" --arg hook "$(openssl rand -hex 32)" \
-  '{bot_token: $token, chat_id: $chat, draft_chat_id: $draft, webhook_secret: $hook}' \
+  --arg draft "<DRAFT_GROUP_ID or empty>" --arg admin "<YOUR_CHAT_ID>" \
+  --arg hook "$(openssl rand -hex 32)" \
+  '{bot_token: $token, chat_id: $chat, draft_chat_id: $draft,
+    draft_admin_telegram_id: $admin, webhook_secret: $hook}' \
   | new_secret telegram-bot-config-regional
 ```
 

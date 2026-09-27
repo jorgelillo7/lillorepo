@@ -92,9 +92,9 @@ if [ -z "$PROJECT" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Single-project audit. Both projects run Cloud Run jobs + a Scheduler
-# trigger; be-water-app additionally owns the Gemini prepaid-credit check
-# (be_water studio photos).
+# Single-project audit. biwenger-tools runs a Cloud Run job and two Scheduler
+# triggers; be-water-app runs neither (reported as unused, not as a warning)
+# and owns the Gemini prepaid-credit check (be_water studio photos).
 # ---------------------------------------------------------------------------
 case "$PROJECT" in
     be-water-app) HAS_GEMINI=1 ;;
@@ -107,6 +107,14 @@ SUM_SECRETS="" SUM_SCHEDULER="" SUM_LOGGING="" SUM_FIRESTORE=""
 SUM_BUDGET="" SUM_RETENTION="" SUM_RUN_CONFIG="" SUM_GEMINI=""
 
 warn() { echo "  ⚠️  No disponible (revisa permisos / API habilitada)"; }
+
+# A service a project does not use is not a warning: its API is off, or the
+# list comes back empty without an error. Only a failed read is.
+api_enabled() {
+    gcloud services list --enabled --project "$PROJECT" \
+        --filter="config.name=$1" --format="value(config.name)" 2>/dev/null | grep -q .
+}
+unused() { echo "  ➖ No se usa en este proyecto ($1) — sin coste"; }
 
 echo "=== GCP cost check — project: $PROJECT ==="
 echo
@@ -195,7 +203,11 @@ echo
 # ---------------------------
 echo "⚙️  Cloud Run Jobs"
 RUN_JOBS=$(gcloud run jobs list --project "$PROJECT" --format="value(metadata.name)" 2>/dev/null)
-if [ -z "$RUN_JOBS" ]; then
+RUN_JOBS_RC=$?
+if [ "$RUN_JOBS_RC" -eq 0 ] && [ -z "$RUN_JOBS" ]; then
+    unused "ningún job"
+    SUM_RUN_JOBS="$STATUS_OK — no se usa"
+elif [ -z "$RUN_JOBS" ]; then
     warn
     SUM_RUN_JOBS="$STATUS_WARN — sin datos"
 else
@@ -260,7 +272,14 @@ echo
 echo "🕐 Cloud Scheduler (región: $SCHEDULER_REGION)"
 SCHED_JOBS=$(gcloud scheduler jobs list --project "$PROJECT" --location "$SCHEDULER_REGION" \
     --format="value(name.basename(),state)" 2>/dev/null)
-if [ -z "$SCHED_JOBS" ]; then
+SCHED_RC=$?
+if [ -z "$SCHED_JOBS" ] && ! api_enabled cloudscheduler.googleapis.com; then
+    unused "API cloudscheduler desactivada"
+    SUM_SCHEDULER="$STATUS_OK — no se usa"
+elif [ "$SCHED_RC" -eq 0 ] && [ -z "$SCHED_JOBS" ]; then
+    unused "ningún job"
+    SUM_SCHEDULER="$STATUS_OK — no se usa"
+elif [ -z "$SCHED_JOBS" ]; then
     warn
     SUM_SCHEDULER="$STATUS_WARN — sin datos"
 else

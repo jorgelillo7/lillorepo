@@ -248,6 +248,7 @@ jobs:
       - name: Deploy web to Cloud Run
         run: |
           gcloud run deploy biwenger-summary \
+            --update-labels=app=biwenger \
             --image ${{ env.REGISTRY }}/web \
             --platform managed \
             --region ${{ env.REGION }} \
@@ -312,6 +313,7 @@ jobs:
       - name: Update Cloud Run Job image
         run: |
           gcloud run jobs update biwenger-scraper-data \
+            --update-labels=app=biwenger \
             --image ${{ env.REGISTRY }}/scraper_job \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
@@ -375,6 +377,7 @@ jobs:
       - name: Deploy bot to Cloud Run
         run: |
           gcloud run deploy biwenger-bot \
+            --update-labels=app=biwenger \
             --image ${{ env.REGISTRY }}/bot \
             --platform managed \
             --region ${{ env.REGION }} \
@@ -463,6 +466,7 @@ jobs:
       - name: Deploy biwenger-api to Cloud Run
         run: |
           gcloud run deploy biwenger-api \
+            --update-labels=app=biwenger \
             --image ${{ env.REGISTRY }}/api \
             --platform managed \
             --region ${{ env.REGION }} \
@@ -528,6 +532,7 @@ jobs:
       - name: Deploy Chuck Norris bot to Cloud Run
         run: |
           gcloud run deploy chucknorris-bot \
+            --update-labels=app=chucknorris \
             --image ${{ env.REGISTRY }}/chucknorris_bot \
             --platform managed \
             --region ${{ env.REGION }} \
@@ -609,6 +614,7 @@ jobs:
         # on the be-water-docker repo so the cleanup job can delete digests.
         run: |
           gcloud run deploy be-water \
+            --update-labels=app=be-water \
             --image europe-southwest1-docker.pkg.dev/be-water-app/be-water-docker/web \
             --platform managed \
             --region ${{ env.REGION }} \

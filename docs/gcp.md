@@ -25,8 +25,8 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 | Secret | Contents |
 |---|---|
-| `biwenger-credentials-regional` | `{"email", "password", "gdrive_folder_id", "jp_auth_token"}` |
-| `telegram-bot-config-regional` | `{"bot_token", "chat_id", "webhook_secret"}` |
+| `biwenger-credentials-regional` | `{"email", "password", "jp_auth_token"}` — plus a `gdrive_folder_id` nothing reads any more |
+| `telegram-bot-config-regional` | `{"bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
 | `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (the competitions workbooks). Stays on `biwenger-tools-sa` by decision — see `STATUS.md` "Accepted gaps". |
 | `flask-web-config-regional` | `{"secret_key", "admin_password"}` — bound to `web` as `FLASK_WEB_CONFIG_JSON` |
