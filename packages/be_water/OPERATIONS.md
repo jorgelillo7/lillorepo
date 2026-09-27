@@ -61,6 +61,24 @@ operational how-to; the specs are the single source of *what must be true*.
       # Water.analysis_date. Only reaches fichas that have a label photo.
       bazel run //packages/be_water/scripts:backfill_analysis_date            # preview
       bazel run //packages/be_water/scripts:backfill_analysis_date -- --write
+
+      # Analysis series — seed each dated water's first series entry from its
+      # current composition. One-shot, idempotent.
+      bazel run //packages/be_water/scripts:backfill_analyses                 # preview
+      bazel run //packages/be_water/scripts:backfill_analyses -- --apply
+
+      # Community — derive Water.community from the province so place search
+      # finds the ficha. Fills gaps only; read the unresolved tail first.
+      bazel run //packages/be_water/scripts:backfill_communities              # preview
+      bazel run //packages/be_water/scripts:backfill_communities -- --apply
+
+      # Unbacked minerals — keep only values a label or a contributor backs;
+      # removals snapshot to water_revisions first, so revert_water undoes them.
+      bazel run //packages/be_water/scripts:purge_unbacked_minerals           # preview
+      bazel run //packages/be_water/scripts:purge_unbacked_minerals -- --apply
+
+      # Origins needing a human (audit_data's third review mode).
+      bazel run //packages/be_water/scripts:audit_data -- --geo
     ```
 
     > Provenance model: each mineral's source is `label` (in `verified_fields`,
@@ -90,7 +108,7 @@ operational how-to; the specs are the single source of *what must be true*.
 
     URL: https://be-water-lzqhg7kcoa-no.a.run.app
 
-  * **🔐 Activar Google Sign-In + /admin (runbook — one manual step):**
+  * **🔐 Activate Google Sign-In + /admin (runbook — one manual step):**
 
     All the code shipped and is dormant until `google_client_id` exists. The
     button hides and `/admin` 404s meanwhile, so nothing breaks. To activate:
@@ -110,13 +128,19 @@ operational how-to; the specs are the single source of *what must be true*.
 
        ```bash
        gcloud secrets versions access latest --secret=be-water-secrets \
-           --project=be-water-app | \
-           python3 -c "import json,sys; d=json.load(sys.stdin); d['google_client_id']='PASTE_CLIENT_ID'; print(json.dumps(d))" | \
-           gcloud secrets versions add be-water-secrets \
-           --project=be-water-app --data-file=-
-       # after verifying login works:
-       gcloud secrets versions destroy 1 --secret=be-water-secrets --project=be-water-app
+           --project=be-water-app --out-file=/tmp/cfg.json
+       python3 -c "import json; p='/tmp/cfg.json'; d=json.load(open(p)); d['google_client_id']='PASTE_CLIENT_ID'; json.dump(d, open(p, 'w'))"
+       gcloud secrets versions add be-water-secrets --data-file=/tmp/cfg.json \
+           --project=be-water-app
+       rm /tmp/cfg.json
+       # after verifying login works, destroy the version you replaced:
+       gcloud secrets versions list be-water-secrets --project=be-water-app
+       gcloud secrets versions destroy <old-version> --secret=be-water-secrets --project=be-water-app
        ```
+
+       Through a file, never a pipe: a shell hook that shortens output
+       truncates the JSON silently, and the service then boots on a broken
+       secret.
     4. Redeploy be-water (any merge, or Actions → Deploy → Run workflow) so
        the new secret version binds.
     5. Verify: the home shows the G button · sign in with
@@ -207,8 +231,10 @@ got pinned while production could not call it at all — it answered locally and
 Always measure with the production key:
 
 ```bash
-KEY=$(gcloud secrets versions access latest --secret=be-water-secrets \
-  --project=be-water-app | python3 -c "import json,sys; print(json.load(sys.stdin)['gemini_api_key'])")
+gcloud secrets versions access latest --secret=be-water-secrets \
+  --project=be-water-app --out-file=/tmp/cfg.json
+KEY=$(python3 -c "import json; print(json.load(open('/tmp/cfg.json'))['gemini_api_key'])")
+rm /tmp/cfg.json
 ```
 
 When a model is retired the 404 body names its replacement, which is where
