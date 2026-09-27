@@ -14,7 +14,13 @@ def run(app_path: str, timeout: int | None = None) -> None:
     uploads) would otherwise get SIGKILLed before any Python `except` block
     can run, so the caller sees a silent 500 with no error message at all.
     """
-    argv = ["gunicorn", "--bind", "0.0.0.0:8080"]
+    argv = [
+        "gunicorn",
+        "--bind",
+        "0.0.0.0:8080",
+        "--config",
+        "python:core.serving.gunicorn_conf",
+    ]
     if timeout is not None:
         argv += ["--timeout", str(timeout)]
     argv.append(app_path)

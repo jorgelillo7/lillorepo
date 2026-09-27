@@ -5,6 +5,7 @@ import os
 import requests
 from flask import Flask, render_template, request
 
+from core.web.logs import use_json_logging
 from core.sdk.telegram import (
     extract_webhook_update,
     parse_command,
@@ -17,6 +18,7 @@ from packages.chucknorris_bot.bot import config, menu
 logger = get_logger(__name__)
 
 app = Flask(__name__)
+use_json_logging(app)
 
 _CHUCK_API = "https://api.chucknorris.io/jokes/random"
 

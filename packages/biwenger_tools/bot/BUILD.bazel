@@ -10,6 +10,7 @@ python_service(
         core_deps = [
             "//core:serving",
             "//core:telegram",
+            "//core:web",
         ],
         # `api_client` signs its call to biwenger-api with a Google ID token
         # and issues it with `requests`, so both are the bot's own

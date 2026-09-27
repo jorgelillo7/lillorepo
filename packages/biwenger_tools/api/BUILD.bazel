@@ -16,6 +16,7 @@ python_service(
             "//core:oraculo",
             "//core:serving",
             "//core:telegram",
+            "//core:web",
         ],
         deps = [
             "@pypi//matplotlib",

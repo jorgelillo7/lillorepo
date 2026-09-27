@@ -10,6 +10,7 @@ import os
 
 from flask import Flask, jsonify, request
 
+from core.web.logs import use_json_logging
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import (
@@ -27,6 +28,7 @@ from packages.biwenger_tools.api.logic import (
 logger = get_logger(__name__)
 
 app = Flask(__name__)
+use_json_logging(app)
 
 
 def _run_action(name: str, fn):

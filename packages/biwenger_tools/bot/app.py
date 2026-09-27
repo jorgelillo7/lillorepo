@@ -25,6 +25,7 @@ import threading
 
 from flask import Flask, request
 
+from core.web.logs import use_json_logging
 from core.sdk.telegram import (
     answer_callback_query,
     edit_message_reply_markup,
@@ -42,6 +43,7 @@ from packages.biwenger_tools.bot import api_client, config, menu
 logger = get_logger(__name__)
 
 app = Flask(__name__)
+use_json_logging(app)
 
 _HELP_TEXT = (
     "<b>Biwenger Bot</b>\n\n"
