@@ -12,6 +12,11 @@
 
 FROM python:3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
 
+# matplotlib builds its font cache on first import (~2.5 s). A fixed directory,
+# built below, keeps that off every cold start and survives the /root/.cache
+# cleanup; it stays writable for a non-root runtime user.
+ENV MPLCONFIGDIR=/opt/matplotlib
+
 RUN pip install --no-cache-dir \
     --no-compile \
     beautifulsoup4==4.15.0 \
@@ -76,6 +81,8 @@ RUN pip install --no-cache-dir \
     ! -name 'sheets.*.json' \
     ! -name 'run.*.json' \
     -delete \
+ && python3 -c "import matplotlib.font_manager" \
+ && chmod -R a+rwX /opt/matplotlib \
  && find /usr/local/lib/python3.14 -name '__pycache__' -type d -exec rm -rf {} + \
  && find /usr/local/lib/python3.14 -name '*.pyc' -delete \
  && rm -rf /root/.cache /tmp/*
@@ -87,5 +94,7 @@ RUN pip install --no-cache-dir \
 # - --no-compile + pyc cleanup drops ~10 MB of compiled bytecode that Python
 #   re-creates on first import anyway.
 # - pip cache and /tmp leftovers from the install go too.
+# - the matplotlib font cache is built here, into MPLCONFIGDIR, before the
+#   bytecode cleanup so the import leaves no .pyc behind.
 
 ENV PYTHONUNBUFFERED=1
