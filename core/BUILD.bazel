@@ -127,6 +127,7 @@ py_library(
     srcs = [
         "web/__init__.py",
         "web/csrf.py",
+        "web/headers.py",
         "web/logs.py",
         "web/proxy.py",
         "web/ratelimit.py",

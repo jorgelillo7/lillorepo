@@ -66,3 +66,32 @@ def test_client_ip_is_the_address_cloud_run_appended():
 def test_client_ip_without_the_header_is_the_peer():
     with _app().test_request_context("/", environ_base={"REMOTE_ADDR": "10.0.0.7"}):
         assert client_ip() == "10.0.0.7"
+
+
+def test_security_headers_on_every_response():
+    """HSTS, no MIME sniffing, no framing, no full-URL referrers."""
+    from core.web.headers import add_security_headers
+
+    app = add_security_headers(_app())
+
+    @app.route("/")
+    def home():
+        return "ok"
+
+    headers = app.test_client().get("/").headers
+    assert headers["Strict-Transport-Security"] == "max-age=31536000"
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+
+def test_security_headers_do_not_override_a_route_choice():
+    from core.web.headers import add_security_headers
+
+    app = add_security_headers(_app())
+
+    @app.route("/embed")
+    def embed():
+        return "ok", 200, {"X-Frame-Options": "SAMEORIGIN"}
+
+    assert app.test_client().get("/embed").headers["X-Frame-Options"] == "SAMEORIGIN"

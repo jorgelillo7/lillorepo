@@ -9,6 +9,7 @@ import os
 
 from flask import Flask
 
+from core.web.headers import add_security_headers
 from core.web.logs import use_json_logging
 from core.web.proxy import trust_proxy
 
@@ -30,6 +31,7 @@ from packages.be_water.web.routes import add, admin, main, session
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 app = Flask(__name__, template_folder=template_dir)
 use_json_logging(app)
+add_security_headers(app)
 trust_proxy(app)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 app.config.update(
