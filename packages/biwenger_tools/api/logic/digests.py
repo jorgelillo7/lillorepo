@@ -30,7 +30,7 @@ from core.constants import MADRID_TZ
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, auto_bid, offers
+from packages.biwenger_tools.api.logic import actions, auto_bid, fixture_run, offers
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
@@ -108,7 +108,12 @@ def _observed_market_rows(
 
 
 def _safe_send_section(
-    token: str, chat_id: str, build_rows, title: str, show_total_value: bool = False
+    token: str,
+    chat_id: str,
+    build_rows,
+    title: str,
+    show_total_value: bool = False,
+    extra_cols: list[str] | None = None,
 ):
     """Build and send one digest table; never raises.
 
@@ -122,7 +127,9 @@ def _safe_send_section(
         sent = send_image_or_text_fallback(
             token,
             chat_id,
-            build_table_image(rows, title, show_total_value=show_total_value),
+            build_table_image(
+                rows, title, show_total_value=show_total_value, extra_cols=extra_cols
+            ),
             title,
         )
         return sent, len(rows)
@@ -260,9 +267,12 @@ def _run_daily_inner() -> dict:
             oraculo_scale=ctx.oraculo_scale,
         )
 
+    upcoming = actions.read_fixture_runs(ctx.biwenger)
+    fixture_column = fixture_run.column_for(upcoming)
+
     def _market_rows():
         market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
-        return _observed_market_rows(
+        rows = _observed_market_rows(
             ctx.biwenger,
             market_players,
             ctx.biwenger_players,
@@ -270,12 +280,14 @@ def _run_daily_inner() -> dict:
             ctx.oraculo_index,
             oraculo_scale=ctx.oraculo_scale,
         )
+        fixture_run.annotate(rows, upcoming)
+        return rows
 
     team_sent, team_count = _safe_send_section(
         token, chat_id, _team_rows, "Mi equipo", show_total_value=True
     )
     market_sent, market_count = _safe_send_section(
-        token, chat_id, _market_rows, "Mercado"
+        token, chat_id, _market_rows, "Mercado", extra_cols=[fixture_column]
     )
 
     lineup_result = _safe_run_auto_pick(ctx)

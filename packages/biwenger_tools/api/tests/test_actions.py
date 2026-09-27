@@ -305,3 +305,63 @@ def test_protection_watch_warns_when_a_lock_ends_and_a_rival_can_pay():
     text = mock_send.call_args.kwargs["text"]
     assert "Parrott" in text and "Luceneta" in text
     assert result == {"ending": 1, "sent": 1}
+
+
+# --- the fixture run behind the market's "Calendario" column ---------------
+
+
+def _round_payload(round_id, games, rounds=None):
+    return {"id": round_id, "games": games, "season": {"rounds": rounds or []}}
+
+
+def test_read_fixture_runs_walks_the_open_rounds():
+    import time
+
+    from packages.biwenger_tools.api.logic import actions
+
+    soon = int(time.time()) + 86_400
+    game = {
+        "date": soon,
+        "status": "pending",
+        "home": {"id": 3, "difficulty": {"rating": 25}},
+        "away": {"id": 8, "difficulty": {"rating": 94}},
+    }
+    current = _round_payload(
+        4905,
+        [],
+        rounds=[{"id": 4905, "status": "finished"}, {"id": 4906, "status": "pending"}],
+    )
+    biwenger = MagicMock()
+    biwenger.get_round.side_effect = lambda round_id=None: (
+        current if round_id is None else _round_payload(round_id, [game])
+    )
+    upcoming = actions.read_fixture_runs(biwenger)
+    assert upcoming == {3: [25], 8: [94]}
+
+
+def test_read_fixture_runs_is_none_when_the_calendar_cannot_be_read():
+    from packages.biwenger_tools.api.logic import actions
+
+    biwenger = MagicMock()
+    biwenger.get_round.side_effect = RuntimeError("cloudflare")
+    assert actions.read_fixture_runs(biwenger) is None
+
+
+def test_the_market_image_carries_the_fixture_column():
+    from packages.biwenger_tools.api.logic import actions
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    biwenger = MagicMock()
+    biwenger.get_market_players.return_value = []
+    ctx = OrchestratorContext(
+        biwenger=biwenger, biwenger_players={}, jp_index={"by_name": {}, "by_slug": {}}
+    )
+    with patch(_patches("build_context"), return_value=ctx), patch(
+        _patches("require_telegram"), return_value=("tok", "chat")
+    ), patch(_patches("_send_image")), patch(
+        _patches("read_fixture_runs"), return_value={}
+    ), patch(
+        _patches("build_table_image"), return_value=b""
+    ) as mock_image:
+        actions.run_market()
+    assert mock_image.call_args.kwargs["extra_cols"] == ["Calendario (5)"]
