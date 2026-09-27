@@ -105,5 +105,8 @@ Structure the response in three sections in this order:
 - Don't recommend bumps that aren't actually justified. "Newer = always upgrade"
   is the wrong heuristic; reproducibility costs are real.
 - Don't open PRs or edit files. This skill is read-only — analysis only.
+  When the owner then asks to carry the upgrades out, follow
+  [`UPGRADING.md`](UPGRADING.md): how to split the PRs, rebuild `python-base`
+  without breaking `master`, and verify each one before the next.
 - If a fetch fails or returns ambiguous results, say so explicitly rather than
   guessing.
