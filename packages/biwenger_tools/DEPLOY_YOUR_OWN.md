@@ -6,9 +6,18 @@ private chat and the draft group), the weekly scraper and, optionally, the
 web — all inside the **free tier**. Why each piece is the way it is lives in
 [`docs/gcp.md`](../../docs/gcp.md) and [`OPERATIONS.md`](OPERATIONS.md).
 
-> The commands mirror this project's production configuration (read off the
-> live services), but have not been run end to end on a brand-new project.
-> If one fails, the error usually names what is missing.
+> **⚠️ Not yet tested — expect mistakes.** The commands mirror this
+> project's production configuration, read off the live services, but nobody
+> has run this guide end to end on a brand-new project yet. It may contain
+> errors or miss a step; if a command fails, its error usually names what is
+> missing. Corrections are welcome.
+>
+> **Deploying our code or your own fork.** Both are fine: the repo is
+> [MIT-licensed](../../LICENSE). The one condition is to keep the copyright
+> and license notice (`LICENSE`) with the code; a mention of
+> [lillorepo](https://github.com/jorgelillo7/lillorepo) is appreciated.
+> Provided as is, with no warranty: Biwenger's API is unofficial and can
+> change without notice, and automating your account is at your own risk.
 
 ---
 
