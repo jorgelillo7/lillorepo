@@ -11,7 +11,7 @@ Read this before proposing a change to `docker/Dockerfile.base`,
 A service image is **one shared fat base plus thin source layers**:
 
 ```
-python-base (python:3.13-slim + every runtime dep pre-installed, pinned by digest)
+python-base (python:3.14-slim + every runtime dep pre-installed, pinned by digest)
   └── core_layer      — the shared library, as a tar of .py files
   └── package_layer   — files shared by the package's modules (only when the
                         service declares `package_srcs`; absent otherwise)
@@ -57,13 +57,13 @@ the `# dev-only` line in `core/requirements.txt`.
 
 ## Why not distroless
 
-Evaluated 2026-08-07. **Decision: stay on `python:3.13-slim`.**
+Evaluated 2026-08-07. **Decision: stay on the official `python:*-slim` image.**
 
 Measured against the public registries:
 
 | Base | Compressed | Layers |
 |---|---|---|
-| `python:3.13-slim` (ours) | 41.0 MB | 4 |
+| `python:3.13-slim` (ours at the time) | 41.0 MB | 4 |
 | `distroless/python3-debian13` | 21.4 MB | 48 |
 
 The saving is ~20 MB. The registry holds 159 MB of a 512 MB free tier, and the

@@ -6,7 +6,7 @@ reports issues.
 
 ## How it works
 
-Lint runs through Bazel's hermetic Python 3.13 toolchain so local devs and
+Lint runs through Bazel's hermetic Python 3.14 toolchain so local devs and
 CI are guaranteed to use the same interpreter and the same `black` /
 `flake8` versions resolved by `requirements_lock.txt`.
 
@@ -29,7 +29,7 @@ CI calls the same script (`.github/workflows/deploy.yml` → `lint` job).
 ## Why hermetic
 
 Before this setup, the maintainer ran lint on Python 3.12 locally while CI
-used 3.13. Black 26.3.1's wrapping heuristics shift subtly across Python
+used a newer Python. Black 26.3.1's wrapping heuristics shift subtly across Python
 versions, which caused multiple "passes locally, fails on CI" fixup
 commits during the v6.0 refactor. The hermetic Bazel toolchain removes
 the drift entirely.

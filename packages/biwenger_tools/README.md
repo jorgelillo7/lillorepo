@@ -118,4 +118,4 @@ See [`OPERATIONS.md`](OPERATIONS.md) for the full per-module reference (build, t
 
 ## Stack at a glance
 
-Python 3.13 · Flask · matplotlib · BeautifulSoup · `requests` · Bazel (`@pypi`) · Cloud Run + Cloud Run Jobs + Cloud Scheduler · Secret Manager · Artifact Registry · Firestore · Google Sheets API.
+Python 3.14 · Flask · matplotlib · BeautifulSoup · `requests` · Bazel (`@pypi`) · Cloud Run + Cloud Run Jobs + Cloud Scheduler · Secret Manager · Artifact Registry · Firestore · Google Sheets API.

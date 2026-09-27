@@ -82,7 +82,7 @@ for its build/test/deploy commands.
 | Layer | Technology |
 |-------|-----------|
 | Build | Bazel 9.1 (bzlmod), rules_python, rules_oci, rules_pkg |
-| Language | Python 3.13 |
+| Language | Python 3.14 |
 | Web | Flask + Gunicorn |
 | Cloud | GCP — Cloud Run Services, Cloud Run Jobs, Secret Manager, Artifact Registry, Cloud Scheduler |
 | Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (competiciones) |

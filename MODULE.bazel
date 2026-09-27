@@ -17,15 +17,15 @@ python.toolchain(
     # bundled with rules_python (CPython 3.9–3.14). Added to py_test deps only
     # during coverage runs — never ships in the runtime image.
     configure_coverage_tool = True,
-    python_version = "3.13",
+    python_version = "3.14",
 )
-use_repo(python, python_toolchain = "python_3_13")
+use_repo(python, python_toolchain = "python_3_14")
 
 # Se utiliza la extensión pip para gestionar las dependencias de Python
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "pypi",
-    python_version = "3.13",
+    python_version = "3.14",
     requirements_lock = "//:requirements_lock.txt",
 )
 use_repo(pip, "pypi")
@@ -36,7 +36,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
-    digest = "sha256:b50deb5f291d9f8e103f931e7bc6f1ffaf71d0d9fda0d63b9b81ad669ec20c57",
+    digest = "sha256:9c8c436edfdf9dc37d7ff16b55eafd8a226dc01255717faa3f6a5e0c63689a8a",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",
