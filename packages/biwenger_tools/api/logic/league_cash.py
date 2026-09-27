@@ -44,7 +44,7 @@ def _user_id(user) -> int | None:
     return int(user["id"]) if isinstance(user, dict) and user.get("id") else None
 
 
-def _season_entries(entries: list[dict]) -> list[dict]:
+def season_entries(entries: list[dict]) -> list[dict]:
     """The entries dated at or after the latest season start, oldest first.
 
     Raises `ValueError` when the read never reached a season start: the
@@ -74,7 +74,7 @@ def rebuild(entries: list[dict], starting_balance: int) -> CashBook:
         if uid is not None:
             moves[uid] = moves.get(uid, 0) + int(amount or 0)
 
-    for entry in _season_entries(entries):
+    for entry in season_entries(entries):
         kind, content = entry.get("type"), entry.get("content")
         if kind in _TRANSFER_TYPES:
             for move in content or []:
