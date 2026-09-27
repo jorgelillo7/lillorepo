@@ -39,8 +39,7 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
 | ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
 | ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
-| 🔨 | Optional: scrape resolved-market bids into Firestore to model each rival's overbid | Nobody — pick up if wanted. `board?type=market` returns every settled bid (manager + amount); live rival bids are blind and not exposed, so this is the only clean signal for auto-bid tuning |
-| 🔨 | Price trend (`fields=*,prices`) in `/ofertas` and auto-bid | Nobody — public endpoint, ~366 daily prices, nothing to store · [details](docs/technical/parked-work.md#price-history) |
+| 🔨 | A calibration script for the auto-bid shares (T1–T4) | Owner's go-ahead on the script · no Firestore needed: the board already keeps every settled auction with its losing bids (up to three) · re-run the win-rate table monthly and adjust · [the first reading](openspec/specs/biwenger_tools/auto-bid/spec.md) |
 
 ## my_photos
 
