@@ -1,3 +1,7 @@
+import io
+import json
+import logging
+
 import pytest
 
 from core import utils
@@ -48,3 +52,36 @@ def test_load_json_secret_that_is_not_an_object_raises(monkeypatch):
     monkeypatch.setenv("SOME_SECRET_JSON", '["a", "b"]')
     with pytest.raises(ValueError, match="SOME_SECRET_JSON"):
         utils.load_json_secret("SOME_SECRET_JSON")
+
+
+def _emit(logger_name, level, message, **extra):
+    """Log through `get_logger` and return the JSON line it wrote."""
+    logger = utils.get_logger(logger_name)
+    stream = io.StringIO()
+    logger.handlers[0].setStream(stream)
+    logger.log(level, message, extra=extra)
+    return json.loads(stream.getvalue().strip().splitlines()[-1])
+
+
+@pytest.mark.parametrize(
+    "level, severity",
+    [
+        (logging.INFO, "INFO"),
+        (logging.WARNING, "WARNING"),
+        (logging.ERROR, "ERROR"),
+        (logging.CRITICAL, "CRITICAL"),
+    ],
+)
+def test_log_lines_carry_cloud_logging_severity(level, severity):
+    """Cloud Logging reads `severity` from a JSON line; without it every
+    entry lands as DEFAULT and `severity>=ERROR` never sees an app error."""
+    line = _emit(f"severity-test-{severity}", level, "boom")
+    assert line["severity"] == severity
+
+
+def test_log_lines_keep_levelname_message_and_extra():
+    """Adding `severity` must not break queries on the existing fields."""
+    line = _emit("severity-test-fields", logging.ERROR, "boom", chat_id=42)
+    assert line["levelname"] == "ERROR"
+    assert line["message"] == "boom"
+    assert line["chat_id"] == 42

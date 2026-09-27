@@ -262,9 +262,10 @@ user with no feedback at all, which is worse than the original error.
 
 ### LP-15 — Structured logs, data in `extra`
 
-Log with `core.utils.get_logger(__name__)`, which writes JSON to stdout.
-Data SHALL go in `extra={...}`, never be interpolated into the message. No
-`print` outside scripts.
+Log with `core.utils.get_logger(__name__)`, which writes JSON to stdout with
+a `severity` field, so `severity>=ERROR` in Cloud Logging finds application
+errors. Data SHALL go in `extra={...}`, never be interpolated into the
+message. No `print` outside scripts.
 
 **Why.** Cloud Logging indexes `extra` fields (`jsonPayload.chat_id=...`); an
 f-string is only searchable as free text.
