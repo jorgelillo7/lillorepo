@@ -9,7 +9,8 @@ import check_url_secrets as check  # noqa: E402
 
 
 def test_a_literal_token_in_a_query_is_reported():
-    text = "GET https://api.example.com/v1/data?auth=abc123XYZ&limit=5"
+    # Split so this file does not itself hold a literal credential URL.
+    text = "GET https://api.example.com/v1/data?auth" "=abc123XYZ&limit=5"
     assert check.offenders(text) == [(1, "auth")]
 
 
