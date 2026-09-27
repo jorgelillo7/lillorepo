@@ -10,6 +10,7 @@ python_service(
         core_deps = [
             "//core:serving",
             "//core:telegram",
+            "//core:web",
         ],
         deps = ["@pypi//requests"],
     ),

@@ -127,6 +127,7 @@ py_library(
     srcs = [
         "web/__init__.py",
         "web/csrf.py",
+        "web/logs.py",
         "web/proxy.py",
         "web/ratelimit.py",
     ],
@@ -142,6 +143,7 @@ py_library(
     srcs = [
         "serving/__init__.py",
         "serving/gunicorn.py",
+        "serving/gunicorn_conf.py",
     ],
     deps = [
         ":_init",

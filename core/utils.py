@@ -4,8 +4,10 @@ import os
 
 from pythonjsonlogger.json import JsonFormatter
 
+LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(message)s"
 
-class _CloudLoggingFormatter(JsonFormatter):
+
+class CloudLoggingFormatter(JsonFormatter):
     """JSON lines with a `severity` field, which Cloud Logging maps to the
     entry's severity; without it every entry lands as DEFAULT."""
 
@@ -24,9 +26,7 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
-        formatter = _CloudLoggingFormatter(
-            fmt="%(asctime)s %(name)s %(levelname)s %(message)s"
-        )
+        formatter = CloudLoggingFormatter(fmt=LOG_FORMAT)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
