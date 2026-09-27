@@ -626,16 +626,27 @@ with a rehearsal first.
 
 ### 3. Turn on writing to Biwenger
 
-It ships off (`DRAFT_APPLY_TO_BIWENGER=false`): with the flag off the whole
-draft can be rehearsed — validation, turns, Firestore, messages — without
-moving a player.
+**Off between drafts** (`DRAFT_APPLY_TO_BIWENGER=false`): with the flag off the
+whole draft can be rehearsed — validation, turns, Firestore, messages —
+without moving a player. When the draft opens, decide whether this one writes
+to Biwenger; if it does, turn it on **after** the rehearsal and its reset, and
+before the first real pick.
 
-The value comes from the **repository variable** of the same name, because
-the deploy uses `--set-env-vars`, which replaces the whole block: changing it
-only on Cloud Run would be lost on the next deploy.
+Set it in both places: the **repository variable**, because the deploy uses
+`--set-env-vars` and replaces the whole block (a Cloud Run–only change is lost
+on the next deploy), and the running service, so it applies without waiting
+for a deploy:
 
 ```bash
 gh variable set DRAFT_APPLY_TO_BIWENGER --body true   # or false
+gcloud run services update biwenger-api --region europe-southwest1 \
+  --update-env-vars DRAFT_APPLY_TO_BIWENGER=true      # or false
+```
+
+Check the current value before opening:
+
+```bash
+gh variable list | grep DRAFT_APPLY
 ```
 
 ### 4. Reset between the rehearsal and the real draft
@@ -683,6 +694,9 @@ Both files **are committed**. The skill's other outputs are gitignored on
 purpose.
 
 ### 7. After the draft
+
+Turn `DRAFT_APPLY_TO_BIWENGER` back off (step 3, both commands with `false`),
+so next year's rehearsal cannot move a real player.
 
 `PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/postdraft.py --write`
 compares everyone's draft and posts the verdict to the group, one message per
