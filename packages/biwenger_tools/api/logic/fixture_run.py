@@ -84,3 +84,37 @@ def annotate(rows: list[dict], upcoming: dict | None, n: int = GAMES_AHEAD) -> s
             else label(next_ratings(upcoming, row.get("team_id"), n))
         )
     return column
+
+
+# A near tie: projections within this share of each other…
+_NEAR_TIE = 0.05
+# …where one run is at least this many rating points easier.
+_EASIER_BY = 5
+
+
+def average(upcoming: dict[int, list[int]], team_id, n: int = GAMES_AHEAD):
+    """Mean of the club's next `n` ratings, or `None` with nothing to average."""
+    ratings = next_ratings(upcoming, team_id, n)
+    return mean(ratings) if ratings else None
+
+
+def prefer_easier(rows: list[dict], score, upcoming: dict | None) -> list[dict]:
+    """`rows` (already best-first by `score`) with near ties broken by the run.
+
+    Two neighbours whose scores are within 5 % swap when the lower one's
+    next five games are at least 5 points easier. A clear projection gap is
+    never overturned, and without a calendar the order is returned as given.
+    """
+    out = list(rows)
+    if upcoming is None:
+        return out
+    for i in range(len(out) - 1):
+        a, b = out[i], out[i + 1]
+        score_a, score_b = score(a) or 0, score(b) or 0
+        run_a = average(upcoming, a.get("team_id"))
+        run_b = average(upcoming, b.get("team_id"))
+        if run_a is None or run_b is None or score_a <= 0:
+            continue
+        if score_b >= score_a * (1 - _NEAR_TIE) and run_b <= run_a - _EASIER_BY:
+            out[i], out[i + 1] = b, a
+    return out

@@ -111,3 +111,27 @@ a pact still holds.
 - **THEN** they head the position's list, flagged, above an unpacted rival
 - *Verifies:* `test_recommendations_keep_pacted_players_and_carry_the_flag`,
   `test_recommendations_render_a_badge_for_a_pacted_player`
+
+### Requirement: A near tie goes to the easier run
+
+Within each position, candidates stay ranked by projection, except that two
+neighbours whose projections are within 5 % SHALL swap when the lower one's
+club faces a run at least 5 rating points easier over its next five games. A
+clear projection gap is never overturned, and without a calendar the order is
+projection alone. Each candidate SHALL show its run (`calendario fácil 30`).
+
+A clausulazo buys a player for the rest of the season, which is where a run of
+fixtures matters most; limiting it to near ties keeps it a tie-break, not a
+second ranking.
+
+#### Scenario: near tie, clear gap, small difference, no calendar
+- **WHEN** 500 vs 480 and the second club's run is far easier **THEN** they swap
+- **WHEN** 500 vs 450 **THEN** projection decides
+- **WHEN** the runs differ by 3 points **THEN** nothing moves
+- **WHEN** the calendar is unavailable **THEN** the order is untouched
+- *Verifies:* `test_an_easier_run_wins_a_near_tie`,
+  `test_a_clear_projection_gap_is_never_overturned`,
+  `test_a_small_run_difference_does_not_reorder`,
+  `test_without_a_calendar_the_order_is_untouched`,
+  `test_top_per_position_lifts_an_easier_run_in_a_near_tie`,
+  `test_the_message_names_each_candidates_run`

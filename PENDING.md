@@ -41,7 +41,6 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
 | 🔨 | Optional: scrape resolved-market bids into Firestore to model each rival's overbid | Nobody — pick up if wanted. `board?type=market` returns every settled bid (manager + amount); live rival bids are blind and not exposed, so this is the only clean signal for auto-bid tuning |
 | 🔨 | Price trend (`fields=*,prices`) in `/ofertas` and auto-bid | Nobody — public endpoint, ~366 daily prices, nothing to store · [details](docs/technical/parked-work.md#price-history) |
-| 👤 | Fixture difficulty: **display** in PR #497 (market "Calendario (5)" column); should it **weigh** on buys, clauses or offers? | You — the options, with a real example each, are in the PR · nothing decides on it yet · [details](docs/technical/parked-work.md#fixture-difficulty-over-the-coming-rounds) |
 
 ## my_photos
 

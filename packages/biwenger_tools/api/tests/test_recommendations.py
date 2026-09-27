@@ -21,8 +21,10 @@ def _row(
     clause=10_000_000,
     clausulable=True,
     owner_gk_count=2,
+    team_id=None,
 ):
     return {
+        "team_id": team_id,
         "bw_id": bw_id,
         "name": name,
         "position_id": pos,
@@ -244,3 +246,41 @@ def test_format_telegram_text_dashes_when_max_bid_missing():
     }
     text = recs._format_telegram_text(payload)
     assert "Puja máx. Biwenger: —" in text
+
+
+# --- the fixture run: near-tie reorder and a label per candidate ------------
+
+
+def test_top_per_position_lifts_an_easier_run_in_a_near_tie():
+    rows = [
+        _row(1, "Hard", pos=4, sf=500, team_id=10),
+        _row(2, "Easy", pos=4, sf=490, team_id=20),
+    ]
+    upcoming = {10: [70, 70, 70, 70, 70], 20: [30, 30, 30, 30, 30]}
+    out = recs._pick_top_per_position(rows, top=3, upcoming=upcoming)
+    assert [r["name"] for r in out["FWD"]] == ["Easy", "Hard"]
+    assert out["FWD"][0]["fixture"] == "fácil 30"
+
+
+def test_the_message_names_each_candidates_run():
+    payload = {
+        "budget": {"cash": 1, "max_bid": 2, "margin": 0, "target": 1},
+        "recommendations": {
+            "GK": [],
+            "DEF": [],
+            "MID": [],
+            "FWD": [
+                {
+                    "bw_id": 1,
+                    "name": "Easy",
+                    "owner": "Ana",
+                    "clause": 5_000_000,
+                    "sf": 490,
+                    "multi": [],
+                    "pacted": False,
+                    "fixture": "fácil 30",
+                }
+            ],
+        },
+    }
+    assert "calendario fácil 30" in recs._format_telegram_text(payload)

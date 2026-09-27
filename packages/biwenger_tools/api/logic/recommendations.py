@@ -30,6 +30,8 @@ from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
 )
+from packages.biwenger_tools.api.logic import fixture_run
+from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 
 logger = get_logger(__name__)
@@ -82,7 +84,7 @@ def _short_position_es(position_id: int) -> str:
     return POSITION_SHORT.get(position_id, "?")
 
 
-def _serialise_row(row: dict) -> dict:
+def _serialise_row(row: dict, upcoming: dict | None = None) -> dict:
     """Pick the fields the response (and the bot message) actually need."""
     primary = row.get("position_id")
     alts = [a for a in (row.get("alt_positions") or []) if a != primary]
@@ -94,10 +96,21 @@ def _serialise_row(row: dict) -> dict:
         "sf": sf_of(row),
         "multi": [_short_position_es(a) for a in alts],
         "pacted": bool(row.get("pacted")),
+        "fixture": (
+            None
+            if upcoming is None
+            else fixture_run.label(
+                fixture_run.next_ratings(
+                    upcoming, row.get("team_id"), fixture_run.GAMES_AHEAD
+                )
+            )
+        ),
     }
 
 
-def _pick_top_per_position(candidates: list[dict], top: int) -> dict[str, list[dict]]:
+def _pick_top_per_position(
+    candidates: list[dict], top: int, upcoming: dict | None = None
+) -> dict[str, list[dict]]:
     """Group candidates by their primary position, sort by SF desc, slice top.
 
     Multi-position players appear only under their primary (key in
@@ -113,7 +126,8 @@ def _pick_top_per_position(candidates: list[dict], top: int) -> dict[str, list[d
 
     for key in grouped:
         grouped[key].sort(key=sf_of, reverse=True)
-        grouped[key] = [_serialise_row(r) for r in grouped[key][:top]]
+        ranked = fixture_run.prefer_easier(grouped[key], sf_of, upcoming)
+        grouped[key] = [_serialise_row(r, upcoming) for r in ranked[:top]]
 
     return grouped
 
@@ -148,7 +162,9 @@ def _format_telegram_text(payload: dict) -> str:
             pact = f"{PACT_BADGE} " if r.get("pacted") else ""
             lines.append(
                 f"  · {pact}{r['name']} ({r['owner']}) — "
-                f"cláusula {format_euros(r['clause'])} · SF {r['sf']}{badge}"
+                f"cláusula {format_euros(r['clause'])} · SF {r['sf']}"
+                + (f" · calendario {r['fixture']}" if r.get("fixture") else "")
+                + badge
             )
     if any(
         r.get("pacted") for rows in payload["recommendations"].values() for r in rows
@@ -203,7 +219,9 @@ def run_recommendations(
     )
     affordable = filter_affordable(rivals, my_ids, target)
     annotate_pact(affordable, pact_store.load())
-    recommendations = _pick_top_per_position(affordable, top)
+    recommendations = _pick_top_per_position(
+        affordable, top, upcoming=read_fixture_runs(ctx.biwenger)
+    )
 
     payload = {
         "budget": {
