@@ -69,7 +69,7 @@ flowchart TD
     style AFTER fill:#f0ebf7,stroke:#7a5aa5
 ```
 
-**Las cuatro cosas que se olvidan:**
+**Las cinco cosas que se olvidan:**
 
 1. **El pliego no se hace una vez, se recalibra.** `final-decision.md` caduca con
    cada pick ajeno. Por cada hueco que te tumban se repite el bucle entero —
@@ -84,6 +84,11 @@ flowchart TD
    abierto para siempre y `/deshacer` sigue vendiendo jugadores de verdad.
 4. **El histórico no lo genera el cierre de la api.** Cloud Run no escribe en tu
    repo. Lo hace `close.py`, en local.
+5. **`DRAFT_APPLY_TO_BIWENGER` is off between drafts, on purpose.** With it off
+   the draft is a rehearsal: turns, Firestore and messages, but no player moves
+   in Biwenger. Before opening, decide with the owner whether this draft writes
+   to Biwenger; turn it on only after the rehearsal and its reset, and off again
+   once the draft closes. Commands in `OPERATIONS.md` → "Annual draft", step 3.
 
 ## Una carpeta por temporada, y el mismo árbol cada año
 

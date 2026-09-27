@@ -199,6 +199,11 @@ artifact: exported on the agreed market-close day and uploaded to
 `openspec/specs/biwenger_tools/draft/spec.md`). Nothing auto-downloads it —
 a late export carries the wrong prices.
 
+Remind the user, too, that `DRAFT_APPLY_TO_BIWENGER` stays **off** between
+drafts, and that turning it on is a decision for the day the draft opens —
+after the rehearsal and its reset (`OPERATIONS.md` → "Annual draft", step 3).
+Do not change it as part of the rollover.
+
 # Step 3 — Create a branch
 
 ```bash
