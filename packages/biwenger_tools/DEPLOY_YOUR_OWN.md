@@ -13,9 +13,7 @@ web — all inside the **free tier**. Why each piece is the way it is lives in
 > missing. Corrections are welcome.
 >
 > **Deploying our code or your own fork.** Both are fine: the repo is
-> [MIT-licensed](../../LICENSE). The one condition is to keep the copyright
-> and license notice (`LICENSE`) with the code; a mention of
-> [lillorepo](https://github.com/jorgelillo7/lillorepo) is appreciated.
+> [MIT-licensed](../../LICENSE); just keep the `LICENSE` file with the code.
 > Provided as is, with no warranty: Biwenger's API is unofficial and can
 > change without notice, and automating your account is at your own risk.
 
