@@ -24,7 +24,7 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | 🚧 | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
-| 👤 | Consolidate the secrets: 6/6 free versions today | You — keyless Sheets for the web (−1), and/or one secret per package (→ 3/6, at the cost of the public bot and web holding the Biwenger password) · [the audit](docs/technical/parked-work.md#secrets-consolidation) |
+| 👤 | Consolidate the secrets: 6/6 free versions today | You — keyless Sheets for the web (−1), and/or one secret per package (→ 3/6, at the cost of the public bot and web holding the Biwenger password), with clearer names per package · [the audit](docs/technical/parked-work.md#secrets-consolidation) |
 
 ## core
 
