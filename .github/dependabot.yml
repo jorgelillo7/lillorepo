@@ -1,7 +1,10 @@
 # GitHub Actions only. Python deps are deliberately excluded: the
 # three-level lock flow (requirements.txt → requirements.in → pip-compile
 # lock) plus the Bazel wiring and the python-base image rebuild cannot be
-# driven by a bot — use the add-python-dep skill instead.
+# driven by a bot — use the add-python-dep skill instead (and, for bumps,
+# .claude/skills/check-deps/UPGRADING.md). Python advisories still arrive as
+# Dependabot alerts. Actions are pinned to commit SHAs; the `# vX.Y.Z`
+# comment on each is what Dependabot reads and rewrites.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
