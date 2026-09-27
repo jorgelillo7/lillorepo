@@ -1193,4 +1193,5 @@ def webhook():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    # Loopback only: the Werkzeug debugger executes code for whoever reaches it.
+    app.run(debug=True, host="127.0.0.1", port=port)
