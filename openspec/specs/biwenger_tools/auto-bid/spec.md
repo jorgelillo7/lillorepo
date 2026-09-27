@@ -6,8 +6,11 @@ computer-owned free agents Biwenger exposes each morning, attaches SofaScore
 (SF) ratings from JP blended with Oráculo, and bids on each — best first —
 until cash runs out, then reports the run to Telegram.
 
-- **Source:** `packages/biwenger_tools/api/logic/auto_bid.py`
-- **Verified by:** `packages/biwenger_tools/api/tests/test_auto_bid.py`
+- **Source:** `packages/biwenger_tools/api/logic/auto_bid.py`,
+  `packages/biwenger_tools/api/logic/auction_calibration.py`,
+  `packages/biwenger_tools/scripts/auto_bid/calibrate.py`
+- **Verified by:** `packages/biwenger_tools/api/tests/test_auto_bid.py`,
+  `packages/biwenger_tools/api/tests/test_auction_calibration.py`
 
 ---
 
@@ -323,3 +326,33 @@ the summary, the error SHALL propagate (route → 500) rather than fail silently
 - **WHEN** the send raises `TelegramDeliveryError` **THEN** it propagates
 - *Verifies:* `test_run_auto_bid_skips_send_when_telegram_creds_missing`,
   `test_run_auto_bid_raises_when_telegram_send_fails`
+
+### Requirement: The shares can be re-measured against the market
+
+`scripts/auto_bid/calibrate.py` SHALL rebuild the season's settled market
+auctions from the league board — winner, winning bid, the losing bids shown
+(at most three) — price each at the asking price of the day before it closed,
+and report, per price band, the share of auctions each overbid would have won
+and the smallest whole-percent share winning 70 / 80 / 90 % of them, beside
+the shares `auto_bid.py` bids today. It is read-only.
+
+The report measures and does not decide: auctions are split by price and the
+tiers by projection, so which band a tier's players fall in is a judgement.
+A share wins an auction when `price × (100 + p) > winning bid × 100` — integer
+maths, so a boundary never moves on float rounding.
+
+#### Scenario: the auctions, the price, the rates
+- **WHEN** the board holds a settled auction **THEN** its winner, winning bid,
+  runner-up and our bid are read, and last season's are left out
+- **WHEN** an auction closed on the 22nd **THEN** it is priced on the 21st
+- **WHEN** overbids of 0–9 % are on record **THEN** +8 % is the least that
+  wins eight in ten
+- **WHEN** we won an auction **THEN** what we paid over the next best bid (or
+  the price, if nobody else bid) counts as left on the table
+- *Verifies:* `test_auctions_come_off_the_board_with_winner_and_losing_bids`,
+  `test_last_seasons_auctions_are_left_out`,
+  `test_price_on_reads_the_day_before_the_auction_closed`,
+  `test_win_rate_counts_the_bids_a_share_would_have_beaten`,
+  `test_share_to_win_finds_the_smallest_share_reaching_the_target`,
+  `test_left_on_the_table_is_what_we_paid_over_the_next_best`,
+  `test_overbid_by_winner_takes_the_median_per_manager`

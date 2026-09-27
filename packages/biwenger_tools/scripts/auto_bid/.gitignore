@@ -1,0 +1,3 @@
+# Per-player price histories: reproducible from Biwenger's public endpoint,
+# refreshed daily by the script itself.
+.cache/

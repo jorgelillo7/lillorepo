@@ -348,6 +348,20 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     differed are evidence, and the script deliberately refuses a verdict until
     there are enough of them.
 
+    Re-measure the auto-bid shares (`TIER_T*_OVERBID` in `auto_bid.py`)
+    against the season's settled auctions, roughly once a month:
+
+    ```bash
+    PYTHONPATH=. python3 packages/biwenger_tools/scripts/auto_bid/calibrate.py
+    ```
+
+    Read-only. It prints, per price band, the share of auctions each overbid
+    would have won and the smallest share that wins 70/80/90 % of them, next
+    to what each tier bids today — plus the auctions we lost and what we paid
+    over the runner-up in the ones we won. Price histories are cached per day
+    under `scripts/auto_bid/.cache/`. Choosing new shares is a judgement: the
+    market is split by price, the tiers by projection (see the auto-bid spec).
+
     The digest-chained auto-bid honours `AUTO_BID_PAUSED_UNTIL` (ISO date,
     default in `api/config.py`) — pause semantics are specified in
     [`daily-digest`](../../openspec/specs/biwenger_tools/daily-digest/spec.md)
