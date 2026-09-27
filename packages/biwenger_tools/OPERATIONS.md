@@ -32,6 +32,15 @@ single source of *what must be true*.
     ```bash
       bazel run //packages/biwenger_tools/web:web_local
     ```
+
+    Firestore and the competitions tab (Google Sheets) read through your ADC —
+    there is no key file. Once per machine, log in with the Sheets scope, or
+    the competitions page comes up empty:
+
+    ```bash
+      gcloud auth application-default login \
+        --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets.readonly
+    ```
   * **🧪 Tests:**
     ```
       bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
@@ -48,8 +57,13 @@ single source of *what must be true*.
       # Build and load the image into the local Docker daemon
       bazel run //packages/biwenger_tools/web:load_image_to_docker_local
 
-      # Start the container
-      docker run --rm -p 8080:8080 bazel/web:local
+      # Start the container, lending it your ADC (Firestore + Sheets). Setting
+      # GOOGLE_APPLICATION_CREDENTIALS here, on a local run, is fine — never
+      # in BUILD.bazel or a deploy (docs/gcp.md).
+      docker run --rm -p 8080:8080 \
+        -v "$HOME/.config/gcloud/application_default_credentials.json:/adc.json:ro" \
+        -e GOOGLE_APPLICATION_CREDENTIALS=/adc.json \
+        bazel/web:local
     ```
 
     > **Tip:** If `Ctrl+C` does not stop the container, use `docker ps` to find the container ID and then `docker kill <container_id>`.
