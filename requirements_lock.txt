@@ -175,7 +175,7 @@ requests-oauthlib==2.0.0
     # via google-auth-oauthlib
 six==1.17.0
     # via python-dateutil
-soupsieve==2.8.4
+soupsieve==2.10
     # via beautifulsoup4
 typing-extensions==4.16.0
     # via

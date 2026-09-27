@@ -61,7 +61,7 @@ RUN pip install --no-cache-dir \
     requests==2.34.2 \
     requests-oauthlib==2.0.0 \
     six==1.17.0 \
-    soupsieve==2.8.4 \
+    soupsieve==2.10 \
     typing-extensions==4.16.0 \
     tzdata==2026.3 \
     unidecode==1.4.0 \
