@@ -94,16 +94,21 @@ Skip this step if the library is already in `requirements.in`.
 
 Only run this if the library is NOT already in `requirements_lock.txt`.
 
-Check that `pip-compile` is available:
+Check that `pip-compile` is available **on Python 3.14** (the lock's header
+names the interpreter; another minor resolves markers differently):
 
 ```bash
-which pip-compile || pip install pip-tools
+venv/bin/pip-compile --version || \
+  (python3.14 -m venv venv && venv/bin/pip install "pip-tools==7.5.3")
 ```
+
+`pip-tools` stays on 7.5.3: 7.6.x writes a spurious `--no-index` into the
+header.
 
 Then regenerate:
 
 ```bash
-pip-compile requirements.in -o requirements_lock.txt
+venv/bin/pip-compile requirements.in -o requirements_lock.txt
 ```
 
 After it finishes, grep the new `requirements_lock.txt` to extract the exact pinned version:

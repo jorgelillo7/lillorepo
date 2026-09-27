@@ -56,10 +56,13 @@ covers keeping them alive across a dropped connection or an idle Mac.
 
   ```bash
     # Only needed for dependency management and IDE support
-    python3 -m venv venv
+    python3.14 -m venv venv      # the same minor as MODULE.bazel and the image
     source venv/bin/activate
-    pip install pip-tools
+    pip install "pip-tools==7.5.3"
   ```
+
+  `pip-tools` stays on 7.5.3: 7.6.x writes a spurious `--no-index` into the
+  lock's header on every run.
 
 ## 🧪 Core (shared library) tests
 
@@ -150,9 +153,16 @@ From the repo root:
 
 ### Regenerate the lock file
 
+Run it on **Python 3.14**, the interpreter the lock targets (its header says
+which). Markers resolve per interpreter: on 3.14 `icalendar` drops
+`typing-extensions`, so compiling on another minor silently changes the lock.
+
 ```bash
-pip-compile requirements.in -o requirements_lock.txt
+venv/bin/pip-compile requirements.in -o requirements_lock.txt
 ```
+
+To bump one package without moving the rest, add `--upgrade-package <name>`;
+a full `--upgrade` belongs in its own pull request (LP-4).
 
 ### Which `core` target declares it
 
