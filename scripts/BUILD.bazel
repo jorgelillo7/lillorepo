@@ -13,6 +13,7 @@ py_test(
         "check_base_sync.py",
         "check_import_paths.py",
         "check_specs.py",
+        "check_url_secrets.py",
     ],
     main = "tests/main.py",
     deps = [requirement("pytest")],

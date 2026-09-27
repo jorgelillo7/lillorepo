@@ -87,9 +87,8 @@ def _raise_if_unhealthy(status_code: int, payload: dict) -> None:
     if status_code != 200 or not payload.get("players"):
         raise RuntimeError(
             f"JP API no responde (HTTP {status_code}) — "
-            "token posiblemente rotado. Descargar APK nuevo y extraer token con: "
-            "unzip -p app.apk assets/index.android.bundle | "
-            "strings | grep -o 'lks9k2k[^ \"&]*'"
+            "token posiblemente rotado. Descargar APK nuevo y extraer el token con "
+            "docs/technical/reverse-engineering/scripts/extract_token.sh"
         )
 
 

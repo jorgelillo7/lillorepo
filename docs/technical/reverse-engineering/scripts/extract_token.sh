@@ -8,8 +8,13 @@
 #
 # Si es un .xapk, primero extrae el APK base:
 #   unzip -o app.xapk -d app_splits && ./extract_token.sh app_splits/com.paquete.app.apk
+#
+# Optional second argument: the known token prefix (the first characters of
+# jp_auth_token in biwenger-secrets), to confirm whether the token changed.
+# It is an argument, not a constant, because this repository is public.
 
 APK="${1}"
+PREFIX="${2}"
 
 if [ -z "$APK" ]; then
     echo "Uso: $0 <archivo.apk>"
@@ -21,8 +26,10 @@ if [ ! -f "$APK" ]; then
     exit 1
 fi
 
-echo "=== Buscando token conocido (lks9k2k) ==="
-unzip -p "$APK" assets/index.android.bundle | strings | grep -o 'lks9k2k[^ "&]*'
+if [ -n "$PREFIX" ]; then
+    echo "=== Buscando token conocido (${PREFIX}…) ==="
+    unzip -p "$APK" assets/index.android.bundle | strings | grep -o "${PREFIX}[^ \"&]*"
+fi
 
 echo ""
 echo "=== Buscando cualquier campo auth/key/token ==="
