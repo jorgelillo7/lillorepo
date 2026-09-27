@@ -115,10 +115,11 @@ For each PR: head check, green checks, merge, `gh run watch`, services
 `True`, pages at 200, then **application errors since the deploy**. Only then
 merge the next one, so a failure has one suspect.
 
-- **Search application errors by `jsonPayload.levelname`**, not
-  `severity>=ERROR`, until the logger writes `severity`. The only `ERROR`
-  entries on every deploy are the known `run.services.setIamPolicy` audit
-  denials from CI's `--allow-unauthenticated`; they predate the upgrades.
+- **Search application errors with `severity>=ERROR`**, which the logger
+  writes (`structured-logging` spec). Before that fix every entry landed as
+  `DEFAULT`, so the filter was blind to them. Expect the known
+  `run.services.setIamPolicy` audit denials from CI's
+  `--allow-unauthenticated` on every deploy; they are not regressions.
 - **A lock-only or dev-only change deploys nothing.** `deploy.yml` reacts to
   `MODULE.bazel` and to code, not to `requirements_lock.txt`. Do not wait for
   a run that is never coming.
