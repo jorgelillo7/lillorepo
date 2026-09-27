@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -15,9 +15,7 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
-        formatter = jsonlogger.JsonFormatter(
-            fmt="%(asctime)s %(name)s %(levelname)s %(message)s"
-        )
+        formatter = JsonFormatter(fmt="%(asctime)s %(name)s %(levelname)s %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
