@@ -388,4 +388,22 @@ The options, cheapest first:
   hold the other's token, across packages).
 - `gdrive_folder_id` is dead; drop it at the next rotation of that secret.
 
+**Rename them while at it.** The current names do not say whose secret is
+whose: `flask-web-config-regional` exists twice, once per project, for two
+unrelated webs; `biwenger-tools-sa-regional` names an account rather than a
+use; and `-regional` is on every one, so it tells a reader nothing. One
+pattern — the package, then what it holds:
+
+| Today | Proposed |
+|---|---|
+| `biwenger-credentials-regional` + `telegram-bot-config-regional` + `flask-web-config-regional` (biwenger) | `biwenger-secrets` (option B), or `biwenger-account`, `biwenger-telegram`, `biwenger-web` kept apart |
+| `biwenger-tools-sa-regional` | gone with option A |
+| `chucknorris-bot-config-regional` | `chucknorris-secrets` |
+| `flask-web-config-regional` (be-water) | `be-water-secrets` |
+
+Secret Manager cannot rename: a new name is a new secret, rebound in
+`deploy.yml`, and the old one destroyed once the redeploy works. Both exist
+for a moment, so a rename on its own briefly goes over 6/6. Done inside the
+consolidation — which frees versions first — it costs nothing.
+
 **Trigger:** the next secret anyone needs, or the owner's call.
