@@ -16,7 +16,7 @@ That line frames the project correctly: not a one-off side project but deliberat
 
 **Pre-compiled base image.** `docker/Dockerfile.base` ships every runtime dep (including `google-cloud-firestore` + `grpcio`) so the per-service images stay small and cold starts stay fast. It's a deployment-loop optimisation detail that not everyone thinks of.
 
-**Correct secrets management.** Secret Manager with file mounts in Cloud Run, no sensitive data in env vars, ADC for Firestore (no key files), with a local `.env` fallback for dev.
+**Correct secrets management.** One regional Secret Manager JSON per package, bound at deploy; no service-account key anywhere — ADC for Firestore and Sheets, Workload Identity Federation for CI — with a local `.env` fallback for dev.
 
 **CI/CD with automatic cleanup baked in.** The cleanup script distinguishes between tagged and untagged multi-arch images in Artifact Registry, and the cleanup job runs under a GitHub Actions `concurrency` group so parallel deploys don't race on the same digest.
 
