@@ -36,11 +36,6 @@ def nickname_blocked() -> bool:
     return bool(user and user.get("blocked"))
 
 
-def client_ip() -> str:
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    return forwarded.split(",")[0].strip() or request.remote_addr or "?"
-
-
 def places(catalog: list[Water]) -> list[str]:
     """Every province and every community, for the '¿dónde estás?' selector.
 

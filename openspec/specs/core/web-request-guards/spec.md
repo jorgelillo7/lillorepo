@@ -54,6 +54,22 @@ justify.
 - *Verifies:* `test_rate_limiter_blocks_then_recovers`,
   `test_rate_limiter_reset`
 
+### Requirement: The limiter keys on the address Cloud Run saw
+
+`client_ip()` SHALL return the last `X-Forwarded-For` entry — the connecting
+address Cloud Run appends — and the peer address when the header is absent.
+Earlier entries are whatever the client sent; keying on them let a fresh
+spoofed value per request skip every limit. This assumes Cloud Run is the only
+proxy in front; a load balancer would append its own address after the
+client's.
+
+#### Scenario: a spoofed prefix is ignored
+- **WHEN** the header is `6.6.6.6, 203.0.113.9` **THEN** the key is
+  `203.0.113.9`
+- **WHEN** there is no header **THEN** the key is the peer address
+- *Verifies:* `test_client_ip_is_the_address_cloud_run_appended`,
+  `test_client_ip_without_the_header_is_the_peer`
+
 ### Requirement: Absolute URLs follow the forwarded scheme
 
 `trust_proxy(app)` SHALL make the app honour `X-Forwarded-Proto` and

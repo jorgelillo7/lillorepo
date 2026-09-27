@@ -41,17 +41,22 @@ whitespace-only input.
 ### Requirement: Webhook validation and extraction
 
 `validate_webhook_secret` SHALL accept a matching secret header and reject a
-mismatch or empty header. `extract_webhook_update` SHALL pull `(chat_id, text)`
+mismatch or empty header. With no secret configured it SHALL reject every
+request: an unset secret closes the webhook rather than matching an empty
+header. `extract_webhook_update` SHALL pull `(chat_id, text)`
 from a normal update, stripping text whitespace, and handle an empty body or a
 missing text key without crashing.
 
 #### Scenario: secret and update extraction
 - **WHEN** the secret header matches / mismatches / is empty
 - **THEN** validation passes / fails / fails
+- **WHEN** no secret is configured **THEN** every request fails, empty header
+  included
 - **WHEN** the update is normal / empty / has whitespace / has no text key
 - **THEN** it extracts / degrades safely (no crash), stripping whitespace
 - *Verifies:* `test_validate_webhook_secret_match`,
   `test_validate_webhook_secret_mismatch`, `test_validate_webhook_secret_empty_header`,
+  `test_validate_webhook_secret_unconfigured_rejects_everything`,
   `test_extract_webhook_update_normal`, `test_extract_webhook_update_empty_body`,
   `test_extract_webhook_update_strips_text_whitespace`,
   `test_extract_webhook_update_no_text_key`
