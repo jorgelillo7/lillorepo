@@ -257,7 +257,7 @@ single source of *what must be true*.
 
 Cloud Run **Service** that owns the Biwenger business logic over HTTP. Called
 by the bot (every Telegram command) and by Cloud Scheduler (the daily digest).
-Deployed with `--no-allow-unauthenticated`; invokers authenticate with an OIDC
+Private (no `allUsers` invoker); invokers authenticate with an OIDC
 ID token whose service account has `roles/run.invoker` on `biwenger-api`.
 
   * **Setup:** `.env` with Biwenger + Telegram credentials. The JP token lives
