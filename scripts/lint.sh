@@ -63,4 +63,10 @@ python3 "$REPO_ROOT/scripts/check_import_paths.py"
 echo "==> workflow shell…"
 python3 "$REPO_ROOT/scripts/check_workflow_shell.py"
 
+# A credential typed literally into a URL. GitHub secret scanning only knows
+# its partners' formats; a third party's embedded token (the JP app token
+# sat in a public doc for five months) slips past it.
+echo "==> url secrets…"
+python3 "$REPO_ROOT/scripts/check_url_secrets.py"
+
 echo "==> lint OK"

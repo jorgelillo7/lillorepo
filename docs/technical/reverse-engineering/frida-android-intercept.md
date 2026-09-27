@@ -9,7 +9,7 @@ Jornada Perfecta (jornadaperfecta.com) has a mobile-only app (iOS/Android) with 
 player prediction scores for fantasy football. The public website does not expose this data.
 Using this process we obtained the full endpoint, auth token and response structure.
 
-**Result:** `GET https://www.jornadaperfecta.com/api/fitness-daily?auth=lks9k2k$iJK&...`
+**Result:** `GET https://www.jornadaperfecta.com/api/fitness-daily?auth=<JP_TOKEN>&...`
 
 The JP client lives in `core/sdk/jp.py` and is consumed today by `biwenger-api`.
 The full reimplementation plan that drove that move was deleted once shipped
@@ -169,8 +169,10 @@ appears in plain text in the terminal.
 If the token is hardcoded in the React Native JS bundle:
 
 ```bash
-# Search by known token prefix
-unzip -p app.apk assets/index.android.bundle | strings | grep -o 'lks9k2k[^ "&]*'
+# Search by known token prefix — the first characters of the current token,
+# read from `biwenger-secrets` (never written here: the repo is public)
+PREFIX="<first chars of jp_auth_token>"
+unzip -p app.apk assets/index.android.bundle | strings | grep -o "${PREFIX}[^ \"&]*"
 
 # Search by generic auth field pattern
 unzip -p app.apk assets/index.android.bundle | strings | grep -o '"auth":"[^"]*"' | sort -u
