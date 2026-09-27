@@ -6,7 +6,6 @@ import google.auth
 import google.auth.exceptions
 import google.auth.transport.requests
 import requests as http_requests
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from core.utils import get_logger
@@ -17,17 +16,14 @@ logger = get_logger(__name__)
 # --- AUTHENTICATION ---
 
 
-def get_google_service(api_name, api_version, service_account_file, scopes):
-    """Returns an authenticated client using a Service Account.
+def get_google_service(api_name, api_version, scopes):
+    """Returns a client authenticated as whatever runs it, with `scopes`.
 
-    Used for the Google Sheets reader behind the competitions page. The
-    Drive/CSV pipeline retired with the Firestore migration, so the
-    `drive` API client lives elsewhere and only the `sheets` client uses
-    this any more — kept generic in case another Google API ever joins.
+    The Cloud Run service account in production, the developer's ADC locally
+    — no key file. Used for the Google Sheets reader behind the competitions
+    page, so the workbook must be shared with that identity.
     """
-    credentials = service_account.Credentials.from_service_account_file(
-        service_account_file, scopes=scopes
-    )
+    credentials, _ = google.auth.default(scopes=scopes)
     return build(api_name, api_version, credentials=credentials)
 
 

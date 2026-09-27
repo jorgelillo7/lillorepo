@@ -7,7 +7,7 @@ python_service(
     service = service(
         main = "app.py",
         package_srcs = ["//packages/biwenger_tools:constants.py"],
-        secrets = ["biwenger-tools-sa.json", ".env"],
+        secrets = [".env"],
         core_deps = [
             "//core:domain",
             "//core:firestore",
@@ -37,12 +37,10 @@ python_service(
             # Keeping them out of BUILD.bazel avoids leaking the values
             # into the source tree and the Docker image layers.
             #
-            # GOOGLE_APPLICATION_CREDENTIALS intentionally NOT set:
-            # the Sheets client gets its SA file path explicitly via
-            # `SERVICE_ACCOUNT_PATH` (mounted at /gdrive_sa from Secret
-            # Manager in deploy.yml); Firestore uses ADC (the Cloud Run
-            # compute SA). Pointing GAC at a path that only exists in the
-            # local image used to crash every Firestore read in prod.
+            # GOOGLE_APPLICATION_CREDENTIALS intentionally NOT set: Sheets
+            # and Firestore both use ADC (the Cloud Run compute SA). Pointing
+            # it at a path that only exists in the local image used to crash
+            # every Firestore read in prod.
         },
     ),
 )

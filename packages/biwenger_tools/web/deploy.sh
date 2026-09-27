@@ -11,6 +11,5 @@ gcloud run deploy biwenger-summary \
   --platform managed \
   --region europe-southwest1 \
   --allow-unauthenticated \
-  --update-secrets=/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest \
   --set-env-vars="COMPETICIONES_SHEET_IDS_25_26=$COMPETICIONES_SHEET_IDS_25_26,COMPETICIONES_SHEET_IDS_26_27=$COMPETICIONES_SHEET_IDS_26_27,GCP_PROJECT_ID=$GCP_PROJECT_ID,CLOUD_RUN_JOB_NAME=$CLOUD_RUN_JOB_NAME,CLOUD_RUN_REGION=$CLOUD_RUN_REGION,SECRET_KEY=$SECRET_KEY,ADMIN_PASSWORD=$ADMIN_PASSWORD,TEMPORADA_ACTUAL=$TEMPORADA_ACTUAL" \
   "$@"

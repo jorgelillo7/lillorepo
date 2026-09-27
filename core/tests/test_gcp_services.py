@@ -166,22 +166,21 @@ def test_download_object_returns_none_when_missing(monkeypatch):
 # --- Sheets client construction ---
 
 
-def test_google_service_passes_the_key_scopes_and_version_through(monkeypatch):
-    """The Sheets reader is built from a mounted key with the scopes it was
-    given; a dropped scope only shows up as a 403 at read time."""
-    loaded = MagicMock()
-    from_file = MagicMock(return_value=loaded)
+def test_google_service_uses_the_ambient_identity_with_the_scopes_given(monkeypatch):
+    """No key file: the client authenticates as whatever runs it — the Cloud
+    Run service account in production, the developer's ADC locally — with the
+    scopes it was given; a dropped scope only shows up as a 403 at read time."""
+    credentials = MagicMock()
+    default = MagicMock(return_value=(credentials, "a-project"))
     build = MagicMock(return_value="client")
-    monkeypatch.setattr(
-        gcp.service_account.Credentials, "from_service_account_file", from_file
-    )
+    monkeypatch.setattr(gcp.google.auth, "default", default)
     monkeypatch.setattr(gcp, "build", build)
 
-    client = gcp.get_google_service("sheets", "v4", "/k.json", ["scope-a"])
+    client = gcp.get_google_service("sheets", "v4", ["scope-a"])
 
     assert client == "client"
-    from_file.assert_called_once_with("/k.json", scopes=["scope-a"])
-    build.assert_called_once_with("sheets", "v4", credentials=loaded)
+    default.assert_called_once_with(scopes=["scope-a"])
+    build.assert_called_once_with("sheets", "v4", credentials=credentials)
 
 
 # --- Cloud Run Jobs ---

@@ -28,29 +28,27 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | `biwenger-credentials-regional` | `{"email", "password", "jp_auth_token"}` — plus a `gdrive_folder_id` nothing reads any more |
 | `telegram-bot-config-regional` | `{"bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret"}` |
 | `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
-| `biwenger-tools-sa-regional` | SA key mounted by `web` for Sheets API access (the competitions workbooks). Stays on `biwenger-tools-sa` by decision — see `STATUS.md` "Accepted gaps". |
 | `flask-web-config-regional` | `{"secret_key", "admin_password"}` — bound to `web` as `FLASK_WEB_CONFIG_JSON` |
 
 All secrets are regional (`europe-southwest1`). See "Cost decisions" below.
 
-### Credential paths in the web image — do NOT set `GOOGLE_APPLICATION_CREDENTIALS`
+### No key files — do NOT set `GOOGLE_APPLICATION_CREDENTIALS`
 
-The web's LOCAL image bakes `biwenger-tools-sa.json` under
-`/app/packages/biwenger_tools/web/` (via the `secrets` attr of `python_service`),
-but the GCP image does not carry that file — in Cloud Run the Sheets SA is
-mounted from Secret Manager at `/gdrive_sa/biwenger-tools-sa.json`.
+Every Google client runs on ADC: in Cloud Run that is the compute service
+account, locally the developer's `gcloud auth application-default login`.
+The web reads the competitions workbooks the same way — each workbook is
+shared, as Viewer, with `319945089838-compute@developer.gserviceaccount.com`
+— so no service-account key exists anywhere. Locally, the competitions tab
+needs ADC with the Sheets scope:
 
-The Sheets client is unaffected because `web/config.py` passes
-`SERVICE_ACCOUNT_PATH` explicitly. The Firestore client, however, honours
-`GOOGLE_APPLICATION_CREDENTIALS` automatically: if that env var points at a
-path that doesn't exist in prod, every Firestore read crashes with
-`FileNotFoundError`. Rules:
+```bash
+gcloud auth application-default login \
+  --scopes=https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/spreadsheets.readonly
+```
 
-- Firestore in the web runs on ADC (the Cloud Run compute SA has project-level
-  access) — no env var, no key file.
-- Any other Google client gets its credential path explicitly in its
-  constructor, never via a global `GOOGLE_APPLICATION_CREDENTIALS` in
-  `BUILD.bazel` / deploy env.
+Never set `GOOGLE_APPLICATION_CREDENTIALS` in `BUILD.bazel` or a deploy: the
+Firestore client honours it automatically, and a path that does not exist in
+the image crashed every Firestore read once.
 
 ## Cost decisions
 

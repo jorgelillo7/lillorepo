@@ -8,10 +8,9 @@ from core.utils import load_json_secret
 # Pulls vars from a local .env when present (used for local dev).
 load_dotenv()
 
-# --- GOOGLE SHEETS SERVICE ACCOUNT ---
-# Mounted from Secret Manager in Cloud Run. Only the Sheets API uses it
-# (Drive retired with the Firestore migration).
-SERVICE_ACCOUNT_PATH = "/gdrive_sa/biwenger-tools-sa.json"
+# --- GOOGLE SHEETS ---
+# Read as the service's own identity (no key file): each competitions
+# workbook is shared, as Viewer, with the Cloud Run compute service account.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 

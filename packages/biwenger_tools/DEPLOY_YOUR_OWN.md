@@ -307,8 +307,8 @@ running all month and leaves the free tier — not worth it for a league.
 ## 13. Optional: the web
 
 The public dashboard (comunicados, salseo, market, competitions). One more
-secret and, for the competitions tabs, a Google Sheet read through a service
-account key — skip it if the bot is all you want.
+secret, and for the competitions tabs a Google Sheet shared, as Viewer, with
+`$SA` (step 7) — no key file. Skip it if the bot is all you want.
 
 ```bash
 jq -n --arg key "$(openssl rand -hex 32)" --arg pw "<ADMIN_PASSWORD>" \

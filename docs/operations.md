@@ -341,8 +341,8 @@ Two things it cannot see, both falling back to `//...`:
 
 ## ⚠️ Important Notes
 
-  * **Do not commit** `biwenger-tools-sa.json`. It is the one service-account
-    key left: the `web` service mounts it from Secret Manager to read Google
-    Sheets. Everything else authenticates with ADC or Workload Identity.
+  * **No service-account keys.** Everything authenticates with ADC or
+    Workload Identity — the web included, which reads Google Sheets as the
+    Cloud Run service account (see `docs/gcp.md`).
   * If a deployment fails, check the **logs in the GCP console** (Cloud Run, Cloud Build, etc.).
   * Make sure you have a `.env` file configured in each module for local development.
