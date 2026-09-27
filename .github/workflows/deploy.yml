@@ -253,7 +253,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --allow-unauthenticated \
             --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-secrets:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
@@ -382,7 +381,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --allow-unauthenticated \
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
@@ -471,7 +469,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --no-allow-unauthenticated \
             --memory=512Mi \
             --cpu=1 \
             --concurrency=10 \
@@ -537,7 +534,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --allow-unauthenticated \
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
@@ -619,7 +615,6 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project be-water-app \
-            --allow-unauthenticated \
             --memory=256Mi \
             --cpu=1 \
             --concurrency=80 \

@@ -11,7 +11,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Service | Resource | Purpose |
 |---|---|---|
 | Cloud Run (Services) | `biwenger-summary` | Flask web app — comunicados, salseo, mercado, competiciones |
-| Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (`--no-allow-unauthenticated`) |
+| Cloud Run (Services) | `biwenger-api` | Biwenger business logic over HTTP (private: no `allUsers` invoker) |
 | Cloud Run (Services) | `biwenger-bot` | Telegram bot — receives webhooks, calls `biwenger-api` |
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
 | Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes league messages → Firestore (`comunicados`, `participacion`, `clausulazos`, `tabla_justicia`) |
@@ -48,6 +48,16 @@ gcloud auth application-default login \
 Never set `GOOGLE_APPLICATION_CREDENTIALS` in `BUILD.bazel` or a deploy: the
 Firestore client honours it automatically, and a path that does not exist in
 the image crashed every Firestore read once.
+
+### Who may call each service is set once, not by CI
+
+Public services carry `allUsers` as `roles/run.invoker`; `biwenger-api` does
+not, and only its callers' service accounts hold the role. That binding is set
+when a service is created (`DEPLOY_YOUR_OWN.md` does it) and CI never touches
+it: `deploy.yml` passes no `--allow-unauthenticated`, because its service
+account (`run.developer`) may not change IAM — the flag only produced a
+`run.services.setIamPolicy` denial on every deploy. To change who can call a
+service, use `gcloud run services add-iam-policy-binding` by hand.
 
 ## Cost decisions
 
