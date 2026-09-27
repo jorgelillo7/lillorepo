@@ -30,7 +30,7 @@ grep -hE '^[[:space:]]*-?[[:space:]]*uses:' .github/workflows/*.yml \
 echo
 
 bold "Direct Python deps (per-module requirements.txt)"
-for f in core/requirements.txt packages/biwenger_tools/*/requirements.txt; do
+for f in core/requirements.txt packages/*/*/requirements.txt; do
     [ -f "$f" ] || continue
     dim "  $f"
     grep -vE '^[[:space:]]*(#|$)' "$f" | sed 's/^/    /'
@@ -40,8 +40,8 @@ echo
 bold "Pinned versions of critical libs (requirements_lock.txt)"
 CRITICAL_LIBS=(
     flask gunicorn requests beautifulsoup4 unidecode python-dotenv
-    google-api-python-client google-auth python-dateutil python-json-logger
-    flake8 black pytest
+    google-api-python-client google-auth google-cloud-firestore python-dateutil
+    python-json-logger matplotlib pillow cryptography flake8 black pytest
 )
 for pkg in "${CRITICAL_LIBS[@]}"; do
     line=$(grep -E "^${pkg}==" requirements_lock.txt 2>/dev/null | head -1)
