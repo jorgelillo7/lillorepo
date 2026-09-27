@@ -8,6 +8,8 @@ bookkeeping-grade quota system.
 import time
 from collections import deque
 
+from flask import request
+
 
 class RateLimiter:
     """Sliding-window counter: at most `max_events` per `window_seconds`
@@ -35,3 +37,17 @@ class RateLimiter:
 
     def reset(self) -> None:
         self._events.clear()
+
+
+def client_ip() -> str:
+    """The caller's address, for keying a limiter.
+
+    Cloud Run appends the connecting address as the last X-Forwarded-For
+    entry; anything before it is whatever the client sent, so keying on the
+    first entry let a fresh spoofed value per request skip every limit. This
+    assumes Cloud Run is the only proxy in front (no load balancer, which
+    would append its own address after the client's).
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    hops = [hop.strip() for hop in forwarded.split(",") if hop.strip()]
+    return hops[-1] if hops else (request.remote_addr or "?")

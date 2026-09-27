@@ -4,6 +4,7 @@ import re
 
 from flask import abort, redirect, request, session, url_for
 
+from core.web.ratelimit import client_ip
 from core.utils import get_logger
 from core.web.csrf import verify_csrf_token
 from packages.be_water.web import auth, config, helpers, repository
@@ -12,7 +13,7 @@ logger = get_logger(__name__)
 
 
 def login():
-    if not verify_csrf_token() or not helpers.LOGIN_LIMITER.allow(helpers.client_ip()):
+    if not verify_csrf_token() or not helpers.LOGIN_LIMITER.allow(client_ip()):
         return redirect(request.referrer or url_for("index"))
     nickname = (request.form.get("nickname") or "").strip().lower()
     if not helpers.NICKNAME_RE.match(nickname):
@@ -31,7 +32,7 @@ def google_login():
     access to our form token)."""
     if not config.GOOGLE_CLIENT_ID:
         abort(404)
-    if not helpers.LOGIN_LIMITER.allow(helpers.client_ip()):
+    if not helpers.LOGIN_LIMITER.allow(client_ip()):
         return redirect(url_for("index"))
     body_token = request.form.get("g_csrf_token", "")
     cookie_token = request.cookies.get("g_csrf_token", "")

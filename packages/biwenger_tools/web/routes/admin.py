@@ -20,7 +20,7 @@ from core.utils import get_logger
 from packages.biwenger_tools.web import config
 from packages.biwenger_tools.web.routes.season import invalidate_competiciones_cache
 from core.web.csrf import verify_csrf_token
-from core.web.ratelimit import RateLimiter
+from core.web.ratelimit import RateLimiter, client_ip
 
 bp = Blueprint("admin", __name__)
 logger = get_logger(__name__)
@@ -28,11 +28,6 @@ logger = get_logger(__name__)
 # A password form on the open internet gets brute-forced eventually;
 # a per-IP sliding window blunts it (per instance — good enough here).
 _LOGIN_LIMITER = RateLimiter(10, 900)
-
-
-def _client_ip() -> str:
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    return forwarded.split(",")[0].strip() or request.remote_addr or "?"
 
 
 def _trigger_scraper_job() -> tuple[bool, str]:
@@ -76,8 +71,8 @@ def admin() -> Response:
             )
             flash("Sesión expirada. Vuelve a intentarlo.", "error")
             return redirect(url_for("admin.admin"))
-        if not _LOGIN_LIMITER.allow(_client_ip()):
-            logger.warning("Admin login rate-limited.", extra={"ip": _client_ip()})
+        if not _LOGIN_LIMITER.allow(client_ip()):
+            logger.warning("Admin login rate-limited.", extra={"ip": client_ip()})
             flash("Demasiados intentos — espera unos minutos.", "error")
             return redirect(url_for("admin.admin"))
         # compare_digest: a plain == leaks the match length through timing.

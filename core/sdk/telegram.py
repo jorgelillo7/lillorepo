@@ -496,7 +496,10 @@ def validate_webhook_secret(request: Any, expected: str) -> bool:
     """Return True if the X-Telegram-Bot-Api-Secret-Token header matches.
 
     Uses constant-time comparison to avoid leaking the expected token via
-    response-time side channels.
+    response-time side channels. An unconfigured (empty) secret rejects
+    every request instead of matching an empty header.
     """
+    if not expected:
+        return False
     received = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
     return hmac.compare_digest(received, expected)

@@ -8,6 +8,7 @@ from typing import Optional
 import requests
 from flask import abort, redirect, render_template, request, session, url_for
 
+from core.web.ratelimit import client_ip
 from core.sdk.gemini import GeminiError
 from core.utils import get_logger
 from core.web.csrf import verify_csrf_token
@@ -188,7 +189,7 @@ def add_water():
             prefill=dict(request.form),
             error="La sesión ha caducado — recarga la página e inténtalo de nuevo.",
         )
-    if not helpers.SAVE_LIMITER.allow(helpers.client_ip()):
+    if not helpers.SAVE_LIMITER.allow(client_ip()):
         return _render_add_form(
             prefill=dict(request.form),
             error="Demasiadas aguas en poco tiempo — espera un rato.",
@@ -418,7 +419,7 @@ def add_water_origin():
         return _render_add_form(
             error="La sesión ha caducado — recarga la página e inténtalo de nuevo."
         )
-    if not helpers.PHOTO_LIMITER.allow(helpers.client_ip()):
+    if not helpers.PHOTO_LIMITER.allow(client_ip()):
         return _render_add_form(
             error="Demasiadas fotos en poco tiempo — espera un rato."
         )
@@ -488,7 +489,7 @@ def add_water_photo():
         return _render_add_form(
             error="La sesión ha caducado — recarga la página e inténtalo de nuevo."
         )
-    if not helpers.PHOTO_LIMITER.allow(helpers.client_ip()):
+    if not helpers.PHOTO_LIMITER.allow(client_ip()):
         return _render_add_form(
             error="Demasiadas fotos en poco tiempo — espera un rato."
         )

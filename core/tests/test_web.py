@@ -5,7 +5,7 @@ import time
 from flask import Flask, session
 
 from core.web.csrf import get_csrf_token, verify_csrf_token
-from core.web.ratelimit import RateLimiter
+from core.web.ratelimit import RateLimiter, client_ip
 
 
 def _app() -> Flask:
@@ -52,3 +52,17 @@ def test_rate_limiter_reset():
     assert not limiter.allow("ip")
     limiter.reset()
     assert limiter.allow("ip")
+
+
+def test_client_ip_is_the_address_cloud_run_appended():
+    """Cloud Run appends the connecting address to X-Forwarded-For; anything
+    before it came from the client. Keying on the first entry let a new
+    spoofed value per request walk past every limiter."""
+    headers = {"X-Forwarded-For": "6.6.6.6, 203.0.113.9"}
+    with _app().test_request_context("/", headers=headers):
+        assert client_ip() == "203.0.113.9"
+
+
+def test_client_ip_without_the_header_is_the_peer():
+    with _app().test_request_context("/", environ_base={"REMOTE_ADDR": "10.0.0.7"}):
+        assert client_ip() == "10.0.0.7"

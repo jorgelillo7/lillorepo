@@ -118,6 +118,13 @@ def test_validate_webhook_secret_empty_header():
     assert validate_webhook_secret(_mock_request(""), "abc123") is False
 
 
+def test_validate_webhook_secret_unconfigured_rejects_everything():
+    """An unset secret must close the webhook, not open it: an empty header
+    compared to an empty secret used to match."""
+    assert validate_webhook_secret(_mock_request(""), "") is False
+    assert validate_webhook_secret(_mock_request("anything"), "") is False
+
+
 # --- extract_webhook_update ---
 
 
