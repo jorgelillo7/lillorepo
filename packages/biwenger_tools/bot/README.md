@@ -77,7 +77,9 @@ extra config on Cloud Run) and sends the result as `Authorization: Bearer`.
 
 ## 🔑 Secrets
 
-In production: `TELEGRAM_BOT_CONFIG_JSON` from Secret Manager. Keys:
+In production: `TELEGRAM_BOT_CONFIG_JSON`, bound to `biwenger-secrets` — the
+package's one secret, shared with the api, scraper and web; the bot reads only
+these keys:
 
 ```json
 {

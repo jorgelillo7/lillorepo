@@ -28,7 +28,9 @@ and mounts three blueprints:
 Data access lives in `repository.py` — typed Firestore queries (server-side
 where possible, including a composite index on `messages` by
 `categoria + fecha`). Sheets clients (for `ligas_especiales` / `trofeos`) are
-initialised once at boot in `services.py`. HTML sanitisation (announcements
+initialised once at boot in `services.py`, as the service's own identity — no
+key file: each workbook is shared, as Viewer, with the Cloud Run compute
+service account. HTML sanitisation (announcements
 from Biwenger) lives in `sanitize.py` using `bleach` with a fixed allowlist;
 never use `|safe` directly on `contenido`.
 
@@ -49,7 +51,9 @@ Needs a local `.env` with `SECRET_KEY`, `ADMIN_PASSWORD`,
 competitions workbooks you want to read (`COMPETICIONES_SHEET_IDS_26_27`,
 `;`-separated when a season spans several — a comma breaks the deploy, see
 `config.py`). For HTTP-only local dev set
-`SESSION_COOKIE_SECURE=false` so the session survives without TLS.
+`SESSION_COOKIE_SECURE=false` so the session survives without TLS. The
+competitions tab reads Sheets through your ADC, which needs the Sheets scope
+once — the command is in [`docs/gcp.md`](../../../docs/gcp.md).
 
 ## 🚀 Deploy
 

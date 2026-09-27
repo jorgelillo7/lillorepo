@@ -142,7 +142,9 @@ id, and running step 8's `setup_commands.py` again.
 
 **One** JSON secret holds everything: the Biwenger login, the JP token, the
 bot and, if you deploy the web, its session key and admin password. Each
-service reads only its own keys. **Regional** replication, never the automatic
+service reads only its own keys. The trade-off: the bot and the web can read the
+Biwenger password too — fine for a private league, and one secret instead of
+three keeps the free tier comfortable. **Regional** replication, never the automatic
 (multi-region) default: every replica counts as a billed version, and the free
 tier is 6 active versions per *billing account*, not per project.
 
