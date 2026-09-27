@@ -351,3 +351,41 @@ near-tie break in `/recomendar`. Auto-bid still does not read it.
 - **Price trend** (`fields=*,prices`, a daily history the cf host serves
   publicly): dropped by the owner. `/ofertas` already weighs the offer against
   today's value and what was paid, and a few days' drift adds little to that.
+
+## Secrets consolidation
+
+The billing account sits at **6/6** free Secret Manager versions (five in
+`biwenger-tools`, one in `be-water-app`), so the next secret — or a rotation
+that disables instead of destroying — costs money. Audited on the live
+projects; the owner parked the decision.
+
+| Secret | Keys | Read by |
+|---|---|---|
+| `biwenger-credentials-regional` | email, password, jp_auth_token, gdrive_folder_id (unused) | api, scraper |
+| `telegram-bot-config-regional` | bot_token, chat_id, draft_chat_id, draft_admin_telegram_id, webhook_secret | api, bot, scraper |
+| `chucknorris-bot-config-regional` | bot_token, webhook_secret | chucknorris-bot |
+| `biwenger-tools-sa-regional` | a private key of `biwenger-tools-sa` (its only user-managed key, 2025-09-01) | web, for Google Sheets |
+| `flask-web-config-regional` (biwenger) | secret_key, admin_password | web |
+| `flask-web-config-regional` (be-water) | two Gemini keys, secret_key, Telegram token and chat | be-water |
+
+The options, cheapest first:
+
+- **A — keyless Sheets (−1, 5/6).** The web reads the competitions workbooks
+  as its own Cloud Run identity instead of a key file: share the two Sheets
+  with the compute service account, switch `core/sdk/gcp.py` to the ambient
+  credentials, drop the mount, then destroy the secret and the key. Frees a
+  version *and* removes a long-lived key of the deploy account. Local runs of
+  the web then need `gcloud auth application-default login` with the Sheets
+  scope. Unlike the Sheets-only account declined in `STATUS.md`, this frees a
+  secret rather than costing one.
+- **B — one secret per package (3/6, with A).** The three biwenger JSONs have
+  no colliding keys, so one secret can be mounted under all three env var
+  names with no logic change. The cost is least privilege: the bot and the
+  web — the two public services — would hold the Biwenger password and the JP
+  token. Every rotation redeploys all four biwenger services.
+- Rejected: merging the Telegram config into the Biwenger credentials alone
+  (the same exposure for one version), and merging the two bots (each would
+  hold the other's token, across packages).
+- `gdrive_folder_id` is dead; drop it at the next rotation of that secret.
+
+**Trigger:** the next secret anyone needs, or the owner's call.
