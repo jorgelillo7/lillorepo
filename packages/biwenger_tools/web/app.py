@@ -6,6 +6,7 @@ import re
 from flask import Flask, g, request, session
 
 from packages.biwenger_tools.web import config, services
+from core.web.headers import add_security_headers
 from core.web.logs import use_json_logging
 from core.web.csrf import get_csrf_token
 from packages.biwenger_tools.web.routes.admin import bp as admin_bp
@@ -18,6 +19,7 @@ _SEASON_RE = re.compile(r"^\d{2}-\d{2}$")
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 app = Flask(__name__, template_folder=template_dir)
 use_json_logging(app)
+add_security_headers(app)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 # Session cookie hardening. SESSION_COOKIE_SECURE defaults to True so HTTPS
 # is enforced in Cloud Run; local dev over plain HTTP can set
