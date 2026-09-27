@@ -8,36 +8,29 @@ stopping when cash runs out.
 
 Tiers (over Biwenger's cf-base `price`, NOT `owner.price`). Boundaries
 are INCLUSIVE on the lower end (a player at exactly 400 lands in T3,
-not T4). Each non-T1 tier uses `min(price × multiplier, price + cap)`:
-the multiplier dominates on cheap players (so a 750K T3 doesn't get a
-ridiculous +2M surcharge), the absolute cap dominates on expensive
-ones (a 10M T3 stops climbing at +2M instead of going to +50%). Every
-non-skipped bid then adds a 0–`BID_JITTER_MAX` € random offset so the
-amounts don't look botty:
+not T4). Each tier bids a flat share over the price, plus a random
+0–`BID_JITTER_MAX` € so the amounts don't look botty:
 
-    SF ≥ 700             → bid = remaining_cash - jitter           (all-in)
-    550 ≤ SF < 700  (T2) → bid = min(price × 1.7, price + 5M) + jitter
-    400 ≤ SF < 550  (T3) → bid = min(price × 1.5, price + 2M) + jitter
-    300 ≤ SF < 400  (T4) → bid = min(price × 1.2, price + 500K) + jitter
+    SF ≥ 700        (T1) → price × 1.40
+    550 ≤ SF < 700  (T2) → price × 1.20
+    400 ≤ SF < 550  (T3) → price × 1.10
+    300 ≤ SF < 400  (T4) → price × 1.05
     SF < 300             → skip
 
-Crossover prices (where multiplier == cap): T2 ≈ 7.14M, T3 = 4M,
-T4 = 2.5M. Below the crossover the multiplier wins (smaller bid);
-above it the cap wins.
+The shares come from the season's resolved market (see `TIER_T*_OVERBID`).
 
-Hard rule across every tier: skip the player when the would-be bid
-exceeds `remaining_cash` — we never go negative. The all-in tier bids
-the full cash regardless of price (a 26M player against 30M cash is
-still a ~30M bid).
+Cash is never exceeded — we never go negative. A T1 or T2 bid that does
+not fit becomes the whole wallet (jitter subtracted) as long as the wallet
+covers the asking price; otherwise, and for T3 or T4, it is skipped.
 
 Before the ladder sees a candidate, two guards adjust what it reads. A
 player who cannot be fielded at all (injured, suspended, no fixture) is
 skipped outright, and one who would not make the pitch — JP leaves him out
 of its projected eleven, or the squad already has better cover at every
 position he plays — has his SF clamped to `BENCH_PRICED_SF` so he cannot
-reach the all-in tier. JP scores a benched star highly, and the ladder read
-that number alone; the wallet went all-in on players who were not going to
-play.
+reach T1 or T2. JP scores a benched star highly, and the ladder reads that
+number alone; unclamped, a substitute would get the top tiers' premium, and
+their whole-wallet bid when cash is short.
 
 Idempotency: Cloud Scheduler retries 5xx responses. We log placed bids
 to `auto_bid_log/{YYYY-MM-DD}` (one doc per player) and skip anything
@@ -76,12 +69,15 @@ TIER_ALL_IN_MIN = 700
 TIER_T2_MIN = 550
 TIER_T3_MIN = 400
 TIER_T4_MIN = 300
-TIER_T2_MULTIPLIER = 1.7
-TIER_T3_MULTIPLIER = 1.5
-TIER_T4_MULTIPLIER = 1.2
-TIER_T2_CAP_SURCHARGE = 5_000_000
-TIER_T3_CAP_SURCHARGE = 2_000_000
-TIER_T4_CAP_SURCHARGE = 500_000
+# Share bid over the price, per tier. Set from the season's resolved market:
+# the winning bid was within +5 % of the price in ~75 % of auctions under 5M,
+# and the contested stars went for +20-35 % — while the old
+# `min(price × mult, price + cap)` ladder paid 6.4M over the runner-up across
+# the eight auctions it won.
+TIER_T1_OVERBID = 0.40
+TIER_T2_OVERBID = 0.20
+TIER_T3_OVERBID = 0.10
+TIER_T4_OVERBID = 0.05
 
 # How many players deep a position is considered covered. Roughly the most
 # any formation fields plus one: no shape uses more than 1 GK, 5 DEF, 6 MID
@@ -92,12 +88,12 @@ SQUAD_DEPTH_SLOTS = {1: 2, 2: 6, 3: 6, 4: 5}
 
 # What a bench signing (or a player JP leaves out of its projected XI) is
 # allowed to cost. Both are capped at the T3 ladder no matter how high the
-# raw SF is, because the two ways this loses real money are the all-in tier
-# and the T2 +5M surcharge:
+# raw SF is, because the two ways this loses real money are the top tiers'
+# premium and their whole-wallet bid:
 #
-#  - **All-in on a substitute.** The T1 tier bids the *entire wallet*. Doing
-#    that on a player the provider says starts on the bench is the single
-#    most expensive way to be wrong in this whole file.
+#  - **The whole wallet on a substitute.** Short of cash, T1 and T2 bid
+#    everything there is. Doing that on a player the provider says starts on
+#    the bench is the single most expensive way to be wrong in this file.
 #  - **Paying a starter's premium for depth.** A fourth forward behind three
 #    better ones scores from the bench, which in Biwenger is zero.
 #
@@ -160,31 +156,19 @@ def _jitter() -> int:
     return random.randint(0, BID_JITTER_MAX)
 
 
-def _capped_multiplier_bid(price: int, multiplier: float, cap_surcharge: int) -> int:
-    """`min(price × multiplier, price + cap_surcharge)`, cast to int.
-
-    The multiplier bounds the bid on cheap players (a 750K T3 player
-    bids 1.125M, not 2.75M); the absolute cap bounds expensive players
-    (a 10M T3 bids 12M, not 15M). Result is the smaller of the two."""
-    by_multiplier = int(price * multiplier)
-    by_cap = price + cap_surcharge
-    return min(by_multiplier, by_cap)
-
-
 def tier_bid(
     sf: int, price: int, remaining_cash: int, label_sf: Optional[int] = None
 ) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
-    `target_bid` may exceed `remaining_cash` — the caller is in charge of
-    the affordability check (so the skip reason can be richer than a
-    bare None).
-
-    Each non-T1 tier bids `min(price × multiplier, price + cap)` so that
-    a cheap player doesn't get an absurd absolute surcharge while an
-    expensive player doesn't run away with the multiplier. Every tier
-    adds (or, for T1 all-in, subtracts) a random 0-`BID_JITTER_MAX` €
-    offset so the bid trail stops looking like a bot.
+    Each tier bids its share over the price plus a random 0-`BID_JITTER_MAX`
+    € so the trail stops looking like a bot. When a T1 or T2 bid would exceed
+    `remaining_cash` but the wallet still covers the asking price, it bids the
+    whole wallet instead (jitter subtracted, so never more than the cash):
+    skipping a player worth that tier leaves the auction uncontested. Below
+    the asking price the market takes no bid, so that case is skipped too.
+    A T3 or T4 bid comes back whole even when it does not fit — the caller
+    skips it; those players are not worth emptying the wallet for.
 
     `label_sf` is the score to *print* when it differs from the one being
     priced on — `bid_sf` clamps a substitute's SF to hold him below the
@@ -193,21 +177,21 @@ def tier_bid(
     """
     jitter = _jitter()
     sf_shown = sf if label_sf is None else label_sf
-    if sf >= TIER_ALL_IN_MIN:
-        # All-in on the cash we have right now. Price is irrelevant — the
-        # user accepts paying 30M for a 26M player rather than leaving cash
-        # on the table. Jitter SUBTRACTS here (can't bid > cash); the result
-        # stays strictly inside [remaining_cash - BID_JITTER_MAX, remaining_cash].
-        return max(0, remaining_cash - jitter), f"T1 all-in (SF {sf_shown})"
-    if sf >= TIER_T2_MIN:
-        bid = _capped_multiplier_bid(price, TIER_T2_MULTIPLIER, TIER_T2_CAP_SURCHARGE)
-        return bid + jitter, f"T2 (SF {sf_shown})"
-    if sf >= TIER_T3_MIN:
-        bid = _capped_multiplier_bid(price, TIER_T3_MULTIPLIER, TIER_T3_CAP_SURCHARGE)
-        return bid + jitter, f"T3 (SF {sf_shown})"
-    if sf >= TIER_T4_MIN:
-        bid = _capped_multiplier_bid(price, TIER_T4_MULTIPLIER, TIER_T4_CAP_SURCHARGE)
-        return bid + jitter, f"T4 (SF {sf_shown})"
+    for floor, share, tier, whole_wallet in (
+        (TIER_ALL_IN_MIN, TIER_T1_OVERBID, "T1", True),
+        (TIER_T2_MIN, TIER_T2_OVERBID, "T2", True),
+        (TIER_T3_MIN, TIER_T3_OVERBID, "T3", False),
+        (TIER_T4_MIN, TIER_T4_OVERBID, "T4", False),
+    ):
+        if sf < floor:
+            continue
+        bid = int(price * (1 + share)) + jitter
+        if whole_wallet and price <= remaining_cash < bid:
+            return (
+                max(0, remaining_cash - jitter),
+                f"{tier} todo el saldo (SF {sf_shown})",
+            )
+        return bid, f"{tier} +{share:.0%} (SF {sf_shown})"
     return None, f"SF {sf_shown} < {TIER_T4_MIN}"
 
 
@@ -248,8 +232,8 @@ def _build_candidates(
     Each candidate also carries `unavailable` (injured, suspended, no
     fixture) and `uncalled` (JP leaves him out of its projected eleven).
     The tier ladder reads a single SF number, and JP hands a high one to
-    players in both states — so without these two flags the all-in tier
-    would empty the wallet on a player who is not going to be on the pitch.
+    players in both states — so without these two flags the top tiers
+    would pay their premium on a player who is not going to be on the pitch.
     """
     market_rows = []
     for sale in market_players:
@@ -289,7 +273,7 @@ def chollo_bid(candidate: dict) -> tuple[int, str]:
     """A thin margin over the asking price, for a player bought to trade.
 
     Deliberately outside `tier_bid`. `bid_sf` clamps a would-be substitute to
-    `BENCH_PRICED_SF` because the ladder once went all-in on a benched star,
+    `BENCH_PRICED_SF` because the ladder once spent the wallet on a benched star,
     and a chollo is that same shape wearing a different intent — a little,
     knowingly, rather than everything, mistakenly. Giving this path its own
     flat price bypasses the clamp for the trade alone; loosening the clamp
@@ -309,8 +293,8 @@ def _chollo_reserve(candidates: list, remaining_cash: int) -> int:
     one. The ladder spends best-first, so "what is left over" is usually
     nothing and the trade would only ever fire on days it was not needed.
 
-    Held back is not spent: an all-in candidate releases it, because one
-    genuine monster beats three lottery tickets.
+    Held back is not spent: a real signing that needs it releases it, because
+    one genuine star beats three lottery tickets.
     """
     wanted = [c["price"] + CHOLLO_MARGIN for c in candidates if c.get("chollo")][
         :CHOLLO_MAX_BIDS
@@ -543,10 +527,9 @@ def run_auto_bid() -> dict:
     day = _today_madrid()
     already_bid = _already_bid_ids(day)
 
-    # Held back before the ladder starts. Candidates arrive best-first, so an
-    # all-in candidate is met before any chollo and releases it on the way
-    # past — the reserve only survives a morning the ladder did not want the
-    # whole wallet for.
+    # Held back before the ladder starts. Candidates arrive best-first, so a
+    # signing that needs the reserve is met before any chollo and takes what
+    # it needs of it on the way past.
     reserve = _chollo_reserve(candidates, remaining_cash)
     chollo_bids = 0
 
@@ -576,16 +559,15 @@ def run_auto_bid() -> dict:
             continue
 
         # Price him against the squad before the ladder sees him, so a
-        # substitute cannot reach the all-in tier on his raw SF alone.
+        # substitute cannot reach T1 or T2 on his raw SF alone.
         priced_sf, cap_reason = bid_sf(
             candidate, _would_be_bench(candidate, squad_by_pos)
         )
-        if priced_sf >= TIER_ALL_IN_MIN:
-            # One genuine monster beats three lottery tickets.
-            reserve = 0
         spendable = remaining_cash - reserve
+        # Priced against the whole wallet: a T1/T2 short of cash bids all of
+        # it, and the reserve below gives way to that as to any real signing.
         target_bid, label = tier_bid(
-            priced_sf, candidate["price"], spendable, label_sf=candidate["sf"]
+            priced_sf, candidate["price"], remaining_cash, label_sf=candidate["sf"]
         )
         if cap_reason:
             label = f"{label} · rebajado: {cap_reason}"
@@ -598,8 +580,8 @@ def run_auto_bid() -> dict:
         ):
             # The reserve yields to a real signing — skipping one to keep
             # three lottery tickets alive is the trade backwards — but only
-            # down to T3. Below that the ladder is buying squad filler at
-            # 1.2x, and a ticket with an explicit exit (sell when the price
+            # down to T3. Below that the ladder is buying squad filler, and a
+            # ticket with an explicit exit (sell when the price
             # rises) is worth more than a marginal body. It gives way exactly
             # as far as this bid needs and no further.
             reserve = max(0, remaining_cash - target_bid)

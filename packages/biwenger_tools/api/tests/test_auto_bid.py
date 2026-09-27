@@ -23,77 +23,61 @@ from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 # tests that need determinism patch `auto_bid._jitter` to a fixed return.
 
 
-def test_tier_all_in_uses_remaining_cash_regardless_of_price():
-    """SF ≥ 700 must bid ~`remaining_cash` (minus jitter), NOT price+anything.
-    A 26M player against 30M cash → ~30M bid (never leave cash on the table,
-    never go negative on `maxBid`)."""
-    bid, label = auto_bid.tier_bid(sf=910, price=26_000_000, remaining_cash=30_000_000)
-    assert 30_000_000 - auto_bid.BID_JITTER_MAX <= bid <= 30_000_000
-    assert "T1" in label and "all-in" in label
+J = auto_bid.BID_JITTER_MAX
 
 
-def test_tier_all_in_when_cash_is_zero_returns_zero_so_caller_skips():
-    """remaining_cash=0 still returns 0 (not negative — jitter is clamped at
-    0); the caller's affordability check turns that into a skip with a
-    "no cash" reason."""
+# Each tier bids a flat share over the price, set from the season's market:
+# +5 % already wins ~75 % of auctions under 5M, and the contested stars go
+# for +20-35 %. See the auto-bid spec for the table.
+
+
+@pytest.mark.parametrize(
+    "sf,price,expected,tier",
+    [
+        (910, 26_000_000, 36_400_000, "T1"),  # +40 %
+        (620, 14_300_000, 17_160_000, "T2"),  # +20 % — Güler, won at 16.97M
+        (500, 10_000_000, 11_000_000, "T3"),  # +10 %
+        (350, 1_000_000, 1_050_000, "T4"),  # +5 %
+    ],
+)
+def test_each_tier_bids_its_share_over_the_price(sf, price, expected, tier):
+    bid, label = auto_bid.tier_bid(sf=sf, price=price, remaining_cash=100_000_000)
+    assert expected <= bid <= expected + J
+    assert tier in label
+
+
+@pytest.mark.parametrize("sf", [910, 620])
+def test_a_top_tier_short_of_cash_bids_the_whole_wallet(sf):
+    """Güler: T2 wanted 17.16M against 16.38M of cash. Skipping him left the
+    bot out of an auction it could have contested; T1 and T2 bid what there
+    is instead — never more, so the wallet never goes negative."""
+    cash = 16_376_085
+    bid, label = auto_bid.tier_bid(sf=sf, price=14_300_000, remaining_cash=cash)
+    assert cash - J <= bid <= cash
+    assert "todo el saldo" in label
+
+
+@pytest.mark.parametrize("sf", [500, 350])
+def test_a_lower_tier_short_of_cash_is_left_to_the_caller(sf):
+    """T3 and T4 are not worth emptying the wallet for: the bid comes back
+    whole and the caller skips it for lack of cash."""
+    bid, label = auto_bid.tier_bid(sf=sf, price=10_000_000, remaining_cash=1_000_000)
+    assert bid > 1_000_000
+    assert "todo el saldo" not in label
+
+
+@pytest.mark.parametrize("sf", [910, 620])
+def test_a_wallet_below_the_price_is_not_bid_as_a_whole(sf):
+    """The market takes no bid under the asking price, so a wallet that does
+    not reach it is skipped rather than offered whole."""
+    bid, label = auto_bid.tier_bid(sf=sf, price=8_000_000, remaining_cash=3_000_000)
+    assert bid > 3_000_000
+    assert "todo el saldo" not in label
+
+
+def test_a_top_tier_with_no_cash_is_left_to_the_caller():
     bid, _ = auto_bid.tier_bid(sf=850, price=10_000_000, remaining_cash=0)
-    assert bid == 0
-
-
-def test_tier_t2_cap_wins_on_expensive_player():
-    """T2: at 8M price the cap (+5M = 13M) is cheaper than the multiplier
-    (8M × 1.7 = 13.6M), so the cap wins."""
-    bid, label = auto_bid.tier_bid(sf=620, price=8_000_000, remaining_cash=50_000_000)
-    # min(8M × 1.7, 8M + 5M) = min(13.6M, 13M) = 13M
-    assert 13_000_000 <= bid <= 13_000_000 + auto_bid.BID_JITTER_MAX
-    assert "T2" in label
-
-
-def test_tier_t2_multiplier_wins_on_cheap_player():
-    """T2: at 5M price the multiplier (5M × 1.7 = 8.5M) is cheaper than
-    the cap (5M + 5M = 10M), so the multiplier wins."""
-    bid, label = auto_bid.tier_bid(sf=620, price=5_000_000, remaining_cash=50_000_000)
-    # min(5M × 1.7, 5M + 5M) = min(8.5M, 10M) = 8.5M
-    assert 8_500_000 <= bid <= 8_500_000 + auto_bid.BID_JITTER_MAX
-    assert "T2" in label
-
-
-def test_tier_t3_multiplier_wins_on_cheap_player_regression_calvo():
-    """T3 regression for Calvo (2026-05-24): at 750K price the multiplier
-    (750K × 1.5 = 1.125M) is way cheaper than the cap (750K + 2M = 2.75M).
-    The +2M-on-a-750K-player surcharge was unreasonable; now we bid 1.125M
-    instead, which respects the player's actual market value."""
-    bid, label = auto_bid.tier_bid(sf=400, price=750_000, remaining_cash=50_000_000)
-    # min(750K × 1.5, 750K + 2M) = min(1.125M, 2.75M) = 1.125M
-    assert 1_125_000 <= bid <= 1_125_000 + auto_bid.BID_JITTER_MAX
-    assert "T3" in label
-
-
-def test_tier_t3_cap_wins_on_expensive_player():
-    """T3: at 10M price the cap (+2M = 12M) is cheaper than the multiplier
-    (10M × 1.5 = 15M). Expensive players keep their conservative cap."""
-    bid, label = auto_bid.tier_bid(sf=500, price=10_000_000, remaining_cash=50_000_000)
-    # min(10M × 1.5, 10M + 2M) = min(15M, 12M) = 12M
-    assert 12_000_000 <= bid <= 12_000_000 + auto_bid.BID_JITTER_MAX
-    assert "T3" in label
-
-
-def test_tier_t4_multiplier_wins_on_cheap_player():
-    """T4 on a 1M price: multiplier (1M × 1.2 = 1.2M) beats cap (1M + 500K
-    = 1.5M). Cheap-low-conviction players get a proportional bid."""
-    bid, label = auto_bid.tier_bid(sf=350, price=1_000_000, remaining_cash=50_000_000)
-    # min(1M × 1.2, 1M + 500K) = min(1.2M, 1.5M) = 1.2M
-    assert 1_200_000 <= bid <= 1_200_000 + auto_bid.BID_JITTER_MAX
-    assert "T4" in label
-
-
-def test_tier_t4_cap_wins_on_expensive_player():
-    """T4 on a 5M price: cap (+500K = 5.5M) beats multiplier (5M × 1.2
-    = 6M). The +500K low-conviction cap applies."""
-    bid, label = auto_bid.tier_bid(sf=350, price=5_000_000, remaining_cash=50_000_000)
-    # min(5M × 1.2, 5M + 500K) = min(6M, 5.5M) = 5.5M
-    assert 5_500_000 <= bid <= 5_500_000 + auto_bid.BID_JITTER_MAX
-    assert "T4" in label
+    assert bid > 0
 
 
 def test_tier_below_floor_returns_none():
@@ -131,30 +115,23 @@ def test_tier_boundaries(sf, expected_band):
 
 
 def test_tier_jitter_is_within_advertised_range():
-    """Sample the jitter empirically over many runs; it must never escape
-    [0, BID_JITTER_MAX]. Without this guard a future widening (e.g.
-    BID_JITTER_MAX → 10_000) could nudge tier-bid values past the affordability
-    cap unnoticed.
-
-    SF=500 + price=3M → T3 = min(3M × 1.5, 3M + 2M) = min(4.5M, 5M) = 4.5M.
-    The multiplier wins at this price so the nominal is 4.5M."""
+    """Sample the jitter empirically; it must never escape [0, BID_JITTER_MAX].
+    SF 500 at 3M is T3: 3M × 1.10 = 3.3M nominal."""
     seen = set()
     for _ in range(500):
         bid, _ = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
-        seen.add(bid - 4_500_000)
-    assert all(0 <= delta <= auto_bid.BID_JITTER_MAX for delta in seen)
-    # At least a couple of distinct values out of 500 — proof randomness is on.
+        seen.add(bid - 3_300_000)
+    assert all(0 <= delta <= J for delta in seen)
     assert len(seen) > 10
 
 
-def test_tier_jitter_subtracted_for_all_in():
-    """For T1 the jitter SUBTRACTS from cash so the bid never exceeds it.
-    Crucial — a bid > maxBid would be rejected by Biwenger."""
+def test_a_whole_wallet_bid_subtracts_the_jitter():
+    """Capped at the wallet, the jitter comes off instead of on — a bid over
+    the cash would be rejected by Biwenger."""
     cash = 30_000_000
     for _ in range(50):
         bid, _ = auto_bid.tier_bid(sf=910, price=26_000_000, remaining_cash=cash)
-        assert bid <= cash
-        assert cash - auto_bid.BID_JITTER_MAX <= bid
+        assert cash - J <= bid <= cash
 
 
 # --- _build_candidates ----------------------------------------------------
@@ -458,8 +435,9 @@ def run_env():
 
 
 def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
-    """Realistic end-to-end: 3 candidates. SF 910 all-ins the cash, the
-    next two get skipped because cash is now 0."""
+    """Realistic end-to-end: 3 candidates. The T1 bid (12M × 1.40 = 16.8M)
+    leaves 3.2M, which covers neither Lewa's asking price nor Pedri's T3 bid
+    (3.3M), so both are skipped for cash."""
     market = [_sale(1), _sale(2), _sale(3)]
     biwenger_players = {
         1: _bw(1, "Vinicius", 12_000_000),
@@ -475,15 +453,14 @@ def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
         market_players=market,
         biwenger_players=biwenger_players,
         jp_players=jp_players,
-        cash=30_000_000,
+        cash=20_000_000,
     )
     result = auto_bid.run_auto_bid()
 
-    # 1 bid placed (Vinicius all-in 30M), Lewa+Pedri skipped (no cash left).
-    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=30_000_000)
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=16_800_000)
     assert result["bid_count"] == 1
-    assert result["total_bid_eur"] == 30_000_000
-    assert result["remaining_cash_eur"] == 0
+    assert result["total_bid_eur"] == 16_800_000
+    assert result["remaining_cash_eur"] == 3_200_000
     assert result["skipped_count"] == 2  # Lewa + Pedri don't fit
     assert result["sent"] == 1
     mock_send.assert_called_once()
@@ -497,8 +474,9 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
 
     Setup:
     - cash = 5M.
-    - P1 (SF 650, price 8M) → T2 bid 13M → no_cash skip (13M > 5M cash).
-    - P2 (SF 620, price 2M) → T2 bid 3.4M → placed.
+    - P1 (SF 650, price 8M) → T2 bid 9.6M → no_cash skip (5M does not even
+      cover the 8M asking price, so no whole-wallet bid either).
+    - P2 (SF 620, price 2M) → T2 bid 2.4M → placed.
     - P3 (SF 280) → tier_low skip (below SF 300 floor, but >200 so it
       lands in the summary).
     """
@@ -523,7 +501,7 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
 
     # Only the cheaper player gets a bid. The expensive one is skipped
     # by budget; the low-SF one is skipped by tier floor.
-    biwenger.place_market_bid.assert_called_once_with(player_id=2, amount=3_400_000)
+    biwenger.place_market_bid.assert_called_once_with(player_id=2, amount=2_400_000)
     assert result["bid_count"] == 1
     assert result["skipped_count"] == 2
 
@@ -531,7 +509,7 @@ def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):
     # the budget skip (with SF + tier), ⏭️ for the irrelevant skip.
     text = mock_send.call_args.kwargs["text"]
     assert "💸 Sin pasta para <b>Expensive</b>" in text
-    assert "T2 (SF 650)" in text
+    assert "T2 +20% (SF 650)" in text
     assert "⏭️ Saltado <b>LowSf</b>" in text
 
 
@@ -594,16 +572,15 @@ def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
     """A 4xx on one bid must not abort the loop — the next candidate still
     gets its chance. Mirrors set_lineup's "log + continue" stance.
 
-    Both candidates are SF 620 at price 1M → T2 bid =
-    min(1M × 1.7, 1M + 5M) = 1.7M (multiplier wins on cheap players)."""
+    Both candidates are SF 620 at price 1M → T2 bid = 1M × 1.20 = 1.2M."""
     market = [_sale(1), _sale(2)]
     biwenger_players = {
         1: _bw(1, "Vinicius", 1_000_000),
         2: _bw(2, "Lewa", 1_000_000),
     }
     jp_players = [
-        _jp_with_sf("Vinicius", 620),  # T2 → bid 1.7M
-        _jp_with_sf("Lewa", 620),  # T2 → bid 1.7M
+        _jp_with_sf("Vinicius", 620),  # T2 → bid 1.2M
+        _jp_with_sf("Lewa", 620),  # T2 → bid 1.2M
     ]
     err = requests.HTTPError("409 conflict")
     biwenger, _ = run_env(
@@ -618,9 +595,9 @@ def test_run_auto_bid_continues_when_biwenger_rejects_a_bid(run_env):
     assert biwenger.place_market_bid.call_count == 2
     assert result["bid_count"] == 1  # Vinicius rejected, Lewa accepted
     assert result["skipped_count"] == 1
-    # Cash only decremented by the successful 1.7M bid (jitter pinned to 0
+    # Cash only decremented by the successful 1.2M bid (jitter pinned to 0
     # in run_env, so the math is exact here).
-    assert result["remaining_cash_eur"] == 30_000_000 - 1_700_000
+    assert result["remaining_cash_eur"] == 30_000_000 - 1_200_000
 
 
 def test_run_auto_bid_skips_send_when_telegram_creds_missing(run_env):
@@ -827,8 +804,8 @@ def test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched(run_env)
 
     assert biwenger.place_market_bid.call_count == 1  # only the benched one
     bid = biwenger.place_market_bid.call_args.kwargs["amount"]
-    assert bid == 7_000_000  # T3 ladder: min(5M x 1.5, 5M + 2M)
-    assert result["remaining_cash_eur"] == 23_000_000
+    assert bid == 5_500_000  # clamped to T3: 5M × 1.10
+    assert result["remaining_cash_eur"] == 24_500_000
     text = mock_send.call_args.kwargs["text"]
     assert "🚑 No disponible" in text
     assert "rebajado" in text
@@ -1045,11 +1022,12 @@ def test_a_chollo_is_bought_with_cash_the_ladder_left_reserved(run_env):
     assert 1 in bids  # the ladder still got its man
 
 
-def test_the_all_in_tier_takes_the_reserve_with_it(run_env):
-    """One genuine monster beats three lottery tickets: SF >= 700 bids the
-    whole wallet by design, and the speculation stands down."""
+def test_a_top_tier_short_of_cash_takes_the_reserve_with_it(run_env):
+    """One genuine star beats three lottery tickets: a T1 that wants more than
+    the wallet (25M × 1.40 = 35M against 30M) bids all of it, reserve included,
+    and the speculation stands down."""
     market = [_sale(1), _sale(2)]
-    biwenger_players = {1: _bw(1, "Vini", 12_000_000), 2: _bw(2, "Ganga", 800_000)}
+    biwenger_players = {1: _bw(1, "Vini", 25_000_000), 2: _bw(2, "Ganga", 800_000)}
     jp_players = [_jp_with_sf("Vini", 910), _jp_with_sf("Ganga", 100)]
     biwenger, _ = run_env(
         market_players=market,
@@ -1091,12 +1069,13 @@ def test_the_reserve_yields_rather_than_block_a_real_signing(run_env):
         market_players=market,
         biwenger_players=biwenger_players,
         jp_players=jp_players,
-        cash=4_000_000,
+        cash=2_800_000,
         oraculo_index=_chollo_index("Ganga"),
     )
     auto_bid.run_auto_bid()
 
-    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_400_000)
+    # The 2.4M T2 bid does not fit beside the 0.95M reserve; the reserve yields.
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=2_400_000)
 
 
 def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
@@ -1117,7 +1096,7 @@ def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
 
 
 def test_the_reserve_holds_against_a_bottom_tier_signing(run_env):
-    """T4 is squad filler — SF 300-399, bid at 1.2x. A lottery ticket with an
+    """T4 is squad filler — SF 300-399, bid at 1.05x. A lottery ticket with an
     explicit exit is worth more than a marginal body, so the reserve that
     gives way to a real signing holds against this one."""
     market = [_sale(1), _sale(2)]
@@ -1132,7 +1111,7 @@ def test_the_reserve_holds_against_a_bottom_tier_signing(run_env):
     )
     auto_bid.run_auto_bid()
 
-    # The T4 bid (2.4M) fits the wallet but not beside the reserve, and is not
+    # The T4 bid (2.1M) fits the wallet but not beside the reserve, and is not
     # worth breaking it for. The chollo is bought instead.
     biwenger.place_market_bid.assert_called_once_with(
         player_id=2, amount=800_000 + auto_bid.CHOLLO_MARGIN
@@ -1148,12 +1127,13 @@ def test_the_reserve_still_yields_to_a_third_tier_signing(run_env):
         market_players=market,
         biwenger_players=biwenger_players,
         jp_players=jp_players,
-        cash=3_500_000,
+        cash=2_500_000,
         oraculo_index=_chollo_index("Ganga"),
     )
     auto_bid.run_auto_bid()
 
-    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=3_000_000)
+    # The 2.2M T3 bid (2M × 1.10) needs part of the reserve, and gets it.
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=2_200_000)
 
 
 def test_a_chollo_is_bid_on_before_oraculo_has_projected_anybody(run_env):
