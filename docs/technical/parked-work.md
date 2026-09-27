@@ -339,6 +339,8 @@ recommender and offer calls. How to weigh it against JP is the open question.
 **First step shipped as display only**: the market images carry a
 `Calendario (5)` column (see the `team-analysis` spec). Nothing decides on it
 until the owner picks where it should weigh — the options are in that PR.
+The owner picked two, both advisory: a line on every `/ofertas` message and a
+near-tie break in `/recomendar`. Auto-bid still does not read it.
 
 ### Read and rejected
 

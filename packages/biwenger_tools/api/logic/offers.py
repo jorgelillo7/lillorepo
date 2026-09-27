@@ -35,6 +35,8 @@ from packages.biwenger_tools.api.logic.orchestration import (
 )
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import shown_score
+from packages.biwenger_tools.api.logic import fixture_run
+from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 
 logger = get_logger(__name__)
 
@@ -179,6 +181,10 @@ def run_offers_inbox(
     xi_base = _xi_baseline(my_team)
     deadline = time.monotonic() + _DEPTH_BUDGET_S
 
+    # The club's next five games: read once for the whole inbox. Text on the
+    # message only — the recommendation below never reads it.
+    upcoming = read_fixture_runs(ctx.biwenger)
+
     actionable: list[dict] = []
     muted: list[dict] = []
     for offer in inbox:
@@ -190,6 +196,13 @@ def run_offers_inbox(
                 "Skipping malformed offer.", extra={"offer_id": offer.get("id")}
             )
             continue
+        scored["fixture"] = (
+            None
+            if upcoming is None
+            else fixture_run.label(
+                fixture_run.next_ratings(upcoming, scored.get("team_id"), 5)
+            )
+        )
         if only_accept and scored["recommendation"] != REC_ACCEPT:
             muted.append(scored)
         elif _is_muted(scored):
@@ -516,6 +529,7 @@ def _score_offer(
     return {
         "offer_id": offer["id"],
         "player_id": player_id,
+        "team_id": bw.get("teamID"),
         "name": name,
         "position": position,
         "offer_amount": offer_amount,
@@ -757,6 +771,12 @@ def _format_offer_message(s: dict) -> str:
         lines.append(f"Valor cf-base: {esc(format_euros(s['cf_price']))}{vm_str}")
 
     lines.append(f"Proyección JP: {esc(s['tier_label'])}")
+    fixture = s.get("fixture")
+    lines.append(
+        f"Calendario ({fixture_run.GAMES_AHEAD}): {esc(fixture)}"
+        if fixture
+        else "Calendario: sin datos"
+    )
     lines.extend(_role_lines(s))
 
     if s["until"]:

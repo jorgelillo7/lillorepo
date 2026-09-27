@@ -238,3 +238,21 @@ message of their own and no "descartadas" summary. An invalid decision SHALL rai
   `test_accept_only_mode_sends_only_the_offers_worth_taking`,
   `test_run_offer_decision_invalid_raises`,
   `test_run_offer_decision_stays_quiet_when_biwenger_agrees`
+
+### Requirement: An offer shows the club's next five games, and nothing more
+
+Each offer message SHALL carry a `Calendario (5)` line — the same average and
+band as the market column (`team-analysis` spec) — or `Calendario: sin datos`
+when the rounds could not be read. The calendar is read once per inbox.
+
+It is text only: the ACEPTAR / DUDOSO / RECHAZAR verdict SHALL NOT read it. A
+hard run ahead is a reason the owner may weigh when selling; turning it into a
+rule would need a weight nobody has measured.
+
+#### Scenario: the line, the gap, one read
+- **WHEN** the calendar is read **THEN** each offer names its club's run
+- **WHEN** it is not **THEN** the line reads `Calendario: sin datos`
+- **WHEN** the inbox holds several offers **THEN** the rounds are read once
+- *Verifies:* `test_the_offer_message_carries_the_calendar_without_changing_the_verdict`,
+  `test_the_offer_message_says_when_the_calendar_is_missing`,
+  `test_the_inbox_reads_the_calendar_once_for_every_offer`

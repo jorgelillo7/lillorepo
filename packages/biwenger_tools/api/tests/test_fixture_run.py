@@ -99,3 +99,38 @@ def test_annotate_says_so_when_the_calendar_could_not_be_read():
     column = fixture_run.annotate(rows, None, 5)
     assert column == "Calendario (sin datos)"
     assert rows[0][column] == "—"
+
+
+# --- the near-tie reorder behind /recomendar --------------------------------
+
+
+def _cand(name, sf, team):
+    return {"name": name, "sf": sf, "team_id": team}
+
+
+UPCOMING = {1: [70, 70], 2: [30, 30], 3: [50, 50]}
+
+
+def test_an_easier_run_wins_a_near_tie():
+    rows = [_cand("hard", 500, 1), _cand("easy", 480, 2)]  # 4 % apart
+    got = fixture_run.prefer_easier(rows, lambda r: r["sf"], UPCOMING)
+    assert [r["name"] for r in got] == ["easy", "hard"]
+
+
+def test_a_clear_projection_gap_is_never_overturned():
+    rows = [_cand("better", 500, 1), _cand("easy", 450, 2)]  # 10 % apart
+    got = fixture_run.prefer_easier(rows, lambda r: r["sf"], UPCOMING)
+    assert [r["name"] for r in got] == ["better", "easy"]
+
+
+def test_a_small_run_difference_does_not_reorder():
+    upcoming = {1: [52], 2: [49]}  # 3 points easier: not enough
+    rows = [_cand("a", 500, 1), _cand("b", 490, 2)]
+    got = fixture_run.prefer_easier(rows, lambda r: r["sf"], upcoming)
+    assert [r["name"] for r in got] == ["a", "b"]
+
+
+def test_without_a_calendar_the_order_is_untouched():
+    rows = [_cand("hard", 500, 1), _cand("easy", 480, 2)]
+    got = fixture_run.prefer_easier(rows, lambda r: r["sf"], None)
+    assert [r["name"] for r in got] == ["hard", "easy"]

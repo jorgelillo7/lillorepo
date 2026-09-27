@@ -793,3 +793,40 @@ def test_an_actionable_offer_still_arrives_with_its_buttons():
     assert result == {"sent": 2, "offers": 2, "actionable": 1, "muted": 1}
     with_buttons = [c for c in send.call_args_list if "reply_markup" in c.kwargs]
     assert len(with_buttons) == 1
+
+
+# --- the club's next five games, as a line of text --------------------------
+
+
+def test_the_offer_message_carries_the_calendar_without_changing_the_verdict():
+    s = {**_scored("Camello", offers.REC_DOUBTFUL), "fixture": "difícil 59"}
+    text = offers._format_offer_message(s)
+    assert "Calendario (5): difícil 59" in text
+    assert "DUDOSO" in text
+
+
+def test_the_offer_message_says_when_the_calendar_is_missing():
+    s = {**_scored("Camello", offers.REC_DOUBTFUL), "fixture": None}
+    assert "Calendario: sin datos" in offers._format_offer_message(s)
+
+
+def test_the_inbox_reads_the_calendar_once_for_every_offer():
+    inbox = [{"id": 1}, {"id": 2}]
+    scored = [
+        {"offer_id": 1, "recommendation": offers.REC_ACCEPT, "team_id": 7},
+        {"offer_id": 2, "recommendation": offers.REC_ACCEPT, "team_id": 8},
+    ]
+    ctx = _ctx_with_offers(inbox)
+    seen = []
+    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
+        _p("send_telegram_message")
+    ), patch(_p("_starter_ids"), return_value=set()), patch(
+        _p("_score_offer"), side_effect=scored
+    ), patch(
+        _p("read_fixture_runs"), return_value={7: [30], 8: [80]}
+    ) as mock_read, patch(
+        _p("_format_offer_message"), side_effect=lambda s: seen.append(s["fixture"])
+    ):
+        offers.run_offers_inbox(ctx)
+    mock_read.assert_called_once()
+    assert seen == ["fácil 30", "difícil 80"]
