@@ -222,8 +222,8 @@ def test_extra_columns_widen_the_canvas_instead_of_squeezing_the_others():
         io.BytesIO(build_table_image(rows, "T", extra_cols=["Clausulable", "Cláusula"]))
     )
 
-    plain_per_col = plain.width / 9  # the base column count (JP, Oráculo included)
-    clause_per_col = clause.width / 11
+    plain_per_col = plain.width / 8  # the base column count
+    clause_per_col = clause.width / 10
     # The extra columns are wider than the base average, so per-column space
     # must not fall — before this it dropped by a third.
     assert clause_per_col >= plain_per_col
@@ -236,31 +236,29 @@ def test_the_render_is_dense_enough_to_zoom_into():
     assert imf._DPI >= 200
 
 
-def test_new_base_columns_do_not_shrink_a_pre_existing_column():
-    """`JP` and `Oráculo` are narrower than the base average on purpose, so
-    the *mean* px/column necessarily falls even when nothing shrank — that
-    is not the property that matters. `Jugador`'s own absolute pixel width
-    is: it must not regress from what the pre-existing 7-column table gave.
+def test_racha_is_not_a_column():
+    """Nobody read the streak; its width went to the fixture column."""
+    from packages.biwenger_tools.api.logic import image_formatter as imf
 
-    467 px is `1435 × (0.28 / 0.86)` — `Jugador`'s share of a real render of
-    this exact fixture measured against this file before this change (15
-    rows, no extra columns, the 7-column `_BASE_COLUMNS`/9in canvas)."""
-    from PIL import Image
+    assert "Racha" not in [h for h, _ in imf._BASE_COLUMNS]
+
+
+def test_the_name_column_still_fits_a_long_name():
+    """`Jugador` was the widest column by far and mostly empty. Narrowed, it
+    must still hold a realistic 22-character name — the cut applied to every
+    name — with room for the cell's padding."""
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.textpath import TextPath
 
     from packages.biwenger_tools.api.logic import image_formatter as imf
 
-    rows = [
-        {"name": f"P{i}", "position_id": 2, "price": 3_000_000, "jp_player": _jp()}
-        for i in range(15)
-    ]
-    img = Image.open(io.BytesIO(build_table_image(rows, "T")))
-
-    jugador_weight = next(w for h, w in imf._BASE_COLUMNS if h == "Jugador")
+    name = "Unión Deportiva Lloros"
+    assert len(name) == 22
+    text_in = TextPath((0, 0), name, prop=FontProperties(size=9.5)).get_extents()
     base_weight = sum(w for _, w in imf._BASE_COLUMNS)
-    jugador_px = img.width * jugador_weight / base_weight
-
-    baseline_jugador_px = 1435 * (0.28 / 0.86)
-    assert jugador_px >= baseline_jugador_px * 0.98
+    weight = next(w for h, w in imf._BASE_COLUMNS if h == "Jugador")
+    column_in = imf._BASE_FIG_WIDTH_IN * weight / base_weight
+    assert text_in.width / 72 + 0.3 <= column_in
 
 
 # --- the three columns: JP, Oráculo, and the blended Proyección ------------

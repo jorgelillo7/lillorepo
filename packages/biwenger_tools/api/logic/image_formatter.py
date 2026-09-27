@@ -113,15 +113,18 @@ _MARK_OUT = "\u2715"
 # the blend stays arguable without leaving Telegram (see the Oráculo design's
 # "Three columns, not one"). Both are *base* columns, not `extra_cols` — they
 # widen `_BASE_FIG_WIDTH_IN` accordingly, below.
+#
+# `Jugador` is sized to the 22-character cut every name gets, not to the
+# widest column it used to be, and there is no streak column: nobody read it,
+# and the room went to the `Calendario` extra column the views now carry.
 _BASE_COLUMNS: list[tuple[str, float]] = [
     ("", 0.03),
-    ("Jugador", 0.28),
+    ("Jugador", 0.18),
     ("Pos", 0.07),
     ("Precio", 0.09),
     ("JP", 0.08),
     ("Oráculo", 0.09),
     ("Proyección", 0.15),
-    ("Racha", 0.08),
     ("Juega", 0.16),
 ]
 _EXTRA_COL_WIDTH = 0.18
@@ -129,13 +132,12 @@ _EXTRA_COL_WIDTH = 0.18
 # Canvas width for a table with no extra columns; the clause views scale up
 # from it in proportion to what they add.
 #
-# `JP` + `Oráculo` pushed the base weight from 0.86 to 1.03. `fig_w` below
-# only rescales for `extra_cols`, so two new *base* columns need the canvas
-# widened here too — the same bug the clause view already hit once, at 1122px
-# for a 15-player squad, when 0.36 of extra weight landed on an unwidened
-# canvas. 10.8 keeps every pre-existing column's absolute width, not just the
-# figure's total.
-_BASE_FIG_WIDTH_IN = 10.8
+# `fig_w` below only rescales for `extra_cols`, so a change to the *base*
+# columns has to move the canvas here too — the clause view once came out at
+# 1122px for a 15-player squad when extra weight landed on an unwidened
+# canvas. Scaled with the base weight (0.85) so every column keeps its
+# absolute width.
+_BASE_FIG_WIDTH_IN = 8.9
 
 # These are read on a phone, and read by zooming in — the row you care about
 # is one of fifteen at six-point type. 200 dpi over the old 150 is a third
@@ -287,7 +289,6 @@ def _row_data(row: dict, extra_cols: list[str]) -> list[str]:
         _jp_cell(sf),
         _oraculo_cell(row),
         _sf_bar(row.get("custom_prediction")),
-        str(jp.get("streak", 0)) if jp else "-",
         play_status_label(jp),
     ]
     for col in extra_cols:
@@ -526,7 +527,7 @@ def build_table_image(
                 cell.set_edgecolor(_EDGE)
                 # Every cell gets an explicit ink. matplotlib's default is
                 # black, which was invisible on the dark surface for the four
-                # columns nothing else recolours (Pos, Precio, Racha, Juega).
+                # columns nothing else recolours (Pos, Precio, Juega).
                 cell.get_text().set_color(_INK_SOFT)
             # Three independent signals, three independent colours.
             table[i, sf_col].get_text().set_color(

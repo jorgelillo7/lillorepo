@@ -131,6 +131,7 @@ def run_teams(manager_id: int | None = None) -> dict:
     managers = biwenger.get_league_users(
         config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
     )
+    upcoming = read_fixture_runs(biwenger)
 
     if manager_id is not None:
         # Single-manager mode: one image, no market.
@@ -155,14 +156,8 @@ def run_teams(manager_id: int | None = None) -> dict:
             oraculo_scale=oraculo_scale,
         )
         title = "🛡️ Mi equipo" if is_me else f"👤 {manager_name}"
-        extra_cols = None if is_me else ["Clausulable", "Cláusula"]
         _send_image(
-            token,
-            chat_id,
-            build_table_image(
-                rows, title, extra_cols=extra_cols, show_total_value=True
-            ),
-            title,
+            token, chat_id, _squad_image(rows, title, upcoming, not is_me), title
         )
         logger.info(
             "Single-manager analysis sent.",
@@ -207,17 +202,12 @@ def run_teams(manager_id: int | None = None) -> dict:
     if send_image_or_text_fallback(
         token,
         chat_id,
-        build_table_image(my_team, "🛡️ Mi equipo", show_total_value=True),
+        _squad_image(my_team, "🛡️ Mi equipo", upcoming, clauses=False),
         "🛡️ Mi equipo",
     ):
         sent_count += 1
     for manager_name, rows in rivals.items():
-        img = build_table_image(
-            rows,
-            f"👤 {manager_name}",
-            extra_cols=["Clausulable", "Cláusula"],
-            show_total_value=True,
-        )
+        img = _squad_image(rows, f"👤 {manager_name}", upcoming, clauses=True)
         if send_image_or_text_fallback(token, chat_id, img, f"👤 {manager_name}"):
             sent_count += 1
 
@@ -236,7 +226,7 @@ def run_teams(manager_id: int | None = None) -> dict:
             oraculo_index,
             oraculo_scale=oraculo_scale,
         )
-        image = _market_image(market_rows, "🛒 Mercado", read_fixture_runs(biwenger))
+        image = _market_image(market_rows, "🛒 Mercado", upcoming)
         if send_image_or_text_fallback(token, chat_id, image, "🛒 Mercado"):
             sent_count += 1
     except Exception:
@@ -532,6 +522,16 @@ def read_fixture_runs(biwenger) -> dict | None:
 def _market_image(rows: list[dict], title: str, upcoming: dict | None) -> bytes:
     column = fixture_run.annotate(rows, upcoming)
     return build_table_image(rows, title, extra_cols=[column])
+
+
+def _squad_image(
+    rows: list[dict], title: str, upcoming: dict | None, clauses: bool
+) -> bytes:
+    """A squad table with its total value, the fixture column, and — for a
+    rival — the clause columns before it."""
+    column = fixture_run.annotate(rows, upcoming)
+    extra = (["Clausulable", "Cláusula"] if clauses else []) + [column]
+    return build_table_image(rows, title, extra_cols=extra, show_total_value=True)
 
 
 def _round_context(biwenger) -> "round_context.RoundContext":

@@ -369,10 +369,12 @@ is comparing two different scales, not one.
 
 ---
 
-### Requirement: The market shows how hard each player's next five games are
+### Requirement: Every table shows how hard each player's next five games are
 
-Every market image — `/mercado`, the market in `/analizar` TODOS and the
-digest's "Mercado" — SHALL carry a `Calendario (5)` column: the average of
+Every player table — the market (`/mercado`, `/analizar` TODOS, the digest's
+"Mercado"), the owner's squad ("Mi equipo" in `/analizar` and the digest) and
+each rival's squad, after its clause columns — SHALL carry a `Calendario (5)`
+column: the average of
 Biwenger's `difficulty.rating` over the player's club's next five games,
 with a band — `fácil` below 45, `difícil` above 55, `medio` between.
 
@@ -391,6 +393,10 @@ under a second) and shared by every image that run sends. If they cannot be
 read, the images still go out and the header reads `Calendario (sin datos)`,
 so a failed read never passes for "no games ahead".
 
+The room came from the table itself: `Jugador` is sized to the 22-character
+cut every name gets rather than being the widest column, and the streak
+(`Racha`) column is gone — nobody read it.
+
 Five averaged games pull toward the middle: at 40/60 no club in LaLiga read
 `difícil`; 45/55 split the twenty 10 / 8 / 2 the day it shipped.
 
@@ -408,10 +414,17 @@ Five averaged games pull toward the middle: at 40/60 no club in LaLiga read
 
 #### Scenario: wiring and failure
 - **WHEN** `/mercado` runs **THEN** its image carries the column
-- **WHEN** the digest runs **THEN** "Mercado" carries it and "Mi equipo" does not
+- **WHEN** `/analizar` runs **THEN** every squad carries it, a rival's after
+  its clause columns, and the calendar is read once
+- **WHEN** the digest runs **THEN** "Mercado" and "Mi equipo" both carry it
+- **WHEN** the table is drawn **THEN** there is no `Racha` column and a
+  22-character name still fits `Jugador`
 - **WHEN** the calendar cannot be read **THEN** the column reads `Calendario (sin datos)`
 - *Verifies:* `test_the_market_image_carries_the_fixture_column`,
-  `test_the_digest_market_carries_the_fixture_column_and_the_squad_does_not`,
+  `test_every_squad_image_carries_the_fixture_column`,
+  `test_a_single_squad_image_carries_the_fixture_column`,
+  `test_the_digest_market_and_squad_both_carry_the_fixture_column`,
+  `test_racha_is_not_a_column`, `test_the_name_column_still_fits_a_long_name`,
   `test_read_fixture_runs_walks_the_open_rounds`,
   `test_read_fixture_runs_is_none_when_the_calendar_cannot_be_read`,
   `test_annotate_says_so_when_the_calendar_could_not_be_read`

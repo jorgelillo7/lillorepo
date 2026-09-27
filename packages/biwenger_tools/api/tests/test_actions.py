@@ -365,3 +365,54 @@ def test_the_market_image_carries_the_fixture_column():
     ) as mock_image:
         actions.run_market()
     assert mock_image.call_args.kwargs["extra_cols"] == ["Calendario (5)"]
+
+
+def _teams_ctx():
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    biwenger = MagicMock()
+    biwenger.user_id = 1
+    biwenger.get_league_users.return_value = {1: "Me", 2: "Rival"}
+    biwenger.get_manager_squad.return_value = []
+    biwenger.get_market_players.return_value = []
+    return OrchestratorContext(
+        biwenger=biwenger, biwenger_players={}, jp_index={"by_name": {}, "by_slug": {}}
+    )
+
+
+def _run_teams(manager_id):
+    from packages.biwenger_tools.api.logic import actions
+
+    ctx = _teams_ctx()
+    with patch(_patches("config")), patch(
+        _patches("build_context"), return_value=ctx
+    ), patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
+        _patches("_send_image")
+    ), patch(
+        _patches("send_image_or_text_fallback"), return_value=True
+    ), patch(
+        _patches("time")
+    ), patch(
+        _patches("read_fixture_runs"), return_value={}
+    ) as mock_read, patch(
+        _patches("build_table_image"), return_value=b""
+    ) as mock_image:
+        actions.run_teams(manager_id)
+    return {c.args[1]: c.kwargs.get("extra_cols") for c in mock_image.call_args_list}, (
+        mock_read
+    )
+
+
+def test_every_squad_image_carries_the_fixture_column():
+    cols, mock_read = _run_teams(None)
+    assert cols["🛡️ Mi equipo"] == ["Calendario (5)"]
+    assert cols["👤 Rival"] == ["Clausulable", "Cláusula", "Calendario (5)"]
+    assert cols["🛒 Mercado"] == ["Calendario (5)"]
+    mock_read.assert_called_once()
+
+
+def test_a_single_squad_image_carries_the_fixture_column():
+    assert _run_teams(1)[0] == {"🛡️ Mi equipo": ["Calendario (5)"]}
+    assert _run_teams(2)[0] == {
+        "👤 Rival": ["Clausulable", "Cláusula", "Calendario (5)"]
+    }

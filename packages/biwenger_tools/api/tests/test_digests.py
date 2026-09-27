@@ -572,7 +572,7 @@ def test_collecting_never_costs_the_lineup():
 # --- the market section carries the fixture column --------------------------
 
 
-def test_the_digest_market_carries_the_fixture_column_and_the_squad_does_not():
+def test_the_digest_market_and_squad_both_carry_the_fixture_column():
     stack, _, _, _ = _digest_env()
     try:
         from packages.biwenger_tools.api.logic import digests
@@ -589,4 +589,4 @@ def test_the_digest_market_carries_the_fixture_column_and_the_squad_does_not():
 
     by_title = {c.args[1]: c.kwargs for c in mock_image.call_args_list}
     assert by_title["Mercado"].get("extra_cols") == ["Calendario (sin datos)"]
-    assert not by_title["Mi equipo"].get("extra_cols")
+    assert by_title["Mi equipo"].get("extra_cols") == ["Calendario (sin datos)"]
