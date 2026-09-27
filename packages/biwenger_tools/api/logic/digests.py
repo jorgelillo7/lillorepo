@@ -255,20 +255,22 @@ def _run_daily_inner() -> dict:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram
 
+    upcoming = actions.read_fixture_runs(ctx.biwenger)
+    fixture_column = fixture_run.column_for(upcoming)
+
     def _team_rows():
         my_squad = ctx.biwenger.get_manager_squad(
             config.USER_SQUAD_URL, ctx.biwenger.user_id
         )
-        return build_squad_rows(
+        rows = build_squad_rows(
             my_squad,
             ctx.biwenger_players,
             ctx.jp_index,
             ctx.oraculo_index,
             oraculo_scale=ctx.oraculo_scale,
         )
-
-    upcoming = actions.read_fixture_runs(ctx.biwenger)
-    fixture_column = fixture_run.column_for(upcoming)
+        fixture_run.annotate(rows, upcoming)
+        return rows
 
     def _market_rows():
         market_players = ctx.biwenger.get_market_players(config.MARKET_URL)
@@ -284,7 +286,12 @@ def _run_daily_inner() -> dict:
         return rows
 
     team_sent, team_count = _safe_send_section(
-        token, chat_id, _team_rows, "Mi equipo", show_total_value=True
+        token,
+        chat_id,
+        _team_rows,
+        "Mi equipo",
+        show_total_value=True,
+        extra_cols=[fixture_column],
     )
     market_sent, market_count = _safe_send_section(
         token, chat_id, _market_rows, "Mercado", extra_cols=[fixture_column]
