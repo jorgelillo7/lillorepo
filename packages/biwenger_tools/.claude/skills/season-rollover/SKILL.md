@@ -32,7 +32,7 @@ Read these files to understand the current season and build the exact diffs need
 - `packages/biwenger_tools/scraper_job/config.py` — find `TEMPORADA_ACTUAL`
 - `packages/biwenger_tools/web/.env` — find `TEMPORADA_ACTUAL`
 - `packages/biwenger_tools/scraper_job/.env` — find `TEMPORADA_ACTUAL`
-- `packages/biwenger_tools/OPERATIONS.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference (§ Cambio de temporada)
+- `packages/biwenger_tools/OPERATIONS.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference (§ Season rollover)
 
 Note: the `api` service **does** consume `TEMPORADA_ACTUAL` — it backs
 `config.DRAFT_SEASON`, which keys the `draft/{season}/...` Firestore layout.

@@ -182,14 +182,18 @@ its own keys. Why, and what it costs, in [`gcp.md`](gcp.md).
 
 ```bash
 # Create (regional: one billable version, see gcp.md)
-jq -n '{key: "value"}' | gcloud secrets create <package>-secrets \
-  --data-file=- --replication-policy=user-managed --locations="$REGION"
+# write the JSON to /tmp/cfg.json first, e.g. {"bot_token": "…"}
+gcloud secrets create <package>-secrets --project=<project> \
+  --data-file=/tmp/cfg.json \
+  --replication-policy=user-managed --locations=europe-southwest1
+rm /tmp/cfg.json
 ```
 
 **Never pipe a secret's value through a filtered shell.** A hook that
 shortens long command output (such as `rtk`) truncates the value silently,
-and the service reads a broken JSON: copy values with `rtk proxy gcloud …`
-or from Python, and compare sizes before switching a service over.
+and the service reads a broken JSON. Move values through a file
+(`--out-file`, `--data-file`), and compare sizes before switching a service
+over.
 
 ### Updating a secret
 
@@ -200,7 +204,11 @@ Disabling does not free the slot; only destroying does.
 
 ```bash
 # 1. add the new value (becomes `latest`, which is what every deploy binds)
-gcloud secrets versions add <secret-name> --project=<project> --data-file=-
+gcloud secrets versions access latest --secret=<secret-name> \
+  --project=<project> --out-file=/tmp/cfg.json
+# edit /tmp/cfg.json
+gcloud secrets versions add <secret-name> --project=<project> --data-file=/tmp/cfg.json
+rm /tmp/cfg.json
 
 # 2. redeploy so running instances pick it up, verify it works, then:
 gcloud secrets versions destroy <old-version> --secret=<secret-name> --project=<project>
@@ -306,8 +314,8 @@ Two things it cannot see, both falling back to `//...`:
   * **Clean up old images (script):**
 
     ```bash
-    cd scripts/
-    ./clean-images-artifact.sh
+    DRY_RUN=1 bash scripts/clean-images-artifact.sh   # preview
+    bash scripts/clean-images-artifact.sh
     ```
 
     > Keeps the newest digest of each service image and deletes the rest. For
@@ -320,18 +328,18 @@ Two things it cannot see, both falling back to `//...`:
   * **Review costs (script):**
 
     ```bash
-    cd scripts/
-    ./check-gcp-costs.sh
+    bash scripts/check-gcp-costs.sh
     ```
 
     > Audits **both projects** (`biwenger-tools` + `be-water-app`) against the
     > GCP *Free Tier*, plus the billing-account-wide Secret Manager version
     > count. Pass `--project=X` to audit a single project.
 
-    * **Clean local Docker containers:**
+  * **Clean local Docker images:**
+
+    ```bash
+    docker image prune -f
     ```
-     docker image prune -f
-     ```
 
 ## ⚠️ Important Notes
 
@@ -339,4 +347,5 @@ Two things it cannot see, both falling back to `//...`:
     Workload Identity — the web included, which reads Google Sheets as the
     Cloud Run service account (see `docs/gcp.md`).
   * If a deployment fails, check the **logs in the GCP console** (Cloud Run, Cloud Build, etc.).
-  * Make sure you have a `.env` file configured in each module for local development.
+  * Local runs read a gitignored `.env` in each module; the repo ships no
+    template, so each package's runbook lists the keys it needs.

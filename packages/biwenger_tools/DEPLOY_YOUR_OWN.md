@@ -274,7 +274,7 @@ whether picks are also written to Biwenger.
      --update-env-vars DRAFT_APPLY_TO_BIWENGER=true
    ```
 4. Open, run and close it with the scripts and the order in
-   [OPERATIONS.md → Draft anual](OPERATIONS.md#-draft-anual).
+   [OPERATIONS.md → Annual draft](OPERATIONS.md#-annual-draft).
 
 ## 12. Staying free, and cold starts
 

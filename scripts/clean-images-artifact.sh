@@ -100,7 +100,10 @@ for IMAGE in "${MULTI_ARCH_IMAGES[@]}"; do
     # twice and tolerate "referenced by parent" errors on the first pass —
     # the second pass mops up whatever was blocked.
     for PASS in 1 2; do
+        # Without --include-tags the tags field is empty, the filter matches
+        # every digest, and the tagged manifest is listed as an orphan too.
         UNTAGGED_DIGESTS=$(gcloud artifacts docker images list "$IMAGE" \
+            --include-tags \
             --filter="-tags:* AND createTime<\"$CUTOFF\"" \
             --format="value(version)" \
             --quiet 2>/dev/null || true)
