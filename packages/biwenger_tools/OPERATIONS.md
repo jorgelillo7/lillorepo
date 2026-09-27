@@ -5,6 +5,8 @@ the season rollover and Firestore maintenance runbooks.
 
 Repo-wide procedures (prerequisites, Python dependency workflow, secrets,
 linter, GCP cost/cleanup) live in [`docs/operations.md`](../../docs/operations.md).
+Setting the whole thing up from zero in another GCP project:
+[`DEPLOY_YOUR_OWN.md`](DEPLOY_YOUR_OWN.md).
 
 **What each capability does** — the tier rules, the clausulazo house rules, the
 digest SLO, the offer-decision algorithm — lives in the behaviour specs at
