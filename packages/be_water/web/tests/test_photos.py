@@ -24,7 +24,7 @@ def _img_bytes(size, color="red", fmt="JPEG") -> bytes:
 
 
 def _has_non_white(img: Image.Image) -> bool:
-    return any(px != (255, 255, 255) for px in img.getdata())
+    return any(px != (255, 255, 255) for px in img.get_flattened_data())
 
 
 # --- process_image ----------------------------------------------------------
