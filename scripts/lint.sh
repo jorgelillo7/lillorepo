@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run black --check and flake8 hermetically with the same Python (3.13) CI uses.
+# Run black --check and flake8 hermetically with the same Python (3.14) CI uses.
 #
 # Why: black 26.3.1 produces slightly different output across Python versions
 # (3.12 on the maintainer's Mac vs 3.13 on CI), which caused multiple CI

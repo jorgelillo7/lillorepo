@@ -46,7 +46,7 @@ because it went wrong, not because it sounds sensible.
 ## Stack
 
 - **Build:** Bazel (bazelisk)
-- **Language:** Python 3.13
+- **Language:** Python 3.14
 - **Cloud:** GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry
 - **Other:** Flask, Docker
 - **CI:** GitHub Actions runs flake8 + `black --check` before tests; tests gate the deploy.

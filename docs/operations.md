@@ -33,8 +33,8 @@ the `biwenger_tools` runbook above. For the Firestore data model itself, see
 
 Before you start, make sure you have the following installed:
 
-  * **Python 3.13** on the host, only for the stdlib scripts under `scripts/`
-    (Bazel brings its own 3.13 for everything else)
+  * **Python 3.12+** on the host, only for the stdlib scripts under `scripts/`
+    (Bazel brings its own 3.14 for everything else)
   * **Visual Studio Code** with the [Bazel (The Bazel Team)](https://marketplace.visualstudio.com/items?itemName=BazelBuild.vscode-bazel) extension.
   * **Command-line tools:**
     ```bash
@@ -229,7 +229,7 @@ and the deploy.
 Editor and CLI usage, pinned versions, and how to upgrade live in
 [`setup/linter.md`](setup/linter.md).
 
-Quick local invocation (same hermetic Python 3.13 toolchain as CI — no
+Quick local invocation (same hermetic Python 3.14 toolchain as CI — no
 version drift, no pip install needed):
 
 ```bash

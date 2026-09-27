@@ -25,7 +25,7 @@ web — all inside the **free tier**. Why each piece is the way it is lives in
 
 - A Google account with billing enabled. A card is required even though
   everything below stays within the free tier.
-- `gcloud`, `bazelisk`, `docker` with `buildx`, `jq`, `openssl`, Python 3.13.
+- `gcloud`, `bazelisk`, `docker` with `buildx`, `jq`, `openssl`, Python 3.12+ (Bazel brings its own 3.14).
 - A clone of this repo.
 - The **Biwenger account** the tools will act as — email and password. For
   the draft it must be an **admin of the league** (Biwenger → your league →

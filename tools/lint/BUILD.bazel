@@ -1,7 +1,7 @@
-"""Hermetic lint binaries — black and flake8 via Bazel's Python 3.13 toolchain.
+"""Hermetic lint binaries — black and flake8 via Bazel's Python 3.14 toolchain.
 
 Why these exist:
-- CI uses Python 3.13 (see `MODULE.bazel`).
+- CI uses Python 3.14 (see `MODULE.bazel`).
 - Local devs may have a different system Python (3.12 on the maintainer's Mac).
 - Black 26.3.1's tokenizer behaviour shifts subtly between Python versions, so
   running `python3 -m black` locally can produce output that CI rejects.

@@ -79,7 +79,7 @@ jobs:
   # 0. Lint Python code (flake8 + black --check) via the Bazel toolchain
   # -------------------------------------------------------
   # Black and flake8 are run via `bazel run //tools/lint:...` using the
-  # repository's hermetic Python 3.13 toolchain. The exact same command is
+  # repository's hermetic Python 3.14 toolchain. The exact same command is
   # what `scripts/lint.sh` invokes locally — no Python-version drift between
   # devs and CI.
   lint:

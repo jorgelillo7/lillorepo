@@ -368,7 +368,7 @@ there is paid in game money, not in a red build.
 ### LP-23 — One quality toolchain, run hermetically
 
 Formatting is `black` and linting is `flake8` (`max-line-length = 88`),
-both run through Bazel's Python 3.13 by `scripts/lint.sh`. Run
+both run through Bazel's Python 3.14 by `scripts/lint.sh`. Run
 `bash scripts/lint.sh --fix` before pushing.
 
 **Why.** `black` formats slightly differently across Python versions. Running
