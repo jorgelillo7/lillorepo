@@ -35,7 +35,7 @@ The Be Water catalog (package `be_water`).
 | Firestore | `(default)` — `europe-southwest1` | waters, users, water_revisions (created on the first composition overwrite) |
 | Cloud Storage | `be-water-photos` — **`us-central1`** | bottle photos, public read. Deliberately US: Storage's 5 GB always-free tier only exists in US regions; Madrid would bill from byte one |
 | Artifact Registry | `be-water-docker` | `web` image (base pulled from `biwenger-docker`) |
-| Secret Manager | 1 secret ×1 version | `flask-web-config-regional` (JSON: flask key + Telegram bot + Gemini key — consolidated on purpose) |
+| Secret Manager | 1 secret ×1 version | `be-water-secrets` (JSON: flask key + Telegram bot + Gemini key — consolidated on purpose) |
 | Budget | €1/month alert | |
 
 Deploys to this project run from the shared WIF service account

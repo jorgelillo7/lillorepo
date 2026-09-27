@@ -254,7 +254,7 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --allow-unauthenticated \
-            --update-secrets="FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
+            --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-secrets:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
@@ -318,7 +318,7 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }} \
-            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest"
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest"
 
   # -------------------------------------------------------
   # 2c. Build and deploy bot Cloud Run Service
@@ -386,7 +386,7 @@ jobs:
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
-            --update-secrets="TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
+            --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
             --set-env-vars="\
           BIWENGER_API_URL=${{ steps.api_url.outputs.url }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
@@ -401,7 +401,7 @@ jobs:
         # menu taps.
         run: |
           CFG=$(gcloud secrets versions access latest \
-            --secret=telegram-bot-config-regional --project=${{ env.PROJECT_ID }})
+            --secret=biwenger-secrets --project=${{ env.PROJECT_ID }})
           TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
           TELEGRAM_WEBHOOK_SECRET=$(echo "$CFG" | jq -r .webhook_secret)
           BOT_URL=$(gcloud run services describe biwenger-bot \
@@ -475,7 +475,7 @@ jobs:
             --memory=512Mi \
             --cpu=1 \
             --concurrency=10 \
-            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest,TELEGRAM_BOT_CONFIG_JSON=telegram-bot-config-regional:latest" \
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           DRAFT_APPLY_TO_BIWENGER=${{ vars.DRAFT_APPLY_TO_BIWENGER || 'false' }},\
@@ -541,7 +541,7 @@ jobs:
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
-            --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-bot-config-regional:latest" \
+            --update-secrets="CHUCKNORRIS_BOT_CONFIG_JSON=chucknorris-secrets:latest" \
             --set-env-vars="\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
@@ -552,7 +552,7 @@ jobs:
         # default so the reply keyboard stays the single visual menu.
         run: |
           CFG=$(gcloud secrets versions access latest \
-            --secret=chucknorris-bot-config-regional --project=${{ env.PROJECT_ID }})
+            --secret=chucknorris-secrets --project=${{ env.PROJECT_ID }})
           TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
           # Pinned by the lock. pip refuses a constraint with extras, so any
           # `name[extra]==x` line is stripped to its plain name.
@@ -623,7 +623,7 @@ jobs:
             --memory=256Mi \
             --cpu=1 \
             --concurrency=80 \
-            --update-secrets="FLASK_WEB_CONFIG_JSON=flask-web-config-regional:latest" \
+            --update-secrets="FLASK_WEB_CONFIG_JSON=be-water-secrets:latest" \
             --set-env-vars="^;^\
           FIRESTORE_PROJECT=be-water-app;\
           BEWATER_ADMINS=jorgelillo,bea;\

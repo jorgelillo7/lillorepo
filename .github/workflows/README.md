@@ -112,8 +112,8 @@ usually begins mid-afternoon. It only has to run once a day, so that is fine.
 | `COMPETICIONES_SHEET_IDS_26_27` | Competitions workbook ids for 26-27, **`;`-separated** |
 
 Other credentials (Biwenger login, Telegram bot tokens, JP token, Flask
-`secret_key`/`admin_password` via `flask-web-config-regional`) live in Secret
-Manager and are injected at runtime via `--update-secrets`, not as GitHub secrets.
+`secret_key`/`admin_password`) live in Secret Manager — one secret per package:
+`biwenger-secrets`, `chucknorris-secrets`, `be-water-secrets` — and are injected at runtime via `--update-secrets`, not as GitHub secrets.
 
 GCP auth is keyless: the workflow exchanges its GitHub OIDC token for
 short-lived `biwenger-tools-sa` credentials via Workload Identity Federation

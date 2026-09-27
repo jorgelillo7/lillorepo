@@ -28,7 +28,7 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 # while production could not call it at all. Google names the replacement in
 # the 404 body, which is how this value was found.
 #
-#     gcloud secrets versions access latest --secret=flask-web-config-regional \
+#     gcloud secrets versions access latest --secret=be-water-secrets \
 #       --project=be-water-app
 DEFAULT_MODEL = "gemini-3.6-flash"
 # No `-latest` alias exists for image models; callers should treat failures

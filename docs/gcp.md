@@ -23,12 +23,11 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 ## Secrets
 
-| Secret | Contents |
-|---|---|
-| `biwenger-credentials-regional` | `{"email", "password", "jp_auth_token"}` — plus a `gdrive_folder_id` nothing reads any more |
-| `telegram-bot-config-regional` | `{"bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret"}` |
-| `chucknorris-bot-config-regional` | `{"bot_token", "webhook_secret"}` |
-| `flask-web-config-regional` | `{"secret_key", "admin_password"}` — bound to `web` as `FLASK_WEB_CONFIG_JSON` |
+| Secret | Contents | Mounted by |
+|---|---|---|
+| `biwenger-secrets` | `{"email", "password", "jp_auth_token", "bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret", "secret_key", "admin_password"}` | api and scraper (`BIWENGER_CREDENTIALS_JSON` + `TELEGRAM_BOT_CONFIG_JSON`), bot (`TELEGRAM_BOT_CONFIG_JSON`), web (`FLASK_WEB_CONFIG_JSON`) |
+| `chucknorris-secrets` | `{"bot_token", "webhook_secret"}` | chucknorris-bot |
+| `be-water-secrets` (project `be-water-app`) | `{"secret_key", "gemini_api_key", "gemini_api_key_paid", "telegram_bot_token", "telegram_chat_id"}` | be-water |
 
 All secrets are regional (`europe-southwest1`). See "Cost decisions" below.
 
@@ -69,14 +68,17 @@ verifying a new version works, destroy the old one:
 `gcloud secrets versions destroy <v> --secret=<name>`.
 `scripts/check-gcp-costs.sh` counts billable versions and flags disabled ones.
 
-### JSON secrets — one secret, multiple values
-Consolidating related credentials into a single JSON secret (e.g., `biwenger-credentials-regional`
-instead of separate `biwenger-email`, `biwenger-password`, `gdrive-folder-id`) reduces
-active secret count from 9 to 4, staying well within the free tier.
-Config modules read the JSON first, fall back to individual env vars for local dev.
+### One secret per package
+Every package keeps its credentials in a single JSON secret, and a service
+mounts it under the env var names its config already reads — the keys do not
+collide, and each config picks only its own. That keeps the billing account
+at **3 of its 6 free versions** (it sat at 6/6 before), with no Google key
+file anywhere: the web reads Sheets as its Cloud Run identity.
 
-The `jp_auth_token` (Jornada Perfecta) was added to `biwenger-credentials-regional` in
-2026-05-16 instead of creating a new secret — same scope (now `biwenger-api`), no extra cost.
+The accepted cost is least privilege: `biwenger-bot` and the web, the two
+public biwenger services, can read the Biwenger password and the JP token they
+never use. Accepted for a private league with one operator — see `STATUS.md`.
+Rotating any value means redeploying every service that mounts the secret.
 
 ### Shared Python base image
 All Cloud Run services and jobs extend a shared `python-base` image stored in Artifact Registry.

@@ -107,6 +107,7 @@ and facts merely believed. The second table is the useful one.
 
 | Gap | Why |
 |---|---|
+| One secret per package, not per service | `biwenger-secrets` holds the Biwenger password, the JP token, the bot and the web keys, so the bot and the web — the two public biwenger services — can read credentials they never use. Traded for 3/6 free Secret Manager versions instead of 6/6, and one secret to rotate per package, on a private league with one operator |
 | Real observability (alerts, SLI dashboards) | Would leave the free tier; Cloud Logging suits a human-driven workflow |
 | Staging environment | Local + prod is enough for one user |
 | Integration tests against a Firestore emulator / Biwenger sandbox | Heavy setup for the marginal value at this traffic. A cheaper in-process bot↔api suite covers the contract that actually broke |
