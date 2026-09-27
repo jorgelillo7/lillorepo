@@ -249,9 +249,10 @@ how the awards pages stayed dark for a year.
 Ask the user for the new season's workbook id (the string in its Sheets URL
 between `/d/` and `/edit`), then:
 
-1. Confirm the sheet is shared with the Sheets service account, or every read
+1. Confirm the sheet is shared with the web's own identity, or every read
    returns 403 and the page falls back to the bare H2H calendar:
-   `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com` (Viewer).
+   `319945089838-compute@developer.gserviceaccount.com` (Viewer). The web reads
+   Sheets without a key file, as its Cloud Run service account.
 2. Create the GitHub secret:
    ```bash
    gh secret set COMPETICIONES_SHEET_IDS_<NEW_UNDERSCORED> --body "<id>"

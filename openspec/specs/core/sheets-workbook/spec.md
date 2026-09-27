@@ -35,16 +35,19 @@ here and silently dropped any tab under six rows.
   `test_get_workbook_returns_empty_tabs_as_empty`,
   `test_get_workbook_with_no_tabs_makes_no_values_call`
 
-### Requirement: The Sheets client authenticates with a service account
+### Requirement: The Sheets client authenticates as whatever runs it
 
-`get_google_service` SHALL build an API client from a mounted service-account
-key file and the given scopes.
+`get_google_service` SHALL build an API client from the ambient credentials
+(ADC) and the given scopes — the Cloud Run service account in production,
+the developer's ADC locally. No key file exists: each workbook is shared,
+as Viewer, with the web's service account.
 
-Sheets is the one Google API here that still reads through a mounted key
-instead of ADC.
+A mounted key used to do this. It was the only service-account key in the
+project, it belonged to the deploy account, and it cost a Secret Manager
+version the billing account did not have to spare.
 
-#### Scenario: key, scopes and version passed through
-- **WHEN** the client is built from a key file with a set of scopes **THEN**
-  the credentials are loaded from that file with exactly those scopes, and the
-  API is built at the requested version with them
-- *Verifies:* `test_google_service_passes_the_key_scopes_and_version_through`
+#### Scenario: ambient identity, scopes and version passed through
+- **WHEN** the client is built with a set of scopes **THEN** the ambient
+  credentials are requested with exactly those scopes, and the API is built at
+  the requested version with them
+- *Verifies:* `test_google_service_uses_the_ambient_identity_with_the_scopes_given`

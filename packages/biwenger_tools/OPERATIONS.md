@@ -211,7 +211,6 @@ single source of *what must be true*.
           gcloud run jobs create biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 \
-              --set-secrets="/gdrive_sa/biwenger-tools-sa.json=biwenger-tools-sa-regional:latest" \
               --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials-regional:latest"
         ```
       * **Update the Job (when changing the image or secrets):**
