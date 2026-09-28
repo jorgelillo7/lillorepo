@@ -33,9 +33,9 @@
 
 <!-- Tabs -->
 <div class="flex gap-2 mb-6">
-    <button id="btn-cronicas" onclick="setTab('cronicas')"
+    <button id="btn-cronicas" data-on-click="setTab" data-args='["cronicas"]'
             class="tab-btn active-tab px-5 py-2 rounded-lg font-semibold text-sm transition">📰 Crónicas</button>
-    <button id="btn-datos" onclick="setTab('datos')"
+    <button id="btn-datos" data-on-click="setTab" data-args='["datos"]'
             class="tab-btn px-5 py-2 rounded-lg font-semibold text-sm transition">📊 Mr. Lucen (Datos)</button>
 </div>
 
@@ -44,7 +44,7 @@
     <div class="relative">
         <input type="text" id="search-input" placeholder="Buscar en la sección actual..."
                class="w-full p-3 pr-10 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
-        <button id="clear-btn" onclick="clearSearch()"
+        <button id="clear-btn" data-on-click="clearSearch"
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl leading-none">×</button>
     </div>
 </div>
@@ -95,7 +95,7 @@
     .tab-btn.active-tab { background-color: #38a169; color: white; }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const allData = {
     cronicas: {{ cronicas | tojson }},
     datos: {{ datos | tojson }}

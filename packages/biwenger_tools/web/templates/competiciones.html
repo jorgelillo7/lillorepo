@@ -10,7 +10,7 @@
     {% if tabs %}
     <div class="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-1">
         {% for t in tabs %}
-        <button id="btn-{{ t.key }}" onclick="loadSection('{{ t.key }}')"
+        <button id="btn-{{ t.key }}" data-on-click="loadSection" data-args='["{{ t.key }}"]'
                 class="tab-btn shrink-0 px-4 py-2 rounded-lg font-semibold text-sm transition">{{ t.label }}</button>
         {% endfor %}
     </div>
@@ -58,7 +58,7 @@
             <div class="md:hidden divide-y divide-gray-100">
                 {% for s in h2h_standings %}
                 <div>
-                    <button onclick="toggleStanding({{ loop.index0 }})"
+                    <button data-on-click="toggleStanding" data-args='[{{ loop.index0 }}]'
                             class="w-full flex items-center gap-3 py-3 text-left">
                         <span class="w-6 text-sm font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.position }}</span>
                         <span class="flex-1 font-medium text-gray-800">
@@ -132,7 +132,7 @@
             <h2 class="font-header text-2xl font-bold text-gray-900">Calendario</h2>
             {% for r in h2h_rounds %}
             <div class="card rounded-xl shadow-sm {% if not r.started %}opacity-60{% endif %}">
-                <button onclick="toggleRound({{ r.jornada }})"
+                <button data-on-click="toggleRound" data-args='[{{ r.jornada }}]'
                         class="w-full flex items-center gap-3 px-4 py-3 text-left">
                     <span class="text-sm font-bold text-gray-800">J{{ r.jornada }}</span>
                     {% if r.played %}
@@ -231,7 +231,7 @@
 .tab-btn.active-tab { background-color: #38a169; color: white; }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const SECTIONS = {{ tabs | map(attribute='key') | list | tojson }};
 
 function toggleStanding(idx) {

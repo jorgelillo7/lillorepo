@@ -32,7 +32,7 @@
     {% if categories|length > 1 %}
     <div class="flex flex-wrap gap-2 mb-4" id="category-filters">
         {% for cat in categories %}
-        <button type="button" data-category="{{ cat.key }}" onclick="toggleCategory('{{ cat.key }}', this)"
+        <button type="button" data-category="{{ cat.key }}" data-on-click="toggleCategory" data-args='["{{ cat.key }}", "@this"]'
                 class="px-2.5 py-1 rounded-full text-xs font-medium border {{ cat.chip }}">
             {{ cat.label }}
         </button>
@@ -57,7 +57,7 @@
                 {% for event in day.events %}
                 <button type="button"
                         data-category="{{ event.category }}"
-                        onclick="showEventDetail('{{ day.date.isoformat() }}', {{ loop.index0 }})"
+                        data-on-click="showEventDetail" data-args='["{{ day.date.isoformat() }}", {{ loop.index0 }}]'
                         class="event-chip block w-full text-left mt-0.5 truncate rounded px-1 border text-[0.65rem] sm:text-xs leading-tight {{ category_styles[event.category].chip }}">
                     {{ event.title }}
                 </button>
@@ -69,14 +69,14 @@
 </div>
 
 <!-- Event detail modal -->
-<div id="event-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" onclick="closeEventModal()">
-    <div class="card rounded-xl shadow-lg p-6 max-w-sm w-full" onclick="event.stopPropagation()">
+<div id="event-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" data-on-click="closeEventModal">
+    <div class="card rounded-xl shadow-lg p-6 max-w-sm w-full" data-on-click="stop">
         <div class="flex items-start justify-between mb-2">
             <div>
                 <span id="event-modal-category" class="inline-block mb-1 px-2 py-0.5 rounded-full text-[0.65rem] font-medium border"></span>
                 <h3 id="event-modal-title" class="font-header text-lg font-bold text-gray-900"></h3>
             </div>
-            <button type="button" onclick="closeEventModal()" class="text-gray-400 hover:text-gray-700 flex-shrink-0" aria-label="Cerrar">
+            <button type="button" data-on-click="closeEventModal" class="text-gray-400 hover:text-gray-700 flex-shrink-0" aria-label="Cerrar">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -88,7 +88,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const EVENTS_BY_DAY = {{ events_by_day | tojson }};
 const CATEGORY_STYLES = {{ category_styles | tojson }};
 

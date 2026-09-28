@@ -29,9 +29,36 @@ from packages.be_water.web.domain import format_mineral
 from packages.be_water.web.routes import add, admin, main, session
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
+# What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
+# 'unsafe-inline' because Tailwind's CDN build injects them at runtime; scripts
+# run only with this request's nonce.
+CSP = {
+    "default-src": ["'self'"],
+    "script-src": [
+        "'self'",
+        "'nonce-{nonce}'",
+        "https://cdn.tailwindcss.com",
+        "https://accounts.google.com/gsi/client",
+    ],
+    "style-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://accounts.google.com/gsi/style",
+    ],
+    "font-src": ["'self'", "https://fonts.gstatic.com"],
+    "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
+    "frame-src": ["https://accounts.google.com/gsi/"],
+    "connect-src": ["'self'", "https://accounts.google.com/gsi/"],
+    "object-src": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+    "frame-ancestors": ["'none'"],
+}
+
 app = Flask(__name__, template_folder=template_dir)
 use_json_logging(app)
-add_security_headers(app)
+add_security_headers(app, csp=CSP)
 trust_proxy(app)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 app.config.update(

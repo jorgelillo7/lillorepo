@@ -47,7 +47,7 @@
     {% endif %}
 </section>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     const search = document.getElementById('search');
     const chips = document.querySelectorAll('.chip');
     const gasToggle = document.getElementById('gas-toggle');

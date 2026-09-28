@@ -4,7 +4,8 @@ The basics every public Flask app in the repo needs behind Cloud Run: CSRF
 protection on form POSTs, an abuse brake on public endpoints, and correct
 absolute URLs behind the proxy that terminates TLS.
 
-- **Source:** `core/web/csrf.py`, `core/web/ratelimit.py`, `core/web/proxy.py`
+- **Source:** `core/web/csrf.py`, `core/web/ratelimit.py`, `core/web/proxy.py`,
+  `core/web/headers.py`
 - **Verified by:** `core/tests/test_web.py`; the proxy fix through
   `packages/be_water/web/tests/test_routes.py`
 
@@ -87,3 +88,22 @@ these services. The client IP is left alone because the rate limiters read
 - **WHEN** a request arrives with `X-Forwarded-Proto: https` **THEN** absolute
   URLs the app builds use `https://`
 - *Verifies:* `test_absolute_urls_follow_the_forwarded_scheme`
+
+### Requirement: A nonce-based Content-Security-Policy when a web asks for one
+
+`add_security_headers(app, csp=policy)` SHALL send a `Content-Security-Policy`
+built from `policy`, with `'nonce-{nonce}'` replaced by a fresh random nonce
+per request — the same value templates read through `csp_nonce()` — and a
+`report-uri /csp-report`. `/csp-report` SHALL log what the browser blocked as a
+WARNING and answer 204. Without `csp`, no policy header is sent.
+
+#### Scenario: nonce, rotation, reporting, opt-in
+- **WHEN** a page is served **THEN** its header's nonce is the one the page's
+  `<script>` carries, and the header ends in `report-uri /csp-report`
+- **WHEN** two requests are served **THEN** their nonces differ
+- **WHEN** the browser posts a violation **THEN** it is logged as a WARNING
+  naming the blocked URI, and the answer is 204
+- **WHEN** no policy is given **THEN** no `Content-Security-Policy` is sent
+- *Verifies:* `test_csp_nonce_in_header_matches_the_page`,
+  `test_csp_nonce_changes_every_request`, `test_csp_report_is_logged_as_a_warning`,
+  `test_no_csp_unless_asked`

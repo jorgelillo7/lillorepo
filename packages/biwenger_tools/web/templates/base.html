@@ -3,6 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {# Event wiring for the CSP: handlers live in data-on-<event>="fn" (+ data-args
+       as JSON, "@this" for the element) instead of onclick= attributes, which a
+       nonce-based policy blocks. The innermost element with the attribute wins,
+       so data-on-click="stop" shields a child from its parent's handler.
+       Registered in <head>, in capture for `error`, so an <img> failing before
+       the page's scripts run is still handled. #}
+    <script nonce="{{ csp_nonce() }}">
+    (function () {
+        function run(el, type) {
+            var name = el.getAttribute('data-on-' + type);
+            if (!name || name === 'stop' || typeof window[name] !== 'function') return;
+            var raw = el.getAttribute('data-args');
+            var args = (raw ? JSON.parse(raw) : []).map(function (a) { return a === '@this' ? el : a; });
+            window[name].apply(el, args);
+        }
+        ['click', 'change', 'input'].forEach(function (type) {
+            document.addEventListener(type, function (ev) {
+                var el = ev.target.closest && ev.target.closest('[data-on-' + type + ']');
+                if (el) run(el, type);
+            });
+        });
+        document.addEventListener('error', function (ev) {
+            var el = ev.target;
+            if (el && el.getAttribute && el.getAttribute('data-on-error')) run(el, 'error');
+        }, true);
+        document.addEventListener('submit', function (ev) {
+            var message = ev.target.getAttribute && ev.target.getAttribute('data-confirm');
+            if (message && !window.confirm(message)) ev.preventDefault();
+        });
+    })();
+    </script>
     <title>{% block title %}Tablón Biwenger{% endblock %}</title>
 
     <!-- iOS home-screen integration. Without these, iOS uses a screenshot
@@ -24,7 +55,7 @@
          backed out, since deferring the compiler is what produces a flash of
          unstyled content. Preconnecting is the part that costs nothing. -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script nonce="{{ csp_nonce() }}" src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
@@ -200,7 +231,7 @@
         <div class="text-gray-400 text-xs font-mono mt-1">{{ git_commit }}{% if deploy_time %} · {{ deploy_time }}{% endif %} · <a href="{{ url_for('admin.admin') }}" class="hover:text-gray-600">VAR</a></div>
     </footer>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         // Hamburger
         const hamburgerBtn = document.getElementById('hamburger-btn');
         const mobileMenu = document.getElementById('mobile-menu');

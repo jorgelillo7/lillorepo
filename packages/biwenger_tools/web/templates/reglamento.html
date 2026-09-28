@@ -1249,7 +1249,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     function setChapterOpen(chapter, open) {
         const content = chapter.querySelector('.accordion-content');
         if (!content) return;
