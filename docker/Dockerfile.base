@@ -85,14 +85,17 @@ RUN pip install --no-cache-dir \
  && chmod -R a+rwX /opt/matplotlib \
  && find /usr/local/lib/python3.14 -name '__pycache__' -type d -exec rm -rf {} + \
  && find /usr/local/lib/python3.14 -name '*.pyc' -delete \
+ && python3 -m compileall -q -j0 /usr/local/lib/python3.14 \
  && rm -rf /root/.cache /tmp/*
 
 # Notes on the cleanups above (all in one RUN so the savings land in one layer):
 # - googleapiclient/discovery_cache/documents ships ~96 MB of JSON discovery
 #   docs for every Google API. We hit only Drive, Sheets and Cloud Run; the
 #   rest are regenerated on demand at runtime if ever needed.
-# - --no-compile + pyc cleanup drops ~10 MB of compiled bytecode that Python
-#   re-creates on first import anyway.
+# - bytecode is compiled once, last, for the whole of python3.14: without it
+#   every cold start compiled matplotlib, Firestore and Flask again (measured
+#   2.5-3x slower imports). pip's own --no-compile and the .pyc sweep before
+#   it only clear what the install and the font-cache import left behind.
 # - pip cache and /tmp leftovers from the install go too.
 # - the matplotlib font cache is built here, into MPLCONFIGDIR, before the
 #   bytecode cleanup so the import leaves no .pyc behind.

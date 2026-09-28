@@ -158,10 +158,10 @@ Skip this step if already present.
 
 # Step 8 — Rebuild and push the python-base image
 
-This step rebuilds the Docker base image for both platforms and pushes it to the registry.
+This step rebuilds the Docker base image for linux/amd64 (the only platform Cloud Run runs) and pushes it to the registry. Push it under a tag of its own, not `latest`, until the PR merges — see `.claude/skills/check-deps/UPGRADING.md` §4.
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
+docker buildx build --platform linux/amd64 \
   -f docker/Dockerfile.base \
   -t europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:latest \
   --push .
@@ -172,7 +172,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 docker buildx create --name mi_builder --driver docker-container --use
 ```
 
-After the push completes, extract the new multi-arch digest from the output. Look for a line like:
+After the push completes, extract the new digest from the output. Look for a line like:
 ```
 pushing manifest for .../python-base:latest@sha256:XXXXXXX
 ```
@@ -192,7 +192,6 @@ oci.pull(
     digest = "sha256:NUEVO_DIGEST",   # ← update this
     platforms = [
         "linux/amd64",
-        "linux/arm64",
     ],
 )
 ```

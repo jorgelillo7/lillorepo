@@ -125,9 +125,17 @@ same `RUN` layer to drive/sheets/run only — the 581 other JSON discovery docs
 are dead weight (~96 MB). These two together drop the image from ~443 MB to
 ~275 MB, well inside the 500 MB Artifact Registry free tier.
 
-When using \`pip install\` in the Dockerfile, keep \`--no-compile\` and the
-\`__pycache__\` / \`.pyc\` cleanup at the end of the same \`RUN\` — Python
-re-creates bytecode on first import, no need to ship it.
+### linux/amd64 only, with bytecode compiled in
+
+The base is built for **linux/amd64 only** — what Cloud Run runs. A second
+architecture (arm64) only served running production images in Docker on a Mac,
+and doubled the base in the registry. With it gone, the base carries
+**precompiled bytecode** instead: `compileall` runs last in the install `RUN`,
+after the `.pyc` sweep. Measured on amd64: `matplotlib.pyplot` imports in 0.8 s
+instead of 2.6 s, Firestore 0.5 s instead of 1.7 s, Flask 0.4 s instead of 1.0 s
+— every cold start used to pay that. Net registry cost: the base went from
+204 MB (two architectures) to 127 MB compressed. Reversing this was reasoned in
+the PR that did it; the free tier, not taste, is what to re-check first.
 
 ### min-instances = 0 on all services
 No idle compute billing. All services are request-driven or job-driven.
@@ -157,8 +165,8 @@ normal-operations event.
 `scripts/clean-images-artifact.sh` purges old digests per image. Note that the
 `SIMPLE_IMAGES` array must list **every** Cloud Run service/job repo — `chucknorris_bot`
 was missing until 2026-05-16 and quietly accumulated 8 digests. When adding a new
-service, add its repo name to that array. `python-base` is multi-arch and managed
-separately (deletes only orphan untagged digests older than 24 h).
+service, add its repo name to that array. `python-base` is an image index (the amd64 image plus its build
+attestation) and is managed separately (deletes only orphan untagged digests older than 24 h).
 
 The script is invoked by CI's `cleanup` job after any successful deploy. If a week
 passes without merges, run it manually.

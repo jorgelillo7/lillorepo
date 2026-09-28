@@ -49,7 +49,7 @@ graph TD
                 project with no code to ship yet
 /docker         Pre-built Python base image (all deps pre-installed)
 /tools          Custom Bazel macros (python_service, python_job)
-/platforms      Platform definitions (linux/amd64, linux/arm64)
+/platforms      Platform definition (linux/amd64, what every image targets)
 /scripts        CI guards (dependency-layer sync, test selection), GCP cost and cleanup
 /docs           Operations runbook, setup guides, technical audit notes
 ```

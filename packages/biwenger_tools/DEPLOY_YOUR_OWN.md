@@ -110,7 +110,7 @@ already installed — that is what keeps cold starts to a few seconds (step 12).
 
 ```bash
 docker buildx create --name builder --driver docker-container --use
-docker buildx build --platform linux/amd64,linux/arm64 \
+docker buildx build --platform linux/amd64 \
   -f docker/Dockerfile.base -t $REGISTRY/python-base:latest --push .
 
 gcloud artifacts docker images list $REGISTRY/python-base \
