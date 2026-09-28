@@ -20,11 +20,17 @@ list belongs fails with the parameter name instead of surfacing as an analysis
 error in a generated target several hundred lines away.
 """
 
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_python//python:defs.bzl", "py_library", "py_binary", "py_test")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files", "strip_prefix")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
 load("@pypi//:requirements.bzl", "requirement")
+
+_AMD64_LINUX = [
+    "@platforms//cpu:x86_64",
+    "@platforms//os:linux",
+]
 
 # ---------------------------------------------------------------------------
 # Type checks — every failure names the parameter, so the message is actionable
@@ -341,10 +347,15 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
 
     # ============================================================
     # 4️⃣ IMAGEN LOCAL
+    # The base image is published for linux/amd64 only (what Cloud Run runs).
+    # The images are built through a platform transition to it, so load and
+    # push work from an arm64 Mac with no flag while their tools stay native;
+    # the untransitioned oci_image targets are linux/amd64-only.
     # ============================================================
     oci_image(
         name = name + "_image_local",
         base = "@python_with_deps",
+        target_compatible_with = _AMD64_LINUX,
         tars = [
             ":" + name + "_core_layer",
         ] + package_layers + [
@@ -355,9 +366,15 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
         workdir = "/app",
     )
 
+    platform_transition_filegroup(
+        name = name + "_image_local_amd64",
+        srcs = [":" + name + "_image_local"],
+        target_platform = "//platforms:linux_amd64",
+    )
+
     oci_load(
         name = "load_image_to_docker_local",
-        image = ":" + name + "_image_local",
+        image = ":" + name + "_image_local_amd64",
         repo_tags = ["bazel/" + name + ":local"],
     )
 
@@ -367,6 +384,7 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
     oci_image(
         name = name + "_image_gcp",
         base = "@python_with_deps",
+        target_compatible_with = _AMD64_LINUX,
         tars = [
             ":" + name + "_core_layer",
         ] + package_layers + [
@@ -377,9 +395,15 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
         workdir = "/app",
     )
 
+    platform_transition_filegroup(
+        name = name + "_image_gcp_amd64",
+        srcs = [":" + name + "_image_gcp"],
+        target_platform = "//platforms:linux_amd64",
+    )
+
     oci_push(
         name = "push_image_to_gcp",
-        image = ":" + name + "_image_gcp",
+        image = ":" + name + "_image_gcp_amd64",
         repository = repository,
         remote_tags = ["latest"],
     )

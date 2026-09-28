@@ -28,11 +28,13 @@ script — unpacks `core_srcs.tar` and execs the app.
 
 Consequences worth knowing before you change anything:
 
-- **The image layers are architecture-independent.** They are `.py` text files.
-  What makes an image amd64 or arm64 is only which variant of the multi-arch
-  base `oci_image` selects, which is why every push passes
-  `--platforms=//platforms:linux_amd64`. Forget that flag on an ARM Mac and you
-  push an arm64 image that Cloud Run cannot run.
+- **Every image is linux/amd64, wherever it is built.** The base is published
+  for amd64 only, and the `python_service` macro builds each image through a
+  platform transition to `//platforms:linux_amd64`, so `load_image_to_docker_local`
+  and `push_image_to_gcp` need no flag on an ARM Mac and cannot push an arm64
+  image by mistake. Locally the container runs under emulation: fine for
+  checking it boots, too slow for anything heavy (matplotlib's `savefig`
+  stalls there, on the old multi-arch base too, and completes natively).
 - **Only `templates/**` and `static/**` are shipped as data.** The
   `python_service` macro globs exactly those two, plus `**/*.py`. A `.csv`,
   `.json` or `.sql` a service reads at runtime will not be in the image, and the

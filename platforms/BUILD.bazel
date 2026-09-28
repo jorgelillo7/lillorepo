@@ -6,4 +6,6 @@ platform(
         "@platforms//cpu:x86_64",
         "@platforms//os:linux",
     ],
+    # Every service's image transitions to it (tools/bazel/python_service.bzl).
+    visibility = ["//visibility:public"],
 )

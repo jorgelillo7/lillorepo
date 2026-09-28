@@ -5,7 +5,7 @@ digest pinned in `MODULE.bazel`. The dependency list in `Dockerfile.base`
 must stay in sync with `requirements_lock.txt` — when the lockfile changes,
 rebuild and re-pin.
 
-## Rebuild & push (multi-arch)
+## Rebuild & push (linux/amd64 only)
 
 ```bash
 # One-time builder setup
@@ -14,9 +14,10 @@ docker buildx create --name mi_builder --driver docker-container --use
 # Auth to Artifact Registry (one-time per machine)
 gcloud auth configure-docker europe-southwest1-docker.pkg.dev
 
-# Build for amd64 + arm64 and push in one shot
+# amd64 only: Cloud Run is amd64, and a second architecture doubled the
+# registry for the one use a Mac had for it (see docs/gcp.md).
 docker buildx build \
-  --platform linux/amd64,linux/arm64 \
+  --platform linux/amd64 \
   -f docker/Dockerfile.base \
   -t europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:latest \
   --push .

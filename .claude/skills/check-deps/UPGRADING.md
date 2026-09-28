@@ -83,9 +83,12 @@ families. Each one rebases on the previous one.
 
 Tests mock Firestore and never boot gunicorn. Before merging an image PR:
 
-1. **Inside the image, on both architectures**
-   (`docker run --platform linux/amd64|linux/arm64 --entrypoint python3`),
-   check the Python and library versions and import the whole stack.
+1. **Inside the image** (`docker run --platform linux/amd64 --entrypoint
+   python3`), check the Python and library versions and import the whole
+   stack. On a Mac this is emulated: fine for imports, too slow for
+   rendering (matplotlib's `savefig` stalls) — prove that natively with a
+   throwaway Cloud Build step, which runs as the compute account and so needs
+   `artifactregistry.reader` + `logging.logWriter` granted just for it.
 2. **Talk to the real services from it**: mount your ADC
    (`-v ~/.config/gcloud/application_default_credentials.json:/adc.json:ro
    -e GOOGLE_APPLICATION_CREDENTIALS=/adc.json`) and read a known Firestore
