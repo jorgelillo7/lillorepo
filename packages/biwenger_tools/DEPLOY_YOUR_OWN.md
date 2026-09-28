@@ -55,7 +55,7 @@ gcloud projects create $PROJECT_ID
 gcloud billing projects link $PROJECT_ID --billing-account=<BILLING_ACCOUNT_ID>
 gcloud config set project $PROJECT_ID
 
-# compute: creates the default service account every service runs as.
+# compute also creates a default service account; nothing here runs as it (step 7).
 gcloud services enable compute.googleapis.com run.googleapis.com \
   artifactregistry.googleapis.com secretmanager.googleapis.com \
   firestore.googleapis.com cloudscheduler.googleapis.com iamcredentials.googleapis.com
@@ -175,17 +175,32 @@ gcloud secrets versions destroy <old_version> --secret=<secret>
 
 ## 7. Permissions
 
-Every service runs as the project's default compute service account. Ours
-holds `roles/editor` plus `roles/secretmanager.secretAccessor`, and that is
-the combination known to work.
+Each service runs as its own service account holding only what it touches —
+never the default compute account, which comes with `roles/editor` on the
+whole project: a bug in the public bot would then be a project takeover.
 
 ```bash
-SA=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')-compute@developer.gserviceaccount.com
-gcloud iam service-accounts describe $SA   # must exist — see step 2
-for role in roles/editor roles/secretmanager.secretAccessor; do
-  gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$SA --role=$role
+for s in run-biwenger-api run-biwenger-bot run-biwenger-web run-biwenger-scraper scheduler-invoker; do
+  gcloud iam service-accounts create $s   # the API allows a few per minute; re-run a failure
 done
+sa() { echo "serviceAccount:$1@$PROJECT_ID.iam.gserviceaccount.com"; }
+
+# Firestore: the api and the scraper write, the web only reads.
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=$(sa run-biwenger-api) --role=roles/datastore.user
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=$(sa run-biwenger-scraper) --role=roles/datastore.user
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=$(sa run-biwenger-web) --role=roles/datastore.viewer
+
+# The one secret, granted per service that reads it — not project-wide.
+for s in run-biwenger-api run-biwenger-bot run-biwenger-web run-biwenger-scraper; do
+  gcloud secrets add-iam-policy-binding biwenger-secrets --member=$(sa $s) --role=roles/secretmanager.secretAccessor
+done
+
+# The api publishes the front pages into the bucket.
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET --member=$(sa run-biwenger-api) --role=roles/storage.objectUser
 ```
+
+Who may *call* the api and *run* the scraper is granted in step 8, once they
+exist.
 
 ## 8. Deploy — passive first
 
@@ -196,16 +211,20 @@ off**, so nothing spends money or touches your team until step 10 checks out.
 # API — private: only the bot and the scheduler may call it.
 bazel run //packages/biwenger_tools/api:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-api --image $REGISTRY/api --region $REGION \
+  --service-account=run-biwenger-api@$PROJECT_ID.iam.gserviceaccount.com \
   --no-allow-unauthenticated --memory=512Mi --cpu=1 --concurrency=10 --timeout=300 \
   --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27,GCP_PROJECT_ID=$PROJECT_ID,PERIODICO_BUCKET=$BUCKET,DRAFT_APPLY_TO_BIWENGER=false,AUTO_BID_PAUSED_UNTIL=2099-01-01,CHOLLO_MAX_BIDS=0,DAILY_LINEUP_ENABLED=false"
 API_URL=$(gcloud run services describe biwenger-api --region $REGION --format='value(status.url)')
-gcloud run services add-iam-policy-binding biwenger-api --region $REGION \
-  --member=serviceAccount:$SA --role=roles/run.invoker
+for s in run-biwenger-bot scheduler-invoker; do
+  gcloud run services add-iam-policy-binding biwenger-api --region $REGION \
+    --member=$(sa $s) --role=roles/run.invoker
+done
 
 # Bot — public: Telegram calls it, and the webhook secret keeps everyone else out.
 bazel run //packages/biwenger_tools/bot:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-bot --image $REGISTRY/bot --region $REGION \
+  --service-account=run-biwenger-bot@$PROJECT_ID.iam.gserviceaccount.com \
   --allow-unauthenticated --memory=256Mi --cpu=0.5 --concurrency=1 --timeout=300 \
   --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="BIWENGER_API_URL=$API_URL"
@@ -222,9 +241,16 @@ PYTHONPATH=. TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token) \
 # Scraper — a job, not a service: it runs weekly and exits.
 bazel run //packages/biwenger_tools/scraper_job:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run jobs create biwenger-scraper-data --image $REGISTRY/scraper_job --region $REGION \
+  --service-account=run-biwenger-scraper@$PROJECT_ID.iam.gserviceaccount.com \
   --memory=512Mi --cpu=1 --task-timeout=600s --max-retries=3 \
   --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27"
+# Run the job: the scheduler (step 9), the bot's /scrapper through the api,
+# and the web's admin button.
+for s in scheduler-invoker run-biwenger-api run-biwenger-web; do
+  gcloud run jobs add-iam-policy-binding biwenger-scraper-data --region $REGION \
+    --member=$(sa $s) --role=roles/run.invoker
+done
 ```
 
 ## 9. The two clocks
@@ -237,13 +263,15 @@ purpose: a retried digest sends every message twice.
 gcloud scheduler jobs create http biwenger-daily-digest-trigger --location=$SCHED_REGION \
   --schedule="0 9 * * *" --time-zone=Europe/Madrid --http-method=POST \
   --uri="$API_URL/digests/daily" --attempt-deadline=180s \
-  --oidc-service-account-email=$SA --oidc-token-audience="$API_URL"
+  --oidc-service-account-email=scheduler-invoker@$PROJECT_ID.iam.gserviceaccount.com \
+  --oidc-token-audience="$API_URL"
 
 # Sunday 22:00 scraper run.
 gcloud scheduler jobs create http biwenger-scraper-data-scheduler-trigger --location=$SCHED_REGION \
   --schedule="0 22 * * 0" --time-zone=Europe/Madrid --http-method=POST \
   --uri="https://$REGION-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/biwenger-scraper-data:run" \
-  --attempt-deadline=180s --oauth-service-account-email=$SA
+  --attempt-deadline=180s \
+  --oauth-service-account-email=scheduler-invoker@$PROJECT_ID.iam.gserviceaccount.com
 ```
 
 ## 10. Check it works, then switch it on
@@ -308,12 +336,14 @@ running all month and leaves the free tier — not worth it for a league.
 
 The public dashboard (comunicados, salseo, market, competitions). It reads its
 session key and admin password from `biwenger-secrets` (step 6), and the
-competitions tabs from Google Sheets shared, as Viewer, with `$SA` (step 7) —
+competitions tabs from Google Sheets shared, as Viewer, with
+`run-biwenger-web@$PROJECT_ID.iam.gserviceaccount.com` (step 7) —
 no key file. Skip it if the bot is all you want.
 
 ```bash
 bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
 gcloud run deploy biwenger-summary --image $REGISTRY/web --region $REGION \
+  --service-account=run-biwenger-web@$PROJECT_ID.iam.gserviceaccount.com \
   --allow-unauthenticated --timeout=300 \
   --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-secrets:latest" \
   --set-env-vars="TEMPORADA_ACTUAL=26-27,GCP_PROJECT_ID=$PROJECT_ID,CLOUD_RUN_REGION=$REGION,CLOUD_RUN_JOB_NAME=biwenger-scraper-data,PERIODICO_BUCKET=$BUCKET,SPECIAL_TOURNAMENTS_BUCKET=$BUCKET"
@@ -332,6 +362,6 @@ What this repo does: `.github/workflows/deploy.yml` deploys on each push to
   projects;
 - create a WIF pool and provider **restricted to your fork's repository**, and
   a deploy service account with, at least, `roles/artifactregistry.writer`,
-  `roles/run.developer`, `roles/iam.serviceAccountUser` on the compute service
-  account, and `roles/secretmanager.secretAccessor` on
+  `roles/run.developer`, `roles/iam.serviceAccountUser` on each `run-*`
+  service account from step 7 (a deploy runs as them), and `roles/secretmanager.secretAccessor` on
   `biwenger-secrets` (the bot deploy step reads it).

@@ -17,7 +17,8 @@ Reference for the `biwenger-tools` Firestore database.
 - **Database:** `(default)`, Native mode, regional **`europe-southwest1`**
   (free tier, co-located with Cloud Run).
 - **Auth:** Application Default Credentials (ADC).
-  - In Cloud Run the compute SA is picked up automatically.
+  - In Cloud Run, each service's own service account (`docs/gcp.md`,
+    "Runtime identities") is picked up automatically.
   - Locally: `gcloud auth application-default login` once.
 
 ---
@@ -279,8 +280,8 @@ Reference for the Be Water Firestore database.
 
 - **GCP project:** `be-water-app`
 - **Database:** `(default)`, Native mode, regional **`europe-southwest1`**.
-- **Auth:** Application Default Credentials (ADC) — the Cloud Run compute SA in
-  prod; `gcloud auth application-default login` locally.
+- **Auth:** Application Default Credentials (ADC) — `run-be-water@be-water-app`
+  in prod; `gcloud auth application-default login` locally.
 
 The Python models live in `packages/be_water/web/domain.py` (`Water`,
 `from_firestore` / `to_firestore`); access goes through

@@ -256,7 +256,8 @@ between `/d/` and `/edit`), then:
 
 1. Confirm the sheet is shared with the web's own identity, or every read
    returns 403 and the page falls back to the bare H2H calendar:
-   `319945089838-compute@developer.gserviceaccount.com` (Viewer). The web reads
+   `run-biwenger-web@biwenger-tools.iam.gserviceaccount.com` (Viewer) — sharing
+   the "Biwenger" Drive folder covers every workbook inside it. The web reads
    Sheets without a key file, as its Cloud Run service account.
 2. Create the GitHub secret:
    ```bash
