@@ -18,7 +18,7 @@ That line frames the project correctly: not a one-off side project but deliberat
 
 **Correct secrets management.** One regional Secret Manager JSON per package, bound at deploy; no service-account key anywhere — ADC for Firestore and Sheets, Workload Identity Federation for CI — with a local `.env` fallback for dev.
 
-**CI/CD with automatic cleanup baked in.** The cleanup script distinguishes between tagged and untagged multi-arch images in Artifact Registry, and the cleanup job runs under a GitHub Actions `concurrency` group so parallel deploys don't race on the same digest.
+**CI/CD with automatic cleanup baked in.** The cleanup script distinguishes between tagged and untagged image-index children in Artifact Registry, and the cleanup job runs under a GitHub Actions `concurrency` group so parallel deploys don't race on the same digest.
 
 **Two-tier auto-bid pricing.** The auto-bid engine bids `min(price × multiplier, price + cap)` per tier: the multiplier dominates on cheap players, the absolute cap dominates on expensive ones. With a 0-1000 € jitter on every bid so the trail doesn't look like a bot.
 

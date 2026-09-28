@@ -120,6 +120,32 @@ Every slice also carries `core/utils.py` and `core/constants.py` (`MADRID_TZ`), 
 
 Domain models live in `core/domain/` with symmetric `from_firestore` / `to_firestore` methods. They are a slice of their own rather than part of that shared base: they are read by `biwenger_tools` alone, and while they sat in the base a `Clausulazo` edit rebuilt and re-tested the Chuck Norris bot.
 
+## Service accounts
+
+No workload runs as a project's default compute account — those hold no role
+at all. Each service has its own account with only what it touches, granted on
+the resource (the secret, the bucket, the service, the job) wherever IAM
+allows it.
+
+| Account | Runs | May |
+|---|---|---|
+| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-secrets` · call `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` | **read** Firestore · read `biwenger-secrets` · run the scraper job · read the "Biwenger" Drive folder (Viewer) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-secrets` |
+| `scheduler-invoker` | both Cloud Scheduler jobs | call `biwenger-api` · run the scraper job |
+| `run-chucknorris-bot` | `chucknorris-bot` | read `chucknorris-secrets` |
+| `run-be-water` (project `be-water-app`) | `be-water` | read/write Firestore · read/write objects in `gs://be-water-photos` · read `be-water-secrets` |
+| `biwenger-tools-sa` | CI (`deploy.yml`) | push images · deploy Cloud Run in both projects · act as the `run-*` accounts — keyless through Workload Identity, `master` only |
+
+The accounts in `biwenger-tools` are `…@biwenger-tools.iam.gserviceaccount.com`.
+Who may call each service is separate: the webs and the bots answer anyone,
+`biwenger-api` only the accounts above. One gap is accepted, not fixed:
+`biwenger-secrets` is one JSON, so whoever reads it reads all of it
+([`STATUS.md`](STATUS.md)). A new service gets its own account the same way
+([`packages/biwenger_tools/DEPLOY_YOUR_OWN.md`](packages/biwenger_tools/DEPLOY_YOUR_OWN.md)
+step 7). The rationale is in [`docs/gcp.md`](docs/gcp.md).
+
 ## Deployment
 
 CI/CD runs on every push to `master`. Per-service `paths-filter` only deploys what changed (`core/`, `tools/`, `docker/`, `MODULE.bazel` or the package itself triggers that service):
