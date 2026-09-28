@@ -27,6 +27,6 @@ Schemas, indexes, and read costs are documented in `docs/firestore.md`.
   [`OPERATIONS.md`](../OPERATIONS.md).
 * **Dependencies**: see the dependency workflow in
   [`docs/operations.md`](../../../docs/operations.md).
-* **Auth**: Application Default Credentials. In Cloud Run the compute SA
-  is picked up automatically; locally, run
+* **Auth**: Application Default Credentials. In Cloud Run the job runs as
+  `run-biwenger-scraper` (Firestore read/write and `biwenger-secrets` only); locally, run
   `gcloud auth application-default login` once.

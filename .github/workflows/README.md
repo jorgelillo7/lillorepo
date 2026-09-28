@@ -136,7 +136,7 @@ Service account: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`
 
 | Resource | Role | Why |
 |----------|------|-----|
-| `319945089838-compute@developer.gserviceaccount.com` | `roles/iam.serviceAccountUser` | Allow the deploy SA to act as the Cloud Run runtime SA (`actAs` permission required by `gcloud run deploy`) |
+| each `run-*@biwenger-tools.iam.gserviceaccount.com` (api, bot, web, scraper, chucknorris) | `roles/iam.serviceAccountUser` | Allow the deploy SA to act as each service's runtime SA (`actAs`, required by `gcloud run deploy --service-account`) |
 
 ### Cross-project grants on `be-water-app`
 
@@ -147,14 +147,13 @@ The same SA deploys Be Water to its own project:
 | project `be-water-app` | `roles/run.admin` | Deploy the `be-water` service |
 | project `be-water-app` | `roles/artifactregistry.writer` | Push the `web` image to `be-water-docker` |
 | repo `be-water-docker` | `roles/artifactregistry.repoAdmin` | Cleanup job deletes old digests (writer cannot delete) |
-| runtime compute SA of `be-water-app` | `roles/iam.serviceAccountUser` | `actAs` for `gcloud run deploy` |
+| `run-be-water@be-water-app.iam.gserviceaccount.com` | `roles/iam.serviceAccountUser` | `actAs` for `gcloud run deploy` |
 
 ### How to reproduce from scratch
 
 ```bash
 SA="biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com"
 PROJECT="biwenger-tools"
-COMPUTE_SA="319945089838-compute@developer.gserviceaccount.com"
 
 # Project-level roles
 gcloud projects add-iam-policy-binding $PROJECT \
@@ -163,9 +162,11 @@ gcloud projects add-iam-policy-binding $PROJECT \
 gcloud projects add-iam-policy-binding $PROJECT \
   --member="serviceAccount:$SA" --role="roles/run.developer"
 
-# actAs on the runtime SA
-gcloud iam service-accounts add-iam-policy-binding $COMPUTE_SA \
-  --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
+# actAs on each runtime SA (see docs/gcp.md "Runtime identities")
+for rt in run-biwenger-api run-biwenger-bot run-biwenger-web run-biwenger-scraper run-chucknorris-bot; do
+  gcloud iam service-accounts add-iam-policy-binding $rt@$PROJECT.iam.gserviceaccount.com \
+    --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
+done
 ```
 
 ### Verify current permissions
@@ -177,8 +178,8 @@ gcloud projects get-iam-policy biwenger-tools \
   --filter="bindings.members:biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com" \
   --format="table(bindings.role)"
 
-# SA-level binding on compute SA
-gcloud iam service-accounts get-iam-policy 319945089838-compute@developer.gserviceaccount.com \
+# SA-level binding on a runtime SA
+gcloud iam service-accounts get-iam-policy run-biwenger-api@biwenger-tools.iam.gserviceaccount.com \
   --format="table(bindings.role, bindings.members)"
 ```
 

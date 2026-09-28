@@ -33,11 +33,12 @@ All secrets are regional (`europe-southwest1`). See "Cost decisions" below.
 
 ### No key files — do NOT set `GOOGLE_APPLICATION_CREDENTIALS`
 
-Every Google client runs on ADC: in Cloud Run that is the compute service
-account, locally the developer's `gcloud auth application-default login`.
-The web reads the competitions workbooks the same way — each workbook is
-shared, as Viewer, with `319945089838-compute@developer.gserviceaccount.com`
-— so no service-account key exists anywhere. Locally, the competitions tab
+Every Google client runs on ADC: in Cloud Run that is the service's own
+account (below), locally the developer's `gcloud auth application-default login`.
+The web reads the competitions workbooks the same way — the "Biwenger" Drive
+folder holding them is shared, as Viewer, with
+`run-biwenger-web@biwenger-tools.iam.gserviceaccount.com` — so no
+service-account key exists anywhere. Locally, the competitions tab
 needs ADC with the Sheets scope:
 
 ```bash
@@ -48,6 +49,26 @@ gcloud auth application-default login \
 Never set `GOOGLE_APPLICATION_CREDENTIALS` in `BUILD.bazel` or a deploy: the
 Firestore client honours it automatically, and a path that does not exist in
 the image crashed every Firestore read once.
+
+### Runtime identities — one service account per service
+
+No service runs as the default compute account, which carries `roles/editor`
+on the whole project. Each has only what it touches; grants sit on the
+resource (secret, bucket, service, job) wherever IAM allows it.
+
+| Runs as | Service | Holds |
+|---|---|---|
+| `run-biwenger-api` | `biwenger-api` | Firestore read/write · `biwenger-secrets` · `storage.objectUser` on `gs://biwenger` · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | `biwenger-secrets` · invoke `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` | Firestore **read** · `biwenger-secrets` · run the scraper job · the Drive folder (Viewer) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | Firestore read/write · `biwenger-secrets` |
+| `run-chucknorris-bot` | `chucknorris-bot` | `chucknorris-secrets` |
+| `scheduler-invoker` | both Cloud Scheduler jobs | invoke `biwenger-api` · run the scraper job |
+| `run-be-water` (`be-water-app`) | `be-water` | Firestore read/write · `storage.objectUser` on `gs://be-water-photos` · `be-water-secrets` |
+
+`deploy.yml` passes `--service-account` on every deploy, and CI's own account
+holds `iam.serviceAccountUser` on each. A new service gets its own account the
+same way (`DEPLOY_YOUR_OWN.md`, step 7) — never the compute default.
 
 ### Who may call each service is set once, not by CI
 
@@ -178,7 +199,7 @@ pipeline using the shared WIF service account
 | `roles/run.admin` | project | `gcloud run deploy be-water` |
 | `roles/artifactregistry.writer` | project | push the `web` image to `be-water-docker` |
 | `roles/artifactregistry.repoAdmin` | repo `be-water-docker` | the CI cleanup job deletes old digests (writer can push but not delete) |
-| `roles/iam.serviceAccountUser` | runtime compute SA | `actAs` required by `gcloud run deploy` |
+| `roles/iam.serviceAccountUser` | `run-be-water` | `actAs` required by `gcloud run deploy` |
 
 ## Cost monitoring
 
