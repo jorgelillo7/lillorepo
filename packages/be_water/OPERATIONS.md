@@ -271,6 +271,25 @@ on a **429 that survives the retries** does it repeat the call with the second
 (`core/sdk/gemini.py`) — free while the free allowance lasts, paid only when it
 is spent. Leave `gemini_api_key_paid` empty and nothing is ever charged.
 
+### A daily cap on the paid project
+
+The upload limiters are per instance and per IP; the paid project also has a
+hard daily ceiling, so abuse is bounded in money whatever the code does.
+Consumer overrides on `generate_requests_per_model_per_day` (the tier-1
+quota) in `gen-lang-client-0059905191`:
+
+| Model | Cap per day | Google's default |
+|---|---|---|
+| `gemini-3.6-flash` | 200 | 10,000 |
+| `gemini-3.1-flash-image` | 50 | 1,000 |
+
+Set from measured use: the paid project peaked at 23 requests in a day. Over
+the cap Gemini answers 429 and the upload fails visibly. Read or change it
+through Service Usage (`consumerQuotaMetrics` → the limit →
+`consumerOverrides`, with `force=true` to lower it); switching `DEFAULT_MODEL`
+in `core/sdk/gemini.py` needs a cap for the new model too, or it runs on the
+default.
+
 A key in a billing-less project is why a 429 can arrive while the billing
 account still shows its credit untouched. Check which project a key belongs to
 before concluding the quota is a billing problem:

@@ -23,6 +23,23 @@ untested, and its failures surface in production rather than in CI.
 **Trigger:** a seventh service. Six is survivable; seven is where hand-editing
 each block reliably drifts.
 
+## Containers run as root
+
+Every image inherits `python:3.14-slim`'s root user. Security audit item 13;
+parked by the owner's call.
+
+Not a one-line `USER` change: each `entrypoint.sh` unpacks `core_srcs.tar`
+into `/app` at start, so the runtime user needs write access there — the
+unpacking would have to move to build time first, across all six images. The
+risk it removes is small on Cloud Run: there is no `exec`, so a non-root user
+only limits an attacker who already has code execution in the Flask app, and
+since per-service accounts (`docs/gcp.md`) that attacker no longer holds
+Editor on the project either. The font cache already sits in a writable
+`/opt/matplotlib`, so it will not be what breaks.
+
+**Trigger:** the next change to how `core` reaches `/app` (the entrypoint or
+the image layers) — do it then, in the same PR.
+
 ## Still parked
 
 Each of these was reviewed and deliberately left alone.
