@@ -376,7 +376,9 @@ if [ "$HAS_GEMINI" -eq 1 ]; then
     fi
     echo "  Saldo prepago (sin API — revisar a mano): https://aistudio.google.com/billing"
     echo "  Modelo: prepago = tope duro (0 créditos → 429, imposible sobregastar)"
-    echo "  Coste por foto de estudio ≈ \$0.04 (gemini-2.5-flash-image)"
+    IMAGE_MODEL=$(sed -n 's/^DEFAULT_IMAGE_MODEL = "\(.*\)"/\1/p' core/sdk/gemini.py 2>/dev/null)
+    echo "  Modelo de imagen en uso: ${IMAGE_MODEL:-desconocido} (core/sdk/gemini.py)"
+    echo "  Tope diario en el proyecto de pago: ver packages/be_water/OPERATIONS.md"
     echo
 fi
 

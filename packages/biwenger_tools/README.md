@@ -112,6 +112,35 @@ Whether any of it actually beats JP alone is being measured — see
 [`projection-ledger.md`](../../docs/technical/backend/projection-ledger.md),
 which also explains why that question cannot be answered yet.
 
+## Service accounts
+
+Every piece runs as its own service account in `biwenger-tools`, holding only
+what it touches — none runs as the default compute account, which holds no
+role at all. Grants sit on the resource (the secret, the bucket, the service,
+the job) wherever IAM allows it.
+
+| Account (`…@biwenger-tools.iam.gserviceaccount.com`) | Runs | May |
+|---|---|---|
+| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` (front pages) · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-secrets` · call `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` (web) | **read** Firestore · read `biwenger-secrets` · run the scraper job (admin button) · read the "Biwenger" Drive folder (Viewer, shared by hand) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-secrets` |
+| `scheduler-invoker` | both Cloud Scheduler jobs | call `biwenger-api` (09:00 digest) · run the scraper job (Sunday 22:00) |
+| `biwenger-tools-sa` | CI (`deploy.yml`, keyless via Workload Identity, `master` only) | push images · deploy Cloud Run · act as the `run-*` accounts above |
+
+Public reach is separate from these: the web and the bot answer anyone
+(`allUsers` invoker), the api only its callers above. Two things to know when
+changing anything here:
+
+- **`biwenger-secrets` is one JSON**, so every account that reads it reads all
+  of it, Biwenger password included — accepted in [`STATUS.md`](../../STATUS.md).
+- **A new service gets its own account**, created and granted as in
+  [`DEPLOY_YOUR_OWN.md`](DEPLOY_YOUR_OWN.md) step 7 and passed with
+  `--service-account` in `deploy.yml`; CI needs `iam.serviceAccountUser` on it.
+
+The full table, including `chucknorris-bot` and `be-water`, is in
+[`docs/gcp.md`](../../docs/gcp.md#runtime-identities--one-service-account-per-service).
+
 ## Operational commands
 
 See [`OPERATIONS.md`](OPERATIONS.md) for the full per-module reference (build, test, local run, deploy), plus season rollover and Firestore maintenance. Repo-wide workflows live in [`docs/operations.md`](../../docs/operations.md).
