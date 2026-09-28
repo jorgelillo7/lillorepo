@@ -29,7 +29,7 @@
          backed out, since deferring the compiler is what produces a flash of
          unstyled content. Preconnecting is the part that costs nothing. -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script nonce="{{ csp_nonce() }}" src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
     <style>
@@ -75,7 +75,7 @@
                     <button class="px-3 py-1.5 rounded-full bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm transition">Entrar</button>
                 </form>
                 {% if google_client_id %}
-                <script src="https://accounts.google.com/gsi/client" async></script>
+                <script nonce="{{ csp_nonce() }}" src="https://accounts.google.com/gsi/client" async></script>
                 <div id="g_id_onload"
                      data-client_id="{{ google_client_id }}"
                      data-login_uri="{{ url_for('google_login', _external=True) }}"

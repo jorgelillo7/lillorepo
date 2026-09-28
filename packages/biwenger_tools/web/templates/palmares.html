@@ -128,7 +128,7 @@
                              alt="{{ t.label }} — {{ data.display_season or season }}{% if win %}: {{ win.ganador }}{% endif %}"
                              loading="lazy"
                              class="w-full rounded-lg shadow-md ring-1 ring-gray-200 cursor-pointer hover:ring-green-400 transition"
-                             onerror="cupImgFallback(this)">
+                             data-on-error="cupImgFallback" data-args='["@this"]'>
                         <figcaption class="mt-2 text-center">
                             <span class="block text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t.label }}</span>
                             {% if win %}
@@ -209,7 +209,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Special-cup graphics are optional and per-season: try {slug}/{season}.png,
 // fall back to .jpg, and if neither exists drop the figure — and the whole
 // "Copas especiales" block when a season has none. Uploading a new winner

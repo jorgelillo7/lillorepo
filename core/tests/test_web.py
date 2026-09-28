@@ -95,3 +95,86 @@ def test_security_headers_do_not_override_a_route_choice():
         return "ok", 200, {"X-Frame-Options": "SAMEORIGIN"}
 
     assert app.test_client().get("/embed").headers["X-Frame-Options"] == "SAMEORIGIN"
+
+
+_POLICY = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "'nonce-{nonce}'", "https://cdn.example"],
+    "object-src": ["'none'"],
+}
+
+
+def _csp_app():
+    from core.web.headers import add_security_headers
+
+    app = add_security_headers(_app(), csp=_POLICY)
+
+    @app.route("/")
+    def home():
+        from flask import render_template_string
+
+        return render_template_string("<script nonce='{{ csp_nonce() }}'></script>")
+
+    return app
+
+
+def test_csp_nonce_in_header_matches_the_page():
+    """Only a <script> carrying this request's nonce may run."""
+    import re
+
+    response = _csp_app().test_client().get("/")
+    header = response.headers["Content-Security-Policy"]
+    nonce = re.search(r"'nonce-([^']+)'", header).group(1)
+    assert f"nonce='{nonce}'" in response.get_data(as_text=True)
+    assert len(nonce) >= 16
+    assert "object-src 'none'" in header
+    assert "report-uri /csp-report" in header
+
+
+def test_csp_nonce_changes_every_request():
+    import re
+
+    client = _csp_app().test_client()
+    first, second = (
+        re.search(
+            r"'nonce-([^']+)'", client.get("/").headers["Content-Security-Policy"]
+        ).group(1)
+        for _ in range(2)
+    )
+    assert first != second
+
+
+def test_csp_report_is_logged_as_a_warning(caplog):
+    """A blocked source in production shows up in Cloud Logging instead of as
+    a silently broken page."""
+    import logging
+
+    report = {
+        "csp-report": {
+            "blocked-uri": "https://evil.example/x.js",
+            "violated-directive": "script-src",
+            "document-uri": "https://x/",
+        }
+    }
+    with caplog.at_level(logging.WARNING):
+        response = (
+            _csp_app()
+            .test_client()
+            .post("/csp-report", json=report, content_type="application/csp-report")
+        )
+    assert response.status_code == 204
+    assert any(
+        "evil.example" in str(getattr(r, "blocked_uri", "")) for r in caplog.records
+    )
+
+
+def test_no_csp_unless_asked():
+    from core.web.headers import add_security_headers
+
+    app = add_security_headers(_app())
+
+    @app.route("/")
+    def home():
+        return "ok"
+
+    assert "Content-Security-Policy" not in app.test_client().get("/").headers

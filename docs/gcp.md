@@ -70,6 +70,33 @@ resource (secret, bucket, service, job) wherever IAM allows it.
 holds `iam.serviceAccountUser` on each. A new service gets its own account the
 same way (`DEPLOY_YOUR_OWN.md`, step 7) — never the compute default.
 
+### Content-Security-Policy on both webs
+
+Each web declares, per page, where scripts, styles, fonts, images and frames may
+come from (`CSP` in its `app.py`, applied by `core.web.headers`). It is the
+second line against XSS: if HTML ever slipped past the sanitiser, the browser
+would still refuse to run it.
+
+- **Scripts run only with the request's nonce.** Every `<script>` carries
+  `nonce="{{ csp_nonce() }}"`; one without it does not run. That is why the
+  templates have no `onclick=`-style attributes — a nonce cannot cover them.
+  Handlers are `data-on-click="fn"` (+ `data-args` as JSON, `"@this"` for the
+  element), dispatched by one script in `base.html`; `data-confirm` replaces
+  `onsubmit="return confirm(...)"`. JSON-LD blocks need no nonce: they are
+  data, not code.
+- **Styles keep `'unsafe-inline'`.** Tailwind's CDN build generates them in the
+  browser. Moving to a Tailwind build step (parked in `PENDING.md`) is what
+  would let them go.
+- **Violations are reported.** The browser posts what it blocks to
+  `/csp-report`, logged as a `WARNING` (`CSP blocked a source.`, with the URL,
+  directive and page). A new external source — a font, an embed, an image
+  host — must be added to that web's `CSP`, or it is blocked and shows up
+  there.
+
+Verified in headless Chrome over every page of both webs: no violation, every
+handler reaches its function, and an injected script without the nonce is
+blocked and reported.
+
 ### Who may call each service is set once, not by CI
 
 Public services carry `allUsers` as `roles/run.invoker`; `biwenger-api` does

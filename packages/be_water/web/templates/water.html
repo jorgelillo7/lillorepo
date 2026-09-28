@@ -217,7 +217,7 @@
             class="absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white text-2xl leading-none">×</button>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function () {
     const box = document.getElementById('zoom');
     const img = document.getElementById('zoom-img');

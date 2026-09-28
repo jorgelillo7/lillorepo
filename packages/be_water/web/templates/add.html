@@ -43,7 +43,7 @@
         Leer etiqueta con IA
     </button>
 </form>
-<script>
+<script nonce="{{ csp_nonce() }}">
     document.getElementById('photo-form').addEventListener('submit', function () {
         document.getElementById('processing').classList.remove('hidden');
         this.querySelector('button').disabled = true;

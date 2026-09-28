@@ -8,7 +8,7 @@
         <div class="relative">
             <input type="text" id="search-input" placeholder="Buscar en todos los comunicados..."
                    class="w-full p-3 pr-10 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
-            <button id="clear-btn" onclick="clearSearch()"
+            <button id="clear-btn" data-on-click="clearSearch"
                     class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl leading-none">×</button>
         </div>
         <p id="search-counter" class="hidden text-sm text-gray-500 mt-2 px-1"></p>
@@ -65,7 +65,7 @@
         <p class="text-gray-400 mt-1 text-sm">Prueba con otros términos.</p>
     </div>
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
         // Server-rendered: empty list. The full collection is fetched on
         // demand from /<season>/comunicados/search-data the first time the
         // user interacts with the search input — one Firestore read per
@@ -145,11 +145,11 @@
                 return;
             }
             let btns = '';
-            if (page > 1) btns += `<button onclick="renderSearchPage(${page - 1})" class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Anterior</button>`;
+            if (page > 1) btns += `<button data-on-click="renderSearchPage" data-args='[${page - 1}]' class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Anterior</button>`;
             for (let i = 1; i <= totalPages; i++) {
-                btns += `<button onclick="renderSearchPage(${i})" class="px-4 py-2 border rounded-md hover:bg-gray-100 ${i === page ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' : 'border-gray-300 text-gray-600'}">${i}</button>`;
+                btns += `<button data-on-click="renderSearchPage" data-args='[${i}]' class="px-4 py-2 border rounded-md hover:bg-gray-100 ${i === page ? 'bg-green-600 text-white border-green-600 hover:bg-green-700' : 'border-gray-300 text-gray-600'}">${i}</button>`;
             }
-            if (page < totalPages) btns += `<button onclick="renderSearchPage(${page + 1})" class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Siguiente</button>`;
+            if (page < totalPages) btns += `<button data-on-click="renderSearchPage" data-args='[${page + 1}]' class="px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100">Siguiente</button>`;
             paginationContainer.innerHTML = `<div class="flex justify-center gap-2 flex-wrap">${btns}</div>`;
         }
 

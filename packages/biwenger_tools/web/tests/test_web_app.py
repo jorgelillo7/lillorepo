@@ -678,10 +678,12 @@ def test_mercado_success(mock_tabla, mock_clausulazos, client):
     return_value=[],
 )
 def test_mercado_no_data(mock_tabla, mock_clausulazos, client):
-    """Mercado page renders without error when both collections are empty."""
+    """Mercado page renders without its error banner when both collections are
+    empty. Checked by the banner's message, not the bare word: every page's
+    <head> carries an event dispatcher that handles the `error` event."""
     response = client.get("/24-25/mercado")
     assert response.status_code == 200
-    assert b"error" not in response.data.lower()
+    assert "Ocurrió un error" not in response.get_data(as_text=True)
 
 
 # --- Calendario tests ---

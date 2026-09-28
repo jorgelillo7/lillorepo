@@ -17,9 +17,26 @@ from packages.biwenger_tools.web.sanitize import safe_html
 _SEASON_RE = re.compile(r"^\d{2}-\d{2}$")
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
+# What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
+# 'unsafe-inline' because Tailwind's CDN build injects them at runtime; scripts
+# run only with this request's nonce.
+CSP = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'", "'nonce-{nonce}'", "https://cdn.tailwindcss.com"],
+    "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+    "font-src": ["'self'", "https://fonts.gstatic.com"],
+    "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
+    "frame-src": ["https://www.youtube.com", "https://www.youtube-nocookie.com"],
+    "connect-src": ["'self'"],
+    "object-src": ["'none'"],
+    "base-uri": ["'self'"],
+    "form-action": ["'self'"],
+    "frame-ancestors": ["'none'"],
+}
+
 app = Flask(__name__, template_folder=template_dir)
 use_json_logging(app)
-add_security_headers(app)
+add_security_headers(app, csp=CSP)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 # Session cookie hardening. SESSION_COOKIE_SECURE defaults to True so HTTPS
 # is enforced in Cloud Run; local dev over plain HTTP can set

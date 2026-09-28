@@ -13,11 +13,11 @@
     <div class="flex items-center justify-between mb-4">
         <h2 class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
         <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
-            <button id="btn-tabla-ataques" onclick="setTablaMode('ataques')"
+            <button id="btn-tabla-ataques" data-on-click="setTablaMode" data-args='["ataques"]'
                     class="tabla-mode-btn active-tabla px-4 py-1.5 transition">
                 ⚔️ Realizados
             </button>
-            <button id="btn-tabla-defensa" onclick="setTablaMode('defensa')"
+            <button id="btn-tabla-defensa" data-on-click="setTablaMode" data-args='["defensa"]'
                     class="tabla-mode-btn px-4 py-1.5 transition">
                 🛡️ Recibidos
             </button>
@@ -83,23 +83,23 @@
     <div class="card p-4 rounded-xl mb-4">
         <div class="flex flex-wrap items-center gap-3">
             <input id="filter-player" type="text" placeholder="🔍 Jugador..."
-                   oninput="applyFilters()"
+                   data-on-input="applyFilters"
                    class="flex-1 min-w-[140px] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
-            <select id="filter-vendedor" onchange="applyFilters()"
+            <select id="filter-vendedor" data-on-change="applyFilters"
                     class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
                 <option value="">Todos los vendedores</option>
                 {% for team in clausulazos | map(attribute='equipo_vendedor') | unique | sort %}
                 <option value="{{ team }}">{{ team }}</option>
                 {% endfor %}
             </select>
-            <select id="filter-comprador" onchange="applyFilters()"
+            <select id="filter-comprador" data-on-change="applyFilters"
                     class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
                 <option value="">Todos los compradores</option>
                 {% for team in clausulazos | map(attribute='equipo_comprador') | unique | sort %}
                 <option value="{{ team }}">{{ team }}</option>
                 {% endfor %}
             </select>
-            <button onclick="clearFilters()"
+            <button data-on-click="clearFilters"
                     class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
                 Limpiar
             </button>
@@ -142,7 +142,7 @@
     .tabla-mode-btn.active-tabla { background-color: #38a169; color: white; }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 const tablaData = {{ tabla_justicia | tojson }};
 let currentSorted = [];
 let currentMode = 'ataques';
@@ -217,7 +217,7 @@ function renderTabla(mode) {
             ? `<span class="${iconColor} font-medium">${icon} ${objetivo}</span>`
             : `<span class="text-gray-400">—</span>`;
         return `<tr class="border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer select-none"
-                    data-row-idx="${i}" onclick="toggleRowDetail(${i})" title="Click para ver desglose">
+                    data-row-idx="${i}" data-on-click="toggleRowDetail" data-args='[${i}]' title="Click para ver desglose">
             <td class="px-5 py-3 text-gray-400 font-medium">${i + 1}</td>
             <td class="px-5 py-3 font-semibold text-gray-800 whitespace-nowrap">${row.equipo}</td>
             <td class="px-5 py-3 text-center"><span class="font-bold text-base ${countColor}">${total}</span></td>
@@ -236,7 +236,7 @@ function renderTabla(mode) {
             const targetIcon = isAtaques ? '🎯' : '😤';
             const detalle = isAtaques ? row.hechos : row.recibidos;
             return `<div class="card rounded-xl shadow-sm overflow-hidden">
-                <div class="p-4 flex items-center gap-4 cursor-pointer select-none" onclick="toggleCardDetail(${i})">
+                <div class="p-4 flex items-center gap-4 cursor-pointer select-none" data-on-click="toggleCardDetail" data-args='[${i}]'>
                     <span class="text-2xl font-bold text-gray-200 w-8 text-center flex-shrink-0">${i + 1}</span>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-gray-800 truncate">${row.equipo}</p>
