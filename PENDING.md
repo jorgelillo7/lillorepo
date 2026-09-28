@@ -24,6 +24,7 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | 🚧 | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) |
+| 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
 
 ## core
 
