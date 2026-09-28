@@ -329,7 +329,7 @@ Two things it cannot see, both falling back to `//...`:
     ```
 
     > Keeps the newest digest of each service image and deletes the rest. For
-    > the multi-arch `python-base` it keeps the tagged manifest and its
+    > the `python-base` image index it keeps the tagged manifest and its
     > per-arch children, and deletes only untagged digests older than
     > `UNTAGGED_MIN_AGE_HOURS` (24 h by default). `DRY_RUN=1` shows what it
     > would delete. Covers both registries: `biwenger-docker` (biwenger-tools)

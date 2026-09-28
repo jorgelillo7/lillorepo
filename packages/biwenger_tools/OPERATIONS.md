@@ -54,6 +54,9 @@ single source of *what must be true*.
   * **🐳 Run with Docker locally:**
 
     Useful for validating the production container (gunicorn + entrypoint.sh) before deploying.
+    The image is linux/amd64 (what Cloud Run runs), so on an Apple-silicon Mac it
+    runs emulated: fine to check it boots and serves, too slow for heavy work —
+    matplotlib's `savefig` stalls under emulation and completes natively.
 
     ```bash
       # Build and load the image into the local Docker daemon
@@ -235,6 +238,7 @@ single source of *what must be true*.
           gcloud run jobs create biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 --project biwenger-tools \
+              --service-account=run-biwenger-scraper@biwenger-tools.iam.gserviceaccount.com \
               --memory=512Mi --cpu=1 --max-retries=3 --task-timeout=600s \
               --labels=app=biwenger \
               --set-env-vars TEMPORADA_ACTUAL=26-27 \
@@ -245,6 +249,7 @@ single source of *what must be true*.
           gcloud run jobs update biwenger-scraper-data \
               --image europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/scraper_job \
               --region europe-southwest1 --project biwenger-tools \
+              --service-account=run-biwenger-scraper@biwenger-tools.iam.gserviceaccount.com \
               --update-env-vars TEMPORADA_ACTUAL=26-27 \
               --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest"
         ```
