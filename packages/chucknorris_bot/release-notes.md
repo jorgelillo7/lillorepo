@@ -2,6 +2,14 @@
 
 Chuck Norris doesn't need release notes. Release notes need Chuck Norris.
 
+### **v1.2 - Chuck Norris Doesn't Need Permissions (29 September 2026)**
+
+Chuck didn't change. The walls around him did.
+
+* **🪪 Its own account**: the bot used to run with Editor on the whole project — for a joke bot. It runs as `run-chucknorris-bot` now and can read one thing: its own secret.
+* **🗝️ Its own secret**: `chucknorris-secrets`, one JSON. Its first version was stored truncated and the bot was down for about eight minutes before it was fixed — the reason the runbooks now say never to pipe a secret through the shell.
+* **🔒 Small hardening**: an unset webhook secret no longer lets every request through; log lines carry a real severity; Python 3.14, and a colder start that is twice as quick.
+
 ### **v1.1 - Now With a Paper Trail (26 July 2026)**
 
 The bot didn't change — reality did. It got its first written contract and its behaviour is now documented like a grown-up service, even though it tells jokes for a living.

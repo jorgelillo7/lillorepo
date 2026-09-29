@@ -2,6 +2,16 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.9 - Locked From the Browser Up (29 September 2026)**
+
+Nothing new on the catalog. Underneath, the same audit that went through the whole repo — `biwenger_tools` v9.2 has the shared detail.
+
+* **💸 Uploads had no real limit**: the upload limiters keyed on a header the client writes, so a fake IP per request skipped them — and every upload calls Gemini, with a fallback to the paid key. They key on the real address now, and the paid project has a daily ceiling (200 text, 50 image requests; the busiest day so far was 23), so abuse is bounded in money whatever the code does.
+* **🧱 A Content-Security-Policy**: scripts run only with the page's nonce, Google Sign-In's sources are already allowed for the day it is switched on, and security headers ride along. Checked in headless Chrome: nothing blocked.
+* **🪪 Its own account**: be-water runs as `run-be-water` — Firestore, its bucket, its secret, nothing else. The default account lost its Editor role.
+* **🖼️ Photos you can view, not list**: the bucket answers a photo's URL but no longer lists its contents (uploads included). EXIF was already stripped; checked.
+* **🐍 Underneath**: Python 3.14, faster cold starts, and log lines with a real severity.
+
 ### **v1.8 - The Face Nobody Photographed (15 September 2026)**
 
 Two bottles added by hand broke the catalog in ways nothing in it could see. One was Portuguese and its ficha claimed Portugal was a Spanish province *and* a Spanish autonomous community. The other reached `verified = True` with **no origin at all** — no spring, no province, no community — while its seven minerals were read perfectly. Pulling that thread found that the add form takes two photos and reads one, that the two most identifying things on any label had no field, and that the diagnosis written down for the second bottle was wrong.
