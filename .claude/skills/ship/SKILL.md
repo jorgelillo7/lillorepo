@@ -62,9 +62,14 @@ Squash only; the repo enforces it. The commit title becomes the `git log` line.
 # Step 5 — Watch the deploy, and know when there isn't one
 
 ```bash
-gh run list --branch master --limit 1 --json databaseId,status,headSha
+gh run list --workflow deploy.yml --branch master --limit 1 --json databaseId,status,headSha
 gh run watch <id>
 ```
+
+Filter by `--workflow deploy.yml`: other workflows run on the same push —
+GitHub's own "Dependency Graph" appears once Dependabot alerts are on — and
+an unfiltered "latest run" can be one of them, finish in seconds, and report
+a deploy that is still running. Check the run's `headSha` is the merge commit.
 
 `deploy.yml` runs on push to master with a per-service `paths-filter`. **A
 docs-only change may legitimately deploy nothing** — decide which case you are

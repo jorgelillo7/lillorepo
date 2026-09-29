@@ -119,7 +119,10 @@ Checks that lied and had to be redone:
 
 ## 6. Ship one at a time
 
-For each PR: head check, green checks, merge, `gh run watch`, services
+For each PR: head check, green checks, merge, `gh run watch` on the
+**`deploy.yml`** run for the merge commit (`gh run list --workflow deploy.yml`
+— GitHub's "Dependency Graph" workflow also runs on every push and, watched by
+mistake, reports success after one job), services
 `True`, pages at 200, then **application errors since the deploy**. Only then
 merge the next one, so a failure has one suspect.
 
