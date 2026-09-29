@@ -5,7 +5,7 @@
 # Compatible with bash 3 (macOS default).
 #
 # Without flags it audits every project in sequence (biwenger-tools,
-# be-water-app) and closes with the billing-account-wide Secret Manager
+# be-water-app) and closes with the billing-account-wide Artifact Registry and Secret Manager
 # check — the 6-version free tier is per BILLING ACCOUNT, not per project.
 # Pass --project=X to audit a single project.
 #
@@ -74,6 +74,24 @@ if [ -z "$PROJECT" ]; then
         bash "$0" --project="$p" --region="$REGION"
         echo
     done
+
+    echo "=== Billing account — Artifact Registry total ==="
+    echo "  (free tier: ${FREE_ARTIFACT} GB por CUENTA, sumando todos los proyectos)"
+    ACCOUNT_AR_BYTES=0
+    for p in $ALL_PROJECTS; do
+        bytes=$(gcloud artifacts repositories list --project "$p" --format="get(sizeBytes)" 2>/dev/null \
+            | awk '{sum+=$1} END {print sum+0}')
+        echo "    - $p: $(awk -v b="$bytes" 'BEGIN {printf "%.3f", b/1024/1024/1024}') GB"
+        ACCOUNT_AR_BYTES=$((ACCOUNT_AR_BYTES + bytes))
+    done
+    ACCOUNT_AR_GB=$(awk -v b="$ACCOUNT_AR_BYTES" 'BEGIN {printf "%.3f", b/1024/1024/1024}')
+    if awk -v u="$ACCOUNT_AR_GB" -v f="$FREE_ARTIFACT" 'BEGIN {exit !(u > f)}'; then
+        echo "  🚨 OVER — ${ACCOUNT_AR_GB} GB en la cuenta (>${FREE_ARTIFACT} GB free)"
+        echo "     Tras borrar imágenes, el tamaño tarda en bajar: Google libera las capas con retraso."
+    else
+        echo "  ✅ OK — ${ACCOUNT_AR_GB}/${FREE_ARTIFACT} GB en la cuenta"
+    fi
+    echo
 
     echo "=== Billing account — Secret Manager total ==="
     echo "  (free tier: ${FREE_SECRETS} versiones por CUENTA, no por proyecto)"
@@ -171,6 +189,7 @@ else
 fi
 ARTIFACT_PCT=$(awk "BEGIN {printf \"%.0f\", ($ARTIFACT_GB/$FREE_ARTIFACT)*100}")
 echo "  Uso: ${ARTIFACT_GB} GB  (free tier: ${FREE_ARTIFACT} GB — ${ARTIFACT_PCT}%)"
+echo "  ℹ️  El free tier es de la CUENTA, no del proyecto: el total real va al final (modo sin --project)"
 if [ "$ARTIFACT_PCT" -gt 100 ] 2>/dev/null; then
     SUM_ARTIFACT="$STATUS_OVER — ${ARTIFACT_GB} GB (>${FREE_ARTIFACT} GB)"
 elif [ "$ARTIFACT_PCT" -gt 80 ] 2>/dev/null; then

@@ -245,7 +245,7 @@ bash scripts/check-gcp-costs.sh --project=be-water-app  # single project
 
 Covers: Cloud Storage (with per-bucket free-tier eligibility — the always-free
 5 GB only exists in US regions), Artifact Registry, Cloud Run services/jobs,
-Firestore, Secret Manager (per-project detail + billing-account total),
+Firestore, Secret Manager and Artifact Registry (per-project detail + billing-account total — both free tiers are per account, not per project),
 Cloud Scheduler, Cloud Logging, budgets, log retention and Cloud Run config
 drift. Shows free-tier usage % and OK/WARN/OVER status.
 For Cloud Build and Monitoring billing, check Cloud Console > Billing.
