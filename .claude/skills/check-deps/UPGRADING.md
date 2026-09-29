@@ -53,8 +53,13 @@ families. Each one rebases on the previous one.
 - Run `pip-compile` on the **same Python minor the lock targets** (its header
   says which). Markers resolve per interpreter: on 3.14 `icalendar` drops
   `typing-extensions`.
-- Use `pip-tools==7.5.3`: 7.6.x writes a spurious `--no-index` into the
-  header on every run.
+- Use `pip-tools==7.6.1` with `CUSTOM_COMPILE_COMMAND` (the exact command is in
+  `docs/operations.md`): it fixes the header line 7.6.x would otherwise fill
+  with a spurious `--no-index`. 7.5.3 crashes on Python 3.14's pip.
+- **Never silence `pip-compile`** (`2>/dev/null`). A crashed run writes
+  nothing, and "the lock did not change" then reads as success — which is how
+  a broken 7.5.3 once passed for a byte-for-byte reproduction. Check the exit
+  code and that the file was rewritten.
 - `scripts/check_base_sync.py` compares the lock with `Dockerfile.base`. A new
   transitive runtime dependency fails it until it is added to the Dockerfile,
   in alphabetical order.
@@ -141,5 +146,7 @@ blocks it (PEP 668). Verify the installer before opening it:
 - run `Install Certificates.command`;
 - put the new version first in the PATH in `.zshrc`, and keep the old one
   behind it for its global tools (frida);
-- rebuild `venv/` with `pip-tools==7.5.3`;
-- prove it: `pip-compile` must reproduce the committed lock byte for byte.
+- rebuild `venv/` with `pip-tools==7.6.1`;
+- prove it on an unchanged `requirements.in`: the lock must come out byte for
+  byte identical **and** freshly written (compare timestamps, not just
+  content — a crashed run leaves identical content too).

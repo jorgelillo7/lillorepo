@@ -49,13 +49,10 @@ google-auth==2.58.1
     #   google-api-core
     #   google-api-python-client
     #   google-auth-httplib2
-    #   google-auth-oauthlib
     #   google-cloud-core
     #   google-cloud-firestore
 google-auth-httplib2==0.4.2
     # via google-api-python-client
-google-auth-oauthlib==1.4.1
-    # via -r requirements.in
 google-cloud-core==2.7.0
     # via google-cloud-firestore
 google-cloud-firestore==2.32.0
@@ -104,8 +101,6 @@ numpy==2.5.3
     # via
     #   contourpy
     #   matplotlib
-oauthlib==3.3.1
-    # via requests-oauthlib
 opentelemetry-api==1.45.0
     # via google-api-core
 packaging==26.3
@@ -169,11 +164,8 @@ requests==2.34.2
     #   -r requirements.in
     #   google-api-core
     #   requests-mock
-    #   requests-oauthlib
 requests-mock==1.12.1
     # via -r requirements.in
-requests-oauthlib==2.0.0
-    # via google-auth-oauthlib
 six==1.17.0
     # via python-dateutil
 soupsieve==2.10

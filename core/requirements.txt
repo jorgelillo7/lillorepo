@@ -1,7 +1,6 @@
 # core/requirements.txt
 requests
 google-api-python-client
-google-auth-oauthlib
 google-auth
 google-cloud-firestore
 python-dateutil
