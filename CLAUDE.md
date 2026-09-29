@@ -96,7 +96,7 @@ Three-level system: `[module]/requirements.txt` → `requirements.in` (auto-gene
 Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
 1. Edit `[module]/requirements.txt`
 2. Regenerate `requirements.in` with the concatenation script
-3. `venv/bin/pip-compile requirements.in -o requirements_lock.txt` (Python 3.14, `pip-tools==7.5.3` — see `docs/operations.md`)
+3. `venv/bin/pip-compile requirements.in -o requirements_lock.txt` on Python 3.14 with `pip-tools==7.6.1` and `CUSTOM_COMPILE_COMMAND` — exact command in `docs/operations.md`
 4. Add the dep in the module's `BUILD.bazel` (`@pypi//library_name`)
 
 **Never bundle dependency bumps with a feature PR.** Dep upgrades change the runtime

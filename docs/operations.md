@@ -58,11 +58,13 @@ covers keeping them alive across a dropped connection or an idle Mac.
     # Only needed for dependency management and IDE support
     python3.14 -m venv venv      # the same minor as MODULE.bazel and the image
     source venv/bin/activate
-    pip install "pip-tools==7.5.3"
+    pip install "pip-tools==7.6.1"
   ```
 
-  `pip-tools` stays on 7.5.3: 7.6.x writes a spurious `--no-index` into the
-  lock's header on every run.
+  7.6.1, not older: 7.5.3 crashes on the pip that Python 3.14 ships
+  (`make_requirement_preparer() … allow_editables`) — and exits after writing
+  nothing, so a run that hides its output looks like a lock reproduced
+  unchanged.
 
 ## 🧪 Core (shared library) tests
 
@@ -158,8 +160,15 @@ which). Markers resolve per interpreter: on 3.14 `icalendar` drops
 `typing-extensions`, so compiling on another minor silently changes the lock.
 
 ```bash
-venv/bin/pip-compile requirements.in -o requirements_lock.txt
+CUSTOM_COMPILE_COMMAND="pip-compile --output-file=requirements_lock.txt requirements.in" \
+  venv/bin/pip-compile requirements.in -o requirements_lock.txt
 ```
+
+`CUSTOM_COMPILE_COMMAND` fixes the command line written into the header:
+7.6.x otherwise records a spurious `--no-index` there on every run. With it, a
+regeneration of an unchanged `requirements.in` reproduces the committed lock
+byte for byte. Never silence its output (`-q` is fine, `2>/dev/null` is not):
+a failed run leaves the old lock in place.
 
 To bump one package without moving the rest, add `--upgrade-package <name>`;
 a full `--upgrade` belongs in its own pull request (LP-4).

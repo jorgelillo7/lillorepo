@@ -99,16 +99,18 @@ names the interpreter; another minor resolves markers differently):
 
 ```bash
 venv/bin/pip-compile --version || \
-  (python3.14 -m venv venv && venv/bin/pip install "pip-tools==7.5.3")
+  (python3.14 -m venv venv && venv/bin/pip install "pip-tools==7.6.1")
 ```
 
-`pip-tools` stays on 7.5.3: 7.6.x writes a spurious `--no-index` into the
-header.
+7.6.1: 7.5.3 crashes on Python 3.14's pip and writes nothing.
 
-Then regenerate:
+Then regenerate — `CUSTOM_COMPILE_COMMAND` keeps 7.6.x from writing a spurious
+`--no-index` into the header; never hide the output, a failed run leaves the
+old lock in place:
 
 ```bash
-venv/bin/pip-compile requirements.in -o requirements_lock.txt
+CUSTOM_COMPILE_COMMAND="pip-compile --output-file=requirements_lock.txt requirements.in" \
+  venv/bin/pip-compile requirements.in -o requirements_lock.txt
 ```
 
 After it finishes, grep the new `requirements_lock.txt` to extract the exact pinned version:

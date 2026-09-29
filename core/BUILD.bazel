@@ -44,7 +44,6 @@ py_library(
     deps = [
         ":_init",
         "@pypi//google_api_python_client",
-        "@pypi//google_auth_oauthlib",
         "@pypi//google_auth",
         "@pypi//python_dateutil",
     ],
