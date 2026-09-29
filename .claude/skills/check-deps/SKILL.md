@@ -30,6 +30,9 @@ The script reads from the canonical sources of truth:
 - `.github/workflows/*.yml` for GitHub Actions versions
 - `core/requirements.txt` and `packages/*/*/requirements.txt` for direct deps
 - `requirements_lock.txt` for the resolved version of each critical library
+- `venv/` for the lock tooling: its Python against the lock's, `pip-tools`
+  against the pin in `docs/operations.md`, and a real `pip-compile --dry-run`
+  (set `VENV=<path>` to point it at another environment)
 
 Show the output to the user as-is — that is part 1 of the answer.
 
@@ -54,6 +57,7 @@ Canonical sources (use these — do not guess):
 | `dorny/paths-filter` | `https://github.com/dorny/paths-filter/releases/latest` |
 | `google-github-actions/auth`, `setup-gcloud` | `https://github.com/google-github-actions/<repo>/releases/latest` |
 | Python libs (Flask, requests, etc.) | `https://pypi.org/pypi/<package>/json` (or the project page) |
+| `pip-tools` (lock tooling, not in the lock) | `https://pypi.org/pypi/pip-tools/json` |
 
 Be efficient: fetch in parallel where possible. For **GitHub Actions versions
 that pin to a major like `v4`**, the relevant comparison is whether a `v5`
@@ -70,6 +74,10 @@ BCR fails module resolution with "not found in registries".
 For each dependency, decide one of three buckets and explain why:
 
 - 🔴 **Urgent** — bump should happen soon. Triggers any of:
+  - The lock tooling is broken: `pip-compile --dry-run` fails, or the
+    `venv/` Python is not the lock's. Nothing else can be bumped until it is
+    fixed — a regeneration would fail, or silently resolve for the wrong
+    interpreter.
   - Pinned version is past or near End-of-Life / security-only.
   - A known CVE affecting the pinned version was fixed in a later one.
   - The current major is unsupported by tooling we depend on.
