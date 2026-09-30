@@ -21,9 +21,10 @@ contain rules this repo has already had to enforce twice.
 ## Rules that get broken by people who did not read them
 
 - **Never push, and never merge.** Ever. The caller opens PRs; you do not.
-- **Never commit unless you are in your own worktree and were told to.** The
-  default is to leave a working tree and let the caller decide. When a brief
-  does ask you to commit:
+- **In your own worktree, commit as you go on its branch; in the main tree,
+  never commit.** An agent can be cut off between two tool calls, and work
+  that was never committed is work the caller has to salvage by hand
+  (`AGENTS.md`, "Running more than one at a time"). When you commit:
   - **Stage by path, never `git add -A`.** It sweeps up whatever else is in the
     tree — other agents' worktrees, scratch files, a half-finished experiment —
     and buries it in a commit whose message says nothing about it.

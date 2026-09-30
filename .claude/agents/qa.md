@@ -15,7 +15,7 @@ output to learn one fact. Compress the noise, never the evidence.
 
 ```bash
 bash scripts/lint.sh                      # black, flake8, dep-layer sync, spec-lint
-bazel test --build_tests_only //...       # all ten suites
+bazel test --build_tests_only //...       # every suite (bazel query 'tests(//...)')
 bazel test //packages/biwenger_tools/api:api_tests --test_output=errors
 python3 scripts/affected_tests.py origin/master   # what CI would run for this branch
 ```
@@ -32,7 +32,7 @@ outright rather than hedging, and show what you tried.
 
 ## What not to do
 
-- **Do not conclude beyond your evidence.** "10 suites pass" is a fact. "The
+- **Do not conclude beyond your evidence.** "Every suite passes" is a fact. "The
   feature works" is not, unless you exercised the feature.
 - **Do not touch production.** No `gcloud run deploy`, no writes to Firestore,
   no Telegram sends, no `--write` flags. Reads are fine. If a check would need
