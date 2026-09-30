@@ -95,6 +95,13 @@ Player transfers executed via release clause.
 (`scraper_job/main.py::_clausulazo_doc_id`). Deterministic so re-scrapes
 are no-ops.
 
+**Never deleted by the scraper.** Biwenger drops old entries from its feed
+(every money entry at the season change), so each run only inserts the
+clausulazos it has not stored yet — same date and price means stored, whatever
+the names say — and never rewrites or deletes one; `tabla_justicia` is derived
+from everything stored. Stored clausulazos the feed no longer returns are logged as a WARNING
+and counted in the scraper's Telegram summary.
+
 ### `tabla_justicia/{season}/teams/{equipo}` — `JusticeEntry`
 
 Summary of "attacks" (clausulazos made/received) per team.
@@ -250,7 +257,7 @@ timestamp automatically.
 | Operation | File | Notes |
 |-----------|------|-------|
 | Web reads | `packages/biwenger_tools/web/repository.py` | One query per function, inline — no generic abstraction |
-| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, other collections wipe+bulk-write so upstream deletions propagate |
+| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, `clausulazos` insert-only, `participacion` and `tabla_justicia` wipe+bulk-write |
 | Writes (auto-bid) | `packages/biwenger_tools/api/logic/auto_bid.py` | One doc per placed bid under `auto_bid_log/{date}/bids/{player_id}` (TTL 90d) |
 | SDK | `core/sdk/firestore.py` | Generic helpers only: `get_client`, `list_documents`, `set_document`, `query`, `count`, `batch_write`, `delete_collection` |
 
