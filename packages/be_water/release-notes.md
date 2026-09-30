@@ -2,6 +2,13 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.10 - Hard to Delete (30 September 2026)**
+
+Nothing visible. The catalog's database was reviewed against Google's Firestore best practices, alongside `biwenger_tools` (v9.3 has the shared detail).
+
+* **🛡️ Delete protection on**: the Firestore database behind the catalog, the contributors and every analysis can no longer be deleted by mistake — it has to be switched off first. Single documents are still deletable, and there are no backups yet, on purpose.
+* **🗂️ One index fewer**: the undo trail's snapshot of the previous water (`water_revisions.previous`) is no longer indexed — it is read whole, never queried. Ids were already safe: slugs and validated nicknames.
+
 ### **v1.9 - Locked From the Browser Up (29 September 2026)**
 
 Nothing new on the catalog. Underneath, the same audit that went through the whole repo — `biwenger_tools` v9.2 has the shared detail.
