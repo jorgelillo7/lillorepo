@@ -277,7 +277,7 @@ def _plural(n: int, word: str) -> str:
 
 
 def _news(n: int, word: str) -> str:
-    return f"<b>+{n}</b> {_plural(n, word)}" if n else f"sin {word}s"
+    return f"<b>+{n}</b> {_plural(n, word)}" if n else "sin nuevos"
 
 
 def _summary(
