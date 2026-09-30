@@ -346,10 +346,17 @@ logic is never mocked. Tests never touch the network. When a config default
 points at a URL, the fixture redirects it to a local file; the path-over-URL
 precedence of `DRAFT_MARKET_CSV_PATH` exists for this.
 
-**Why.** A mock inside the logic tests the mock. A network call makes the
-suite flaky and slow, and makes it depend on someone else's uptime.
+A mocked SDK chain proves which calls were made, not what they return. A new
+query shape is run once against the real database, read-only, before it
+merges — that is how the comunicados page's first "newer" cursor was caught:
+`limit_to_last` flips the query's order but not its cursor, returned the
+season's oldest page, and passed every mocked test.
 
-**Checked by:** review.
+**Why.** A mock inside the logic tests the mock. A network call makes the
+suite flaky and slow, and makes it depend on someone else's uptime. And a
+mock of someone else's library encodes our belief about it, not its behaviour.
+
+**Checked by:** review; the PR says how the query was run for real.
 
 ### LP-22 — Every path that moves money has a duplicate-call test
 
