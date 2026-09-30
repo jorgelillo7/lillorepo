@@ -423,6 +423,7 @@ def test_main_sends_telegram_on_success(mock_external_deps):
     assert "Scraper OK" in text
     assert "💬 Comunicados · sin nuevos" in text
     assert "⚔️ Clausulazos · sin nuevos · 0 en total" in text
+    assert "🗄️ Tablón · sin nuevos · 0 en total" in text
 
 
 def test_the_summary_has_one_line_per_collection_with_its_total():
