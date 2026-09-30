@@ -4,6 +4,7 @@ multi-photo flows. Route wiring is tested in `test_routes.py`."""
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
+from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import league_compare
 
 
@@ -282,7 +283,9 @@ def _watch(ctx):
 
     with patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
         _patches("send_telegram_message_or_raise")
-    ) as mock_send, patch(_patches("pact_store.load"), return_value=set()):
+    ) as mock_send, patch(_patches("pact_store.load"), return_value=set()), patch(
+        _patches("board_archive_store.load"), return_value=[]
+    ):
         result = actions.run_protection_watch(ctx)
     return result, mock_send
 
@@ -305,6 +308,38 @@ def test_protection_watch_warns_when_a_lock_ends_and_a_rival_can_pay():
     text = mock_send.call_args.kwargs["text"]
     assert "Parrott" in text and "Luceneta" in text
     assert result == {"ending": 1, "sent": 1}
+
+
+# --- /saldos reads the board archive too -----------------------------------
+
+
+def _money(ctx, archive):
+    from packages.biwenger_tools.api.logic import actions
+
+    with patch(_patches("board_archive_store.load"), **archive) as load:
+        result = actions._league_money(ctx.biwenger, ctx.biwenger_players)
+    return result, load
+
+
+def test_league_money_adds_what_only_the_archive_holds():
+    ctx = _watch_ctx(my_lock=None)
+    sale = {
+        "type": "transfer",
+        "content": [{"from": {"id": 2}, "amount": 5_000_000}],
+        "date": 2,
+    }
+    (rows, _, _, _, lost), load = _money(ctx, {"return_value": [sale, *_SEASON_START]})
+    load.assert_called_once_with(config.CURRENT_SEASON)
+    assert lost == 1
+    rival = next(r for r in rows if r["id"] == 2)
+    assert rival["cash"] == 55_000_000
+
+
+def test_an_unreadable_archive_leaves_the_live_board_and_says_so():
+    ctx = _watch_ctx(my_lock=None)
+    (rows, _, _, _, lost), _ = _money(ctx, {"side_effect": RuntimeError("503")})
+    assert lost is None
+    assert next(r for r in rows if r["id"] == 2)["cash"] == 50_000_000
 
 
 # --- the fixture run behind the market's "Calendario" column ---------------

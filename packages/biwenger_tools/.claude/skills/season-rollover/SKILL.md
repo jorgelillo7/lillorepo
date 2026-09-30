@@ -35,7 +35,15 @@ Read these files to understand the current season and build the exact diffs need
 - `packages/biwenger_tools/OPERATIONS.md` — find the manual `--update-env-vars TEMPORADA_ACTUAL=` reference (§ Season rollover)
 
 Note: the `api` service **does** consume `TEMPORADA_ACTUAL` — it backs
-`config.DRAFT_SEASON`, which keys the `draft/{season}/...` Firestore layout.
+`config.DRAFT_SEASON`, which keys the `draft/{season}/...` Firestore layout,
+and `config.CURRENT_SEASON`, which picks the `board_archive/{season}` that
+`/saldos` merges with the live board (the scraper writes the same path from
+its own `TEMPORADA_ACTUAL`). The new season's archive starts empty and the
+next scraper run fills it back to `seasonStarted`; nothing to seed by hand.
+Between the bump and Biwenger opening the season (July) the feeds still return
+last season; the scraper ignores anything before 1 July of the new season's
+first year, so that window writes nothing — if Biwenger ever opens a season
+before 1 July, `_season_floor` in `scraper_job/main.py` is what to move.
 It is passed in `deploy.yml`'s `deploy-api` step, so the single `env:` bump
 covers it; no separate edit is needed, but do not assume the api is
 season-agnostic. `bot` and `chucknorris_bot` still have no season-specific

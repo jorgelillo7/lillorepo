@@ -282,6 +282,7 @@ timestamp automatically.
 |-----------|------|-------|
 | Web reads | `packages/biwenger_tools/web/repository.py` | One query per function, inline — no generic abstraction |
 | Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, `clausulazos` insert-only, `board_archive` append-only, `participacion` and `tabla_justicia` wipe+bulk-write |
+| Reads (`/saldos`) | `packages/biwenger_tools/api/logic/board_archive_store.py` | The season's `board_archive`, merged with the live board by `league_cash.with_archive`; unreadable → live board only, said on the image |
 | Writes (auto-bid) | `packages/biwenger_tools/api/logic/auto_bid.py` | One doc per placed bid under `auto_bid_log/{date}/bids/{player_id}` (TTL 90d) |
 | SDK | `core/sdk/firestore.py` | Generic helpers only: `get_client`, `list_documents`, `set_document`, `query`, `count`, `batch_write`, `delete_collection` |
 

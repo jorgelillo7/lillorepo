@@ -134,6 +134,70 @@ def test_a_read_that_never_reaches_the_season_start_raises():
         league_cash.rebuild(entries, START)
 
 
+# --- Requirement: the archive fills what the live board lost ---------------
+
+
+def _sale(amount, date):
+    return _entry("transfer", [{"from": _user(ME), "amount": amount}], date)
+
+
+def test_the_archive_fills_what_the_live_board_lost():
+    """Live read still reaches the season start but lost September's sale."""
+    september = _sale(7_000_000, SEASON_START + 10)
+    december = _sale(1_000_000, SEASON_START + 9_000)
+    live = [december, _season_started()]
+    archived = [september, _season_started()]
+
+    entries, lost = league_cash.with_archive(live, archived)
+
+    assert lost == 1
+    assert league_cash.rebuild(entries, START).cash_of(ME) == START + 8_000_000
+    assert _rebuild(september, december, _season_started()).cash_of(ME) == (
+        START + 8_000_000
+    )
+
+
+def test_the_archive_fills_a_lost_season_start():
+    """The live read no longer reaches `seasonStarted`; the archive holds it."""
+    september = _sale(7_000_000, SEASON_START + 10)
+    entries, lost = league_cash.with_archive([], [september, _season_started()])
+    assert lost == 2
+    assert league_cash.rebuild(entries, START).cash_of(ME) == START + 7_000_000
+
+
+def test_an_archived_older_season_is_not_counted_as_lost():
+    """Last season's entries in the archive are ignored by the rebuild, so they
+    are not what the live board lost."""
+    last_season = _sale(3_000_000, SEASON_START - 50)
+    live = [_season_started()]
+    entries, lost = league_cash.with_archive(live, [last_season, _season_started()])
+    assert lost == 0
+    assert league_cash.rebuild(entries, START).cash_of(ME) == START
+
+
+def test_archived_entries_the_board_lost_are_reported():
+    notes = league_cash.notes(frozenset(), rebuilt_mine=1, real_mine=1, lost=3)
+    warning = next(n for n in notes if "archivo" in n)
+    assert warning.startswith("⚠️") and "3 movimientos" in warning
+
+
+def test_nothing_lost_says_nothing_about_the_archive():
+    notes = league_cash.notes(frozenset(), rebuilt_mine=1, real_mine=1, lost=0)
+    assert not any("archivo" in n for n in notes)
+
+
+def test_an_unreadable_archive_is_said_not_hidden():
+    notes = league_cash.notes(frozenset(), rebuilt_mine=1, real_mine=1, lost=None)
+    warning = next(n for n in notes if "archivo" in n)
+    assert warning.startswith("⚠️") and "No se pudo leer" in warning
+
+
+def test_the_union_still_needs_a_season_start():
+    entries, _ = league_cash.with_archive([_sale(1, SEASON_START)], [])
+    with pytest.raises(ValueError, match="seasonStarted"):
+        league_cash.rebuild(entries, START)
+
+
 # --- Requirement: the maximum bid ------------------------------------------
 
 

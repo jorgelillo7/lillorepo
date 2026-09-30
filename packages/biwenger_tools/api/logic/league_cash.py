@@ -14,6 +14,7 @@ from datetime import datetime
 from html import escape
 
 from core.constants import MADRID_TZ
+from core.sdk.biwenger import board_entry_key
 from packages.biwenger_tools.api.player_formatting import short_position, shown_score
 
 SEASON_START_TYPE = "seasonStarted"
@@ -61,6 +62,20 @@ def season_entries(entries: list[dict]) -> list[dict]:
         (e for e in entries if e.get("date", 0) >= season_start),
         key=lambda e: e["date"],
     )
+
+
+def with_archive(live: list[dict], archived: list[dict]) -> tuple[list[dict], int]:
+    """The live read plus the archived entries it no longer returns, and how many
+    of those the rebuild uses (dated at or after the union's season start).
+
+    Deduped by `board_entry_key`; any order, since `season_entries` sorts.
+    """
+    live_keys = {board_entry_key(e) for e in live}
+    lost = [e for e in archived if board_entry_key(e) not in live_keys]
+    entries = live + lost
+    starts = [e["date"] for e in entries if e.get("type") == SEASON_START_TYPE]
+    since = max(starts, default=0)
+    return entries, sum(1 for e in lost if e.get("date", 0) >= since)
 
 
 def rebuild(entries: list[dict], starting_balance: int) -> CashBook:
@@ -120,9 +135,16 @@ def _eur(amount: int) -> str:
 
 
 def notes(
-    unknown_types: frozenset[str], rebuilt_mine: int, real_mine: int
+    unknown_types: frozenset[str],
+    rebuilt_mine: int,
+    real_mine: int,
+    lost: int | None = 0,
 ) -> list[str]:
-    """The lines that say how far the figures can be trusted, in Spanish."""
+    """The lines that say how far the figures can be trusted, in Spanish.
+
+    `lost` is how many archived entries the live board no longer returns;
+    None when the archive could not be read.
+    """
     lines = []
     if rebuilt_mine == real_mine:
         lines.append("✅ Tu saldo reconstruido cuadra con Biwenger.")
@@ -135,6 +157,17 @@ def notes(
         lines.append(
             f"⚠️ Movimientos desconocidos ({', '.join(sorted(unknown_types))}): "
             "las cifras pueden estar mal."
+        )
+    if lost is None:
+        lines.append(
+            "⚠️ No se pudo leer el archivo del tablón: solo cuenta lo que "
+            "Biwenger devuelve hoy."
+        )
+    elif lost:
+        lines.append(
+            f"⚠️ Biwenger ya no devuelve {lost} "
+            f"movimiento{'s' if lost != 1 else ''} de la temporada; "
+            "salen del archivo."
         )
     lines.append("Puja máx. = saldo + ¼ de la plantilla, sin restar pujas pendientes.")
     return lines

@@ -20,6 +20,7 @@ from core.sdk.telegram import (
 )
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import board_archive_store
 from packages.biwenger_tools.api.logic import draft
 from packages.biwenger_tools.api.logic import fixture_run
 from packages.biwenger_tools.api.logic import league_cash
@@ -361,17 +362,32 @@ def run_league_compare() -> dict:
 _PROTECTION_WINDOW_S = 24 * 3600
 
 
+def _archived_board() -> list[dict] | None:
+    """The season's board archive; None, logged, when it cannot be read — the
+    live board still answers, and the image says the archive was missing."""
+    try:
+        return board_archive_store.load(config.CURRENT_SEASON)
+    except Exception:
+        logger.exception("Could not read the board archive — live board only.")
+        return None
+
+
 def _league_money(
     biwenger, players: dict
-) -> tuple[list[dict], dict, "league_cash.CashBook", int]:
-    """Every playing manager's cash and max bid, rebuilt from the board.
+) -> tuple[list[dict], dict, "league_cash.CashBook", int, int | None]:
+    """Every playing manager's cash and max bid, rebuilt from the board and
+    its archive.
 
-    Returns `(rows, squads_by_manager_id, book, board_entries)`; rows carry
-    `id`, `name`, `cash`, `max_bid`, `is_me`. ~12 sequential reads.
+    Returns `(rows, squads_by_manager_id, book, board_entries, lost)`; rows
+    carry `id`, `name`, `cash`, `max_bid`, `is_me`; `lost` is how many archived
+    entries the live board no longer returns, None when the archive could not
+    be read. ~12 sequential reads.
     """
-    entries = biwenger.get_all_board_messages(
+    live = biwenger.get_all_board_messages(
         config.LEAGUE_BOARD_ALL_URL, until_type=league_cash.SEASON_START_TYPE
     )
+    archived = _archived_board()
+    entries, lost = league_cash.with_archive(live, archived or [])
     book = league_cash.rebuild(entries, draft.DEFAULT_BUDGET)
     managers = biwenger.get_league_users(
         config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
@@ -392,7 +408,7 @@ def _league_money(
                 "is_me": manager_id == biwenger.user_id,
             }
         )
-    return rows, squads, book, len(entries)
+    return rows, squads, book, len(entries), (None if archived is None else lost)
 
 
 def _rivals(money_rows: list[dict]) -> list[dict]:
@@ -433,13 +449,13 @@ def run_league_cash() -> dict:
 
     ctx = build_context()
     biwenger = ctx.biwenger
-    money, squads, book, n_entries = _league_money(biwenger, ctx.biwenger_players)
+    money, squads, book, n_entries, lost = _league_money(biwenger, ctx.biwenger_players)
     top = league_cash.exposed(_my_clause_rows(ctx, squads[biwenger.user_id]), 3)
     exposure = league_cash.exposure_rows(top, _rivals(money))
 
     real_mine = biwenger.get_account_state()["cash"]
     rebuilt_mine = book.cash_of(biwenger.user_id)
-    notes = league_cash.notes(book.unknown_types, rebuilt_mine, real_mine)
+    notes = league_cash.notes(book.unknown_types, rebuilt_mine, real_mine, lost)
     today = datetime.now(MADRID_TZ).strftime("%d/%m %H:%M")
     title = f"💰 Saldos · {today}"
     image = build_cash_image(league_cash.ranked(money), title, notes, exposure=exposure)
@@ -451,6 +467,7 @@ def run_league_cash() -> dict:
             "board_entries": n_entries,
             "self_check_ok": rebuilt_mine == real_mine,
             "unknown_types": sorted(book.unknown_types),
+            "archive_lost": lost,
         },
     )
     return {
@@ -481,7 +498,7 @@ def run_protection_watch(ctx) -> dict:
     if not ending:
         return {"ending": 0, "sent": 0}
 
-    money, _, _, _ = _league_money(biwenger, ctx.biwenger_players)
+    money, _, _, _, _ = _league_money(biwenger, ctx.biwenger_players)
     text = league_cash.protection_alert(ending, _rivals(money))
     if text:
         send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=text)
