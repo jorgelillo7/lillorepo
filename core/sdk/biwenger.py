@@ -1,5 +1,6 @@
 """Biwenger API client."""
 
+import hashlib
 import json
 import re
 from typing import Optional, Tuple, Union
@@ -51,6 +52,58 @@ def league_standings_url(league_id: Union[str, int]) -> str:
 
 def league_board_url(league_id: Union[str, int], type_filter: str = "text") -> str:
     return f"{league_url(league_id)}/board?type={type_filter}"
+
+
+# Board entry types that move money — what `/saldos` rebuilds from and what the
+# scraper archives, since Biwenger purges them at every season change.
+MONEY_ENTRY_TYPES = frozenset(
+    {
+        "transfer",
+        "market",
+        "adminTransfer",
+        "clauseIncrement",
+        "bonus",
+        "roundFinished",
+        "seasonStarted",
+    }
+)
+_ITEM_FIELDS = ("type", "player", "amount", "releaseClause", "reason")
+_ITEM_PEOPLE = ("from", "to", "user", "admin")
+
+
+def _entry_identity(entry: dict):
+    """What cannot change after the fact: ids and amounts, never names or icons."""
+    content = entry.get("content")
+    kind = entry.get("type")
+    if kind == "roundFinished":
+        return {
+            "round": ((content or {}).get("round") or {}).get("id"),
+            "scoreID": (content or {}).get("scoreID"),
+        }
+    if kind == "seasonStarted":
+        return {"season": ((content or {}).get("season") or {}).get("id")}
+    items = []
+    for item in content if isinstance(content, list) else []:
+        fields = {k: item.get(k) for k in _ITEM_FIELDS if k in item}
+        if isinstance(fields.get("player"), dict):
+            fields["player"] = fields["player"].get("id")
+        for who in _ITEM_PEOPLE:
+            if isinstance(item.get(who), dict):
+                fields[who] = item[who].get("id")
+        items.append(fields)
+    return sorted(items, key=lambda f: json.dumps(f, sort_keys=True))
+
+
+def board_entry_key(entry: dict) -> str:
+    """Stable id for a board entry, which Biwenger does not give one.
+
+    Built from type, date and `_entry_identity`, so a team renaming itself, an
+    icon's cache buster or an article's comment count never changes it.
+    """
+    raw = json.dumps(
+        [entry.get("type"), entry.get("date"), _entry_identity(entry)], sort_keys=True
+    )
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
 def league_board_all_url(league_id: Union[str, int]) -> str:

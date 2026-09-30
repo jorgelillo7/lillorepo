@@ -3,10 +3,12 @@
 Every run is idempotent — `comunicados/{season}/messages` is keyed by a
 content hash, `clausulazos/{season}/transfers` only gains new entries
 (Biwenger drops old ones from its feed), and `participacion` and
-`tabla_justicia` are rewritten in full (wipe + bulk-write).
+`tabla_justicia` are rewritten in full (wipe + bulk-write). The board's money
+entries are archived raw, append-only, in `board_archive/{season}/entries`.
 """
 
 import hashlib
+import json
 from datetime import datetime, timezone
 
 from bs4 import BeautifulSoup
@@ -14,7 +16,7 @@ from bs4 import BeautifulSoup
 from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo, LeagueMessage
 from core.sdk import firestore
-from core.sdk.biwenger import BiwengerClient
+from core.sdk.biwenger import MONEY_ENTRY_TYPES, BiwengerClient, board_entry_key
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.scraper_job import config
@@ -27,6 +29,8 @@ from packages.biwenger_tools.scraper_job.logic.processing import (
 )
 
 logger = get_logger(__name__)
+
+_SEASON_START = "seasonStarted"
 
 
 def _season_floor(season: str) -> datetime:
@@ -193,6 +197,72 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> tuple[int, in
     return len(new), missing_count
 
 
+def _stored_ids(collection_path: str) -> set[str]:
+    """Doc ids in a collection, read without their contents."""
+    collection = firestore.get_client().collection(collection_path)
+    return {snap.id for snap in collection.select([]).stream()}
+
+
+def _season_money_entries(entries: list[dict], floor: datetime) -> list[dict]:
+    """The money entries from the latest `seasonStarted` on, never before `floor`.
+
+    The read stops after the page holding that entry, so older ones can ride
+    along; between the rollover and Biwenger opening the season, that entry
+    is last season's, and `floor` keeps it out. Without any `seasonStarted`,
+    everything from `floor` on is kept, with a WARNING.
+    """
+    starts = [e.get("date", 0) for e in entries if e.get("type") == _SEASON_START]
+    if not starts:
+        logger.warning(
+            "Board read has no seasonStarted; archiving every money entry read.",
+            extra={"entries": len(entries)},
+        )
+    since = max([floor.timestamp(), *starts])
+    return [
+        e
+        for e in entries
+        if e.get("type") in MONEY_ENTRY_TYPES and e.get("date", 0) >= since
+    ]
+
+
+def _archive_board(biwenger: BiwengerClient, cfg) -> int:
+    """Store the season's board money entries not archived yet; return how many.
+
+    Append-only: an archived entry is never rewritten or deleted. Each doc
+    holds the raw entry as JSON, so any derivation can be re-run on it.
+    """
+    entries = biwenger.get_all_board_messages(
+        cfg.LEAGUE_BOARD_ALL_URL, until_type=_SEASON_START
+    )
+    collection = f"board_archive/{cfg.TEMPORADA_ACTUAL}/entries"
+    archived = _stored_ids(collection)
+    new = {
+        key: entry
+        for entry in _season_money_entries(entries, _season_floor(cfg.TEMPORADA_ACTUAL))
+        if (key := board_entry_key(entry)) not in archived
+    }
+    logger.info(
+        "Board archived.",
+        extra={"read": len(entries), "archived": len(archived), "new": len(new)},
+    )
+    if new:
+        firestore.batch_write(
+            collection,
+            [
+                (
+                    key,
+                    {
+                        "type": e.get("type"),
+                        "date": e.get("date"),
+                        "entry": json.dumps(e, sort_keys=True, ensure_ascii=False),
+                    },
+                )
+                for key, e in new.items()
+            ],
+        )
+    return len(new)
+
+
 def _notify(text: str) -> None:
     """Send a Telegram message to the configured chat. No-op without creds."""
     if not (config.TELEGRAM_BOT_TOKEN and config.TELEGRAM_CHAT_ID):
@@ -216,6 +286,7 @@ def main() -> None:
     new_count = 0
     clausulazos_count = 0
     missing_clausulazos = 0
+    archived_count = 0
 
     try:
         season = config.TEMPORADA_ACTUAL
@@ -259,6 +330,7 @@ def main() -> None:
         clausulazos_count, missing_clausulazos = _write_clausulazos_and_tabla(
             biwenger, config
         )
+        archived_count = _archive_board(biwenger, config)
 
     except Exception as exc:
         logger.exception("Unexpected error in scraper.")
@@ -285,6 +357,11 @@ def main() -> None:
         f"🧹 <b>Scraper OK</b> · {messages_part} · "
         f"{clausulazos_part} · {elapsed:.0f}s"
     )
+    if archived_count:
+        arch_s = "s" if archived_count != 1 else ""
+        body += (
+            f"\n🗄️ {archived_count} movimiento{arch_s} del tablón " f"archivado{arch_s}"
+        )
     if missing_clausulazos:
         miss_s = "s" if missing_clausulazos != 1 else ""
         body += (

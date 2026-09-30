@@ -8,6 +8,7 @@ exercised without touching the network or a real database.
 """
 
 import hashlib
+import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -15,6 +16,7 @@ import pytest
 
 from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo
+from core.sdk.biwenger import board_entry_key
 from packages.biwenger_tools.scraper_job.main import _clausulazo_doc_id, main
 
 
@@ -33,6 +35,7 @@ def mock_external_deps():
             "LEAGUE_USERS_URL": "https://fake-users",
             "CLAUSULAZOS_URL": "https://fake-clausulazos",
             "BOARD_MESSAGES_URL": "https://fake-board",
+            "LEAGUE_BOARD_ALL_URL": "https://fake-board-all",
             "LEAGUE_ID": "340703",
             # Empty by default → _notify becomes a no-op in tests that
             # don't explicitly enable it. Avoids accidental real HTTP calls.
@@ -282,6 +285,107 @@ def test_clausulazos_missing_from_the_feed_are_reported(mock_external_deps):
     )
     text = mock_send.call_args.kwargs["text"]
     assert "1 clausulazo guardado que Biwenger ya no devuelve" in text
+
+
+# --- The board's money entries are archived, append-only ---
+
+_ARCHIVE = "board_archive/25-26/entries"
+_JULY_10 = 1752105600  # 2025-07-10, inside 25-26
+_SEASON_START = {
+    "type": "seasonStarted",
+    "date": _JULY_10,
+    "content": {"season": {"id": 7}},
+}
+_TRANSFER = {
+    "type": "transfer",
+    "date": _JULY_10 + 1000,
+    "content": [{"player": {"id": 1}, "from": {"id": 5}, "amount": 900}],
+}
+_CHAT = {"type": "text", "date": _JULY_10 + 500, "content": "hola"}
+_LAST_SEASON = {
+    "type": "market",
+    "date": _JULY_10 - 500,
+    "content": [{"player": {"id": 2}, "to": {"id": 5}, "amount": 100}],
+}
+
+
+def _board_and_archive(deps, *, board: list, archived: set) -> MagicMock:
+    """`board` is the all-types read; `archived` the keys already stored."""
+    deps["biwenger"].get_all_board_messages.side_effect = lambda url, **_: (
+        board if url == "https://fake-board-all" else []
+    )
+    return patch(
+        "packages.biwenger_tools.scraper_job.main._stored_ids",
+        side_effect=lambda path: archived if path == _ARCHIVE else set(),
+    )
+
+
+def _archive_writes(mock_firestore) -> list:
+    return [
+        c.args[1]
+        for c in mock_firestore.batch_write.call_args_list
+        if c.args[0] == _ARCHIVE
+    ]
+
+
+def test_money_entries_are_archived_once(mock_external_deps):
+    """The season's money entries are stored raw once; a second pass writes none."""
+    board = [_TRANSFER, _CHAT, _SEASON_START, _LAST_SEASON]
+    with _board_and_archive(mock_external_deps, board=board, archived=set()):
+        main()
+
+    (written,) = _archive_writes(mock_external_deps["firestore"])
+    assert dict(written).keys() == {
+        board_entry_key(_TRANSFER),
+        board_entry_key(_SEASON_START),
+    }
+    doc = dict(written)[board_entry_key(_TRANSFER)]
+    assert json.loads(doc["entry"]) == _TRANSFER
+    assert (doc["type"], doc["date"]) == ("transfer", _JULY_10 + 1000)
+
+    mock_external_deps["firestore"].batch_write.reset_mock()
+    keys = {board_entry_key(_TRANSFER), board_entry_key(_SEASON_START)}
+    with _board_and_archive(mock_external_deps, board=board, archived=keys):
+        main()
+
+    assert _archive_writes(mock_external_deps["firestore"]) == []
+
+
+def test_the_archive_keeps_entries_the_board_lost(mock_external_deps):
+    """An archived entry the board no longer returns is neither deleted nor touched."""
+    lost = board_entry_key(_TRANSFER)
+    with _board_and_archive(mock_external_deps, board=[_SEASON_START], archived={lost}):
+        main()
+
+    fs = mock_external_deps["firestore"]
+    assert _ARCHIVE not in [c.args[0] for c in fs.delete_collection.call_args_list]
+    assert all(lost not in dict(w) for w in _archive_writes(fs))
+
+
+def test_a_board_read_without_its_season_start_is_archived_with_a_warning(
+    mock_external_deps,
+):
+    """No `seasonStarted` in the read: archive what came back and say so."""
+    with _board_and_archive(
+        mock_external_deps, board=[_TRANSFER], archived=set()
+    ), patch("packages.biwenger_tools.scraper_job.main.logger") as log:
+        main()
+
+    (written,) = _archive_writes(mock_external_deps["firestore"])
+    assert dict(written).keys() == {board_entry_key(_TRANSFER)}
+    assert any("seasonStarted" in c.args[0] for c in log.warning.call_args_list)
+
+
+def test_the_archive_skips_last_season_after_the_rollover(mock_external_deps):
+    """Season bumped before Biwenger starts it: last season's board is not archived."""
+    old_start = {**_SEASON_START, "date": _MAY_20 - 9_000_000}
+    old_sale = {**_TRANSFER, "date": _MAY_20}
+    with _board_and_archive(
+        mock_external_deps, board=[old_sale, old_start], archived=set()
+    ):
+        main()
+
+    assert _archive_writes(mock_external_deps["firestore"]) == []
 
 
 # --- Telegram notify on completion ---

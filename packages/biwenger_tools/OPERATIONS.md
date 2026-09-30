@@ -258,6 +258,14 @@ single source of *what must be true*.
           gcloud run jobs execute biwenger-scraper-data --region europe-southwest1
         ```
 
+  * **Board archive (`board_archive/{season}/entries`):** each run appends the
+    season's new money entries; nothing is ever deleted. After the first deploy
+    of the archive — and after any change to `board_entry_key` — execute the
+    job by hand at once, while the board still reaches `seasonStarted`, instead
+    of waiting for Sunday. Check it: the Telegram summary says how many entries
+    were archived (~250 for a full season by late September), and a second run
+    archives none.
+
 ## 3. Biwenger API
 
 Cloud Run **Service** that owns the Biwenger business logic over HTTP. Called

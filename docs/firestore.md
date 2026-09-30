@@ -30,6 +30,7 @@ comunicados/{season}/messages/{id_hash}
 participacion/{season}/authors/{autor}
 clausulazos/{season}/transfers/{content_hash}
 tabla_justicia/{season}/teams/{equipo}
+board_archive/{season}/entries/{board_entry_key}
 palmares/{temporada}
 auto_bid_log/{YYYY-MM-DD}/bids/{player_id}
 ```
@@ -117,6 +118,29 @@ Summary of "attacks" (clausulazos made/received) per team.
 
 **Doc id:** the team's name (`equipo`). The placeholder team for managers
 who have left is called `Usuario` (Biwenger's convention).
+
+### `board_archive/{season}/entries/{board_entry_key}` — raw board entry
+
+Every money-moving board entry of the season (`transfer`, `market`,
+`adminTransfer`, `clauseIncrement`, `bonus`, `roundFinished`,
+`seasonStarted`), as Biwenger returned it. Biwenger deletes them all at the
+season change and has lost some mid-season; this is the copy `/saldos` falls
+back on. A few hundred docs per season, ~3 KB at most.
+
+| Field   | Type   | Notes |
+|---------|--------|-------|
+| `type`  | string | The entry's board type |
+| `date`  | int    | Unix seconds, as on the board |
+| `entry` | string | The whole entry, JSON — parse it, do not query into it |
+
+**Doc id:** `core/sdk/biwenger.py::board_entry_key` — sha1 of type, date and
+the ids and amounts in `content`, never names or icons, so a team renaming
+itself does not re-key an entry.
+
+**Append-only.** The scraper writes only keys it has not stored and never
+rewrites or deletes one. The first run of a season archives it back to
+`seasonStarted`; run it by hand right after a deploy that changes the key
+(OPERATIONS, "Scraper Job").
 
 ### `palmares/{temporada}` — `Palmares`
 
@@ -257,7 +281,7 @@ timestamp automatically.
 | Operation | File | Notes |
 |-----------|------|-------|
 | Web reads | `packages/biwenger_tools/web/repository.py` | One query per function, inline — no generic abstraction |
-| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, `clausulazos` insert-only, `participacion` and `tabla_justicia` wipe+bulk-write |
+| Writes (scraper) | `packages/biwenger_tools/scraper_job/main.py` | Firestore-only writes; `comunicados` appended incrementally, `clausulazos` insert-only, `board_archive` append-only, `participacion` and `tabla_justicia` wipe+bulk-write |
 | Writes (auto-bid) | `packages/biwenger_tools/api/logic/auto_bid.py` | One doc per placed bid under `auto_bid_log/{date}/bids/{player_id}` (TTL 90d) |
 | SDK | `core/sdk/firestore.py` | Generic helpers only: `get_client`, `list_documents`, `set_document`, `query`, `count`, `batch_write`, `delete_collection` |
 
