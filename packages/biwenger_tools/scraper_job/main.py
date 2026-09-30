@@ -200,7 +200,7 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
     tabla_justicia = build_tabla_justicia(stored + new)
     _write_collection(
         f"tabla_justicia/{season}/teams",
-        [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
+        [(e.doc_id, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
     return _Tally(len(new), len(stored) + len(new), missing_count)
@@ -365,7 +365,7 @@ def main() -> None:
             participaciones = process_participation(all_messages, user_map)
             _write_collection(
                 f"participacion/{season}/authors",
-                [(p.autor, p.to_firestore()) for p in participaciones if p.autor],
+                [(p.doc_id, p.to_firestore()) for p in participaciones if p.autor],
             )
         else:
             logger.info("No new messages found.")

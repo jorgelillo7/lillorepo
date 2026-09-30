@@ -45,7 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from core.domain.models import Participation  # noqa: E402
+from core.domain.models import Participation, name_to_doc_id  # noqa: E402
 from core.sdk.firestore import get_client  # noqa: E402
 
 _CATEGORY_BUCKET = {
@@ -130,11 +130,11 @@ def _cmd_move_message(args) -> None:
     else:
         part_ref = client.collection(
             f"participacion/{args.to_season}/authors"
-        ).document(new_autor)
+        ).document(name_to_doc_id(new_autor))
         part_snap = part_ref.get()
         if part_snap.exists:
             part_data = part_snap.to_dict() or {}
-            part = Participation.from_firestore(new_autor, part_data)
+            part = Participation.from_firestore(part_ref.id, part_data)
         else:
             part = Participation(autor=new_autor)
         bucket = getattr(part, bucket_name)

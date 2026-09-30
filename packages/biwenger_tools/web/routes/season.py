@@ -60,29 +60,61 @@ def _sanitize_contenido(messages: list) -> list:
 def comunicados(season: str) -> str:
     """Display paginated announcements for a given season — newest first.
 
-    Reads cost ~1 (count aggregation) + N (page size) per request, no
-    matter how many comunicados live in the season.
+    Pages move by cursor (`after` / `before` a message id), so any page costs
+    1 count + 1 cursor + the page size in reads. `page` only labels it; without
+    a cursor, or when the cursor message is gone, it is the first page.
     """
     error = None
     paginated_messages: list = []
     page = 1
     total_pages = 1
+    newer_url = older_url = None
     try:
-        page = max(1, request.args.get("page", 1, type=int))
-        offset = (page - 1) * config.MESSAGES_PER_PAGE
+        after = request.args.get("after") or None
+        before = None if after else (request.args.get("before") or None)
+        if after or before:
+            page = max(1, request.args.get("page", 1, type=int))
         total = repository.count_messages_by_category(season, "comunicado")
         total_pages = max(
             1,
             (total + config.MESSAGES_PER_PAGE - 1) // config.MESSAGES_PER_PAGE,
         )
-        paginated_messages = _sanitize_contenido(
-            repository.get_messages_by_category(
+        messages = repository.get_messages_page(
+            season,
+            "comunicado",
+            limit=config.MESSAGES_PER_PAGE,
+            after=after,
+            before=before,
+        )
+        if messages is None:
+            page = 1
+            messages = repository.get_messages_page(
                 season,
                 "comunicado",
                 limit=config.MESSAGES_PER_PAGE,
-                offset=offset,
+                after=None,
+                before=None,
             )
-        )
+        page = min(page, total_pages)
+        if messages and page < total_pages:
+            older_url = url_for(
+                "season.comunicados",
+                season=season,
+                page=page + 1,
+                after=messages[-1].id_hash,
+            )
+        if messages and page > 1:
+            newer_url = (
+                url_for("season.comunicados", season=season)
+                if page == 2
+                else url_for(
+                    "season.comunicados",
+                    season=season,
+                    page=page - 1,
+                    before=messages[0].id_hash,
+                )
+            )
+        paginated_messages = _sanitize_contenido(messages)
     except Exception:
         error = f"Ocurrió un error al cargar los comunicados de la temporada {season}."
         logger.exception(
@@ -99,6 +131,8 @@ def comunicados(season: str) -> str:
         active_page="comunicados",
         current_page=page,
         total_pages=total_pages,
+        newer_url=newer_url,
+        older_url=older_url,
     )
 
 

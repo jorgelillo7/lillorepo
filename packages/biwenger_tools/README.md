@@ -142,6 +142,14 @@ changing anything here:
 The full table, including `chucknorris-bot` and `be-water`, is in
 [`docs/gcp.md`](../../docs/gcp.md#runtime-identities--one-service-account-per-service).
 
+## Where the data lives
+
+Every Firestore collection, its document id, its indexes and why it is shaped
+that way — and how it measures up to Google's best practices — is in
+[`docs/firestore.md`](../../docs/firestore.md). The one-line version: what only
+grows (comunicados, clausulazos, the board archive) is never deleted; what is
+derived from it is rebuilt whole every Sunday.
+
 ## Operational commands
 
 See [`OPERATIONS.md`](OPERATIONS.md) for the full per-module reference (build, test, local run, deploy), plus season rollover and Firestore maintenance. Repo-wide workflows live in [`docs/operations.md`](../../docs/operations.md).

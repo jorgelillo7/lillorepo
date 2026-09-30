@@ -27,38 +27,59 @@ from core.sdk.firestore import get_client
 
 # --- comunicados (messages) ----------------------------------------------
 # Subcollection: comunicados/{season}/messages
-# Composite index needed for the category-filtered + fecha-sorted reads:
-#   collection group "messages", fields (categoria ASC, fecha DESC).
-# Declared in firestore.indexes.json at the repo root.
+# Composite indexes for the category-filtered + fecha-sorted reads, collection
+# group "messages": (categoria ASC, fecha DESC), and (categoria ASC, fecha ASC)
+# for the "newer page" cursor. Declared in firestore.indexes.json at the root.
 
 
-def get_messages_by_category(
-    season: str,
-    categoria: str,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-) -> list[LeagueMessage]:
-    """Messages of one ``categoria`` for a season, newest first.
+def _by_category(collection, categoria: str, direction=gfs.Query.DESCENDING):
+    return collection.where(
+        filter=gfs.FieldFilter("categoria", "==", categoria)
+    ).order_by("fecha", direction=direction)
 
-    Server-side: filters by ``categoria``, orders by ``fecha`` DESC, and
-    applies ``limit``/``offset`` for paginated reads. ``offset`` still bills
-    skipped docs as reads (Firestore's offset is not free), so it's only
-    used by the comunicados page that exposes ``?page=N`` URLs — keep the
-    page size small to stay inside the free tier.
-    """
-    ref = (
-        get_client()
-        .collection(f"comunicados/{season}/messages")
-        .where(filter=gfs.FieldFilter("categoria", "==", categoria))
-        .order_by("fecha", direction=gfs.Query.DESCENDING)
-    )
-    if limit is not None:
-        ref = ref.limit(limit)
-    if offset is not None:
-        ref = ref.offset(offset)
+
+def get_messages_by_category(season: str, categoria: str) -> list[LeagueMessage]:
+    """Every message of one ``categoria`` for a season, newest first."""
+    collection = get_client().collection(f"comunicados/{season}/messages")
     return [
         LeagueMessage.from_firestore(snap.id, snap.to_dict() or {})
-        for snap in ref.stream()
+        for snap in _by_category(collection, categoria).stream()
+    ]
+
+
+def get_messages_page(
+    season: str,
+    categoria: str,
+    limit: int,
+    after: Optional[str] = None,
+    before: Optional[str] = None,
+) -> Optional[list[LeagueMessage]]:
+    """One page of a ``categoria``, newest first, read from a cursor.
+
+    ``after`` is the id of the last message of the newer page (reads the next
+    older one); ``before`` the id of the first message of the older page
+    (reads the next newer one); neither reads the first page. A page costs
+    ``limit`` reads plus one for the cursor, whatever its number — an offset
+    bills every skipped message. None when the cursor message no longer
+    exists. The newer direction reads upwards from the cursor on the
+    (categoria ASC, fecha ASC) index and reverses the page — not
+    `limit_to_last`, which in this client flips the order but not the cursor.
+    """
+    collection = get_client().collection(f"comunicados/{season}/messages")
+    cursor_id = after or before
+    if cursor_id is None:
+        snaps = list(_by_category(collection, categoria).limit(limit).stream())
+    else:
+        cursor = collection.document(cursor_id).get()
+        if not cursor.exists:
+            return None
+        direction = gfs.Query.DESCENDING if after else gfs.Query.ASCENDING
+        query = _by_category(collection, categoria, direction)
+        snaps = list(query.start_after(cursor).limit(limit).stream())
+        if before:
+            snaps.reverse()
+    return [
+        LeagueMessage.from_firestore(snap.id, snap.to_dict() or {}) for snap in snaps
     ]
 
 

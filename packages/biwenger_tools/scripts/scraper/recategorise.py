@@ -147,7 +147,7 @@ def main() -> None:
             snap.reference.delete()
         for p in participaciones:
             client.collection(f"participacion/{args.season}/authors").document(
-                p.autor
+                p.doc_id
             ).set(p.to_firestore())
         print(
             f"\nWiped {len(existing)} existing participacion docs; "

@@ -1,0 +1,6 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup": "water_revisions", "fieldPath": "previous", "indexes": []}
+  ]
+}

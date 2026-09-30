@@ -7,7 +7,19 @@
         {"fieldPath": "categoria", "order": "ASCENDING"},
         {"fieldPath": "fecha", "order": "DESCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "categoria", "order": "ASCENDING"},
+        {"fieldPath": "fecha", "order": "ASCENDING"}
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {"collectionGroup": "messages", "fieldPath": "contenido", "indexes": []},
+    {"collectionGroup": "entries", "fieldPath": "entry", "indexes": []},
+    {"collectionGroup": "bids", "fieldPath": "expires_at", "ttl": true, "indexes": []}
+  ]
 }
