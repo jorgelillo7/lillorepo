@@ -125,7 +125,7 @@ def test_before_request_ignores_invalid_url(client):
 # --- Content route tests ---
 
 
-@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_by_category")
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
 @patch(
     "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
 )
@@ -140,13 +140,85 @@ def test_comunicados_success(mock_count, mock_get, client):
     assert response.status_code == 200
     assert b"C1" in response.data
     assert b"C2" in response.data
-    # The route asks the repo with the right (season, categoria, limit, offset)
-    mock_get.assert_called_once()
-    args, kwargs = mock_get.call_args
-    assert args[0] == "24-25"
-    assert args[1] == "comunicado"
-    assert kwargs["limit"] == 7
-    assert kwargs["offset"] == 0
+    mock_get.assert_called_once_with(
+        "24-25", "comunicado", limit=7, after=None, before=None
+    )
+
+
+def _paged(mock_count, mock_get, total, ids):
+    mock_count.return_value = total
+    mock_get.return_value = [_msg(i, f"T{i}", "comunicado") for i in ids]
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_the_older_link_carries_the_last_message_as_its_cursor(
+    mock_count, mock_get, client
+):
+    _paged(mock_count, mock_get, 20, [f"h{i}" for i in range(1, 8)])
+    body = client.get("/24-25/").data.decode()
+    assert "Página 1 de 3" in body
+    assert "/24-25/?page=2&amp;after=h7" in body
+    assert "before=" not in body
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_a_middle_page_reads_from_its_cursor_and_links_both_ways(
+    mock_count, mock_get, client
+):
+    _paged(mock_count, mock_get, 20, [f"h{i}" for i in range(15, 22)])
+    body = client.get("/24-25/?page=3&after=h14").data.decode()
+    mock_get.assert_called_once_with(
+        "24-25", "comunicado", limit=7, after="h14", before=None
+    )
+    assert "Página 3 de 3" in body
+    assert "/24-25/?page=2&amp;before=h15" in body
+    assert "after=h21" not in body
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_going_back_to_page_one_needs_no_cursor(mock_count, mock_get, client):
+    _paged(mock_count, mock_get, 20, [f"h{i}" for i in range(8, 15)])
+    body = client.get("/24-25/?page=2&before=h15").data.decode()
+    mock_get.assert_called_once_with(
+        "24-25", "comunicado", limit=7, after=None, before="h15"
+    )
+    assert 'href="/24-25/"' in body
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_a_cursor_that_no_longer_exists_shows_the_first_page(
+    mock_count, mock_get, client
+):
+    first = [_msg("h1", "Primero", "comunicado")]
+    mock_count.return_value = 20
+    mock_get.side_effect = [None, first]
+    body = client.get("/24-25/?page=3&after=gone").data.decode()
+    assert "Primero" in body and "Página 1 de 3" in body
+    assert mock_get.call_args.kwargs == {"limit": 7, "after": None, "before": None}
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_an_old_numbered_link_without_a_cursor_is_page_one(
+    mock_count, mock_get, client
+):
+    _paged(mock_count, mock_get, 20, ["h1"])
+    body = client.get("/24-25/?page=5").data.decode()
+    assert "Página 1 de 3" in body
 
 
 @patch(
@@ -1251,3 +1323,58 @@ def test_no_tournament_shows_before_the_cups_existed():
     from packages.biwenger_tools.web.routes.main import tournaments_for
 
     assert tournaments_for("2024-2025") == []
+
+
+# --- Comunicados pages read from a cursor, never an offset ---
+
+
+def _cursor_client(exists=True):
+    client = MagicMock()
+    coll = client.collection.return_value
+    snap = coll.document.return_value.get.return_value
+    snap.exists = exists
+    query = coll.where.return_value.order_by.return_value
+    return client, coll, snap, query
+
+
+def test_an_older_page_starts_after_its_cursor():
+    from packages.biwenger_tools.web import repository
+
+    client, coll, snap, query = _cursor_client()
+    query.start_after.return_value.limit.return_value.stream.return_value = []
+    with patch.object(repository, "get_client", return_value=client):
+        assert repository.get_messages_page("26-27", "comunicado", 7, after="h7") == []
+    coll.document.assert_called_once_with("h7")
+    query.start_after.assert_called_once_with(snap)
+    query.start_after.return_value.limit.assert_called_once_with(7)
+    query.offset.assert_not_called()
+
+
+def test_a_newer_page_reads_upwards_from_its_cursor_and_comes_back_newest_first():
+    """Not `limit_to_last`: the Python client flips the order but not the
+    cursor, and returned the season's oldest page instead of the previous one."""
+    from google.cloud import firestore as gfs
+
+    from packages.biwenger_tools.web import repository
+
+    client, coll, snap, query = _cursor_client()
+    upwards = [MagicMock(id=f"h{i}") for i in (7, 6, 5)]
+    for s in upwards:
+        s.to_dict.return_value = {"categoria": "comunicado"}
+    query.start_after.return_value.limit.return_value.stream.return_value = upwards
+    with patch.object(repository, "get_client", return_value=client):
+        page = repository.get_messages_page("26-27", "comunicado", 3, before="h8")
+    assert [m.id_hash for m in page] == ["h5", "h6", "h7"]
+    coll.where.return_value.order_by.assert_called_once_with(
+        "fecha", direction=gfs.Query.ASCENDING
+    )
+    query.start_after.assert_called_once_with(snap)
+    query.limit_to_last.assert_not_called()
+
+
+def test_a_missing_cursor_is_none_not_a_page():
+    from packages.biwenger_tools.web import repository
+
+    client, *_ = _cursor_client(exists=False)
+    with patch.object(repository, "get_client", return_value=client):
+        assert repository.get_messages_page("26-27", "comunicado", 7, after="x") is None

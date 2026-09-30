@@ -11,6 +11,8 @@ from core.domain.models import (
     Participation,
     SeasonStanding,
     _parse_fecha,
+    doc_id_to_name,
+    name_to_doc_id,
 )
 
 
@@ -235,3 +237,29 @@ def test_palmares_cup_winners_round_trip():
     doc = p.to_firestore()
     assert doc["copas"] == copas
     assert Palmares.from_firestore("25-26", doc).copas == copas
+
+
+# --- Names used as document ids ------------------------------------------
+
+
+def test_a_name_that_is_already_a_valid_id_keeps_it():
+    """Stored seasons are read without a migration: plain names are unchanged."""
+    for name in ("Farolillo AI United ⭐️", "#NOALOSCLAUSULAZOS", "Usuario"):
+        assert name_to_doc_id(name) == name
+        assert doc_id_to_name(name) == name
+
+
+def test_a_slash_or_a_dot_name_becomes_a_valid_id_and_comes_back():
+    for name in ("AC/DC FC", ".", "..", "100% Lloros", "%2F/"):
+        doc_id = name_to_doc_id(name)
+        assert "/" not in doc_id and doc_id not in (".", "..")
+        assert doc_id_to_name(doc_id) == name
+
+
+def test_participation_and_justice_keep_a_slashed_name_through_the_id():
+    part = Participation(autor="AC/DC FC", comunicados=["h1"])
+    assert part.doc_id == "AC%2FDC FC"
+    assert Participation.from_firestore(part.doc_id, part.to_firestore()) == part
+    entry = JusticeEntry("AC/DC FC", 1, 0, "Rival", "—", [["Rival", 1]], [])
+    assert entry.doc_id == "AC%2FDC FC"
+    assert JusticeEntry.from_firestore(entry.doc_id, entry.to_firestore()) == entry

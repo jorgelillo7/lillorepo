@@ -15,7 +15,10 @@ Reference for the `biwenger-tools` Firestore database.
 
 - **GCP project:** `biwenger-tools`
 - **Database:** `(default)`, Native mode, regional **`europe-southwest1`**
-  (free tier, co-located with Cloud Run).
+  (free tier, co-located with Cloud Run). **Delete protection on**: the
+  database itself cannot be deleted until it is switched off
+  (`gcloud firestore databases update --no-delete-protection`). It does not
+  protect single documents, and there are no backups.
 - **Auth:** Application Default Credentials (ADC).
   - In Cloud Run, each service's own service account (`docs/gcp.md`,
     "Runtime identities") is picked up automatically.
@@ -33,6 +36,10 @@ tabla_justicia/{season}/teams/{equipo}
 board_archive/{season}/entries/{board_entry_key}
 palmares/{temporada}
 auto_bid_log/{YYYY-MM-DD}/bids/{player_id}
+draft/{season}/managers|picks|state/{id}
+emergencia/{season}/planes/{plan_id}
+pactos/actual
+proyecciones/{season}-{round_id}
 ```
 
 There is an intermediate "season" document (`comunicados/{season}`,
@@ -78,7 +85,9 @@ The scraper recomputes this every run (no incrementing — full rewrite).
 | `cronicas`    | array&lt;string&gt; | |
 | `total`       | int                 | Derived (sum of lengths); stored on write so we can `order_by("total")` server-side |
 
-**Doc id:** the manager's name (`autor`).
+**Doc id:** the manager's name (`autor`), through `name_to_doc_id`: `/`, `%`
+and the ids `.`/`..` are escaped (Firestore forbids them), every other name is
+its own id, and `from_firestore` restores it.
 
 ### `clausulazos/{season}/transfers/{content_hash}` — `Clausulazo`
 
@@ -116,8 +125,9 @@ Summary of "attacks" (clausulazos made/received) per team.
 | `hechos`           | array&lt;map&lt;string,int&gt;&gt; | `[{team, count}, ...]` desc order |
 | `recibidos`        | array&lt;map&lt;string,int&gt;&gt; | |
 
-**Doc id:** the team's name (`equipo`). The placeholder team for managers
-who have left is called `Usuario` (Biwenger's convention).
+**Doc id:** the team's name (`equipo`), escaped like `participacion`'s. The
+placeholder team for managers who have left is called `Usuario` (Biwenger's
+convention).
 
 ### `board_archive/{season}/entries/{board_entry_key}` — raw board entry
 
@@ -185,6 +195,18 @@ players that already went through.
 **Retention:** managed by a TTL policy on the `bids` collection-group —
 see "TTL policies" below.
 
+### The api's own collections
+
+Each has one module that owns it — the schema lives there and in its spec,
+not here.
+
+| Path | Doc id | Owner | Lifecycle |
+|---|---|---|---|
+| `draft/{season}/managers/{telegram_user_id}` · `picks/R{round}P{position}` · `state/current`, `state/lifecycle` | as shown | `api/logic/draft_service/store.py` · spec `draft` | Once a year; picks reserved inside a transaction so two managers cannot take the same slot |
+| `emergencia/{season}/planes/{plan_id}` | uuid | `api/logic/rebuild_store.py` · spec `clausulazo-emergency` | One live plan per season: storing a plan deletes the others |
+| `pactos/actual` | fixed | `api/logic/pact_store.py` | One document, rewritten on every `/pacto` toggle; deliberately not per season |
+| `proyecciones/{season}-{round_id}` | season + round | `api/logic/projection_ledger_store.py` · `docs/technical/backend/projection-ledger.md` | One per round, kept |
+
 ---
 
 ## Indexes
@@ -213,7 +235,20 @@ plain `.stream()` (that's what `get_palmares()` does).
 
 | Collection group | Scope      | Fields                              | Purpose |
 |------------------|------------|-------------------------------------|---------|
-| `messages`       | COLLECTION | `categoria` ASC, `fecha` DESC       | Paginate and filter comunicados / salseo (`get_messages_by_category`) without scanning all ~2,800 messages |
+| `messages`       | COLLECTION | `categoria` ASC, `fecha` DESC       | Filter comunicados / salseo newest first, and the comunicados page's "older" cursor (`get_messages_page`) |
+| `messages`       | COLLECTION | `categoria` ASC, `fecha` ASC        | The comunicados page's "newer" cursor, read upwards from it and reversed |
+
+### Exempted (declared)
+
+Single-field indexes cost storage and make every write slower. Fields that are
+never filtered or sorted on are exempted, as Google's guide recommends for
+large strings, large maps and TTL fields:
+
+| Collection group | Field | Why |
+|---|---|---|
+| `messages` | `contenido` | HTML, up to several KB; search runs in the browser |
+| `entries` | `entry` | The raw board entry as JSON, parsed, never queried |
+| `bids` | `expires_at` | The TTL field; the TTL policy stays on |
 
 `queryScope: COLLECTION` makes the index apply to **every subcollection
 named `messages`** (one per season). Adding a new season needs no
@@ -222,7 +257,15 @@ additional index.
 ### Where they live
 
 `firestore.indexes.json` at the repo root is the declarative source of
-truth.
+truth for `biwenger-tools` (`fieldOverrides` holds the exemptions);
+`packages/be_water/firestore.indexes.json` for `be-water-app`. Nothing applies
+them automatically — the `gcloud` commands below do, and the file must match.
+
+```bash
+# Exempt a field from single-field indexing
+gcloud firestore indexes fields update <field> --collection-group=<group> \
+  --disable-indexes --project=<project>
+```
 
 ### Create / update indexes
 
@@ -295,7 +338,7 @@ With the current model + indexes, a normal visit costs:
 
 | Page | Reads |
 |------|-------|
-| `/<season>/` (comunicados) | 1 count + 7 page = **~8** |
+| `/<season>/` (comunicados) | 1 count + 7 page (+1 cursor after page 1) = **~8–9**, on any page |
 | `/<season>/` with active search box | +~530 (first time per session, via `comunicados/search-data`) |
 | `/<season>/salseo` | ~600 (datos + cronicas + clausulazos + tabla_justicia) |
 | `/<season>/participacion` | ~7 |
@@ -307,12 +350,43 @@ normal usage.
 
 ---
 
+## Good practices — how both databases measure up
+
+Checked against Google's [best practices](https://cloud.google.com/firestore/native/docs/best-practices)
+and [data model](https://cloud.google.com/firestore/native/docs/data-model)
+guides. What we follow, and the one place we knowingly do not:
+
+| Practice | Here |
+|---|---|
+| Location near users and compute | Both regional in `europe-southwest1` (Madrid), with Cloud Run |
+| No `/`, `.`, `..` in document ids | Hashes, slugs, dates and validated nicknames; the two name-keyed biwenger collections escape through `name_to_doc_id` |
+| No monotonically increasing ids / hotspots | Content hashes and names. The few dated ids (`auto_bid_log/{date}`, `proyecciones/{season}-{round}`) take a handful of writes a day, far below where a hotspot starts (500 ops/s) |
+| Documents well under 1 MiB | The largest are a few KB (`board_archive` ~3 KB) |
+| Batches within 500 writes | `batch_write` chunks at 500 |
+| Cursors, not offsets | The comunicados page moves by cursor, so every page costs the same |
+| Index only what is queried | Large strings, the revision snapshot map and the TTL field are exempted |
+| TTL on a timestamp field | `bids.expires_at`, a native timestamp |
+| Transactions where writes race | Draft picks |
+| No sensitive data in ids or field names | Names of league teams and public nicknames only |
+| Access | Server-side only, through each service's account; an unauthenticated REST call gets 403 on both databases |
+| Deletion safety | Delete protection on both databases. **No backups** — a deliberate choice for now: an accidental document delete is not recoverable |
+
+**Layout criteria.** Data that belongs to a season lives under
+`{kind}/{season}/{subcollection}` so a season is self-contained and one
+collection-group index serves every season; data that does not (pacts,
+palmarés, be_water's catalog) is a flat root collection. What only grows
+(`comunicados`, `clausulazos`, `board_archive`) is append-only; what is derived
+(`participacion`, `tabla_justicia`) is rebuilt whole from it every run.
+
+---
+
 ## `be-water-app`
 
 Reference for the Be Water Firestore database.
 
 - **GCP project:** `be-water-app`
 - **Database:** `(default)`, Native mode, regional **`europe-southwest1`**.
+  **Delete protection on**, no backups.
 - **Auth:** Application Default Credentials (ADC) — `run-be-water@be-water-app`
   in prod; `gcloud auth application-default login` locally.
 
@@ -334,8 +408,12 @@ water_revisions/{water_id}__{timestamp}
                       contribution changed its composition (undo trail)
 ```
 
-Both are flat, top-level collections — no season containers. There are **no
-composite indexes and no TTL policies**: the catalog is small (46 docs) and the
+All four are flat, top-level collections — no season containers. Ids are
+slugs (`[a-z0-9-]`) and nicknames validated against `[a-zA-Z0-9_-]`, so none
+can carry a character Firestore forbids. `water_revisions.previous` (the whole
+previous document) is exempted from indexing
+(`packages/be_water/firestore.indexes.json`). There are **no composite indexes
+and no TTL policies**: the catalog is small (46 docs) and the
 app reads it whole (`get_all_waters`) then filters/sorts in Python, so
 single-field auto-indexing is enough.
 

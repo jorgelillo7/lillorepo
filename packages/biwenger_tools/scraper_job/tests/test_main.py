@@ -257,6 +257,22 @@ def test_last_seasons_clausulazos_are_neither_stored_nor_missed(mock_external_de
     assert "ya no devuelve" not in mock_send.call_args.kwargs["text"]
 
 
+def test_a_team_name_with_a_slash_is_stored_under_a_valid_id(mock_external_deps):
+    """Firestore rejects `/` in a document id; the name survives, escaped."""
+    _feed_and_store(
+        mock_external_deps,
+        stored=[],
+        fetched=[_clause_entry(_DECEMBER_TS, "Nico", "AC/DC FC", "Lillo", 9_000_000)],
+    )
+
+    main()
+
+    teams = dict(
+        _batch_for(mock_external_deps["firestore"], "tabla_justicia/25-26/teams")
+    )
+    assert set(teams) == {"AC%2FDC FC", "Lillo"}
+
+
 def test_the_justice_table_counts_stored_and_fetched_clausulazos(mock_external_deps):
     """The justice table is built from the stored clausulazos plus the feed."""
     _feed_and_store(

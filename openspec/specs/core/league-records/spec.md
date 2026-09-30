@@ -33,6 +33,29 @@ Firestore indexes and what a re-run overwrites.
 - *Verifies:* `test_league_message_firestore_roundtrip`,
   `test_league_message_from_firestore_handles_missing_fields`
 
+### Requirement: A name is always a valid document id
+
+When the id is a display name (the participation's `autor`, the justice
+entry's `equipo`), it SHALL go through `name_to_doc_id`, which escapes `%`,
+`/` and the ids `.`/`..` — the characters Firestore forbids — and reading
+SHALL restore the name with `doc_id_to_name`. A name that was already a valid
+id SHALL keep it, so stored seasons read without a migration.
+
+A team named with a `/` would otherwise stop the Sunday scraper: Firestore
+reads the slash as a path separator.
+
+#### Scenario: a slash in a team name
+- **WHEN** a name is a valid id already **THEN** it is its own id
+- **WHEN** a name holds `/`, `%` or is `.`/`..` **THEN** its id is valid and
+  reading it gives the name back
+- **WHEN** a clausulazo involves a team named with a `/` **THEN** the justice
+  table stores it under the escaped id
+- *Verifies:* `test_a_name_that_is_already_a_valid_id_keeps_it`,
+  `test_a_slash_or_a_dot_name_becomes_a_valid_id_and_comes_back`,
+  `test_participation_and_justice_keep_a_slashed_name_through_the_id`,
+  `test_a_team_name_with_a_slash_is_stored_under_a_valid_id`
+  (`scraper_job/tests/test_main.py`)
+
 ### Requirement: Dates are stored as timestamps and read back as Madrid display strings
 
 `fecha` SHALL be written as a native, timezone-aware Firestore timestamp in

@@ -90,7 +90,7 @@ def main() -> None:
         for snap in existing:
             snap.reference.delete()
         for entry in tabla:
-            justice_coll.document(entry.equipo).set(entry.to_firestore())
+            justice_coll.document(entry.doc_id).set(entry.to_firestore())
         print(
             f"\nWiped {len(existing)} existing tabla_justicia docs; "
             f"wrote {len(tabla)} fresh ones."

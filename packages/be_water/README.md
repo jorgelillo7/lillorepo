@@ -6,7 +6,8 @@
 > - **What shipped**: `release-notes.md` (next to this file).
 > - **Commands and runbooks** (run, tests, deploy, catalog sync, curation /
 >   audit tooling): `OPERATIONS.md` (in this package).
-> - **Firestore data model**: `docs/firestore.md` (root) → `be-water-app` section.
+> - **Firestore data model**: `docs/firestore.md` (root) → `be-water-app` section;
+>   how it measures up to Google's best practices → "Good practices", same file.
 > - **Pending follow-ups**: `PENDING.md` (root) → `be_water` section.
 > - **Web design system**: `web/DESIGN.md`.
 

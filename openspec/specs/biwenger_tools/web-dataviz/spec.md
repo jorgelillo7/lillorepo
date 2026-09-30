@@ -5,7 +5,7 @@ content pages, palmarés, the market/justice table, the competitions page, a
 season-agnostic calendar, and a CSRF- and rate-limit-protected admin surface.
 
 - **Source:** `packages/biwenger_tools/web/routes/` (`main.py`, `admin.py`,
-  `season.py`), `app.py`, plus the pure readers `h2h.py` and
+  `season.py`), `app.py`, `repository.py`, plus the pure readers `h2h.py` and
   `competiciones.py`
 - **Verified by:** `packages/biwenger_tools/web/tests/test_web_app.py`,
   `test_h2h.py`, `test_competiciones.py`, `core/tests/test_gcp_services.py`
@@ -40,6 +40,36 @@ no data.
 - *Verifies:* `test_comunicados_success`, `test_comunicados_general_exception`,
   `test_participacion_renders_calculated_counts`, `test_mercado_success`,
   `test_mercado_no_data`
+
+### Requirement: Comunicados pages move by cursor, not by offset
+
+The comunicados page SHALL read one page at a time from a cursor — `after`
+the last message of the newer page, `before` the first of the older one —
+and SHALL link "Más recientes" / "Más antiguos" with "Página N de M" between
+them. A page without a cursor, or whose cursor message no longer exists, SHALL
+be the first page.
+
+Firestore bills an offset's skipped documents as reads, so page 14 cost 98
+reads; a cursor page costs the same on any page. The price is that a page can
+no longer be jumped to by number.
+
+#### Scenario: moving through the pages
+- **WHEN** the first page is shown **THEN** "Más antiguos" carries its last
+  message as the cursor, and there is no newer link
+- **WHEN** a middle page is read **THEN** it reads from its cursor and links
+  both ways; going back to page 1 needs no cursor
+- **WHEN** the cursor message is gone, or an old `?page=N` link has none
+  **THEN** the first page renders
+- **WHEN** the repository reads a page **THEN** it starts after the cursor
+  document — downwards for older, upwards for newer — and never uses an offset
+- *Verifies:* `test_the_older_link_carries_the_last_message_as_its_cursor`,
+  `test_a_middle_page_reads_from_its_cursor_and_links_both_ways`,
+  `test_going_back_to_page_one_needs_no_cursor`,
+  `test_a_cursor_that_no_longer_exists_shows_the_first_page`,
+  `test_an_old_numbered_link_without_a_cursor_is_page_one`,
+  `test_an_older_page_starts_after_its_cursor`,
+  `test_a_newer_page_reads_upwards_from_its_cursor_and_comes_back_newest_first`,
+  `test_a_missing_cursor_is_none_not_a_page`
 
 ### Requirement: Palmarés rules
 

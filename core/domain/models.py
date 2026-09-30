@@ -8,6 +8,7 @@ string on the model so templates and sorting code don't need to know
 about native timestamps.
 """
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import ClassVar, Optional, Tuple
@@ -22,6 +23,29 @@ _FECHA_FORMATS: Tuple[str, ...] = (
     "%d/%m/%Y",
     "%Y-%m-%d",
 )
+
+
+_ID_ESCAPE = re.compile(r"[%/]")
+_ID_UNESCAPE = re.compile(r"%(25|2F)")
+_DOT_IDS = {".": "%2E", "..": "%2E%2E"}
+
+
+def name_to_doc_id(name: str) -> str:
+    """A display name as a valid Firestore document id; `doc_id_to_name` undoes it.
+
+    Firestore forbids `/` in an id and `.` or `..` as one. Only those and `%`
+    are escaped, so every name that was already a valid id keeps it.
+    """
+    escaped = _ID_ESCAPE.sub(lambda m: "%25" if m[0] == "%" else "%2F", name)
+    return _DOT_IDS.get(escaped, escaped)
+
+
+def doc_id_to_name(doc_id: str) -> str:
+    """The display name behind a `name_to_doc_id` id."""
+    for name, escaped in _DOT_IDS.items():
+        if doc_id == escaped:
+            return name
+    return _ID_UNESCAPE.sub(lambda m: "%" if m[1] == "25" else "/", doc_id)
 
 
 def _parse_fecha(raw) -> Optional[datetime]:
@@ -114,12 +138,16 @@ class Participation:
     def from_firestore(cls, doc_id: str, data: dict) -> "Participation":
         """Build from a Firestore doc. The doc id is the `autor`."""
         return cls(
-            autor=doc_id,
+            autor=doc_id_to_name(doc_id),
             comunicados=list(data.get("comunicados", [])),
             datos=list(data.get("datos", [])),
             cesiones=list(data.get("cesiones", [])),
             cronicas=list(data.get("cronicas", [])),
         )
+
+    @property
+    def doc_id(self) -> str:
+        return name_to_doc_id(self.autor)
 
     def to_firestore(self) -> dict:
         """Document fields — native arrays, plus a derived `total` for queries.
@@ -206,7 +234,7 @@ class JusticeEntry:
     def from_firestore(cls, doc_id: str, data: dict) -> "JusticeEntry":
         """Build from a Firestore doc. The doc id is the `equipo`."""
         return cls(
-            equipo=doc_id,
+            equipo=doc_id_to_name(doc_id),
             total_hechos=int(data.get("total_hechos", 0) or 0),
             total_recibidos=int(data.get("total_recibidos", 0) or 0),
             punto_de_mira=data.get("punto_de_mira", "—"),
@@ -214,6 +242,10 @@ class JusticeEntry:
             hechos=cls._maps_to_pairs(data.get("hechos", [])),
             recibidos=cls._maps_to_pairs(data.get("recibidos", [])),
         )
+
+    @property
+    def doc_id(self) -> str:
+        return name_to_doc_id(self.equipo)
 
     def to_firestore(self) -> dict:
         """Document fields — `hechos`/`recibidos` as native arrays of maps.
