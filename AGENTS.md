@@ -58,8 +58,10 @@ Three things are not:
 
 Parallel agents are cheap and usually right. The rule that makes them safe:
 
-**Two agents must never work the same files.** Split by path before you spawn,
-and say the paths in each brief. One agent editing a file while another reads it
+**Two agents must never work the same files** — and the main session counts
+as one: while an agent that writes is running in the main tree, do not edit
+that tree yourself. Split by path before you spawn, and say the paths in each
+brief. One agent editing a file while another reads it
 produces findings about a state that never existed — the reviewer reports a
 defect the other agent introduced on purpose and reverted a minute later.
 
@@ -72,6 +74,11 @@ When overlap is genuinely unavoidable:
 - Point the reader at a snapshot instead of the working tree —
   `git show :<path>` reads the staged blob, which an agent editing the working
   tree cannot move under it — and tell it not to run the suite.
+
+**An agent that writes works on its own branch, in its own worktree by
+default, and commits as it goes.** Nothing an agent does is left uncommitted
+on `master`: an agent once cut off mid-task left its changes there, mixed with
+the main session's, and they had to be picked apart by hand.
 
 **Assume an agent can die mid-write.** Session limits and API errors kill agents
 between two tool calls, so an agent that was halfway through editing a file
