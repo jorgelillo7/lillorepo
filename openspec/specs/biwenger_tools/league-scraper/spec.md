@@ -1,8 +1,10 @@
 # Capability: league-scraper
 
 Cloud Run Job that scrapes the league's board messages into Firestore,
-categorises them, aggregates per-author participation, and builds the
-"tabla justicia" of clause aggressions.
+categorises them, aggregates per-author participation, keeps every clausulazo
+of the season and builds the "tabla justicia" from them, and archives the
+board's money entries for `/saldos`. Clausulazos and the archive only ever
+grow: Biwenger forgets, Firestore does not.
 
 - **Source:** `packages/biwenger_tools/scraper_job/logic/processing.py`,
   `packages/biwenger_tools/scraper_job/main.py`
@@ -112,11 +114,11 @@ them from Firestore too. The stored copy is the only history left.
 
 The scraper SHALL read the board back to the season start and store every
 money entry (`transfer`, `market`, `adminTransfer`, `clauseIncrement`, `bonus`,
-`roundFinished`, `seasonStarted`) raw in `board_archive/{season}/entries`,
-keyed by `board_entry_key`, dropping entries older than the latest
-`seasonStarted` the read returned or than 1 July of the season's first year,
-whichever is later. It SHALL write only keys not yet stored
-and SHALL never delete or overwrite an archived entry.
+`roundFinished`, `seasonStarted`, and any other type whose content carries an
+`amount`) raw in `board_archive/{season}/entries`, keyed by `board_entry_key`,
+dropping entries older than the latest `seasonStarted` the read returned or
+than 1 July of the season's first year, whichever is later. It SHALL write only
+keys not yet stored and SHALL never delete or overwrite an archived entry.
 
 Biwenger purges these entries at the season change and has lost them mid-season;
 raw entries let every derivation (`/saldos`) be fixed and re-run later, where a
@@ -129,7 +131,10 @@ stored balance would freeze its bugs.
   still holds it
 - **WHEN** the read never reaches `seasonStarted` **THEN** every money entry
   read is archived and the run logs a WARNING
+- **WHEN** Biwenger adds a type that carries an `amount` **THEN** it is
+  archived too — the type `/saldos` would flag as unknown is never lost
 - *Verifies:* `test_money_entries_are_archived_once`,
+  `test_an_unknown_type_carrying_an_amount_is_archived_too`,
   `test_the_archive_keeps_entries_the_board_lost`,
   `test_a_board_read_without_its_season_start_is_archived_with_a_warning`,
   `test_the_archive_skips_last_season_after_the_rollover`

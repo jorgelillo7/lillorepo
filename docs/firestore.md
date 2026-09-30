@@ -123,7 +123,8 @@ who have left is called `Usuario` (Biwenger's convention).
 
 Every money-moving board entry of the season (`transfer`, `market`,
 `adminTransfer`, `clauseIncrement`, `bonus`, `roundFinished`,
-`seasonStarted`), as Biwenger returned it. Biwenger deletes them all at the
+`seasonStarted`, and any other type carrying an `amount`), as Biwenger
+returned it. Biwenger deletes them all at the
 season change and has lost some mid-season; this is the copy `/saldos` falls
 back on. A few hundred docs per season, ~3 KB at most.
 

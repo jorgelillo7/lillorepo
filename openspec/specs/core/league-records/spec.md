@@ -16,8 +16,11 @@ the stored shape.
 Every model whose identity is natural SHALL take it from the Firestore
 document id when reading and leave it out of the fields when writing: the
 message's `id_hash`, the participation's `autor`, the justice entry's
-`equipo` and the palmarés' `temporada`. Clausulazos SHALL use auto-ids and
-ignore the id when reading.
+`equipo` and the palmarés' `temporada`. A clausulazo's document id SHALL be a
+content hash the model does not carry (`scraper_job/main.py::_clausulazo_doc_id`),
+ignored when reading; which clausulazos are the same one is decided by date
+and price, not by that id (`league-scraper`: "Clausulazos are never deleted by
+the scraper").
 
 Storing the key twice would let the two copies drift. The id is what
 Firestore indexes and what a re-run overwrites.
