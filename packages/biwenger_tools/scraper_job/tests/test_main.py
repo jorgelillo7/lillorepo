@@ -17,7 +17,12 @@ import pytest
 from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo
 from core.sdk.biwenger import board_entry_key
-from packages.biwenger_tools.scraper_job.main import _clausulazo_doc_id, main
+from packages.biwenger_tools.scraper_job.main import (
+    _clausulazo_doc_id,
+    _summary,
+    _Tally,
+    main,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -284,7 +289,7 @@ def test_clausulazos_missing_from_the_feed_are_reported(mock_external_deps):
         for c in log.warning.call_args_list
     )
     text = mock_send.call_args.kwargs["text"]
-    assert "1 clausulazo guardado que Biwenger ya no devuelve" in text
+    assert "1 clausulazo que Biwenger ya no devuelve" in text
 
 
 # --- The board's money entries are archived, append-only ---
@@ -416,10 +421,41 @@ def test_main_sends_telegram_on_success(mock_external_deps):
     mock_send.assert_called_once()
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Scraper OK" in text
-    assert "sin mensajes nuevos" in text
-    # New-clausulazos count is always reported; the test mock returns
-    # an empty clausulazos feed so the count is 0.
-    assert "sin clausulazos nuevos" in text
+    assert "💬 Comunicados · sin nuevos" in text
+    assert "⚔️ Clausulazos · sin nuevos · 0 en total" in text
+
+
+def test_the_summary_has_one_line_per_collection_with_its_total():
+    text = _summary(
+        "26-27",
+        elapsed=4.2,
+        messages_new=0,
+        clausulazos=_Tally(new=0, total=6),
+        archive=_Tally(new=253, total=253),
+    )
+    assert text == (
+        "🧹 <b>Scraper OK</b> · 26-27 · 4s\n"
+        "\n"
+        "💬 Comunicados · sin nuevos\n"
+        "⚔️ Clausulazos · sin nuevos · 6 en total\n"
+        "🗄️ Tablón · <b>+253</b> archivados · 253 en total"
+    )
+
+
+def test_the_summary_counts_news_in_bold_and_singular():
+    text = _summary(
+        "26-27",
+        elapsed=9,
+        messages_new=1,
+        clausulazos=_Tally(new=1, total=7, missing=1),
+        archive=_Tally(new=1, total=254),
+    )
+    assert "💬 Comunicados · <b>+1</b> nuevo\n" in text
+    assert "⚔️ Clausulazos · <b>+1</b> nuevo · 7 en total" in text
+    assert "🗄️ Tablón · <b>+1</b> archivado · 254 en total" in text
+    assert text.endswith(
+        "\n\n⚠️ 1 clausulazo que Biwenger ya no devuelve, a salvo en Firestore"
+    )
 
 
 def test_main_sends_telegram_and_reraises_on_error(mock_external_deps):
