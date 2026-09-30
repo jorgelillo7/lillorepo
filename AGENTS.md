@@ -30,6 +30,12 @@ session stays whoever you are talking to; none of these can be that.
 | `reviewer` | opus | Cold-eyed review of a branch, against this repo's traps | Findings with the input that breaks them |
 | `spec` | opus | Writing or checking `openspec/` | Spec deltas and `check_specs.py` output |
 
+**Claude Code's own agents come first when they fit**: `Explore` for a broad
+read-only search, a `fork` for a side task that needs the whole conversation
+(it inherits the context instead of starting cold), `general-purpose` for
+anything else. The four roles above exist for what those cannot give: this
+repo's rules, a cheaper model for mechanical work, and cold eyes.
+
 ### What this buys, and what it does not
 
 Three things are real:
@@ -56,7 +62,9 @@ Three things are not:
 
 ### Running more than one at a time
 
-Parallel agents are cheap and usually right. The rule that makes them safe:
+Parallel agents are right when the tasks are independent and do not share
+files — and still subject to "When not to reach for one" below: every agent
+starts cold. The rule that makes them safe:
 
 **Two agents must never work the same files** — and the main session counts
 as one: while an agent that writes is running in the main tree, do not edit

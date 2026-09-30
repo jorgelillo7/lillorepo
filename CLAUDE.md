@@ -1,6 +1,8 @@
 # CLAUDE.md — lillorepo
 
-Bazel monorepo with Python projects targeting Google Cloud. Currently contains `biwenger_tools`; the architecture is designed to grow with more packages.
+Bazel monorepo with Python projects targeting Google Cloud: four packages —
+`biwenger_tools`, `be_water`, `chucknorris_bot` and `my_photos` (plan only) —
+over one shared `core`.
 
 ## Ground rules
 
@@ -29,12 +31,11 @@ because it went wrong, not because it sounds sensible.
 
 ```
 /core           Shared libraries (Biwenger SDK, JP SDK, GCP, Telegram; domain models; utils)
-/packages       Self-contained projects
-  biwenger_tools/
-    api/            Flask service exposing the Biwenger business logic over HTTP
-    bot/            Telegram bot service — webhooks → calls api
-    scraper_job/    League message scraper → Firestore
-    web/            Flask app on Cloud Run for data visualisation
+/packages       Self-contained projects (the table in README.md is the inventory)
+  biwenger_tools/   Fantasy-league platform: api, bot, scraper_job, web
+  be_water/         Bottled-water catalog (own GCP project be-water-app): web, scripts
+  chucknorris_bot/  Telegram joke bot
+  my_photos/        Plan only, no code
 /docker         Docker configurations
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
@@ -53,40 +54,15 @@ because it went wrong, not because it sounds sensible.
 
 ## Key Commands
 
-See `docs/operations.md` for repo-wide workflows and `packages/*/OPERATIONS.md`
-for per-package build/test/deploy detail. Quick summary:
+Per-package run/deploy commands live in `packages/*/OPERATIONS.md`, repo-wide
+workflows in `docs/operations.md`. What every session needs:
 
 ```bash
-# Full build
-bazel build //...
-
-# Tests — all twelve suites, or one module
-bazel test --build_tests_only //... --test_output=streamed --test_arg=-v
-bazel test //core:core_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/api:api_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/bot:bot_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/web:web_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools/scraper_job:scraper_job_tests --test_output=streamed --test_arg=-v
-bazel test //packages/biwenger_tools:integration_tests            # bot → api, in process
-bazel test //packages/biwenger_tools/.claude/skills/draft/scripts:draft_skill_tests
-bazel test //packages/be_water/web:web_tests
-bazel test //packages/be_water/scripts:scripts_tests              # recognised-waters parser
-bazel test //packages/chucknorris_bot/bot:bot_tests
-bazel test //.claude/skills/audit-apple-contacts/scripts:audit_apple_contacts_tests
-bazel test //scripts:scripts_tests                                # the CI test-selector
-
-# What CI would run for the current branch (see docs/operations.md)
-python3 scripts/affected_tests.py origin/master
-
-# Run locally
-bazel run //packages/biwenger_tools/web:web_local
-bazel run //packages/biwenger_tools/scraper_job:scraper_job_local
-bazel run //packages/biwenger_tools/api:api_local
-bazel run //packages/biwenger_tools/bot:bot_local
-
-# Deploy (web)
-bazel run //packages/biwenger_tools/web:push_image_to_gcp --platforms=//platforms:linux_amd64
-cd packages/biwenger_tools/web/ && ./deploy.sh
+bash scripts/lint.sh                                  # what CI's Lint job runs
+bazel test --build_tests_only //...                   # every suite
+bazel query 'tests(//...)'                            # the suites that exist
+bazel test //<package path>:<suite> --test_output=errors
+python3 scripts/affected_tests.py origin/master       # what CI would run here
 ```
 
 ## Python Dependency Management
@@ -163,47 +139,14 @@ Rationale:
 
 For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
 
-### Prefer branching off `master`
+### Merging and shipping: the `ship` skill
 
-Stacked PRs **do** get checks now — `ci.yml` triggers on every pull request,
-and the affected-test selector diffs against `github.base_ref`, so a stacked
-PR tests its own delta. That was not always true, and the afternoon it was
-not cost a PR.
-
-The other half of the trap is still there: merging the base with
-`--delete-branch` **closes** the stacked PR, and a closed PR can be neither
-reopened nor retargeted — the work has to be rebased and opened under a new
-number. Retarget the stacked PR to `master` *before* merging its base, or
-sequence off `master` and skip the question.
-
-### Before merging, check the head you are merging
-
-Green checks belong to a **pushed** commit, not to your working tree. Confirm
-they are the same thing:
-
-```bash
-git rev-parse HEAD && git rev-parse origin/<branch>   # identical, or stop
-```
-
-A merge once went through on a branch whose last fix had never reached
-GitHub. The checks were green — for the previous push — and `master` broke.
-
-### Merged is not deployed
-
-A merge starts `deploy.yml`; it does not finish it. Watch the run, then
-confirm the revisions are actually serving:
-
-```bash
-gh run watch <id>
-gcloud run services list --project biwenger-tools --region europe-southwest1 \
-  --format="value(metadata.name,status.conditions[0].status)"
-gcloud run services list --project be-water-app --region europe-southwest1 \
-  --format="value(metadata.name,status.conditions[0].status)"
-```
-
-`be_water` is a **different GCP project**. A docs-only change may legitimately
-trigger no deploy at all — the `paths-filter` decides — so check whether one
-was expected before waiting for it.
+Every merge goes through `.claude/skills/ship/SKILL.md`. It holds the three
+traps that each cost a broken `master` or a lost PR once: merge only the head
+that GitHub checked (`git rev-parse HEAD` = `origin/<branch>`); never merge a
+base with `--delete-branch` while a PR is stacked on it (branch off `master`
+instead); and a merge is not a deploy — watch the `deploy.yml` run and confirm
+the revisions serve, in **both** GCP projects (`be_water` is `be-water-app`).
 
 ## Specs (`openspec/`)
 
