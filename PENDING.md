@@ -25,7 +25,6 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Ruff · coverage in CI · gradual mypy · `base_deps` from the lock | One trigger each · [why parked](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
-| ⏳ | Artifact Registry back under the free 0.5 GB | The account total (`bash scripts/check-gcp-costs.sh`, no flags) sat at 0.549 GB on 29–30/09 although the registry holds only one image per service and the base; it fell from 0.95 after the purge, then stopped. Expected ~0.28 GB. **If it has not moved by 03/10**: compare each repo's `sizeBytes` with what the remaining manifests reference, and check whether unreferenced layers need a cleanup policy. Then delete the local `SECURITY_AUDIT.local.md` |
 | ⏳ | Bazel's Python is 3.14.4, the image's 3.14.7 | A `rules_python` release that maps 3.14.7 (2.3.4 and 2.4.0-rc0 stop at 3.14.4) · only the test/lint sandbox is behind; production already runs 3.14.7 · `check-deps` flags it |
 
 ## core

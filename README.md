@@ -13,7 +13,7 @@ graph TD
     JP[Jornada Perfecta<br/>private API] -->|predictions| API
     SJ -->|writes| FS[(Firestore)]
     FS -->|reads| WEB[web<br/>Cloud Run Service]
-    FS -->|auto-bid log| API
+    FS -->|auto-bid log, board archive| API
     API -->|PNG + summary| TG[Telegram]
     USR((Users)) -->|/menu /analizar /pujar ...| BOT[bot<br/>Cloud Run Service]
     USR -->|draft group: /soy /pick ...| BOT

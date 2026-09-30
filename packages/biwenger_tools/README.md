@@ -27,7 +27,8 @@ Four modules working together to archive, visualise and analyse data from a Biwe
 ┌────────────┐  weekly cron     ┌──────────────┐
 │ scraper_job│ ────────────────▶│   Firestore  │◀── api writes here too:
 └────────────┘                  │  (native, EU)│    bid log, pacts, rebuild
-                                └──────┬───────┘    plans, projection ledger
+                                └──────┬───────┘    plans, projection ledger;
+                                       │            and reads the board archive
                                        │ server-side query (composite index)
                                        ▼
                                ┌───────────────┐
