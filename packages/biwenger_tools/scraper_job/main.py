@@ -10,6 +10,7 @@ entries are archived raw, append-only, in `board_archive/{season}/entries`.
 import hashlib
 import json
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from bs4 import BeautifulSoup
 
@@ -31,6 +32,15 @@ from packages.biwenger_tools.scraper_job.logic.processing import (
 logger = get_logger(__name__)
 
 _SEASON_START = "seasonStarted"
+
+
+class _Tally(NamedTuple):
+    """What a run added to a collection, what it holds now, and what the feed
+    no longer returns."""
+
+    new: int
+    total: int
+    missing: int = 0
 
 
 def _season_floor(season: str) -> datetime:
@@ -150,15 +160,14 @@ def _clausulazo_identity(c: Clausulazo) -> tuple[str, int]:
     return c.fecha, c.precio
 
 
-def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> tuple[int, int]:
+def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
     """Store the feed's new clausulazos and rebuild the justice table from all of them.
 
     Never deletes or rewrites a stored clausulazo: Biwenger drops old entries
     from its feed, and a stored one may carry a manual fix. A fetched one is
     already stored when a stored one has its date and price; one older than
-    the season is ignored. Returns
-    ``(new, missing)`` — clausulazos first seen in this run, and stored ones
-    the feed no longer returns.
+    the season is ignored. The tally's `missing` counts stored clausulazos the
+    feed no longer returns.
     """
     logger.info("Processing clausulazos...")
     players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
@@ -194,7 +203,7 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> tuple[int, in
         [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
-    return len(new), missing_count
+    return _Tally(len(new), len(stored) + len(new), missing_count)
 
 
 def _stored_ids(collection_path: str) -> set[str]:
@@ -225,8 +234,8 @@ def _season_money_entries(entries: list[dict], floor: datetime) -> list[dict]:
     ]
 
 
-def _archive_board(biwenger: BiwengerClient, cfg) -> int:
-    """Store the season's board money entries not archived yet; return how many.
+def _archive_board(biwenger: BiwengerClient, cfg) -> _Tally:
+    """Store the season's board money entries not archived yet.
 
     Append-only: an archived entry is never rewritten or deleted. Each doc
     holds the raw entry as JSON, so any derivation can be re-run on it.
@@ -260,7 +269,40 @@ def _archive_board(biwenger: BiwengerClient, cfg) -> int:
                 for key, e in new.items()
             ],
         )
-    return len(new)
+    return _Tally(len(new), len(archived) + len(new))
+
+
+def _plural(n: int, word: str) -> str:
+    return word if n == 1 else f"{word}s"
+
+
+def _news(n: int, word: str) -> str:
+    return f"<b>+{n}</b> {_plural(n, word)}" if n else f"sin {word}s"
+
+
+def _summary(
+    season: str,
+    elapsed: float,
+    messages_new: int,
+    clausulazos: _Tally,
+    archive: _Tally,
+) -> str:
+    """The Telegram message of a successful run, in Spanish."""
+    lines = [
+        f"🧹 <b>Scraper OK</b> · {season} · {elapsed:.0f}s",
+        "",
+        f"💬 Comunicados · {_news(messages_new, 'nuevo')}",
+        f"⚔️ Clausulazos · {_news(clausulazos.new, 'nuevo')} · "
+        f"{clausulazos.total} en total",
+        f"🗄️ Tablón · {_news(archive.new, 'archivado')} · {archive.total} en total",
+    ]
+    if clausulazos.missing:
+        lines += [
+            "",
+            f"⚠️ {clausulazos.missing} {_plural(clausulazos.missing, 'clausulazo')} "
+            "que Biwenger ya no devuelve, a salvo en Firestore",
+        ]
+    return "\n".join(lines)
 
 
 def _notify(text: str) -> None:
@@ -284,9 +326,6 @@ def main() -> None:
     """
     started_at = datetime.now(timezone.utc)
     new_count = 0
-    clausulazos_count = 0
-    missing_clausulazos = 0
-    archived_count = 0
 
     try:
         season = config.TEMPORADA_ACTUAL
@@ -327,10 +366,8 @@ def main() -> None:
         else:
             logger.info("No new messages found.")
 
-        clausulazos_count, missing_clausulazos = _write_clausulazos_and_tabla(
-            biwenger, config
-        )
-        archived_count = _archive_board(biwenger, config)
+        clausulazos = _write_clausulazos_and_tabla(biwenger, config)
+        archive = _archive_board(biwenger, config)
 
     except Exception as exc:
         logger.exception("Unexpected error in scraper.")
@@ -343,33 +380,7 @@ def main() -> None:
         raise  # let Cloud Run mark the execution as failed
 
     elapsed = (datetime.now(timezone.utc) - started_at).total_seconds()
-    if new_count > 0:
-        msg_s = "s" if new_count != 1 else ""
-        messages_part = f"{new_count} mensaje{msg_s} nuevo{msg_s}"
-    else:
-        messages_part = "sin mensajes nuevos"
-    if clausulazos_count > 0:
-        cl_s = "s" if clausulazos_count != 1 else ""
-        clausulazos_part = f"{clausulazos_count} clausulazo{cl_s} nuevo{cl_s}"
-    else:
-        clausulazos_part = "sin clausulazos nuevos"
-    body = (
-        f"🧹 <b>Scraper OK</b> · {messages_part} · "
-        f"{clausulazos_part} · {elapsed:.0f}s"
-    )
-    if archived_count:
-        arch_s = "s" if archived_count != 1 else ""
-        body += (
-            f"\n🗄️ {archived_count} movimiento{arch_s} del tablón " f"archivado{arch_s}"
-        )
-    if missing_clausulazos:
-        miss_s = "s" if missing_clausulazos != 1 else ""
-        body += (
-            f"\n⚠️ {missing_clausulazos} clausulazo{miss_s} guardado{miss_s} "
-            f"que Biwenger ya no devuelve · se conserva{'n' if miss_s else ''} "
-            "en Firestore"
-        )
-    _notify(body)
+    _notify(_summary(season, elapsed, new_count, clausulazos, archive))
 
 
 if __name__ == "__main__":
