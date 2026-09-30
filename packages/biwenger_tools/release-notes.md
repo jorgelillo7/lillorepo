@@ -2,6 +2,25 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v9.3 - The Memory Biwenger Doesn't Keep (30 September 2026)**
+
+Last Christmas the first weeks of clausulazos vanished, and this year the numbers still did not add up: 109 clausulazos survive for 25-26, the first from 28 September — everything before was already gone. Two things did it. Biwenger purges every money movement at the season change (the board keeps eight years of chat and not one euro), and our own scraper mirrored its feed every Sunday, so whatever Biwenger forgot, Firestore forgot the next week. Not any more.
+
+* **⚔️ Clausulazos are never deleted (the headline)**: the scraper only adds the ones it has not seen and never rewrites or deletes one. A team renaming itself no longer duplicates its history (a clausulazo is its date and price, not the names on it), a manual fix is not undone by the feed, and last season's leftovers are ignored in the weeks between our rollover in May and Biwenger opening the season in July.
+* **🗄️ The board, archived**: every movement of money this season — transfers, market sales, admin moves, clause raises, bonuses, round prizes — is stored raw in Firestore every Sunday, append-only. Seeded today with the whole season: 253 movements, from the season start on 14 July.
+* **💰 `/saldos` survives a forgetful Biwenger**: it rebuilds from the live board **plus** the archive. Tested against the real board with its first 30 days removed, the season start included: without the archive `/saldos` failed; with it, the same figures to the euro. When Biwenger has forgotten something the image says so; if the archive cannot be read, it says that instead of pretending.
+* **📬 A Sunday message worth reading**: one line per collection with the season, news in bold and the total stored. Those totals only ever go up now — a number that drops is the alarm.
+
+```
+🧹 Scraper OK · 26-27 · 4s
+
+💬 Comunicados · sin nuevos
+⚔️ Clausulazos · sin nuevos · 6 en total
+🗄️ Tablón · sin nuevos · 253 en total
+```
+
+* **🧾 And the paperwork**: Artifact Registry is back inside the free tier (0.24 of 0.5 GB for the whole account), which closes the last item of the security audit.
+
 ### **v9.2 - The Locks Nobody Sees (29 September 2026)**
 
 No new command this time. For three days the work went into what nobody sees: a security audit of the whole repo, every dependency brought current, and the plumbing underneath both. Forty-five pull requests, each merged on green checks and verified in production — and not one broke anything. The 09:00 digest arrived every morning, the last two on the new base.
