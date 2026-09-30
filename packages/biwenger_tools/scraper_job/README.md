@@ -16,7 +16,9 @@ and writes them to Firestore. Builds the data history that the web app
 
 `main.py` orchestrates the whole job: read existing message ids from
 Firestore → fetch the Biwenger board → diff new messages → wipe + bulk
-write `comunicados`, `participacion`, `clausulazos`, `tabla_justicia`.
+write `comunicados`, `participacion`, `tabla_justicia`; insert new
+`clausulazos` only — the job never deletes or rewrites one (Biwenger's feed
+forgets them).
 Pure-function processing lives in `logic/processing.py`.
 
 Schemas, indexes, and read costs are documented in `docs/firestore.md`.

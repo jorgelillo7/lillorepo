@@ -159,8 +159,8 @@ class Clausulazo:
 
     @classmethod
     def from_firestore(cls, doc_id: str, data: dict) -> "Clausulazo":
-        """Build from a Firestore doc. Clausulazos use auto-ids — `doc_id`
-        is not part of the model and is ignored."""
+        """Build from a Firestore doc. The doc id is a content hash, not part of
+        the model, and is ignored."""
         return cls(
             fecha=_format_fecha(data.get("fecha"), cls._FECHA_FMT),
             jugador=data.get("jugador", ""),

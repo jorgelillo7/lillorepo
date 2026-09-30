@@ -1,8 +1,9 @@
 """Scraper job: fetch Biwenger board messages and write them to Firestore.
 
 Every run is idempotent — `comunicados/{season}/messages` is keyed by a
-content hash, and `participacion`, `clausulazos`, `tabla_justicia` are
-rewritten in full (wipe + bulk-write) so a deletion upstream propagates.
+content hash, `clausulazos/{season}/transfers` only gains new entries
+(Biwenger drops old ones from its feed), and `participacion` and
+`tabla_justicia` are rewritten in full (wipe + bulk-write).
 """
 
 import hashlib
@@ -26,6 +27,19 @@ from packages.biwenger_tools.scraper_job.logic.processing import (
 )
 
 logger = get_logger(__name__)
+
+
+def _season_floor(season: str) -> datetime:
+    """1 July of the season's first year, Madrid: nothing older belongs to it.
+
+    The code rolls over to the new season in May, weeks before Biwenger opens
+    it in July, while the feeds still return last season's movements.
+    """
+    return datetime(2000 + int(season[:2]), 7, 1, tzinfo=MADRID_TZ)
+
+
+def _clausulazo_time(c: Clausulazo) -> datetime:
+    return datetime.strptime(c.fecha, "%d-%m-%Y %H:%M").replace(tzinfo=MADRID_TZ)
 
 
 def _read_credentials(cfg) -> tuple[str, str]:
@@ -119,42 +133,64 @@ def _write_collection(collection: str, pairs: list[tuple[str, dict]]) -> None:
     )
 
 
-def _existing_clausulazo_ids(season: str) -> set[str]:
-    """Doc ids of clausulazos already in Firestore for the season."""
-    collection = firestore.get_client().collection(f"clausulazos/{season}/transfers")
-    return {snap.id for snap in collection.select([]).stream()}
+def _stored_clausulazos(season: str) -> dict[str, Clausulazo]:
+    """Clausulazos already in Firestore for the season, by doc id."""
+    return {
+        doc_id: Clausulazo.from_firestore(doc_id, data)
+        for doc_id, data in firestore.list_documents(f"clausulazos/{season}/transfers")
+    }
 
 
-def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> int:
-    """Pull the clausulazos feed, derive the justice table, write both.
+def _clausulazo_identity(c: Clausulazo) -> tuple[str, int]:
+    """Date and price: what a team or player rename cannot change."""
+    return c.fecha, c.precio
 
-    Returns the number of clausulazos that did not exist in Firestore
-    before this run (i.e. new since the last scraper execution).
+
+def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> tuple[int, int]:
+    """Store the feed's new clausulazos and rebuild the justice table from all of them.
+
+    Never deletes or rewrites a stored clausulazo: Biwenger drops old entries
+    from its feed, and a stored one may carry a manual fix. A fetched one is
+    already stored when a stored one has its date and price; one older than
+    the season is ignored. Returns
+    ``(new, missing)`` — clausulazos first seen in this run, and stored ones
+    the feed no longer returns.
     """
     logger.info("Processing clausulazos...")
     players_map = biwenger.get_all_players_data_map(cfg.ALL_PLAYERS_DATA_URL)
     raw = biwenger.get_all_clausulazos(cfg.CLAUSULAZOS_URL)
-    clausulazos = parse_clausulazos(raw, players_map)
-    tabla_justicia = build_tabla_justicia(clausulazos)
-
     season = cfg.TEMPORADA_ACTUAL
-    existing_ids = _existing_clausulazo_ids(season)
-    new_count = sum(1 for c in clausulazos if _clausulazo_doc_id(c) not in existing_ids)
+    floor = _season_floor(season)
+    fetched = [
+        c for c in parse_clausulazos(raw, players_map) if _clausulazo_time(c) >= floor
+    ]
+
+    stored = list(_stored_clausulazos(season).values())
+    stored_ids = {_clausulazo_identity(c) for c in stored}
+    fetched_ids = {_clausulazo_identity(c) for c in fetched}
+    new = [c for c in fetched if _clausulazo_identity(c) not in stored_ids]
+    missing_count = len(stored_ids - fetched_ids)
     logger.info(
         "Clausulazos processed.",
-        extra={"total": len(clausulazos), "new": new_count},
+        extra={"fetched": len(fetched), "new": len(new), "stored": len(stored)},
     )
+    if missing_count:
+        logger.warning(
+            "Stored clausulazos missing from Biwenger's feed; kept in Firestore.",
+            extra={"missing": missing_count, "temporada": season},
+        )
 
-    _write_collection(
+    firestore.batch_write(
         f"clausulazos/{season}/transfers",
-        [(_clausulazo_doc_id(c), c.to_firestore()) for c in clausulazos],
+        [(_clausulazo_doc_id(c), c.to_firestore()) for c in new],
     )
+    tabla_justicia = build_tabla_justicia(stored + new)
     _write_collection(
         f"tabla_justicia/{season}/teams",
         [(e.equipo, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
-    return new_count
+    return len(new), missing_count
 
 
 def _notify(text: str) -> None:
@@ -179,6 +215,7 @@ def main() -> None:
     started_at = datetime.now(timezone.utc)
     new_count = 0
     clausulazos_count = 0
+    missing_clausulazos = 0
 
     try:
         season = config.TEMPORADA_ACTUAL
@@ -219,7 +256,9 @@ def main() -> None:
         else:
             logger.info("No new messages found.")
 
-        clausulazos_count = _write_clausulazos_and_tabla(biwenger, config)
+        clausulazos_count, missing_clausulazos = _write_clausulazos_and_tabla(
+            biwenger, config
+        )
 
     except Exception as exc:
         logger.exception("Unexpected error in scraper.")
@@ -246,6 +285,13 @@ def main() -> None:
         f"🧹 <b>Scraper OK</b> · {messages_part} · "
         f"{clausulazos_part} · {elapsed:.0f}s"
     )
+    if missing_clausulazos:
+        miss_s = "s" if missing_clausulazos != 1 else ""
+        body += (
+            f"\n⚠️ {missing_clausulazos} clausulazo{miss_s} guardado{miss_s} "
+            f"que Biwenger ya no devuelve · se conserva{'n' if miss_s else ''} "
+            "en Firestore"
+        )
     _notify(body)
 
 

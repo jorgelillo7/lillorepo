@@ -4,8 +4,10 @@ Cloud Run Job that scrapes the league's board messages into Firestore,
 categorises them, aggregates per-author participation, and builds the
 "tabla justicia" of clause aggressions.
 
-- **Source:** `packages/biwenger_tools/scraper_job/logic/processing.py`
-- **Verified by:** `packages/biwenger_tools/scraper_job/tests/test_processing.py`
+- **Source:** `packages/biwenger_tools/scraper_job/logic/processing.py`,
+  `packages/biwenger_tools/scraper_job/main.py`
+- **Verified by:** `packages/biwenger_tools/scraper_job/tests/test_processing.py`,
+  `packages/biwenger_tools/scraper_job/tests/test_main.py`
 
 ---
 
@@ -72,3 +74,36 @@ empty table.
 - **WHEN** team A clauses B twice and C clauses A once
 - **THEN** A has 2 made / 1 received, `punto_de_mira` = B, `mayor_agresor` = C
 - *Verifies:* `test_build_tabla_justicia`, `test_build_tabla_justicia_empty`
+
+### Requirement: Clausulazos are never deleted by the scraper
+
+The scraper SHALL add the clausulazos the feed returns that are not stored yet,
+and SHALL never delete or rewrite a stored one. A clausulazo is already stored
+when a stored one has the same date and price, whatever the team and player
+names say. Clausulazos dated before 1 July of the season's first year SHALL be
+ignored: the code rolls over in May, weeks before Biwenger opens the season in
+July, and the feed still returns last season's in between. The justice table
+SHALL be built from stored and fetched clausulazos together. When stored clausulazos are
+missing from the feed, the run SHALL log a WARNING naming how many, and the
+Sunday Telegram summary SHALL say so.
+
+Biwenger stopped returning a season's first weeks of clausulazos once, and at
+every season change it deletes them all; a scraper that mirrors the feed deleted
+them from Firestore too. The stored copy is the only history left.
+
+#### Scenario: the feed forgets
+- **WHEN** a stored clausulazo is missing from the feed **THEN** it stays in
+  Firestore and in the justice table, and the run reports it
+- **WHEN** the feed returns a new clausulazo **THEN** it is added and nothing
+  stored is removed
+- **WHEN** a team renames itself **THEN** its clausulazos are neither
+  duplicated nor counted twice
+- *Verifies:* `test_clausulazos_missing_from_the_feed_are_kept`,
+  `test_the_justice_table_counts_stored_and_fetched_clausulazos`,
+  `test_clausulazos_missing_from_the_feed_are_reported`,
+  `test_a_renamed_team_does_not_duplicate_its_clausulazos`
+
+#### Scenario: between the rollover and the new season
+- **WHEN** the feed still returns last season's clausulazos **THEN** none is
+  stored, counted in the justice table or reported missing
+- *Verifies:* `test_last_seasons_clausulazos_are_neither_stored_nor_missed`
