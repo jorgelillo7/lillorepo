@@ -38,8 +38,8 @@
 
 ## Landing
 - [x] PR A: "Clausulazos are never deleted" folded into `league-scraper`
-- [ ] PR B: the archive requirement and the core key folded
+- [x] PR B: the archive requirement and the core key folded
 - [ ] PR C: the `league-cash` delta folded; delete this folder
-- [ ] `docs/firestore.md`: `board_archive`; OPERATIONS: seed run after deploy
+- [x] `docs/firestore.md`: `board_archive`; OPERATIONS: seed run after deploy
 - [ ] after deploy: run the scraper job by hand; archived counts = the season's
       money entries; `/saldos` identical to the euro

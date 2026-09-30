@@ -1261,3 +1261,75 @@ def test_the_session_carries_the_web_identity_alongside_the_token(
     assert headers["X-Lang"] == "es"
     assert headers["X-Version"]
     assert "Mozilla" in headers["User-Agent"]
+
+
+# --- board_entry_key ---
+
+
+def _transfer_entry(date=1790406962, team="Cebollitas FC", icon="i/u/1.png?v=1"):
+    return {
+        "type": "transfer",
+        "title": "",
+        "date": date,
+        "fixed": False,
+        "author": None,
+        "content": [
+            {
+                "type": "clause",
+                "player": 30512,
+                "from": {"id": 13753285, "name": team, "icon": icon},
+                "to": {"id": 1372802, "name": "Farolillo", "icon": "i/u/2.png"},
+                "amount": 12_500_000,
+            }
+        ],
+    }
+
+
+def _round_entry(score_id=11, date=1790003365, comments=3):
+    return {
+        "type": "roundFinished",
+        "title": "",
+        "date": date,
+        "fixed": False,
+        "author": None,
+        "content": {
+            "round": {"id": 4715, "name": "Jornada 3"},
+            "scoreID": score_id,
+            "results": [{"user": {"id": 1}, "points": 50, "bonus": 0}],
+            "article": {"id": 9, "title": "Crónica", "comments": comments},
+        },
+    }
+
+
+def test_board_entry_key_ignores_names_icons_and_comment_counts():
+    """Teams rename themselves, icons carry cache busters and a round's article
+    counts comments; none of it is the movement, so none of it may change the key."""
+    from core.sdk.biwenger import board_entry_key
+
+    assert board_entry_key(_transfer_entry()) == board_entry_key(
+        _transfer_entry(team="Cebollitas Renamed", icon="i/u/1.png?v=82")
+    )
+    assert board_entry_key(_round_entry(comments=3)) == board_entry_key(
+        _round_entry(comments=40)
+    )
+
+
+def test_board_entry_key_separates_entries_in_the_same_second():
+    from core.sdk.biwenger import board_entry_key
+
+    other = _transfer_entry()
+    other["content"][0]["player"] = 99999
+    assert board_entry_key(_transfer_entry()) != board_entry_key(other)
+    assert board_entry_key(_transfer_entry()) != board_entry_key(
+        _transfer_entry(date=1790406963)
+    )
+
+
+def test_a_republished_round_keeps_its_own_key():
+    """A score correction republishes the whole round under a new scoreID; the
+    archive keeps both, and the rebuild decides to count the round once."""
+    from core.sdk.biwenger import board_entry_key
+
+    assert board_entry_key(_round_entry(score_id=11)) != board_entry_key(
+        _round_entry(score_id=12, date=1790090000)
+    )
