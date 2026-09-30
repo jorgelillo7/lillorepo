@@ -212,13 +212,21 @@ def _stored_ids(collection_path: str) -> set[str]:
     return {snap.id for snap in collection.select([]).stream()}
 
 
+def _moves_money(entry: dict) -> bool:
+    return entry.get("type") in MONEY_ENTRY_TYPES or '"amount"' in json.dumps(
+        entry.get("content")
+    )
+
+
 def _season_money_entries(entries: list[dict], floor: datetime) -> list[dict]:
     """The money entries from the latest `seasonStarted` on, never before `floor`.
 
     The read stops after the page holding that entry, so older ones can ride
     along; between the rollover and Biwenger opening the season, that entry
     is last season's, and `floor` keeps it out. Without any `seasonStarted`,
-    everything from `floor` on is kept, with a WARNING.
+    everything from `floor` on is kept, with a WARNING. A type outside
+    `MONEY_ENTRY_TYPES` whose content carries an `amount` counts as money too:
+    `/saldos` flags such a type, and the archive must still hold it.
     """
     starts = [e.get("date", 0) for e in entries if e.get("type") == _SEASON_START]
     if not starts:
@@ -227,11 +235,7 @@ def _season_money_entries(entries: list[dict], floor: datetime) -> list[dict]:
             extra={"entries": len(entries)},
         )
     since = max([floor.timestamp(), *starts])
-    return [
-        e
-        for e in entries
-        if e.get("type") in MONEY_ENTRY_TYPES and e.get("date", 0) >= since
-    ]
+    return [e for e in entries if _moves_money(e) and e.get("date", 0) >= since]
 
 
 def _archive_board(biwenger: BiwengerClient, cfg) -> _Tally:

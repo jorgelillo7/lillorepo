@@ -101,8 +101,9 @@ The board is paged newest first and SHALL stop at the page that contains
 that are then discarded.
 
 When the archive holds entries of the current season the live board no longer
-returns, the image SHALL say how many, next to the self-check: the figures are still right, and
-the note is the early warning that Biwenger has started to forget. When the
+returns, the image SHALL say how many, next to the self-check: the figures are
+still right, and the note is the early warning that Biwenger has started to
+forget. When the
 archive cannot be read, the rebuild SHALL use the live board alone and the
 image SHALL say the archive was not read — the answer is no worse than
 without an archive, and it does not pretend to be protected.
@@ -164,6 +165,8 @@ stated on the image rather than left to look like data:
   plain one or a `clause` SHALL be named on the image as a reason the figures
   may be wrong. The league allows loans and exchanges and neither has been
   seen yet; an exchange would most likely arrive as a new `transfer` kind.
+  The scraper archives such an entry too, so fixing the rule later can still
+  count it.
 
 #### Scenario: the self-check and an unknown movement
 - **WHEN** the rebuilt owner balance equals `/account` **THEN** the image says

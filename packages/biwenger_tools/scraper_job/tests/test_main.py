@@ -381,6 +381,24 @@ def test_a_board_read_without_its_season_start_is_archived_with_a_warning(
     assert any("seasonStarted" in c.args[0] for c in log.warning.call_args_list)
 
 
+def test_an_unknown_type_carrying_an_amount_is_archived_too(mock_external_deps):
+    """A money type Biwenger adds later is kept, as /saldos would flag it."""
+    loan = {
+        "type": "loan",
+        "date": _JULY_10 + 2000,
+        "content": [{"player": {"id": 3}, "to": {"id": 5}, "amount": 700}],
+    }
+    board = [loan, _CHAT, _SEASON_START]
+    with _board_and_archive(mock_external_deps, board=board, archived=set()):
+        main()
+
+    (written,) = _archive_writes(mock_external_deps["firestore"])
+    assert dict(written).keys() == {
+        board_entry_key(loan),
+        board_entry_key(_SEASON_START),
+    }
+
+
 def test_the_archive_skips_last_season_after_the_rollover(mock_external_deps):
     """Season bumped before Biwenger starts it: last season's board is not archived."""
     old_start = {**_SEASON_START, "date": _MAY_20 - 9_000_000}
