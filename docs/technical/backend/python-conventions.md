@@ -240,9 +240,15 @@ in a deterministic Firestore document inside a transaction
 (`draft_service._reserve_pick`). When the service answers an empty `204`,
 re-read its state to confirm the write.
 
+A repair of production data is a full-document write: read the document,
+build the corrected whole, and `set` it without `merge`. `merge=True` merges
+maps key by key, so a key the fix meant to drop stays behind — a be_water
+repair left stale nested fields that way and needed a second rewrite. Then
+re-read the document from production and compare it with the expected shape.
+
 **Why.** Telegram retries webhooks, so every handler will eventually run twice.
 And an empty `204` confirms nothing: re-reading is the only confirmation there
-is.
+is — for our own writes too.
 
 **Checked by:** `Test`. The duplicate-call tests of LP-22.
 
