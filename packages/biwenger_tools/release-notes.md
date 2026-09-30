@@ -19,6 +19,9 @@ Last Christmas the first weeks of clausulazos vanished, and this year the number
 🗄️ Tablón · sin nuevos · 253 en total
 ```
 
+* **🕳️ A money type nobody has seen yet**: the archive also keeps any board entry that carries an amount, not just the seven known types — so a loan or an exchange, the day Biwenger adds one, is kept for `/saldos` to learn from later. None exists in the league's board since 2017; it is a net, not a fix.
+* **📄 Comunicados page by page, at the same price**: "← Más recientes · Página 3 de 14 · Más antiguos →" replaces the numbered links. Firestore charged for every message a page skipped (page 14 cost 98 reads); every page now costs 8–9. The first attempt at the "newer" direction returned the season's oldest page instead — the Python client flips the order but not the cursor — and it was caught by walking all 14 pages of 25-26 against production, both ways.
+* **🗃️ Firestore, checked against Google's own guide**: every collection documented (four were missing), large fields no longer indexed, delete protection on the database, and team names escaped in document ids — a team renamed with a `/` would have stopped the Sunday scraper. The one practice we skip on purpose is written down too: there are no backups.
 * **🧾 And the paperwork**: Artifact Registry is back inside the free tier (0.24 of 0.5 GB for the whole account), which closes the last item of the security audit.
 
 ### **v9.2 - The Locks Nobody Sees (29 September 2026)**
