@@ -13,8 +13,8 @@ push to `master`; the build fails if it reports anything.
 
 ## Types: mypy
 
-`mypy.ini` decides what is type-checked: the trees under `files` (`core` today
-— a tree joins once it is clean, and stays clean). `scripts/lint.sh` runs it
+`mypy.ini` decides what is type-checked: the trees under `files` — a tree joins
+once it is clean, and stays clean. `scripts/lint.sh` runs it
 as `//tools/lint:mypy`, in-process, with the runtime libraries the code imports
 plus the stubs for those that ship none (`types-bleach`, `types-gunicorn`,
 `types-python-dateutil`) as Bazel deps — so it reads their real types. A new

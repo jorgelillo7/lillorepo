@@ -389,8 +389,8 @@ Formatting, linting and import order are one tool, **Ruff** (`ruff.toml`:
 both run through Bazel at the versions the lock pins by `scripts/lint.sh`. Run
 `bash scripts/lint.sh --fix` before pushing.
 
-mypy is gradual: it checks the trees `mypy.ini` lists under `files` (`core`
-today), and a tree joins once it is clean. A library with no types and no
+mypy is gradual: it checks the trees `mypy.ini` lists under `files`, and a
+tree joins once it is clean. A library with no types and no
 stubs is ignored by module name in `mypy.ini`, never globally, and
 `# type: ignore` names its code (`# type: ignore[arg-type]`).
 
