@@ -97,7 +97,11 @@ jobs:
           # cache alone was saving 4 KB, because it holds action outputs and
           # almost nothing else.
           repository-cache: true
-          external-cache: true
+          # Named, so CI's job and the deploy's share one manifest: GitHub
+          # hands pull requests only the caches saved on master, and the
+          # default name (<workflow>-<job>) made every PR start cold.
+          external-cache: |
+            name: lint
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
@@ -182,7 +186,11 @@ jobs:
           # cache alone was saving 4 KB, because it holds action outputs and
           # almost nothing else.
           repository-cache: true
-          external-cache: true
+          # Named, so CI's job and the deploy's share one manifest: GitHub
+          # hands pull requests only the caches saved on master, and the
+          # default name (<workflow>-<job>) made every PR start cold.
+          external-cache: |
+            name: test
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
