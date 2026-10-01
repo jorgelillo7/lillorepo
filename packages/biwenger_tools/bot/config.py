@@ -12,20 +12,20 @@ load_dotenv()
 _TELEGRAM_CFG = load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
 
 TELEGRAM_BOT_TOKEN = (
-    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or ""
 ).strip()
 TELEGRAM_CHAT_ID = (
-    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
+    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID") or ""
 ).strip()
 TELEGRAM_WEBHOOK_SECRET = (
-    _TELEGRAM_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    _TELEGRAM_CFG.get("webhook_secret") or os.getenv("TELEGRAM_WEBHOOK_SECRET") or ""
 ).strip()
 
 # Supergroup where the annual draft runs. Distinct from TELEGRAM_CHAT_ID: that
 # one is the owner's private chat and reaches every admin command, while this
 # group only ever routes the draft commands. Empty disables the group entirely.
 TELEGRAM_DRAFT_CHAT_ID = (
-    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID", "")
+    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID") or ""
 ).strip()
 
 # Base URL of the biwenger-api Cloud Run service. The bot calls it for every
