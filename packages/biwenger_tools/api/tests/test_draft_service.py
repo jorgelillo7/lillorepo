@@ -971,3 +971,22 @@ def test_a_pick_does_not_wipe_the_lifecycle_record(fake_fs, biwenger):
     draft_service.submit_pick(TG_RUBEN, "messi")
 
     assert draft_service.lifecycle().get("opened_at") is not None
+
+
+def test_a_fresh_instance_reads_the_market_and_session_without_a_reset(monkeypatch):
+    """The caches are module state from import, not created by a reset.
+
+    Every other test resets first, which is what hid the split that dropped
+    their declarations: a fresh api instance raised NameError on its first
+    draft read.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fresh_market", market.__file__)
+    fresh = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fresh)
+    client = object()
+    monkeypatch.setattr(fresh.orchestration, "build_biwenger_session", lambda: client)
+
+    assert fresh._with_session(lambda c: c) is client
+    assert fresh._MARKET_CACHE is None
