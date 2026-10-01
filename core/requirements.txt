@@ -10,8 +10,6 @@ python-json-logger
 # docker/Dockerfile.base (dead weight in Cloud Run). `scripts/check_base_sync.py`
 # reads this exact marker, so keep the line and add dev tools underneath it.
 # Herramientas de desarrollo (centralizadas aquí para todos los módulos)
-black
-flake8
 pytest
 ruff
 requests-mock

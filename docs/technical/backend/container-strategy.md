@@ -53,7 +53,7 @@ in step by hand**, and drift between them ships as green tests plus an
 
 `scripts/check_base_sync.py` guards it in the `Lint` job: every runtime package
 in the lock must be installed in the image at the same version. Dev tools
-(`pytest`, `black`, `flake8`, `requests-mock`, `freezegun`) are deliberately
+(`pytest`, `ruff`, `requests-mock`, `freezegun`) are deliberately
 absent from the image — dead weight in Cloud Run — and are marked as such under
 the `# dev-only` line in `core/requirements.txt`.
 

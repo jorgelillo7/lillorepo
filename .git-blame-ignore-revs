@@ -1,0 +1,6 @@
+# Commits that only reformatted code. Skip them in blame:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub's blame view reads this file on its own.)
+
+# style: Ruff replaces black and flake8, and sorts imports (#564)
+744be274ea858737374180d321a33238e156aea1
