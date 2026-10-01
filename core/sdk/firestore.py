@@ -87,7 +87,9 @@ def query(
     With no ``field`` this is just a (optionally ordered/limited) collection
     scan. ``direction`` is ``"ASCENDING"`` or ``"DESCENDING"``.
     """
-    ref = get_client().collection(collection_path)
+    ref: firestore.CollectionReference | firestore.Query = get_client().collection(
+        collection_path
+    )
     if field is not None:
         ref = ref.where(filter=firestore.FieldFilter(field, op, value))
     if order_by is not None:

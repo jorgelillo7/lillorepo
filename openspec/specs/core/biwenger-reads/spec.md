@@ -228,7 +228,10 @@ player's name meant a login for a lookup that Biwenger serves to anonymous
 callers.
 
 The endpoint sometimes answers with a JSONP wrapper instead of plain JSON, so
-the response SHALL be unwrapped when it does not parse as JSON.
+the response SHALL be unwrapped when it does not parse as JSON. A response
+that is neither SHALL raise a `ValueError` naming the URL and the start of the
+body — an HTML error page used to surface as `'NoneType' object has no
+attribute 'group'` (LP-11).
 
 The team map exists to tell namesakes apart: the player database carries only a
 numeric team id while the market names the team in full.
@@ -239,8 +242,11 @@ numeric team id while the market names the team in full.
   unwrapped and parsed the same way
 - **WHEN** both maps are requested **THEN** exactly one HTTP request is made,
   with no authenticated session
+- **WHEN** the payload is neither JSON nor JSONP **THEN** it raises a clear
+  `ValueError`
 - *Verifies:* `test_get_all_players_data_map_json`,
   `test_get_all_players_data_map_jsonp`,
+  `test_a_payload_neither_json_nor_jsonp_fails_with_a_clear_error`,
   `test_get_competition_maps_downloads_once`
 
 ### Requirement: The received-offers inbox lives on the user endpoint

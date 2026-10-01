@@ -39,6 +39,12 @@ echo "==> ruff format --check…"
 echo "==> ruff check…"
 "${RUFF[@]}" check --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
 
+# Types, gradually: mypy checks the trees `mypy.ini` lists under `files`, at
+# the lock's version, against the real types of the libraries they import.
+echo "==> mypy…"
+bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:mypy -- \
+    --config-file "$REPO_ROOT/mypy.ini" --cache-dir "$REPO_ROOT/.mypy_cache"
+
 # Stdlib-only and offline, so it costs ~1 s and needs no toolchain. Guards the
 # gap the linters cannot see: Bazel tests run against requirements_lock.txt
 # while production runs docker/Dockerfile.base, and drift between them ships as

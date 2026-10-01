@@ -44,8 +44,6 @@ the image layers) — do it then, in the same PR.
 
 Each of these was reviewed and deliberately left alone.
 
-**Gradual mypy.** *Trigger:* the day a type bug actually bites.
-
 **Parametrised `base_deps` / `Dockerfile.base` from the lock.** Build-system
 surgery, and further away since the sync guard now catches the drift this
 would have prevented, at a fraction of the risk. *Trigger:* a package whose
