@@ -1,16 +1,13 @@
 """Tests for the literal-credential-in-a-URL check."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import check_url_secrets as check  # noqa: E402
+from scripts import check_url_secrets as check
 
 
 def test_a_literal_token_in_a_query_is_reported():
-    # Split so this file does not itself hold a literal credential URL.
-    text = "GET https://api.example.com/v1/data?auth" "=abc123XYZ&limit=5"
+    # Built from a variable so this file does not itself hold a literal
+    # credential URL. Not two adjacent strings: Ruff's formatter joins those.
+    name = "auth"
+    text = f"GET https://api.example.com/v1/data?{name}=abc123XYZ&limit=5"
     assert check.offenders(text) == [(1, "auth")]
 
 

@@ -1,13 +1,8 @@
 """Tests for the coverage summary CI prints on every pull request."""
 
-import os
-import sys
-
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import coverage_report as cr  # noqa: E402
+from scripts import coverage_report as cr
 
 LCOV = """\
 SF:core/a.py
@@ -52,7 +47,9 @@ def test_areas_group_by_package_module():
 
 
 def test_a_file_at_a_package_root_belongs_to_its_package():
-    assert cr.area_of("packages/biwenger_tools/constants.py") == "packages/biwenger_tools"
+    assert (
+        cr.area_of("packages/biwenger_tools/constants.py") == "packages/biwenger_tools"
+    )
     assert cr.area_of("scripts/check_specs.py") == "scripts"
 
 

@@ -1,18 +1,23 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 # The draft skill's analysis scripts are not shipped in any image — they run
 # from a laptop, once a year. They are tested anyway because they produce the
 # decisions, and a wrong number here looks exactly like a right one: the
 # availability metric shipped inverted and survived a season undetected.
+# The scripts are a library the tests depend on, not sources of the test
+# itself: Bazel does not instrument a test target's own files.
+py_library(
+    name = "draft_skill_lib",
+    srcs = glob(["*.py"]),
+)
+
 py_test(
     name = "draft_skill_tests",
     timeout = "short",
     main = "tests/main.py",
-    srcs = glob([
-        "*.py",
-        "tests/*.py",
-    ]),
+    srcs = glob(["tests/*.py"]),
     deps = [
+        ":draft_skill_lib",
         "//core:firestore",
         "//core:jp",
         # The composition rule lives in the api's pure engine. The skill

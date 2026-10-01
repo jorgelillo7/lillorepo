@@ -21,11 +21,16 @@ TARGETS=("core/" "packages/")
 RUFF=(bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:ruff --)
 
 if [[ "${1:-}" == "--fix" ]]; then
+    # Format even when `check` leaves something it cannot fix on its own (a
+    # long line, say): formatting often resolves exactly that. Its status is
+    # still the script's exit code, so what remains is not hidden.
     echo "==> ruff check --fix…"
-    "${RUFF[@]}" check --fix --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
+    status=0
+    "${RUFF[@]}" check --fix --config "$REPO_ROOT/ruff.toml" \
+        "${TARGETS[@]/#/$REPO_ROOT/}" || status=$?
     echo "==> ruff format…"
     "${RUFF[@]}" format --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
-    exit 0
+    exit "$status"
 fi
 
 echo "==> ruff format --check…"
@@ -56,6 +61,11 @@ python3 "$REPO_ROOT/scripts/check_specs.py"
 # it will not re-test (python-conventions LP-9).
 echo "==> import paths…"
 python3 "$REPO_ROOT/scripts/check_import_paths.py"
+
+# Code under test listed in a py_test's own srcs runs but is never
+# instrumented, so it vanishes from CI's coverage summary. One bazel query.
+echo "==> test srcs…"
+python3 "$REPO_ROOT/scripts/check_test_srcs.py"
 
 echo "==> workflow shell…"
 python3 "$REPO_ROOT/scripts/check_workflow_shell.py"

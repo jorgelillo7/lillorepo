@@ -9,13 +9,10 @@ Only the pure decisions are covered. `query_tests` shells out to Bazel and is
 exercised for real on every CI run.
 """
 
-import os
-import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import affected_tests as at  # noqa: E402
-
+from scripts import affected_tests as at
+from scripts import check_specs
 
 # --- The safety net: changes rdeps cannot see must run everything ---
 
@@ -83,9 +80,6 @@ def test_files_outside_every_package_map_to_nothing():
 # The spec checker — see scripts/check_specs.py
 # ---------------------------------------------------------------------------
 
-import check_specs  # noqa: E402
-from pathlib import Path  # noqa: E402
-
 
 def test_a_scenario_is_verified_only_when_it_names_a_test():
     text = """
@@ -107,9 +101,8 @@ def test_a_reference_resolves_against_a_file_as_well_as_a_function():
     """Specs legitimately name a test *file*. An early version of this check
     knew only about functions and reported 27 false positives — so the
     resolution set must contain both kinds of name."""
-    import re
 
-    src = (Path(check_specs.__file__).read_text())
+    src = Path(check_specs.__file__).read_text()
     # The set is built from `def test_*` matches plus `git ls-files *test_*.py`
     # stems; assert both halves are still there rather than shelling out to git,
     # which the test sandbox has no repo for.

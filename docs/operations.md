@@ -102,12 +102,14 @@ fails a PR. On a PR only the affected suites run, so the numbers cover those.
 Two limits to read it with:
 
 - **A file no test imports is absent, not at 0 %.** The percentage is over the
-  files tests load; the summary lists the rest (43 today, mostly one-off
-  scripts) so it cannot overstate.
-- **Some suites record nothing.** `//scripts:scripts_tests` and the two skill
-  suites under `.claude/` import their code by tweaking `sys.path` instead of
-  as Bazel libraries, and their coverage file comes out empty. Their tests run
-  and gate; only their percentage is missing.
+  files tests load; the summary lists the rest (22 today, all one-off
+  operational scripts) so it cannot overstate.
+- **The code under test must be a library.** Bazel does not instrument a
+  `py_test`'s own `srcs`, so code listed there vanishes from the report;
+  `check_test_srcs.py` (Lint) refuses it. Tests under `.claude/` cannot import
+  their scripts as a package (`.claude` is not a valid name), so they put the
+  **runfiles** copy on `sys.path` (`TEST_SRCDIR`), never the source tree —
+  coverage records the source tree by absolute path, and Bazel drops it.
 Coverage is a weak signal on its own — pair it with the behaviour specs in
 `openspec/specs/` (what must be true) rather than chasing the percentage.
 
