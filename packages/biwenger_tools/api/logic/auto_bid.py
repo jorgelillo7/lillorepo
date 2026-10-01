@@ -51,8 +51,8 @@ from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic import rows
+from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import availability, shown_score
 

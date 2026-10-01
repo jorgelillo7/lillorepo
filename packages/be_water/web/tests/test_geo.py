@@ -9,9 +9,9 @@ def test_adjacency_is_symmetric():
     for province, neighbors in geo.PROVINCE_ADJACENCY.items():
         for neighbor in neighbors:
             assert neighbor in geo.PROVINCE_ADJACENCY, f"unknown: {neighbor}"
-            assert (
-                province in geo.PROVINCE_ADJACENCY[neighbor]
-            ), f"{province} → {neighbor} is not symmetric"
+            assert province in geo.PROVINCE_ADJACENCY[neighbor], (
+                f"{province} → {neighbor} is not symmetric"
+            )
 
 
 def test_no_province_borders_itself():

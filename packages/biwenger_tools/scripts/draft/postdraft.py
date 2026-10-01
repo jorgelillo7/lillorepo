@@ -205,8 +205,7 @@ def jab(manager, summary, slowest, fastest):
         return "📉 Único que vale menos de lo que pagó. El mercado ha opinado."
     priciest = record["priciest"]
     return (
-        f"💸 Su capricho: {priciest['player_name']} por "
-        f"{_eur(priciest.get('price'))}."
+        f"💸 Su capricho: {priciest['player_name']} por {_eur(priciest.get('price'))}."
     )
 
 

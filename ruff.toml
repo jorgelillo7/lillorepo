@@ -1,0 +1,19 @@
+# Ruff is the formatter (black's job), the linter (flake8's) and the import
+# sorter (isort's). Run it through `bash scripts/lint.sh` — the binary comes
+# from the lock, so the Mac and CI agree (python-conventions LP-23).
+# A nested config, if one is ever added, must `extend = "../ruff.toml"`:
+# without it, it inherits nothing from this file.
+line-length = 88
+target-version = "py314"
+extend-exclude = [
+    "venv",
+    "*.md",
+    ".claude/skills/google-*",
+]
+
+[lint]
+select = ["E", "W", "F", "I"]
+ignore = ["E203"]
+
+[lint.isort]
+known-first-party = ["core", "packages"]

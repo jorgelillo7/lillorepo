@@ -881,11 +881,11 @@ def test_execute_rebuild_refuses_a_plan_older_than_the_ttl():
         cash=30_000_000,
         created_at=stale_created_at,
     )
-    with patch.object(
-        emergency.rebuild_store, "claim", return_value=doc
-    ) as mock_claim, patch(_patches("_send")) as mock_send, patch(
-        _patches("build_context")
-    ) as mock_build_context:
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc) as mock_claim,
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context")) as mock_build_context,
+    ):
         result = emergency.execute_rebuild("plan1")
 
     assert result["status"] == "expired"
@@ -908,12 +908,12 @@ def test_a_vanished_target_is_replaced_within_its_clause_at_plan():
     )
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=[replacement]
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=[replacement]),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -951,12 +951,12 @@ def test_nothing_outside_the_confirmed_plan_is_ever_bought():
     ]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         emergency.execute_rebuild("plan1")
 
@@ -982,12 +982,12 @@ def test_execution_reports_the_outcome_of_every_signing():
     ]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), side_effect=pools
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), side_effect=pools),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1011,11 +1011,12 @@ def test_execute_rebuild_buys_nothing_when_the_squad_already_fields_an_eleven():
     squad, players = _legal_squad_and_players()
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals")
-    ) as mock_gather:
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals")) as mock_gather,
+    ):
         result = emergency.execute_rebuild("plan1")
 
     assert result["status"] == "not_needed"
@@ -1038,12 +1039,12 @@ def test_a_signing_is_skipped_when_its_hole_no_longer_exists():
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
     pool = [def_target, mid_target]
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1069,14 +1070,16 @@ def test_an_unknown_outcome_stops_the_loop_and_the_rest_are_not_attempted():
     biwenger, ctx = _rebuild_ctx()
     biwenger.place_clausulazo.side_effect = RuntimeError("timeout")
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"),
-        return_value=[_pool_row(501, line=DEF, clause=5_000_000)],
-    ) as mock_filter:
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(
+            _patches("filter_affordable"),
+            return_value=[_pool_row(501, line=DEF, clause=5_000_000)],
+        ) as mock_filter,
+    ):
         result = emergency.execute_rebuild("plan1")
 
     statuses = [outcome["status"] for outcome in result["signings"]]
@@ -1100,12 +1103,12 @@ def test_execute_rebuild_never_buys_a_goalkeeper_as_a_substitute():
     backup_keeper["alt_positions"] = [DEF]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=[backup_keeper]
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=[backup_keeper]),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1128,12 +1131,12 @@ def test_the_executed_summary_states_whether_the_squad_now_fields_a_legal_eleven
     squad, players = _broken_squad_and_players(defenders=0)
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         emergency.execute_rebuild("plan1")
 
@@ -1165,12 +1168,12 @@ def test_a_second_execute_rebuild_call_never_reaches_biwenger_again():
     # The real `claim` is transactional: only the first caller ever sees the
     # document, everyone else gets `None`. Modelled here as the seam the
     # transaction guarantees, without re-implementing Firestore.
-    with patch.object(emergency.rebuild_store, "claim", side_effect=[doc, None]), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", side_effect=[doc, None]),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         emergency.execute_rebuild("plan1")
 
@@ -1198,12 +1201,12 @@ def test_a_bench_signing_is_bought_on_its_own_terms_not_against_a_hole():
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
     pool = [def_target, mid_target, bench_a, bench_b]
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1234,12 +1237,12 @@ def test_a_bench_signing_is_reported_unavailable_not_swapped_for_a_decoy():
     squad, players = _two_hole_squad_and_players()
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1269,12 +1272,12 @@ def test_bench_and_eleven_signings_are_told_apart_by_marker_not_by_list_order():
     biwenger, ctx = _rebuild_ctx(my_squad=squad, biwenger_players=players)
     pool = [def_target, mid_target, bench_a]
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1295,12 +1298,14 @@ def test_a_telegram_failure_after_a_purchase_does_not_abort_the_run():
     ]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send"), side_effect=[RuntimeError("429"), None, None]
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(
+            _patches("_send"), side_effect=[RuntimeError("429"), None, None]
+        ) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1320,15 +1325,14 @@ def test_every_purchase_is_logged_even_if_telegram_never_hears_about_it():
     pool = [_pool_row(501, line=DEF, clause=5_000_000)]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send"), side_effect=RuntimeError("429")
-    ), patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
-    ), patch.object(
-        emergency, "logger"
-    ) as mock_logger:
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send"), side_effect=RuntimeError("429")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
+        patch.object(emergency, "logger") as mock_logger,
+    ):
         emergency.execute_rebuild("plan1")
 
     bought_calls = [
@@ -1351,15 +1355,16 @@ def test_a_lineup_search_exhaustion_in_the_final_check_does_not_crash_execution(
     pool = [_pool_row(bw_id, line=DEF, clause=5_000_000) for bw_id in (501, 502, 503)]
     biwenger, ctx = _rebuild_ctx()
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
-    ), patch(
-        _patches("xi_snapshot"),
-        side_effect=LineupSearchExhausted("ceiling hit"),
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
+        patch(
+            _patches("xi_snapshot"),
+            side_effect=LineupSearchExhausted("ceiling hit"),
+        ),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1384,12 +1389,12 @@ def test_a_cash_read_failure_in_the_final_check_does_not_crash_execution():
         RuntimeError("timeout"),
     ]
 
-    with patch.object(emergency.rebuild_store, "claim", return_value=doc), patch(
-        _patches("_send")
-    ) as mock_send, patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("gather_rivals"), return_value=[]
-    ), patch(
-        _patches("filter_affordable"), return_value=pool
+    with (
+        patch.object(emergency.rebuild_store, "claim", return_value=doc),
+        patch(_patches("_send")) as mock_send,
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("gather_rivals"), return_value=[]),
+        patch(_patches("filter_affordable"), return_value=pool),
     ):
         result = emergency.execute_rebuild("plan1")
 
@@ -1409,9 +1414,10 @@ def test_execute_clausulazo_calls_sdk_and_notifies():
     # The players map is consulted to resolve the name for the success
     # message — the callback only carries the player id.
     biwenger.get_all_players_data_map.return_value = {42: {"name": "Iago Aspas"}}
-    with patch(_patches("build_biwenger_session"), return_value=biwenger), patch(
-        _patches("_send")
-    ) as mock_send:
+    with (
+        patch(_patches("build_biwenger_session"), return_value=biwenger),
+        patch(_patches("_send")) as mock_send,
+    ):
         result = emergency.execute_clausulazo(
             player_id=42, owner_user_id=7, amount=5_000_000
         )
@@ -1436,9 +1442,10 @@ def test_execute_clausulazo_falls_back_to_id_when_player_missing_from_map():
     biwenger.place_clausulazo.return_value = {"id": 777, "status": "processed"}
     biwenger.get_account_state.return_value = {"cash": 1_000_000}
     biwenger.get_all_players_data_map.return_value = {}
-    with patch(_patches("build_biwenger_session"), return_value=biwenger), patch(
-        _patches("_send")
-    ) as mock_send:
+    with (
+        patch(_patches("build_biwenger_session"), return_value=biwenger),
+        patch(_patches("_send")) as mock_send,
+    ):
         emergency.execute_clausulazo(player_id=42, owner_user_id=7, amount=5_000_000)
     assert "jugador 42" in mock_send.call_args.args[0]
 
@@ -1446,9 +1453,11 @@ def test_execute_clausulazo_falls_back_to_id_when_player_missing_from_map():
 def test_execute_clausulazo_notifies_and_raises_on_failure():
     biwenger = MagicMock()
     biwenger.place_clausulazo.side_effect = RuntimeError("403 Clause locked")
-    with patch(_patches("build_biwenger_session"), return_value=biwenger), patch(
-        _patches("_send")
-    ) as mock_send, pytest.raises(RuntimeError):
+    with (
+        patch(_patches("build_biwenger_session"), return_value=biwenger),
+        patch(_patches("_send")) as mock_send,
+        pytest.raises(RuntimeError),
+    ):
         emergency.execute_clausulazo(player_id=42, owner_user_id=7, amount=5_000_000)
 
     mock_send.assert_called_once()

@@ -120,8 +120,9 @@ def test_login_sets_session_and_favorite_toggles(client):
     with patch(f"{_REPO}.touch_user"):
         resp = client.post("/login", data={"nickname": "jorge"})
     assert resp.status_code == 302
-    with patch(f"{_REPO}.toggle_favorite", return_value=True) as mock_toggle, patch(
-        f"{_REPO}.touch_user"
+    with (
+        patch(f"{_REPO}.toggle_favorite", return_value=True) as mock_toggle,
+        patch(f"{_REPO}.touch_user"),
     ):
         resp = client.post("/favorito/bezoya")
     assert resp.status_code == 302
@@ -154,8 +155,9 @@ def test_recommend_with_favorites(client):
     catalog = _catalog()
     with patch(f"{_REPO}.touch_user"):
         client.post("/login", data={"nickname": "jorge"})
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.get_favorites", return_value=[catalog[0]]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.get_favorites", return_value=[catalog[0]]),
     ):
         resp = client.get("/recomendar?lugar=Segovia")
     assert resp.status_code == 200
@@ -167,8 +169,9 @@ def test_recommend_with_favorites(client):
 
 def _search(client, query, *, favorites=None, catalog=None):
     catalog = _catalog() if catalog is None else catalog
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.get_favorites", return_value=favorites or []
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.get_favorites", return_value=favorites or []),
     ):
         return client.get(f"/recomendar?{query}").get_data(as_text=True)
 
@@ -273,16 +276,18 @@ def test_add_water_rejected_without_csrf(client):
 
 
 def test_photo_uploads_are_rate_limited(client, monkeypatch):
-    from packages.be_water.web import app as app_module
     from core.web.ratelimit import RateLimiter
+    from packages.be_water.web import app as app_module
 
     monkeypatch.setattr(app_module.helpers, "PHOTO_LIMITER", RateLimiter(1, 3600))
     _login(client)
     import io
 
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}):
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}),
+    ):
         first = client.post(
             "/anadir/foto",
             data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
@@ -299,9 +304,11 @@ def test_photo_uploads_are_rate_limited(client, monkeypatch):
 
 def test_form_fields_are_length_capped(client):
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+    ):
         client.post("/anadir", data={"name": "Agua " + "x" * 200})
     saved = mock_save.call_args.args[0]
     assert len(saved.name) == 80
@@ -309,9 +316,11 @@ def test_form_fields_are_length_capped(client):
 
 def test_absurd_mineral_values_are_dropped(client):
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+    ):
         client.post(
             "/anadir",
             data={"name": "Font Nova", "tds": "250", "sodium": "-3", "ph": "9999999"},
@@ -325,8 +334,9 @@ def test_recommend_offers_bordering_provinces_when_the_place_has_none(client):
     catalog = _catalog()  # Cuenca + Segovia — both border Madrid
     with patch(f"{_REPO}.touch_user"):
         client.post("/login", data={"nickname": "jorge"})
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.get_favorites", return_value=[catalog[0]]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.get_favorites", return_value=[catalog[0]]),
     ):
         resp = client.get("/recomendar?lugar=Madrid")
     body = resp.get_data(as_text=True)
@@ -375,10 +385,14 @@ def test_add_water_requires_login(client):
 
 def _google_login(client, email="admin@x.com"):
     client.set_cookie("g_csrf_token", "gtok")
-    with patch(
-        f"{_APP}.auth.verify_google_credential",
-        return_value={"email": email, "name": "Admin", "picture": ""},
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.get_user", return_value=None):
+    with (
+        patch(
+            f"{_APP}.auth.verify_google_credential",
+            return_value={"email": email, "name": "Admin", "picture": ""},
+        ),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.get_user", return_value=None),
+    ):
         return client.post(
             "/auth/google",
             data={"credential": "jwt", "g_csrf_token": "gtok", "csrf_token": ""},
@@ -409,19 +423,23 @@ def test_google_login_rejects_csrf_cookie_mismatch(client):
 
 
 def test_admin_page_requires_admin_email(client):
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         assert client.get("/admin").status_code == 403  # signed out
         _google_login(client, "otra@x.com")
         assert client.get("/admin").status_code == 403  # signed in, not admin
         _google_login(client, "admin@x.com")
-        with patch(
-            f"{_REPO}.get_all_users",
-            return_value={
-                "maria": {"favorites": ["a"], "created_at": "2026-07-01T00:00:00"}
-            },
-        ), patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        with (
+            patch(
+                f"{_REPO}.get_all_users",
+                return_value={
+                    "maria": {"favorites": ["a"], "created_at": "2026-07-01T00:00:00"}
+                },
+            ),
+            patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+        ):
             resp = client.get("/admin")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
@@ -430,36 +448,43 @@ def test_admin_page_requires_admin_email(client):
 
 
 def test_admin_block_toggle_and_blocked_login(client):
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(
-            f"{_REPO}.get_user", return_value={"favorites": [], "blocked": False}
-        ), patch(f"{_REPO}.set_user_blocked") as mock_block:
+        with (
+            patch(
+                f"{_REPO}.get_user", return_value={"favorites": [], "blocked": False}
+            ),
+            patch(f"{_REPO}.set_user_blocked") as mock_block,
+        ):
             resp = client.post("/admin/bloquear/maria")
     assert resp.status_code == 302
     mock_block.assert_called_once_with("maria", True)
 
 
 def test_blocked_nickname_cannot_login_or_add(client):
-    with patch(f"{_REPO}.get_user", return_value={"blocked": True}), patch(
-        f"{_REPO}.touch_user"
-    ) as mock_touch:
+    with (
+        patch(f"{_REPO}.get_user", return_value={"blocked": True}),
+        patch(f"{_REPO}.touch_user") as mock_touch,
+    ):
         client.post("/login", data={"nickname": "maria"})
     mock_touch.assert_not_called()
     _login(client)  # jorge logs in fine (get_user patched per-call below)
-    with patch(f"{_REPO}.get_user", return_value={"blocked": True}), patch(
-        f"{_REPO}.save_water"
-    ) as mock_save:
+    with (
+        patch(f"{_REPO}.get_user", return_value={"blocked": True}),
+        patch(f"{_REPO}.save_water") as mock_save,
+    ):
         resp = client.post("/anadir", data={"name": "Font Nova"})
     assert resp.status_code == 302
     mock_save.assert_not_called()
 
 
 def test_community_shows_aesan_progress(client):
-    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
-        f"{_REPO}.all_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
     ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
@@ -469,9 +494,11 @@ def test_community_shows_aesan_progress(client):
 
 def test_community_pending_list_shows_unmatched_registry_waters(client):
     """None of `_catalog()`'s waters match the fake registry — all 3 pend."""
-    with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
-        f"{_REPO}.all_analyses", return_value=[]
-    ), patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+    with (
+        patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
+        patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+    ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "aguas pendientes de fichar" in body
@@ -499,9 +526,11 @@ def test_community_shows_complete_registry_message(client):
             community="",
         ),
     ]
-    with patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE), patch(
-        f"{_REPO}.all_analyses", return_value=[]
-    ), patch(f"{_REPO}.get_all_waters", return_value=catalog):
+    with (
+        patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+    ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
     assert "Registro completo" in body
@@ -558,8 +587,9 @@ def test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable(client):
     catalog = _catalog()
     catalog[0].photo_url = "https://x/solan.jpg"
     catalog[1].photo_url = "https://x/bezoya.jpg"
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
@@ -593,9 +623,11 @@ def test_add_form_shows_sections_and_gas_toggle(client):
 
 def test_add_water_saves_and_redirects(client):
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -620,8 +652,9 @@ def test_add_water_refuses_verified_duplicates(client):
     _login(client)
     verified = _catalog()[1]
     verified.verified = True
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=verified
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=verified),
     ):
         resp = client.post("/anadir", data={"name": "Bezoya"})
     mock_save.assert_not_called()
@@ -638,9 +671,12 @@ def test_add_water_merges_into_unverified_duplicate(client):
     existing.mentions = [{"source": "OCU", "label": "Excelente", "url": "https://x"}]
     existing.verified_fields = ["calcium"]
     existing.added_by = "seed"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+    ):
         resp = client.post(
             "/anadir",
             data={"name": "Bezoya", "tds": "26.5", "ocr_fields": "tds"},
@@ -661,9 +697,12 @@ def test_merge_keeps_original_author_for_user_waters(client):
     existing = _catalog()[1]
     existing.added_by = "maria"
     existing.added_at = "2026-07-01T00:00:00+00:00"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+    ):
         client.post("/anadir", data={"name": "Bezoya", "tds": "26.5"})
     saved = mock_save.call_args.args[0]
     assert saved.added_by == "maria"
@@ -681,9 +720,11 @@ def _naturis_catalog():
 def test_similar_name_prompts_instead_of_creating(client):
     """«Naturis» vs existing «Naturis (Lidl) — Albacete»: the app asks."""
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.get_all_waters", return_value=_naturis_catalog()):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.get_all_waters", return_value=_naturis_catalog()),
+    ):
         resp = client.post("/anadir", data={"name": "Naturis"})
     mock_save.assert_not_called()
     body = resp.get_data(as_text=True)
@@ -695,9 +736,11 @@ def test_similar_name_prompts_instead_of_creating(client):
 def test_force_new_creates_despite_similarity(client):
     """White labels bottle from several springs — creating anyway is valid."""
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+    ):
         resp = client.post("/anadir", data={"name": "Naturis", "force_new": "1"})
     assert resp.status_code == 302
     assert mock_save.call_args.args[0].id == "naturis"
@@ -708,10 +751,15 @@ def test_merge_into_updates_the_confirmed_match(client):
     canonical name and retailer."""
     _login(client)
     existing = _naturis_catalog()[1]
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water",
-        side_effect=lambda wid: existing if wid == "bezoya" else None,
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(
+            f"{_REPO}.get_water",
+            side_effect=lambda wid: existing if wid == "bezoya" else None,
+        ),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+    ):
         resp = client.post(
             "/anadir",
             data={"name": "Naturis", "merge_into": "bezoya", "tds": "24"},
@@ -731,8 +779,9 @@ def test_exact_name_different_spring_prompts(client):
     _login(client)
     existing = _catalog()[1]
     existing.spring = "Font Vella Sacalm"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
     ):
         resp = client.post(
             "/anadir",
@@ -746,10 +795,14 @@ def test_exact_name_different_spring_force_new_disambiguates_id(client):
     _login(client)
     existing = _catalog()[1]
     existing.spring = "Sacalm"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water",
-        side_effect=lambda wid: existing if wid == "bezoya" else None,
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(
+            f"{_REPO}.get_water",
+            side_effect=lambda wid: existing if wid == "bezoya" else None,
+        ),
+        patch(f"{_REPO}.touch_user"),
+    ):
         resp = client.post(
             "/anadir",
             data={"name": "Bezoya", "spring": "Sigüenza", "force_new": "1"},
@@ -764,8 +817,9 @@ def test_verified_water_with_other_spring_still_offers_create(client):
     existing = _catalog()[1]
     existing.spring = "Sacalm"
     existing.verified = True
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
     ):
         resp = client.post("/anadir", data={"name": "Bezoya", "spring": "Sigüenza"})
     mock_save.assert_not_called()
@@ -784,22 +838,26 @@ def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
     """Regression: «Lanjarón» slugged to 'lanjar-n' and dodged the duplicate
     guard against the existing 'lanjaron' doc."""
     _login(client)
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=None
-    ) as mock_get, patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=None) as mock_get,
+        patch(f"{_REPO}.touch_user"),
+    ):
         client.post("/anadir", data={"name": "Lanjarón"})
     mock_get.assert_called_once_with("lanjaron")
 
 
 def test_photo_flow_prefills_form_and_runs_studio(client):
     _login(client)
-    with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
-        f"{_APP}.photos.process_image", return_value=b"jpg"
-    ), patch(f"{_APP}.photos.studio_photo", return_value=b"studio"), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label",
-        return_value={"name": "Font Nova", "tds": 180, "spring": None},
+    with (
+        patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}),
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo", return_value=b"studio"),
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(
+            f"{_APP}.label_ocr.extract_label",
+            return_value={"name": "Font Nova", "tds": 180, "spring": None},
+        ),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -833,11 +891,13 @@ def test_beauty_photo_becomes_the_display_shot(client):
     _login(client)
     import io
 
-    with patch(f"{_APP}.photos.process_image", side_effect=[b"label", b"front"]), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
-    ) as mock_ocr:  # noqa: E501
+    with (
+        patch(f"{_APP}.photos.process_image", side_effect=[b"label", b"front"]),
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(
+            f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
+        ) as mock_ocr,
+    ):  # noqa: E501
         resp = client.post(
             "/anadir/foto",
             data={
@@ -869,12 +929,11 @@ def test_ocr_prefill_completes_provenance_from_aesan(client):
     _login(client)
     import io
 
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(
-        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
-    ), patch(
-        f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}),
+        patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -893,10 +952,11 @@ def test_aesan_prefill_skips_disagreeing_fields_on_multi_spring(client):
     _login(client)
     import io
 
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Doble"}), patch(
-        f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Doble"}),
+        patch(f"{_APP}.aesan.AESAN_WATERS", _AESAN_FAKE),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -911,10 +971,11 @@ def test_aesan_prefill_skips_disagreeing_fields_on_multi_spring(client):
 def test_non_admin_upload_skips_studio_but_keeps_ocr(client):
     """Everyone gets the free OCR prefill; only admins pay for the studio."""
     _login(client)  # "jorge" is not in the default admin set
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.studio_photo"
-    ) as mock_studio, patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo") as mock_studio,
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Font Nova"}),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -931,12 +992,12 @@ def test_photo_flow_studio_failure_falls_back_to_raw(client):
     from core.sdk.gemini import GeminiError
 
     _login(client)
-    with patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}), patch(
-        f"{_APP}.photos.process_image", return_value=b"jpg"
-    ), patch(f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}
+    with (
+        patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}),
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")),
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "X"}),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -956,10 +1017,11 @@ def test_photo_flow_survives_gemini_failure(client):
     from core.sdk.gemini import GeminiError
 
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.studio_photo", return_value=b"studio"
-    ), patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("boom")
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo", return_value=b"studio"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("boom")),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -978,11 +1040,14 @@ def test_photo_flow_gemini_overload_gets_honest_copy(client):
     from core.sdk.gemini import GeminiError
 
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.studio_photo", return_value=b"studio"
-    ), patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.label_ocr.extract_label",
-        side_effect=GeminiError("busy", status_code=503),
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo", return_value=b"studio"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(
+            f"{_APP}.label_ocr.extract_label",
+            side_effect=GeminiError("busy", status_code=503),
+        ),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -997,13 +1062,14 @@ def test_photo_flow_gemini_overload_gets_honest_copy(client):
 
 def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(
-        f"{_APP}.photos.promote_photo",
-        side_effect=lambda tmp, final: f"https://x/{final}",
-    ) as mock_promote, patch(
-        f"{_REPO}.touch_user"
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(
+            f"{_APP}.photos.promote_photo",
+            side_effect=lambda tmp, final: f"https://x/{final}",
+        ) as mock_promote,
+        patch(f"{_REPO}.touch_user"),
     ):
         resp = client.post(
             "/anadir",
@@ -1025,13 +1091,14 @@ def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
 def test_full_label_coverage_auto_promotes_to_verified(client):
     """Label proof on file + every declared mineral backed by it → verified."""
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(
-        f"{_APP}.photos.promote_photo",
-        side_effect=lambda tmp, final: f"https://x/{final}",
-    ), patch(
-        f"{_REPO}.touch_user"
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(
+            f"{_APP}.photos.promote_photo",
+            side_effect=lambda tmp, final: f"https://x/{final}",
+        ),
+        patch(f"{_REPO}.touch_user"),
     ):
         client.post(
             "/anadir",
@@ -1052,13 +1119,14 @@ def test_full_label_coverage_auto_promotes_to_verified(client):
 def test_hand_typed_extra_mineral_blocks_auto_promotion(client):
     """A value the label didn't declare keeps the ficha in the mixed state."""
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(
-        f"{_APP}.photos.promote_photo",
-        side_effect=lambda tmp, final: f"https://x/{final}",
-    ), patch(
-        f"{_REPO}.touch_user"
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(
+            f"{_APP}.photos.promote_photo",
+            side_effect=lambda tmp, final: f"https://x/{final}",
+        ),
+        patch(f"{_REPO}.touch_user"),
     ):
         client.post(
             "/anadir",
@@ -1079,8 +1147,9 @@ def test_hand_typed_extra_mineral_blocks_auto_promotion(client):
 def test_profile_shows_traits_and_matches(client):
     catalog = _catalog()
     _login(client)
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.get_favorites", return_value=[catalog[0]]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.get_favorites", return_value=[catalog[0]]),
     ):
         resp = client.get("/perfil")
     assert resp.status_code == 200
@@ -1092,8 +1161,9 @@ def test_profile_shows_traits_and_matches(client):
 
 def test_profile_without_favorites_nudges(client):
     _login(client)
-    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
-        f"{_REPO}.get_favorites", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+        patch(f"{_REPO}.get_favorites", return_value=[]),
     ):
         resp = client.get("/perfil")
     assert "Marca 2-3 aguas favoritas" in resp.get_data(as_text=True)
@@ -1111,8 +1181,9 @@ def test_sparkling_waters_wear_the_badge(client):
 
 
 def test_community_shows_achievements_showcase(client):
-    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()), patch(
-        f"{_REPO}.all_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
     ):
         resp = client.get("/comunidad")
     body = resp.get_data(as_text=True)
@@ -1124,8 +1195,9 @@ def test_community_page_ranks_contributors(client):
     catalog = _catalog()
     catalog[0].added_by = "jorgelillo"
     catalog[0].verified_fields = ["tds"]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.all_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
     ):
         resp = client.get("/comunidad")
     assert resp.status_code == 200
@@ -1152,9 +1224,11 @@ def test_add_marks_ocr_fields_as_verified(client):
     """Fields the label declared (and survived review) become verified_fields;
     hand-typed extras don't."""
     _login(client)
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"):
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+    ):
         client.post(
             "/anadir",
             data={
@@ -1266,15 +1340,14 @@ def test_an_older_analysis_does_not_touch_the_current_composition(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(
-        f"{_REPO}.save_revision"
-    ) as mock_revision, patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision") as mock_revision,
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -1298,12 +1371,13 @@ def test_an_older_analysis_needs_no_confirmation_any_more(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis"),
     ):
         resp = client.post(
             "/anadir",
@@ -1325,11 +1399,13 @@ def test_an_undated_label_over_a_dated_one_still_needs_confirming(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         resp = client.post(
             "/anadir",
             data={"name": "Bezoya", "tds": "26.5", "ocr_fields": "tds"},
@@ -1345,13 +1421,14 @@ def test_a_newer_label_saves_straight_through_but_still_snapshots(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2024-01"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.get_analysis"), patch(
-        f"{_REPO}.save_analysis"
-    ), patch(
-        f"{_REPO}.save_revision"
-    ) as mock_revision:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.get_analysis"),
+        patch(f"{_REPO}.save_analysis"),
+        patch(f"{_REPO}.save_revision") as mock_revision,
+    ):
         resp = client.post(
             "/anadir",
             data={
@@ -1370,9 +1447,12 @@ def test_a_newer_label_saves_straight_through_but_still_snapshots(client):
 def test_no_snapshot_when_the_composition_did_not_move(client):
     _login(client)
     existing = _catalog()[1]
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision") as mock_revision:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision") as mock_revision,
+    ):
         client.post("/anadir", data={"name": "Bezoya", "spring": "Sierra"})
     mock_revision.assert_not_called()
 
@@ -1405,10 +1485,11 @@ def test_the_studio_photo_and_the_ocr_run_at_the_same_time(client, monkeypatch):
     with client.session_transaction() as session:
         session["nickname"] = "tester"
 
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(f"{_APP}.photos.studio_photo", side_effect=_slow_studio), patch(
-        f"{_APP}.label_ocr.extract_label", side_effect=_slow_ocr
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.photos.studio_photo", side_effect=_slow_studio),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=_slow_ocr),
     ):
         response = client.post(
             "/anadir/foto",
@@ -1435,11 +1516,14 @@ def test_a_failed_ocr_still_saves_the_studio_photo(client, monkeypatch):
     with client.session_transaction() as session:
         session["nickname"] = "tester"
 
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as upload, patch(f"{_APP}.photos.studio_photo", return_value=b"studio"), patch(
-        f"{_APP}.label_ocr.extract_label",
-        side_effect=RequestException("read timeout"),
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo") as upload,
+        patch(f"{_APP}.photos.studio_photo", return_value=b"studio"),
+        patch(
+            f"{_APP}.label_ocr.extract_label",
+            side_effect=RequestException("read timeout"),
+        ),
     ):
         response = client.post(
             "/anadir/foto",
@@ -1448,9 +1532,9 @@ def test_a_failed_ocr_still_saves_the_studio_photo(client, monkeypatch):
         )
 
     assert "rellena a mano" in response.get_data(as_text=True)
-    assert any(
-        call.args[1] == b"studio" for call in upload.call_args_list
-    ), "la foto de estudio se sube aunque el OCR falle"
+    assert any(call.args[1] == b"studio" for call in upload.call_args_list), (
+        "la foto de estudio se sube aunque el OCR falle"
+    )
 
 
 def test_a_read_timeout_is_reported_as_an_overloaded_reader(client):
@@ -1466,9 +1550,11 @@ def test_a_read_timeout_is_reported_as_an_overloaded_reader(client):
     from requests import Timeout
 
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=Timeout("read timed out")):
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=Timeout("read timed out")),
+    ):
         response = client.post(
             "/anadir/foto",
             data={"photo": (io.BytesIO(b"raw"), "a.jpg")},
@@ -1488,10 +1574,13 @@ def test_an_unreadable_label_does_not_blame_the_photo_alone(client):
     from core.sdk.gemini import GeminiError
 
     _login(client)
-    with patch(f"{_APP}.photos.process_image", return_value=b"jpg"), patch(
-        f"{_APP}.photos.upload_photo"
-    ), patch(
-        f"{_APP}.label_ocr.extract_label", side_effect=GeminiError("malformed output")
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(
+            f"{_APP}.label_ocr.extract_label",
+            side_effect=GeminiError("malformed output"),
+        ),
     ):
         response = client.post(
             "/anadir/foto",
@@ -1526,13 +1615,14 @@ def test_a_resubmission_for_the_same_date_replaces_that_entry(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2024-01"
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=_analysis("2024-01", 99.0)
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=_analysis("2024-01", 99.0)),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1552,9 +1642,12 @@ def test_an_undated_composition_never_enters_the_series(client):
     required to print one — and there is no honest slot for them on a
     timeline."""
     _login(client)
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis") as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         client.post("/anadir", data={"name": "Nueva", "tds": "26.5"})
 
     mock_analysis.assert_not_called()
@@ -1565,13 +1658,16 @@ def test_each_dated_analysis_keeps_its_own_label_photo(client):
     second label would overwrite the first one's — destroying the proof of the
     very entry the history exists to keep."""
     _login(client)
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
-    ) as promote:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_analysis"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(
+            f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
+        ) as promote,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1598,15 +1694,17 @@ def test_an_older_submission_never_overwrites_the_current_bottle_photo(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ), patch(
-        f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
-    ) as promote:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis"),
+        patch(
+            f"{_APP}.photos.promote_photo", return_value="https://x/y.jpg"
+        ) as promote,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1633,13 +1731,14 @@ def test_an_analysis_entry_keeps_the_photos_that_submission_brought(client):
     existing.analysis_date = "2025-02"
     existing.photo_url = "https://x/current.jpg"
     existing.label_photo_url = "https://x/originals/current.jpg"
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1666,13 +1765,14 @@ def test_a_dated_entry_carries_only_what_that_label_declared(client):
     existing.analysis_date = "2025-02"
     existing.minerals = {"tds": 26.5, "calcium": 9.0}
     existing.verified_fields = ["tds", "calcium"]
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1699,13 +1799,14 @@ def test_the_ficha_keeps_the_merge_the_entry_does_not(client):
     existing = _catalog()[1]
     existing.analysis_date = "2024-01"
     existing.minerals = {"tds": 26.5, "calcium": 9.0}
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         client.post(
             "/anadir",
             data={
@@ -1734,9 +1835,10 @@ def test_only_the_ficha_reads_the_analysis_series(client):
     catalog[1].analysis_date = "2025-02"
     entries = [_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)]
 
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=entries
-    ) as spy:
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=entries) as spy,
+    ):
         client.get("/")
         client.get("/recomendar?lugar=Segovia")
         assert spy.call_count == 0, "el catálogo no debe leer la serie"
@@ -1755,8 +1857,9 @@ def test_both_photos_can_be_opened_full_size(client):
     catalog = _catalog()
     catalog[1].photo_url = "https://x/bezoya.jpg"
     catalog[1].label_photo_url = "https://x/originals/bezoya.jpg"
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
@@ -1779,8 +1882,9 @@ def test_the_caption_says_which_analysis_the_bottle_belongs_to(client):
     catalog[1].photo_url = "https://x/bezoya.jpg"
     past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
     entries = [_analysis("2025-02", 26.5), past]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=entries
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=entries),
     ):
         current = client.get("/agua/bezoya").get_data(as_text=True)
         old = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
@@ -1797,8 +1901,9 @@ def test_a_borrowed_bottle_is_not_captioned_with_the_past_date(client):
     catalog[1].analysis_date = "2025-02"
     catalog[1].photo_url = "https://x/bezoya.jpg"
     entries = [_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=entries
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=entries),
     ):
         body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
 
@@ -1814,8 +1919,9 @@ def test_the_viewer_is_closed_on_a_water_with_no_photos_either(client):
     catalog = _catalog()
     catalog[1].photo_url = None
     catalog[1].label_photo_url = None
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
@@ -1829,8 +1935,9 @@ def test_a_mineral_bar_is_scaled_by_that_mineral_not_a_shared_ceiling(client):
     catalog = _catalog()
     catalog[0].minerals = {"sodium": 1000.0}
     catalog[1].minerals = {"sodium": 100.0}
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
@@ -1853,8 +1960,9 @@ def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
     catalog[1].minerals = {"tds": 26.5, "sodium": 1.1, "calcium": 9.0}
     catalog[1].verified_fields = ["tds"]
     catalog[1].sources = {"sodium": "manual"}
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         ficha = client.get("/agua/bezoya").get_data(as_text=True)
         about = client.get("/acerca").get_data(as_text=True)
@@ -1893,8 +2001,11 @@ def test_a_past_analysis_does_not_advertise_the_present_numbers(client):
     catalog[1].minerals = {"tds": 26.5}
     catalog[1].photo_url = "https://x/bezoya.jpg"
     past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(
+            f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+        ),
     ):
         body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
 
@@ -1912,8 +2023,9 @@ def test_a_mineral_reads_the_same_however_it_reached_the_catalog(client):
     only on how the water got in."""
     catalog = _catalog()
     catalog[1].minerals = {"tds": 667.0, "calcium": 2.19}
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
@@ -1933,8 +2045,11 @@ def test_a_past_analysis_swaps_the_numbers_and_its_verification(client):
     catalog[1].minerals = {"tds": 26.5}
     catalog[1].verified_fields = ["tds"]
     past = _analysis("2024-01", 30.0, verified=[])
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(
+            f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+        ),
     ):
         response = client.get("/agua/bezoya?analisis=2024-01")
 
@@ -1950,8 +2065,11 @@ def test_a_past_analysis_swaps_the_numbers_and_its_verification(client):
     marker = 'title="Confirmado de foto de etiqueta"'
     assert marker not in body
 
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(
+            f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+        ),
     ):
         current = client.get("/agua/bezoya").get_data(as_text=True)
     assert marker in current, "el actual sí está confirmado por etiqueta"
@@ -1966,8 +2084,11 @@ def test_a_past_analysis_shows_the_bottle_of_its_own_year(client):
     catalog[1].analysis_date = "2025-02"
     catalog[1].photo_url = "https://x/bezoya.jpg"
     past = _analysis("2024-01", 30.0, photo="https://x/bezoya__2024-01.jpg")
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(
+            f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5), past]
+        ),
     ):
         body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
 
@@ -1982,9 +2103,12 @@ def test_an_analysis_with_no_bottle_of_its_own_keeps_the_ficha_s(client):
     catalog = _catalog()
     catalog[1].analysis_date = "2025-02"
     catalog[1].photo_url = "https://x/bezoya.jpg"
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses",
-        return_value=[_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)],
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(
+            f"{_REPO}.list_analyses",
+            return_value=[_analysis("2025-02", 26.5), _analysis("2024-01", 30.0)],
+        ),
     ):
         body = client.get("/agua/bezoya?analisis=2024-01").get_data(as_text=True)
 
@@ -1996,8 +2120,9 @@ def test_an_unknown_analysis_is_a_404_not_the_current_one(client):
     under another year's URL."""
     catalog = _catalog()
     catalog[1].analysis_date = "2025-02"
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5)]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[_analysis("2025-02", 26.5)]),
     ):
         assert client.get("/agua/bezoya?analisis=1999").status_code == 404
 
@@ -2014,13 +2139,14 @@ def test_a_verified_water_still_accepts_an_older_analysis(client):
     existing = _catalog()[1]
     existing.verified = True
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ) as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         response = client.post(
             "/anadir",
             data={
@@ -2043,9 +2169,12 @@ def test_a_verified_water_still_refuses_to_be_overwritten(client):
     existing = _catalog()[1]
     existing.verified = True
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water") as mock_save, patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_analysis") as mock_analysis:
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_analysis") as mock_analysis,
+    ):
         response = client.post(
             "/anadir",
             data={
@@ -2091,12 +2220,14 @@ def test_admin_page_lists_the_origins_that_need_a_human(client):
             community="Castilla-La Mancha",
         ),
     ]
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(f"{_REPO}.get_all_users", return_value={}), patch(
-            f"{_REPO}.get_all_waters", return_value=catalog
+        with (
+            patch(f"{_REPO}.get_all_users", return_value={}),
+            patch(f"{_REPO}.get_all_waters", return_value=catalog),
         ):
             resp = client.get("/admin")
     body = resp.get_data(as_text=True)
@@ -2128,8 +2259,9 @@ def _broken():
 
 
 def test_admin_edit_form_is_admin_only(client):
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         assert client.get("/admin/agua/f").status_code == 403  # signed out
         _google_login(client, "otra@x.com")
@@ -2139,8 +2271,9 @@ def test_admin_edit_form_is_admin_only(client):
 def test_admin_edit_form_offers_the_canonical_vocabularies(client):
     """Free text is what stored `province='portugal'`. The form offers the
     lists this repo already carries, so that shape cannot be retyped."""
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
         with patch(f"{_REPO}.get_water", return_value=_broken()):
@@ -2157,13 +2290,16 @@ def test_admin_edit_form_offers_the_canonical_vocabularies(client):
 def test_admin_edit_saves_a_snapshot_before_overwriting(client):
     """The undo trail `scripts/revert_water.py` reads. An admin edit is the
     one write with no contributor behind it to ask what the label said."""
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
-            f"{_REPO}.save_water"
-        ) as mock_save, patch(f"{_REPO}.save_revision") as mock_rev:
+        with (
+            patch(f"{_REPO}.get_water", return_value=_broken()),
+            patch(f"{_REPO}.save_water") as mock_save,
+            patch(f"{_REPO}.save_revision") as mock_rev,
+        ):
             token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
             resp = client.post(
                 "/admin/agua/f",
@@ -2190,13 +2326,16 @@ def test_admin_edit_applies_the_country_rules_on_save(client):
     """The admin form goes through `resolve_place` like the public one: a
     Spanish province derives its community, so an admin cannot hand-type a
     mismatch the curation engine would then flag."""
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
-            f"{_REPO}.save_water"
-        ) as mock_save, patch(f"{_REPO}.save_revision"):
+        with (
+            patch(f"{_REPO}.get_water", return_value=_broken()),
+            patch(f"{_REPO}.save_water") as mock_save,
+            patch(f"{_REPO}.save_revision"),
+        ):
             token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
             client.post(
                 "/admin/agua/f",
@@ -2217,13 +2356,16 @@ def test_admin_edit_applies_the_country_rules_on_save(client):
 def test_admin_edit_keeps_what_the_form_does_not_carry(client):
     """Minerals, photos, verification and authorship are not on this form and
     must survive it — an origin repair is not a re-submission."""
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(f"{_REPO}.get_water", return_value=_broken()), patch(
-            f"{_REPO}.save_water"
-        ) as mock_save, patch(f"{_REPO}.save_revision"):
+        with (
+            patch(f"{_REPO}.get_water", return_value=_broken()),
+            patch(f"{_REPO}.save_water") as mock_save,
+            patch(f"{_REPO}.save_revision"),
+        ):
             token = _csrf_from(client.get("/admin/agua/f").get_data(as_text=True))
             client.post(
                 "/admin/agua/f",
@@ -2243,8 +2385,9 @@ def test_admin_edit_keeps_what_the_form_does_not_carry(client):
 
 
 def test_admin_edit_404s_on_a_water_that_does_not_exist(client):
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
         with patch(f"{_REPO}.get_water", return_value=None):
@@ -2265,10 +2408,11 @@ def test_the_front_shot_is_read_too_and_only_fills_gaps(client):
             "tds": 999,
         },
     ]
-    with patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
-    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
-        f"{_REPO}.get_all_waters", return_value=[]
+    with (
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=reads),
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -2299,10 +2443,11 @@ def test_the_tick_belongs_to_the_photo_that_is_stored_as_proof(client):
         {"name": "X", "tds": 48, "sodium": None},
         {"name": "X", "sodium": 5.3},
     ]
-    with patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
-    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
-        f"{_REPO}.get_all_waters", return_value=[]
+    with (
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=reads),
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
     ):
         resp = client.post(
             "/anadir/foto",
@@ -2330,9 +2475,11 @@ def test_the_ficha_shows_the_registry_number_and_bottler(client):
         registry_id="27.02231/BA",
         bottler="SONEPA",
     )
-    with patch(f"{_REPO}.get_water", return_value=water), patch(
-        f"{_REPO}.get_all_waters", return_value=[water]
-    ), patch(f"{_REPO}.list_analyses", return_value=[]):
+    with (
+        patch(f"{_REPO}.get_water", return_value=water),
+        patch(f"{_REPO}.get_all_waters", return_value=[water]),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
+    ):
         body = client.get("/agua/x").get_data(as_text=True)
     assert "27.02231/BA" in body
     assert "SONEPA" in body
@@ -2342,10 +2489,11 @@ def test_the_ficha_shows_the_registry_number_and_bottler(client):
 
 
 def _photo_post(client, reads, extra=None):
-    with patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.photos.process_image", side_effect=lambda raw: raw
-    ), patch(f"{_APP}.label_ocr.extract_label", side_effect=reads), patch(
-        f"{_REPO}.get_all_waters", return_value=[]
+    with (
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=reads),
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
     ):
         data = {
             "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
@@ -2374,10 +2522,14 @@ def test_the_origin_photo_fills_the_gaps_and_keeps_what_was_typed(client):
     """Everything already on the form survives — the contributor may have
     corrected the reader before reaching for another photo."""
     _login(client)
-    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
-        f"{_APP}.label_ocr.extract_label",
-        return_value={"spring": "Encinas", "province": "Badajoz", "tds": 999},
-    ), patch(f"{_REPO}.get_all_waters", return_value=[]):
+    with (
+        patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw),
+        patch(
+            f"{_APP}.label_ocr.extract_label",
+            return_value={"spring": "Encinas", "province": "Badajoz", "tds": 999},
+        ),
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
+    ):
         resp = client.post(
             "/anadir/origen",
             data={
@@ -2404,12 +2556,11 @@ def test_the_origin_photo_never_becomes_the_stored_proof(client):
     """It is a third face, read and discarded. `label_photo_url` must stay the
     composition shot, which is what the ✓ refers to."""
     _login(client)
-    with patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw), patch(
-        f"{_APP}.photos.upload_photo"
-    ) as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label", return_value={"province": "Badajoz"}
-    ), patch(
-        f"{_REPO}.get_all_waters", return_value=[]
+    with (
+        patch(f"{_APP}.photos.process_image", side_effect=lambda raw: raw),
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"province": "Badajoz"}),
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
     ):
         client.post(
             "/anadir/origen",
@@ -2438,12 +2589,14 @@ def test_admin_page_lists_the_stranded_photos(client):
         photo_promotion_failed=True,
     )
     fine = _catalog()[0]
-    with patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"), patch(
-        f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
     ):
         _google_login(client, "admin@x.com")
-        with patch(f"{_REPO}.get_all_users", return_value={}), patch(
-            f"{_REPO}.get_all_waters", return_value=[stranded, fine]
+        with (
+            patch(f"{_REPO}.get_all_users", return_value={}),
+            patch(f"{_REPO}.get_all_waters", return_value=[stranded, fine]),
         ):
             body = client.get("/admin").get_data(as_text=True)
     assert "Fotos sin promover (1)" in body
@@ -2500,9 +2653,10 @@ def test_a_non_image_photo_gets_a_message_not_a_500(client):
     reaching the route. It must come back to the form with a sentence, and
     nothing may be uploaded or sent to the reader."""
     _login(client)
-    with patch(f"{_APP}.photos.upload_photo") as mock_upload, patch(
-        f"{_APP}.label_ocr.extract_label"
-    ) as mock_read:
+    with (
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(f"{_APP}.label_ocr.extract_label") as mock_read,
+    ):
         resp = client.post(
             "/anadir/foto",
             data={"photo": (io.BytesIO(_NOT_AN_IMAGE), "etiqueta.pdf")},
@@ -2516,9 +2670,10 @@ def test_a_non_image_photo_gets_a_message_not_a_500(client):
 
 def test_a_non_image_front_shot_gets_a_message_not_a_500(client):
     _login(client)
-    with patch(f"{_APP}.photos.upload_photo"), patch(
-        f"{_APP}.label_ocr.extract_label"
-    ) as mock_read:
+    with (
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label") as mock_read,
+    ):
         resp = client.post(
             "/anadir/foto",
             data={
@@ -2536,8 +2691,9 @@ def test_a_non_image_origin_photo_keeps_the_form(client):
     """The origin face is the third photo of a form already half filled in;
     losing the form to a bad file would cost the contributor everything."""
     _login(client)
-    with patch(f"{_APP}.label_ocr.extract_label") as mock_read, patch(
-        f"{_REPO}.get_all_waters", return_value=[]
+    with (
+        patch(f"{_APP}.label_ocr.extract_label") as mock_read,
+        patch(f"{_REPO}.get_all_waters", return_value=[]),
     ):
         resp = client.post(
             "/anadir/origen",
@@ -2565,9 +2721,12 @@ _NOTIFY = "packages.be_water.web.notifications.notify_save"
 
 def test_saving_a_new_water_sends_a_notice(client):
     _login(client)
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=None
-    ), patch(f"{_REPO}.touch_user"), patch(_NOTIFY) as notify:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_REPO}.touch_user"),
+        patch(_NOTIFY) as notify,
+    ):
         client.post(
             "/anadir",
             data={"name": "Font Nova", "tds": "180", "ocr_fields": "tds"},
@@ -2582,11 +2741,13 @@ def test_saving_a_new_water_sends_a_notice(client):
 
 def test_updating_an_existing_water_sends_an_update_notice(client):
     _login(client)
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=_catalog()[1]
-    ), patch(f"{_REPO}.touch_user"), patch(f"{_REPO}.save_revision"), patch(
-        _NOTIFY
-    ) as notify:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=_catalog()[1]),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.save_revision"),
+        patch(_NOTIFY) as notify,
+    ):
         client.post("/anadir", data={"name": "Bezoya", "tds": "30"})
     assert notify.call_args.args[0] == "updated"
 
@@ -2595,15 +2756,14 @@ def test_an_older_analysis_sends_a_history_notice(client):
     _login(client)
     existing = _catalog()[1]
     existing.analysis_date = "2025-02"
-    with patch(f"{_REPO}.save_water"), patch(
-        f"{_REPO}.get_water", return_value=existing
-    ), patch(f"{_REPO}.touch_user"), patch(
-        f"{_REPO}.get_analysis", return_value=None
-    ), patch(
-        f"{_REPO}.save_analysis"
-    ), patch(
-        _NOTIFY
-    ) as notify:
+    with (
+        patch(f"{_REPO}.save_water"),
+        patch(f"{_REPO}.get_water", return_value=existing),
+        patch(f"{_REPO}.touch_user"),
+        patch(f"{_REPO}.get_analysis", return_value=None),
+        patch(f"{_REPO}.save_analysis"),
+        patch(_NOTIFY) as notify,
+    ):
         client.post(
             "/anadir",
             data={"name": "Bezoya", "tds": "26.5", "analysis_date": "2024-01"},
@@ -2631,12 +2791,12 @@ def test_every_page_serves_a_water_with_no_composition(client):
     """The catalogue shows only numbers someone can stand behind, so a ficha
     nobody has photographed has none. Every page has to cope with that."""
     catalog = _catalog() + [_unphotographed()]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.get_favorites", return_value=[catalog[-1]]
-    ), patch(f"{_REPO}.list_analyses", return_value=[]), patch(
-        f"{_REPO}.get_all_users", return_value={}
-    ), patch(
-        f"{_REPO}.all_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.get_favorites", return_value=[catalog[-1]]),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
+        patch(f"{_REPO}.get_all_users", return_value={}),
+        patch(f"{_REPO}.all_analyses", return_value=[]),
     ):
         for path in (
             "/",
@@ -2652,8 +2812,9 @@ def test_every_page_serves_a_water_with_no_composition(client):
 
 def test_an_empty_ficha_asks_for_the_label_photo(client):
     catalog = _catalog() + [_unphotographed()]
-    with patch(f"{_REPO}.get_all_waters", return_value=catalog), patch(
-        f"{_REPO}.list_analyses", return_value=[]
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
     ):
         body = client.get("/agua/bezoya-vacia").get_data(as_text=True)
     assert "Composición pendiente" in body

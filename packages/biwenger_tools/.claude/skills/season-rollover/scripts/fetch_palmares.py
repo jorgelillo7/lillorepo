@@ -37,13 +37,6 @@ import sys
 # Allow running from repo root without installing packages.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../"))
 
-from packages.biwenger_tools.constants import (  # noqa: E402
-    LEAGUE_ID as DEFAULT_LEAGUE_ID,
-)
-from packages.biwenger_tools.constants import (  # noqa: E402
-    LEAGUE_MEMBERS,
-    NON_PLAYING_MEMBER_IDS,
-)  # noqa: E402
 from core.domain.models import Palmares, SeasonStanding  # noqa: E402
 from core.sdk.biwenger import (  # noqa: E402
     ACCOUNT_URL,
@@ -54,19 +47,26 @@ from core.sdk.biwenger import (  # noqa: E402
     league_round_report_url,
     league_standings_url,
 )
+from packages.biwenger_tools.constants import (  # noqa: E402
+    LEAGUE_ID as DEFAULT_LEAGUE_ID,
+)
+from packages.biwenger_tools.constants import (  # noqa: E402
+    LEAGUE_MEMBERS,
+    NON_PLAYING_MEMBER_IDS,
+)  # noqa: E402
 
 
 def _to_int(value, default: int = 0) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 
 def _to_float(value, default: float = 0.0) -> float:
     try:
         return float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
 
 

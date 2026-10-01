@@ -32,8 +32,8 @@ from dotenv import load_dotenv  # noqa: E402
 
 from core.sdk.biwenger import BIWENGER_CF_BASE, BiwengerClient  # noqa: E402
 from packages.biwenger_tools.api import config  # noqa: E402
-from packages.biwenger_tools.api.logic import auto_bid  # noqa: E402
 from packages.biwenger_tools.api.logic import auction_calibration as ac  # noqa: E402
+from packages.biwenger_tools.api.logic import auto_bid  # noqa: E402
 from packages.biwenger_tools.api.logic.league_cash import (  # noqa: E402
     SEASON_START_TYPE,
 )

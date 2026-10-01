@@ -17,8 +17,8 @@ the last URL configured.
 import os
 import sys
 
-from packages.biwenger_tools.bot import config
 from core.sdk.telegram import configure_bot_commands, set_webhook
+from packages.biwenger_tools.bot import config
 
 COMMANDS = [
     {"command": "menu", "description": "Menú visual con botones (recomendado)"},

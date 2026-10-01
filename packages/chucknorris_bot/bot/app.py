@@ -5,7 +5,6 @@ import os
 import requests
 from flask import Flask, render_template, request
 
-from core.web.logs import use_json_logging
 from core.sdk.telegram import (
     extract_webhook_update,
     parse_command,
@@ -13,6 +12,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
+from core.web.logs import use_json_logging
 from packages.chucknorris_bot.bot import config, menu
 
 logger = get_logger(__name__)

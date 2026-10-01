@@ -13,16 +13,16 @@ from unittest.mock import patch
 import pytest
 
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import lineup
+from packages.biwenger_tools.api.logic import lineup, provider_watch
 from packages.biwenger_tools.api.logic.lineup import (
+    _CAPTAIN_MAX_PRICE,
+    _POOL_PER_POSITION,
+    CANNOT_PLAY,
     DEF,
     FORMATIONS,
     FWD,
     GK,
     MID,
-    CANNOT_PLAY,
-    _CAPTAIN_MAX_PRICE,
-    _POOL_PER_POSITION,
     _pick_captain,
     _pick_reserves,
     _sf,
@@ -30,7 +30,6 @@ from packages.biwenger_tools.api.logic.lineup import (
     format_lineup_message,
     pick_lineup,
 )
-from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import (
     availability,
@@ -667,9 +666,9 @@ def test_the_cap_holds_for_the_line_a_player_is_actually_assigned_to():
         if row["jp_player"]["nextMatch"]["playerInLineup"] is False and _sf(row) > 1:
             promoted_per_line[pos_id] = promoted_per_line.get(pos_id, 0) + 1
 
-    assert not [
-        line for line, n in promoted_per_line.items() if n > 1
-    ], f"a line started more than one promoted substitute: {promoted_per_line}"
+    assert not [line for line, n in promoted_per_line.items() if n > 1], (
+        f"a line started more than one promoted substitute: {promoted_per_line}"
+    )
 
 
 def test_a_player_jornada_perfecta_does_not_carry_is_logged(caplog):
@@ -1318,9 +1317,9 @@ def test_a_player_moving_between_eleven_and_bench_is_reported_once():
     }
 
     assert named_in_xi, "el intercambio tiene que salir en el once"
-    assert not (
-        named_in_xi & named_on_bench
-    ), "nadie puede aparecer en las dos listas: es un solo movimiento"
+    assert not (named_in_xi & named_on_bench), (
+        "nadie puede aparecer en las dos listas: es un solo movimiento"
+    )
 
 
 def test_the_hole_count_matches_the_names_listed():

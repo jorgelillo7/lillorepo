@@ -1,11 +1,12 @@
 """Tests for the Chuck Norris bot webhook."""
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 import packages.chucknorris_bot.bot.config as cfg
 from core.sdk.telegram import parse_command
-from packages.chucknorris_bot.bot.app import app, _fetch_joke
+from packages.chucknorris_bot.bot.app import _fetch_joke, app
 
 _VALID_SECRET = "test-secret"
 
@@ -94,11 +95,12 @@ def test_start_attaches_persistent_reply_keyboard(client):
 def test_reply_keyboard_label_dispatches_joke(client, label, expected_category):
     """Tapping a keyboard button sends the label as plain text; the bot
     routes it to `_fetch_joke(category)` and replies with the result."""
-    with patch(
-        "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
-    ) as mock_fetch, patch(
-        "packages.chucknorris_bot.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
+        ) as mock_fetch,
+        patch("packages.chucknorris_bot.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update("123", label))
     assert resp.status_code == 200
     mock_fetch.assert_called_once_with(expected_category)
@@ -119,11 +121,12 @@ def test_version_returns_commit_and_deploy_time(client):
 
 
 def test_random_fetches_and_sends(client):
-    with patch(
-        "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
-    ) as mock_fetch, patch(
-        "packages.chucknorris_bot.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
+        ) as mock_fetch,
+        patch("packages.chucknorris_bot.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update("123", "/random"))
     assert resp.status_code == 200
     # Goes through `_send_joke(chat_id, None)` → fetches with no category.
@@ -134,9 +137,12 @@ def test_random_fetches_and_sends(client):
 
 @pytest.mark.parametrize("category", ["science", "food", "animal", "dev"])
 def test_category_command_fetches_with_category(client, category):
-    with patch(
-        "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
-    ) as mock_fetch, patch("packages.chucknorris_bot.bot.app.send_telegram_message"):
+    with (
+        patch(
+            "packages.chucknorris_bot.bot.app._fetch_joke", return_value="A joke."
+        ) as mock_fetch,
+        patch("packages.chucknorris_bot.bot.app.send_telegram_message"),
+    ):
         resp = _post(client, _update("123", f"/{category}"))
     assert resp.status_code == 200
     mock_fetch.assert_called_once_with(category)

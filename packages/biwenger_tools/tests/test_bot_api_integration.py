@@ -123,15 +123,19 @@ def wire_bot_to_api():
             query_string=kwargs.get("params"),
         )
 
-    with patch(
-        "packages.biwenger_tools.bot.api_client.http_requests.request",
-        side_effect=forward,
-    ), patch(
-        "packages.biwenger_tools.bot.api_client._fetch_id_token",
-        return_value="fake-token",
-    ), patch(
-        "packages.biwenger_tools.bot.app._run_in_background",
-        side_effect=lambda fn, *a, **kw: fn(*a, **kw),
+    with (
+        patch(
+            "packages.biwenger_tools.bot.api_client.http_requests.request",
+            side_effect=forward,
+        ),
+        patch(
+            "packages.biwenger_tools.bot.api_client._fetch_id_token",
+            return_value="fake-token",
+        ),
+        patch(
+            "packages.biwenger_tools.bot.app._run_in_background",
+            side_effect=lambda fn, *a, **kw: fn(*a, **kw),
+        ),
     ):
         league_compare.reset_cache()
         yield
@@ -165,13 +169,15 @@ def test_typed_comparar_reaches_the_api_and_sends_both_rankings(bot_client, text
     Asserting on the delivered message rather than on a mock call means the
     route, the action and the renderer all have to work.
     """
-    with patch(
-        "packages.biwenger_tools.api.logic.actions.build_context",
-        return_value=_fake_context(),
-    ), patch(
-        "packages.biwenger_tools.api.logic.actions.send_telegram_message_or_raise"
-    ) as api_send, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
+    with (
+        patch(
+            "packages.biwenger_tools.api.logic.actions.build_context",
+            return_value=_fake_context(),
+        ),
+        patch(
+            "packages.biwenger_tools.api.logic.actions.send_telegram_message_or_raise"
+        ) as api_send,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
     ):
         resp = _send(bot_client, text)
 
@@ -213,14 +219,14 @@ def test_every_menu_action_is_reachable_by_typing(bot_client):
 
     unreachable = []
     for action, _label in MAIN_MENU_ACTIONS:
-        with patch(
-            "packages.biwenger_tools.bot.app.api_client.call_api"
-        ) as mock_call, patch(
-            "packages.biwenger_tools.bot.app.api_client.list_managers",
-            return_value=[{"id": 1, "name": "Yo", "is_me": True}],
-        ), patch(
-            "packages.biwenger_tools.bot.app.send_telegram_message"
-        ) as mock_send:
+        with (
+            patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+            patch(
+                "packages.biwenger_tools.bot.app.api_client.list_managers",
+                return_value=[{"id": 1, "name": "Yo", "is_me": True}],
+            ),
+            patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+        ):
             _send(bot_client, f"/{action}")
             # Either it called the api, or it answered (the picker flows do).
             if not mock_call.called and not mock_send.called:

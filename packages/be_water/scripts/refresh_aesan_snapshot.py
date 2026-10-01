@@ -278,14 +278,15 @@ def main() -> None:
     lines.append("]")
     SNAPSHOT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
     # The generated file must pass Lint, so it is formatted by the same
-    # hermetic black `scripts/lint.sh` runs — not whichever one is on PATH.
+    # hermetic Ruff `scripts/lint.sh` runs — not whichever one is on PATH.
     subprocess.run(
         [
             "bazel",
             "run",
             "--ui_event_filters=-info,-stdout,-stderr",
-            "//tools/lint:black",
+            "//tools/lint:ruff",
             "--",
+            "format",
             "--quiet",
             str(SNAPSHOT_PATH.resolve()),
         ],

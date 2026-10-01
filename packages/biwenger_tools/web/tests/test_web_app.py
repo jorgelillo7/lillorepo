@@ -1,21 +1,22 @@
 """Tests for the Biwenger web application."""
 
-import requests
-import pytest
 from unittest.mock import MagicMock, patch
 
-from packages.biwenger_tools.constants import H2H_MATCHDAYS, H2H_ROUNDS
-from packages.biwenger_tools.web import services
-from packages.biwenger_tools.web.app import app
-from packages.biwenger_tools.web.routes import main as main_routes
+import pytest
+import requests
+
 from core.domain.models import (
     Clausulazo,
     JusticeEntry,
     LeagueMessage,
     Palmares,
-    SeasonStanding,
     Participation,
+    SeasonStanding,
 )
+from packages.biwenger_tools.constants import H2H_MATCHDAYS, H2H_ROUNDS
+from packages.biwenger_tools.web import services
+from packages.biwenger_tools.web.app import app
+from packages.biwenger_tools.web.routes import main as main_routes
 
 # --- Fixtures ---
 
@@ -250,11 +251,14 @@ def test_salseo_success(mock_get, client):
         return []
 
     mock_get.side_effect = _by_categoria
-    with patch(
-        "packages.biwenger_tools.web.routes.season.repository.get_clausulazos"
-    ) as mock_clausulazos, patch(
-        "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia"
-    ) as mock_tabla:
+    with (
+        patch(
+            "packages.biwenger_tools.web.routes.season.repository.get_clausulazos"
+        ) as mock_clausulazos,
+        patch(
+            "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia"
+        ) as mock_tabla,
+    ):
         response = client.get("/24-25/salseo")
     assert response.status_code == 200
     assert b"D1" in response.data
@@ -1104,13 +1108,16 @@ def test_competiciones_renders_every_tab_from_one_read(client):
         _h2h_tab(("1", "1", home, "78", "43", away)),
         _table_tab("Copa Castolo", "Copa Castolo", ["Equipo", "J1"], ["Kairat", "60"]),
     )
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        return_value=workbook,
-    ) as mock_book:
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=workbook,
+        ) as mock_book,
+    ):
         body = client.get("/26-27/competiciones").get_data(as_text=True)
 
     assert mock_book.call_count == 1
@@ -1127,13 +1134,16 @@ def test_a_season_only_shows_the_competitions_its_sheet_holds(client):
     from packages.biwenger_tools.web.routes import season as season_routes
 
     season_routes.invalidate_competiciones_cache()
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"], "24-25": []},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        return_value=_workbook(
-            _table_tab("Trofeos", "Pichichi", ["Equipo", "Goles"], ["Kairat", "47"])
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"], "24-25": []},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=_workbook(
+                _table_tab("Trofeos", "Pichichi", ["Equipo", "Goles"], ["Kairat", "47"])
+            ),
         ),
     ):
         current = client.get("/26-27/competiciones").get_data(as_text=True)
@@ -1158,12 +1168,15 @@ def test_a_season_can_span_several_workbooks(client):
             _table_tab("Trofeo A", "Pichichi", ["Equipo", "Goles"], ["B", "47"])
         ),
     }
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"25-26": ["ligas", "trofeos"]},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        side_effect=lambda _svc, sheet_id: books[sheet_id],
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"25-26": ["ligas", "trofeos"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            side_effect=lambda _svc, sheet_id: books[sheet_id],
+        ),
     ):
         body = client.get("/25-26/competiciones").get_data(as_text=True)
 
@@ -1186,12 +1199,15 @@ def test_a_group_stage_renders_one_table_per_group(client):
         ["GRUPO B", "Jugados", "Balance"],
         ["Kairat FC", "0", "0"],
     )
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        return_value=_workbook(tab),
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=_workbook(tab),
+        ),
     ):
         body = client.get("/26-27/competiciones").get_data(as_text=True)
 
@@ -1212,12 +1228,15 @@ def test_a_failed_read_never_invents_an_h2h_tab(client):
     from packages.biwenger_tools.web.routes import season as season_routes
 
     season_routes.invalidate_competiciones_cache()
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"25-26": ["book-id"]},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        side_effect=Exception("invalid_grant"),
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"25-26": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            side_effect=Exception("invalid_grant"),
+        ),
     ):
         body = client.get("/25-26/competiciones").get_data(as_text=True)
 
@@ -1239,11 +1258,14 @@ def test_a_failed_refresh_serves_the_last_good_read(client):
     workbook = _workbook(
         _table_tab("Copa Castolo", "Copa Castolo", ["Equipo", "J1"], ["Kairat", "60"])
     )
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
-        COMPETICIONES_CACHE_TTL_SECONDS=0,
-    ), patch("packages.biwenger_tools.web.routes.season.get_workbook") as mock_book:
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+            COMPETICIONES_CACHE_TTL_SECONDS=0,
+        ),
+        patch("packages.biwenger_tools.web.routes.season.get_workbook") as mock_book,
+    ):
         mock_book.return_value = workbook
         first = client.get("/26-27/competiciones").get_data(as_text=True)
         mock_book.side_effect = Exception("invalid_grant")
@@ -1261,13 +1283,16 @@ def test_competiciones_read_is_cached_between_requests(client):
     from packages.biwenger_tools.web.routes import season as season_routes
 
     season_routes.invalidate_competiciones_cache()
-    with patch.multiple(
-        "packages.biwenger_tools.web.routes.season.config",
-        COMPETICIONES_SHEETS={"26-27": ["book-id"]},
-    ), patch(
-        "packages.biwenger_tools.web.routes.season.get_workbook",
-        return_value=_workbook(_h2h_tab()),
-    ) as mock_book:
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=_workbook(_h2h_tab()),
+        ) as mock_book,
+    ):
         client.get("/26-27/competiciones")
         client.get("/26-27/competiciones")
         assert mock_book.call_count == 1

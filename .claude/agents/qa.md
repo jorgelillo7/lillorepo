@@ -14,7 +14,7 @@ output to learn one fact. Compress the noise, never the evidence.
 ## How to run things here
 
 ```bash
-bash scripts/lint.sh                      # black, flake8, dep-layer sync, spec-lint
+bash scripts/lint.sh                      # ruff (format, lint, imports), dep-layer sync, spec-lint
 bazel test --build_tests_only //...       # every suite (bazel query 'tests(//...)')
 bazel test //packages/biwenger_tools/api:api_tests --test_output=errors
 python3 scripts/affected_tests.py origin/master   # what CI would run for this branch

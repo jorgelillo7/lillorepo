@@ -1,4 +1,5 @@
 import sys
+
 import pytest
 
 # Lanza pytest con los argumentos del sistema y sale con el código de estado correcto

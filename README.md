@@ -150,7 +150,7 @@ step 7). The rationale is in [`docs/gcp.md`](docs/gcp.md).
 
 CI/CD runs on every push to `master`. Per-service `paths-filter` only deploys what changed (`core/`, `tools/`, `docker/`, `MODULE.bazel` or the package itself triggers that service):
 
-1. **Lint** — flake8 + `black --check` on `core/` and `packages/` (see [`docs/setup/linter.md`](docs/setup/linter.md))
+1. **Lint** — Ruff (format check, lint and import order) on `core/` and `packages/` (see [`docs/setup/linter.md`](docs/setup/linter.md))
 2. **Test** — runs all test suites in parallel (gated on lint passing)
 3. **Deploy** (selective, in parallel):
    - **web** → `biwenger-summary` Cloud Run Service

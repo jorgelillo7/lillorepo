@@ -2,9 +2,9 @@ import os
 
 from dotenv import load_dotenv
 
-from packages.biwenger_tools.constants import LEAGUE_ID  # re-exported for callers
 from core.sdk import biwenger as biwenger_sdk
 from core.utils import load_json_secret
+from packages.biwenger_tools.constants import LEAGUE_ID  # re-exported for callers
 
 _ = LEAGUE_ID  # noqa: F841  (silence unused-import for callers via config.LEAGUE_ID)
 

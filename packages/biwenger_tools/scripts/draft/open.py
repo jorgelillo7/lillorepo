@@ -16,10 +16,10 @@ import os
 import subprocess
 import sys
 
-from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from core.sdk.telegram import send_telegram_message
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 
 WELCOME = """🏁 <b>Draft {season} — abierto</b>
 

@@ -159,8 +159,8 @@ python3 packages/be_water/scripts/refresh_aesan_snapshot.py   # from the repo ro
 git diff packages/be_water/web/aesan_snapshot.py
 ```
 
-The script formats the snapshot with Bazel's hermetic `black`, the one Lint
-runs, so the result passes CI whatever `black` the machine has installed.
+The script formats the snapshot with Bazel's hermetic Ruff, the one Lint
+runs, so the result passes CI whatever Ruff the machine has installed.
 
 - **No diff** → nothing to do.
 - **A diff** → that is the news: waters Spain recognised or dropped. Open a PR

@@ -31,10 +31,12 @@ from collections import Counter
 from packages.biwenger_tools.api.logic.draft import composition_ok
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
-    FORMATIONS as _API_FORMATIONS,
     FWD,
     GK,
     MID,
+)
+from packages.biwenger_tools.api.logic.lineup import (
+    FORMATIONS as _API_FORMATIONS,
 )
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -1219,7 +1221,7 @@ def main():
             f"| {i} | {label} | {xi_eff} | {eff} | {raw} | {spent / 1e6:.2f}M |"
         )
     header.append(
-        f"\n> 🏆 **Recomendación: {ranking[0][5]}** " f"({ranking[0][0]} efectivo XI)\n"
+        f"\n> 🏆 **Recomendación: {ranking[0][5]}** ({ranking[0][0]} efectivo XI)\n"
     )
     if placeholder and not args.keep_placeholder:
         names = ", ".join(f"{r['name']} ({r['team']})" for r in dropped)

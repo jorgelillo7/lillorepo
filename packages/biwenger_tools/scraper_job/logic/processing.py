@@ -66,7 +66,7 @@ def sort_messages(messages: list) -> list:
     def get_date(msg: LeagueMessage):
         try:
             return datetime.strptime(msg.fecha, "%d-%m-%Y %H:%M:%S")
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return datetime.min
 
     messages.sort(key=get_date, reverse=True)
@@ -124,7 +124,7 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
             )
             for item in clause_items:
                 clausulazos.append(_parse_clause_item(item, fecha, players_map))
-        except (KeyError, ValueError, TypeError):
+        except KeyError, ValueError, TypeError:
             logger.warning(
                 "Error parsing clausulazo entry.",
                 extra={"entry_date": entry.get("date")},

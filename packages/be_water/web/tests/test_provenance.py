@@ -34,8 +34,9 @@ def test_existing_source_is_kept():
 def test_province_and_community_from_aesan_registry():
     water = _water(name="Solán", province="Cuenca", community="Castilla-La Mancha")
     matches = [{"province": "Cuenca"}]
-    with patch(f"{_MOD}.aesan.registry_matches", return_value=matches), patch(
-        f"{_MOD}.geo.community_of", return_value="Castilla-La Mancha"
+    with (
+        patch(f"{_MOD}.aesan.registry_matches", return_value=matches),
+        patch(f"{_MOD}.geo.community_of", return_value="Castilla-La Mancha"),
     ):
         sources = provenance.derive_sources(water)
     assert sources["province"] == "aesan"

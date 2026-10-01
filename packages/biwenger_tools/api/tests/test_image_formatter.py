@@ -4,7 +4,6 @@ import io
 from datetime import datetime
 
 from packages.biwenger_tools.api.logic.image_formatter import (
-    build_cash_image,
     _BENCH,
     _BENCH_BG,
     _MARK_BENCH,
@@ -13,6 +12,7 @@ from packages.biwenger_tools.api.logic.image_formatter import (
     _mark,
     _row_bg,
     _strip_emoji,
+    build_cash_image,
     build_table_image,
     total_value,
 )

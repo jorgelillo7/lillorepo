@@ -3,10 +3,12 @@ where the draft is and whether it is still open."""
 
 import time
 from typing import Optional
-from packages.biwenger_tools.constants import LEAGUE_MEMBERS
+
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
+
 from . import store
 from .store import (
     ERROR_DRAFT_CLOSED,

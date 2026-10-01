@@ -19,19 +19,18 @@ from typing import Optional
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import fixture_run, pact_store
+from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 from packages.biwenger_tools.api.logic.clausulazo_candidates import (
     annotate_pact,
     filter_affordable,
     gather_rivals,
     sf_of,
 )
-from packages.biwenger_tools.api.logic import pact_store
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
 )
-from packages.biwenger_tools.api.logic import fixture_run
-from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 from packages.biwenger_tools.api.player_formatting import POSITION_SHORT
 
 logger = get_logger(__name__)

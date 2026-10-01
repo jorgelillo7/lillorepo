@@ -5,8 +5,8 @@ import requests
 import requests_mock
 
 from core.sdk.biwenger import (
-    BiwengerError,
     BiwengerClient,
+    BiwengerError,
     admin_transfers_url,
     clausulazos_url,
     league_board_all_url,

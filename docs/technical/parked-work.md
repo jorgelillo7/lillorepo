@@ -44,10 +44,6 @@ the image layers) — do it then, in the same PR.
 
 Each of these was reviewed and deliberately left alone.
 
-**Ruff.** Lint already runs hermetically through Bazel — black and flake8 from
-the lock, zero version drift, one entry point in `scripts/lint.sh`. Speed is
-not a problem at this size. *Trigger:* flake8 blocking something real.
-
 **Coverage in CI.** The Bazel + pytest-cov plumbing touches the lock and every
 test target, which outweighs the visibility. Worth noting what coverage would
 *not* have caught: `/comparar` was written and unwired, and the dead

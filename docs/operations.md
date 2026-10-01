@@ -240,7 +240,8 @@ way before anyone noticed.
 
 ## 💅 Linter and Auto-formatter
 
-Flake8 (linter) and Black (formatter) run as the required **`Lint`** check on
+Ruff — formatter, linter and import sorter in one tool — runs as the
+required **`Lint`** check on
 every pull request (`.github/workflows/ci.yml`) and again on every push to
 `master`, where the `lint` job in `.github/workflows/deploy.yml` blocks `test`
 and the deploy.
@@ -253,12 +254,12 @@ version drift, no pip install needed):
 
 ```bash
 bash scripts/lint.sh         # check
-bash scripts/lint.sh --fix   # apply black in place
+bash scripts/lint.sh --fix   # sort imports, autofix, format in place
 ```
 
-Under the hood: `bazel run //tools/lint:black -- ...` and `//tools/lint:flake8`.
-The first invocation is slow (Bazel resolves the lint targets); subsequent
-calls are cached.
+Under the hood: `bazel run //tools/lint:ruff -- check|format ...`, configured
+by `ruff.toml`. The first invocation is slow (Bazel resolves the target);
+subsequent calls are cached.
 
 `scripts/lint.sh` also runs **`scripts/check_base_sync.py`**, which is not a
 linter but guards the same class of mistake. Bazel resolves

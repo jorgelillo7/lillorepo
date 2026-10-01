@@ -381,14 +381,15 @@ there is paid in game money, not in a red build.
 
 ### LP-23 — One quality toolchain, run hermetically
 
-Formatting is `black` and linting is `flake8` (`max-line-length = 88`),
-both run through Bazel's Python 3.14 by `scripts/lint.sh`. Run
-`bash scripts/lint.sh --fix` before pushing.
+Formatting, linting and import order are one tool, **Ruff** (`ruff.toml`:
+88 columns, rules `E`, `W`, `F` and `I`), run through Bazel at the version the
+lock pins by `scripts/lint.sh`. Run `bash scripts/lint.sh --fix` before
+pushing.
 
-**Why.** `black` formats slightly differently across Python versions. Running
-it with the maintainer's 3.12 against CI's 3.13 produced a string of fixup
-commits. Moving to `ruff` is parked until it has a trigger
-(`docs/technical/parked-work.md`).
+**Why.** A formatter run with whatever version is on the machine drifts from
+CI: `black` run with the maintainer's 3.12 against CI's 3.13 produced a string
+of fixup commits. One tool from the lock removes the drift, and replaces three
+(black, flake8, and the isort nobody ran — imports were never checked).
 
 **Checked by:** `Lint`.
 
@@ -426,7 +427,7 @@ own traps. Listed because they are what a reviewer still catches.
   (to `core/` when two packages need it, LP-10), rather than hiding the cycle
   with an import inside a function.
 - **Imports in three groups**, stdlib, third party, then local, one blank
-  line apart. `flake8` does not enforce the order; `black` keeps the rest.
+  line apart. Ruff's `I` rule enforces it and `--fix` applies it.
 - **Names say what, not how.** `snake_case` functions and variables,
   `PascalCase` classes, `UPPER_CASE` module constants, a leading `_` for
   module-private helpers. Prefer renaming to commenting (LP-16).

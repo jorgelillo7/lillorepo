@@ -153,7 +153,7 @@ single source of *what must be true*.
     > already in Artifact Registry from the push step.
 
     > **Not a substitute for CI.** A preview proves the page renders; it does
-    > not run flake8, Black or the tests. The change still goes through
+    > not run Ruff or the tests. The change still goes through
     > branch → PR → green checks → merge.
 
   * **🏆 Special-tournament winner images (Palmarés "Copas especiales"):**

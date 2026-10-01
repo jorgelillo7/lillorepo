@@ -32,11 +32,12 @@ def _build_ctx(biwenger):
 def test_run_daily_skips_send_when_telegram_creds_missing():
     biwenger = MagicMock()
     biwenger.user_id = 1
-    with patch(_patches("config")) as mock_cfg, patch(
-        _patches("build_context"), return_value=_build_ctx(biwenger)
-    ), patch(_patches("require_telegram"), return_value=None) as mock_creds, patch(
-        _patches("send_image_or_text_fallback")
-    ) as mock_send:
+    with (
+        patch(_patches("config")) as mock_cfg,
+        patch(_patches("build_context"), return_value=_build_ctx(biwenger)),
+        patch(_patches("require_telegram"), return_value=None) as mock_creds,
+        patch(_patches("send_image_or_text_fallback")) as mock_send,
+    ):
         mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
         mock_cfg.MARKET_URL = "x"
 
@@ -261,10 +262,14 @@ def test_send_image_or_text_fallback_sends_text_on_telegram_delivery_error():
     from packages.biwenger_tools.api.logic import orchestration
 
     orch = "packages.biwenger_tools.api.logic.orchestration."
-    with patch(
-        orch + "send_telegram_photo_or_raise",
-        side_effect=TelegramDeliveryError("boom"),
-    ), patch(orch + "send_telegram_message") as mock_text, patch(orch + "time.sleep"):
+    with (
+        patch(
+            orch + "send_telegram_photo_or_raise",
+            side_effect=TelegramDeliveryError("boom"),
+        ),
+        patch(orch + "send_telegram_message") as mock_text,
+        patch(orch + "time.sleep"),
+    ):
         ok = orchestration.send_image_or_text_fallback(
             "tok", "chat", b"img", "Mi equipo"
         )
@@ -282,11 +287,11 @@ def test_run_daily_notifies_telegram_when_inner_raises():
     suffer silent failures like the 22–23/06 incidents."""
     from packages.biwenger_tools.api.logic import digests
 
-    with patch(
-        _patches("_run_daily_inner"), side_effect=RuntimeError("biwenger 503")
-    ), patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
-        _patches("send_telegram_message")
-    ) as mock_send:
+    with (
+        patch(_patches("_run_daily_inner"), side_effect=RuntimeError("biwenger 503")),
+        patch(_patches("require_telegram"), return_value=("tok", "chat")),
+        patch(_patches("send_telegram_message")) as mock_send,
+    ):
         try:
             digests.run_daily()
         except RuntimeError:
@@ -480,9 +485,10 @@ def test_the_market_is_observed_too():
     from packages.biwenger_tools.api.logic import digests
 
     rows = [{"name": "X", "bw_id": 1, "jp_player": {"status": "ok"}}]
-    with patch.object(digests, "build_market_rows", return_value=rows), patch.object(
-        digests.provider_watch, "observe"
-    ) as mock_observe:
+    with (
+        patch.object(digests, "build_market_rows", return_value=rows),
+        patch.object(digests.provider_watch, "observe") as mock_observe,
+    ):
         digests._observed_market_rows(MagicMock(), object(), {}, {})
     mock_observe.assert_called_once_with(rows)
 
@@ -492,8 +498,11 @@ def test_a_failing_observer_never_costs_the_market_section():
     from packages.biwenger_tools.api.logic import digests
 
     rows = [{"name": "X"}]
-    with patch.object(digests, "build_market_rows", return_value=rows), patch.object(
-        digests.provider_watch, "observe", side_effect=RuntimeError("boom")
+    with (
+        patch.object(digests, "build_market_rows", return_value=rows),
+        patch.object(
+            digests.provider_watch, "observe", side_effect=RuntimeError("boom")
+        ),
     ):
         assert digests._observed_market_rows(MagicMock(), object(), {}, {}) == rows
 
@@ -510,8 +519,9 @@ def test_forcing_a_lineup_pick_captures_the_projection_too():
 
     base = "packages.biwenger_tools.api.logic.actions"
     ctx = MagicMock()
-    with patch(f"{base}.projection_ledger_capture.capture") as capture, patch(
-        f"{base}.require_telegram", return_value=None
+    with (
+        patch(f"{base}.projection_ledger_capture.capture") as capture,
+        patch(f"{base}.require_telegram", return_value=None),
     ):
         actions.run_auto_pick_lineup(dry_run=True, ctx=ctx)
 
@@ -550,9 +560,11 @@ def test_the_lineup_pick_also_collects_one_finished_round():
     }
     stored = [{"season": "26-27", "round_id": 8, "blended_xi": {}, "jp_only_xi": {}}]
     base = "packages.biwenger_tools.api.logic.projection_ledger_capture"
-    with patch(f"{base}.projection_ledger_store.list_all", return_value=stored), patch(
-        f"{base}._outcome_for", return_value={"applied_total": 41}
-    ), patch(f"{base}.projection_ledger_store.write_actual") as write_actual:
+    with (
+        patch(f"{base}.projection_ledger_store.list_all", return_value=stored),
+        patch(f"{base}._outcome_for", return_value={"applied_total": 41}),
+        patch(f"{base}.projection_ledger_store.write_actual") as write_actual,
+    ):
         cap.collect(ctx)
 
     write_actual.assert_called_once()

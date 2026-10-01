@@ -14,7 +14,6 @@ import time
 from dataclasses import asdict
 
 import requests
-
 from flask import (
     Blueprint,
     Response,
@@ -30,10 +29,14 @@ from core.sdk.gcp import get_workbook
 from core.utils import get_logger
 from packages.biwenger_tools.web import (
     competiciones as competiciones_logic,
+)
+from packages.biwenger_tools.web import (
     config,
-    h2h as h2h_logic,
     repository,
     services,
+)
+from packages.biwenger_tools.web import (
+    h2h as h2h_logic,
 )
 from packages.biwenger_tools.web.sanitize import safe_html, to_text
 

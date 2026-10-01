@@ -37,6 +37,7 @@ from typing import Optional
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic import pact_store, rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.clausulazo_candidates import (
     filter_affordable,
     gather_rivals,
@@ -50,7 +51,6 @@ from packages.biwenger_tools.api.logic.clausulazo_detection import (
     unique_outfield_positions,
     weakest_outfield_position,
 )
-from packages.biwenger_tools.api.logic import pact_store, rebuild, rebuild_store
 from packages.biwenger_tools.api.logic.draft import composition_ok
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
@@ -387,10 +387,7 @@ def _reason_force_weakest() -> str:
 
 
 def _reason_force_position(position_id: int) -> str:
-    return (
-        f"refuerza la línea de "
-        f"{_POSITION_LABELS_ES[position_id].lower()}s (elegido)"
-    )
+    return f"refuerza la línea de {_POSITION_LABELS_ES[position_id].lower()}s (elegido)"
 
 
 def _reason_single_loss(loss: dict) -> str:

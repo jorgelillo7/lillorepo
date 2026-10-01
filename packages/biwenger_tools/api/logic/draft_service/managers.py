@@ -1,11 +1,13 @@
 """Who is allowed to pick: the `/soy` roll-call and its Telegram bindings."""
 
 from typing import Optional
-from packages.biwenger_tools.constants import LEAGUE_MEMBERS
+
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft
 from packages.biwenger_tools.api.logic.player_matching import normalize_name
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
+
 from . import state, store
 from .store import _managers_path
 

@@ -26,7 +26,8 @@ from core.sdk.telegram import send_telegram_message
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import auto_bid as ab
-from packages.biwenger_tools.api.logic import lineup
+from packages.biwenger_tools.api.logic import fixture_run, lineup
+from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 from packages.biwenger_tools.api.logic.orchestration import (
     OrchestratorContext,
     build_biwenger_session,
@@ -35,8 +36,6 @@ from packages.biwenger_tools.api.logic.orchestration import (
 )
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import shown_score
-from packages.biwenger_tools.api.logic import fixture_run
-from packages.biwenger_tools.api.logic.actions import read_fixture_runs
 
 logger = get_logger(__name__)
 

@@ -1,15 +1,15 @@
 #!/bin/bash
-# Run black --check and flake8 hermetically with the same Python (3.14) CI uses.
+# Run Ruff hermetically (formatter, linter and import sorter in one tool) with
+# the version the lock pins, then the repo's stdlib checks. CI runs exactly
+# this script, so a clean local run is a clean Lint job.
 #
-# Why: black 26.3.1 produces slightly different output across Python versions
-# (3.12 on the maintainer's Mac vs 3.13 on CI), which caused multiple CI
-# fixup commits. Running both linters through Bazel's hermetic toolchain
-# removes the drift.
+# Why Bazel: a formatter run with whatever version is on PATH drifts from CI
+# and produces fixup commits (python-conventions LP-23).
 #
 # Usage: bash scripts/lint.sh           # check core/ and packages/
-#        bash scripts/lint.sh --fix     # format with black (in place) instead
+#        bash scripts/lint.sh --fix     # sort imports, autofix, format in place
 #
-# First invocation is slow (Bazel resolves the lint targets); later ones use
+# First invocation is slow (Bazel resolves the lint target); later ones use
 # the cache.
 
 set -euo pipefail
@@ -18,24 +18,21 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 TARGETS=("core/" "packages/")
+RUFF=(bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:ruff --)
 
 if [[ "${1:-}" == "--fix" ]]; then
-    echo "==> black (writing changes)…"
-    bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:black -- \
-        "${TARGETS[@]/#/$REPO_ROOT/}"
-    echo "==> flake8…"
-    bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:flake8 -- \
-        "${TARGETS[@]/#/$REPO_ROOT/}"
+    echo "==> ruff check --fix…"
+    "${RUFF[@]}" check --fix --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
+    echo "==> ruff format…"
+    "${RUFF[@]}" format --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
     exit 0
 fi
 
-echo "==> black --check…"
-bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:black -- \
-    --check "${TARGETS[@]/#/$REPO_ROOT/}"
+echo "==> ruff format --check…"
+"${RUFF[@]}" format --check --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
 
-echo "==> flake8…"
-bazel run --ui_event_filters=-info,-stdout,-stderr //tools/lint:flake8 -- \
-    "${TARGETS[@]/#/$REPO_ROOT/}"
+echo "==> ruff check…"
+"${RUFF[@]}" check --config "$REPO_ROOT/ruff.toml" "${TARGETS[@]/#/$REPO_ROOT/}"
 
 # Stdlib-only and offline, so it costs ~1 s and needs no toolchain. Guards the
 # gap the linters cannot see: Bazel tests run against requirements_lock.txt
