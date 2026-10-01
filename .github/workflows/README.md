@@ -28,8 +28,10 @@ included) at the lock's version through Bazel, then four stdlib checks —
 - `check_workflow_shell.py`: no comment truncates a multi-line command in
   these workflows.
 
-**Test** picks its targets from the build graph rather than from a list in this
-file:
+**Test** runs its suites with `bazel coverage` (the same tests, instrumented)
+and writes a coverage summary to the job's summary page
+(`scripts/coverage_report.py`, report-only — it never blocks). It picks its
+targets from the build graph rather than from a list in this file:
 
 ```
 scripts/affected_tests.py  →  changed files → Bazel labels → rdeps → test targets

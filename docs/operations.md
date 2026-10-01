@@ -87,8 +87,27 @@ runtime image). Run it across every target and produce a combined LCOV report:
 ```
 
 The combined report lands at `$(bazel info output_path)/_coverage/_coverage_report.dat`
-(standard LCOV: `SF:` per file, `DA:` per line). Aggregate it per package or
-repo-wide with any LCOV reader, or `genhtml` it for a browsable report.
+(standard LCOV: `SF:` per file, `DA:` per line). Summarise it the way CI does:
+
+```bash
+  python3 scripts/coverage_report.py "$(bazel info output_path)/_coverage/_coverage_report.dat"
+```
+
+**CI runs this on every pull request**: the `Test` job runs the affected suites
+with `bazel coverage` instead of `bazel test` (same tests, instrumented) and
+writes the summary to the job's summary page — total and per-area line
+coverage, plus the source files no test imports. Report-only: no threshold
+fails a PR. On a PR only the affected suites run, so the numbers cover those.
+
+Two limits to read it with:
+
+- **A file no test imports is absent, not at 0 %.** The percentage is over the
+  files tests load; the summary lists the rest (43 today, mostly one-off
+  scripts) so it cannot overstate.
+- **Some suites record nothing.** `//scripts:scripts_tests` and the two skill
+  suites under `.claude/` import their code by tweaking `sys.path` instead of
+  as Bazel libraries, and their coverage file comes out empty. Their tests run
+  and gate; only their percentage is missing.
 Coverage is a weak signal on its own — pair it with the behaviour specs in
 `openspec/specs/` (what must be true) rather than chasing the percentage.
 

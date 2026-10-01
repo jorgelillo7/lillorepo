@@ -14,6 +14,7 @@ py_test(
         "check_import_paths.py",
         "check_specs.py",
         "check_url_secrets.py",
+        "coverage_report.py",
     ],
     main = "tests/main.py",
     deps = [requirement("pytest")],
