@@ -36,7 +36,7 @@ One bump per PR is the rule (LP-4), bent where it would be absurd:
 | Each security fix | Reversible without losing anything else |
 | A coupled family (google-*, grpcio*, protobuf, proto-plus) | Their pins move together; splitting means partial rebuilds |
 | Remaining runtime patches | One rebuild for many harmless bumps |
-| Dev tooling (flake8, pyflakes…) | No image, no deploy |
+| Dev tooling (ruff, pytest…) | No image, no deploy |
 | A Python minor | The biggest blast radius; nothing else in it |
 | Each Bazel rule (`rules_python`, `rules_pkg`) | Build-only, no image |
 

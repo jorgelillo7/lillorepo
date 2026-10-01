@@ -41,7 +41,7 @@ bold "Pinned versions of critical libs (requirements_lock.txt)"
 CRITICAL_LIBS=(
     flask gunicorn requests beautifulsoup4 unidecode python-dotenv
     google-api-python-client google-auth google-cloud-firestore python-dateutil
-    python-json-logger matplotlib pillow cryptography flake8 black pytest
+    python-json-logger matplotlib pillow cryptography ruff pytest
 )
 for pkg in "${CRITICAL_LIBS[@]}"; do
     line=$(grep -E "^${pkg}==" requirements_lock.txt 2>/dev/null | head -1)
@@ -49,7 +49,7 @@ for pkg in "${CRITICAL_LIBS[@]}"; do
 done
 echo
 
-# Lint tooling (flake8/black) is covered by CRITICAL_LIBS above: CI runs it
+# Lint tooling (ruff) is covered by CRITICAL_LIBS above: CI runs it
 # hermetically through Bazel from the same lockfile, nothing extra is pinned
 # in the workflows.
 

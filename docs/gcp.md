@@ -144,7 +144,7 @@ This is rebuilt only when dependencies change, not on every deploy. Benefits:
 - Cold start time drops significantly (heavy deps like `google-cloud-*` are pre-installed).
 - Artifact Registry storage stays low — only incremental layers change per deploy.
 
-The image is **runtime-only**: test/dev deps (pytest, black, flake8, freezegun,
+The image is **runtime-only**: test/dev deps (pytest, ruff, freezegun,
 requests-mock and their transitives) are listed in `requirements_lock.txt` for
 Bazel's hermetic sandbox but **not installed** in `Dockerfile.base`. Same for
 the `googleapiclient/discovery_cache/documents` cache, which is pruned in the
