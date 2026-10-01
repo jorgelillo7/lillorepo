@@ -324,13 +324,16 @@ it is enforced the way every process rule here is: by pasting the output.
 ### LP-19 — Every module has a suite, and CI runs it
 
 Every module SHALL have its Bazel test target (`//packages/.../x:x_tests`).
-Pull requests run the suites the change can break; `master` runs all of them
-before deploying.
+Pull requests run the suites the change can break, with coverage; `master`
+runs all of them before deploying. The code under test SHALL live in a
+`py_library` the test depends on, never in the `py_test`'s own `srcs`.
 
 **Why.** `master` deploys on every push, so a suite CI does not run is a
-suite that does not protect production.
+suite that does not protect production. And Bazel does not instrument a test
+target's own files: four suites tested code that way and their coverage came
+out empty, invisible in the report.
 
-**Checked by:** `Test`.
+**Checked by:** `Test`; `Lint` (`check_test_srcs.py`) for the `srcs` rule.
 
 ### LP-20 — A spec and its test are a pair
 

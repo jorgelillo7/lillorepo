@@ -18,13 +18,16 @@ everything, so nothing reaches production having been tested selectively.
 Two parallel jobs, `Lint` and `Test`, both required by branch protection.
 
 **Lint** runs `scripts/lint.sh`: Ruff's format check and lint (import order
-included) at the lock's version through Bazel, then four stdlib checks —
+included) at the lock's version through Bazel, then the repo's own checks —
 
 - `check_base_sync.py`: the lock Bazel resolves and the image production runs
   agree, and every `@pypi` label is a direct dependency (python-conventions
   LP-1–LP-3);
 - `check_specs.py`: every test a spec names exists;
 - `check_import_paths.py`: no code reaches other code by path (LP-9);
+- `check_test_srcs.py`: no `py_test` lists the code it tests in its own `srcs`
+  — Bazel would not instrument it, and its coverage would vanish (LP-19);
+- `check_url_secrets.py`: no credential written literally into a URL;
 - `check_workflow_shell.py`: no comment truncates a multi-line command in
   these workflows.
 

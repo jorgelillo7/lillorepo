@@ -1,21 +1,33 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@pypi//:requirements.bzl", "requirement")
 
 # The scripts that decide what CI verifies, and that the specs still describe
 # real tests. Untested, both fail quietly: one reports "nothing to test" and the
 # PR goes green having checked less than it appears to; the other stops noticing
 # that a spec claims coverage which no longer exists.
-py_test(
-    name = "scripts_tests",
-    timeout = "short",
-    srcs = glob(["tests/**/*.py"]) + [
+# The scripts are a library the tests depend on, not sources of the test
+# itself: Bazel does not instrument a test target's own files, so as `srcs` of
+# the `py_test` their coverage came out empty.
+py_library(
+    name = "scripts_lib",
+    srcs = [
         "affected_tests.py",
         "check_base_sync.py",
         "check_import_paths.py",
         "check_specs.py",
+        "check_test_srcs.py",
         "check_url_secrets.py",
         "coverage_report.py",
     ],
+)
+
+py_test(
+    name = "scripts_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]),
     main = "tests/main.py",
-    deps = [requirement("pytest")],
+    deps = [
+        ":scripts_lib",
+        requirement("pytest"),
+    ],
 )

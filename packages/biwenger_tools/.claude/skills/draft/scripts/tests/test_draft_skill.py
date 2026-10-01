@@ -14,7 +14,19 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Under Bazel, import the runfiles copy — the one coverage measures and
+# reports; with plain pytest, the source tree. `.claude` cannot be a package
+# name, so these scripts cannot be imported by module path.
+_SCRIPTS = (
+    os.path.join(
+        os.environ["TEST_SRCDIR"],
+        os.environ["TEST_WORKSPACE"],
+        "packages/biwenger_tools/.claude/skills/draft/scripts",
+    )
+    if "TEST_SRCDIR" in os.environ
+    else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+sys.path.insert(0, _SCRIPTS)
 
 import archetypes  # noqa: E402
 import board  # noqa: E402

@@ -6,13 +6,8 @@ check. These pin the decisions, not the file walking: that runs for real in
 `scripts/lint.sh` on every pull request.
 """
 
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import check_base_sync as sync  # noqa: E402
-import check_import_paths as paths  # noqa: E402
+from scripts import check_base_sync as sync
+from scripts import check_import_paths as paths
 
 # --- LP-2: consumed labels vs. direct declarations ---
 

@@ -61,3 +61,9 @@ extension bundles its own Ruff; CI's lock-pinned one is the final word.
 - **Don't add `# noqa`** unless there is no clean alternative, and name the
   rule (`# noqa: F401`) with the reason on the same line.
 - `E203` is ignored: it conflicts with the formatter's slices.
+- **Ruff joins adjacent string literals.** `"…?auth" "=abc"` becomes one
+  string on the next format. A string split on purpose — so a file does not
+  itself hold a literal credential URL, say — must be built another way (a
+  variable, an f-string); a split string does not survive.
+- `bash scripts/lint.sh --fix` formats even when `ruff check` leaves an error
+  it cannot fix itself (a long line); the error is still the exit code.
