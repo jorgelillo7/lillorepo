@@ -58,3 +58,6 @@ draft-ranked*.csv
 # its public docs without a new rule each time.
 NOTES.local.md
 **/NOTES.local.md
+
+# mypy (scripts/lint.sh)
+.mypy_cache/

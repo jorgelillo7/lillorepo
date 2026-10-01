@@ -385,14 +385,21 @@ there is paid in game money, not in a red build.
 ### LP-23 — One quality toolchain, run hermetically
 
 Formatting, linting and import order are one tool, **Ruff** (`ruff.toml`:
-88 columns, rules `E`, `W`, `F` and `I`), run through Bazel at the version the
-lock pins by `scripts/lint.sh`. Run `bash scripts/lint.sh --fix` before
-pushing.
+88 columns, rules `E`, `W`, `F` and `I`), and types are **mypy** (`mypy.ini`),
+both run through Bazel at the versions the lock pins by `scripts/lint.sh`. Run
+`bash scripts/lint.sh --fix` before pushing.
+
+mypy is gradual: it checks the trees `mypy.ini` lists under `files` (`core`
+today), and a tree joins once it is clean. A library with no types and no
+stubs is ignored by module name in `mypy.ini`, never globally, and
+`# type: ignore` names its code (`# type: ignore[arg-type]`).
 
 **Why.** A formatter run with whatever version is on the machine drifts from
 CI: `black` run with the maintainer's 3.12 against CI's 3.13 produced a string
 of fixup commits. One tool from the lock removes the drift, and replaces three
-(black, flake8, and the isort nobody ran — imports were never checked).
+(black, flake8, and the isort nobody ran — imports were never checked). mypy's
+first lenient run found an undefined name that would have crashed the next
+draft (#562); tests had hidden it.
 
 **Checked by:** `Lint`.
 

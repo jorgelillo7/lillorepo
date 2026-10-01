@@ -1,4 +1,4 @@
-"""Hermetic lint binary — Ruff, at the version the lock pins.
+"""Hermetic lint binaries — Ruff and mypy, at the versions the lock pins.
 
 Ruff formats (black's job), lints (flake8's) and sorts imports (isort's).
 It runs from Bazel so the maintainer's Mac and CI use the same version,
@@ -12,13 +12,44 @@ Usage:
   bazel run //tools/lint:ruff -- check core/ packages/
   bazel run //tools/lint:ruff -- format --check core/ packages/
 
+mypy runs in-process, so it reads the types of exactly the libraries listed
+in its `deps` — the runtime ones the checked code imports, plus the stubs for
+those that ship none. A library missing here degrades to an import error,
+not to a silent `Any`.
+
 Most callers should use the wrapper script `scripts/lint.sh` instead.
 """
 
+load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
 load(":whl_bin.bzl", "whl_bin")
 
 whl_bin(
     name = "ruff",
     binary = "ruff",
     data = "@pypi//ruff:data",
+)
+
+py_console_script_binary(
+    name = "mypy",
+    pkg = "@pypi//mypy",
+    deps = [
+        "@pypi//beautifulsoup4",
+        "@pypi//bleach",
+        "@pypi//flask",
+        "@pypi//google_api_python_client",
+        "@pypi//google_auth",
+        "@pypi//google_cloud_firestore",
+        "@pypi//gunicorn",
+        "@pypi//icalendar",
+        "@pypi//matplotlib",
+        "@pypi//pillow",
+        "@pypi//python_dateutil",
+        "@pypi//python_dotenv",
+        "@pypi//python_json_logger",
+        "@pypi//requests",
+        "@pypi//types_bleach",
+        "@pypi//types_gunicorn",
+        "@pypi//types_python_dateutil",
+        "@pypi//unidecode",
+    ],
 )

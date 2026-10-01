@@ -3,7 +3,7 @@
 import hashlib
 import json
 import re
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import requests
 
@@ -399,10 +399,13 @@ class BiwengerClient:
         try:
             data = response.json()
         except json.JSONDecodeError:
-            json_str = re.search(
-                r"^\s*jsonp_\d+\((.*)\)\s*$", response.text, re.DOTALL
-            ).group(1)
-            data = json.loads(json_str)
+            match = re.search(r"^\s*jsonp_\d+\((.*)\)\s*$", response.text, re.DOTALL)
+            if match is None:
+                raise ValueError(
+                    f"Competition payload from {url} is neither JSON nor JSONP: "
+                    f"{response.text[:80]!r}"
+                ) from None
+            data = json.loads(match.group(1))
         return data.get("data", {}) or {}
 
     @staticmethod
@@ -563,7 +566,7 @@ class BiwengerClient:
         ``amount``/``type``). Raises ``HTTPError`` on any 4xx — the
         caller can inspect ``response.text`` for the human userMessage.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "to": int(seller_user_id),
             "type": "clause",
             "amount": int(amount),
@@ -983,7 +986,7 @@ class BiwengerClient:
         backoff, 4xx (invalid captain, malformed payload) surface
         immediately so the caller can fail fast.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "lineup": {
                 "type": formation,
                 "playersID": players_id,

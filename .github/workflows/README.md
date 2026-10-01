@@ -18,7 +18,8 @@ everything, so nothing reaches production having been tested selectively.
 Two parallel jobs, `Lint` and `Test`, both required by branch protection.
 
 **Lint** runs `scripts/lint.sh`: Ruff's format check and lint (import order
-included) at the lock's version through Bazel, then the repo's own checks —
+included) and mypy over the trees `mypy.ini` lists, at the lock's versions
+through Bazel, then the repo's own checks —
 
 - `check_base_sync.py`: the lock Bazel resolves and the image production runs
   agree, and every `@pypi` label is a direct dependency (python-conventions

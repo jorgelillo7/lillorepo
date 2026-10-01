@@ -15,7 +15,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 | Doc | What's in it |
 |---|---|
 | [`setup/mac-setup.md`](setup/mac-setup.md) | Dev machine bootstrap (bazelisk, gcloud, Python) |
-| [`setup/linter.md`](setup/linter.md) | Ruff (format, lint, import order) configuration and editor wiring |
+| [`setup/linter.md`](setup/linter.md) | Ruff (format, lint, import order), mypy, and editor wiring |
 | [`setup/ai/claude-code-setup.md`](setup/ai/claude-code-setup.md) | Claude Code config for this repo (skills, hooks, memory) |
 | [`setup/ai/mcp-setup.md`](setup/ai/mcp-setup.md) | MCP servers |
 | [`setup/ai/rtk-setup.md`](setup/ai/rtk-setup.md) | rtk token-optimizing CLI proxy |

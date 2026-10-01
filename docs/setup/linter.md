@@ -11,6 +11,17 @@ This repo uses **Ruff** for all three jobs that used to take three tools:
 It runs as the required `Lint` check on every pull request, and again on every
 push to `master`; the build fails if it reports anything.
 
+## Types: mypy
+
+`mypy.ini` decides what is type-checked: the trees under `files` (`core` today
+— a tree joins once it is clean, and stays clean). `scripts/lint.sh` runs it
+as `//tools/lint:mypy`, in-process, with the runtime libraries the code imports
+plus the stubs for those that ship none (`types-bleach`, `types-gunicorn`,
+`types-python-dateutil`) as Bazel deps — so it reads their real types. A new
+third-party import must be added to those deps; one with no types and no stubs
+(today `googleapiclient`, `google.auth`) is ignored **by name** in
+`mypy.ini`. Its cache lives in `.mypy_cache/` (git-ignored).
+
 ## How it works
 
 Ruff runs through Bazel at the version `requirements_lock.txt` pins, so the

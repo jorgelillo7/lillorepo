@@ -95,8 +95,9 @@ feature.
   patterns and stack traps. Rules are numbered `LP-1` … `LP-24`, each with its
   motive and how it is checked (CI or review).
   Read it before writing new Python.
-- Format, lint and import order: Ruff (`ruff.toml`, 88 columns), from the
-  lock through `scripts/lint.sh`; format on save in VS Code
+- Format, lint and import order: Ruff (`ruff.toml`, 88 columns); types: mypy
+  over the trees in `mypy.ini` (gradual). Both from the lock through
+  `scripts/lint.sh`; format on save in VS Code
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
 - Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
 - **Commit scopes use the exact package directory name** — with multiple

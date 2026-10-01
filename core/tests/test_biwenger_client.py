@@ -142,6 +142,17 @@ def test_get_all_players_data_map_jsonp(biwenger_client_authenticated):
         assert len(players_map) == 1
 
 
+def test_a_payload_neither_json_nor_jsonp_fails_with_a_clear_error(
+    biwenger_client_authenticated,
+):
+    """An HTML error page used to surface as `'NoneType' has no attribute 'group'`."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.get(TEST_PLAYERS_DATA_URL, text="<html>Service Unavailable</html>")
+        with pytest.raises(ValueError, match="neither JSON nor JSONP"):
+            client.get_all_players_data_map(TEST_PLAYERS_DATA_URL)
+
+
 def test_get_competition_maps_downloads_once(load_json_fixture):
     """Both maps come from a single request, and without a session.
 

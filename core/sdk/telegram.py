@@ -301,7 +301,7 @@ def register_bot_commands(
     try:
         response = requests.post(url, json=payload, timeout=15)
         response.raise_for_status()
-        extra = {"count": len(commands)}
+        extra: dict[str, Any] = {"count": len(commands)}
         if scope is not None:
             extra["scope"] = scope
         logger.info("Bot commands registered.", extra=extra)
