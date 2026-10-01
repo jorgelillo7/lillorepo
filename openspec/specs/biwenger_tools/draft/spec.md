@@ -171,6 +171,13 @@ would add two network round-trips to every pick.
   `test_join_market_to_biwenger_reports_unmatched_rows_instead_of_dropping`,
   `test_join_market_to_biwenger_reports_ambiguous_names_as_unmatched`
 
+#### Scenario: the first read of a fresh instance
+- **WHEN** a freshly started api instance reads the market or the session for
+  the first time, with no reset before it **THEN** it reads them instead of
+  failing — the caches exist from import. A split of the module once dropped
+  their declarations, and only the tests' reset was creating them.
+- *Verifies:* `test_a_fresh_instance_reads_the_market_and_session_without_a_reset`
+
 ---
 
 ### Requirement: A pick is applied at most once

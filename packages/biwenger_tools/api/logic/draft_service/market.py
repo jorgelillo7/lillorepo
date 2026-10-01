@@ -10,6 +10,10 @@ from packages.biwenger_tools.api.logic import orchestration
 
 logger = get_logger(__name__)
 
+# Per-instance caches: the frozen market and the reused Biwenger session.
+_MARKET_CACHE: Optional[dict] = None
+_SESSION_CACHE: Optional[BiwengerClient] = None
+
 
 def reset_market_cache() -> None:
     """Drop the cached market so the next call re-reads it."""
