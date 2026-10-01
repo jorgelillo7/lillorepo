@@ -30,8 +30,7 @@ def get_google_service(api_name, api_version, scopes):
 # --- CLOUD RUN JOBS ---
 
 _CLOUD_RUN_JOBS_API = (
-    "https://run.googleapis.com/v2/projects/{project}/locations/{region}"
-    "/jobs/{job}:run"
+    "https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run"
 )
 
 

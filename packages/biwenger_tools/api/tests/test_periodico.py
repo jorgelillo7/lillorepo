@@ -32,10 +32,10 @@ def _publish(caption="Titular", kind="document", image=_JPEG, manifest=None):
         return f"https://storage.googleapis.com/{bucket}/{name}"
 
     raw = None if manifest is None else json.dumps(manifest).encode()
-    with patch.object(
-        periodico, "download_telegram_file", return_value=image
-    ), patch.object(periodico, "download_object", return_value=raw), patch.object(
-        periodico, "upload_object", side_effect=_upload
+    with (
+        patch.object(periodico, "download_telegram_file", return_value=image),
+        patch.object(periodico, "download_object", return_value=raw),
+        patch.object(periodico, "upload_object", side_effect=_upload),
     ):
         result = periodico.publish_portada("file-1", caption, kind)
     return result, uploads
@@ -166,13 +166,11 @@ def test_headline_is_escaped_in_the_message_but_not_in_the_manifest():
 
 def test_unparseable_manifest_is_not_overwritten():
     """Replacing it with a single entry would drop the whole season."""
-    with patch.object(
-        periodico, "download_telegram_file", return_value=_JPEG
-    ), patch.object(
-        periodico, "download_object", return_value=b"<html>oops</html>"
-    ), patch.object(
-        periodico, "upload_object"
-    ) as mock_upload:
+    with (
+        patch.object(periodico, "download_telegram_file", return_value=_JPEG),
+        patch.object(periodico, "download_object", return_value=b"<html>oops</html>"),
+        patch.object(periodico, "upload_object") as mock_upload,
+    ):
         with pytest.raises(RuntimeError):
             periodico.publish_portada("f", "Titular", "document")
 
@@ -195,11 +193,14 @@ def test_non_jpeg_is_rejected_before_anything_is_written():
 def test_file_too_big_is_reported_as_instructions_not_a_failure():
     """getFile refuses over 20 MB. Nothing to retry — the operator resends it
     smaller, so the bot must relay that rather than an error trace."""
-    with patch.object(
-        periodico,
-        "download_telegram_file",
-        side_effect=requests.RequestException("file is too big"),
-    ), patch.object(periodico, "upload_object") as mock_upload:
+    with (
+        patch.object(
+            periodico,
+            "download_telegram_file",
+            side_effect=requests.RequestException("file is too big"),
+        ),
+        patch.object(periodico, "upload_object") as mock_upload,
+    ):
         result = periodico.publish_portada("f", "Titular", "document")
 
     assert result["published"] is False
@@ -219,10 +220,12 @@ def test_missing_headline_is_reported_without_downloading_anything():
 def test_write_failure_raises_so_the_bot_reports_an_error():
     """A 403 on the bucket is not the operator's to fix — it must surface as
     an error, not as a cheerful confirmation."""
-    with patch.object(
-        periodico, "download_telegram_file", return_value=_JPEG
-    ), patch.object(periodico, "download_object", return_value=None), patch.object(
-        periodico, "upload_object", side_effect=requests.HTTPError("403 Forbidden")
+    with (
+        patch.object(periodico, "download_telegram_file", return_value=_JPEG),
+        patch.object(periodico, "download_object", return_value=None),
+        patch.object(
+            periodico, "upload_object", side_effect=requests.HTTPError("403 Forbidden")
+        ),
     ):
         with pytest.raises(requests.HTTPError):
             periodico.publish_portada("f", "Titular", "document")

@@ -23,11 +23,11 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../../"))
 
+from core.sdk.firestore import get_document  # noqa: E402
 from packages.biwenger_tools.constants import (  # noqa: E402
     LEAGUE_MEMBERS,
     NON_PLAYING_MEMBER_IDS,
 )  # noqa: E402
-from core.sdk.firestore import get_document  # noqa: E402
 
 
 def main() -> int:

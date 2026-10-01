@@ -36,7 +36,7 @@ def _manager_id(raw) -> int | None:
     """
     try:
         return int(raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         logger.warning("Pact entry is not a manager id.", extra={"entry": repr(raw)})
         return None
 

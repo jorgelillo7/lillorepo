@@ -19,13 +19,13 @@ from flask import (
 )
 
 from core.constants import MADRID_TZ
+from core.sdk.http import retry_http_request
+from core.utils import get_logger
 from packages.biwenger_tools.constants import (
     DRAFT_ORDER_NAMES,
     H2H_MATCHDAYS,
     H2H_ROUNDS,
 )
-from core.sdk.http import retry_http_request
-from core.utils import get_logger
 from packages.biwenger_tools.web import config, repository
 
 logger = get_logger(__name__)

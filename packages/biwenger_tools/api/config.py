@@ -2,12 +2,12 @@ import os
 
 from dotenv import load_dotenv
 
+from core.sdk import biwenger as biwenger_sdk
+from core.utils import load_json_secret
 from packages.biwenger_tools.constants import (  # re-exported for callers
     LEAGUE_ID,
     NON_PLAYING_MEMBER_IDS,
 )
-from core.sdk import biwenger as biwenger_sdk
-from core.utils import load_json_secret
 
 # Silence unused-import: both are re-exports, read as `config.<NAME>`.
 _ = (LEAGUE_ID, NON_PLAYING_MEMBER_IDS)  # noqa: F841

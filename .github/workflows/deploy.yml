@@ -76,10 +76,9 @@ concurrency:
 
 jobs:
   # -------------------------------------------------------
-  # 0. Lint Python code (flake8 + black --check) via the Bazel toolchain
+  # 0. Lint Python code (Ruff: format check, lint, import order) via Bazel
   # -------------------------------------------------------
-  # Black and flake8 are run via `bazel run //tools/lint:...` using the
-  # repository's hermetic Python 3.14 toolchain. The exact same command is
+  # Ruff runs via `bazel run //tools/lint:ruff` at the version the lock pins. The exact same command is
   # what `scripts/lint.sh` invokes locally — no Python-version drift between
   # devs and CI.
   lint:

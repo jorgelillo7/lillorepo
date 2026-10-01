@@ -105,9 +105,11 @@ def test_merge_waters_folds_and_deletes_drop():
         label_photo_url="lbl",
         sources={"calcium": "manual"},
     )
-    with patch(f"{_MOD}.repository.save_water") as save, patch(
-        f"{_MOD}.repository.list_analyses", return_value=[]
-    ), patch(f"{_MOD}.repository.delete_water") as delete:
+    with (
+        patch(f"{_MOD}.repository.save_water") as save,
+        patch(f"{_MOD}.repository.list_analyses", return_value=[]),
+        patch(f"{_MOD}.repository.delete_water") as delete,
+    ):
         data_audit.merge_waters(keep, drop)
     assert keep.minerals == {"tds": 100, "calcium": 50}
     assert keep.label_photo_url == "lbl"  # filled from drop
@@ -130,11 +132,12 @@ def test_merging_a_duplicate_rescues_its_analysis_series():
             {"analysis_date": "2019", "minerals": {"tds": 880}},
         ],
     }
-    with patch(f"{_MOD}.repository.save_water"), patch(
-        f"{_MOD}.repository.list_analyses", side_effect=lambda wid: series[wid]
-    ), patch(f"{_MOD}.repository.delete_water"), patch(
-        f"{_MOD}.repository.save_analysis"
-    ) as save_analysis:
+    with (
+        patch(f"{_MOD}.repository.save_water"),
+        patch(f"{_MOD}.repository.list_analyses", side_effect=lambda wid: series[wid]),
+        patch(f"{_MOD}.repository.delete_water"),
+        patch(f"{_MOD}.repository.save_analysis") as save_analysis,
+    ):
         data_audit.merge_waters(keep, drop)
 
     saved = [c.args[0] for c in save_analysis.call_args_list]

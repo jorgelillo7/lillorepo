@@ -28,37 +28,40 @@ from packages.biwenger_tools.scraper_job.main import (
 @pytest.fixture(autouse=True)
 def mock_external_deps():
     """Stub `config`, the Biwenger client, and the Firestore SDK helpers."""
-    with patch(
-        "packages.biwenger_tools.scraper_job.main.config",
-        **{
-            "BIWENGER_EMAIL": "test@example.com",
-            "BIWENGER_PASSWORD": "test_password",
-            "TEMPORADA_ACTUAL": "25-26",
-            "LOGIN_URL": "https://fake-login",
-            "ACCOUNT_URL": "https://fake-account",
-            "ALL_PLAYERS_DATA_URL": "https://fake-players",
-            "LEAGUE_USERS_URL": "https://fake-users",
-            "CLAUSULAZOS_URL": "https://fake-clausulazos",
-            "BOARD_MESSAGES_URL": "https://fake-board",
-            "LEAGUE_BOARD_ALL_URL": "https://fake-board-all",
-            "LEAGUE_ID": "340703",
-            # Empty by default → _notify becomes a no-op in tests that
-            # don't explicitly enable it. Avoids accidental real HTTP calls.
-            "TELEGRAM_BOT_TOKEN": "",
-            "TELEGRAM_CHAT_ID": "",
-        },
-    ), patch(
-        "packages.biwenger_tools.scraper_job.main.BiwengerClient"
-    ) as mock_biwenger_client, patch(
-        "packages.biwenger_tools.scraper_job.main.firestore"
-    ) as mock_firestore, patch(
-        "packages.biwenger_tools.scraper_job.main._existing_message_ids",
-        return_value=set(),
-    ) as mock_existing_ids, patch(
-        "packages.biwenger_tools.scraper_job.main._existing_messages",
-        return_value=[],
-    ) as mock_existing_msgs:
-
+    with (
+        patch(
+            "packages.biwenger_tools.scraper_job.main.config",
+            **{
+                "BIWENGER_EMAIL": "test@example.com",
+                "BIWENGER_PASSWORD": "test_password",
+                "TEMPORADA_ACTUAL": "25-26",
+                "LOGIN_URL": "https://fake-login",
+                "ACCOUNT_URL": "https://fake-account",
+                "ALL_PLAYERS_DATA_URL": "https://fake-players",
+                "LEAGUE_USERS_URL": "https://fake-users",
+                "CLAUSULAZOS_URL": "https://fake-clausulazos",
+                "BOARD_MESSAGES_URL": "https://fake-board",
+                "LEAGUE_BOARD_ALL_URL": "https://fake-board-all",
+                "LEAGUE_ID": "340703",
+                # Empty by default → _notify becomes a no-op in tests that
+                # don't explicitly enable it. Avoids accidental real HTTP calls.
+                "TELEGRAM_BOT_TOKEN": "",
+                "TELEGRAM_CHAT_ID": "",
+            },
+        ),
+        patch(
+            "packages.biwenger_tools.scraper_job.main.BiwengerClient"
+        ) as mock_biwenger_client,
+        patch("packages.biwenger_tools.scraper_job.main.firestore") as mock_firestore,
+        patch(
+            "packages.biwenger_tools.scraper_job.main._existing_message_ids",
+            return_value=set(),
+        ) as mock_existing_ids,
+        patch(
+            "packages.biwenger_tools.scraper_job.main._existing_messages",
+            return_value=[],
+        ) as mock_existing_msgs,
+    ):
         mock_biwenger_instance = MagicMock()
         mock_biwenger_client.return_value = mock_biwenger_instance
         mock_biwenger_instance.get_all_players_data_map.return_value = {}
@@ -295,9 +298,12 @@ def test_clausulazos_missing_from_the_feed_are_reported(mock_external_deps):
     _enable_notify()
     _feed_and_store(mock_external_deps, stored=[_SEPTEMBER], fetched=[])
 
-    with patch(
-        "packages.biwenger_tools.scraper_job.main.send_telegram_message"
-    ) as mock_send, patch("packages.biwenger_tools.scraper_job.main.logger") as log:
+    with (
+        patch(
+            "packages.biwenger_tools.scraper_job.main.send_telegram_message"
+        ) as mock_send,
+        patch("packages.biwenger_tools.scraper_job.main.logger") as log,
+    ):
         main()
 
     assert any(
@@ -387,9 +393,10 @@ def test_a_board_read_without_its_season_start_is_archived_with_a_warning(
     mock_external_deps,
 ):
     """No `seasonStarted` in the read: archive what came back and say so."""
-    with _board_and_archive(
-        mock_external_deps, board=[_TRANSFER], archived=set()
-    ), patch("packages.biwenger_tools.scraper_job.main.logger") as log:
+    with (
+        _board_and_archive(mock_external_deps, board=[_TRANSFER], archived=set()),
+        patch("packages.biwenger_tools.scraper_job.main.logger") as log,
+    ):
         main()
 
     (written,) = _archive_writes(mock_external_deps["firestore"])

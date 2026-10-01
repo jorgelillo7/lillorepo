@@ -50,7 +50,7 @@ because it went wrong, not because it sounds sensible.
 - **Language:** Python 3.14
 - **Cloud:** GCP — Cloud Run, Cloud Run Jobs, Secret Manager, Artifact Registry
 - **Other:** Flask, Docker
-- **CI:** GitHub Actions runs flake8 + `black --check` before tests; tests gate the deploy.
+- **CI:** GitHub Actions runs Ruff (format check + lint) before tests; tests gate the deploy.
 
 ## Key Commands
 
@@ -95,8 +95,8 @@ feature.
   patterns and stack traps. Rules are numbered `LP-1` … `LP-24`, each with its
   motive and how it is checked (CI or review).
   Read it before writing new Python.
-- Linter: Flake8 (`max-line-length = 88`, compatible with Black)
-- Formatter: Black (format on save in VS Code)
+- Format, lint and import order: Ruff (`ruff.toml`, 88 columns), from the
+  lock through `scripts/lint.sh`; format on save in VS Code
 - Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
 - Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
 - **Commit scopes use the exact package directory name** — with multiple

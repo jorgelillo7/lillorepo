@@ -24,12 +24,12 @@ from packages.biwenger_tools.api.logic.rows import clausulable_str  # noqa: E402
 from packages.biwenger_tools.api.player_formatting import (  # noqa: E402
     SCORE_SF,
     availability,
+    band_for_score,
     count_availability,
     count_bands,
     count_bench,
     is_bench,
     play_status_label,
-    band_for_score,
     short_position,
     shown_score,
     sort_key_sf_desc,

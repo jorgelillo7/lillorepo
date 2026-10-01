@@ -50,9 +50,10 @@ def test_user_text_cannot_break_the_html_the_message_is_sent_as():
 
 
 def test_nothing_is_sent_without_a_configured_chat():
-    with patch.object(notifications.config, "TELEGRAM_BOT_TOKEN", ""), patch.object(
-        notifications, "send_telegram_message"
-    ) as send:
+    with (
+        patch.object(notifications.config, "TELEGRAM_BOT_TOKEN", ""),
+        patch.object(notifications, "send_telegram_message") as send,
+    ):
         notifications.notify_save(
             notifications.NEW, water_name="X", nickname="y", url=_URL
         )
@@ -61,9 +62,13 @@ def test_nothing_is_sent_without_a_configured_chat():
 
 def test_a_failed_delivery_is_logged_not_raised():
     """The save already happened; a Telegram outage must not turn it into a 500."""
-    with patch.object(notifications.config, "TELEGRAM_BOT_TOKEN", "t"), patch.object(
-        notifications.config, "TELEGRAM_CHAT_ID", "1"
-    ), patch.object(notifications, "send_telegram_message", return_value=False) as send:
+    with (
+        patch.object(notifications.config, "TELEGRAM_BOT_TOKEN", "t"),
+        patch.object(notifications.config, "TELEGRAM_CHAT_ID", "1"),
+        patch.object(
+            notifications, "send_telegram_message", return_value=False
+        ) as send,
+    ):
         notifications.notify_save(
             notifications.NEW, water_name="X", nickname="y", url=_URL
         )

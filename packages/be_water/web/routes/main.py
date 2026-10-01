@@ -19,12 +19,12 @@ from packages.be_water.web import (
     aesan,
     community,
     config,
+    domain,
     helpers,
     repository,
     seo,
     similarity,
 )
-from packages.be_water.web import domain
 from packages.be_water.web.domain import format_mineral, mineralization_label
 
 
@@ -205,8 +205,7 @@ def community_page():
             for emoji, name, description, _ in community.ACHIEVEMENTS
         ],
         meta_description=(
-            "La comunidad de Be Water: quién añade y verifica las aguas "
-            "del catálogo."
+            "La comunidad de Be Water: quién añade y verifica las aguas del catálogo."
         ),
     )
 
@@ -256,8 +255,7 @@ def profile():
         spread=similarity.mineralization_spread(favorites),
         matches=matches,
         meta_description=(
-            "Tu perfil de agua: qué composición te gusta y qué aguas encajan "
-            "contigo."
+            "Tu perfil de agua: qué composición te gusta y qué aguas encajan contigo."
         ),
     )
 

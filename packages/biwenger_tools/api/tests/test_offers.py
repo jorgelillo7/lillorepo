@@ -410,9 +410,10 @@ def _ctx_with_offers(returned_offers):
 def test_run_offers_inbox_silent_when_empty_default():
     """Default (digest mode): empty inbox → no Telegram send."""
     ctx = _ctx_with_offers([])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ) as mock_send:
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+    ):
         result = offers.run_offers_inbox(ctx)
     mock_send.assert_not_called()
     assert result == {"sent": 0, "offers": 0}
@@ -422,9 +423,10 @@ def test_run_offers_inbox_notifies_when_empty_and_requested():
     """On-demand mode (notify_empty=True): empty inbox → "📭 Sin ofertas
     pendientes" so the user gets a reply instead of staring at "procesando…"."""
     ctx = _ctx_with_offers([])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ) as mock_send:
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+    ):
         result = offers.run_offers_inbox(ctx, notify_empty=True)
     mock_send.assert_called_once()
     text = mock_send.call_args.kwargs.get("text", "")
@@ -452,18 +454,21 @@ def test_run_offers_inbox_sends_one_message_per_actionable_offer():
         "until": 1782450000,
     }
     ctx = _ctx_with_offers([fake_offer, fake_offer])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+        patch(_p("_starter_ids"), return_value=set()),
+    ):
         result = offers.run_offers_inbox(ctx)
     assert mock_send.call_count == 1
     assert result == {"sent": 1, "offers": 2, "actionable": 0, "muted": 2}
 
     # With muting off, both arrive individually and carry their callbacks.
-    with patch.object(offers.config, "OFFERS_MUTE_REJECTED", False), patch(
-        _p("require_telegram"), return_value=("tok", "chat")
-    ), patch(_p("send_telegram_message")) as mock_send, patch(
-        _p("_starter_ids"), return_value=set()
+    with (
+        patch.object(offers.config, "OFFERS_MUTE_REJECTED", False),
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+        patch(_p("_starter_ids"), return_value=set()),
     ):
         result = offers.run_offers_inbox(ctx)
     assert mock_send.call_count == 2
@@ -489,12 +494,14 @@ def test_accept_only_mode_sends_only_the_offers_worth_taking():
         {"offer_id": 3, "recommendation": offers.REC_REJECT},
     ]
     ctx = _ctx_with_offers(inbox)
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ) as mock_send, patch(_p("_starter_ids"), return_value=set()), patch(
-        _p("_score_offer"), side_effect=scored
-    ), patch(
-        _p("_format_offer_message"), side_effect=lambda s: f"offer {s['offer_id']}"
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+        patch(_p("_starter_ids"), return_value=set()),
+        patch(_p("_score_offer"), side_effect=scored),
+        patch(
+            _p("_format_offer_message"), side_effect=lambda s: f"offer {s['offer_id']}"
+        ),
     ):
         result = offers.run_offers_inbox(ctx, only_accept=True)
     assert [c.kwargs["text"] for c in mock_send.call_args_list] == ["offer 1"]
@@ -513,9 +520,11 @@ def test_run_offers_inbox_skips_malformed_offer():
         "requestedPlayers": [],
     }
     ctx = _ctx_with_offers([bad])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ) as mock_send, patch(_p("_starter_ids"), return_value=set()):
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+        patch(_p("_starter_ids"), return_value=set()),
+    ):
         result = offers.run_offers_inbox(ctx)
     mock_send.assert_not_called()
     assert result == {"sent": 0, "offers": 1, "actionable": 0, "muted": 0}
@@ -584,8 +593,9 @@ def test_run_offers_inbox_scores_the_offer_on_the_blended_projection():
         oraculo_scale=scale,
     )
 
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")),
     ):
         result = offers.run_offers_inbox(ctx)
 
@@ -651,9 +661,11 @@ def test_run_offer_decision_stays_quiet_when_biwenger_agrees():
     was noise."""
     biwenger = MagicMock()
     biwenger.decide_offer.return_value = {"id": 1, "status": "processed"}
-    with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
-        _p("require_telegram"), return_value=("tok", "chat")
-    ), patch(_p("send_telegram_message")) as mock_send:
+    with (
+        patch(_p("build_biwenger_session"), return_value=biwenger),
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+    ):
         result = offers.run_offer_decision(offer_id=1, decision="accepted")
 
     biwenger.decide_offer.assert_called_once_with(1, "accepted")
@@ -667,9 +679,11 @@ def test_run_offer_decision_speaks_up_when_biwenger_settles_elsewhere():
     fires on: we asked to accept and Biwenger did something else."""
     biwenger = MagicMock()
     biwenger.decide_offer.return_value = {"id": 1, "status": "expired"}
-    with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
-        _p("require_telegram"), return_value=("tok", "chat")
-    ), patch(_p("send_telegram_message")) as mock_send:
+    with (
+        patch(_p("build_biwenger_session"), return_value=biwenger),
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+    ):
         result = offers.run_offer_decision(offer_id=1, decision="accepted")
 
     assert result["sent"] == 1
@@ -682,9 +696,11 @@ def test_a_rejection_settling_as_rejected_is_not_a_surprise():
     have different expected outcomes and neither should warn."""
     biwenger = MagicMock()
     biwenger.decide_offer.return_value = {"id": 1, "status": "rejected"}
-    with patch(_p("build_biwenger_session"), return_value=biwenger), patch(
-        _p("require_telegram"), return_value=("tok", "chat")
-    ), patch(_p("send_telegram_message")) as mock_send:
+    with (
+        patch(_p("build_biwenger_session"), return_value=biwenger),
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+    ):
         result = offers.run_offer_decision(offer_id=1, decision="rejected")
 
     assert result["sent"] == 0
@@ -757,17 +773,19 @@ def test_the_muted_digest_replaces_the_per_offer_messages():
     """Overriding a reasoned no should cost a trip to the app rather than a
     mistap in a notification — so the digest carries no buttons."""
     ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("_starter_ids"), return_value=set()
-    ), patch(_p("_xi_baseline"), return_value=None), patch(
-        _p("_score_offer"),
-        side_effect=[
-            _scored("A", offers.REC_REJECT),
-            _scored("B", offers.REC_REJECT),
-        ],
-    ), patch(
-        _p("send_telegram_message")
-    ) as send:
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("_starter_ids"), return_value=set()),
+        patch(_p("_xi_baseline"), return_value=None),
+        patch(
+            _p("_score_offer"),
+            side_effect=[
+                _scored("A", offers.REC_REJECT),
+                _scored("B", offers.REC_REJECT),
+            ],
+        ),
+        patch(_p("send_telegram_message")) as send,
+    ):
         result = offers.run_offers_inbox(ctx)
 
     assert result["muted"] == 2 and result["actionable"] == 0
@@ -777,17 +795,19 @@ def test_the_muted_digest_replaces_the_per_offer_messages():
 
 def test_an_actionable_offer_still_arrives_with_its_buttons():
     ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("_starter_ids"), return_value=set()
-    ), patch(_p("_xi_baseline"), return_value=None), patch(
-        _p("_score_offer"),
-        side_effect=[
-            _scored("Vendible", offers.REC_ACCEPT),
-            _scored("No", offers.REC_REJECT),
-        ],
-    ), patch(
-        _p("send_telegram_message")
-    ) as send:
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("_starter_ids"), return_value=set()),
+        patch(_p("_xi_baseline"), return_value=None),
+        patch(
+            _p("_score_offer"),
+            side_effect=[
+                _scored("Vendible", offers.REC_ACCEPT),
+                _scored("No", offers.REC_REJECT),
+            ],
+        ),
+        patch(_p("send_telegram_message")) as send,
+    ):
         result = offers.run_offers_inbox(ctx)
 
     assert result == {"sent": 2, "offers": 2, "actionable": 1, "muted": 1}
@@ -818,14 +838,15 @@ def test_the_inbox_reads_the_calendar_once_for_every_offer():
     ]
     ctx = _ctx_with_offers(inbox)
     seen = []
-    with patch(_p("require_telegram"), return_value=("tok", "chat")), patch(
-        _p("send_telegram_message")
-    ), patch(_p("_starter_ids"), return_value=set()), patch(
-        _p("_score_offer"), side_effect=scored
-    ), patch(
-        _p("read_fixture_runs"), return_value={7: [30], 8: [80]}
-    ) as mock_read, patch(
-        _p("_format_offer_message"), side_effect=lambda s: seen.append(s["fixture"])
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")),
+        patch(_p("_starter_ids"), return_value=set()),
+        patch(_p("_score_offer"), side_effect=scored),
+        patch(_p("read_fixture_runs"), return_value={7: [30], 8: [80]}) as mock_read,
+        patch(
+            _p("_format_offer_message"), side_effect=lambda s: seen.append(s["fixture"])
+        ),
     ):
         offers.run_offers_inbox(ctx)
     mock_read.assert_called_once()

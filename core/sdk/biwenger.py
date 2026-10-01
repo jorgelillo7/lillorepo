@@ -35,7 +35,7 @@ LINEUP_URL = f"{BIWENGER_API_BASE}/user?fields=*,lineup(date)"
 # squad read already carries every player's detail, so inlining it again is
 # 48x the bytes for data we hold.
 USER_LINEUP_URL = (
-    f"{BIWENGER_API_BASE}/user" "?fields=lineup(date,type,captain,playersID,reservesID)"
+    f"{BIWENGER_API_BASE}/user?fields=lineup(date,type,captain,playersID,reservesID)"
 )
 ROUND_URL = f"{BIWENGER_CF_BASE}/rounds/la-liga"
 ROUND_LEAGUE_URL = f"{BIWENGER_API_BASE}/rounds/league"

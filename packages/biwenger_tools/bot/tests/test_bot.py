@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 
 import packages.biwenger_tools.bot.config as cfg
-from packages.biwenger_tools.bot.menu import MAIN_MENU_ACTIONS
 from packages.biwenger_tools.bot.app import app
+from packages.biwenger_tools.bot.menu import MAIN_MENU_ACTIONS
 
 _VALID_SECRET = "test-secret"
 _VALID_CHAT = "111222333"
@@ -173,10 +173,13 @@ def test_preview_text_command_calls_api_with_dry_run(client):
 
 
 def test_api_call_failure_sends_error_message(client):
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api",
-        side_effect=RuntimeError("permission denied"),
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api",
+            side_effect=RuntimeError("permission denied"),
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/mercado"))
     assert resp.status_code == 200
     # first call = ACK, second call = error
@@ -190,10 +193,13 @@ def test_api_call_failure_html_escapes_exception_message(client):
     itself contains `<` / `>` / `&` (e.g. an HTTP error body with markup),
     the second Telegram send would also 400 and the user would see
     nothing. Defensive escape keeps the failure path actionable."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api",
-        side_effect=RuntimeError("500: <error>boom & boom</error>"),
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api",
+            side_effect=RuntimeError("500: <error>boom & boom</error>"),
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/pujar"))
     assert resp.status_code == 200
     error_text = mock_send.call_args_list[1].kwargs.get("text", "")
@@ -212,12 +218,14 @@ def test_analizar_text_command_opens_manager_picker(client):
         {"id": 1, "name": "Jorge", "is_me": True},
         {"id": 2, "name": "Pepe", "is_me": False},
     ]
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_managers",
-        return_value=fake_managers,
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_managers",
+            return_value=fake_managers,
+        ),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -233,10 +241,13 @@ def test_analizar_text_command_opens_manager_picker(client):
 def test_analizar_text_command_handles_manager_fetch_failure(client):
     """If `/managers` is unreachable, the bot tells the user instead of
     sending an empty keyboard."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_managers",
-        return_value=None,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_managers",
+            return_value=None,
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/analizar"))
     assert resp.status_code == 200
     text = mock_send.call_args.kwargs.get("text", "")
@@ -305,12 +316,14 @@ def test_reply_keyboard_analizar_label_opens_picker(client):
         {"id": 1, "name": "Jorge", "is_me": True},
         {"id": 2, "name": "Pepe", "is_me": False},
     ]
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_managers",
-        return_value=fake_managers,
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_managers",
+            return_value=fake_managers,
+        ),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "📊 Analizar"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -325,11 +338,11 @@ def test_reply_keyboard_analizar_label_opens_picker(client):
 
 def test_analizar_id_callback_calls_teams_with_filter(client):
     """A manager tap calls `/teams?manager=<id>` and edits the picker."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "analizar:7"))
     assert resp.status_code == 200
     mock_edit.assert_called_once()
@@ -340,9 +353,11 @@ def test_analizar_id_callback_calls_teams_with_filter(client):
 
 def test_analizar_all_callback_calls_teams_without_filter(client):
     """The TODOS tap fires `/teams` with no `manager` param (legacy flow)."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "analizar:all"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(_API_URL, "/teams", method="GET", params=None)
@@ -353,13 +368,14 @@ def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
     with the same three ids the user saw and approved in the preview.
     The preview text stays intact (only its inline keyboard is stripped)
     and the "ejecutando…" status arrives as a fresh send."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:c:42:7:5000000"))
     assert resp.status_code == 200
     # Preview keyboard removed (no text edit so the preview stays readable).
@@ -379,13 +395,14 @@ def test_emergencia_confirm_callback_calls_execute_with_query_params(client):
 def test_rebuild_confirm_callback_calls_rebuild_execute_with_plan_id(client):
     """`e:r:<plan_id>` → POST /emergency/rebuild/execute with that plan id.
     Mirrors `e:c:...`'s confirm flow but for the whole rebuild basket."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:r:abc123"))
     assert resp.status_code == 200
     mock_strip.assert_called_once()
@@ -401,13 +418,14 @@ def test_rebuild_confirm_callback_calls_rebuild_execute_with_plan_id(client):
 def test_emergencia_selector_position_callback_refines_with_force_position(client):
     """`e:p:<position>` → POST /preview?force_position=<position>.
     Strips the selector keyboard so it can't be re-tapped."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:p:3"))
     assert resp.status_code == 200
     mock_strip.assert_called_once()
@@ -421,11 +439,12 @@ def test_emergencia_selector_position_callback_refines_with_force_position(clien
 
 def test_emergencia_selector_weakest_callback_refines_with_force_weakest(client):
     """`e:m` → POST /preview?force_weakest=1."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:m"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(
@@ -437,11 +456,11 @@ def test_emergencia_selector_weakest_callback_refines_with_force_weakest(client)
 
 
 def test_emergencia_cancel_callback_edits_message_and_does_not_call_api(client):
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:n"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -452,18 +471,21 @@ def test_emergencia_cancel_callback_edits_message_and_does_not_call_api(client):
 def test_emergencia_confirm_with_malformed_payload_is_ignored(client):
     """A malformed `e:c:not_a_number` callback must not POST to /execute
     (Biwenger would 400 with no useful context). Drop on the floor."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "e:c:notanint:7:5000000"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
 
 
 def test_unknown_callback_prefix_is_ignored(client):
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "bogus:value"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -476,13 +498,13 @@ def test_ofertas_accept_callback_posts_decide_accepted(client):
     """`o:a:<id>` → POST /offers/decide?decision=accepted; keyboard stripped.
     Also: the callback ack carries a "⏳ Aceptando…" toast so the user gets
     instant feedback while the cold-start api PUT runs in background."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:a:12345"))
     assert resp.status_code == 200
     mock_strip.assert_called_once()
@@ -502,13 +524,11 @@ def test_ofertas_accept_callback_posts_decide_accepted(client):
 
 def test_ofertas_reject_callback_posts_decide_rejected(client):
     """`o:r:<id>` → POST /offers/decide?decision=rejected + "⏳ Rechazando…" toast."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:r:12345"))
     assert resp.status_code == 200
     assert "Rechazando" in mock_ack.call_args.kwargs.get("text", "")
@@ -526,11 +546,12 @@ def test_ofertas_ignore_callback_edits_message_and_does_not_call_api(client):
 
     The id used to be the whole message. It is no longer quoted because the
     offer it belongs to is right underneath — see `_verdict_over`."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:i:12345"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -540,9 +561,10 @@ def test_ofertas_ignore_callback_edits_message_and_does_not_call_api(client):
 
 def test_ofertas_malformed_callback_is_ignored(client):
     """Garbage in the `o:` payload must not hit the api."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:x:999"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -550,9 +572,11 @@ def test_ofertas_malformed_callback_is_ignored(client):
 
 def test_ofertas_non_int_offer_id_is_ignored(client):
     """`o:a:notanint` must NOT POST (would 400 server-side with no context)."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "o:a:notanint"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -579,10 +603,13 @@ def test_version_includes_bot_and_api(client):
         "commit": "def5678",
         "deploy_time": "18/05/2026 16:00",
     }
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.get_api_version",
-        return_value=api_meta,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.get_api_version",
+            return_value=api_meta,
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/version"))
     assert resp.status_code == 200
     text = mock_send.call_args.kwargs.get("text", "")
@@ -596,10 +623,13 @@ def test_version_tolerates_api_unreachable(client):
     """If biwenger-api /version fails, bot still reports its own version."""
     cfg.GIT_COMMIT = "abc1234"
     cfg.DEPLOY_TIME = "17/05/2026 14:00"
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.get_api_version",
-        return_value=None,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.get_api_version",
+            return_value=None,
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/version"))
     assert resp.status_code == 200
     text = mock_send.call_args.kwargs.get("text", "")
@@ -608,11 +638,10 @@ def test_version_tolerates_api_unreachable(client):
 
 
 def test_unknown_command_is_ignored(client):
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/unknown"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -654,22 +683,26 @@ def test_empty_body_does_not_crash(client):
 def test_draft_command_from_group_reaches_right_api_path(
     client, command, path, method, params
 ):
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"message": "ok"},
-    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"message": "ok"},
+        ) as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, command, "777"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(path, method, params)
 
 
 def test_pick_command_calls_draft_pick_with_query(client):
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"status": "ok", "message": "Fichado: Rodrygo"},
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"status": "ok", "message": "Fichado: Rodrygo"},
+        ) as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick Rodrygo", "777"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(
@@ -686,14 +719,17 @@ def test_pick_ambiguous_renders_candidate_keyboard(client):
         {"player_id": 1, "name": "Rodrygo", "team": "Real Madrid", "price": 20_000_000},
         {"player_id": 2, "name": "Rodri", "team": "Man City", "price": 15_000_000},
     ]
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={
-            "status": "ambiguous",
-            "candidates": candidates,
-            "message": "¿Cuál de estos?",
-        },
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={
+                "status": "ambiguous",
+                "candidates": candidates,
+                "message": "¿Cuál de estos?",
+            },
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick rodri", "777"))
     assert resp.status_code == 200
     markup = mock_send.call_args.kwargs.get("reply_markup")
@@ -711,12 +747,13 @@ def test_bare_soy_posts_the_manager_picker_instead_of_failing(client):
         {"manager_id": 11, "name": "Ruben", "claimed_by": ""},
         {"manager_id": 22, "name": "Javi", "claimed_by": "999"},
     ]
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"managers": managers, "message": "¿Quién eres?"},
-    ) as mock_api, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"managers": managers, "message": "¿Quién eres?"},
+        ) as mock_api,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/soy", "777"))
     assert resp.status_code == 200
     assert mock_api.call_args.args[0] == "/draft/managers"
@@ -726,13 +763,13 @@ def test_bare_soy_posts_the_manager_picker_instead_of_failing(client):
 
 
 def test_soy_picker_tap_registers_that_manager(client):
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"message": "ok"},
-    ) as mock_api, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ), patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"message": "ok"},
+        ) as mock_api,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
     ):
         resp = _post(
             client, _callback_update(_VALID_DRAFT_CHAT, "s:22", from_user_id="777")
@@ -746,10 +783,16 @@ def test_soy_picker_tap_registers_that_manager(client):
 def test_exportar_sends_one_message_per_manager_block(client):
     """`messages` carries pre-split blocks — a single 105-pick listing would
     blow past Telegram's 4096-char limit."""
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"message": "resumen", "messages": ["Ruben\n1. Messi", "Javi"]},
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={
+                "message": "resumen",
+                "messages": ["Ruben\n1. Messi", "Javi"],
+            },
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/exportar", "777"))
     assert resp.status_code == 200
     sent = [c.kwargs["text"] for c in mock_send.call_args_list]
@@ -757,9 +800,10 @@ def test_exportar_sends_one_message_per_manager_block(client):
 
 
 def test_bare_pick_asks_for_a_player_without_calling_the_api(client):
-    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_api, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_api,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/pick", "777"))
     assert resp.status_code == 200
     mock_api.assert_not_called()
@@ -768,13 +812,11 @@ def test_bare_pick_asks_for_a_player_without_calling_the_api(client):
 
 def test_admin_command_from_draft_group_is_refused(client):
     """None of the owner-only commands are reachable from the draft group."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app._call_draft_api"
-    ) as mock_draft_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_draft_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "/emergencia", "777"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -786,11 +828,10 @@ def test_group_message_does_not_consult_label_dispatch(client):
     """Plain chatter in the group that happens to match an admin menu label
     must not fire the matching admin action — the group branch must skip
     `_try_dispatch_label` entirely."""
-    with patch(
-        "packages.biwenger_tools.bot.app._try_dispatch_label"
-    ) as mock_label, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app._try_dispatch_label") as mock_label,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(client, _group_update(_VALID_DRAFT_CHAT, "🚨 Emergencia", "777"))
     assert resp.status_code == 200
     mock_label.assert_not_called()
@@ -807,9 +848,10 @@ def test_draft_command_from_unknown_chat_is_dropped(client):
 def test_service_message_with_empty_text_is_ignored(client):
     """Telegram service messages (e.g. someone added to the group) carry a
     chat id but no `text` at all — must be dropped silently."""
-    with patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _service_message_update(_VALID_DRAFT_CHAT))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -821,15 +863,14 @@ def test_service_message_with_empty_text_is_ignored(client):
 
 @pytest.mark.parametrize("data", ["e:n", "o:a:123", "analizar:1"])
 def test_admin_callback_prefix_from_draft_group_is_refused(client, data):
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+    ):
         resp = _post(client, _callback_update(_VALID_DRAFT_CHAT, data))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -841,13 +882,13 @@ def test_admin_callback_prefix_from_draft_group_is_refused(client, data):
 def test_draft_pick_confirm_rejects_different_user(client):
     """Only the user who ran /pick may confirm the ambiguous candidate —
     a tap from anyone else must not call the api nor strip the keyboard."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app._call_draft_api"
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch("packages.biwenger_tools.bot.app._call_draft_api") as mock_call,
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+    ):
         resp = _post(
             client,
             _callback_update(_VALID_DRAFT_CHAT, "d:777:1234", from_user_id="888"),
@@ -860,14 +901,17 @@ def test_draft_pick_confirm_rejects_different_user(client):
 
 
 def test_draft_pick_confirm_succeeds_for_requesting_user(client):
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_strip, patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit, patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"message": "Fichaje confirmado: Rodrygo"},
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch(
+            "packages.biwenger_tools.bot.app.edit_message_reply_markup"
+        ) as mock_strip,
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"message": "Fichaje confirmado: Rodrygo"},
+        ) as mock_call,
+    ):
         resp = _post(
             client,
             _callback_update(_VALID_DRAFT_CHAT, "d:777:1234", from_user_id="777"),
@@ -896,14 +940,15 @@ def test_draft_callback_from_unknown_chat_is_dropped(client):
 def test_soy_picker_tap_strips_the_keyboard(client):
     """The api round-trip takes seconds; a picker that still looks tappable
     gets tapped again, which is three registrations for one person."""
-    with patch(
-        "packages.biwenger_tools.bot.app._call_draft_api",
-        return_value={"message": "ok"},
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message"), patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ) as mock_edit:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app._call_draft_api",
+            return_value={"message": "ok"},
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup") as mock_edit,
+    ):
         resp = _post(
             client, _callback_update(_VALID_DRAFT_CHAT, "s:22", from_user_id="777")
         )
@@ -958,11 +1003,12 @@ def test_accepting_writes_the_verdict_onto_the_offer_message(client):
     """The record has to say which offer it settled. "Oferta Aceptada · id
     1657307609" named neither the player nor the price, leaving the reader to
     correlate an id against the message above."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
-    ) as mock_call:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+    ):
         resp = _post(
             client, _callback_update(_VALID_CHAT, "o:a:12345", text=_OFFER_TEXT)
         )
@@ -975,10 +1021,11 @@ def test_accepting_writes_the_verdict_onto_the_offer_message(client):
 
 
 def test_rejecting_says_so_rather_than_reusing_the_accept_banner(client):
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api"
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch("packages.biwenger_tools.bot.app.api_client.call_api"),
     ):
         _post(client, _callback_update(_VALID_CHAT, "o:r:12345", text=_OFFER_TEXT))
     text = mock_edit.call_args.kwargs.get("text", "")
@@ -988,14 +1035,16 @@ def test_rejecting_says_so_rather_than_reusing_the_accept_banner(client):
 def test_a_failed_decision_leaves_the_offer_unstamped(client):
     """The outcome is Biwenger's to confirm. Stamping "ACEPTADA" on a transfer
     the api refused would be a message that lies."""
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.edit_message_reply_markup"
-    ), patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api",
-        side_effect=RuntimeError("boom"),
-    ), patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.edit_message_reply_markup"),
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api",
+            side_effect=RuntimeError("boom"),
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         _post(client, _callback_update(_VALID_CHAT, "o:a:12345", text=_OFFER_TEXT))
 
     banners = [
@@ -1054,12 +1103,13 @@ def _document_update(chat_id, caption="Titular", mime_type="image/jpeg"):
 
 
 def test_owner_document_publishes_the_portada(client):
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json",
-        return_value={"message": "📰 Portada publicada"},
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api_json",
+            return_value={"message": "📰 Portada publicada"},
+        ) as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _document_update(_VALID_CHAT, "2026-08-14 Titular"))
 
     assert resp.status_code == 200
@@ -1079,10 +1129,13 @@ def test_owner_document_publishes_the_portada(client):
 
 
 def test_owner_photo_sends_the_largest_size(client):
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json",
-        return_value={"message": "ok"},
-    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api_json",
+            return_value={"message": "ok"},
+        ) as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+    ):
         resp = _post(client, _photo_update(_VALID_CHAT))
 
     assert resp.status_code == 200
@@ -1093,11 +1146,10 @@ def test_owner_photo_sends_the_largest_size(client):
 def test_draft_group_photo_is_ignored(client):
     """The league supergroup must not be able to publish front pages — every
     member can post a photo there."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json"
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch("packages.biwenger_tools.bot.app.api_client.call_api_json") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _photo_update(_VALID_DRAFT_CHAT))
 
     assert resp.status_code == 200
@@ -1108,10 +1160,13 @@ def test_draft_group_photo_is_ignored(client):
 def test_portada_failure_is_reported_instead_of_leaving_the_ack_hanging(client):
     """The upload runs in a background thread; without this the owner watches
     "subiendo…" forever when the bucket refuses the write."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json",
-        side_effect=RuntimeError("403 Forbidden"),
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api_json",
+            side_effect=RuntimeError("403 Forbidden"),
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _document_update(_VALID_CHAT))
 
     assert resp.status_code == 200
@@ -1121,9 +1176,10 @@ def test_portada_failure_is_reported_instead_of_leaving_the_ack_hanging(client):
 
 def test_non_image_document_falls_through_to_the_text_path(client):
     """A CSV dropped in the owner chat is not a front page."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json"
-    ) as mock_call, patch("packages.biwenger_tools.bot.app.send_telegram_message"):
+    with (
+        patch("packages.biwenger_tools.bot.app.api_client.call_api_json") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message"),
+    ):
         resp = _post(client, _document_update(_VALID_CHAT, mime_type="text/csv"))
 
     assert resp.status_code == 200
@@ -1141,10 +1197,13 @@ def test_pacto_command_opens_the_pact_picker(client):
         {"id": 2, "name": "Pablo", "is_me": False, "pacted": True},
         {"id": 3, "name": "Ana", "is_me": False, "pacted": False},
     ]
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
-        return_value=fake_managers,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+            return_value=fake_managers,
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/pacto"))
     assert resp.status_code == 200
     rows = mock_send.call_args.kwargs["reply_markup"]["inline_keyboard"]
@@ -1158,10 +1217,13 @@ def test_pacto_command_says_it_is_working_before_the_picker_arrives(client):
     a "procesando…" line the command looks ignored — and doing the fetch inside
     the webhook would block the worker past Telegram's timeout, which is how a
     slow call turns into a retried webhook and a duplicated picker."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
-        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+            return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/pacto"))
     assert resp.status_code == 200
     first = mock_send.call_args_list[0].kwargs["text"]
@@ -1173,12 +1235,14 @@ def test_pacto_command_says_it_is_working_before_the_picker_arrives(client):
 def test_reply_keyboard_pacto_label_opens_the_pact_picker(client):
     """The '🤝 Pacto' button opens the same picker as `/pacto` — it is a picker,
     not an api action, so it must not reach the generic dispatcher."""
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
-        return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
-    ), patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call, patch(
-        "packages.biwenger_tools.bot.app.send_telegram_message"
-    ) as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+            return_value=[{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
+        ),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api") as mock_call,
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "🤝 Pacto"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
@@ -1197,10 +1261,13 @@ def test_every_menu_button_has_somewhere_to_go():
 
 
 def test_pacto_command_handles_a_fetch_failure(client):
-    with patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
-        return_value=None,
-    ), patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send:
+    with (
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_pact_managers",
+            return_value=None,
+        ),
+        patch("packages.biwenger_tools.bot.app.send_telegram_message") as mock_send,
+    ):
         resp = _post(client, _update(_VALID_CHAT, "/pacto"))
     assert resp.status_code == 200
     assert "No pude cargar el pacto" in mock_send.call_args.kwargs.get("text", "")
@@ -1215,19 +1282,24 @@ def test_pact_callback_toggles_the_manager_and_redraws_in_place(client):
     second Biwenger league round trip per tap — which is what made the button
     feel like it had not registered.
     """
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json",
-        return_value={
-            "status": "ok",
-            "manager_id": 2,
-            "pacted": True,
-            "managers": [{"id": 2, "name": "Pablo", "is_me": False, "pacted": True}],
-        },
-    ) as mock_call, patch(
-        "packages.biwenger_tools.bot.app.api_client.list_pact_managers"
-    ) as mock_refetch, patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
-    ) as mock_edit:
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api_json",
+            return_value={
+                "status": "ok",
+                "manager_id": 2,
+                "pacted": True,
+                "managers": [
+                    {"id": 2, "name": "Pablo", "is_me": False, "pacted": True}
+                ],
+            },
+        ) as mock_call,
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.list_pact_managers"
+        ) as mock_refetch,
+        patch("packages.biwenger_tools.bot.app.edit_message_text") as mock_edit,
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "pact:2"))
     assert resp.status_code == 200
     mock_call.assert_called_once_with(
@@ -1242,13 +1314,13 @@ def test_pact_callback_toggles_the_manager_and_redraws_in_place(client):
 def test_pact_callback_acknowledges_the_tap_with_a_toast(client):
     """Between the tap and the redraw sits a cold start and a Biwenger call.
     Without a toast the button looks dead and gets tapped twice."""
-    with patch(
-        "packages.biwenger_tools.bot.app.answer_callback_query"
-    ) as mock_ack, patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json",
-        return_value={"managers": []},
-    ), patch(
-        "packages.biwenger_tools.bot.app.edit_message_text"
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query") as mock_ack,
+        patch(
+            "packages.biwenger_tools.bot.app.api_client.call_api_json",
+            return_value={"managers": []},
+        ),
+        patch("packages.biwenger_tools.bot.app.edit_message_text"),
     ):
         resp = _post(client, _callback_update(_VALID_CHAT, "pact:2"))
     assert resp.status_code == 200
@@ -1256,9 +1328,11 @@ def test_pact_callback_acknowledges_the_tap_with_a_toast(client):
 
 
 def test_pact_callback_ignores_a_malformed_manager_id(client):
-    with patch("packages.biwenger_tools.bot.app.answer_callback_query"), patch(
-        "packages.biwenger_tools.bot.app.api_client.call_api_json"
-    ) as mock_call, patch("packages.biwenger_tools.bot.app.edit_message_text"):
+    with (
+        patch("packages.biwenger_tools.bot.app.answer_callback_query"),
+        patch("packages.biwenger_tools.bot.app.api_client.call_api_json") as mock_call,
+        patch("packages.biwenger_tools.bot.app.edit_message_text"),
+    ):
         resp = _post(client, _callback_update(_VALID_CHAT, "pact:nope"))
     assert resp.status_code == 200
     mock_call.assert_not_called()

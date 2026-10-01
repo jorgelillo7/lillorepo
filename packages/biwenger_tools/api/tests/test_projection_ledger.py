@@ -10,10 +10,10 @@ from datetime import datetime
 
 from core.constants import MADRID_TZ
 from packages.biwenger_tools.api.logic import projection_ledger as pl
+from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
 from packages.biwenger_tools.api.logic.projection_ledger import (
     MIN_ROUNDS_FOR_VERDICT,
 )
-from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
 NOW = datetime(2026, 9, 20, 9, 0, tzinfo=MADRID_TZ)

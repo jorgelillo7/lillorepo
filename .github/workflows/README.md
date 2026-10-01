@@ -17,8 +17,8 @@ everything, so nothing reaches production having been tested selectively.
 
 Two parallel jobs, `Lint` and `Test`, both required by branch protection.
 
-**Lint** runs `scripts/lint.sh`: flake8 and `black --check` through Bazel's
-hermetic toolchain, then four stdlib checks —
+**Lint** runs `scripts/lint.sh`: Ruff's format check and lint (import order
+included) at the lock's version through Bazel, then four stdlib checks —
 
 - `check_base_sync.py`: the lock Bazel resolves and the image production runs
   agree, and every `@pypi` label is a direct dependency (python-conventions
@@ -76,7 +76,7 @@ Lint → Detect changed modules → Run tests ─┬→ Deploy web ────�
                                             └→ Deploy be_water ───────┘
 ```
 
-1. **Lint** — flake8 + `black --check`.
+1. **Lint** — Ruff: format check, lint and import order.
 2. **Detect changed modules** — `paths-filter` per service decides which deploys to run. `core/`, `tools/`, `docker/` or `MODULE.bazel` triggers all of them; a package-only change only its own deploy.
 3. **Run tests** — `//...`, the full sweep. Unlike `ci.yml`, master never scopes.
 4. **Deploy (parallel)** — each service builds and pushes its OCI image, then deploys/updates the matching Cloud Run resource:

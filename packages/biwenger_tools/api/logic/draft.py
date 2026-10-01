@@ -16,9 +16,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Iterable, Mapping, Sequence
 
-from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES, LEAGUE_MEMBERS
 from packages.biwenger_tools.api.logic.lineup import DEF, FORMATIONS, FWD, GK, MID
 from packages.biwenger_tools.api.logic.player_matching import normalize_name
+from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES, LEAGUE_MEMBERS
 
 NUM_ROUNDS = 15
 SQUAD_SIZE = NUM_ROUNDS  # one pick per round per manager
@@ -573,7 +573,7 @@ _POSITION_ES = {
 def _safe_int(value) -> int:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return 0
 
 

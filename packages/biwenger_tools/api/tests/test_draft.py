@@ -10,9 +10,10 @@ import pytest
 
 from packages.biwenger_tools.api.logic.draft import (
     BUDGET_OVERRIDES,
+    DEFAULT_ORDER,
+    NUM_ROUNDS,
     DraftError,
     DraftState,
-    NUM_ROUNDS,
     Pick,
     apply_pick,
     build_budgets,
@@ -31,7 +32,6 @@ from packages.biwenger_tools.api.logic.draft import (
     validate_pick,
     whose_turn,
 )
-from packages.biwenger_tools.api.logic.draft import DEFAULT_ORDER
 from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
 
 ORDER = [1, 2, 3, 4, 5, 6, 7]

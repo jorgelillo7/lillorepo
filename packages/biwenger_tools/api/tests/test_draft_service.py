@@ -16,10 +16,10 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import draft, draft_service
 from packages.biwenger_tools.api.logic.draft_service import market, picks, store
+from packages.biwenger_tools.constants import LEAGUE_MEMBERS
 
 RUBEN_ID = 7727371  # first to pick, per draft.DEFAULT_ORDER
 JAVI_ID = 7728598  # second to pick

@@ -33,7 +33,6 @@ from packages.biwenger_tools.api.logic.player_matching import (
     find_player_match,
     normalize_name,
 )
-
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

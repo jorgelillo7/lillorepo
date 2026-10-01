@@ -44,8 +44,7 @@ def _parse_aliases(values: list[str]) -> dict[str, str]:
     for raw in values:
         if "=" not in raw:
             print(
-                f"WARNING: --autor-alias '{raw}' is malformed "
-                "(need OLD=NEW); skipped.",
+                f"WARNING: --autor-alias '{raw}' is malformed (need OLD=NEW); skipped.",
                 file=sys.stderr,
             )
             continue

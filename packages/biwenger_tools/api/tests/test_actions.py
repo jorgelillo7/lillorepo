@@ -281,10 +281,11 @@ def _watch_ctx(my_lock):
 def _watch(ctx):
     from packages.biwenger_tools.api.logic import actions
 
-    with patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
-        _patches("send_telegram_message_or_raise")
-    ) as mock_send, patch(_patches("pact_store.load"), return_value=set()), patch(
-        _patches("board_archive_store.load"), return_value=[]
+    with (
+        patch(_patches("require_telegram"), return_value=("tok", "chat")),
+        patch(_patches("send_telegram_message_or_raise")) as mock_send,
+        patch(_patches("pact_store.load"), return_value=set()),
+        patch(_patches("board_archive_store.load"), return_value=[]),
     ):
         result = actions.run_protection_watch(ctx)
     return result, mock_send
@@ -391,13 +392,13 @@ def test_the_market_image_carries_the_fixture_column():
     ctx = OrchestratorContext(
         biwenger=biwenger, biwenger_players={}, jp_index={"by_name": {}, "by_slug": {}}
     )
-    with patch(_patches("build_context"), return_value=ctx), patch(
-        _patches("require_telegram"), return_value=("tok", "chat")
-    ), patch(_patches("_send_image")), patch(
-        _patches("read_fixture_runs"), return_value={}
-    ), patch(
-        _patches("build_table_image"), return_value=b""
-    ) as mock_image:
+    with (
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("require_telegram"), return_value=("tok", "chat")),
+        patch(_patches("_send_image")),
+        patch(_patches("read_fixture_runs"), return_value={}),
+        patch(_patches("build_table_image"), return_value=b"") as mock_image,
+    ):
         actions.run_market()
     assert mock_image.call_args.kwargs["extra_cols"] == ["Calendario (5)"]
 
@@ -419,19 +420,16 @@ def _run_teams(manager_id):
     from packages.biwenger_tools.api.logic import actions
 
     ctx = _teams_ctx()
-    with patch(_patches("config")), patch(
-        _patches("build_context"), return_value=ctx
-    ), patch(_patches("require_telegram"), return_value=("tok", "chat")), patch(
-        _patches("_send_image")
-    ), patch(
-        _patches("send_image_or_text_fallback"), return_value=True
-    ), patch(
-        _patches("time")
-    ), patch(
-        _patches("read_fixture_runs"), return_value={}
-    ) as mock_read, patch(
-        _patches("build_table_image"), return_value=b""
-    ) as mock_image:
+    with (
+        patch(_patches("config")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(_patches("require_telegram"), return_value=("tok", "chat")),
+        patch(_patches("_send_image")),
+        patch(_patches("send_image_or_text_fallback"), return_value=True),
+        patch(_patches("time")),
+        patch(_patches("read_fixture_runs"), return_value={}) as mock_read,
+        patch(_patches("build_table_image"), return_value=b"") as mock_image,
+    ):
         actions.run_teams(manager_id)
     return {c.args[1]: c.kwargs.get("extra_cols") for c in mock_image.call_args_list}, (
         mock_read

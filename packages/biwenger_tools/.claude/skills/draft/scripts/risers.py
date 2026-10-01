@@ -32,10 +32,9 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from board import _eur, _norm, board_state, load_market, load_picks  # noqa: E402
-
-from archetypes import POS  # noqa: E402
 import paths  # noqa: E402
+from archetypes import POS  # noqa: E402
+from board import _eur, _norm, board_state, load_market, load_picks  # noqa: E402
 
 
 def load_prices(path):
@@ -45,7 +44,7 @@ def load_prices(path):
         for row in csv.DictReader(fh, delimiter=";"):
             try:
                 prices[_norm(row["Jugador"])] = int(row["Precio"])
-            except (KeyError, ValueError):
+            except KeyError, ValueError:
                 continue
     return prices
 

@@ -112,7 +112,7 @@ def _peek_fingerprint(
         response = requests.get(JP_URL, headers=JP_HEADERS, params=params, timeout=10)
         response.raise_for_status()
         players = response.json().get("players") or []
-    except (requests.RequestException, ValueError):
+    except requests.RequestException, ValueError:
         return None
     return _max_updated_at(players, score_type)
 

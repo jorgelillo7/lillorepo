@@ -30,14 +30,19 @@ from core.constants import MADRID_TZ
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import actions, auto_bid, fixture_run, offers
+from packages.biwenger_tools.api.logic import (
+    actions,
+    auto_bid,
+    fixture_run,
+    offers,
+    provider_watch,
+)
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
     build_context,
     require_telegram,
     send_image_or_text_fallback,
 )
-from packages.biwenger_tools.api.logic import provider_watch
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
 logger = get_logger(__name__)
@@ -54,7 +59,7 @@ def _auto_bid_pause_active() -> bool:
         return False
     try:
         resume = date.fromisoformat(raw)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         logger.warning("Invalid AUTO_BID_PAUSED_UNTIL %r — ignoring pause.", raw)
         return False
     return datetime.now(MADRID_TZ).date() < resume

@@ -1,78 +1,63 @@
 # Python lint & format
 
-This repo uses **flake8** (linter) and **black** (formatter). Both run as a
-GitHub Actions job on every push to `master`; the build fails if either
-reports issues.
+This repo uses **Ruff** for all three jobs that used to take three tools:
+
+| Job | Ruff | Replaces |
+|---|---|---|
+| Formatting | `ruff format` | black |
+| Linting (`E`, `W`, `F`) | `ruff check` | flake8 |
+| Import order (`I`) | `ruff check` | isort (never used before) |
+
+It runs as the required `Lint` check on every pull request, and again on every
+push to `master`; the build fails if it reports anything.
 
 ## How it works
 
-Lint runs through Bazel's hermetic Python 3.14 toolchain so local devs and
-CI are guaranteed to use the same interpreter and the same `black` /
-`flake8` versions resolved by `requirements_lock.txt`.
+Ruff runs through Bazel at the version `requirements_lock.txt` pins, so the
+Mac and CI use the same binary (python-conventions LP-23). Its wheel ships a
+compiled binary and no console-script entry point, so `tools/lint/BUILD.bazel`
+exposes it with a small rule, `whl_bin` (`tools/lint/whl_bin.bzl`), that picks
+`bin/ruff` out of `@pypi//ruff:data`.
 
-Two thin Bazel targets in `tools/lint/BUILD.bazel`:
-
-```python
-py_console_script_binary(name = "black",  pkg = "@pypi//black")
-py_console_script_binary(name = "flake8", pkg = "@pypi//flake8")
-```
-
-A wrapper script `scripts/lint.sh` runs both with the right paths:
+The wrapper is the single entry point:
 
 ```bash
-bash scripts/lint.sh         # check (what CI runs)
-bash scripts/lint.sh --fix   # apply black in place
+bash scripts/lint.sh         # check — what CI runs
+bash scripts/lint.sh --fix   # sort imports, autofix, then format in place
 ```
 
-CI calls the same script (`.github/workflows/deploy.yml` → `lint` job).
+Configuration lives in `ruff.toml` at the repo root: 88 columns, Python 3.14,
+rules `E`, `W`, `F`, `I` (minus `E203`), `core` and `packages` as first-party
+imports. A nested config, if one is ever needed, must
+`extend = "../ruff.toml"` — without it, it inherits nothing from the root.
 
-## Why hermetic
+## Upgrading
 
-Before this setup, the maintainer ran lint on Python 3.12 locally while CI
-used a newer Python. Black 26.3.1's wrapping heuristics shift subtly across Python
-versions, which caused multiple "passes locally, fails on CI" fixup
-commits during the v6.0 refactor. The hermetic Bazel toolchain removes
-the drift entirely.
+`ruff` is a dev-only dependency in `core/requirements.txt`. Regenerate
+`requirements.in` and the lock (see [`operations.md`](../operations.md)),
+open the bump as its own pull request (LP-4), and run
+`bash scripts/lint.sh --fix` in it: a new Ruff can format a few lines
+differently.
 
-## Pinned versions
+## `git blame`
 
-The lockfile is the source of truth. As of this writing:
+The switch to Ruff reformatted ~70 files in one commit. Skip it in blame:
 
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
-black==26.3.1
-flake8==7.3.0
-```
-
-To upgrade: edit `core/requirements.txt`, regenerate `requirements.in` and
-`requirements_lock.txt` (see [`operations.md`](../operations.md)), and
-push. Bazel will pick up the new versions automatically on the next lint
-invocation. No manual `pip install` step anywhere.
 
 ## Editor integration
 
-The shipped `.vscode/settings.json` enables:
-
-- `python.linting.flake8Enabled: true` — flake8 squiggles in the gutter.
-- `editor.defaultFormatter: ms-python.black-formatter` + `formatOnSave` —
-  Black runs automatically on every save.
-- `editor.codeActionsOnSave: { "source.fixAll": "explicit" }` — auto-fix
-  available on save.
-
-Required VS Code extensions:
-
-- `ms-python.python`
-- `ms-python.black-formatter`
-
-Editor extensions use their own bundled tools, so they may drift from
-`scripts/lint.sh` slightly — the final word is what CI says.
+`.vscode/settings.json` sets the Ruff extension (`charliermarsh.ruff`) as the
+Python formatter, formats on save, and fixes and organises imports on save. The
+extension bundles its own Ruff; CI's lock-pinned one is the final word.
 
 ## Known gotchas
 
-- **Line-length 88** is the only deviation from PEP 8. Any longer line
-  needs to be either reformatted or split — Black handles most cases, but
-  long mocked attribute chains in tests are best refactored to an
-  intermediate variable rather than suppressed.
-- **Don't add `# noqa`** unless there is no clean alternative. Document
-  the reason on the same line if you must.
-- The repo uses `flake8`'s default ruleset minus `E203` and `W503` (both
-  conflict with Black).
+- **Line length 88.** Any longer line needs reformatting or splitting; long
+  mocked attribute chains in tests are better refactored to an intermediate
+  variable than suppressed.
+- **Don't add `# noqa`** unless there is no clean alternative, and name the
+  rule (`# noqa: F401`) with the reason on the same line.
+- `E203` is ignored: it conflicts with the formatter's slices.

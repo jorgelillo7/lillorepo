@@ -25,7 +25,6 @@ import threading
 
 from flask import Flask, request
 
-from core.web.logs import use_json_logging
 from core.sdk.telegram import (
     answer_callback_query,
     edit_message_reply_markup,
@@ -38,6 +37,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
+from core.web.logs import use_json_logging
 from packages.biwenger_tools.bot import api_client, config, menu
 
 logger = get_logger(__name__)
@@ -228,9 +228,7 @@ def _run_pact_toggle(value: str, edit_into: tuple[str, int] | None) -> None:
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
-            text=(
-                "❌ No pude cambiar el pacto: " f"<code>{html.escape(str(exc))}</code>"
-            ),
+            text=(f"❌ No pude cambiar el pacto: <code>{html.escape(str(exc))}</code>"),
         )
         return
     _send_pact_picker(edit_into, managers=(result or {}).get("managers"))

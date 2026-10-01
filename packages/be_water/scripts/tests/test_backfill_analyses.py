@@ -29,9 +29,14 @@ def _water(wid, date, **kwargs):
 
 def _run(waters, existing=None, apply=True):
     argv = ["backfill_analyses"] + (["--apply"] if apply else [])
-    with patch(f"{_MOD}.get_all_waters", return_value=waters), patch(
-        f"{_MOD}.get_analysis", side_effect=lambda wid, d: (existing or {}).get(wid)
-    ), patch(f"{_MOD}.save_analysis") as save, patch("sys.argv", argv):
+    with (
+        patch(f"{_MOD}.get_all_waters", return_value=waters),
+        patch(
+            f"{_MOD}.get_analysis", side_effect=lambda wid, d: (existing or {}).get(wid)
+        ),
+        patch(f"{_MOD}.save_analysis") as save,
+        patch("sys.argv", argv),
+    ):
         backfill_analyses.main()
     return save
 
