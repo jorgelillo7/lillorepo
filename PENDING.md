@@ -22,7 +22,7 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
-| 🔨 | Coverage in CI · gradual mypy · `base_deps` from the lock | Un-parked by the owner; Ruff shipped first. The plan is local (`.claude/plans/quality-toolchain.md`) · [the old reasoning](docs/technical/parked-work.md#still-parked) |
+| 🔨 | Gradual mypy · `base_deps` from the lock | Un-parked by the owner; Ruff and coverage in CI shipped first. The plan is local (`.claude/plans/quality-toolchain.md`) · [the old reasoning](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
 | ⏳ | Bazel's Python is 3.14.4, the image's 3.14.7 | A `rules_python` release that maps 3.14.7 (2.3.4 and 2.4.0-rc0 stop at 3.14.4) · only the test/lint sandbox is behind; production already runs 3.14.7 · `check-deps` flags it |

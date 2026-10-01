@@ -44,13 +44,6 @@ the image layers) — do it then, in the same PR.
 
 Each of these was reviewed and deliberately left alone.
 
-**Coverage in CI.** The Bazel + pytest-cov plumbing touches the lock and every
-test target, which outweighs the visibility. Worth noting what coverage would
-*not* have caught: `/comparar` was written and unwired, and the dead
-`suspended` branch **was** executed by tests, with a value the provider never
-sends. *Trigger:* a shipped regression that coverage would genuinely have
-caught.
-
 **Gradual mypy.** *Trigger:* the day a type bug actually bites.
 
 **Parametrised `base_deps` / `Dockerfile.base` from the lock.** Build-system
