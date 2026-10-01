@@ -15,6 +15,7 @@ python-json-logger
 black
 flake8
 pytest
+ruff
 requests-mock
 freezegun
 
