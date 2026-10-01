@@ -43,10 +43,17 @@ jobs:
           # these two the runner re-downloads them every single time — the disk
           # cache alone was saving 4 KB, because it holds action outputs and
           # almost nothing else.
-          repository-cache: true
-          # Named, so CI's job and the deploy's share one manifest: GitHub
-          # hands pull requests only the caches saved on master, and the
-          # default name (<workflow>-<job>) made every PR start cold.
+          # Keyed on the locks too: setup-bazel hashes only MODULE.bazel by
+          # default, so a new wheel in the lock reused the old key, restored a
+          # cache without it, and was downloaded again by every job.
+          repository-cache: |
+            - MODULE.bazel
+            - MODULE.bazel.lock
+            - requirements_lock.txt
+          # Named, so CI's job and the deploy's share one manifest (the default,
+          # <workflow>-<job>, never matched across workflows). Under Bazel 9
+          # most of external/ is links into the repository cache, so the
+          # wheels themselves travel in `repository-cache`.
           external-cache: |
             name: lint
           # One key across workflows, so the deploy inherits what CI just warmed
@@ -75,10 +82,17 @@ jobs:
           # these two the runner re-downloads them every single time — the disk
           # cache alone was saving 4 KB, because it holds action outputs and
           # almost nothing else.
-          repository-cache: true
-          # Named, so CI's job and the deploy's share one manifest: GitHub
-          # hands pull requests only the caches saved on master, and the
-          # default name (<workflow>-<job>) made every PR start cold.
+          # Keyed on the locks too: setup-bazel hashes only MODULE.bazel by
+          # default, so a new wheel in the lock reused the old key, restored a
+          # cache without it, and was downloaded again by every job.
+          repository-cache: |
+            - MODULE.bazel
+            - MODULE.bazel.lock
+            - requirements_lock.txt
+          # Named, so CI's job and the deploy's share one manifest (the default,
+          # <workflow>-<job>, never matched across workflows). Under Bazel 9
+          # most of external/ is links into the repository cache, so the
+          # wheels themselves travel in `repository-cache`.
           external-cache: |
             name: test
           # One key across workflows, so the deploy inherits what CI just warmed
