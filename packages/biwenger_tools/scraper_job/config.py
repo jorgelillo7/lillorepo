@@ -29,10 +29,10 @@ BIWENGER_PASSWORD = _BIWENGER_CFG.get("password") or os.getenv("BIWENGER_PASSWOR
 # Missing creds → notification skipped silently, scraper still runs.
 _TELEGRAM_CFG = load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
 TELEGRAM_BOT_TOKEN = (
-    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or ""
 ).strip()
 TELEGRAM_CHAT_ID = (
-    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
+    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID") or ""
 ).strip()
 
 # --- BIWENGER API URLs (derived from core for the user's league) ---
