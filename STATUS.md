@@ -34,11 +34,15 @@ Lloros Awards incident on 2026-08-27 made it 9.35.
 3. **One source of truth, and it holds.** The 2026-09-30 docs audit found
    **zero broken links across 56 documents**. Facts had drifted; structure had
    not.
-4. **Behaviour specs wired to tests.** 40 specs, 361 scenarios, 1,058 test
+4. **Behaviour specs wired to tests.** 40 specs, 364 scenarios, 1,072 test
    names cited and every one of them exists — checked, not assumed.
 5. **CI that reasons about the graph.** Pull requests run only the suites a
    change can break, derived from `rdeps` rather than a list that would rot;
-   `master` always runs everything. A docs PR's test job: 89s → 21s.
+   `master` always runs everything. A docs PR's test job: 89s → 21s. Lint is
+   one tool, Ruff (format, lint, import order), in ~30–45 s where black and
+   flake8 took 58–106 s; every PR's test job shows a coverage summary —
+   78.5 % of the lines in tested files — and lists the files no test imports
+   instead of hiding them.
 6. **The draft, which is the hardest thing here.** A 105-pick snake draft
    arbitrated from Telegram, budget and composition validated per pick,
    multi-position players handled, squad shapes searched rather than assumed.
@@ -121,7 +125,6 @@ and facts merely believed. The second table is the useful one.
 | Real observability (alerts, SLI dashboards) | Would leave the free tier; Cloud Logging suits a human-driven workflow |
 | Staging environment | Local + prod is enough for one user |
 | Integration tests against a Firestore emulator / Biwenger sandbox | Heavy setup for the marginal value at this traffic. A cheaper in-process bot↔api suite covers the contract that actually broke |
-| Coverage for the draft skill's 32 tests | They live under `.claude/`, which coverage cannot instrument. The tests **do** run in CI; only the percentage misses them, and moving the code would blur the split between the skill's read-only scripts and the ones that write Firestore |
 
 ---
 
