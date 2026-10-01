@@ -2,6 +2,15 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v9.4 - Faster Checks, Honest Numbers (1 October 2026)**
+
+Nothing new to tap in Telegram. A bug that would have broken next summer's draft is fixed, and the machinery that checks every change got faster and stopped flattering itself.
+
+* **🐛 The draft would have crashed on its first pick (the headline)**: splitting the draft code in August dropped two lines that create the market and session caches. The first market read of a fresh server would have raised `NameError` — next pre-season, mid-draft. The tests never noticed, because each one created the caches before starting. Found by a type checker run while measuring this very work, fixed with a test that reproduces it, and the draft's spec now names it.
+* **⚡ One tool instead of three, twice as fast**: Ruff replaces black (formatting) and flake8 (linting) and adds what nobody ran — import order. The check every pull request waits for went from 58–106 s to 25–45 s, and the tool itself from ~2.3 s to ~0.07 s. The version still comes from the lock, so the Mac and CI never disagree.
+* **📊 Every pull request shows its coverage**: the tests now run instrumented and print a summary — **78.5 %** of the lines in tested files, per area, plus the 22 files no test touches (all one-off scripts), listed so the number cannot overstate. The first figure said 90.5 %: four suites were silently missing from it, and fixing them showed the real one. A new check stops a test from hiding its code from coverage again.
+* **🧹 Two small traps closed**: `lint.sh --fix` now formats even when it finds something it cannot fix on its own, and the linter guide warns that Ruff joins strings split on purpose — it did, once, and the secrets check caught it.
+
 ### **v9.3 - The Memory Biwenger Doesn't Keep (30 September 2026)**
 
 Last Christmas the first weeks of clausulazos vanished, and this year the numbers still did not add up: 109 clausulazos survive for 25-26, the first from 28 September — everything before was already gone. Two things did it. Biwenger purges every money movement at the season change (the board keeps eight years of chat and not one euro), and our own scraper mirrored its feed every Sunday, so whatever Biwenger forgot, Firestore forgot the next week. Not any more.
