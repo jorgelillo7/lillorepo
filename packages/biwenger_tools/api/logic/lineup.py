@@ -755,7 +755,9 @@ def _try_fill(players: list, slots: dict) -> list | None:
     assignment = []
     mask, slots_t = initial_mask, initial_slots
     while slots_t:
-        bit = cache[(mask, slots_t)][0]
+        best = cache[(mask, slots_t)]
+        assert best is not None  # the chain only visits solved states
+        bit = best[0]
         pos_to_fill, slots_t = _next_slot(mask, slots_t)
         assignment.append((lookup[ids_by_bit[bit]], pos_to_fill))
         mask &= ~(1 << bit)

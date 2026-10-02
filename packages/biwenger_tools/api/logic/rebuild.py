@@ -208,6 +208,7 @@ def target_formation(
         cost = _tie_break_cost(elig, requirement, affordable)
         if best_requirement is None or (count, cost) < (best_count, best_cost):
             best_count, best_cost, best_requirement = count, cost, requirement
+    assert best_requirement is not None and best_count is not None  # never empty
     return best_requirement, best_count
 
 

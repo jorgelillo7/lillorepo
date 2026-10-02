@@ -37,14 +37,20 @@ py_console_script_binary(
     # library when a tree that imports it joins `files`.
     deps = [
         "@pypi//beautifulsoup4",
+        "@pypi//bleach",
         "@pypi//flask",
         "@pypi//google_cloud_firestore",
         "@pypi//gunicorn",
+        "@pypi//icalendar",
+        "@pypi//matplotlib",
         "@pypi//pillow",
+        "@pypi//python_dateutil",
         "@pypi//python_dotenv",
         "@pypi//python_json_logger",
         "@pypi//requests",
+        "@pypi//types_bleach",
         "@pypi//types_gunicorn",
+        "@pypi//types_python_dateutil",
         "@pypi//unidecode",
     ],
 )

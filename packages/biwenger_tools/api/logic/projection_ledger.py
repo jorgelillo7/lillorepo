@@ -88,7 +88,7 @@ def build_snapshot(
     blended_xi = _xi_summary(blended)
     jp_only_xi = _xi_summary(jp_only)
 
-    diff = {"only_blended": [], "only_jp": []}
+    diff: dict[str, list] = {"only_blended": [], "only_jp": []}
     differs = False
     if blended_xi is not None and jp_only_xi is not None:
         blended_ids = set(blended_xi["player_ids"])

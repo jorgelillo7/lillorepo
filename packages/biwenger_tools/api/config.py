@@ -22,19 +22,21 @@ load_dotenv()
 _BIWENGER_CFG = load_json_secret("BIWENGER_CREDENTIALS_JSON")
 _TELEGRAM_CFG = load_json_secret("TELEGRAM_BOT_CONFIG_JSON")
 
-BIWENGER_EMAIL = _BIWENGER_CFG.get("email") or os.getenv("BIWENGER_EMAIL", "")
-BIWENGER_PASSWORD = _BIWENGER_CFG.get("password") or os.getenv("BIWENGER_PASSWORD", "")
+BIWENGER_EMAIL = _BIWENGER_CFG.get("email") or os.getenv("BIWENGER_EMAIL") or ""
+BIWENGER_PASSWORD = (
+    _BIWENGER_CFG.get("password") or os.getenv("BIWENGER_PASSWORD") or ""
+)
 TELEGRAM_BOT_TOKEN = (
-    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN", "")
+    _TELEGRAM_CFG.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or ""
 ).strip()
 TELEGRAM_CHAT_ID = (
-    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID", "")
+    _TELEGRAM_CFG.get("chat_id") or os.getenv("TELEGRAM_CHAT_ID") or ""
 ).strip()
 # The league's supergroup, where the draft runs. `TELEGRAM_CHAT_ID` above is the
 # owner's private chat: anything addressed to the seven presidents goes here
 # instead, and the operational draft scripts all mean this one.
 TELEGRAM_DRAFT_CHAT_ID = (
-    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID", "")
+    _TELEGRAM_CFG.get("draft_chat_id") or os.getenv("TELEGRAM_DRAFT_CHAT_ID") or ""
 ).strip()
 
 # --- BIWENGER API URLs (derived from core for the user's league) ---
@@ -53,7 +55,7 @@ OFFERS_URL = biwenger_sdk.OFFERS_URL
 # --- JORNADA PERFECTA (private API) ---
 # Token sourced from BIWENGER_CREDENTIALS_JSON.jp_auth_token — it belongs to
 # the JP mobile app and can't be rotated by us, but we keep it out of git.
-JP_AUTH_TOKEN = _BIWENGER_CFG.get("jp_auth_token") or os.getenv("JP_AUTH_TOKEN", "")
+JP_AUTH_TOKEN = _BIWENGER_CFG.get("jp_auth_token") or os.getenv("JP_AUTH_TOKEN") or ""
 JP_COMPETITION = 1  # LaLiga
 JP_SCORE_TYPE = 2  # SofaScore (Automanager system)
 
@@ -187,7 +189,8 @@ DRAFT_MARKET_CSV_PATH = os.getenv("DRAFT_MARKET_CSV_PATH", "")
 # owner chat is itself a group and so carries a negative id that matches nobody.
 DRAFT_ADMIN_TELEGRAM_ID = (
     _TELEGRAM_CFG.get("draft_admin_telegram_id")
-    or os.getenv("DRAFT_ADMIN_TELEGRAM_ID", "")
+    or os.getenv("DRAFT_ADMIN_TELEGRAM_ID")
+    or ""
 ).strip()
 
 # Gate on the Biwenger *writes* the draft makes (`transfer_player` /

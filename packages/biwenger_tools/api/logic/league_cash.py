@@ -12,6 +12,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from html import escape
+from typing import Any
 
 from core.constants import MADRID_TZ
 from core.sdk.biwenger import board_entry_key
@@ -90,7 +91,8 @@ def rebuild(entries: list[dict], starting_balance: int) -> CashBook:
             moves[uid] = moves.get(uid, 0) + int(amount or 0)
 
     for entry in season_entries(entries):
-        kind, content = entry.get("type"), entry.get("content")
+        kind = entry.get("type")
+        content: Any = entry.get("content")  # board JSON: shape depends on kind
         if kind in _TRANSFER_TYPES:
             for move in content or []:
                 add(move.get("to"), -(move.get("amount") or 0))
@@ -110,7 +112,7 @@ def rebuild(entries: list[dict], starting_balance: int) -> CashBook:
         elif '"amount"' in json.dumps(content):
             # No other type has ever carried money; the first one that does
             # is named rather than guessed at.
-            unknown.add(kind)
+            unknown.add(str(kind))
 
     for content in rounds.values():
         for result in content.get("results") or []:
@@ -216,7 +218,7 @@ def protection_ending(rows: list[dict], now: float, within: float) -> list[dict]
 def exposed(rows: list[dict], n: int) -> list[dict]:
     """The `n` rows with the best shown projection; unprojected rows last out."""
     scored = [r for r in rows if shown_score(r) is not None]
-    return sorted(scored, key=shown_score, reverse=True)[:n]
+    return sorted(scored, key=lambda r: shown_score(r) or 0, reverse=True)[:n]
 
 
 def _names(rivals: tuple[dict, ...]) -> str:

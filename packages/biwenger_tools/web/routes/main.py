@@ -17,6 +17,7 @@ from flask import (
     render_template,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 
 from core.constants import MADRID_TZ
 from core.sdk.http import retry_http_request
@@ -135,7 +136,7 @@ def favicon() -> tuple:
 
 
 @bp.route("/")
-def home() -> Response:
+def home() -> ResponseReturnValue:
     """Redirect to the current season's comunicados page."""
     return redirect(url_for("season.comunicados", season=g.season))
 

@@ -336,12 +336,12 @@ def _would_be_bench(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
     positions = {candidate.get("position_id")} | set(
         candidate.get("alt_positions") or []
     )
-    positions = {p for p in positions if p is not None}
-    if not positions:
+    covered: set[int] = {p for p in positions if p is not None}
+    if not covered:
         return False
     # He is bench only if he fails to break into the depth chart at EVERY
     # position he covers — a versatile player needs one door open, not all.
-    for pos in positions:
+    for pos in covered:
         owned = by_pos.get(pos) or []
         if len(owned) < SQUAD_DEPTH_SLOTS.get(pos, 4):
             return False

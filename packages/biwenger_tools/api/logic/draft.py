@@ -117,7 +117,7 @@ def slot_to_pick_number(round_num: int, position: int, num_managers: int) -> int
 
 def draft_order_sequence(order: Sequence[int], rounds: int = NUM_ROUNDS) -> list:
     """Manager id for every global pick of the whole draft, in pick order."""
-    sequence = []
+    sequence: list[int] = []
     for r in range(rounds):
         sequence.extend(order if r % 2 == 0 else list(reversed(order)))
     return sequence

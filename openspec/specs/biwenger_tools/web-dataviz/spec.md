@@ -239,7 +239,10 @@ require login, and require CSRF.
 #### Scenario: run-scraper guarded
 - **WHEN** triggering the scraper job
 - **THEN** it runs and redirects; failure flashes; login and CSRF are required
+- **WHEN** the GCP project, region or job name is not configured **THEN** the
+  admin is told which, and no job call is made
 - *Verifies:* `test_run_scraper_triggers_job_and_redirects`,
+  `test_the_scraper_trigger_says_what_config_is_missing`,
   `test_run_scraper_shows_error_flash_on_failure`,
   `test_run_scraper_requires_login`, `test_run_scraper_rejected_without_csrf`
 

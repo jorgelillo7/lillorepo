@@ -173,12 +173,15 @@ stated on the image rather than left to look like data:
   it matches
 - **WHEN** it differs **THEN** the image gives both figures
 - **WHEN** an unknown entry type carries an amount **THEN** it is named
+- **WHEN** an entry with no type at all carries an amount **THEN** it is named
+  too (as `None`), and the note still renders
 - **WHEN** an unknown entry type carries no amount **THEN** it is ignored
 - **WHEN** a type that never carried money starts carrying an amount, or a
   `transfer` arrives with an unseen kind **THEN** it is named
 - *Verifies:* `test_notes_confirm_a_matching_self_check`,
   `test_notes_give_both_figures_when_the_self_check_fails`,
   `test_an_unknown_type_with_an_amount_is_reported`,
+  `test_an_untyped_entry_with_an_amount_is_reported_not_a_crash`,
   `test_an_unknown_type_without_an_amount_is_ignored`,
   `test_a_moneyless_type_that_starts_carrying_an_amount_is_reported`,
   `test_a_transfer_of_an_unseen_kind_is_reported`

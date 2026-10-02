@@ -6,7 +6,6 @@ import google.auth.exceptions
 import requests as http_requests
 from flask import (
     Blueprint,
-    Response,
     flash,
     redirect,
     render_template,
@@ -14,6 +13,7 @@ from flask import (
     session,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 
 from core.sdk.gcp import trigger_cloud_run_job
 from core.utils import get_logger
@@ -32,9 +32,12 @@ _LOGIN_LIMITER = RateLimiter(10, 900)
 
 def _trigger_scraper_job() -> tuple[bool, str]:
     """Trigger the scraper Cloud Run Job. Returns (success, message)."""
+    project, region = config.GCP_PROJECT_ID, config.CLOUD_RUN_REGION
+    if not (project and region and config.CLOUD_RUN_JOB_NAME):
+        return False, "Falta configurar el proyecto, la región o el job de Cloud Run."
     try:
         execution_name = trigger_cloud_run_job(
-            config.GCP_PROJECT_ID, config.CLOUD_RUN_REGION, config.CLOUD_RUN_JOB_NAME
+            project, region, config.CLOUD_RUN_JOB_NAME
         )
         return True, f"Job lanzado correctamente (ejecución: {execution_name})."
     except (
@@ -46,7 +49,7 @@ def _trigger_scraper_job() -> tuple[bool, str]:
 
 
 @bp.route("/admin", methods=["GET", "POST"])
-def admin() -> Response:
+def admin() -> ResponseReturnValue:
     """Admin panel: login form or scraper-trigger dashboard."""
     if "admin_logged_in" in session:
         log_url = (
@@ -87,7 +90,7 @@ def admin() -> Response:
 
 
 @bp.route("/admin/run-scraper", methods=["POST"])
-def run_scraper() -> Response:
+def run_scraper() -> ResponseReturnValue:
     """Trigger the scraper Cloud Run Job on demand."""
     if "admin_logged_in" not in session:
         flash("Acceso denegado.", "error")
@@ -107,7 +110,7 @@ def run_scraper() -> Response:
 
 
 @bp.route("/admin/refresh-competiciones", methods=["POST"])
-def refresh_competiciones() -> Response:
+def refresh_competiciones() -> ResponseReturnValue:
     """Drop the cached competitions read so the next visit re-reads the sheets.
 
     The cache is five minutes, which is short enough for the league and long
@@ -134,7 +137,7 @@ def refresh_competiciones() -> Response:
 
 
 @bp.route("/logout")
-def logout() -> Response:
+def logout() -> ResponseReturnValue:
     """Log out the admin user."""
     session.pop("admin_logged_in", None)
     flash("Has cerrado la sesión correctamente.", "info")

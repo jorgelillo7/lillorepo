@@ -75,7 +75,7 @@ def register_manager(
     somebody else holds is allowed but reported, so the group sees the change.
     """
     via_picker = manager_id is not None
-    if via_picker:
+    if manager_id is not None:
         manager_id = (
             int(manager_id) if int(manager_id) in state.load_state().order else None
         )
