@@ -132,7 +132,7 @@ def _pacted_ids(pacted: set) -> set:
     for raw in pacted or ():
         try:
             out.add(int(raw))
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             continue
     return out
 

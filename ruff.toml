@@ -4,7 +4,11 @@
 # A nested config, if one is ever added, must `extend = "../ruff.toml"`:
 # without it, it inherits nothing from this file.
 line-length = 88
-target-version = "py314"
+# py313, not py314: on 3.14 the formatter drops the parentheses of
+# `except (A, B):`, which then reads like Python 2 and no longer parses on any
+# older interpreter — a `python3` that is not 3.14 fails with SyntaxError. The
+# code still runs on 3.14; mypy checks it against 3.14 (mypy.ini).
+target-version = "py313"
 extend-exclude = [
     "venv",
     "*.md",

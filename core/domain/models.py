@@ -59,7 +59,7 @@ def _parse_fecha(raw) -> Optional[datetime]:
     for fmt in _FECHA_FORMATS:
         try:
             return datetime.strptime(raw, fmt).replace(tzinfo=MADRID_TZ)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
     return None
 

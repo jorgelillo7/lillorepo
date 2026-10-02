@@ -573,7 +573,7 @@ _POSITION_ES = {
 def _safe_int(value) -> int:
     try:
         return int(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return 0
 
 
