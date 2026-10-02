@@ -71,7 +71,7 @@ def find_duplicates(catalog: list[Water]) -> list[list[Water]]:
     name, genuinely different springs) are left alone — they are real
     separate waters."""
     groups = []
-    grouped = set()
+    grouped: set[str] = set()
     for i, water in enumerate(catalog):
         if water.id in grouped:
             continue

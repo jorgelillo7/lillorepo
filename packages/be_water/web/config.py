@@ -38,13 +38,13 @@ if not SECRET_KEY:
 
 # --- Photos + Gemini OCR ---
 PHOTOS_BUCKET = os.getenv("PHOTOS_BUCKET", "be-water-photos")
-GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY = _FLASK_CFG.get("gemini_api_key") or os.getenv("GEMINI_API_KEY") or ""
 # Optional second key, used only when the first one's free allowance is spent.
 # The tier belongs to the key's *project*: this one lives in a project with a
 # billing account attached, the default one does not. Empty means "never spend"
 # — the calls simply fail on quota as they did before.
-GEMINI_API_KEY_PAID = _FLASK_CFG.get("gemini_api_key_paid") or os.getenv(
-    "GEMINI_API_KEY_PAID", ""
+GEMINI_API_KEY_PAID = (
+    _FLASK_CFG.get("gemini_api_key_paid") or os.getenv("GEMINI_API_KEY_PAID") or ""
 )
 # Pinned deliberately — see `core/sdk/gemini.DEFAULT_MODEL`. Changing it needs
 # no deploy:
@@ -68,8 +68,8 @@ ADMIN_NICKNAMES = {
 # --- Google Sign-In (admin + future public login) ---
 # Empty until the OAuth client exists (see docs/operations.md runbook):
 # the button hides and /admin returns 404, so shipping without it is safe.
-GOOGLE_CLIENT_ID = _FLASK_CFG.get("google_client_id") or os.getenv(
-    "GOOGLE_CLIENT_ID", ""
+GOOGLE_CLIENT_ID = (
+    _FLASK_CFG.get("google_client_id") or os.getenv("GOOGLE_CLIENT_ID") or ""
 )
 # Google-verified emails allowed into /admin (comma-separated env).
 ADMIN_EMAILS = {

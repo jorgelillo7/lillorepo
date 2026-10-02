@@ -64,8 +64,7 @@ def favorites_centroid(favorites: list[Water]) -> Optional[dict]:
     fields = [f for f, _ in _VECTOR_FIELDS]
     centroid: dict = {}
     for f in fields:
-        values = [w.minerals.get(f) for w in favorites]
-        values = [v for v in values if v is not None]
+        values = [v for w in favorites if (v := w.minerals.get(f)) is not None]
         centroid[f] = sum(values) / len(values) if values else None
     return centroid
 

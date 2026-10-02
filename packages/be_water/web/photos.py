@@ -59,6 +59,8 @@ def _flatten_backdrop(img: Image.Image) -> Image.Image:
     border = [img.getpixel((x, int(height * 0.06))) for x in range(0, width, 7)]
     border += [img.getpixel((int(width * 0.04), y)) for y in range(0, height, 7)]
     backdrop = Counter(border).most_common(1)[0][0]
+    if not isinstance(backdrop, tuple):  # an RGB image always yields a tuple
+        return img
     if backdrop == (255, 255, 255) or min(backdrop) < _BACKDROP_MIN_CHANNEL:
         return img
     distance = ImageChops.difference(img, Image.new("RGB", img.size, backdrop)).convert(
@@ -81,7 +83,7 @@ def process_image(data: bytes) -> bytes:
     """Upright, ≤1200px, JPEG, EXIF-free. Raises `NotAnImage` on anything
     Pillow cannot decode, including a file truncated mid-upload."""
     try:
-        img = Image.open(io.BytesIO(data))
+        img: Image.Image = Image.open(io.BytesIO(data))
         img = ImageOps.exif_transpose(img)
         img = img.convert("RGB")
     except (OSError, Image.DecompressionBombError) as exc:

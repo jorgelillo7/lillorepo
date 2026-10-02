@@ -40,6 +40,7 @@ py_console_script_binary(
         "@pypi//flask",
         "@pypi//google_cloud_firestore",
         "@pypi//gunicorn",
+        "@pypi//pillow",
         "@pypi//python_dotenv",
         "@pypi//python_json_logger",
         "@pypi//requests",

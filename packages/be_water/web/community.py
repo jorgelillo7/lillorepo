@@ -140,16 +140,18 @@ def build_community_stats(
     by_user: dict[str, dict] = {}
     dated = {w.id: w.analysis_date for w in catalog if w.analysis_date}
     per_water: dict[str, int] = {}
-    for entry in analyses or []:
-        per_water[entry.get("water_id")] = per_water.get(entry.get("water_id"), 0) + 1
+    # An analysis with no water_id is malformed: it belongs to no water.
+    analyses = [a for a in analyses or [] if a.get("water_id")]
+    for entry in analyses:
+        per_water[entry["water_id"]] = per_water.get(entry["water_id"], 0) + 1
 
-    for entry in analyses or []:
+    for entry in analyses:
         contributor = (entry.get("added_by") or "").strip().lower()
         if not contributor or contributor == "seed":
             continue
         stats = by_user.setdefault(contributor, _blank(contributor))
         stats["fields_verified"] += len(entry.get("verified_fields") or [])
-        water_id = entry.get("water_id")
+        water_id = entry["water_id"]
         if entry.get("analysis_date") == dated.get(water_id):
             continue  # the water's current composition: that was the add
         stats["past_analyses"] += 1
