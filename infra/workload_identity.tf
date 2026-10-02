@@ -1,10 +1,5 @@
 # Keyless GitHub Actions → GCP. The provider only admits tokens from this
 # repository's master branch, which is what makes CI deploy-only.
-import {
-  to = google_iam_workload_identity_pool.github
-  id = "projects/${local.biwenger}/locations/global/workloadIdentityPools/github"
-}
-
 resource "google_iam_workload_identity_pool" "github" {
   project                   = local.biwenger
   workload_identity_pool_id = "github"
@@ -13,11 +8,6 @@ resource "google_iam_workload_identity_pool" "github" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-import {
-  to = google_iam_workload_identity_pool_provider.github_oidc
-  id = "projects/${local.biwenger}/locations/global/workloadIdentityPools/github/providers/github-oidc"
 }
 
 resource "google_iam_workload_identity_pool_provider" "github_oidc" {

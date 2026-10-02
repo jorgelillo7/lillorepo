@@ -13,12 +13,6 @@ locals {
   }
 }
 
-import {
-  for_each = local.docker_repos
-  to       = google_artifact_registry_repository.docker[each.key]
-  id       = "projects/${each.value.project}/locations/${local.region}/repositories/${each.value.id}"
-}
-
 # Old digests are pruned by deploy.yml's cleanup job, not by repository
 # cleanup policies.
 resource "google_artifact_registry_repository" "docker" {
@@ -42,12 +36,6 @@ locals {
     for key, repo in local.docker_repos :
     "projects/${repo.project}/locations/${local.region}/repositories/${repo.id} roles/artifactregistry.repoAdmin serviceAccount:${local.ci_sa}" => key
   }
-}
-
-import {
-  for_each = local.docker_repo_iam
-  to       = google_artifact_registry_repository_iam_member.this[each.key]
-  id       = each.key
 }
 
 resource "google_artifact_registry_repository_iam_member" "this" {

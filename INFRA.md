@@ -28,7 +28,8 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Secret Manager | 2 secrets ×1 active version | `biwenger-secrets`, `chucknorris-secrets` — one regional JSON secret per package; no key files |
 | Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |
 | Workload Identity Federation | pool `github` / provider `github-oidc` | keyless deploys for the whole repo, restricted to `jorgelillo7/lillorepo` **on `master`** |
-| Service accounts | `run-biwenger-api` · `-bot` · `-web` · `-scraper` · `run-chucknorris-bot` · `scheduler-invoker` · `biwenger-tools-sa` (CI) | one per service, minimal grants — what each may do: `README.md` → "Service accounts"; the default compute account holds **no role** |
+| Workload Identity Federation | pool `github-plan` / provider `github-plan` | read-only `terraform plan` from `infra.yml` on any ref, as `terraform-plan` |
+| Service accounts | `run-biwenger-api` · `-bot` · `-web` · `-scraper` · `run-chucknorris-bot` · `scheduler-invoker` · `biwenger-tools-sa` (CI) · `terraform-plan` (CI, read-only) | one per service, minimal grants — what each may do: `README.md` → "Service accounts"; the default compute account holds **no role** |
 | Budget | €1/month alert — **billing-account wide** | not filtered to this project: it watches everything on the account |
 
 ## Project `be-water-app`

@@ -4,7 +4,7 @@
 # touched by an apply. Never switch these to *_iam_binding or *_iam_policy —
 # either would delete every member not listed here.
 #
-# Each map key is the resource's import id, so the import blocks are one line.
+# Each map key is the resource's import id (`terraform import` by hand).
 
 locals {
   project_iam = {
@@ -41,24 +41,12 @@ locals {
   }
 }
 
-import {
-  for_each = local.project_iam
-  to       = google_project_iam_member.this[each.key]
-  id       = each.key
-}
-
 resource "google_project_iam_member" "this" {
   for_each = local.project_iam
 
   project = each.value.project
   role    = each.value.role
   member  = each.value.member
-}
-
-import {
-  for_each = local.service_account_iam
-  to       = google_service_account_iam_member.this[each.key]
-  id       = each.key
 }
 
 resource "google_service_account_iam_member" "this" {

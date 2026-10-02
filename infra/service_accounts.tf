@@ -45,12 +45,6 @@ locals {
   }
 }
 
-import {
-  for_each = local.service_accounts
-  to       = google_service_account.this[each.key]
-  id       = "projects/${each.value.project}/serviceAccounts/${each.value.account_id}@${each.value.project}.iam.gserviceaccount.com"
-}
-
 resource "google_service_account" "this" {
   for_each = local.service_accounts
 

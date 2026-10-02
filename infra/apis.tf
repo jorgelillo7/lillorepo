@@ -1,11 +1,14 @@
-# Only the APIs the system calls. Defaults Google enables on every project
-# (BigQuery, Dataplex, …) are left alone, and nothing is ever disabled by
-# removing a line here.
+# Only the APIs the system calls — Cloud Billing and Resource Manager for
+# terraform-plan, whose calls bill to its own project. Defaults Google enables
+# on every project (BigQuery, Dataplex, …) are left alone, and nothing is ever
+# disabled by removing a line here.
 locals {
   apis = {
     (local.biwenger) = [
       "artifactregistry.googleapis.com",
       "billingbudgets.googleapis.com",
+      "cloudbilling.googleapis.com",
+      "cloudresourcemanager.googleapis.com",
       "cloudscheduler.googleapis.com",
       "drive.googleapis.com",
       "firestore.googleapis.com",
@@ -34,12 +37,6 @@ locals {
       ]
     ]) : "${pair.project}/${pair.service}" => pair
   }
-}
-
-import {
-  for_each = local.project_services
-  to       = google_project_service.this[each.key]
-  id       = each.key
 }
 
 resource "google_project_service" "this" {

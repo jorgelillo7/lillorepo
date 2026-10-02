@@ -23,13 +23,6 @@ locals {
   }
 }
 
-import {
-  for_each = local.budgets
-  to       = google_billing_budget.this[each.key]
-  provider = google.billing
-  id       = "billingAccounts/${var.billing_account}/budgets/${each.value.id}"
-}
-
 resource "google_billing_budget" "this" {
   for_each = local.budgets
   provider = google.billing
