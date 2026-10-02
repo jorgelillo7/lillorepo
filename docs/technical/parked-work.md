@@ -44,10 +44,18 @@ the image layers) — do it then, in the same PR.
 
 Each of these was reviewed and deliberately left alone.
 
-**Parametrised `base_deps` / `Dockerfile.base` from the lock.** Build-system
-surgery, and further away since the sync guard now catches the drift this
-would have prevented, at a fraction of the risk. *Trigger:* a package whose
-dependencies materially diverge from the base image.
+**Per-service base images (`base_deps` from the lock).** Re-evaluated with
+measurements on 2026-10-03 and parked again by the owner's call. The bots use
+21 and 27 of the base's ~58 runtime packages and carry ~230 MB they never
+import (google-api-python-client alone ~100 MB); the rest use 36–49. Splitting
+the base into flavours would shrink the bots' images, but: the gain is
+modest (cold start is already 3.3–3.7 s, and the CI cost that mattered — a
+~40 s Swift probe per job — is gone since #578); it is the one change that can
+ship an `ImportError` at cold start with no revision rollback; every
+dependency bump would rebuild up to three bases by hand; and more images push
+Artifact Registry towards the 0.5 GB account-wide free tier (0.242 GB today).
+*Trigger:* a cold start that hurts the 09:00 SLO or a bot's reply time, or a
+package whose dependencies outgrow the shared base enough to matter.
 
 Related: every package now passes `core_deps` and links only the slices of
 `//core` it uses, which scopes the build graph (see "The shape of `core`"). It
