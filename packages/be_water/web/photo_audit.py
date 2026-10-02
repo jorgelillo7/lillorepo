@@ -74,7 +74,8 @@ def looks_like_studio(image_bytes: bytes) -> bool:
         return False
     w, h = img.width, img.height
     corners = [(1, 1), (w - 2, 1), (1, h - 2), (w - 2, h - 2)]
-    return all(min(img.getpixel(c)) >= _WHITE_MIN for c in corners)
+    pixels = [img.getpixel(c) for c in corners]
+    return all(isinstance(p, tuple) and min(p) >= _WHITE_MIN for p in pixels)
 
 
 def suggest_verdict(status: PhotoStatus) -> str:

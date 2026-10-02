@@ -86,6 +86,7 @@ def main() -> None:
             time.sleep(args.delay)
         print(f"[{i}/{len(todo)}] {water.id} — {water.name}")
         try:
+            assert water.label_photo_url  # `eligible` keeps only waters with one
             extracted = _read_label(water.label_photo_url, args.attempts, args.delay)
         except (GeminiError, requests.RequestException) as exc:
             print(f"    ✗ no se pudo leer: {str(exc)[:120]}\n")

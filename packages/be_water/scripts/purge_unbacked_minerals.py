@@ -81,7 +81,9 @@ def main() -> None:
     args = parser.parse_args()
 
     waters = dict(firestore.list_documents(repository.WATERS))
-    targets = [(repository.WATERS, doc_id, doc, None) for doc_id, doc in waters.items()]
+    targets: list[tuple[str, str, dict, dict | None]] = [
+        (repository.WATERS, doc_id, doc, None) for doc_id, doc in waters.items()
+    ]
     targets += [
         (repository.ANALYSES, doc_id, doc, waters.get(doc_id.split("__")[0]))
         for doc_id, doc in firestore.list_documents(repository.ANALYSES)

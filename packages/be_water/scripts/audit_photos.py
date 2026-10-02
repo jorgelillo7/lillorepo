@@ -17,7 +17,6 @@ GEMINI_API_KEY (from packages/be_water/web/.env)."""
 import argparse
 import json
 import os
-import sys
 import webbrowser
 from pathlib import Path
 
@@ -242,4 +241,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

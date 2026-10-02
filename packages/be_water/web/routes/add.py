@@ -591,8 +591,8 @@ def add_water_photo():
     photos.upload_photo(photo_tmp, display)
 
     if ocr_error is not None:
-        exc = ocr_error
-        logger.warning("Label OCR failed.", extra={"error": str(exc)[:300]})
+        error = ocr_error
+        logger.warning("Label OCR failed.", extra={"error": str(error)[:300]})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
         #
         # A read that times out counts as overloaded. Only a *reply* carries a
@@ -601,8 +601,8 @@ def add_water_photo():
         # as "your photo is unreadable" and had the owner re-shooting the same
         # bottle three times while Gemini was returning
         # "experiencing high demand" to everyone.
-        overloaded = getattr(exc, "status_code", None) in (429, 503) or isinstance(
-            exc, requests.Timeout
+        overloaded = getattr(error, "status_code", None) in (429, 503) or isinstance(
+            error, requests.Timeout
         )
         error = (
             "El lector de etiquetas está saturado ahora mismo — "

@@ -40,7 +40,10 @@ Nothing SHALL be paid for twice:
 - **THEN** they rank, scoring 2 plus the fields that label confirmed
 - **WHEN** the entry is the water's own current composition
 - **THEN** it adds no `past_analyses` and its fields are counted once
+- **WHEN** an analysis document has no `water_id` **THEN** it is malformed and
+  credits nobody
 - *Verifies:* `test_seed_waters_do_not_rank`, `test_scores_and_ranking_order`,
+  `test_an_analysis_with_no_water_is_not_credited`,
   `test_rescuing_an_analysis_a_water_lacked_is_worth_adding_one`,
   `test_a_water_is_not_paid_twice_for_its_own_composition`,
   `test_the_field_count_does_not_double_when_a_water_is_dated`,

@@ -262,3 +262,14 @@ def test_a_foreign_water_earns_the_globetrotter_badge():
     stats = build_community_stats(catalog, "2026-09")[0]
     assert stats["foreign_added"] == 1
     assert any(b["emoji"] == "🌍" for b in stats["badges"])
+
+
+def test_an_analysis_with_no_water_is_not_credited():
+    """A malformed analysis document without a `water_id` belongs to no water.
+    It used to count as a past analysis, and its fields as verified ones."""
+    catalog = [_water("penaclara", "jorgelillo", "La Rioja")]
+    analyses = [_entry(None, "2024-01", "bea", _NINE_FIELDS)]
+
+    ranking = build_community_stats(catalog, "2026-07", analyses)
+
+    assert "bea" not in {s["nickname"] for s in ranking}

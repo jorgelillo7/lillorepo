@@ -44,6 +44,7 @@ def main() -> None:
     written = 0
 
     for water in dated:
+        assert water.analysis_date  # `dated` keeps only waters that have one
         existing = repository.get_analysis(water.id, water.analysis_date)
         state = "ya existe" if existing else "nueva"
         print(
