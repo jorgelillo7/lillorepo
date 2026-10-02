@@ -44,7 +44,7 @@ def load_prices(path):
         for row in csv.DictReader(fh, delimiter=";"):
             try:
                 prices[_norm(row["Jugador"])] = int(row["Precio"])
-            except KeyError, ValueError:
+            except (KeyError, ValueError):
                 continue
     return prices
 

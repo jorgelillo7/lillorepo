@@ -59,7 +59,7 @@ def _auto_bid_pause_active() -> bool:
         return False
     try:
         resume = date.fromisoformat(raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         logger.warning("Invalid AUTO_BID_PAUSED_UNTIL %r — ignoring pause.", raw)
         return False
     return datetime.now(MADRID_TZ).date() < resume

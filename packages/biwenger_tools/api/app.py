@@ -83,7 +83,7 @@ def teams():
     else:
         try:
             manager_id = int(manager_arg)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return (
                 jsonify({"status": "error", "error": "manager must be an integer"}),
                 400,
@@ -112,7 +112,7 @@ def pact_toggle():
         return jsonify({"status": "error", "error": "manager_id is required"}), 400
     try:
         manager_id = int(manager_id)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return jsonify({"status": "error", "error": "manager_id must be an int"}), 400
     return _run_action("pact.toggle", lambda: actions.toggle_pact(manager_id))
 
@@ -149,7 +149,7 @@ def budget_recommendations():
     """
     try:
         top = int(request.args.get("top", recommendations.DEFAULT_TOP_N))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         top = recommendations.DEFAULT_TOP_N
     top = max(1, min(10, top))
 
@@ -159,7 +159,7 @@ def budget_recommendations():
     else:
         try:
             margin = max(0, min(50_000_000, int(margin_arg)))
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             margin = None  # fall back to dynamic on garbage
 
     return _run_action(
@@ -224,7 +224,7 @@ def emergency_clausulazo_execute():
         player_id = int(request.args["player_id"])
         owner_id = int(request.args["owner_id"])
         amount = int(request.args["amount"])
-    except KeyError, TypeError, ValueError:
+    except (KeyError, TypeError, ValueError):
         return (
             jsonify(
                 {
@@ -283,7 +283,7 @@ def offers_decide():
     """
     try:
         offer_id = int(request.args["offer_id"])
-    except KeyError, TypeError, ValueError:
+    except (KeyError, TypeError, ValueError):
         return (
             jsonify({"status": "error", "error": "offer_id required (int)"}),
             400,
@@ -442,7 +442,7 @@ def draft_pick_confirm():
         )
     try:
         player_id = int(player_id_raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return (
             jsonify(
                 {

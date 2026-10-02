@@ -37,7 +37,8 @@ bash scripts/lint.sh         # check — what CI runs
 bash scripts/lint.sh --fix   # sort imports, autofix, then format in place
 ```
 
-Configuration lives in `ruff.toml` at the repo root: 88 columns, Python 3.14,
+Configuration lives in `ruff.toml` at the repo root: 88 columns, Python 3.13
+syntax (see the gotcha below),
 rules `E`, `W`, `F`, `I` (minus `E203`), `core` and `packages` as first-party
 imports. A nested config, if one is ever needed, must
 `extend = "../ruff.toml"` — without it, it inherits nothing from the root.
@@ -72,6 +73,10 @@ extension bundles its own Ruff; CI's lock-pinned one is the final word.
 - **Don't add `# noqa`** unless there is no clean alternative, and name the
   rule (`# noqa: F401`) with the reason on the same line.
 - `E203` is ignored: it conflicts with the formatter's slices.
+- **Ruff formats for Python 3.13 syntax** (`target-version = "py313"`) though
+  the code runs on 3.14. Targeting 3.14 made it strip the parentheses from
+  `except (A, B):` — valid only on 3.14, and it reads like Python 2's very
+  different `except A, B:`. Ten files shipped like that once.
 - **Ruff joins adjacent string literals.** `"…?auth" "=abc"` becomes one
   string on the next format. A string split on purpose — so a file does not
   itself hold a literal credential URL, say — must be built another way (a
