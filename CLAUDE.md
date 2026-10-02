@@ -37,6 +37,7 @@ because it went wrong, not because it sounds sensible.
   chucknorris_bot/  Telegram joke bot
   my_photos/        Plan only, no code
 /docker         Docker configurations
+/infra          Terraform for the static GCP layer of both projects (see infra/README.md)
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
 /scripts        Utility scripts (GCP cleanup, costs)
