@@ -98,7 +98,7 @@ def _squad_breakdown(rows: list[dict]) -> dict:
 
 def _names_by_position(rows: list[dict]) -> dict:
     """`position_id → [player names]` for diagnostics."""
-    by_pos: dict[int, list[str]] = {}
+    by_pos: dict[int | None, list[str]] = {}
     for row in rows:
         pos = row.get("position_id")
         by_pos.setdefault(pos, []).append(row.get("name", "?"))

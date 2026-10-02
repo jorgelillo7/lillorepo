@@ -9,12 +9,14 @@ import matplotlib
 
 matplotlib.use("Agg")  # non-interactive backend, must be set before pyplot import
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.artist import Artist  # noqa: E402
 from matplotlib.offsetbox import (  # noqa: E402
     AnchoredOffsetbox,
     HPacker,
     TextArea,
     VPacker,
 )
+from matplotlib.transforms import Bbox  # noqa: E402
 
 from core.constants import MADRID_TZ  # noqa: E402
 from core.sdk.jp import get_predict_rate  # noqa: E402
@@ -348,7 +350,7 @@ def _draw_status_summary(ax, rows: list[dict], show_total_value: bool) -> None:
             ("valor", _INK_SOFT),
             (total_value(rows), _INK),
         ]
-    lines = [_row_of(first)]
+    lines: list[Artist] = [_row_of(first)]
 
     high, mid, low = count_bands(rows)
     if high or mid or low:
@@ -499,7 +501,7 @@ def build_table_image(
             cellColours=cell_colors,
             cellLoc="left",
             loc="center",
-            bbox=[0, 0, 1, table_top],
+            bbox=Bbox.from_bounds(0, 0, 1, table_top),
         )
 
         for j in range(n_cols):

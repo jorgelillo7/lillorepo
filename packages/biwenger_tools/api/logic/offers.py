@@ -484,7 +484,7 @@ def _score_offer(
     bw = ctx.biwenger_players.get(player_id) or {}
     name = bw.get("name") or f"id={player_id}"
     cf_price = int(bw.get("price") or 0)
-    position = POSITION_NAMES.get(bw.get("position"), "?")
+    position = POSITION_NAMES.get(bw.get("position") or 0, "?")
 
     acq_row = acq_by_id.get(player_id) or {}
     sf = shown_score(acq_row) or 0
@@ -522,7 +522,7 @@ def _score_offer(
         vs_market_pct=vs_market_pct,
         is_starter=is_starter,
         xi_loss=impact["xi_loss"],
-        breaks_xi=impact["breaks_xi"],
+        breaks_xi=bool(impact["breaks_xi"]),
     )
 
     return {

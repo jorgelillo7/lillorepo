@@ -389,6 +389,7 @@ def submit_pick(telegram_user_id: str, query: str) -> dict:
             "message": "Hay varios jugadores que encajan con eso, elige uno:",
         }
 
+    assert match.row is not None  # `ok` means exactly one row matched
     return _apply_confirmed_pick(
         manager["manager_id"], match.row["player_id"], players_by_id
     )

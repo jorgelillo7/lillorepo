@@ -118,7 +118,7 @@ def _pick_top_per_position(
     """
     grouped: dict[str, list[dict]] = {k: [] for k in _POSITION_KEYS.values()}
     for row in candidates:
-        key = _POSITION_KEYS.get(row.get("position_id"))
+        key = _POSITION_KEYS.get(row.get("position_id") or 0)
         if key is None:
             continue
         grouped[key].append(row)

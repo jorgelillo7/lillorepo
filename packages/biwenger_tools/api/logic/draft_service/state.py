@@ -105,7 +105,7 @@ def get_state() -> dict:
     pick_num = draft.current_pick_number(state)
     total_picks = len(state.order) * draft.NUM_ROUNDS
 
-    if completed:
+    if turn is None:
         last = state.picks[-1] if state.picks else None
         round_num = last.round if last else 0
         position = last.position if last else 0

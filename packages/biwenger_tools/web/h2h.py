@@ -64,11 +64,12 @@ class Duel:
     @property
     def outcome(self) -> str | None:
         """``"home"``, ``"away"``, ``"draw"``, or ``None`` when unplayed."""
-        if not self.played:
+        home, away = self.home_points, self.away_points
+        if home is None or away is None:
             return None
-        if abs(self.home_points - self.away_points) <= DRAW_MARGIN:
+        if abs(home - away) <= DRAW_MARGIN:
             return "draw"
-        return "home" if self.home_points > self.away_points else "away"
+        return "home" if home > away else "away"
 
 
 @dataclass(frozen=True)
@@ -255,15 +256,13 @@ def standings(rounds: list[Round]) -> list[Standing]:
 
     for round_ in rounds:
         for duel in round_.duels:
-            if not duel.played:
+            hp, ap = duel.home_points, duel.away_points
+            if hp is None or ap is None:  # unplayed
                 continue
             home, away = table.get(duel.home), table.get(duel.away)
             if home is None or away is None:
                 continue
-            for side, own, against in (
-                (home, duel.home_points, duel.away_points),
-                (away, duel.away_points, duel.home_points),
-            ):
+            for side, own, against in ((home, hp, ap), (away, ap, hp)):
                 side.pj += 1
                 side.pf += own
                 side.pc += against

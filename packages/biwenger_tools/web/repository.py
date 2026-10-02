@@ -90,14 +90,14 @@ def count_messages_by_category(season: str, categoria: str) -> int:
     regardless of result size, so the comunicados page can compute its
     ``total_pages`` without pulling every doc.
     """
-    aggregation = (
+    query = (
         get_client()
         .collection(f"comunicados/{season}/messages")
         .where(filter=gfs.FieldFilter("categoria", "==", categoria))
-        .count()
-        .get()
     )
-    return int(aggregation[0][0].value)
+    # The client types `.where(...).count()` as unbound; it is not.
+    aggregation = query.count().get()  # type: ignore[call-arg]
+    return int(aggregation[0][0].value)  # type: ignore[index]
 
 
 # --- participacion -------------------------------------------------------

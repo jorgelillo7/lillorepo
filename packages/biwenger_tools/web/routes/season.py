@@ -16,7 +16,6 @@ from dataclasses import asdict
 import requests
 from flask import (
     Blueprint,
-    Response,
     g,
     jsonify,
     redirect,
@@ -24,6 +23,7 @@ from flask import (
     request,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 
 from core.sdk.gcp import get_workbook
 from core.utils import get_logger
@@ -117,7 +117,7 @@ def comunicados(season: str) -> str:
                     before=messages[0].id_hash,
                 )
             )
-        paginated_messages = _sanitize_contenido(messages)
+        paginated_messages = _sanitize_contenido(messages or [])
     except Exception:
         error = f"Ocurrió un error al cargar los comunicados de la temporada {season}."
         logger.exception(
@@ -140,7 +140,7 @@ def comunicados(season: str) -> str:
 
 
 @bp.route("/<season>/comunicados/search-data")
-def comunicados_search_data(season: str) -> Response:
+def comunicados_search_data(season: str) -> ResponseReturnValue:
     """JSON list of all comunicados for the season — used by the search box.
 
     The comunicados page renders only the current page (server-side
@@ -350,7 +350,7 @@ def h2h(season: str) -> str:
 
 
 @bp.route("/<season>/lloros-awards")
-def lloros_awards(season: str) -> Response:
+def lloros_awards(season: str) -> ResponseReturnValue:
     """The page's old address, kept because links to it are already out."""
     return redirect(url_for("season.competiciones", season=season), code=301)
 

@@ -694,6 +694,17 @@ def test_run_scraper_shows_error_flash_on_failure(mock_trigger, client):
     assert b"Error al lanzar el job" in response.data
 
 
+@patch("packages.biwenger_tools.web.routes.admin.trigger_cloud_run_job")
+def test_the_scraper_trigger_says_what_config_is_missing(mock_trigger, monkeypatch):
+    """No GCP project configured: a clear message, not a call with None."""
+    from packages.biwenger_tools.web.routes import admin as admin_routes
+
+    monkeypatch.setattr(admin_routes.config, "GCP_PROJECT_ID", None)
+    ok, message = admin_routes._trigger_scraper_job()
+    assert not ok and "Falta configurar" in message
+    mock_trigger.assert_not_called()
+
+
 def test_run_scraper_requires_login(client):
     """Unauthenticated POST to /admin/run-scraper is redirected to admin login."""
     response = client.post("/admin/run-scraper", follow_redirects=False)

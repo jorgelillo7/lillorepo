@@ -77,6 +77,8 @@ def price_on(history: dict[int, int], closed: int) -> int | None:
 def _beats(auction: Auction, percent: int) -> bool:
     """Whether a bid of price + `percent` % would have topped the winner.
     Integer maths, so a boundary never moves on float rounding."""
+    if auction.price is None:  # only priced auctions are ever compared
+        return False
     return auction.price * (100 + percent) > auction.winning_bid * 100
 
 

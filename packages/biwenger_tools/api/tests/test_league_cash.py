@@ -230,6 +230,17 @@ def test_notes_give_both_figures_when_the_self_check_fails():
     assert "21.701.085" in warning and "16.376.085" in warning
 
 
+def test_an_untyped_entry_with_an_amount_is_reported_not_a_crash():
+    """An entry with no `type` used to put None among the unknown types, and
+    the note that joins them raised TypeError instead of rendering."""
+    book = _rebuild(
+        _season_started(),
+        {"content": [{"to": _user(ME), "amount": 1}], "date": SEASON_START + 1},
+    )
+    notes = league_cash.notes(book.unknown_types, rebuilt_mine=1, real_mine=1)
+    assert any("None" in n and "⚠️" in n for n in notes)
+
+
 def test_an_unknown_type_with_an_amount_is_reported():
     book = _rebuild(
         _season_started(),

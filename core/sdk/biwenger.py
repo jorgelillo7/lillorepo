@@ -178,11 +178,11 @@ class BiwengerClient:
         self.login_url = login_url
         self.account_url = account_url
         self.league_id = str(league_id)
-        self.user_id: Optional[int] = None
-        self._authenticate()
+        self.user_id: int = self._authenticate()
 
-    def _authenticate(self) -> None:
-        """Logs in and configures the session with the required headers."""
+    def _authenticate(self) -> int:
+        """Logs in, configures the session headers, and returns the user's id
+        in this league. Raises `BiwengerError` when the league has none."""
         logger.info("Authenticating with Biwenger...")
         login_headers = {
             "Accept": "application/json, text/plain, */*",
@@ -214,22 +214,26 @@ class BiwengerClient:
         account_data = account_response.json()
 
         leagues = (account_data.get("data") or {}).get("leagues", [])
-        for league in leagues:
-            if str(league.get("id")) == self.league_id:
-                self.user_id = league.get("user", {}).get("id")
-                break
-
-        if not self.user_id:
+        user_id = next(
+            (
+                league.get("user", {}).get("id")
+                for league in leagues
+                if str(league.get("id")) == self.league_id
+            ),
+            None,
+        )
+        if not user_id:
             raise BiwengerError(f"Could not find user ID for league {self.league_id}.")
         logger.info(
             "User ID obtained.",
-            extra={"user_id": self.user_id, "league_id": self.league_id},
+            extra={"user_id": user_id, "league_id": self.league_id},
         )
 
         self.session.headers.update(
-            {"X-League": self.league_id, "X-User": str(self.user_id)}
+            {"X-League": self.league_id, "X-User": str(user_id)}
         )
         logger.info("Biwenger session ready.")
+        return int(user_id)
 
     def get_account_state(
         self,
