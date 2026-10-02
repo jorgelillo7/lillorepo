@@ -39,8 +39,8 @@ Lloros Awards incident on 2026-08-27 made it 9.35.
 5. **CI that reasons about the graph.** Pull requests run only the suites a
    change can break, derived from `rdeps` rather than a list that would rot;
    `master` always runs everything. A docs PR's test job: 89s → 21s. Lint is
-   one tool, Ruff (format, lint, import order), in ~30–45 s where black and
-   flake8 took 58–106 s; every PR's test job shows a coverage summary —
+   one tool, Ruff (format, lint, import order), plus mypy over every package,
+   in ~30–55 s where black and flake8 alone took 58–106 s; every PR's test job shows a coverage summary —
    78.5 % of the lines in tested files — and lists the files no test imports
    instead of hiding them.
 6. **The draft, which is the hardest thing here.** A 105-pick snake draft
