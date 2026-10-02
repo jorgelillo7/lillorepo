@@ -23,6 +23,7 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Cloud Run (jobs) | `biwenger-scraper-data` | Sundays 22:00 via Scheduler |
 | Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log |
 | Cloud Storage | `biwenger` — **`us-central1`** | public read; the newspaper, the draft market CSV and the cup-winner images. Written by `run-biwenger-api`; one league member may upload under `special-tournaments/` only. US for the always-free tier, as `be-water-photos` |
+| Cloud Storage | `lillorepo-tfstate` — **`us-central1`** | private, versioned Terraform state for both projects ([`infra/`](infra/README.md)); created by hand, not by Terraform |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` (linux/amd64 only, bytecode compiled in) |
 | Secret Manager | 2 secrets ×1 active version | `biwenger-secrets`, `chucknorris-secrets` — one regional JSON secret per package; no key files |
 | Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |

@@ -61,18 +61,20 @@ repo. Budgets go through a second provider (`google.billing`) with a quota
 project, because the Budget API refuses user credentials without one; every
 other call needs no extra API enabled.
 
-**Done** means `plan` reads `0 to add, 0 to change, 0 to destroy`. Keep the
-import blocks until the state lives in the GCS bucket: while it is local they
-are what rebuilds it, and without them a lost state file makes `plan` propose
-creating all 87 resources again.
+**Done** means `plan` reads `0 to add, 0 to change, 0 to destroy`. Once the
+first `apply` has written the state, the import blocks have done their job and
+can be deleted.
 
 ## State
 
-Local (`terraform.tfstate`, gitignored) until a state bucket exists. The
-intended home is a versioned, private GCS bucket in a US region (inside the
-always-free tier), created by hand and not managed by the config whose state it
-holds. Losing the local state before then is cheap: re-running `plan` with the
-import blocks rebuilds it.
+`gs://lillorepo-tfstate/infra/` in `biwenger-tools`: us-central1 (always-free
+tier), public access prevention enforced, versioned, keeping the ten most recent
+previous versions — a bad `apply` is undone by restoring one. The state is a
+single file of a few hundred KB, so the bucket never grows. It also holds the
+lock that stops two applies from running at once.
+
+The bucket is created by hand and deliberately absent from this configuration:
+a config that manages the bucket holding its own state can delete it.
 
 ## Rules once adopted
 

@@ -8,8 +8,11 @@ terraform {
     }
   }
 
-  # Local until the state bucket exists; see README.md → "State".
-  backend "local" {}
+  # Created by hand, not by this configuration; see README.md → "State".
+  backend "gcs" {
+    bucket = "lillorepo-tfstate"
+    prefix = "infra"
+  }
 }
 
 provider "google" {
