@@ -113,6 +113,17 @@ jobs:
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
 
+      # mypy re-analyses every file and every library stub without its cache:
+      # ~30 s on a runner against ~1 s warm. Saved per commit, restored from
+      # the newest one with the same lock and config (PRs read master's).
+      - name: Restore mypy's cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-${{ hashFiles('requirements_lock.txt', 'mypy.ini') }}-${{ github.sha }}
+          restore-keys: |
+            mypy-${{ hashFiles('requirements_lock.txt', 'mypy.ini') }}-
+
       - name: Lint
         run: bash scripts/lint.sh
 

@@ -18,9 +18,12 @@ once it is clean, and stays clean. `scripts/lint.sh` runs it
 as `//tools/lint:mypy`, in-process, with the runtime libraries the code imports
 plus the stubs for those that ship none (`types-bleach`, `types-gunicorn`,
 `types-python-dateutil`) as Bazel deps — so it reads their real types. A new
-third-party import must be added to those deps; one with no types and no stubs
-(today `googleapiclient`, `google.auth`) is ignored **by name** in
-`mypy.ini`. Its cache lives in `.mypy_cache/` (git-ignored).
+third-party import must be added to those deps — and only then: the deps are
+kept to what the checked trees import, because every wheel adds thousands of
+files Bazel lays out on each CI run. One with no types and no stubs (today
+`googleapiclient`, `google.auth`) is ignored **by name** in `mypy.ini`. Its
+cache lives in `.mypy_cache/` (git-ignored); CI keeps it between runs with
+`actions/cache`, keyed on the lock and `mypy.ini`.
 
 ## How it works
 
