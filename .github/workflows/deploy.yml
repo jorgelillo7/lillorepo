@@ -116,6 +116,14 @@ jobs:
       # mypy re-analyses every file and every library stub without its cache:
       # ~30 s on a runner against ~1 s warm. Saved per commit, restored from
       # the newest one with the same lock and config (PRs read master's).
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
+
       - name: Restore mypy's cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -220,6 +228,14 @@ jobs:
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
 
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
+
       - name: Run all tests
         run: |
           # `--build_tests_only` keeps this to the tests and their deps; without
@@ -277,6 +293,14 @@ jobs:
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
+
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
 
       - name: Build and push web image
         run: |
@@ -349,6 +373,14 @@ jobs:
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
 
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
+
       - name: Build and push scraper image
         run: |
           bazel run //packages/biwenger_tools/scraper_job:push_image_to_gcp \
@@ -410,6 +442,14 @@ jobs:
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
+
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
 
       - name: Build and push bot image
         run: |
@@ -515,6 +555,14 @@ jobs:
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
 
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
+
       - name: Build and push biwenger-api image
         run: |
           bazel run //packages/biwenger_tools/api:push_image_to_gcp \
@@ -586,6 +634,14 @@ jobs:
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
+
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
 
       - name: Build and push Chuck Norris bot image
         run: |
@@ -671,6 +727,14 @@ jobs:
           # One key across workflows, so the deploy inherits what CI just warmed
           # instead of starting cold a minute after a green PR.
           disk-cache: bazel
+
+      # rules_swift (rules_python → rules_apple → rules_swift) auto-configures
+      # a Swift toolchain whenever Bazel resolves any toolchain, and on this
+      # runner, which ships swiftc, its probe compiles a test program: ~40 s
+      # per job, never cached (a local repository rule). Nothing here builds
+      # Swift; without swiftc on PATH the probe is skipped.
+      - name: Hide swiftc from Bazel
+        run: sudo rm -f "$(command -v swiftc)"
 
       - name: Build and push Be Water image
         run: |
