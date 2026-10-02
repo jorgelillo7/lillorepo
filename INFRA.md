@@ -4,7 +4,10 @@ One screen to know **which projects exist, which services each one uses, and
 where they live**. The *why* behind every choice stays in `docs/gcp.md`
 (cost decisions, single-region policy, secret consolidation). Update this
 file whenever a service/bucket/secret is added or moved — `scripts/check-gcp-costs.sh`
-audits most of what's listed here.
+audits most of what's listed here. The static layer of both projects (accounts,
+grants, secrets, registries, buckets, Firestore settings, Scheduler, budgets) is
+declared as code in [`infra/`](infra/README.md); this file is the readable
+summary, `infra/` is what a `terraform plan` checks.
 
 Default region: **`europe-southwest1` (Madrid)** — deviations are called out.
 
@@ -19,12 +22,14 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Cloud Run (services) | `biwenger-api` · `biwenger-bot` · `biwenger-summary` (web) · `chucknorris-bot` | All minScale=0 |
 | Cloud Run (jobs) | `biwenger-scraper-data` | Sundays 22:00 via Scheduler |
 | Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log |
+| Cloud Storage | `biwenger` — **`us-central1`** | public read; the newspaper, the draft market CSV and the cup-winner images. Written by `run-biwenger-api`; one league member may upload under `special-tournaments/` only. US for the always-free tier, as `be-water-photos` |
+| Cloud Storage | `lillorepo-tfstate` — **`us-central1`** | private, versioned Terraform state for both projects ([`infra/`](infra/README.md)); created by hand, not by Terraform |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` (linux/amd64 only, bytecode compiled in) |
 | Secret Manager | 2 secrets ×1 active version | `biwenger-secrets`, `chucknorris-secrets` — one regional JSON secret per package; no key files |
 | Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |
 | Workload Identity Federation | pool `github` / provider `github-oidc` | keyless deploys for the whole repo, restricted to `jorgelillo7/lillorepo` **on `master`** |
 | Service accounts | `run-biwenger-api` · `-bot` · `-web` · `-scraper` · `run-chucknorris-bot` · `scheduler-invoker` · `biwenger-tools-sa` (CI) | one per service, minimal grants — what each may do: `README.md` → "Service accounts"; the default compute account holds **no role** |
-| Budget | €1/month alert | |
+| Budget | €1/month alert — **billing-account wide** | not filtered to this project: it watches everything on the account |
 
 ## Project `be-water-app`
 
@@ -38,7 +43,7 @@ The Be Water catalog (package `be_water`).
 | Artifact Registry | `be-water-docker` | `web` image (base pulled from `biwenger-docker`) |
 | Secret Manager | 1 secret ×1 version | `be-water-secrets` (JSON: flask key + Telegram bot + Gemini key — consolidated on purpose) |
 | Service account | `run-be-water` | Firestore, objects in `be-water-photos`, `be-water-secrets` — the compute default holds no role |
-| Budget | €1/month alert | |
+| Budget | €1/month alert | filtered to this project |
 
 Deploys to this project run from the shared WIF service account
 (`biwenger-tools-sa`), granted `run.admin` + `artifactregistry.writer` +
@@ -74,6 +79,7 @@ repo so the CI cleanup job can delete old digests.
   removes untagged digests older than 24 h, so rebuild once per change, not
   per experiment, and move `latest` only after the merge
   (`.claude/skills/check-deps/UPGRADING.md`).
-- One €1 budget alert per project; `scripts/check-gcp-costs.sh` is the
-  auditor — run without flags it sweeps both projects and closes with the
-  account-wide Secret Manager version count.
+- Three €1 monthly budget alerts on the billing account: one account-wide,
+  one on `be-water-app`, one on the paid Gemini project.
+  `scripts/check-gcp-costs.sh` is the auditor — run without flags it sweeps
+  both projects and closes with the account-wide Secret Manager version count.

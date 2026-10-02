@@ -122,12 +122,12 @@ the job) wherever IAM allows it.
 
 | Account (`…@biwenger-tools.iam.gserviceaccount.com`) | Runs | May |
 |---|---|---|
-| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` (front pages) · run the scraper job |
+| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` (front pages, draft market CSV, cup images) · run the scraper job |
 | `run-biwenger-bot` | `biwenger-bot` | read `biwenger-secrets` · call `biwenger-api` |
 | `run-biwenger-web` | `biwenger-summary` (web) | **read** Firestore · read `biwenger-secrets` · run the scraper job (admin button) · read the "Biwenger" Drive folder (Viewer, shared by hand) |
 | `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-secrets` |
 | `scheduler-invoker` | both Cloud Scheduler jobs | call `biwenger-api` (09:00 digest) · run the scraper job (Sunday 22:00) |
-| `biwenger-tools-sa` | CI (`deploy.yml`, keyless via Workload Identity, `master` only) | push images · deploy Cloud Run · act as the `run-*` accounts above |
+| `biwenger-tools-sa` | CI (`deploy.yml`, keyless via Workload Identity, `master` only) | push images · deploy Cloud Run · act as the `run-*` accounts above · project Viewer |
 
 Public reach is separate from these: the web and the bot answer anyone
 (`allUsers` invoker), the api only its callers above. Two things to know when
