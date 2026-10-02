@@ -26,12 +26,6 @@ locals {
   }
 }
 
-import {
-  for_each = local.secrets
-  to       = google_secret_manager_secret.this[each.key]
-  id       = "projects/${each.value.project}/secrets/${each.key}"
-}
-
 resource "google_secret_manager_secret" "this" {
   for_each = local.secrets
 
@@ -49,12 +43,6 @@ resource "google_secret_manager_secret" "this" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-import {
-  for_each = local.secret_iam
-  to       = google_secret_manager_secret_iam_member.this[each.key]
-  id       = each.key
 }
 
 resource "google_secret_manager_secret_iam_member" "this" {

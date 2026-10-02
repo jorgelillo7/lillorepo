@@ -1,9 +1,4 @@
 # Two of the billing account's three free Scheduler jobs.
-import {
-  to = google_cloud_scheduler_job.daily_digest
-  id = "projects/${local.biwenger}/locations/${local.scheduler_region}/jobs/biwenger-daily-digest-trigger"
-}
-
 resource "google_cloud_scheduler_job" "daily_digest" {
   project          = local.biwenger
   region           = local.scheduler_region
@@ -33,11 +28,6 @@ resource "google_cloud_scheduler_job" "daily_digest" {
       audience              = "https://biwenger-api-pjpqofuevq-no.a.run.app"
     }
   }
-}
-
-import {
-  to = google_cloud_scheduler_job.weekly_scraper
-  id = "projects/${local.biwenger}/locations/${local.scheduler_region}/jobs/biwenger-scraper-data-scheduler-trigger"
 }
 
 # Runs the Cloud Run job through the Admin API, hence OAuth rather than OIDC.

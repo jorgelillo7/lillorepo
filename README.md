@@ -137,6 +137,7 @@ allows it.
 | `run-chucknorris-bot` | `chucknorris-bot` | read `chucknorris-secrets` |
 | `run-be-water` (project `be-water-app`) | `be-water` | read/write Firestore · read/write objects in `gs://be-water-photos` · read `be-water-secrets` |
 | `biwenger-tools-sa` | CI (`deploy.yml`) | push images · deploy Cloud Run in both projects · act as the `run-*` accounts · project Viewer on `biwenger-tools` — keyless through Workload Identity, `master` only |
+| `terraform-plan` | CI (`infra.yml`) | **read** configuration and IAM in both projects, the budgets and the Terraform state — keyless, its own WIF pool, any ref |
 
 The accounts in `biwenger-tools` are `…@biwenger-tools.iam.gserviceaccount.com`.
 Who may call each service is separate: the webs and the bots answer anyone,

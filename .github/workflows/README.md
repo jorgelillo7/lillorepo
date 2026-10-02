@@ -1,12 +1,13 @@
 # CI/CD
 
-Three workflows. The two that test deliberately do **not** run the same tests.
+Four workflows. The two that test deliberately do **not** run the same tests.
 
 | Workflow | Runs on | Tests |
 |---|---|---|
 | [`ci.yml`](#ciyml--the-pull-request-gate) | every pull request | only the suites the change can break |
 | [`deploy.yml`](#deployyml) | push to `master` touching a deployable path | `//...`, always |
 | [`deploy-watchdog.yml`](#deploy-watchdogyml) | daily | — (dispatches `deploy.yml` if a push event was lost) |
+| [`infra.yml`](#infrayml--terraform-plan) | pull requests touching `infra/` · Mondays | — (`terraform plan`, read-only) |
 
 Scoping is a pull-request optimisation. The branch that deploys keeps verifying
 everything, so nothing reaches production having been tested selectively.
@@ -142,6 +143,7 @@ Service account: `biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com`
 
 | Resource | Role | Why |
 |----------|------|-----|
+| repo `biwenger-docker` | `roles/artifactregistry.repoAdmin` | Cleanup job deletes old digests (writer cannot delete) |
 | each `run-*@biwenger-tools.iam.gserviceaccount.com` (api, bot, web, scraper, chucknorris) | `roles/iam.serviceAccountUser` | Allow the deploy SA to act as each service's runtime SA (`actAs`, required by `gcloud run deploy --service-account`) |
 
 ### Cross-project grants on `be-water-app`
@@ -155,25 +157,12 @@ The same SA deploys Be Water to its own project:
 | repo `be-water-docker` | `roles/artifactregistry.repoAdmin` | Cleanup job deletes old digests (writer cannot delete) |
 | `run-be-water@be-water-app.iam.gserviceaccount.com` | `roles/iam.serviceAccountUser` | `actAs` for `gcloud run deploy` |
 
-### How to reproduce from scratch
+### Where these grants live
 
-```bash
-SA="biwenger-tools-sa@biwenger-tools.iam.gserviceaccount.com"
-PROJECT="biwenger-tools"
-
-# Project-level roles
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA" --role="roles/artifactregistry.writer"
-
-gcloud projects add-iam-policy-binding $PROJECT \
-  --member="serviceAccount:$SA" --role="roles/run.developer"
-
-# actAs on each runtime SA (see docs/gcp.md "Runtime identities")
-for rt in run-biwenger-api run-biwenger-bot run-biwenger-web run-biwenger-scraper run-chucknorris-bot; do
-  gcloud iam service-accounts add-iam-policy-binding $rt@$PROJECT.iam.gserviceaccount.com \
-    --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
-done
-```
+Every grant above is declared in [`infra/iam.tf`](../../infra/iam.tf) and
+[`infra/artifact_registry.tf`](../../infra/artifact_registry.tf). Change them
+there, in a PR, and apply locally — a grant added with `gcloud` shows up as
+drift in the next plan and is reverted by the next apply.
 
 ### Verify current permissions
 
@@ -188,6 +177,24 @@ gcloud projects get-iam-policy biwenger-tools \
 gcloud iam service-accounts get-iam-policy run-biwenger-api@biwenger-tools.iam.gserviceaccount.com \
   --format="table(bindings.role, bindings.members)"
 ```
+
+## `infra.yml` — terraform plan
+
+Runs `terraform plan` for [`infra/`](../../infra/README.md) on every pull
+request that touches it (the full plan lands in the job summary) and every
+Monday against `master`, where any pending change fails the run: production
+and the code have drifted. It never applies; the owner does, locally.
+
+It authenticates as `terraform-plan@biwenger-tools.iam.gserviceaccount.com`,
+which can read configuration and IAM in both projects, the budgets and the
+state bucket, and change nothing. Its WIF pool is `github-plan`, separate from
+the deploy pool on purpose: `biwenger-tools-sa` trusts every provider in
+`github` that maps this repository, so a provider there admitting pull requests
+would hand them the deploy identity. The `github-plan` provider admits only
+this repository's `infra.yml`, on any ref; fork pull requests get no OIDC token.
+
+Needs the repository secret `TF_BILLING_ACCOUNT` (the billing account id, kept
+out of public logs by GitHub's masking). Not a required check.
 
 ## Branch protection on `master`
 

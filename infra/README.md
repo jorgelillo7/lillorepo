@@ -5,8 +5,9 @@ that change rarely and break badly when they change by hand: identities,
 grants, secrets, registries, buckets, Firestore settings, schedules, budgets.
 
 Everything here was **adopted** from resources that already existed, through
-`import` blocks. The first `apply` creates nothing and changes nothing; it only
-writes the state.
+`import` blocks that have since been removed (they live in `git log`). Adopting
+another existing resource takes a temporary `import` block, or
+`terraform import`.
 
 ## What is managed
 
@@ -23,6 +24,7 @@ writes the state.
 | `scheduler.tf` | Daily digest and weekly scraper triggers (`europe-west1`) |
 | `firestore.tf` | Both `(default)` databases, `messages` composite indexes, field overrides and the `bids.expires_at` TTL |
 | `budgets.tf` | The three €1 monthly alerts on the billing account |
+| `ci_plan.tf` | The read-only identity CI plans with: its own WIF pool, `terraform-plan` and its viewer grants |
 
 ## What is deliberately not managed
 
@@ -61,9 +63,7 @@ repo. Budgets go through a second provider (`google.billing`) with a quota
 project, because the Budget API refuses user credentials without one; every
 other call needs no extra API enabled.
 
-**Done** means `plan` reads `0 to add, 0 to change, 0 to destroy`. Once the
-first `apply` has written the state, the import blocks have done their job and
-can be deleted.
+A clean `plan` reads `No changes`.
 
 ## State
 
@@ -82,4 +82,5 @@ a config that manages the bucket holding its own state can delete it.
   description — not with `gcloud`. A hand change shows up as drift on the next
   `plan` and will be reverted by the next `apply`.
 - Only the owner applies. CI must never hold the IAM-admin rights an apply
-  needs.
+  needs; it plans, read-only (`.github/workflows/infra.yml`, identity in
+  `ci_plan.tf`), on pull requests and weekly as a drift check.

@@ -4,12 +4,6 @@ locals {
   firestore_projects = toset([local.biwenger, local.be_water])
 }
 
-import {
-  for_each = local.firestore_projects
-  to       = google_firestore_database.default[each.key]
-  id       = "projects/${each.key}/databases/(default)"
-}
-
 resource "google_firestore_database" "default" {
   for_each = local.firestore_projects
 
@@ -34,12 +28,6 @@ locals {
     by_categoria_fecha_desc = { id = "CICAgOjXh4EK", order = "DESCENDING" }
     by_categoria_fecha_asc  = { id = "CICAgJiUpoMK", order = "ASCENDING" }
   }
-}
-
-import {
-  for_each = local.messages_indexes
-  to       = google_firestore_index.messages[each.key]
-  id       = "projects/${local.biwenger}/databases/(default)/collectionGroups/messages/indexes/${each.value.id}"
 }
 
 resource "google_firestore_index" "messages" {
@@ -75,12 +63,6 @@ locals {
       project = local.be_water, collection = "water_revisions", field = "previous", ttl = false
     }
   }
-}
-
-import {
-  for_each = local.field_overrides
-  to       = google_firestore_field.override[each.key]
-  id       = "projects/${each.value.project}/databases/(default)/collectionGroups/${each.value.collection}/fields/${each.value.field}"
 }
 
 resource "google_firestore_field" "override" {

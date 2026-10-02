@@ -22,12 +22,6 @@ locals {
   }
 }
 
-import {
-  for_each = local.run_service_iam
-  to       = google_cloud_run_v2_service_iam_member.invoker[each.key]
-  id       = each.key
-}
-
 resource "google_cloud_run_v2_service_iam_member" "invoker" {
   for_each = local.run_service_iam
 
@@ -36,12 +30,6 @@ resource "google_cloud_run_v2_service_iam_member" "invoker" {
   name     = each.value.name
   role     = "roles/run.invoker"
   member   = each.value.member
-}
-
-import {
-  for_each = local.run_job_iam
-  to       = google_cloud_run_v2_job_iam_member.invoker[each.key]
-  id       = each.key
 }
 
 resource "google_cloud_run_v2_job_iam_member" "invoker" {

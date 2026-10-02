@@ -1,10 +1,5 @@
 # Both buckets sit in us-central1 on purpose: Cloud Storage's 5 GB always-free
 # tier only exists in US regions.
-import {
-  to = google_storage_bucket.biwenger
-  id = "${local.biwenger}/biwenger"
-}
-
 resource "google_storage_bucket" "biwenger" {
   project                     = local.biwenger
   name                        = "biwenger"
@@ -20,11 +15,6 @@ resource "google_storage_bucket" "biwenger" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-import {
-  to = google_storage_bucket.be_water_photos
-  id = "${local.be_water}/be-water-photos"
 }
 
 resource "google_storage_bucket" "be_water_photos" {
@@ -67,12 +57,6 @@ locals {
       { bucket = "be-water-photos", role = "roles/storage.objectUser", member = "serviceAccount:${local.sa.be_water}" },
     ] : "b/${g.bucket} ${g.role} ${g.member}" => g
   }
-}
-
-import {
-  for_each = local.bucket_iam
-  to       = google_storage_bucket_iam_member.this[each.key]
-  id       = each.key
 }
 
 resource "google_storage_bucket_iam_member" "this" {
