@@ -1,0 +1,32 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
+
+# Pure helpers of the moderation CLI. A library the tests depend on, not sources of the test
+# itself: Bazel does not instrument a test target's own files.
+py_library(
+    name = "moderation",
+    srcs = ["moderation.py"],
+)
+
+# Review queue, restore and remove for public polls (local, uses ADC). Every write is behind a
+# confirmation.
+py_binary(
+    name = "moderate",
+    srcs = ["moderate.py"],
+    main = "moderate.py",
+    deps = [
+        ":moderation",
+        requirement("google-cloud-firestore"),
+    ],
+)
+
+py_test(
+    name = "scripts_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]),
+    main = "tests/main.py",
+    deps = [
+        ":moderation",
+        requirement("pytest"),
+    ],
+)

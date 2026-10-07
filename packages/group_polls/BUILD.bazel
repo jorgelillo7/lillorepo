@@ -1,0 +1,16 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
+
+# The security rules are data for the emulator tests and for Terraform (infra/group_polls.tf).
+exports_files(["firestore.rules"])
+
+# Security rules against the Firestore emulator. Skipped without FIRESTORE_EMULATOR_HOST (CI has
+# no emulator); run locally as described in OPERATIONS.md.
+py_test(
+    name = "rules_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]),
+    data = ["firestore.rules"],
+    main = "tests/main.py",
+    deps = [requirement("pytest")],
+)

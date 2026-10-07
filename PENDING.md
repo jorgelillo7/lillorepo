@@ -50,6 +50,12 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
 
+## group_polls
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · steps in `packages/group_polls/OPERATIONS.md` → "Create the project" |
+
 ## be_water
 
 | | What is missing | Waiting on |

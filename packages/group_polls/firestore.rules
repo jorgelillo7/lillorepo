@@ -1,0 +1,151 @@
+rules_version = '2';
+
+// Security rules for "¿Qué votáis?" (com.jorgelillo.grouppolls). The Android app talks to
+// Firestore directly, so these rules are the only boundary: every invariant lives here.
+//
+//   polls/{code}                 a poll; the 12-char random code is its id and, for private
+//                                polls, the only key to it
+//   polls/{code}/votes/{uid}     one final vote per anonymous user
+//   polls/{code}/reports/{uid}   one report per user on public polls
+//
+// App Check (Play Integrity) is enforced on Firestore in the console, on top of these rules.
+// Tests: packages/group_polls/tests/test_rules.py against the emulator (OPERATIONS.md).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function pollPath(code) {
+      return /databases/$(database)/documents/polls/$(code);
+    }
+
+    function pollBefore(code) {
+      return get(pollPath(code)).data;
+    }
+
+    function pollAfter(code) {
+      return getAfter(pollPath(code)).data;
+    }
+
+    function votePath(code, uid) {
+      return /databases/$(database)/documents/polls/$(code)/votes/$(uid);
+    }
+
+    function reportPath(code, uid) {
+      return /databases/$(database)/documents/polls/$(code)/reports/$(uid);
+    }
+
+    function text(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max;
+    }
+
+    // Open: not closed by its creator and, unless it has no limit, within its duration.
+    function isOpen(poll) {
+      return poll.closedAt == null
+        && (poll.durationDays == 0 || request.time < poll.createdAt + duration.value(poll.durationDays, 'd'));
+    }
+
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    match /polls/{code} {
+      // Anyone signed in can open a poll by its code (that is what a link is).
+      allow get: if signedIn();
+      // Listing is limited to the public feed and to your own polls ("delete my data").
+      // Queries must filter on one of the two, or Firestore rejects them.
+      allow list: if signedIn() && (resource.data.visibility == 'public' || resource.data.creatorId == me());
+
+      allow create: if signedIn()
+        && code.matches('^[a-km-np-zA-HJ-NP-Z2-9]{12}$')
+        && request.resource.data.keys().hasOnly(['visibility', 'question', 'red', 'blue', 'creatorId', 'creatorName',
+             'language', 'createdAt', 'durationDays', 'closedAt', 'redVotes', 'blueVotes', 'reports', 'hidden'])
+        && request.resource.data.keys().hasAll(['visibility', 'question', 'red', 'blue', 'creatorId', 'creatorName',
+             'language', 'createdAt', 'durationDays', 'closedAt', 'redVotes', 'blueVotes', 'reports', 'hidden'])
+        && request.resource.data.visibility in ['public', 'private']
+        && text(request.resource.data.question, 5, 120)
+        && text(request.resource.data.red, 1, 30)
+        && text(request.resource.data.blue, 1, 30)
+        && request.resource.data.red.lower() != request.resource.data.blue.lower()
+        && request.resource.data.creatorId == me()
+        && text(request.resource.data.creatorName, 0, 24)
+        && text(request.resource.data.language, 2, 8)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.durationDays in [0, 1, 7]
+        && request.resource.data.closedAt == null
+        && request.resource.data.redVotes == 0
+        && request.resource.data.blueVotes == 0
+        && request.resource.data.reports == 0
+        && request.resource.data.hidden == false;
+
+      allow update: if signedIn() && (
+        // A vote: one counter +1, in the same batch as this user's new vote on that side.
+        (changed().hasOnly(['redVotes']) && request.resource.data.redVotes == resource.data.redVotes + 1 && newVote('red'))
+        || (changed().hasOnly(['blueVotes']) && request.resource.data.blueVotes == resource.data.blueVotes + 1 && newVote('blue'))
+        // The creator closes it (never deletes it: nobody loses their vote).
+        || (changed().hasOnly(['closedAt']) && resource.data.creatorId == me()
+            && resource.data.closedAt == null && request.resource.data.closedAt == request.time)
+        // The creator removes their name ("delete my data").
+        || (changed().hasOnly(['creatorName']) && resource.data.creatorId == me() && request.resource.data.creatorName == '')
+        // A report: reports +1 with this user's new report; hidden from 3 reports on.
+        || (changed().hasOnly(['reports', 'hidden']) && request.resource.data.reports == resource.data.reports + 1
+            && request.resource.data.hidden == (request.resource.data.reports >= 3)
+            && !exists(reportPath(code, me())) && existsAfter(reportPath(code, me())))
+      );
+
+      allow delete: if false;
+
+      function newVote(side) {
+        return !exists(votePath(code, me())) && existsAfter(votePath(code, me()))
+          && getAfter(votePath(code, me())).data.side == side;
+      }
+
+      match /votes/{uid} {
+        // Your own vote always; everyone's only on private polls (results show who voted what).
+        allow get: if signedIn() && (uid == me() || pollBefore(code).visibility == 'private');
+        allow list: if signedIn() && pollBefore(code).visibility == 'private';
+
+        allow create: if signedIn()
+          && uid == me()
+          && request.resource.data.keys().hasOnly(['voterId', 'side', 'prediction', 'votedAt', 'name'])
+          && request.resource.data.voterId == me()
+          && request.resource.data.side in ['red', 'blue']
+          && request.resource.data.prediction in ['red', 'blue']
+          && request.resource.data.votedAt == request.time
+          && isOpen(pollBefore(code))
+          // Names only on private polls; public votes never carry one.
+          && (pollBefore(code).visibility == 'private'
+                ? text(request.resource.data.get('name', ''), 0, 24)
+                : !('name' in request.resource.data))
+          // The poll's counter for that side goes up by exactly one in the same batch.
+          && pollAfter(code)[request.resource.data.side + 'Votes'] == pollBefore(code)[request.resource.data.side + 'Votes'] + 1;
+
+        // Only to blank your own name ("delete my data"); the vote itself is final.
+        allow update: if signedIn() && uid == me() && changed().hasOnly(['name']) && request.resource.data.name == '';
+        allow delete: if false;
+      }
+
+      match /reports/{uid} {
+        allow create: if signedIn()
+          && uid == me()
+          && pollBefore(code).visibility == 'public'
+          && pollBefore(code).creatorId != me()
+          && request.resource.data.keys().hasOnly(['at'])
+          && request.resource.data.at == request.time
+          && pollAfter(code).reports == pollBefore(code).reports + 1;
+        allow read, update, delete: if false;
+      }
+    }
+
+    // "Delete my data" finds your votes across polls with a collection-group query on voterId.
+    match /{path=**}/votes/{uid} {
+      allow list: if signedIn() && resource.data.voterId == me();
+    }
+  }
+}
