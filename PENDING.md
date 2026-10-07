@@ -42,6 +42,7 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
 | ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
 | ⏳ | Re-measure the auto-bid shares (T1–T4) | More settled auctions — run `scripts/auto_bid/calibrate.py` monthly, **next ~late October** · the first reading (137 auctions, 27/09) set +40/+20/+10/+5 %; the ≥ 10M band had only 9 · [how](packages/biwenger_tools/OPERATIONS.md) |
+| 🔨 | Make `web` an installable PWA (league members get an icon, full screen, no browser bar; Android and iPhone) | ~1 h: `manifest.webmanifest` (name, icons 192/512 + maskable, colours, `display: standalone`), a minimal service worker, `<link rel="manifest">` in `templates/base.html`, and the CSP from #542 allowing `manifest-src 'self'` / `worker-src 'self'` · **not** a Play Store app: tiny private audience, Telegram already does notifications · optional later: a nicer domain than the `run.app` one |
 
 ## my_photos
 
