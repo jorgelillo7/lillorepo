@@ -1,0 +1,52 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("@pypi//:requirements.bzl", "requirement")
+
+# Pure helpers of the moderation CLI. A library the tests depend on, not sources of the test
+# itself: Bazel does not instrument a test target's own files.
+py_library(
+    name = "moderation",
+    srcs = ["moderation.py"],
+)
+
+# Pure helpers of the seed CLI (validation, batches, poll documents).
+py_library(
+    name = "seeding",
+    srcs = ["seeding.py"],
+)
+
+# Publishes the next seed questions to the public feed (local, uses ADC). Dry run by default.
+py_binary(
+    name = "seed",
+    srcs = ["seed.py"],
+    data = ["//packages/group_polls:seed/questions.json"],
+    main = "seed.py",
+    deps = [
+        ":seeding",
+        requirement("google-cloud-firestore"),
+    ],
+)
+
+# Review queue, restore and remove for public polls (local, uses ADC). Every write is behind a
+# confirmation.
+py_binary(
+    name = "moderate",
+    srcs = ["moderate.py"],
+    main = "moderate.py",
+    deps = [
+        ":moderation",
+        requirement("google-cloud-firestore"),
+    ],
+)
+
+py_test(
+    name = "scripts_tests",
+    timeout = "short",
+    srcs = glob(["tests/**/*.py"]),
+    data = ["//packages/group_polls:seed/questions.json"],
+    main = "tests/main.py",
+    deps = [
+        ":moderation",
+        ":seeding",
+        requirement("pytest"),
+    ],
+)

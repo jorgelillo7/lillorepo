@@ -32,6 +32,14 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Service accounts | `run-biwenger-api` · `-bot` · `-web` · `-scraper` · `run-chucknorris-bot` · `scheduler-invoker` · `biwenger-tools-sa` (CI) · `terraform-plan` (CI, read-only) | one per service, minimal grants — what each may do: `README.md` → "Service accounts"; the default compute account holds **no role** |
 | Budget | €1/month alert — **billing-account wide** | not filtered to this project: it watches everything on the account |
 
+## Project for `group_polls` (not created yet)
+
+Firebase project (Spark, free) for the Android app "¿Qué votáis?": Firestore `(default)` in
+`europe-southwest1`, anonymous Authentication, App Check (Play Integrity) enforced on Firestore,
+security rules from `packages/group_polls/firestore.rules`. No Cloud Run, no service accounts:
+the app talks to Firestore directly. Terraform in `infra/group_polls.tf`, off until the project
+exists; how to create it: `packages/group_polls/OPERATIONS.md`.
+
 ## Project `be-water-app`
 
 The Be Water catalog (package `be_water`).
