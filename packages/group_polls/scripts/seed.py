@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Publish the next seed questions to the public feed (ADC).
 
-    bazel run //packages/group_polls/scripts:seed            # dry run: what would go out
+    bazel run //packages/group_polls/scripts:seed                 # dry run
     bazel run //packages/group_polls/scripts:seed -- --publish 3
 
 Needs GROUP_POLLS_PROJECT. Each run publishes the next N questions of
