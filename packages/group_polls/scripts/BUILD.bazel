@@ -8,6 +8,24 @@ py_library(
     srcs = ["moderation.py"],
 )
 
+# Pure helpers of the seed CLI (validation, batches, poll documents).
+py_library(
+    name = "seeding",
+    srcs = ["seeding.py"],
+)
+
+# Publishes the next seed questions to the public feed (local, uses ADC). Dry run by default.
+py_binary(
+    name = "seed",
+    srcs = ["seed.py"],
+    data = ["//packages/group_polls:seed/questions.json"],
+    main = "seed.py",
+    deps = [
+        ":seeding",
+        requirement("google-cloud-firestore"),
+    ],
+)
+
 # Review queue, restore and remove for public polls (local, uses ADC). Every write is behind a
 # confirmation.
 py_binary(
@@ -24,9 +42,11 @@ py_test(
     name = "scripts_tests",
     timeout = "short",
     srcs = glob(["tests/**/*.py"]),
+    data = ["//packages/group_polls:seed/questions.json"],
     main = "tests/main.py",
     deps = [
         ":moderation",
+        ":seeding",
         requirement("pytest"),
     ],
 )

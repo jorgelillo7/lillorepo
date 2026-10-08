@@ -74,6 +74,19 @@ bazel run //packages/group_polls/scripts:moderate -- stats         # last 7 days
 Every write asks for confirmation. To stop a repeat offender, remove their polls; their
 `creatorId` is shown in the queue.
 
+## 3b. Seed the public feed
+
+`seed/questions.json` holds 50 questions written for the app (es + en), in the Everybody Votes
+style. Publish a few per week so the feed is never empty:
+
+```bash
+bazel run //packages/group_polls/scripts:seed                          # dry run: next 3
+GROUP_POLLS_PROJECT=<id> bazel run //packages/group_polls/scripts:seed -- --publish 3
+```
+
+Each question becomes two public polls (es and en sections), open 7 days, signed
+"¿Qué votáis?". What was published is kept in `seed/state`, so runs never repeat.
+
 ## 4. Delete a user's data on request
 
 Users do it in the app (*Settings → Delete my data*): name blanked on their polls and votes,
