@@ -25,7 +25,7 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 09:00 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
-| ⏳ | Bazel's Python is 3.14.4, the image's 3.14.7 | A `rules_python` release that maps 3.14.7 (2.3.4 and 2.4.0-rc0 stop at 3.14.4) · only the test/lint sandbox is behind; production already runs 3.14.7 · `check-deps` flags it |
+| ⏳ | Bazel's Python is 3.14.4, the image's 3.14.7 | A `rules_python` release that maps a newer 3.14 (2.3.4 through 2.4.2 stop at 3.14.4; CPython 3.14.8 is out, a base rebuild would take the image there) · only the test/lint sandbox is behind · pinning it by hand (`python.single_version_override`) was weighed and declined: hashes to maintain per patch · `check-deps` flags it |
 
 ## core
 
