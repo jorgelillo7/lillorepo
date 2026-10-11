@@ -48,7 +48,8 @@ Android, Chrome offers "Instalar"; on iPhone, Safari → Share → "Añadir a
 pantalla de inicio". The icons (`static/icon-*.png`, `apple-touch-icon.png`) are
 the trophy with a ball, in the same flat style as the other apps listed on
 [jorgelillo7.github.io](https://jorgelillo7.github.io/); the maskable one keeps
-it inside the safe zone.
+it inside the safe zone. They are generated, not drawn by hand:
+`python3 packages/biwenger_tools/scripts/web/generate_icons.py` rewrites all four.
 
 ## ⚙️ Local dev
 
