@@ -21,7 +21,7 @@ Firestore. Se regeneran a mano — ver `docs/` en este módulo.</sub>
 `app.py` builds the Flask app, registers session cookie hardening + CSRF helpers,
 and mounts three blueprints:
 
-- [`routes/main.py`](routes/main.py) — `/version`, `/favicon.ico`, `/`, `/palmares`, `/reglamento`
+- [`routes/main.py`](routes/main.py) — `/version`, `/favicon.ico`, `/manifest.webmanifest`, `/sw.js`, `/`, `/palmares`, `/reglamento`
 - [`routes/season.py`](routes/season.py) — `/<season>/`, `/<season>/salseo`, `/<season>/mercado`, `/<season>/participacion`, `/<season>/lloros-awards` plus the `/api/lloros-awards/*` JSON endpoints
 - [`routes/admin.py`](routes/admin.py) — `/admin` (login + dashboard), `/admin/run-scraper`, `/logout`
 
@@ -39,6 +39,15 @@ never use `|safe` directly on `contenido`.
 Tailwind via CDN + vanilla JavaScript. No build step, no framework. The design
 tokens (colours, typography, components) are documented in
 [`DESIGN.md`](DESIGN.md) — read it before touching templates.
+
+**Installable app (PWA).** Phones can add the site to the home screen and open
+it full screen: `base.html` links `/manifest.webmanifest` and registers
+`/sw.js` (`static/sw.js`), whose only job is `static/offline.html` when there is
+no network — it caches nothing else, so a deploy shows on the next load. On
+Android, Chrome offers "Instalar"; on iPhone, Safari → Share → "Añadir a
+pantalla de inicio". The icons (`static/icon-*.png`, `apple-touch-icon.png`) put
+the 3D soccer ball from [Noto Emoji](https://github.com/googlefonts/noto-emoji)
+(Apache 2.0) on the accent green.
 
 ## ⚙️ Local dev
 

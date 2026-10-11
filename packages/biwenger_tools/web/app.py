@@ -28,6 +28,8 @@ CSP = {
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://www.youtube.com", "https://www.youtube-nocookie.com"],
     "connect-src": ["'self'"],
+    "manifest-src": ["'self'"],
+    "worker-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],

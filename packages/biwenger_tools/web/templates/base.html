@@ -50,6 +50,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#38a169">
+    <link rel="manifest" href="/manifest.webmanifest">
     <!-- Tailwind ships as the Play CDN, which its own docs call development-only:
          it downloads a compiler and generates styles in the browser on every
          load. The fix is a build step, not an attribute — `defer` was tried and
@@ -256,6 +257,11 @@
         });
 
         document.addEventListener('click', () => seasonMenu.classList.add('hidden'));
+
+        // Installable app: the worker only adds an offline page (static/sw.js).
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register("/sw.js");
+        }
     </script>
 </body>
 </html>
