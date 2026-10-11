@@ -1,6 +1,8 @@
 """Public pages, favourites, and SEO/plumbing endpoints."""
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import quote
 from xml.sax.saxutils import escape
 
@@ -10,6 +12,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -26,6 +29,8 @@ from packages.be_water.web import (
     similarity,
 )
 from packages.be_water.web.domain import format_mineral, mineralization_label
+
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 def index():
@@ -324,6 +329,45 @@ def sitemap():
     return Response(xml, mimetype="application/xml")
 
 
+def _icon(name, size, purpose="any"):
+    return {
+        "src": url_for("static", filename=name),
+        "sizes": size,
+        "type": "image/png",
+        "purpose": purpose,
+    }
+
+
+def manifest():
+    """The web app manifest that lets phones install the site as an app."""
+    body = {
+        "name": "Be Water",
+        "short_name": "Be Water",
+        "description": "Catálogo abierto de aguas minerales españolas",
+        "lang": "es",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#f8fafc",
+        "theme_color": "#0ea5e9",
+        "icons": [
+            _icon("icon-192.png", "192x192"),
+            _icon("icon-512.png", "512x512"),
+            _icon("icon-maskable-512.png", "512x512", "maskable"),
+        ],
+    }
+    return Response(
+        json.dumps(body, ensure_ascii=False), mimetype="application/manifest+json"
+    )
+
+
+def service_worker():
+    """The service worker, from the root so its scope is the whole site."""
+    response = send_from_directory(_STATIC_DIR, "sw.js", mimetype="text/javascript")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 def register(app):
     app.add_url_rule("/", "index", index)
     app.add_url_rule("/agua/<water_id>", "water_detail", water_detail)
@@ -336,3 +380,5 @@ def register(app):
     app.add_url_rule("/version", "version", version)
     app.add_url_rule("/robots.txt", "robots", robots)
     app.add_url_rule("/sitemap.xml", "sitemap", sitemap)
+    app.add_url_rule("/manifest.webmanifest", "manifest", manifest)
+    app.add_url_rule("/sw.js", "service_worker", service_worker)

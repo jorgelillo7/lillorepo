@@ -50,6 +50,8 @@ CSP = {
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://accounts.google.com/gsi/"],
     "connect-src": ["'self'", "https://accounts.google.com/gsi/"],
+    "manifest-src": ["'self'"],
+    "worker-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],

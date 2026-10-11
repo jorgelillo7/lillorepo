@@ -91,6 +91,11 @@ composition.
 - **Reusable engines** (also reused by `/admin`): `provenance.py` (derives each
   value's source), `photo_audit.py` (photo diagnosis/repair), `data_audit.py`
   (verification sign-off, duplicates, suspicious values), `similarity.py`.
+- **Installable app** — `base.html` links `/manifest.webmanifest` and registers
+  `/sw.js` (`static/sw.js`), whose only job is `static/offline.html` when there
+  is no network; it caches nothing else. Android: Chrome → "Instalar app";
+  iPhone: Safari → Compartir → "Añadir a pantalla de inicio". The bottle icons
+  in `static/` come from `python3 scripts/generate_web_icons.py be-water-web`.
 
 ## Data trust model
 
