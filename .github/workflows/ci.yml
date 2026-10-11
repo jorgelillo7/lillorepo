@@ -76,8 +76,11 @@ jobs:
         with:
           path: .mypy_cache
           key: mypy-${{ hashFiles('requirements_lock.txt', 'mypy.ini') }}-${{ github.sha }}
+          # Any older cache beats none: mypy re-checks what changed and drops
+          # a cache written by another mypy version on its own.
           restore-keys: |
             mypy-${{ hashFiles('requirements_lock.txt', 'mypy.ini') }}-
+            mypy-
 
       - name: Lint
         run: bash scripts/lint.sh
