@@ -11,8 +11,8 @@ The single source of these icons; jorgelillo7.github.io and the webs only hold i
       <out_dir>/{be-water,biwenger-tools,chucknorris-bot}{,-512}.png, 192 and 512 px.
       The 192 px ones are the "Webs y bots" cards of jorgelillo7.github.io (assets/apps/);
       the 512 px Chuck is the bot's Telegram picture.
-  python3 scripts/generate_web_icons.py biwenger-web | be-water-web
-      The installable-app icons in that package's web/static/: icon-192, icon-512,
+  python3 scripts/generate_web_icons.py biwenger-web | be-water-web | chucknorris-web
+      The home-screen icons in that package's static/: icon-192, icon-512,
       apple-touch-icon (180) and icon-maskable-512, a wider window that keeps the artwork
       inside the maskable safe zone.
 
@@ -30,11 +30,15 @@ SITE = (18, 90)    # visible window of the design space, as the apps' Play Store
 # Maskable: the trophy and the bottle reach ~30-32 units from the centre and the safe zone is a
 # circle of 40 % of the width, so an 80-unit window keeps all of either inside.
 MASKABLE = (14, 94)
+# Chuck's chat badge sits in the corner (~36 units out), so his window is wider; the shirt is
+# drawn on down to the edge so the bust does not float.
+MASKABLE_CHUCK = (10, 98)
 
 REPO = Path(__file__).resolve().parent.parent
 PWA_STATIC = {
     "biwenger-web": REPO / "packages" / "biwenger_tools" / "web" / "static",
     "be-water-web": REPO / "packages" / "be_water" / "web" / "static",
+    "chucknorris-web": REPO / "packages" / "chucknorris_bot" / "bot" / "static",
 }
 
 
@@ -141,6 +145,8 @@ def chucknorris_bot(window=SITE):
     img, d, P, k = canvas("#991B1B", "#3B0A0A", window)
     skin, hair, beard, hat = "#E6B08A", "#8A4B22", "#7A3E1A", "#C8A26B"
     d.polygon([P(*p) for p in chaikin([(30, 84), (32, 74), (44, 69), (64, 69), (76, 74), (78, 84)], 2)], fill="#3B5B92")  # denim shirt
+    if window[1] > SITE[1]:
+        d.rectangle([*P(31, 82), *P(77, window[1])], fill="#3B5B92")
     d.polygon([P(48, 69), P(54, 76), P(60, 69)], fill=skin)                                                               # neck
     d.polygon([P(*p) for p in chaikin([(40, 40), (68, 40), (69, 55), (66, 64), (60, 70), (48, 70), (42, 64), (39, 55)], 3)], fill=skin)
     d.polygon([P(*p) for p in chaikin([(38, 52), (37, 40), (42, 31), (54, 28), (66, 31), (71, 40), (70, 52), (67, 44),
@@ -179,12 +185,14 @@ def site(out):
 
 
 def pwa(target):
-    make = {"biwenger-web": biwenger_tools, "be-water-web": be_water}[target]
+    make = {"biwenger-web": biwenger_tools, "be-water-web": be_water,
+            "chucknorris-web": chucknorris_bot}[target]
+    maskable = MASKABLE_CHUCK if target == "chucknorris-web" else MASKABLE
     static = PWA_STATIC[target]
     static.mkdir(parents=True, exist_ok=True)
     for name, size, window in (("icon-192.png", 192, SITE), ("icon-512.png", 512, SITE),
                                ("apple-touch-icon.png", 180, SITE),
-                               ("icon-maskable-512.png", 512, MASKABLE)):
+                               ("icon-maskable-512.png", 512, maskable)):
         render(make, size, window).save(static / name, optimize=True)
         print("wrote", static / name)
 

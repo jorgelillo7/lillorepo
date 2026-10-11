@@ -225,3 +225,32 @@ def test_fetch_joke_handles_error():
     ):
         result = _fetch_joke()
     assert "Chuck Norris" in result
+
+
+# --- Home-screen icon ---
+
+
+def test_the_landing_page_names_and_icons_itself_for_the_home_screen(client):
+    """Without these, iOS draws the first letter of the <title> and offers the
+    whole title as the name."""
+    body = client.get("/").get_data(as_text=True)
+
+    assert '<meta name="apple-mobile-web-app-title" content="ChuckBot">' in body
+    assert 'rel="apple-touch-icon"' in body
+    assert '<link rel="manifest" href="/manifest.webmanifest">' in body
+    assert client.get("/static/apple-touch-icon.png").status_code == 200
+
+
+def test_the_manifest_names_the_bot_and_serves_every_icon(client):
+    response = client.get("/manifest.webmanifest")
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/manifest+json"
+    manifest = response.get_json(force=True)
+    assert manifest["short_name"] == "ChuckBot"
+    assert manifest["start_url"] == "/"
+    sizes = {icon["sizes"] for icon in manifest["icons"]}
+    assert {"192x192", "512x512"} <= sizes
+    assert any(icon.get("purpose") == "maskable" for icon in manifest["icons"])
+    for icon in manifest["icons"]:
+        assert client.get(icon["src"]).status_code == 200, icon["src"]

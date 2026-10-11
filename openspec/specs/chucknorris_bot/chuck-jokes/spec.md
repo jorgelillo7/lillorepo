@@ -3,7 +3,8 @@
 A Telegram bot that serves Chuck Norris jokes (random or by category) via a
 secured webhook and a persistent reply keyboard.
 
-- **Source:** `packages/chucknorris_bot/bot/app.py`
+- **Source:** `packages/chucknorris_bot/bot/app.py`, `templates/index.html`,
+  `static/` (icons from `scripts/generate_web_icons.py chucknorris-web`)
 - **Verified by:** `packages/chucknorris_bot/bot/tests/test_app.py`
 
 ---
@@ -59,3 +60,19 @@ on any error, return a safe fallback line rather than propagating.
 - **WHEN** the request raises **THEN** a Chuck-Norris fallback string is returned
 - *Verifies:* `test_fetch_joke_returns_joke`, `test_fetch_joke_with_category_appends_param`,
   `test_fetch_joke_handles_error`
+
+### Requirement: The landing page has a home-screen identity
+
+The landing page SHALL name itself "ChuckBot" and link an apple-touch-icon and
+a web app manifest, so a phone adding it to the home screen shows Chuck's icon
+and a short name instead of the title's first letter and the full title. Every
+icon the manifest lists SHALL be served.
+
+#### Scenario: added to a home screen
+- **WHEN** `/` renders **THEN** it carries `apple-mobile-web-app-title`
+  "ChuckBot", an apple-touch-icon that is served, and the manifest link
+- **WHEN** `/manifest.webmanifest` is requested **THEN** it is
+  `application/manifest+json` with short name "ChuckBot" and 192, 512 and
+  maskable icons that all resolve
+- *Verifies:* `test_the_landing_page_names_and_icons_itself_for_the_home_screen`,
+  `test_the_manifest_names_the_bot_and_serves_every_icon`

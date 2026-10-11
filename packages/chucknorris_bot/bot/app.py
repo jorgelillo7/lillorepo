@@ -1,9 +1,10 @@
 """Chuck Norris Jokes Telegram bot — webhook handler."""
 
+import json
 import os
 
 import requests
-from flask import Flask, render_template, request
+from flask import Flask, Response, render_template, request, url_for
 
 from core.sdk.telegram import (
     extract_webhook_update,
@@ -87,6 +88,37 @@ def _fetch_joke(category: str | None = None) -> str:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+def _icon(name: str, size: str, purpose: str = "any") -> dict:
+    return {
+        "src": url_for("static", filename=name),
+        "sizes": size,
+        "type": "image/png",
+        "purpose": purpose,
+    }
+
+
+@app.route("/manifest.webmanifest")
+def manifest() -> Response:
+    """Name and icons for a landing page added to a phone's home screen."""
+    body = {
+        "name": "ChuckBot",
+        "short_name": "ChuckBot",
+        "description": "Chuck Norris facts for Telegram",
+        "lang": "en",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#0d0d0d",
+        "theme_color": "#0d0d0d",
+        "icons": [
+            _icon("icon-192.png", "192x192"),
+            _icon("icon-512.png", "512x512"),
+            _icon("icon-maskable-512.png", "512x512", "maskable"),
+        ],
+    }
+    return Response(json.dumps(body), mimetype="application/manifest+json")
 
 
 @app.route("/telegram/webhook", methods=["POST"])

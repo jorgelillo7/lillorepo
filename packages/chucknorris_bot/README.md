@@ -28,6 +28,10 @@ chucknorris.io.</sub>
 Run/test/deploy commands, webhook registration and `.env` configuration live
 in [`OPERATIONS.md`](OPERATIONS.md).
 
+The landing page (`bot/templates/index.html`) can be added to a phone's home
+screen as "ChuckBot" with Chuck's icon; the icons in `bot/static/` come from
+`python3 scripts/generate_web_icons.py chucknorris-web`.
+
 ## Origin
 
 This bot started life on **6 October 2015** as a Node.js + Express experiment — the first commit message was literally *"appbot example"*. Back then it ran on Heroku, used a Bootstrap landing page, and was wired up as a proof of concept for the Telegram Bot API, Node.js and Heroku all at once. It lived quietly at [`jorgelillo7/ChuckNorrisJokesBot`](https://github.com/jorgelillo7/ChuckNorrisJokesBot) for nearly a decade.
