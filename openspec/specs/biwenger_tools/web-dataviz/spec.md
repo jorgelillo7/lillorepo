@@ -334,3 +334,26 @@ when there is not.
   `test_an_unresolved_tie_at_the_top_yields_no_champion`,
   `test_the_champion_is_reachable_as_a_biwenger_manager`,
   `test_the_page_shows_no_champion_mid_season`
+
+### Requirement: The site installs as an app
+
+The site SHALL be installable on Android and iPhone home screens: every page
+SHALL link a web app manifest (name, standalone display, start URL and scope
+`/`, 192 px, 512 px and maskable icons that are all served) and register a
+service worker served from the root, never cached. The worker SHALL only add an
+offline page for navigations; it SHALL NOT cache anything else, so a deploy is
+visible on the next load.
+
+#### Scenario: manifest, worker and offline page
+- **WHEN** `/manifest.webmanifest` is requested **THEN** it is
+  `application/manifest+json` with every install field, and each icon resolves
+- **WHEN** `/sw.js` is requested **THEN** it is JavaScript from the root with
+  `Cache-Control: no-cache` and a `fetch` handler
+- **WHEN** the worker installs **THEN** the offline page it precaches exists and
+  runs no script
+- **WHEN** any page renders **THEN** it links the manifest and registers the
+  worker
+- *Verifies:* `test_the_manifest_declares_an_installable_app`,
+  `test_the_service_worker_is_served_from_the_root_and_never_cached`,
+  `test_the_offline_page_the_worker_falls_back_to_exists_and_runs_no_script`,
+  `test_pages_link_the_manifest_and_register_the_worker`

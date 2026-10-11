@@ -1414,3 +1414,55 @@ def test_a_missing_cursor_is_none_not_a_page():
     client, *_ = _cursor_client(exists=False)
     with patch.object(repository, "get_client", return_value=client):
         assert repository.get_messages_page("26-27", "comunicado", 7, after="x") is None
+
+
+# --- Installable app (PWA) ---
+
+
+def test_the_manifest_declares_an_installable_app(client):
+    """Android's install criteria: a name, a standalone display, a start URL
+    and 192 + 512 icons — each of which must actually be served."""
+    response = client.get("/manifest.webmanifest")
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/manifest+json"
+    manifest = response.get_json(force=True)
+    assert manifest["name"] and manifest["short_name"]
+    assert manifest["start_url"] == "/"
+    assert manifest["scope"] == "/"
+    assert manifest["display"] == "standalone"
+    sizes = {icon["sizes"] for icon in manifest["icons"]}
+    assert {"192x192", "512x512"} <= sizes
+    assert any(icon.get("purpose") == "maskable" for icon in manifest["icons"])
+    for icon in manifest["icons"]:
+        assert client.get(icon["src"]).status_code == 200, icon["src"]
+
+
+def test_the_service_worker_is_served_from_the_root_and_never_cached(client):
+    """Served under /static/ it could only control /static/; cached, a broken
+    worker would outlive its fix."""
+    response = client.get("/sw.js")
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/javascript"
+    assert "no-cache" in response.headers["Cache-Control"]
+    assert 'addEventListener("fetch"' in response.get_data(as_text=True)
+
+
+def test_the_offline_page_the_worker_falls_back_to_exists_and_runs_no_script(
+    client,
+):
+    """The worker precaches it on install; a missing file fails the install."""
+    worker = client.get("/sw.js").get_data(as_text=True)
+    assert "/static/offline.html" in worker
+
+    response = client.get("/static/offline.html")
+    assert response.status_code == 200
+    assert "<script" not in response.get_data(as_text=True)
+
+
+def test_pages_link_the_manifest_and_register_the_worker(client):
+    body = client.get("/reglamento").get_data(as_text=True)
+
+    assert '<link rel="manifest" href="/manifest.webmanifest">' in body
+    assert 'navigator.serviceWorker.register("/sw.js")' in body

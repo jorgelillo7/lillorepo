@@ -1,8 +1,11 @@
-"""Main routes: home, favicon, palmares, reglamento, calendario."""
+"""Main routes: home, favicon, the installable-app files, palmares, reglamento,
+calendario."""
 
 import calendar
+import json
 import time
 from datetime import date, datetime
+from pathlib import Path
 
 import icalendar
 import requests
@@ -11,10 +14,12 @@ from flask import (
     Blueprint,
     Response,
     abort,
+    current_app,
     g,
     jsonify,
     redirect,
     render_template,
+    send_from_directory,
     url_for,
 )
 from flask.typing import ResponseReturnValue
@@ -31,6 +36,8 @@ from packages.biwenger_tools.web import config, repository
 
 logger = get_logger(__name__)
 bp = Blueprint("main", __name__)
+
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 # Public "Lloros League" Google Calendar — read-only, season-agnostic.
 # Public by design (see Google Calendar sharing settings), so no secret
@@ -133,6 +140,47 @@ def version() -> Response:
 def favicon() -> tuple:
     """Return empty response for favicon requests."""
     return "", 204
+
+
+def _icon(name: str, size: str, purpose: str = "any") -> dict:
+    return {
+        "src": url_for("static", filename=name),
+        "sizes": size,
+        "type": "image/png",
+        "purpose": purpose,
+    }
+
+
+@bp.route("/manifest.webmanifest")
+def manifest() -> Response:
+    """The web app manifest that lets phones install the site as an app."""
+    body = {
+        "name": "Lloros League",
+        "short_name": "Lloros League",
+        "description": "El tablón de la Lloros League",
+        "lang": "es",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "background_color": "#f7fafc",
+        "theme_color": "#38a169",
+        "icons": [
+            _icon("icon-192.png", "192x192"),
+            _icon("icon-512.png", "512x512"),
+            _icon("icon-maskable-512.png", "512x512", "maskable"),
+        ],
+    }
+    return current_app.response_class(
+        json.dumps(body, ensure_ascii=False), mimetype="application/manifest+json"
+    )
+
+
+@bp.route("/sw.js")
+def service_worker() -> Response:
+    """The service worker, from the root so its scope is the whole site."""
+    response = send_from_directory(_STATIC_DIR, "sw.js", mimetype="text/javascript")
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @bp.route("/")
