@@ -6,6 +6,11 @@
     <title>{% block title %}Be Water — encuentra tu agua{% endblock %}</title>
     <meta name="description" content="{{ meta_description | default('Catálogo abierto de aguas minerales españolas: composición, procedencia y recomendaciones.') }}">
     <meta name="theme-color" content="#0ea5e9">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
+    <meta name="apple-mobile-web-app-title" content="Be Water">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="canonical" href="{{ canonical_url() }}">
     <meta property="og:title" content="{{ self.title() }}">
     <meta property="og:description" content="{{ meta_description | default('Encuentra tu agua estés donde estés.') }}">
@@ -100,5 +105,11 @@
     </p>
 </footer>
 
+<script nonce="{{ csp_nonce() }}">
+    // Installable app: the worker only adds an offline page (static/sw.js).
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("/sw.js");
+    }
+</script>
 </body>
 </html>

@@ -11,8 +11,8 @@ The single source of these icons; jorgelillo7.github.io and the webs only hold i
       <out_dir>/{be-water,biwenger-tools,chucknorris-bot}{,-512}.png, 192 and 512 px.
       The 192 px ones are the "Webs y bots" cards of jorgelillo7.github.io (assets/apps/);
       the 512 px Chuck is the bot's Telegram picture.
-  python3 scripts/generate_web_icons.py biwenger-web
-      The installable-app icons in packages/biwenger_tools/web/static/: icon-192, icon-512,
+  python3 scripts/generate_web_icons.py biwenger-web | be-water-web
+      The installable-app icons in that package's web/static/: icon-192, icon-512,
       apple-touch-icon (180) and icon-maskable-512, a wider window that keeps the artwork
       inside the maskable safe zone.
 
@@ -27,12 +27,15 @@ from PIL import Image, ImageChops, ImageDraw
 CREAM, INK = "#F4F1EA", "#0F172A"
 SIZE, SS = 512, 4                        # output px, supersampling
 SITE = (18, 90)    # visible window of the design space, as the apps' Play Store icon
-# Maskable: the artwork reaches ~30 units from the centre and the safe zone is a circle of 40 %
-# of the width, so an 80-unit window keeps all of it inside.
+# Maskable: the trophy and the bottle reach ~30-32 units from the centre and the safe zone is a
+# circle of 40 % of the width, so an 80-unit window keeps all of either inside.
 MASKABLE = (14, 94)
 
 REPO = Path(__file__).resolve().parent.parent
-BIWENGER_STATIC = REPO / "packages" / "biwenger_tools" / "web" / "static"
+PWA_STATIC = {
+    "biwenger-web": REPO / "packages" / "biwenger_tools" / "web" / "static",
+    "be-water-web": REPO / "packages" / "be_water" / "web" / "static",
+}
 
 
 def canvas(top, bottom, window):
@@ -175,18 +178,21 @@ def site(out):
         print("wrote", out / name)
 
 
-def biwenger_web():
+def pwa(target):
+    make = {"biwenger-web": biwenger_tools, "be-water-web": be_water}[target]
+    static = PWA_STATIC[target]
+    static.mkdir(parents=True, exist_ok=True)
     for name, size, window in (("icon-192.png", 192, SITE), ("icon-512.png", 512, SITE),
                                ("apple-touch-icon.png", 180, SITE),
                                ("icon-maskable-512.png", 512, MASKABLE)):
-        render(biwenger_tools, size, window).save(BIWENGER_STATIC / name, optimize=True)
-        print("wrote", BIWENGER_STATIC / name)
+        render(make, size, window).save(static / name, optimize=True)
+        print("wrote", static / name)
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["site"] and len(sys.argv) == 3:
         site(Path(sys.argv[2]))
-    elif sys.argv[1:] == ["biwenger-web"]:
-        biwenger_web()
+    elif len(sys.argv) == 2 and sys.argv[1] in PWA_STATIC:
+        pwa(sys.argv[1])
     else:
         sys.exit(__doc__)
