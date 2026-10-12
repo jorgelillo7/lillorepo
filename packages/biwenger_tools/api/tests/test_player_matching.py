@@ -103,3 +103,22 @@ def test_override_resolved_names_do_not_join_the_collision_pool():
 def test_no_match_returns_none():
     jp_index = build_jp_index([_jp("Iago Aspas")])
     assert find_player_match("Completely Unknown Player", jp_index) is None
+
+
+def test_a_short_jp_name_is_reached_through_its_hyphenated_slug():
+    """JP shows some players by a short name its other players share — two
+    «Rubén», a «Navarro» beside «Pau Navarro» — while its slug keeps the full
+    name, hyphenated. The slug is the one unambiguous handle."""
+    jp_index = build_jp_index(
+        [
+            _jp("Rubén", "ruben-sanchez"),
+            _jp("Rubén", "ruben-garcia"),
+            _jp("Navarro", "robert-navarro"),
+            _jp("Pau Navarro", "pau-navarro"),
+        ],
+        biwenger_names=["Rubén Sánchez", "Rubén García", "Robert Navarro"],
+    )
+
+    assert find_player_match("Rubén Sánchez", jp_index)["slug"] == "ruben-sanchez"
+    assert find_player_match("Rubén García", jp_index)["slug"] == "ruben-garcia"
+    assert find_player_match("Robert Navarro", jp_index)["slug"] == "robert-navarro"

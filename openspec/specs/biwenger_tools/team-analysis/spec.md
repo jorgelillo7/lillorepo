@@ -4,10 +4,11 @@ The `/analizar` surface: render squad tables as Telegram images — one manager 
 all managers plus the market — resilient to per-image delivery failures.
 
 - **Source:** `packages/biwenger_tools/api/logic/actions.py`,
-  `packages/biwenger_tools/api/logic/fixture_run.py`
+  `packages/biwenger_tools/api/logic/fixture_run.py`,
+  `packages/biwenger_tools/api/logic/player_matching.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_actions.py`,
   `test_routes.py`, `test_image_formatter.py`, `test_fixture_run.py`,
-  `test_digests.py`, `test_rows.py`
+  `test_digests.py`, `test_rows.py`, `test_player_matching.py`
 
 > Coverage note: `actions.py` line coverage is ~32%; the multi-image resilience
 > path is unit-tested, the rest goes through route tests. A candidate for the
@@ -428,3 +429,24 @@ Five averaged games pull toward the middle: at 40/60 no club in LaLiga read
   `test_read_fixture_runs_walks_the_open_rounds`,
   `test_read_fixture_runs_is_none_when_the_calendar_cannot_be_read`,
   `test_annotate_says_so_when_the_calendar_could_not_be_read`
+
+### Requirement: A Biwenger name reaches its JP player, or none
+
+Each Biwenger player SHALL be matched to JP by the safe tiers first — exact
+name, the hand-kept overrides, then JP's slug, tried as is, hyphenated and
+without spaces — and only then by surname, first name or token subset, which
+SHALL resolve only when exactly one Biwenger player claims the JP record. JP
+shows some players by a short name others share (two «Rubén», «Navarro» beside
+«Pau Navarro») while their slug keeps the full name, so the hyphenated slug is
+what tells them apart. An ambiguous name SHALL match nobody rather than the
+wrong player; it renders as "sin datos".
+
+#### Scenario: short JP names
+- **WHEN** JP lists «Rubén» twice and «Navarro» with slugs `ruben-sanchez`,
+  `ruben-garcia` and `robert-navarro` **THEN** Rubén Sánchez, Rubén García and
+  Robert Navarro each reach their own record
+- **WHEN** only the loose ladder could match and several Biwenger players would
+  land on the same JP record **THEN** none of them matches
+- *Verifies:* `test_a_short_jp_name_is_reached_through_its_hyphenated_slug`,
+  `test_first_name_collision_ruben_returns_none_for_all_claimants`
+
