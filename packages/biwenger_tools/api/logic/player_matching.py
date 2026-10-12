@@ -106,11 +106,11 @@ def _safe_match(norm: str, by_name: dict, by_slug: dict) -> dict | None:
     mapped = PLAYER_NAME_MAPPINGS.get(norm)
     if mapped and mapped in by_name:
         return by_name[mapped]
-    if norm in by_slug:
-        return by_slug[norm]
-    no_spaces = norm.replace(" ", "")
-    if no_spaces in by_slug:
-        return by_slug[no_spaces]
+    # JP slugs are hyphenated ("robert-navarro"), and they keep the full name
+    # where JP shows a short one ("Navarro") that other players may share.
+    for slug in (norm, norm.replace(" ", "-"), norm.replace(" ", "")):
+        if slug in by_slug:
+            return by_slug[slug]
     return None
 
 
