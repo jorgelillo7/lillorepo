@@ -67,10 +67,11 @@ JP_SCORE_TYPE = 2  # SofaScore (Automanager system)
 AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
 
 # --- MARKET TRADER (daily digest only) ---
-# Sells the squad's price fallers and bids on the market's risers. `dry_run`
+# Sells the squad's price fallers and bids on the market's risers. `live` lists
+# the squad, accepts the planned sells' offers and places the bids; `dry_run`
 # plans and reports to Telegram without touching Biwenger; `off` skips the step
 # (the day's price snapshot is still stored). Switch without a deploy:
-#   gcloud run services update biwenger-api --update-env-vars TRADER_MODE=off
+#   gcloud run services update biwenger-api --update-env-vars TRADER_MODE=live
 TRADER_MODE = os.getenv("TRADER_MODE", "dry_run").lower()
 # How far below zero the wallet may end away from a round's eve, in euros.
 TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "3000000"))
@@ -80,6 +81,10 @@ TRADER_BUY_AFTER_RISES = 3
 # the uncontested ones without chasing the contested.
 TRADER_BUY_MARGIN = 0.03
 TRADER_BUY_MIN_SF = 300
+# The squad is listed daily at this percent of its market value; a planned
+# sell takes the best offer for him alone worth at least this share of it.
+TRADER_LIST_PERCENT = 100
+TRADER_MIN_SALE_SHARE = 0.95
 
 # --- DAILY LINEUP (daily digest only) ---
 # The digest sets the best lineup on Biwenger every morning. Off switches the

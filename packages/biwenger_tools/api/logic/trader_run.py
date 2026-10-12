@@ -4,9 +4,11 @@ Service layer for `trader.py`. Reuses the rows and rounds the digest already
 built, so the step costs one Firestore write, one small Firestore query and
 one `/account` read — no extra player or market reads.
 
-Phase A of `.claude/plans/market-trader.md`: every mode short of `off` only
-plans and reports. Nothing here places a bid or accepts an offer yet; `live`
-is read as `dry_run` until the list-for-sale endpoint is known.
+`dry_run` plans and reports. `live` acts, in an order that keeps the money
+honest: accept the planned sells' offers first, list the squad, then bid
+with only the money actually received. Bids already waiting — auto-bid's of
+the same morning, or a retried run's — are spent already and never repeated.
+Every mutation is attempted once; a failure is reported and the run goes on.
 """
 
 import time
@@ -57,21 +59,31 @@ def run(
     mode = config.TRADER_MODE
     if mode == "off":
         return {"mode": "off"}
-    if mode == "live":
-        logger.warning("TRADER_MODE=live is not built yet; planning only.")
 
     history = price_history_store.recent(_HISTORY_DAYS)
     cash = int(ctx.biwenger.get_account_state()["cash"])
-    result = trader.plan(
-        squad_rows,
-        market_rows,
-        history,
-        cash=cash,
-        round_eve=trader.round_eve(rounds, now),
-        negative_limit=config.TRADER_NEGATIVE_LIMIT,
-        rules=_rules(),
-    )
-    text = trader.report(result, live=False)
+    pending = ctx.biwenger.get_my_pending_bids(config.MARKET_URL)
+    committed = sum(int(b.get("amount") or 0) for b in pending)
+    already_bid = {p for b in pending for p in b.get("requestedPlayers") or []}
+    eve = trader.round_eve(rounds, now)
+    live = mode == "live"
+    if live:
+        result = _act(
+            ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve
+        )
+    else:
+        result = trader.plan(
+            squad_rows,
+            market_rows,
+            history,
+            cash=cash,
+            round_eve=eve,
+            negative_limit=config.TRADER_NEGATIVE_LIMIT,
+            rules=_rules(),
+            committed=committed,
+            already_bid=already_bid,
+        )
+    text = trader.report(result, live=live)
     if len(history) < _HISTORY_DAYS:
         text = (
             f"ℹ️ Solo hay {len(history)} días de precios; hacen falta "
@@ -80,12 +92,71 @@ def run(
         )
     send_telegram_message(bot_token=token, chat_id=chat_id, text=text)
     summary = {
-        "mode": "dry_run",
+        "mode": "live" if live else "dry_run",
         "history_days": len(history),
         "round_eve": result.round_eve,
-        "sells": [m.row["bw_id"] for m in result.sells],
-        "buys": [m.row["bw_id"] for m in result.buys],
+        "sold" if live else "sells": [m.row["bw_id"] for m in result.sells],
+        "bid" if live else "buys": [m.row["bw_id"] for m in result.buys],
         "cash_after": result.cash_after,
     }
     logger.info("Trader planned.", extra=summary)
     return summary
+
+
+def _act(
+    ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve
+) -> trader.Plan:
+    """Sell, list, then bid with what was received. Returns what happened."""
+    rules = _rules()
+    biwenger = ctx.biwenger
+    planned, held, _ = trader.plan_sells(squad_rows, history, rules)
+
+    sold: list[trader.Move] = []
+    skipped: list[tuple[dict, str]] = []
+    inbox = biwenger.get_received_offers()
+    for move, offer in trader.sale_offers(planned, inbox, config.TRADER_MIN_SALE_SHARE):
+        try:
+            settled = biwenger.decide_offer(offer["id"], "accepted")
+        except Exception:
+            logger.exception("Accepting a sale failed.", extra={"offer": offer["id"]})
+            skipped.append((move.row, "la venta no se pudo cerrar"))
+            continue
+        if (settled or {}).get("status") == "processed":
+            sold.append(trader.Move(move.row, int(offer["amount"]), move.streak))
+        else:
+            skipped.append((move.row, "Biwenger no cerró la venta"))
+    sold_ids = {m.row["bw_id"] for m in sold}
+    failed_ids = {row["bw_id"] for row, _ in skipped}
+    waiting = [m for m in planned if m.row["bw_id"] not in sold_ids | failed_ids]
+
+    try:
+        biwenger.list_squad_for_sale(config.TRADER_LIST_PERCENT)
+    except Exception:
+        logger.exception("Listing the squad for sale failed.")
+        skipped.append(({"name": "La plantilla"}, "no se pudo poner a la venta"))
+
+    floor = 0 if eve else -config.TRADER_NEGATIVE_LIMIT
+    keep = [r for r in squad_rows if r["bw_id"] not in sold_ids]
+    planned_buys, buy_skips, _ = trader.plan_buys(
+        keep,
+        market_rows,
+        history,
+        wallet=cash + sum(m.amount for m in sold) - committed,
+        floor=floor,
+        rules=rules,
+        already_bid=already_bid,
+    )
+    skipped += buy_skips
+    placed: list[trader.Move] = []
+    for move in planned_buys:
+        try:
+            biwenger.place_market_bid(player_id=move.row["bw_id"], amount=move.amount)
+        except Exception:
+            logger.exception("A bid failed.", extra={"player": move.row["bw_id"]})
+            skipped.append((move.row, "Biwenger rechazó la puja"))
+            continue
+        placed.append(move)
+
+    wallet = cash + sum(m.amount for m in sold) - committed
+    wallet -= sum(m.amount for m in placed)
+    return trader.Plan(sold, placed, cash, wallet, floor, eve, held, skipped, waiting)

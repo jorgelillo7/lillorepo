@@ -315,3 +315,13 @@ would duplicate the same movement across reads.
 - *Verifies:* `test_board_entry_key_ignores_names_icons_and_comment_counts`,
   `test_board_entry_key_separates_entries_in_the_same_second`,
   `test_a_republished_round_keeps_its_own_key`
+
+### Requirement: My pending bids are read off the market
+
+`get_my_pending_bids` SHALL return the market read's `data.offers` — the
+user's own waiting bids, with `amount` and `requestedPlayers`. Biwenger does
+not deduct them from the balance, so a caller spending cash has to.
+
+#### Scenario: waiting bids
+- **WHEN** the market carries one waiting bid **THEN** it is returned as is
+- *Verifies:* `test_my_pending_bids_are_the_market_s_own_offers`

@@ -437,14 +437,21 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     ```
 
     Last, the digest stores the day's prices (`price_snapshots`, kept 60 days)
-    and sends the **trading plan** — which fallers it would sell and which
-    risers it would bid on (spec `market-trader`). It is a simulation for now:
-    nothing is listed, accepted or bid. Switch it off, keeping the prices:
+    and runs the **market trader** (spec `market-trader`): sell bench players
+    whose price keeps falling, bid on market players whose price keeps rising.
+    `TRADER_MODE` decides how far it goes — `dry_run` (the default) only sends
+    the plan; `live` lists the squad, accepts the planned sells' offers and
+    places the bids; `off` keeps only the prices:
 
     ```bash
     gcloud run services update biwenger-api --region europe-southwest1 \
-      --update-env-vars TRADER_MODE=off
+      --update-env-vars TRADER_MODE=live   # or dry_run / off
     ```
+
+    Like the switches below, this lasts until the next api deploy; make `live`
+    stick by changing the default in `api/config.py`. To take the whole squad
+    off the market at once, use the app's "retirar todos" — the same
+    `{type: "remove"}` call the SDK has as `withdraw_all_sales`.
 
     Squad values and the full offers inbox are not in the digest — both are
     on demand (`/comparar`, `/ofertas`). The digest only sends an offer

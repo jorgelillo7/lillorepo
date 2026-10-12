@@ -3,11 +3,13 @@ the owner's two limits — an available eleven, and no risk on a round's eve."""
 
 from packages.biwenger_tools.api.logic.lineup import DEF, FWD, GK, MID
 from packages.biwenger_tools.api.logic.trader import (
+    Move,
     Rules,
     has_eleven,
     plan,
     report,
     round_eve,
+    sale_offers,
 )
 
 RULES = Rules(
@@ -252,3 +254,66 @@ def test_an_unreadable_calendar_is_treated_as_an_eve():
     """Not knowing when the round starts is the one case to be careful in."""
     assert round_eve(None, _NOW)
     assert round_eve([], _NOW)
+
+
+# --- what the live run spends: pending bids, and the offers it may take -------
+
+
+def test_pending_bids_are_spent_already_and_never_bid_twice():
+    """Biwenger does not deduct a waiting bid from the balance, and a retried
+    run must not bid on a player it already has a bid on."""
+    market = [_player(50, 500, MID, price=3_000_000), _player(51, 400, MID)]
+    result = plan(
+        _eleven(),
+        market,
+        _history(p50=100_000, p51=100_000),
+        cash=5_000_000,
+        round_eve=True,
+        negative_limit=0,
+        rules=RULES,
+        committed=2_000_000,
+        already_bid={50},
+    )
+    assert [m.row["bw_id"] for m in result.buys] == [51]
+    assert result.cash_after == 5_000_000 - 2_000_000 - 2_060_000
+
+
+def _offer(offer_id, player, amount, from_id=None):
+    return {
+        "id": offer_id,
+        "amount": amount,
+        "requestedPlayers": [player],
+        "from": {"id": from_id} if from_id else None,
+    }
+
+
+def test_the_best_offer_at_or_near_the_price_is_taken_for_each_planned_sell():
+    sells = [Move(_player(40, 300, DEF, price=2_000_000), 2_000_000, -2)]
+    inbox = [
+        _offer(1, 40, 1_960_000),
+        _offer(2, 40, 2_050_000, from_id=99),
+        _offer(3, 40, 1_500_000),
+    ]
+    taken = sale_offers(sells, inbox, min_share=0.95)
+    assert [(m.row["bw_id"], o["id"]) for m, o in taken] == [(40, 2)]
+
+
+def test_an_offer_below_the_floor_is_not_taken():
+    sells = [Move(_player(40, 300, DEF, price=2_000_000), 2_000_000, -2)]
+    assert sale_offers(sells, [_offer(1, 40, 1_800_000)], min_share=0.95) == []
+
+
+def test_an_offer_for_a_player_not_being_sold_is_never_taken():
+    """The whole squad is listed every day; only the plan's sells are sold."""
+    sells = [Move(_player(40, 300, DEF, price=2_000_000), 2_000_000, -2)]
+    inbox = [_offer(1, 20, 9_000_000), _offer(2, 40, 2_000_000)]
+    taken = sale_offers(sells, inbox, min_share=0.95)
+    assert [o["id"] for _, o in taken] == [2]
+
+
+def test_an_offer_for_several_players_is_never_taken():
+    """Accepting it would sell a player the plan keeps."""
+    sells = [Move(_player(40, 300, DEF, price=2_000_000), 2_000_000, -2)]
+    offer = _offer(1, 40, 5_000_000)
+    offer["requestedPlayers"] = [40, 20]
+    assert sale_offers(sells, [offer], min_share=0.95) == []
