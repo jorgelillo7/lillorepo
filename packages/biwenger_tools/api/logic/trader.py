@@ -1,7 +1,9 @@
 """Which players to sell and to buy on price streaks. Pure: no I/O.
 
-Sell the squad's fallers, buy the market's risers, inside the owner's two
-limits: the squad must still field an eleven that plays, and on the eve of a
+Sell the squad's fallers, buy the market's risers, inside the owner's limits:
+the starters of the best eleven are never sold — good players are kept for
+their points and only the rest rotates on price — the squad must still field
+an eleven that plays, and on the eve of a
 round the wallet may not end below zero. Away from a round it may go negative
 down to a limit, because the whole squad is on sale every day and something
 sells by the next morning.
@@ -63,6 +65,12 @@ def round_eve(rounds: list[dict] | None, now: float) -> bool:
     return first <= today + timedelta(days=1)
 
 
+def best_eleven_ids(rows: list[dict]) -> set:
+    """The ids the lineup search would start today. Works on copies."""
+    result = lineup.solve_lineup([dict(r) for r in rows])
+    return {row["bw_id"] for row, _ in (result or {}).get("starters") or [] if row}
+
+
 def has_eleven(rows: list[dict]) -> bool:
     """Whether `rows` field a full eleven of players the projection expects to play.
 
@@ -98,9 +106,13 @@ def plan(
         ),
         key=lambda rs: (rs[1], -(rs[0].get("price") or 0)),
     )
+    starters = best_eleven_ids(squad)
     keep = list(squad)
     sells: list[Move] = []
     for row, s in fallers:
+        if row["bw_id"] in starters:
+            held.append((row, "titular del mejor once"))
+            continue
         rest = [r for r in keep if r["bw_id"] != row["bw_id"]]
         if not has_eleven(rest):
             held.append((row, "sin él no queda un once que juegue"))

@@ -1,8 +1,9 @@
 # Capability: market-trader
 
 The daily digest's trading step: sell the squad's price fallers and bid on the
-market's risers, inside the owner's two limits — an eleven that plays is always
-left, and on the eve of a round the wallet may not end below zero. It rests on
+market's risers, inside the owner's limits — the best eleven's starters are
+never sold, an eleven that plays is always left, and on the eve of a round the
+wallet may not end below zero. It rests on
 one measured fact: Biwenger prices move in runs (after three days up, the next
 three were up again in ~86 % of the cases sampled on 12/10), and this league
 overpays little on a market buy (median +1.7 %).
@@ -58,23 +59,28 @@ day, or a day the player is missing from, ends it; a gap is never bridged.
   `test_a_day_without_the_player_ends_the_streak_rather_than_bridging_it`,
   `test_too_little_history_is_no_streak`
 
-### Requirement: Sell a faller only if an eleven that plays is left
+### Requirement: Sell a faller only off the bench, and only if an eleven is left
 
 A squad player falling for `TRADER_SELL_AFTER_FALLS` days or more SHALL be sold
-at today's price — longest fall first — unless the rest of the squad would no
-longer field a full eleven of players the projection expects to play; then he
-is held, and the plan says why.
+at today's price — longest fall first — unless he starts in the best eleven the
+lineup search picks today, or the rest of the squad would no longer field a
+full eleven of players the projection expects to play. Either way he is held,
+and the plan says why. Good players are kept for their points; price rotation
+is for the bench.
 
 #### Scenario: fallers
 - **WHEN** a player has fallen two days and the rest still field an eleven
   **THEN** he is sold at today's price
-- **WHEN** selling him leaves the eleven short **THEN** he is held
+- **WHEN** he starts in the best eleven **THEN** he is held, however he falls
+- **WHEN** the squad already lacks an eleven that plays **THEN** even the bench
+  is held
 - **WHEN** he has fallen one day **THEN** nothing happens
 - **WHEN** a player is left out by the projection **THEN** he does not count
   towards the eleven
 - *Verifies:*
   `test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven`,
-  `test_a_faller_is_kept_when_selling_him_would_leave_the_eleven_short`,
+  `test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls`,
+  `test_with_no_eleven_that_plays_even_the_bench_is_kept`,
   `test_one_day_down_is_not_a_reason_to_sell`,
   `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`
 
