@@ -77,12 +77,27 @@ def test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven(
     assert result.sells[0].amount == 2_000_000
 
 
-def test_a_faller_is_kept_when_selling_him_would_leave_the_eleven_short():
-    squad = _eleven()
-    result = _plan(squad, [], _history(p10=-50_000))
+def test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls():
+    """A good player is kept for his points; only the bench rotates on price."""
+    star = _player(20, 900, MID)
+    squad = [star] + [p for p in _eleven() if p["bw_id"] != 20]
+    squad += [_player(40, 100, MID), _player(41, 100, DEF)]
+    result = _plan(squad, [], _history(p20=-50_000, p40=-50_000))
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+    assert (20, "titular del mejor once") in [
+        (r["bw_id"], why) for r, why in result.held
+    ]
+
+
+def test_with_no_eleven_that_plays_even_the_bench_is_kept():
+    """A squad already short of a playing eleven sells nobody: the bench is
+    what covers the gap."""
+    squad = _eleven()[:-1] + [_player(31, 200, FWD, called=False)]
+    squad += [_player(40, 100, GK)]  # a second keeper never starts
+    result = _plan(squad, [], _history(p40=-50_000))
     assert result.sells == []
-    assert [(r["bw_id"], why) for r, why in result.held] == [
-        (10, "sin él no queda un once que juegue")
+    assert (40, "sin él no queda un once que juegue") in [
+        (r["bw_id"], why) for r, why in result.held
     ]
 
 
