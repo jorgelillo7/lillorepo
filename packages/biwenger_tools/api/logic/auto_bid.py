@@ -11,17 +11,16 @@ are INCLUSIVE on the lower end (a player at exactly 400 lands in T3,
 not T4). Each tier bids a flat share over the price, plus a random
 0–`BID_JITTER_MAX` € so the amounts don't look botty:
 
-    SF ≥ 700        (T1) → price × 1.40
-    550 ≤ SF < 700  (T2) → price × 1.20
-    400 ≤ SF < 550  (T3) → price × 1.10
-    300 ≤ SF < 400  (T4) → price × 1.05
+    SF ≥ 700        (T1) → price × 1.15
+    550 ≤ SF < 700  (T2) → price × 1.08
+    400 ≤ SF < 550  (T3) → price × 1.05
+    300 ≤ SF < 400  (T4) → price × 1.03
     SF < 300             → skip
 
 The shares come from the season's resolved market (see `TIER_T*_OVERBID`).
 
-Cash is never exceeded — we never go negative. A T1 or T2 bid that does
-not fit becomes the whole wallet (jitter subtracted) as long as the wallet
-covers the asking price; otherwise, and for T3 or T4, it is skipped.
+Cash is never exceeded — we never go negative. A bid that does not fit is
+skipped, whatever the tier: no single auction is worth the whole wallet.
 
 Before the ladder sees a candidate, two guards adjust what it reads. A
 player who cannot be fielded at all (injured, suspended, no fixture) is
@@ -29,8 +28,7 @@ skipped outright, and one who would not make the pitch — JP leaves him out
 of its projected eleven, or the squad already has better cover at every
 position he plays — has his SF clamped to `BENCH_PRICED_SF` so he cannot
 reach T1 or T2. JP scores a benched star highly, and the ladder reads that
-number alone; unclamped, a substitute would get the top tiers' premium, and
-their whole-wallet bid when cash is short.
+number alone; unclamped, a substitute would get the top tiers' premium.
 
 Idempotency: Cloud Scheduler retries 5xx responses. We log placed bids
 to `auto_bid_log/{YYYY-MM-DD}` (one doc per player) and skip anything
@@ -69,15 +67,15 @@ TIER_ALL_IN_MIN = 700
 TIER_T2_MIN = 550
 TIER_T3_MIN = 400
 TIER_T4_MIN = 300
-# Share bid over the price, per tier. Set from the season's resolved market:
-# the winning bid was within +5 % of the price in ~75 % of auctions under 5M,
-# and the contested stars went for +20-35 % — while the old
-# `min(price × mult, price + cap)` ladder paid 6.4M over the runner-up across
-# the eight auctions it won.
-TIER_T1_OVERBID = 0.40
-TIER_T2_OVERBID = 0.20
-TIER_T3_OVERBID = 0.10
-TIER_T4_OVERBID = 0.05
+# Share bid over the price, per tier, for value rather than win rate. On 95
+# priced auctions of the season the managers who gain value pay a median
+# +0-1 %, and +15 % at the top would still have won all 14 of ours; the
+# previous +40 / +20 / +10 / +5 % paid 0.96M over the next best bid across its
+# six wins, four of them uncontested. Spec: auto-bid, "Tier-based bid sizing".
+TIER_T1_OVERBID = 0.15
+TIER_T2_OVERBID = 0.08
+TIER_T3_OVERBID = 0.05
+TIER_T4_OVERBID = 0.03
 
 # How many players deep a position is considered covered. Roughly the most
 # any formation fields plus one: no shape uses more than 1 GK, 5 DEF, 6 MID
@@ -88,14 +86,9 @@ SQUAD_DEPTH_SLOTS = {1: 2, 2: 6, 3: 6, 4: 5}
 
 # What a bench signing (or a player JP leaves out of its projected XI) is
 # allowed to cost. Both are capped at the T3 ladder no matter how high the
-# raw SF is, because the two ways this loses real money are the top tiers'
-# premium and their whole-wallet bid:
-#
-#  - **The whole wallet on a substitute.** Short of cash, T1 and T2 bid
-#    everything there is. Doing that on a player the provider says starts on
-#    the bench is the single most expensive way to be wrong in this file.
-#  - **Paying a starter's premium for depth.** A fourth forward behind three
-#    better ones scores from the bench, which in Biwenger is zero.
+# raw SF is: paying a starter's premium for depth is how this loses real
+# money — a fourth forward behind three better ones scores from the bench,
+# which in Biwenger is zero.
 #
 # Capped rather than skipped: a strong player at a covered position is still
 # worth owning at the right price — squads change, and the market is the
@@ -162,13 +155,8 @@ def tier_bid(
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
     Each tier bids its share over the price plus a random 0-`BID_JITTER_MAX`
-    € so the trail stops looking like a bot. When a T1 or T2 bid would exceed
-    `remaining_cash` but the wallet still covers the asking price, it bids the
-    whole wallet instead (jitter subtracted, so never more than the cash):
-    skipping a player worth that tier leaves the auction uncontested. Below
-    the asking price the market takes no bid, so that case is skipped too.
-    A T3 or T4 bid comes back whole even when it does not fit — the caller
-    skips it; those players are not worth emptying the wallet for.
+    € so the trail stops looking like a bot. A bid comes back whole even when
+    it exceeds `remaining_cash`; the caller skips it for lack of cash.
 
     `label_sf` is the score to *print* when it differs from the one being
     priced on — `bid_sf` clamps a substitute's SF to hold him below the
@@ -177,21 +165,17 @@ def tier_bid(
     """
     jitter = _jitter()
     sf_shown = sf if label_sf is None else label_sf
-    for floor, share, tier, whole_wallet in (
-        (TIER_ALL_IN_MIN, TIER_T1_OVERBID, "T1", True),
-        (TIER_T2_MIN, TIER_T2_OVERBID, "T2", True),
-        (TIER_T3_MIN, TIER_T3_OVERBID, "T3", False),
-        (TIER_T4_MIN, TIER_T4_OVERBID, "T4", False),
+    for floor, share, tier in (
+        (TIER_ALL_IN_MIN, TIER_T1_OVERBID, "T1"),
+        (TIER_T2_MIN, TIER_T2_OVERBID, "T2"),
+        (TIER_T3_MIN, TIER_T3_OVERBID, "T3"),
+        (TIER_T4_MIN, TIER_T4_OVERBID, "T4"),
     ):
         if sf < floor:
             continue
-        bid = int(price * (1 + share)) + jitter
-        if whole_wallet and price <= remaining_cash < bid:
-            return (
-                max(0, remaining_cash - jitter),
-                f"{tier} todo el saldo (SF {sf_shown})",
-            )
-        return bid, f"{tier} +{share:.0%} (SF {sf_shown})"
+        return round(
+            price * (1 + share)
+        ) + jitter, f"{tier} +{share:.0%} (SF {sf_shown})"
     return None, f"SF {sf_shown} < {TIER_T4_MIN}"
 
 
@@ -564,8 +548,7 @@ def run_auto_bid() -> dict:
             candidate, _would_be_bench(candidate, squad_by_pos)
         )
         spendable = remaining_cash - reserve
-        # Priced against the whole wallet: a T1/T2 short of cash bids all of
-        # it, and the reserve below gives way to that as to any real signing.
+        # The reserve below gives way to a real signing that fits the wallet.
         target_bid, label = tier_bid(
             priced_sf, candidate["price"], remaining_cash, label_sf=candidate["sf"]
         )
