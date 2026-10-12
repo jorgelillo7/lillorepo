@@ -161,16 +161,17 @@ paths:
 
     post:
       tags: [market]
-      summary: Put players up for sale — one player, or the whole squad.
+      summary: Put players up for sale — one or the whole squad — or withdraw them all.
       description: |
-        What the web's "Vender" dialog sends. Two body shapes share the
-        endpoint:
+        What the web's "Vender" dialog and the squad's "retirar todos" button
+        send. Three body shapes share the endpoint:
 
         - **One player** (`type: "sell"`) — list `player` at `price`, in euros.
         - **The whole squad** (`type: "team"`) — list every player at `price`
           **percent of his market value**. The dialog offers 100, 120, 150,
           200 and 500; the web sent the 150 as the string `"150"` and the 100
           as the number `100`, and both were accepted.
+        - **Withdraw every listing** (`type: "remove"`) — no other field.
 
         Listing sells nothing by itself. Rivals bid, and Biwenger adds its own
         "MERCADO PÚBLICO" offer (`from: null`) at about the market value; each
@@ -180,7 +181,8 @@ paths:
         Not this: the dialog's **"Venta inmediata"** tab sells to the market at
         once for `immediateSales` percent of the value — 50 % in this league
         (`/league/{leagueID}?fields=settings`). The dialog's other tabs
-        ("Subasta", "Cedible") were not captured, nor is cancelling a sale.
+        ("Subasta", "Cedible") were not captured, nor is withdrawing a single
+        player's listing.
 
         Same headers as every authenticated call (`Authorization`, `X-League`,
         `X-User`, `X-Lang`); the web sent `X-Version: 631` against the SDK's
@@ -193,9 +195,10 @@ paths:
               oneOf:
                 - $ref: '#/components/schemas/MarketSellBody'
                 - $ref: '#/components/schemas/MarketTeamSaleBody'
+                - $ref: '#/components/schemas/MarketRemoveBody'
       responses:
         "204":
-          description: Listed. No body (served as `text/html`).
+          description: Done. No body (served as `text/html`).
       x-verified-at: "2026-10-12"
 
   /offers:
@@ -1256,6 +1259,15 @@ components:
             - {type: string}
           description: Percent of each player's market value (100, 120, 150, 200 or 500).
           example: 100
+
+    MarketRemoveBody:
+      type: object
+      description: Body shape for withdrawing every listed player via POST /market.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [remove]
 
     ClausulazoBody:
       type: object
