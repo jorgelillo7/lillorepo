@@ -9,8 +9,9 @@ it is undocumented — the payload shapes were reverse-engineered from live
 traffic and confirmed against real transactions.
 
 - **Source:** `core/sdk/biwenger.py` (`place_market_bid`, `place_clausulazo`,
-  `decide_offer`, `set_lineup`, `_post_admin_operation`, `transfer_player`,
-  `release_player`, `revert_transfer`, `apply_bonus`)
+  `decide_offer`, `set_lineup`, `list_squad_for_sale`, `withdraw_all_sales`,
+  `_post_admin_operation`, `transfer_player`, `release_player`,
+  `revert_transfer`, `apply_bonus`)
 - **Verified by:** `core/tests/test_biwenger_client.py`
 
 ---
@@ -284,3 +285,22 @@ about this endpoint lets it prove it is the same write.
 > The one missing fact is what Biwenger answers to a second `accepted` on an
 > offer already `processed`. Cheap to settle: on the next real offer, repeat the
 > same PUT by hand and read the response.
+
+### Requirement: The squad is listed, and withdrawn, in one call each
+
+`list_squad_for_sale(percent)` SHALL post `{"type": "team", "price": percent}`
+to the market — every player listed at `percent` % of his market value — and
+`withdraw_all_sales()` SHALL post `{"type": "remove"}`. Listing sells nothing:
+a player leaves only when an offer for him is accepted (`decide_offer`). Both
+are mutations: attempted once, a failure raised to the caller. Shapes:
+`docs/external/biwenger-api.yaml`, `POST /market`.
+
+#### Scenario: list, withdraw, refuse
+- **WHEN** the squad is listed at 100 **THEN** one POST carries
+  `{"type": "team", "price": 100}`
+- **WHEN** every sale is withdrawn **THEN** the POST carries `{"type": "remove"}`
+- **WHEN** Biwenger answers 503 **THEN** the error is raised after one attempt
+- *Verifies:*
+  `test_list_squad_for_sale_posts_the_whole_team_at_a_share_of_its_value`,
+  `test_withdraw_all_sales_posts_remove`,
+  `test_a_refused_listing_is_raised_and_never_retried`

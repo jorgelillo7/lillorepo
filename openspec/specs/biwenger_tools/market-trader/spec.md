@@ -8,27 +8,19 @@ one measured fact: Biwenger prices move in runs (after three days up, the next
 three were up again in ~86 % of the cases sampled on 12/10), and this league
 overpays little on a market buy (median +1.7 %).
 
-**Phase A (current): plans and reports only.** Nothing is listed, accepted or
-bid; `TRADER_MODE=live` is read as `dry_run` until phase B is built. Plan:
-`.claude/plans/market-trader.md`.
-
-**How phase B will sell** (not built yet, so no requirement here): one
-`POST /market` `{type: "team", price: 100}` lists the whole squad at its market
-value each morning; listing sells nothing by itself. Biwenger then offers about
-the value for each listed player (`from: null`, "MERCADO PÚBLICO"), and only the
-planned sells' offers are accepted, through `/offers/{id}` as the offers inbox
-already does; every other offer is left alone. Bids go through `POST /offers`
-as auto-bid's do. The dialog's "Venta inmediata" — 50 % of the value in this
-league — is never used. Both bodies are in `docs/external/biwenger-api.yaml`
-(`POST /market`, captured 12/10), with `{type: "remove"}`, which withdraws every
-listing — the owner's way to take the whole squad off the market at once.
-Withdrawing is not needed for safety: a player is only sold when an offer for
-him is accepted.
+**Two modes, `dry_run` by default.** `dry_run` plans and reports; `live` acts —
+it lists the squad every morning (`POST /market {type: "team", price: 100}`,
+in `docs/external/biwenger-api.yaml`), accepts the planned sells' offers and
+places the planned bids. Listing sells nothing by itself: a player leaves only
+when an offer for him is accepted. The dialog's "Venta inmediata" — 50 % of the
+value in this league — is never used, and `{type: "remove"}` takes the whole
+squad off the market at once. Plan: `.claude/plans/market-trader.md`.
 
 - **Source:** `packages/biwenger_tools/api/logic/trader.py`,
   `price_history.py` (pure), `price_history_store.py`, `trader_run.py`
-  (service), `digests.py` (`_safe_run_trader`), `actions.py`
-  (`read_open_rounds`)
+  (service, `_act` for `live`), `digests.py` (`_safe_run_trader`), `actions.py`
+  (`read_open_rounds`); `core/sdk/biwenger.py` (`list_squad_for_sale`,
+  `get_my_pending_bids`)
 - **Verified by:** `packages/biwenger_tools/api/tests/test_trader.py`,
   `test_price_history.py`, `test_price_history_store.py`,
   `test_trader_run.py`, `test_digests.py`
@@ -141,7 +133,49 @@ counts as an eve.
   `test_the_rest_of_a_round_already_under_way_does_not_count_as_a_start`,
   `test_an_unreadable_calendar_is_treated_as_an_eve`
 
-### Requirement: The plan reaches the owner, and touches nothing in phase A
+### Requirement: Bids already waiting are spent, and never repeated
+
+The step SHALL read the owner's waiting bids — auto-bid's of the same morning,
+or a retried run's — count their amounts as spent and never bid again on a
+player who has one, in both modes.
+
+#### Scenario: a retried morning
+- **WHEN** a bid is already waiting on a riser **THEN** he is not bid again,
+  and the waiting amount comes off the wallet
+- *Verifies:* `test_pending_bids_are_spent_already_and_never_bid_twice`,
+  `test_a_retried_run_does_not_bid_again_on_a_player_it_already_bid_on`
+
+### Requirement: Live sells first, and bids only with money received
+
+In `live` the step SHALL, in this order: accept, for each planned sell, the best
+received offer for him alone worth at least `TRADER_MIN_SALE_SHARE` of his
+price; list the whole squad at `TRADER_LIST_PERCENT`; then bid on the risers
+with the cash plus only the sales Biwenger settled (`status: processed`), minus
+the waiting bids, down to the day's floor. An offer for anyone else, or for him
+together with others, is never accepted. A planned sell with no acceptable
+offer stays listed and is reported as waiting. Each mutation is attempted once;
+a failed accept counts no money, a refused bid is reported and the run goes on.
+
+#### Scenario: the live morning
+- **WHEN** a faller has an offer at his price and a riser is in the market
+  **THEN** the offer is accepted, the squad listed, the riser bid, in that order
+- **WHEN** offers come below the floor, for a kept player, or for several
+  players **THEN** none is accepted
+- **WHEN** the accept fails **THEN** it was sent once and its money buys nothing
+- **WHEN** a bid is refused **THEN** it was sent once and the report still goes out
+- **WHEN** a planned sell has no offer **THEN** he waits, listed, and the report
+  says so
+- *Verifies:*
+  `test_live_sells_the_faller_lists_the_squad_and_bids_on_the_riser`,
+  `test_the_best_offer_at_or_near_the_price_is_taken_for_each_planned_sell`,
+  `test_an_offer_below_the_floor_is_not_taken`,
+  `test_an_offer_for_a_player_not_being_sold_is_never_taken`,
+  `test_an_offer_for_several_players_is_never_taken`,
+  `test_a_sale_biwenger_did_not_settle_buys_nothing_with_its_money`,
+  `test_a_refused_bid_is_sent_once_and_the_run_carries_on`,
+  `test_a_planned_sell_without_an_offer_waits_listed`
+
+### Requirement: The plan reaches the owner, and touches nothing in dry run
 
 After the offers inbox the digest SHALL plan on the very rows and rounds it
 already read and send the plan to Telegram, marked as a simulation, naming
@@ -151,7 +185,7 @@ squad's rows the step stands down; a failure in it never costs the digest.
 
 #### Scenario: the morning's trading message
 - **WHEN** the mode is `dry_run` **THEN** the day is stored, the plan is sent,
-  and no bid or offer decision reaches Biwenger
+  and no bid, listing or offer decision reaches Biwenger
 - **WHEN** only two days are stored **THEN** the message says so
 - **WHEN** the step raises **THEN** the digest still completes
 - *Verifies:*

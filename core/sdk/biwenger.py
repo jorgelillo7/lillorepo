@@ -935,6 +935,35 @@ class BiwengerClient:
         )
         return data
 
+    def list_squad_for_sale(self, percent: int, market_url: str = MARKET_URL) -> None:
+        """List every player of the squad at `percent` % of his market value.
+
+        `POST /market {"type": "team", "price": percent}` — the web's "Vender
+        plantilla completa". Listing sells nothing: offers arrive and are
+        accepted or not through `decide_offer`. Not retried: a mutation's
+        failure reaches the caller after one attempt.
+        """
+        payload: dict[str, str | int] = {"type": "team", "price": int(percent)}
+        logger.info("Listing the squad for sale.", extra={"percent": percent})
+        response = self.session.post(market_url, json=payload, timeout=30)
+        response.raise_for_status()
+
+    def withdraw_all_sales(self, market_url: str = MARKET_URL) -> None:
+        """Take every listed player off the market (`{"type": "remove"}`)."""
+        logger.info("Withdrawing every sale.")
+        response = self.session.post(market_url, json={"type": "remove"}, timeout=30)
+        response.raise_for_status()
+
+    def get_my_pending_bids(self, market_url: str = MARKET_URL) -> list:
+        """The user's own waiting market bids — `data.offers` of the market read.
+
+        Biwenger does not deduct them from the balance, so a caller spending
+        cash has to.
+        """
+        response = self.session.get(market_url, timeout=30)
+        response.raise_for_status()
+        return (response.json().get("data") or {}).get("offers") or []
+
     def get_clausulazos(self, clausulazos_url: str) -> dict:
         """Returns a single page of release-clause transfer entries."""
         response = self.session.get(clausulazos_url)

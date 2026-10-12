@@ -1344,3 +1344,59 @@ def test_a_republished_round_keeps_its_own_key():
     assert board_entry_key(_round_entry(score_id=11)) != board_entry_key(
         _round_entry(score_id=12, date=1790090000)
     )
+
+
+# --- the list-for-sale call (POST /market) ----------------------------------
+
+
+def test_list_squad_for_sale_posts_the_whole_team_at_a_share_of_its_value(
+    biwenger_client_authenticated,
+):
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_MARKET_URL, status_code=204)
+
+        client.list_squad_for_sale(100, market_url=TEST_MARKET_URL)
+
+    assert m.call_count == 1
+    assert m.last_request.json() == {"type": "team", "price": 100}
+
+
+def test_withdraw_all_sales_posts_remove(biwenger_client_authenticated):
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_MARKET_URL, status_code=204)
+
+        client.withdraw_all_sales(market_url=TEST_MARKET_URL)
+
+    assert m.last_request.json() == {"type": "remove"}
+
+
+def test_a_refused_listing_is_raised_and_never_retried(biwenger_client_authenticated):
+    """A mutation: a failure reaches the caller after exactly one attempt."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.post(TEST_MARKET_URL, status_code=503)
+        with pytest.raises(requests.HTTPError):
+            client.list_squad_for_sale(100, market_url=TEST_MARKET_URL)
+
+    assert m.call_count == 1
+
+
+def test_my_pending_bids_are_the_market_s_own_offers(biwenger_client_authenticated):
+    """`data.offers` on the market read is the user's own waiting bids."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.get(
+            TEST_MARKET_URL,
+            json={
+                "data": {
+                    "sales": [],
+                    "offers": [{"amount": 1_000_000, "requestedPlayers": [7]}],
+                }
+            },
+        )
+
+        bids = client.get_my_pending_bids(market_url=TEST_MARKET_URL)
+
+    assert bids == [{"amount": 1_000_000, "requestedPlayers": [7]}]
