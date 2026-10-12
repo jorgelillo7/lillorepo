@@ -9,8 +9,19 @@ three were up again in ~86 % of the cases sampled on 12/10), and this league
 overpays little on a market buy (median +1.7 %).
 
 **Phase A (current): plans and reports only.** Nothing is listed, accepted or
-bid; `TRADER_MODE=live` is read as `dry_run` until the list-for-sale endpoint is
-known. Plan and phase B: `.claude/plans/market-trader.md`.
+bid; `TRADER_MODE=live` is read as `dry_run` until phase B is built. Plan:
+`.claude/plans/market-trader.md`.
+
+**How phase B will sell** (not built yet, so no requirement here): one
+`POST /market` `{type: "team", price: 100}` lists the whole squad at its market
+value each morning; listing sells nothing by itself. Biwenger then offers about
+the value for each listed player (`from: null`, "MERCADO PÚBLICO"), and only the
+planned sells' offers are accepted, through `/offers/{id}` as the offers inbox
+already does; every other offer is left alone. Bids go through `POST /offers`
+as auto-bid's do. The dialog's "Venta inmediata" — 50 % of the value in this
+league — is never used. Both bodies are in `docs/external/biwenger-api.yaml`
+(`POST /market`, captured 12/10). Cancelling a sale was not captured and is not
+needed: a player is only sold when an offer for him is accepted.
 
 - **Source:** `packages/biwenger_tools/api/logic/trader.py`,
   `price_history.py` (pure), `price_history_store.py`, `trader_run.py`
