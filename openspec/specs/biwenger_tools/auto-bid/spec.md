@@ -22,20 +22,24 @@ plus jitter.
 
 | Tier | SF band | Bid |
 |---|---|---|
-| T1 | SF ≥ 700 | `price × 1.40` |
-| T2 | 550 ≤ SF < 700 | `price × 1.20` |
-| T3 | 400 ≤ SF < 550 | `price × 1.10` |
-| T4 | 300 ≤ SF < 400 | `price × 1.05` |
+| T1 | SF ≥ 700 | `price × 1.15` |
+| T2 | 550 ≤ SF < 700 | `price × 1.08` |
+| T3 | 400 ≤ SF < 550 | `price × 1.05` |
+| T4 | 300 ≤ SF < 400 | `price × 1.03` |
 | skip | SF < 300 | — |
 
-**The shares are set from the market, not by feel.** Across the season's 137
-resolved market auctions, a bid of price +5 % would have won ~75 % of those
-under 5M, and the contested stars went for +20–35 % (Güler +19 %, Camello
-+35 %, Rodri +34 %). The previous ladder — the whole wallet for T1, and
-`min(price × 1.7 / 1.5 / 1.2, price + 5M / 2M / 500K)` below — paid 6.36M
-above the runner-up across the eight auctions it won (Valverde alone 3.24M),
-while losing Güler at 16.38M to a 16.97M bid. The shares are a first
-calibration, to be revisited as the board accumulates auctions.
+**The shares are set from the market, not by feel.** The first calibration
+(27/09, 137 auctions) set +40 / +20 / +10 / +5 % to win most auctions — it
+optimised the win rate. Re-measured on 12/10 against 95 auctions with a known
+price, the question became value: the managers who gain value pay a median
++0–1 % over the price, a bid of +15 % wins 77 % of the league's auctions, +8 %
+65 %, +3 % 47 %; and +15 % at the top would still have won every one of our 14
+wins. Under the +40 / +20 / +10 / +5 % ladder we won six, all T3/T4, paying
+0.96M over the next best bid (or the price, where nobody else bid — four of the
+six). The earlier ladder — the whole wallet for T1, and
+`min(price × 1.7 / 1.5 / 1.2, price + 5M / 2M / 500K)` below — had paid 6.36M
+over the runner-up across eight wins (Valverde alone 3.24M). The trader
+(`market-trader`) buys risers at +3 %, which is where squad trading now lives.
 
 The cut-offs are set against the league as it scores, not a round number: at
 800/600 only two players in LaLiga reached T1 and five reached T2, and 24
@@ -45,7 +49,7 @@ handful of genuine stars and T2 the next nine.
 #### Scenario: each tier's share
 - **WHEN** a T1 / T2 / T3 / T4 player is priced 26M / 14.3M / 10M / 1M with
   cash to spare
-- **THEN** the bid is 36.4M / 17.16M / 11M / 1.05M (+ jitter)
+- **THEN** the bid is 29.9M / 15.444M / 10.5M / 1.03M (+ jitter)
 - *Verifies:* `test_each_tier_bids_its_share_over_the_price`
 
 ### Requirement: Inclusive lower boundaries
@@ -59,26 +63,21 @@ tier's minimum SF lands in that tier, not the one below.
 - **AND** SF = 299 is skipped (below the T4 floor of 300)
 - *Verifies:* `test_tier_boundaries`
 
-### Requirement: A top tier short of cash bids the whole wallet
+### Requirement: No tier bids the whole wallet
 
-When a T1 or T2 bid would exceed `remaining_cash` but the wallet still covers
-the asking price, the system SHALL bid the whole wallet instead of skipping
-the player (jitter *subtracted*, so never above the cash). Skipping a player
-worth those tiers leaves the auction uncontested — Güler would have been
-skipped at 17.16M against 16.38M of cash. Below the asking price the market
-takes no bid, so the player is skipped. T3 and T4 are not worth emptying the
-wallet for: a bid that does not fit is skipped.
+A bid that exceeds `remaining_cash` SHALL come back whole, whatever the tier,
+for the caller to skip for lack of cash. No single auction is worth the whole
+wallet: the market loses an auction, the squad keeps its money. T1 and T2 used
+to bid the wallet when short of cash, the mechanism behind the season's
+largest overpayments.
 
-#### Scenario: short of cash, below the price, lower tiers
-- **WHEN** a T1 or T2 player priced 14.3M faces 16.38M of cash
-- **THEN** the bid is the wallet (`16.38M − jitter`), labelled `todo el saldo`
-- **WHEN** the wallet does not reach the asking price **THEN** no whole-wallet bid
-- **WHEN** a T3 or T4 bid does not fit **THEN** it is left for the caller to skip
-- *Verifies:* `test_a_top_tier_short_of_cash_bids_the_whole_wallet`,
+#### Scenario: short of cash
+- **WHEN** a T1 / T2 / T3 / T4 bid does not fit the wallet **THEN** it comes
+  back whole and is never labelled `todo el saldo`
+- **WHEN** the wallet does not reach the asking price **THEN** the same
+- *Verifies:* `test_no_tier_empties_the_wallet_when_short_of_cash`,
   `test_a_wallet_below_the_price_is_not_bid_as_a_whole`,
-  `test_a_lower_tier_short_of_cash_is_left_to_the_caller`,
-  `test_a_top_tier_with_no_cash_is_left_to_the_caller`,
-  `test_a_whole_wallet_bid_subtracts_the_jitter`
+  `test_a_top_tier_with_no_cash_is_left_to_the_caller`
 
 ### Requirement: Never overspend, and one skip never blocks the next
 
@@ -232,13 +231,13 @@ because the ladder spends best-first, so leftovers would fire the trade only
 on days it was not needed.
 
 The reserve SHALL yield to the ladder, down to T3 and no further: where a
-signing at `TIER_T3_MIN` or above fits the wallet but not beside the reserve —
-a T1/T2 whole-wallet bid included — the reserve gives way exactly as far as
-that bid needs. One genuine star beats three lottery tickets; skipping a 2.4M
-signing to keep a 950K lottery ticket alive is the trade backwards.
+signing at `TIER_T3_MIN` or above fits the wallet but not beside the reserve,
+the reserve gives way exactly as far as that bid needs. One genuine star beats
+three lottery tickets; skipping a 2.2M signing to keep a 950K lottery ticket
+alive is the trade backwards.
 
 Below T3 it SHALL hold. There the ladder is buying squad filler — SF 300 to
-399, bid at 1.05× the asking price — and a ticket with an explicit exit is
+399, bid at 1.03× the asking price — and a ticket with an explicit exit is
 worth more than a marginal body. The line falls at T3 because that is where
 the ladder stops buying players for the eleven and starts buying depth.
 
@@ -253,8 +252,8 @@ trade and became a squad decision.
   **THEN** he is bid his asking price plus the margin
 - **WHEN** he is on the shortlist but Oráculo has projected nobody yet
   **THEN** he is still recognised and still bid on
-- **WHEN** a T1 short of cash bids the whole wallet **THEN** the reserve goes
-  with it and the speculation stands down
+- **WHEN** a T1 does not fit the wallet **THEN** he is skipped and the
+  speculation still goes ahead
 - **WHEN** a T3-or-better bid fits the wallet but not beside the reserve
   **THEN** the reserve yields and the signing goes through
 - **WHEN** the same is true of a bottom-tier bid **THEN** the reserve holds and
@@ -267,7 +266,7 @@ trade and became a squad decision.
   `test_the_reserve_is_sized_on_the_day_s_own_chollos`,
   `test_the_reserve_never_exceeds_the_wallet`,
   `test_a_chollo_is_bought_with_cash_the_ladder_left_reserved`,
-  `test_a_top_tier_short_of_cash_takes_the_reserve_with_it`,
+  `test_a_top_tier_short_of_cash_is_skipped_not_paid_with_the_wallet`,
   `test_the_reserve_yields_rather_than_block_a_real_signing`,
   `test_the_reserve_still_yields_to_a_third_tier_signing`,
   `test_the_reserve_holds_against_a_bottom_tier_signing`,
