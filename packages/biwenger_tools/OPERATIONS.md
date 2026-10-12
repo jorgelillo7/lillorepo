@@ -436,6 +436,16 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
       --update-env-vars DAILY_LINEUP_ENABLED=false
     ```
 
+    Last, the digest stores the day's prices (`price_snapshots`, kept 60 days)
+    and sends the **trading plan** — which fallers it would sell and which
+    risers it would bid on (spec `market-trader`). It is a simulation for now:
+    nothing is listed, accepted or bid. Switch it off, keeping the prices:
+
+    ```bash
+    gcloud run services update biwenger-api --region europe-southwest1 \
+      --update-env-vars TRADER_MODE=off
+    ```
+
     Squad values and the full offers inbox are not in the digest — both are
     on demand (`/comparar`, `/ofertas`). The digest only sends an offer
     scored ACEPTAR, plus a warning when a player's clause protection is about

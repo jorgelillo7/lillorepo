@@ -22,7 +22,7 @@ another existing resource takes a temporary `import` block, or
 | `storage.tf` | Buckets `biwenger` and `be-water-photos`, their public read and writers |
 | `cloud_run_iam.tf` | Who may invoke each Cloud Run service and the scraper job |
 | `scheduler.tf` | Daily digest and weekly scraper triggers (`europe-west1`) |
-| `firestore.tf` | Both `(default)` databases, `messages` composite indexes, field overrides and the `bids.expires_at` TTL |
+| `firestore.tf` | Both `(default)` databases, `messages` composite indexes, field overrides and the `bids.expires_at` / `price_snapshots.expires_at` TTLs |
 | `budgets.tf` | The three €1 monthly alerts on the billing account |
 | `ci_plan.tf` | The read-only identity CI plans with: its own WIF pool, `terraform-plan` and its viewer grants |
 

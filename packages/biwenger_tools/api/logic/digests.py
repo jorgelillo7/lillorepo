@@ -1,9 +1,9 @@
-"""Daily digest — "my team + market + lineup + auto-bid + offers to accept" to Telegram.
+"""Daily digest — "my team + market + lineup + auto-bid + offers + trades" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
-chain (squad → market → lineup → bids → offers) is fired in this order so the
-user gets a coherent morning briefing in guaranteed sequence, instead of
-multiple independent Scheduler jobs racing.
+chain (squad → market → lineup → bids → offers → trading plan) is fired in this
+order so the user gets a coherent morning briefing in guaranteed sequence,
+instead of multiple independent Scheduler jobs racing.
 
 Every step is wrapped in a swallow-on-failure helper so one failing step
 doesn't lose the rest of the digest.
@@ -24,6 +24,7 @@ The auto-bid step honours `config.AUTO_BID_PAUSED_UNTIL`: while today
 note instead. The manual `POST /market/auto-bid` endpoint is not affected.
 """
 
+import time
 from datetime import date, datetime
 
 from core.constants import MADRID_TZ
@@ -36,6 +37,7 @@ from packages.biwenger_tools.api.logic import (
     fixture_run,
     offers,
     provider_watch,
+    trader_run,
 )
 from packages.biwenger_tools.api.logic.image_formatter import build_table_image
 from packages.biwenger_tools.api.logic.orchestration import (
@@ -212,6 +214,26 @@ def _safe_run_offers_inbox(ctx) -> dict:
         return {"error": str(exc)}
 
 
+def _safe_run_trader(ctx, rows: dict, rounds, token: str, chat_id: str) -> dict:
+    """Plan the day's trades on the rows the digest already built. Never
+    raises; without the squad's rows there is no eleven to protect, so the
+    step stands down rather than plan blind."""
+    if rows.get("squad") is None:
+        return {"skipped": "squad rows unavailable"}
+    try:
+        return trader_run.run(
+            ctx,
+            rows["squad"],
+            rows.get("market") or [],
+            rounds,
+            token=token,
+            chat_id=chat_id,
+        )
+    except Exception as exc:
+        logger.exception("Trader step failed inside daily digest.")
+        return {"error": str(exc)}
+
+
 def _notify_digest_failure(exc: Exception) -> None:
     """Best-effort error notification when `run_daily` blows up.
 
@@ -260,8 +282,13 @@ def _run_daily_inner() -> dict:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
     token, chat_id = telegram
 
-    upcoming = actions.read_fixture_runs(ctx.biwenger)
+    rounds = actions.read_open_rounds(ctx.biwenger)
+    upcoming = (
+        None if rounds is None else fixture_run.upcoming_by_team(rounds, time.time())
+    )
     fixture_column = fixture_run.column_for(upcoming)
+    # What each section built, so the trader plans on the same rows.
+    built: dict = {}
 
     def _team_rows():
         my_squad = ctx.biwenger.get_manager_squad(
@@ -275,6 +302,7 @@ def _run_daily_inner() -> dict:
             oraculo_scale=ctx.oraculo_scale,
         )
         fixture_run.annotate(rows, upcoming)
+        built["squad"] = rows
         return rows
 
     def _market_rows():
@@ -288,6 +316,7 @@ def _run_daily_inner() -> dict:
             oraculo_scale=ctx.oraculo_scale,
         )
         fixture_run.annotate(rows, upcoming)
+        built["market"] = rows
         return rows
 
     team_sent, team_count = _safe_send_section(
@@ -311,6 +340,7 @@ def _run_daily_inner() -> dict:
         auto_bid_result = _safe_run_auto_bid()
     protection_result = _safe_run_protection_watch(ctx)
     offers_result = _safe_run_offers_inbox(ctx)
+    trader_result = _safe_run_trader(ctx, built, rounds, token, chat_id)
 
     sent_count = int(team_sent) + int(market_sent)
     logger.info(
@@ -324,6 +354,7 @@ def _run_daily_inner() -> dict:
             "auto_bid_skipped": auto_bid_result.get("skipped_count"),
             "offers_inbox": offers_result.get("offers"),
             "offers_sent": offers_result.get("sent"),
+            "trader": trader_result,
         },
     )
     return {
@@ -334,4 +365,5 @@ def _run_daily_inner() -> dict:
         "auto_bid": auto_bid_result,
         "protection": protection_result,
         "offers": offers_result,
+        "trader": trader_result,
     }

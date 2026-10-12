@@ -113,6 +113,9 @@ def _digest_env(
             )
         )
 
+    # The trading step writes Firestore; tests that need it re-patch it.
+    stack.enter_context(patch(_patches("trader_run.run"), return_value={}))
+
     mock_cfg.USER_SQUAD_URL = "x/{manager_id}"
     mock_cfg.MARKET_URL = "x"
     mock_cfg.AUTO_BID_PAUSED_UNTIL = paused_until
@@ -602,3 +605,38 @@ def test_the_digest_market_and_squad_both_carry_the_fixture_column():
     by_title = {c.args[1]: c.kwargs for c in mock_image.call_args_list}
     assert by_title["Mercado"].get("extra_cols") == ["Calendario (sin datos)"]
     assert by_title["Mi equipo"].get("extra_cols") == ["Calendario (sin datos)"]
+
+
+# --- the trading step ----------------------------------------------------------
+
+
+def test_the_trader_plans_on_the_rows_and_rounds_the_digest_already_read():
+    """No second squad, market or calendar read: the step reuses them."""
+    stack, _, _, _ = _digest_env(round_data={"id": 1, "season": {"rounds": []}})
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(_patches("trader_run.run"), return_value={"mode": "dry_run"}) as run:
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    run.assert_called_once()
+    _, squad_rows, market_rows, rounds = run.call_args.args
+    assert squad_rows == [] and market_rows == []
+    assert rounds == [{"id": 1, "season": {"rounds": []}}]
+    assert result["trader"] == {"mode": "dry_run"}
+
+
+def test_a_failing_trader_never_costs_the_digest():
+    stack, _, _, mock_offers = _digest_env()
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(_patches("trader_run.run"), side_effect=RuntimeError("fs down")):
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    mock_offers.assert_called_once()
+    assert "fs down" in result["trader"]["error"]
