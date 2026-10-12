@@ -37,7 +37,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Market trader phase B: list the squad for sale, accept the planned sells, place the planned bids | You: capture the list-for-sale and cancel-sale requests from biwenger.as.com (DevTools → Network) · then a few days of the simulation's plans judged sensible · [plan](openspec/specs/biwenger_tools/market-trader/spec.md) |
+| 🔨 | Market trader phase B: list the squad for sale, accept the planned sells, place the planned bids | Ready to build: the list-for-sale call is captured (`POST /market`, in `docs/external/biwenger-api.yaml`) · switch on after a few days of simulated plans judged sensible · [spec](openspec/specs/biwenger_tools/market-trader/spec.md) |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | Promotions to read against real points. **Unblocked**: the projection ledger now stores both, automatically, so the record `log_promotions` could never produce exists. Still needs them to accumulate — one promotion in 12 months means this waits on seasons, not weeks · [how to read it](docs/technical/backend/projection-ledger.md) |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
 | ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
