@@ -24,7 +24,8 @@ breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 `run_daily` SHALL send both images ("Mi equipo", then "Mercado") **before**
 setting the lineup and running auto-bid exactly once, so the chat reads
 squad → market → lineup → bids. It then chains the offers inbox, accept-only,
-after auto-bid.
+after auto-bid, and last the trading plan (`market-trader`), on the rows and
+rounds already read.
 
 The lineup step SHALL reuse the context the digest already built, so chaining it
 costs no second JP + Biwenger round-trip, and SHALL be switchable off by

@@ -53,7 +53,7 @@ resource "google_firestore_index" "messages" {
 }
 
 # Fields exempt from single-field indexing (large or never queried), plus the
-# TTL on bids.expires_at.
+# TTLs on bids.expires_at and price_snapshots.expires_at.
 locals {
   field_overrides = {
     "messages.contenido" = { project = local.biwenger, collection = "messages", field = "contenido", ttl = false }
@@ -61,6 +61,14 @@ locals {
     "bids.expires_at"    = { project = local.biwenger, collection = "bids", field = "expires_at", ttl = true }
     "water_revisions.previous" = {
       project = local.be_water, collection = "water_revisions", field = "previous", ttl = false
+    }
+    # The trader's daily price snapshots: a map of ~550 prices nobody queries,
+    # deleted sixty days after their date.
+    "price_snapshots.prices" = {
+      project = local.biwenger, collection = "price_snapshots", field = "prices", ttl = false
+    }
+    "price_snapshots.expires_at" = {
+      project = local.biwenger, collection = "price_snapshots", field = "expires_at", ttl = true
     }
   }
 }

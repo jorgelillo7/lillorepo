@@ -516,13 +516,12 @@ def run_protection_watch(ctx) -> dict:
 _FIXTURE_ROUNDS_MAX = fixture_run.GAMES_AHEAD + 2
 
 
-def read_fixture_runs(biwenger) -> dict | None:
-    """`{team_id: [difficulty, …]}` for the games ahead, or `None` when the
+def read_open_rounds(biwenger) -> list[dict] | None:
+    """The current round plus the season's open ones, or `None` when the
     calendar could not be read. Sequential public reads on the cf host.
 
-    Never raises: the column it feeds decorates a market image, and the
-    image must still go out — marked as missing its calendar, not silently
-    short of it.
+    Never raises: what it feeds — a market image's fixture column, the
+    trader's round-eve check — must degrade to "calendar unknown", not fail.
     """
     try:
         current = biwenger.get_round()
@@ -532,10 +531,17 @@ def read_fixture_runs(biwenger) -> dict | None:
         for round_id in fixture_run.rounds_to_read(current)[:_FIXTURE_ROUNDS_MAX]:
             if round_id != current.get("id"):
                 rounds.append(biwenger.get_round(round_id))
-        return fixture_run.upcoming_by_team(rounds, time.time())
+        return rounds
     except Exception:
-        logger.exception("Fixture calendar unreadable — market goes without it.")
+        logger.exception("Fixture calendar unreadable — going without it.")
         return None
+
+
+def read_fixture_runs(biwenger) -> dict | None:
+    """`{team_id: [difficulty, …]}` for the games ahead, or `None` when the
+    calendar could not be read."""
+    rounds = read_open_rounds(biwenger)
+    return None if rounds is None else fixture_run.upcoming_by_team(rounds, time.time())
 
 
 def _market_image(rows: list[dict], title: str, upcoming: dict | None) -> bytes:

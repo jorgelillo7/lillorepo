@@ -21,7 +21,7 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 |---|---|---|
 | Cloud Run (services) | `biwenger-api` · `biwenger-bot` · `biwenger-summary` (web) · `chucknorris-bot` | All minScale=0 |
 | Cloud Run (jobs) | `biwenger-scraper-data` | Sundays 22:00 via Scheduler |
-| Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log |
+| Firestore | `(default)` — `europe-southwest1` | comunicados, clausulazos, participacion, tabla_justicia, palmares, auto_bid_log, price_snapshots (the trader's daily prices, deleted after 60 days) |
 | Cloud Storage | `biwenger` — **`us-central1`** | public read; the newspaper, the draft market CSV and the cup-winner images. Written by `run-biwenger-api`; one league member may upload under `special-tournaments/` only. US for the always-free tier, as `be-water-photos` |
 | Cloud Storage | `lillorepo-tfstate` — **`us-central1`** | private, versioned Terraform state for both projects ([`infra/`](infra/README.md)); created by hand, not by Terraform |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` (linux/amd64 only, bytecode compiled in) |

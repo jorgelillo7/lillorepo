@@ -308,6 +308,16 @@ def _sf(row: dict) -> int:
     return rate or _DOUBTFUL_SF
 
 
+def projected_sf(row: dict) -> int:
+    """The score the lineup search ranks a player by — 0 when he cannot play."""
+    return _sf(row)
+
+
+def plays(row: dict) -> bool:
+    """Whether the projection expects him on a pitch: neither out nor left out."""
+    return _sf(row) > _UNCALLED_SF
+
+
 def _is_uncalled(row: dict) -> bool:
     """True if JP has explicitly flagged the player as not in the lineup."""
     jp = row.get("jp_player") or {}
