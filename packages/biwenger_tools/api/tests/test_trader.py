@@ -317,3 +317,17 @@ def test_an_offer_for_several_players_is_never_taken():
     offer = _offer(1, 40, 5_000_000)
     offer["requestedPlayers"] = [40, 20]
     assert sale_offers(sells, [offer], min_share=0.95) == []
+
+
+def test_a_postponed_round_s_played_games_do_not_make_every_day_its_eve():
+    """'Jornada 6 (aplazada)' stays pending with nine games played in
+    September and one left: only the one left can start anything."""
+    postponed = {
+        "status": "pending",
+        "games": [
+            {"date": _NOW - 30 * 86400, "status": "finished"},
+            {"date": _NOW + 8 * 86400, "status": "pending"},
+        ],
+    }
+    assert not round_eve([postponed, _round("pending", _NOW + 4 * 86400)], _NOW)
+    assert round_eve([postponed], _NOW + 7 * 86400)

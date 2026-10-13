@@ -48,16 +48,20 @@ class Plan:
 
 
 def round_eve(rounds: list[dict] | None, now: float) -> bool:
-    """Whether a round's first match falls today or tomorrow, Madrid time.
+    """Whether a round's first match still to be played falls today or
+    tomorrow, Madrid time.
 
     Only rounds still `pending` start; the games left in one already under way
-    do not. An unreadable calendar answers True, the careful side.
+    do not. A postponed round stays `pending` with most of its games played,
+    so only games not yet played count. An unreadable calendar answers True,
+    the careful side.
     """
     starts = [
-        min(g["date"] for g in r.get("games") or [] if g.get("date"))
+        g["date"]
         for r in rounds or []
         if r.get("status") == "pending"
-        and any(g.get("date") for g in r.get("games") or [])
+        for g in r.get("games") or []
+        if g.get("date") and g["date"] > now and g.get("status") != "finished"
     ]
     if not starts:
         return True
