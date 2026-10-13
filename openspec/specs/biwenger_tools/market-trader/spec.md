@@ -112,9 +112,10 @@ A market player rising for `TRADER_BUY_AFTER_RISES` days or more, projected at
 Today's sales SHALL count towards today's bids. The wallet MAY end as low as
 −`TRADER_NEGATIVE_LIMIT` on an ordinary day, since the whole squad is on sale
 and something sells by the next morning, but SHALL NOT end below zero when a
-round's first match falls today or tomorrow (Madrid). Only rounds still
-`pending` start; the rest of one under way does not. An unreadable calendar
-counts as an eve.
+round's first match still to be played falls today or tomorrow (Madrid). Only
+rounds still `pending` start; the rest of one under way does not, and a
+postponed round — `pending` with most of its games played — starts only with
+the games it has left. An unreadable calendar counts as an eve.
 
 #### Scenario: the floor
 - **WHEN** no round is near **THEN** a bid may take the wallet negative down to
@@ -122,6 +123,8 @@ counts as an eve.
 - **WHEN** a round starts tomorrow **THEN** no bid may leave the wallet below
   zero, however high the limit
 - **WHEN** a sale is planned **THEN** its price pays for the day's bids
+- **WHEN** a postponed round has played games and one left **THEN** only the
+  one left can make a day its eve
 - **WHEN** the calendar cannot be read **THEN** the day is treated as an eve
 - *Verifies:*
   `test_away_from_a_round_the_wallet_may_go_negative_down_to_the_limit`,
@@ -131,6 +134,7 @@ counts as an eve.
   `test_a_round_starting_tomorrow_makes_today_its_eve`,
   `test_a_round_three_days_out_is_not_its_eve`,
   `test_the_rest_of_a_round_already_under_way_does_not_count_as_a_start`,
+  `test_a_postponed_round_s_played_games_do_not_make_every_day_its_eve`,
   `test_an_unreadable_calendar_is_treated_as_an_eve`
 
 ### Requirement: Bids already waiting are spent, and never repeated
