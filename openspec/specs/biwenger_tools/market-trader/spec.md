@@ -66,8 +66,10 @@ day, or a day the player is missing from, ends it; a gap is never bridged.
 
 ### Requirement: Sell a faller only off the bench, and only if an eleven is left
 
-A squad player falling for `TRADER_SELL_AFTER_FALLS` days or more SHALL be sold
-at today's price — weakest projection first — unless he starts in the best
+A squad player falling for `TRADER_SELL_AFTER_FALLS` days or more — or a bench
+player projected below `TRADER_DEAD_SF` (300, auto-bid's signing floor),
+whatever his price does — SHALL be sold at today's price, weakest projection
+first, so the bench that will not do much pays for the risers; unless he starts in the best
 eleven the lineup search picks today, the sale would take the squad below
 `TRADER_MIN_SQUAD` (15: an eleven and the four reserves the lineup fills), or
 the rest would no longer field a full eleven of players the projection expects
@@ -85,6 +87,9 @@ most days, so it sold players still gaining value.
 - **WHEN** he starts in the best eleven **THEN** he is held, however he falls
 - **WHEN** a sale would leave fewer than the minimum squad **THEN** he is held
 - **WHEN** several fallers can be sold **THEN** the weakest projection goes first
+- **WHEN** a bench player projects below the floor on a flat price **THEN** he
+  is sold, and the plan says why; one who projects well is kept
+- **WHEN** a weak player starts because the squad is thin **THEN** he is kept
 - **WHEN** the squad already lacks an eleven that plays **THEN** even the bench
   is held
 - **WHEN** he has fallen one day **THEN** nothing happens
@@ -95,6 +100,10 @@ most days, so it sold players still gaining value.
   `test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls`,
   `test_sales_stop_at_the_minimum_squad_so_a_bench_is_left`,
   `test_among_the_fallers_the_weakest_projection_is_sold_first`,
+  `test_a_bench_player_projected_low_is_sold_even_on_a_flat_price`,
+  `test_a_bench_player_who_projects_well_is_kept_on_a_flat_price`,
+  `test_a_starter_is_never_deadwood_however_low_he_projects`,
+  `test_deadwood_still_stops_at_the_minimum_squad`,
   `test_with_no_eleven_that_plays_even_the_bench_is_kept`,
   `test_one_day_down_is_not_a_reason_to_sell`,
   `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`

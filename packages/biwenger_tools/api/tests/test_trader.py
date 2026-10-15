@@ -19,6 +19,7 @@ RULES = Rules(
     buy_min_sf=300,
     max_squad=25,
     min_squad=11,
+    dead_sf=0,
 )
 
 
@@ -367,5 +368,49 @@ def test_among_the_fallers_the_weakest_projection_is_sold_first():
     ]
     result = plan(
         squad, [], history, cash=0, round_eve=False, negative_limit=0, rules=rules
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [41]
+
+
+# --- the bench that will not do much is sold, whatever its price --------------
+
+DEADWOOD = Rules(**{**RULES.__dict__, "dead_sf": 300})
+
+
+def _flat():
+    return [{i: 2_000_000 for i in range(1, 100)} for _ in range(4)]
+
+
+def test_a_bench_player_projected_low_is_sold_even_on_a_flat_price():
+    squad = _eleven() + [_player(40, 120, DEF)]
+    result = plan(
+        squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=DEADWOOD
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+    assert "proyección baja" in report(result, live=False)
+
+
+def test_a_bench_player_who_projects_well_is_kept_on_a_flat_price():
+    squad = _eleven() + [_player(40, 350, DEF)]
+    result = plan(
+        squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=DEADWOOD
+    )
+    assert result.sells == []
+
+
+def test_a_starter_is_never_deadwood_however_low_he_projects():
+    """A thin squad starts a weak player; selling him opens a hole."""
+    squad = _eleven()[:-1] + [_player(31, 150, FWD)]
+    result = plan(
+        squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=DEADWOOD
+    )
+    assert result.sells == []
+
+
+def test_deadwood_still_stops_at_the_minimum_squad():
+    squad = _eleven() + [_player(40, 120, DEF), _player(41, 80, MID)]
+    rules = Rules(**{**DEADWOOD.__dict__, "min_squad": 12})
+    result = plan(
+        squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=rules
     )
     assert [m.row["bw_id"] for m in result.sells] == [41]
