@@ -37,6 +37,7 @@ def _rules() -> trader.Rules:
         buy_margin=config.TRADER_BUY_MARGIN,
         buy_min_sf=config.TRADER_BUY_MIN_SF,
         max_squad=lineup.MAX_SQUAD_SIZE,
+        min_squad=config.TRADER_MIN_SQUAD,
     )
 
 

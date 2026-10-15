@@ -67,16 +67,24 @@ day, or a day the player is missing from, ends it; a gap is never bridged.
 ### Requirement: Sell a faller only off the bench, and only if an eleven is left
 
 A squad player falling for `TRADER_SELL_AFTER_FALLS` days or more SHALL be sold
-at today's price — longest fall first — unless he starts in the best eleven the
-lineup search picks today, or the rest of the squad would no longer field a
-full eleven of players the projection expects to play. Either way he is held,
-and the plan says why. Good players are kept for their points; price rotation
-is for the bench.
+at today's price — weakest projection first — unless he starts in the best
+eleven the lineup search picks today, the sale would take the squad below
+`TRADER_MIN_SQUAD` (15: an eleven and the four reserves the lineup fills), or
+the rest would no longer field a full eleven of players the projection expects
+to play. Either way he is held, and the plan says why. Good players are kept
+for their points; price rotation is for the bench, and the bench is kept.
+
+Measured and rejected on 15/10: counting a fall only when it beats the day's
+market move. On 90 players' season it sold twice as often, won 48 % of trades
+against 71 %, and turned the median from +12 % to −0.6 % — the market rises on
+most days, so it sold players still gaining value.
 
 #### Scenario: fallers
 - **WHEN** a player has fallen two days and the rest still field an eleven
   **THEN** he is sold at today's price
 - **WHEN** he starts in the best eleven **THEN** he is held, however he falls
+- **WHEN** a sale would leave fewer than the minimum squad **THEN** he is held
+- **WHEN** several fallers can be sold **THEN** the weakest projection goes first
 - **WHEN** the squad already lacks an eleven that plays **THEN** even the bench
   is held
 - **WHEN** he has fallen one day **THEN** nothing happens
@@ -85,6 +93,8 @@ is for the bench.
 - *Verifies:*
   `test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven`,
   `test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls`,
+  `test_sales_stop_at_the_minimum_squad_so_a_bench_is_left`,
+  `test_among_the_fallers_the_weakest_projection_is_sold_first`,
   `test_with_no_eleven_that_plays_even_the_bench_is_kept`,
   `test_one_day_down_is_not_a_reason_to_sell`,
   `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`

@@ -18,6 +18,7 @@ RULES = Rules(
     buy_margin=0.03,
     buy_min_sf=300,
     max_squad=25,
+    min_squad=11,
 )
 
 
@@ -331,3 +332,40 @@ def test_a_postponed_round_s_played_games_do_not_make_every_day_its_eve():
     }
     assert not round_eve([postponed, _round("pending", _NOW + 4 * 86400)], _NOW)
     assert round_eve([postponed], _NOW + 7 * 86400)
+
+
+# --- a bench is kept, and the weakest go first --------------------------------
+
+
+def test_sales_stop_at_the_minimum_squad_so_a_bench_is_left():
+    """Eleven are not enough: an injury the day before leaves a hole."""
+    squad = _eleven() + [_player(40, 300, DEF), _player(41, 200, MID)]
+    rules = Rules(**{**RULES.__dict__, "min_squad": 12})
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000, p41=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=rules,
+    )
+    assert len(result.sells) == 1
+    assert (40, "plantilla mínima") in [(r["bw_id"], why) for r, why in result.held]
+
+
+def test_among_the_fallers_the_weakest_projection_is_sold_first():
+    squad = _eleven() + [_player(40, 300, DEF), _player(41, 50, MID)]
+    rules = Rules(**{**RULES.__dict__, "min_squad": 12})
+    history = [
+        {
+            **{i: 2_000_000 for i in range(1, 100)},
+            40: 2_600_000 - d * 200_000,
+            41: 2_000_000 - d * 10_000,
+        }
+        for d in range(4)
+    ]
+    result = plan(
+        squad, [], history, cash=0, round_eve=False, negative_limit=0, rules=rules
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [41]
