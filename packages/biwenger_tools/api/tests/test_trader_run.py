@@ -116,6 +116,7 @@ def _live(monkeypatch, ctx):
         trader_run, "send_telegram_message", lambda **kw: sent.append(kw["text"])
     )
     monkeypatch.setattr(config, "TRADER_MODE", "live")
+    monkeypatch.setattr(config, "TRADER_MIN_SQUAD", 11)
     result = trader_run.run(
         ctx,
         _squad(),

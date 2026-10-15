@@ -25,6 +25,7 @@ class Rules:
     buy_margin: float
     buy_min_sf: int
     max_squad: int
+    min_squad: int
 
 
 @dataclass(frozen=True)
@@ -91,16 +92,17 @@ def has_eleven(rows: list[dict]) -> bool:
 def plan_sells(
     squad: list[dict], history: list[dict[int, int]], rules: Rules
 ) -> tuple[list[Move], list[tuple[dict, str]], list[dict]]:
-    """`(sells, held, keep)`: the fallers to sell at today's price, longest fall
-    first, and why the others stay. Never a starter of the best eleven, and
-    never one whose sale leaves no eleven that plays."""
+    """`(sells, held, keep)`: the fallers to sell at today's price, weakest
+    projection first, and why the others stay. Never a starter of the best
+    eleven, never below `min_squad` — an eleven and a bench — and never one
+    whose sale leaves no eleven that plays."""
     fallers = sorted(
         (
             (row, s)
             for row in squad
             if (s := streak(history, row["bw_id"])) <= -rules.sell_after_falls
         ),
-        key=lambda rs: (rs[1], -(rs[0].get("price") or 0)),
+        key=lambda rs: (lineup.projected_sf(rs[0]), rs[1]),
     )
     starters = best_eleven_ids(squad)
     keep = list(squad)
@@ -109,6 +111,9 @@ def plan_sells(
     for row, s in fallers:
         if row["bw_id"] in starters:
             held.append((row, "titular del mejor once"))
+            continue
+        if len(keep) - 1 < rules.min_squad:
+            held.append((row, "plantilla mínima"))
             continue
         rest = [r for r in keep if r["bw_id"] != row["bw_id"]]
         if not has_eleven(rest):

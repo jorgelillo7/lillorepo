@@ -76,6 +76,8 @@ TRADER_MODE = os.getenv("TRADER_MODE", "dry_run").lower()
 # How far below zero the wallet may end away from a round's eve, in euros.
 TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "3000000"))
 TRADER_SELL_AFTER_FALLS = 2
+# Sales stop here: an eleven plus the four reserves the lineup fills.
+TRADER_MIN_SQUAD = 15
 TRADER_BUY_AFTER_RISES = 3
 # The league's median overpay on a market buy is +1.7 %; a little over it wins
 # the uncontested ones without chasing the contested.
