@@ -78,6 +78,9 @@ TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "3000000"))
 TRADER_SELL_AFTER_FALLS = 2
 # Sales stop here: an eleven plus the four reserves the lineup fills.
 TRADER_MIN_SQUAD = 15
+# A bench player projected below auto-bid's signing floor (T4) is sold
+# whatever his price does: he will not do much, and his money buys a riser.
+TRADER_DEAD_SF = 300
 TRADER_BUY_AFTER_RISES = 3
 # The league's median overpay on a market buy is +1.7 %; a little over it wins
 # the uncontested ones without chasing the contested.

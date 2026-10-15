@@ -1,6 +1,7 @@
 """Which players to sell and to buy on price streaks. Pure: no I/O.
 
-Sell the squad's fallers, buy the market's risers, inside the owner's limits:
+Sell the squad's fallers and the bench that will not do much, buy the
+market's risers, and let the one pay for the other, inside the owner's limits:
 the starters of the best eleven are never sold — good players are kept for
 their points and only the rest rotates on price — the squad must still field
 an eleven that plays, and on the eve of a
@@ -26,6 +27,8 @@ class Rules:
     buy_min_sf: int
     max_squad: int
     min_squad: int
+    # A bench player projected below this is sold whatever his price does.
+    dead_sf: int
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class Move:
     row: dict
     amount: int
     streak: int
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,15 +96,17 @@ def has_eleven(rows: list[dict]) -> bool:
 def plan_sells(
     squad: list[dict], history: list[dict[int, int]], rules: Rules
 ) -> tuple[list[Move], list[tuple[dict, str]], list[dict]]:
-    """`(sells, held, keep)`: the fallers to sell at today's price, weakest
-    projection first, and why the others stay. Never a starter of the best
-    eleven, never below `min_squad` — an eleven and a bench — and never one
-    whose sale leaves no eleven that plays."""
+    """`(sells, held, keep)`: the players to sell at today's price — the
+    fallers, and the bench projected below `dead_sf` whatever his price —
+    weakest projection first, and why the others stay. Never a starter of the
+    best eleven, never below `min_squad` — an eleven and a bench — and never
+    one whose sale leaves no eleven that plays."""
     fallers = sorted(
         (
             (row, s)
             for row in squad
             if (s := streak(history, row["bw_id"])) <= -rules.sell_after_falls
+            or lineup.projected_sf(row) < rules.dead_sf
         ),
         key=lambda rs: (lineup.projected_sf(rs[0]), rs[1]),
     )
@@ -120,7 +126,12 @@ def plan_sells(
             held.append((row, "sin él no queda un once que juegue"))
             continue
         keep = rest
-        sells.append(Move(row, int(row.get("price") or 0), s))
+        why = (
+            ""
+            if s <= -rules.sell_after_falls
+            else f"proyección baja (SF {lineup.projected_sf(row)})"
+        )
+        sells.append(Move(row, int(row.get("price") or 0), s, why))
     return sells, held, keep
 
 
@@ -234,10 +245,8 @@ def report(result: Plan, live: bool) -> str:
         else f"{verb_sell}: nadie"
     )
     for m in result.sells:
-        days = -m.streak
-        lines.append(
-            f"• {escape(m.row['name'])} — {_eur(m.amount)}, {days} días bajando"
-        )
+        why = m.reason or f"{-m.streak} días bajando"
+        lines.append(f"• {escape(m.row['name'])} — {_eur(m.amount)}, {why}")
     for m in result.waiting:
         lines.append(
             f"• <i>{escape(m.row['name'])}: a la venta, sin oferta aceptable aún</i>"

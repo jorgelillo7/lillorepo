@@ -38,6 +38,7 @@ def _rules() -> trader.Rules:
         buy_min_sf=config.TRADER_BUY_MIN_SF,
         max_squad=lineup.MAX_SQUAD_SIZE,
         min_squad=config.TRADER_MIN_SQUAD,
+        dead_sf=config.TRADER_DEAD_SF,
     )
 
 
@@ -123,7 +124,9 @@ def _act(
             skipped.append((move.row, "la venta no se pudo cerrar"))
             continue
         if (settled or {}).get("status") == "processed":
-            sold.append(trader.Move(move.row, int(offer["amount"]), move.streak))
+            sold.append(
+                trader.Move(move.row, int(offer["amount"]), move.streak, move.reason)
+            )
         else:
             skipped.append((move.row, "Biwenger no cerró la venta"))
     sold_ids = {m.row["bw_id"] for m in sold}
