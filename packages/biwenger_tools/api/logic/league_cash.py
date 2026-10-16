@@ -227,31 +227,37 @@ def _names(rivals: tuple[dict, ...]) -> str:
     )
 
 
-def protection_alert(rows: list[dict], rivals: list[dict]) -> str | None:
-    """Telegram HTML for players whose protection is ending, or `None` when no
-    rival could pay any of their clauses — then there is nothing to act on."""
-    blocks = []
+def protection_alert(
+    rows: list[dict], rivals: list[dict], starters: set | None = None
+) -> str | None:
+    """Telegram HTML naming the players whose protection is ending that a rival
+    could clause with the cash he has, or `None` when there is none.
+
+    Only the eleven counts when `starters` is given: losing a bench player to
+    a clause pays the clause, usually far above his value. Rivals who could
+    pay only by going negative are left out — any of them always can.
+    """
+    lines, opens = [], []
     for row in rows:
-        who = reach(row.get("clause_value") or 0, rivals)
-        if not who.anyone:
+        if starters is not None and row.get("bw_id") not in starters:
             continue
-        opens = datetime.fromtimestamp(row["clause_locked_until"], MADRID_TZ)
-        lines = [
-            f"<b>{escape(row['name'])}</b> ({short_position(row.get('position_id'))})"
-            f" · cláusula {_eur(row['clause_value'])}",
-            f"   Clausulable desde el {opens.strftime('%d/%m a las %H:%M')}",
-        ]
-        if who.by_cash:
-            lines.append(f"   🔴 Con su saldo: {_names(who.by_cash)}")
-        if who.by_max_bid:
-            lines.append(f"   🟠 Quedándose en negativo: {_names(who.by_max_bid)}")
-        blocks.append("\n".join(lines))
-    if not blocks:
+        who = reach(row.get("clause_value") or 0, rivals)
+        if not who.by_cash:
+            continue
+        opens.append(row["clause_locked_until"])
+        lines.append(
+            f"• <b>{escape(row['name'])}</b>"
+            f" ({short_position(row.get('position_id'))})"
+            f" · {_eur(row['clause_value'])} — {_names(who.by_cash)}"
+        )
+    if not lines:
         return None
+    when = datetime.fromtimestamp(min(opens), MADRID_TZ)
     return (
-        "🔓 <b>Se acaba la protección</b>\n\n"
-        + "\n\n".join(blocks)
-        + "\n\n<i>Si te interesa, sube la cláusula en la app.</i>"
+        "🔓 <b>Se acaba la protección</b> — clausulables desde el "
+        f"{when.strftime('%d/%m a las %H:%M')}\n"
+        + "\n".join(lines)
+        + "\n<i>Si te interesa, sube la cláusula en la app.</i>"
     )
 
 

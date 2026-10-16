@@ -242,10 +242,16 @@ something changes.
 
 ### Requirement: The digest warns when a protection is about to end
 
-`run_protection_watch`, chained into the daily digest, SHALL send one message
-when a player of the owner's has a clause lock (`clauseLockedUntil`) ending
-within the next 24 hours **and** some rival could pay that clause, naming the
-rivals by tier. Otherwise it SHALL send nothing.
+`run_protection_watch`, chained into the daily digest, SHALL send one short
+message when a **starter of the best eleven** has a clause lock
+(`clauseLockedUntil`) ending within the next 24 hours **and** some rival has
+the **cash** to pay that clause — one line per player under one heading with
+the moment the clauses open. Otherwise it SHALL send nothing.
+
+Two things stay out on purpose, because the message used to list all twelve
+players and went unread. A bench player taken by a clause pays his clause,
+usually far above his value: that is money, not a threat. And a rival who
+could pay only by going negative is not named: every rival always can.
 
 A quiet morning SHALL cost one squad read: the board and the rival squads are
 read only once a lock is actually ending. A failure SHALL NOT stop the digest.
@@ -253,15 +259,20 @@ read only once a lock is actually ending. A failure SHALL NOT stop the digest.
 #### Scenario: quiet, ending, unreachable
 - **WHEN** no lock ends within a day **THEN** nothing is sent and the board is
   not read
-- **WHEN** a lock ends and a rival can pay **THEN** the player, clause, the
-  moment it opens and the rivals by tier are sent
-- **WHEN** a lock ends but nobody can pay **THEN** nothing is sent
+- **WHEN** a starter's lock ends and a rival has the cash **THEN** one line
+  names the player, the clause and the rivals, pacts marked
+- **WHEN** rivals could pay only by going negative **THEN** they are not named,
+  and with nobody else nothing is sent
+- **WHEN** the player is on the bench **THEN** he is not named
 - **WHEN** the watch raises **THEN** the digest records it and runs the offers
   step anyway
 - *Verifies:* `test_protection_ending_keeps_only_locks_ending_inside_the_window`,
   `test_protection_watch_reads_nothing_more_on_a_quiet_morning`,
   `test_protection_watch_warns_when_a_lock_ends_and_a_rival_can_pay`,
-  `test_protection_alert_names_who_can_pay_and_marks_the_pact`,
-  `test_protection_alert_is_silent_when_nobody_reaches`,
+  `test_protection_alert_names_who_can_pay_with_their_cash_and_marks_the_pact`,
+  `test_protection_alert_leaves_out_who_could_only_pay_by_going_negative`,
+  `test_protection_alert_is_silent_when_no_rival_has_the_cash`,
+  `test_protection_alert_names_only_the_starters`,
+  `test_protection_alert_is_one_line_per_player_under_one_heading`,
   `test_run_daily_runs_the_protection_watch_and_survives_its_failure`,
   `test_a_squad_row_carries_the_raw_clause_lock`

@@ -318,8 +318,9 @@ def test_reach_is_nobody_above_every_max_bid():
     assert not got.by_cash and not got.by_max_bid and not got.anyone
 
 
-def _mine(name, score, clause, locked_until=None, price=0):
+def _mine(name, score, clause, locked_until=None, price=0, bw_id=1):
     return {
+        "bw_id": bw_id,
         "name": name,
         "price": price,
         "position_id": 3,
@@ -351,18 +352,49 @@ def test_exposed_takes_the_best_projections_first():
     assert [r["name"] for r in league_cash.exposed(rows, 3)] == ["a", "b", "c"]
 
 
-def test_protection_alert_names_who_can_pay_and_marks_the_pact():
-    row = _mine("Parrott", 400, 10_878_292, NOW + DAY // 2)
+def test_protection_alert_names_who_can_pay_with_their_cash_and_marks_the_pact():
+    row = _mine("Parrott", 400, 3_000_000, NOW + DAY // 2)
     text = league_cash.protection_alert([row], RIVALS)
-    assert "Parrott" in text and "10.878.292" in text
+    assert "Parrott" in text and "3.000.000" in text
     assert "Luceneta" in text
     assert "Kairat (pacto)" in text
     assert text.index("Luceneta") < text.index("Kairat")
 
 
-def test_protection_alert_is_silent_when_nobody_reaches():
-    row = _mine("Caro", 400, 90_000_000, NOW + DAY // 2)
+def test_protection_alert_leaves_out_who_could_only_pay_by_going_negative():
+    """Every rival can always go negative; naming them all said nothing."""
+    row = _mine("Parrott", 400, 10_878_292, NOW + DAY // 2)
+    text = league_cash.protection_alert([row], RIVALS)
+    assert "Luceneta" in text
+    assert "Kairat" not in text and "Reich" not in text
+    assert "negativo" not in text
+
+
+def test_protection_alert_is_silent_when_no_rival_has_the_cash():
+    row = _mine("Caro", 400, 40_000_000, NOW + DAY // 2)
     assert league_cash.protection_alert([row], RIVALS) is None
+
+
+def test_protection_alert_names_only_the_starters():
+    """Losing a bench player to a clause pays the clause — usually far more
+    than he is worth. Only the eleven is worth a warning."""
+    rows = [
+        _mine("Titular", 400, 3_000_000, NOW + DAY // 2, bw_id=1),
+        _mine("Suplente", 100, 3_000_000, NOW + DAY // 2, bw_id=2),
+    ]
+    text = league_cash.protection_alert(rows, RIVALS, starters={1})
+    assert "Titular" in text and "Suplente" not in text
+    assert league_cash.protection_alert(rows[1:], RIVALS, starters={1}) is None
+
+
+def test_protection_alert_is_one_line_per_player_under_one_heading():
+    rows = [
+        _mine("A", 400, 3_000_000, NOW + DAY // 2, bw_id=1),
+        _mine("B", 400, 3_000_000, NOW + DAY // 2, bw_id=2),
+    ]
+    text = league_cash.protection_alert(rows, RIVALS)
+    assert text.count("Clausulable") + text.count("clausulables") == 1
+    assert len([ln for ln in text.splitlines() if ln.startswith("•")]) == 2
 
 
 def test_exposure_rows_count_who_reaches_each_top_player():
