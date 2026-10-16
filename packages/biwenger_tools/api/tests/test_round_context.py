@@ -98,9 +98,20 @@ def test_no_context_renders_no_line():
 
 
 def test_the_line_names_the_round_the_next_one_and_the_freeze():
-    line = round_context.format_line(round_context.read(_payload()))
+    before = datetime(2026, 9, 1, 9, 0, tzinfo=MADRID_TZ).timestamp()
+    line = round_context.format_line(round_context.read(_payload()), now=before)
 
     assert "Jornada 3" in line and "2/10" in line and "en juego" in line
     assert "Jornada 6" in line
     assert "03/09 21:00" in line
     assert "02/09 21:00" in line, "el corte de cláusulas, 24 h antes"
+    assert "hasta entonces" in line
+
+
+def test_a_freeze_already_past_reads_as_frozen():
+    """The 16/10 digest said clauses freeze on Thursday — a day after it."""
+    after = datetime(2026, 9, 3, 9, 0, tzinfo=MADRID_TZ).timestamp()
+    line = round_context.format_line(round_context.read(_payload()), now=after)
+
+    assert "congeladas desde el" in line and "02/09 21:00" in line
+    assert "hasta entonces" not in line

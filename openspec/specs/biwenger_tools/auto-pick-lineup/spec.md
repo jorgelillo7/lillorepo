@@ -59,8 +59,10 @@ the next round from the round number or from the order of `season.rounds[]`,
 which is not chronological.
 
 Clauses freeze 24 h before that kickoff, so the deadline is what makes the
-line actionable: cash has to be positive before it, and until it passes a
-player can still be taken.
+line actionable: until it passes a player can still be taken. Once it has
+passed the line SHALL say the clauses are frozen, not that they will be.
+(Cash has to be positive at the kickoff itself — Biwenger's own rule,
+`docs/technical/backend/biwenger-official-rules.md`.)
 
 The read SHALL be best-effort — a failure drops the line and leaves the
 message otherwise intact, because losing a lineup because the calendar was
@@ -73,6 +75,8 @@ unreachable is the wrong trade.
   is the one the freeze is measured from
 - **WHEN** the payload is missing or partial **THEN** no line is rendered and
   nothing raises
+- **WHEN** the freeze has already passed **THEN** the line reads "congeladas
+  desde", without the "hasta entonces"
 - *Verifies:* `test_an_open_round_is_read_from_its_games_not_assumed`,
   `test_a_finished_round_is_not_open`,
   `test_the_next_round_is_not_the_next_number`,
@@ -80,7 +84,8 @@ unreachable is the wrong trade.
   `test_the_earliest_kickoff_wins_when_the_round_has_several`,
   `test_a_partial_payload_yields_an_empty_context_not_a_crash`,
   `test_no_context_renders_no_line`,
-  `test_the_line_names_the_round_the_next_one_and_the_freeze`
+  `test_the_line_names_the_round_the_next_one_and_the_freeze`,
+  `test_a_freeze_already_past_reads_as_frozen`
 
 ### Requirement: the preview compares, it does not just propose
 

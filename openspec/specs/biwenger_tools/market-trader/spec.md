@@ -112,7 +112,10 @@ most days, so it sold players still gaining value.
 
 A market player rising for `TRADER_BUY_AFTER_RISES` days or more, projected at
 `TRADER_BUY_MIN_SF` or above and not already owned, SHALL be bid his price plus
-`TRADER_BUY_MARGIN` — best projection first, never past `MAX_SQUAD_SIZE`.
+`TRADER_BUY_MARGIN` — for the line with the fewest players first, then the best
+projection, never past `MAX_SQUAD_SIZE`. A goalkeeper is never bought: a
+manager's only keeper cannot be claused (league rule, as in
+`clausulazo-emergency`), and a second one can.
 
 #### Scenario: risers
 - **WHEN** a riser of three days clears the floor **THEN** he is bid at
@@ -120,18 +123,27 @@ A market player rising for `TRADER_BUY_AFTER_RISES` days or more, projected at
 - **WHEN** he is projected below the floor, or has risen two days **THEN** he
   is not bid
 - **WHEN** two risers compete for the wallet **THEN** the better projected wins
+- **WHEN** risers compete for one line short of players and one already deep
+  **THEN** the short line is bought first
+- **WHEN** the riser is a goalkeeper **THEN** he is never bid
 - **WHEN** the squad is full **THEN** nobody is bid, and the plan says so
 - *Verifies:* `test_a_market_player_rising_three_days_is_bid_just_over_his_price`,
   `test_a_riser_below_the_projection_floor_is_not_bought`,
   `test_two_days_up_is_not_yet_a_trend`,
-  `test_the_best_projected_riser_is_bought_first`, `test_a_full_squad_buys_nobody`
+  `test_the_best_projected_riser_is_bought_first`,
+  `test_buys_go_to_the_thinnest_line_first`, `test_a_goalkeeper_is_never_bought`,
+  `test_a_full_squad_buys_nobody`
 
 ### Requirement: No negative wallet on a round's eve
 
 Today's sales SHALL count towards today's bids. The wallet MAY end as low as
 −`TRADER_NEGATIVE_LIMIT` on an ordinary day, since the whole squad is on sale
 and something sells by the next morning, but SHALL NOT end below zero when a
-round's first match still to be played falls today or tomorrow (Madrid). Only
+round's first match still to be played falls tomorrow (Madrid). Biwenger's rule
+is the balance at the exact moment a round starts, and the market settles bids
+around 07:00 the next morning: the day before the kickoff is the one day a bid
+lands before it, while on the kickoff day itself the morning's bids settle
+after it. Only
 rounds still `pending` start; the rest of one under way does not, and a
 postponed round — `pending` with most of its games played — starts only with
 the games it has left. An unreadable calendar counts as an eve.
@@ -141,6 +153,7 @@ the games it has left. An unreadable calendar counts as an eve.
   the limit, and one past it is skipped
 - **WHEN** a round starts tomorrow **THEN** no bid may leave the wallet below
   zero, however high the limit
+- **WHEN** a round starts today **THEN** today is not its eve
 - **WHEN** a sale is planned **THEN** its price pays for the day's bids
 - **WHEN** a postponed round has played games and one left **THEN** only the
   one left can make a day its eve
@@ -152,6 +165,7 @@ the games it has left. An unreadable calendar counts as an eve.
   `test_today_s_sales_pay_for_today_s_buys`,
   `test_a_round_starting_tomorrow_makes_today_its_eve`,
   `test_a_round_three_days_out_is_not_its_eve`,
+  `test_the_day_a_round_starts_is_not_its_eve`,
   `test_the_rest_of_a_round_already_under_way_does_not_count_as_a_start`,
   `test_a_postponed_round_s_played_games_do_not_make_every_day_its_eve`,
   `test_an_unreadable_calendar_is_treated_as_an_eve`

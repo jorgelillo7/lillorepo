@@ -18,6 +18,7 @@ rounds: with Jornada 3 active, the next to be played is Jornada 6 and Jornada
 number lies and `season.rounds[]` is not in chronological order.
 """
 
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -99,7 +100,7 @@ def read(round_data: dict | None) -> RoundContext:
     )
 
 
-def format_line(context: RoundContext) -> str:
+def format_line(context: RoundContext, now: float | None = None) -> str:
     """One line for the lineup messages, or `""` when nothing is known."""
     if not context.name:
         return ""
@@ -111,7 +112,14 @@ def format_line(context: RoundContext) -> str:
         kickoff = context.next_kickoff.strftime("%a %d/%m %H:%M")
         line += f"\n   Siguiente: {context.next_name}, primer partido {kickoff}"
         deadline = context.clause_deadline
-        if deadline is not None:
+        if deadline is not None and deadline.timestamp() <= (
+            time.time() if now is None else now
+        ):
+            line += (
+                f"\n   🔒 Cláusulas congeladas desde el "
+                f"{deadline.strftime('%a %d/%m %H:%M')}"
+            )
+        elif deadline is not None:
             line += (
                 f"\n   🔒 Cláusulas se congelan el "
                 f"{deadline.strftime('%a %d/%m %H:%M')} — hasta entonces "
