@@ -10,6 +10,7 @@ down to a limit, because the whole squad is on sale every day and something
 sells by the next morning.
 """
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from html import escape
@@ -53,8 +54,11 @@ class Plan:
 
 
 def round_eve(rounds: list[dict] | None, now: float) -> bool:
-    """Whether a round's first match still to be played falls today or
-    tomorrow, Madrid time.
+    """Whether a round's first match still to be played falls tomorrow,
+    Madrid time — the one day a bid placed this morning settles (the market
+    closes around 07:00) before a kickoff. The day of the match itself is not
+    an eve: that morning's bids settle after it has started, and the rule is
+    the balance at the exact moment the round starts.
 
     Only rounds still `pending` start; the games left in one already under way
     do not. A postponed round stays `pending` with most of its games played,
@@ -62,17 +66,21 @@ def round_eve(rounds: list[dict] | None, now: float) -> bool:
     the careful side.
     """
     starts = [
-        g["date"]
+        min(unplayed)
         for r in rounds or []
         if r.get("status") == "pending"
-        for g in r.get("games") or []
-        if g.get("date") and g["date"] > now and g.get("status") != "finished"
+        and (
+            unplayed := [
+                g["date"]
+                for g in r.get("games") or []
+                if g.get("date") and g["date"] > now and g.get("status") != "finished"
+            ]
+        )
     ]
     if not starts:
         return True
-    today = datetime.fromtimestamp(now, MADRID_TZ).date()
-    first = datetime.fromtimestamp(min(starts), MADRID_TZ).date()
-    return first <= today + timedelta(days=1)
+    tomorrow = datetime.fromtimestamp(now, MADRID_TZ).date() + timedelta(days=1)
+    return any(datetime.fromtimestamp(s, MADRID_TZ).date() == tomorrow for s in starts)
 
 
 def best_eleven_ids(rows: list[dict]) -> set:
@@ -145,24 +153,33 @@ def plan_buys(
     rules: Rules,
     already_bid: frozenset | set = frozenset(),
 ) -> tuple[list[Move], list[tuple[dict, str]], int]:
-    """`(buys, skipped, wallet_after)`: the risers to bid on, best projection
-    first, while the wallet stays at or above `floor`. A player with a bid
-    already waiting is left alone."""
+    """`(buys, skipped, wallet_after)`: the risers to bid on while the wallet
+    stays at or above `floor` — the thinnest line first, then the best
+    projection. Never a goalkeeper: a manager's only keeper cannot be claused,
+    a second one can. A player with a bid already waiting is left alone."""
     owned = {r["bw_id"] for r in keep}
-    risers = sorted(
-        (
-            (row, s)
-            for row in market
-            if row["bw_id"] not in owned
-            and row["bw_id"] not in already_bid
-            and (s := streak(history, row["bw_id"])) >= rules.buy_after_rises
-            and lineup.projected_sf(row) >= rules.buy_min_sf
-        ),
-        key=lambda rs: (-lineup.projected_sf(rs[0]), -rs[1]),
-    )
+    risers = [
+        (row, s)
+        for row in market
+        if row["bw_id"] not in owned
+        and row["bw_id"] not in already_bid
+        and row.get("position_id") != lineup.GK
+        and (s := streak(history, row["bw_id"])) >= rules.buy_after_rises
+        and lineup.projected_sf(row) >= rules.buy_min_sf
+    ]
+    line = Counter(r.get("position_id") for r in keep)
     buys: list[Move] = []
     skipped: list[tuple[dict, str]] = []
-    for row, s in risers:
+    while risers:
+        row, s = min(
+            risers,
+            key=lambda rs: (
+                line[rs[0].get("position_id")],
+                -lineup.projected_sf(rs[0]),
+                -rs[1],
+            ),
+        )
+        risers.remove((row, s))
         if len(keep) + len(buys) >= rules.max_squad:
             skipped.append((row, "plantilla llena"))
             continue
@@ -172,6 +189,7 @@ def plan_buys(
             continue
         wallet -= bid
         buys.append(Move(row, bid, s))
+        line[row.get("position_id")] += 1
     return buys, skipped, wallet
 
 

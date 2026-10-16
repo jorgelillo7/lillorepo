@@ -414,3 +414,42 @@ def test_deadwood_still_stops_at_the_minimum_squad():
         squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=rules
     )
     assert [m.row["bw_id"] for m in result.sells] == [41]
+
+
+# --- the eve is the day before; buys fill the thinnest line, never a keeper ----
+
+
+def test_the_day_a_round_starts_is_not_its_eve():
+    """A bid placed that morning settles the next morning, after kickoff."""
+    tonight = _NOW + 11 * 3600  # Monday 21:00
+    assert not round_eve([_round("pending", tonight)], _NOW)
+
+
+def test_buys_go_to_the_thinnest_line_first():
+    squad = _eleven() + [_player(40, 300, DEF), _player(41, 300, DEF)]
+    market = [_player(50, 600, DEF), _player(51, 400, FWD)]
+    result = plan(
+        squad,
+        market,
+        _history(p50=100_000, p51=100_000),
+        cash=2_100_000,
+        round_eve=True,
+        negative_limit=0,
+        rules=RULES,
+    )
+    assert [m.row["bw_id"] for m in result.buys] == [51]
+
+
+def test_a_goalkeeper_is_never_bought():
+    """A manager's only keeper cannot be claused; a second one can."""
+    market = [_player(50, 800, GK)]
+    result = plan(
+        _eleven(),
+        market,
+        _history(p50=100_000),
+        cash=9_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=RULES,
+    )
+    assert result.buys == []
