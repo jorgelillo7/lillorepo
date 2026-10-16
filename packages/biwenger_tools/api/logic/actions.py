@@ -29,6 +29,7 @@ from packages.biwenger_tools.api.logic import (
     pact_store,
     projection_ledger_capture,
     round_context,
+    trader,
 )
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
 from packages.biwenger_tools.api.logic.image_formatter import (
@@ -501,7 +502,8 @@ def run_protection_watch(ctx) -> dict:
         return {"ending": 0, "sent": 0}
 
     money, _, _, _, _ = _league_money(biwenger, ctx.biwenger_players)
-    text = league_cash.protection_alert(ending, _rivals(money))
+    starters = trader.best_eleven_ids(mine) or None
+    text = league_cash.protection_alert(ending, _rivals(money), starters)
     if text:
         send_telegram_message_or_raise(bot_token=token, chat_id=chat_id, text=text)
     logger.info(
