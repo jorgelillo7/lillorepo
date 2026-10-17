@@ -89,9 +89,13 @@ onward (earlier seasons had none).
 
 The competitions page SHALL build its tab strip from the tabs of the
 spreadsheets a season points at, classifying each tab by its own shape: a
-`Jornada | Partido` header row is the Liga H2H fixture block, and `Nombre de
-la liga` in A1 is a table competition. A tab in neither format, or one with no
-data rows yet, SHALL be named on the page — never dropped in silence.
+`Jornada | Partido` header row is the Liga H2H fixture block, a `Jornada |
+Grupo` header row is a group stage's fixture list, and `Nombre de la liga` in
+A1 is a table competition. A fixture list SHALL render as a competition of its
+own, labelled from the title above its header, keeping the header's columns up
+to its first blank cell — the sheet's working sums to the right stay off the
+page. A tab in none of these formats, or one with no data rows yet, SHALL be
+named on the page — never dropped in silence.
 
 Configuration SHALL hold one entry per season, listing spreadsheet ids
 separated by `;`, so a season may span several workbooks without a code
@@ -110,7 +114,9 @@ to it permanently.
 - **WHEN** a workbook holds an H2H tab and a cup tab **THEN** both render as
   tabs, labelled from the sheet rather than the tab name
 - **WHEN** a season lists two workbooks **THEN** their tabs concatenate
-- **WHEN** a tab matches neither format, or has no rows **THEN** it is
+- **WHEN** a tab carries a group stage's fixture list **THEN** it renders with
+  its results and its six columns, and is not reported
+- **WHEN** a tab matches none of the formats, or has no rows **THEN** it is
   reported on the page
 - **WHEN** the season has no workbook **THEN** the page states there are no
   competitions registered
@@ -123,7 +129,10 @@ to it permanently.
   `test_the_tab_takes_its_label_from_the_sheet_not_the_tab_name`,
   `test_workbooks_concatenate_in_order`, `test_a_second_h2h_tab_is_refused`,
   `test_the_old_awards_url_still_resolves`,
-  `test_sheet_ids_split_on_semicolons_and_commas`
+  `test_sheet_ids_split_on_semicolons_and_commas`,
+  `test_a_group_fixture_list_is_shown_as_a_competition_not_reported`,
+  `test_the_fixture_list_keeps_its_six_columns_and_drops_the_working_ones`,
+  `test_a_fixture_list_is_not_mistaken_for_the_h2h`
 
 ### Requirement: a group stage is several tables in one tab
 
