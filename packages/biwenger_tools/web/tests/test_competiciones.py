@@ -165,3 +165,76 @@ def test_sheet_ids_split_on_semicolons_and_commas(monkeypatch):
 
     monkeypatch.delenv("TEST_IDS")
     assert config._sheet_ids("TEST_IDS") == []
+
+
+# --- A group stage's fixture list, with its results --------------------------
+
+_FIXTURES = [
+    ["Copa Santa Claus 26-27 — partidos"],
+    ["Rellena Puntos 1 y Puntos 2; la clasificación se actualiza sola."],
+    [
+        "Jornada",
+        "Grupo",
+        "Equipo 1",
+        "Puntos 1",
+        "Puntos 2",
+        "Equipo 2",
+        "",
+        "Grupo",
+        "Equipo",
+        "PF",
+        "PC",
+        "Diferencia",
+        "Orden",
+    ],
+    [
+        "1",
+        "A",
+        "Cebollitas FC",
+        "60",
+        "55",
+        "El Tercer Reich",
+        "",
+        "A",
+        "Cebollitas FC",
+        "60",
+        "55",
+        "5",
+        "5000060",
+    ],
+    ["1", "B", "Rayo Entrebirras", "", "", "Kairat FC"],
+]
+
+
+def test_a_group_fixture_list_is_shown_as_a_competition_not_reported():
+    """The 26-27 Copa Santa Claus keeps its matches in their own tab; the
+    owner wants them on the page, not an "ignored tab" notice."""
+    workbook = [("Partidos Santa Claus", _FIXTURES)]
+
+    _h2h, comps, skipped = C.read_workbooks([workbook])
+
+    assert skipped == []
+    assert [c.label for c in comps] == ["Copa Santa Claus 26-27 — partidos"]
+
+
+def test_the_fixture_list_keeps_its_six_columns_and_drops_the_working_ones():
+    """The sums to the right feed the standings; they are not the fixtures."""
+    comp = C.read_workbooks([[("Partidos Santa Claus", _FIXTURES)]])[1][0]
+    (section,) = comp.sections
+
+    assert section.headers == [
+        "Jornada",
+        "Grupo",
+        "Equipo 1",
+        "Puntos 1",
+        "Puntos 2",
+        "Equipo 2",
+    ]
+    assert section.rows == [
+        ["1", "A", "Cebollitas FC", "60", "55", "El Tercer Reich"],
+        ["1", "B", "Rayo Entrebirras", "", "", "Kairat FC"],
+    ]
+
+
+def test_a_fixture_list_is_not_mistaken_for_the_h2h():
+    assert not C.is_h2h_tab(_FIXTURES)

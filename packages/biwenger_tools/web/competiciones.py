@@ -10,6 +10,8 @@ name held in config:
   which owns everything about that competition;
 - a table tab starts with ``Nombre de la liga`` in A1, the format the league
   has used since the awards pages existed;
+- a group stage's fixture list carries a ``Jornada | Grupo | …`` header row,
+  and is shown as it is, results included;
 - anything else is reported, never silently dropped.
 
 So adding a competition is adding a tab. No config entry, no secret, no
@@ -33,6 +35,8 @@ _FIRST_DATA_ROW = 5
 
 # The H2H fixture block is found by its header, wherever the owner put it.
 _H2H_HEADER = ("jornada", "partido")
+# So is a group stage's fixture list (the 26-27 Copa Santa Claus).
+_FIXTURE_HEADER = ("jornada", "grupo")
 
 
 @dataclass
@@ -78,6 +82,47 @@ def is_h2h_tab(rows: list[list[str]]) -> bool:
     """True when a tab carries the H2H fixture header."""
     return any(
         tuple(_cell(row, i).lower() for i in (0, 1)) == _H2H_HEADER for row in rows[:10]
+    )
+
+
+def _fixture_header_at(rows: list[list[str]]) -> int | None:
+    for i, row in enumerate(rows[:10]):
+        if tuple(_cell(row, c).lower() for c in (0, 1)) == _FIXTURE_HEADER:
+            return i
+    return None
+
+
+def is_fixture_tab(rows: list[list[str]]) -> bool:
+    """True when a tab carries a group stage's ``Jornada | Grupo`` header."""
+    return _fixture_header_at(rows) is not None
+
+
+def parse_fixture_tab(title: str, rows: list[list[str]]) -> Competition | None:
+    """A fixture list as a one-section `Competition`, or None with no matches.
+
+    Its columns end at the header's first blank cell: whatever the sheet keeps
+    to the right — the per-team sums the standings tab reads — is working
+    space, not part of the fixtures. The label is the title above the header.
+    """
+    at = _fixture_header_at(rows)
+    if at is None:
+        return None
+    header = rows[at]
+    width = next(
+        (i for i, c in enumerate(header) if not (c or "").strip()), len(header)
+    )
+    body = [r[:width] for r in rows[at + 1 :] if any(c.strip() for c in r[:width])]
+    if not body:
+        return None
+    above = [_cell(r, 0) for r in rows[:at] if _cell(r, 0)]
+    nombre = above[0] if above else title
+    return Competition(
+        key=_slug(title),
+        label=nombre,
+        nombre=nombre,
+        descripcion="",
+        premio="",
+        sections=[Section(titulo="", headers=list(header[:width]), rows=body)],
     )
 
 
@@ -168,10 +213,17 @@ def read_workbooks(
                 else:
                     h2h_rows = rows
                 continue
+            if is_fixture_tab(rows):
+                fixtures = parse_fixture_tab(title, rows)
+                if fixtures is None:
+                    skipped.append(f"«{title}»: sin partidos todavía")
+                else:
+                    competitions.append(fixtures)
+                continue
             if not is_table_tab(rows):
                 skipped.append(
                     f"«{title}»: no empieza por «Nombre de la liga» ni es un "
-                    "calendario H2H, se ignora"
+                    "calendario, se ignora"
                 )
                 continue
             competition = parse_table_tab(title, rows)
