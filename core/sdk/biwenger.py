@@ -955,14 +955,18 @@ class BiwengerClient:
         response.raise_for_status()
 
     def get_my_pending_bids(self, market_url: str = MARKET_URL) -> list:
-        """The user's own waiting market bids — `data.offers` of the market read.
+        """The user's own waiting market bids, out of the market read's
+        `data.offers`.
 
-        Biwenger does not deduct them from the balance, so a caller spending
+        That list also carries the offers *received* for the user's listed
+        players (`to` = the user); only a market bid has `to: null`. Biwenger
+        does not deduct waiting bids from the balance, so a caller spending
         cash has to.
         """
         response = self.session.get(market_url, timeout=30)
         response.raise_for_status()
-        return (response.json().get("data") or {}).get("offers") or []
+        offers = (response.json().get("data") or {}).get("offers") or []
+        return [o for o in offers if not o.get("to")]
 
     def get_clausulazos(self, clausulazos_url: str) -> dict:
         """Returns a single page of release-clause transfer entries."""
