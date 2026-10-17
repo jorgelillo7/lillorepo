@@ -1383,20 +1383,27 @@ def test_a_refused_listing_is_raised_and_never_retried(biwenger_client_authentic
     assert m.call_count == 1
 
 
-def test_my_pending_bids_are_the_market_s_own_offers(biwenger_client_authenticated):
-    """`data.offers` on the market read is the user's own waiting bids."""
+def test_my_pending_bids_leave_out_the_offers_made_to_me(
+    biwenger_client_authenticated,
+):
+    """`data.offers` on the market read also carries the offers received for
+    the user's listed players (`to` = the user). Only the user's own market
+    bids — `to: null` — are pending bids; counting the others spent money
+    the user was about to receive (17/10: 5.96M of it)."""
     client = biwenger_client_authenticated
+    mine = {"amount": 1_000_000, "requestedPlayers": [7], "to": None}
+    received = {
+        "amount": 2_813_100,
+        "requestedPlayers": [9045],
+        "from": None,
+        "to": {"id": client.user_id},
+    }
     with requests_mock.Mocker() as m:
         m.get(
             TEST_MARKET_URL,
-            json={
-                "data": {
-                    "sales": [],
-                    "offers": [{"amount": 1_000_000, "requestedPlayers": [7]}],
-                }
-            },
+            json={"data": {"sales": [], "offers": [mine, received]}},
         )
 
         bids = client.get_my_pending_bids(market_url=TEST_MARKET_URL)
 
-    assert bids == [{"amount": 1_000_000, "requestedPlayers": [7]}]
+    assert bids == [mine]

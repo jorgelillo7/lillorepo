@@ -318,10 +318,14 @@ would duplicate the same movement across reads.
 
 ### Requirement: My pending bids are read off the market
 
-`get_my_pending_bids` SHALL return the market read's `data.offers` — the
-user's own waiting bids, with `amount` and `requestedPlayers`. Biwenger does
-not deduct them from the balance, so a caller spending cash has to.
+`get_my_pending_bids` SHALL return, out of the market read's `data.offers`,
+only the user's own waiting market bids — the ones with `to: null` — with
+`amount` and `requestedPlayers`. The same list carries the offers received for
+the user's listed players (`to` = the user); those are money coming in, and
+counting them as spent once hid 5.96M from the trader. Biwenger does not deduct
+waiting bids from the balance, so a caller spending cash has to.
 
-#### Scenario: waiting bids
-- **WHEN** the market carries one waiting bid **THEN** it is returned as is
-- *Verifies:* `test_my_pending_bids_are_the_market_s_own_offers`
+#### Scenario: waiting bids and received offers
+- **WHEN** the market carries one own bid and one offer received **THEN** only
+  the bid is returned
+- *Verifies:* `test_my_pending_bids_leave_out_the_offers_made_to_me`

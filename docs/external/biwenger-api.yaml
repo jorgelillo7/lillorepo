@@ -132,12 +132,14 @@ paths:
         entry (the auto-bid loop only acts on these). Anything with a
         `user` is a user-listed sale.
 
-        `data.offers[]` are **the authenticated user's own pending bids**
-        (`id`, `amount`, `created`, `until`, `status: waiting`,
-        `type: purchase`, `from`, `to`, `requestedPlayers`). They are not
-        deducted from `balance`, but the app deducts them from the "Puja
-        máxima" it shows — and a rival's are invisible, which is why a rebuilt
-        rival max bid is an upper bound.
+        `data.offers[]` holds **the authenticated user's own pending bids**
+        (`to: null`) **and the offers received for the user's listed players**
+        (`to` = the user, `from: null` for Biwenger's own). Both carry `id`,
+        `amount`, `created`, `until`, `status: waiting`, `type: purchase`,
+        `from`, `to`, `requestedPlayers`. Own bids are not deducted from
+        `balance`, but the app deducts them from the "Puja máxima" it shows —
+        and a rival's are invisible, which is why a rebuilt rival max bid is an
+        upper bound. Re-verified 2026-10-17 with three players listed.
       responses:
         "200":
           description: Market snapshot.
