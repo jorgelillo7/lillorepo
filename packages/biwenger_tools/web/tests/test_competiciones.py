@@ -206,34 +206,91 @@ _FIXTURES = [
 ]
 
 
-def test_a_group_fixture_list_is_shown_as_a_competition_not_reported():
-    """The 26-27 Copa Santa Claus keeps its matches in their own tab; the
-    owner wants them on the page, not an "ignored tab" notice."""
-    workbook = [("Partidos Santa Claus", _FIXTURES)]
+_STANDINGS = _table(
+    "Copa Santa Claus 26-27",
+    ["Grupo", "Posición", "Equipo", "PF", "PC", "Diferencia"],
+    ["A", "1", "Cebollitas FC", "60", "55", "5"],
+)
+
+
+def test_a_fixture_list_joins_the_standings_it_feeds():
+    """The matches show inside the cup's own tab, under its table — a second
+    tab for the same competition splits what the owner reads as one page."""
+    workbook = [("Copa Santa Claus", _STANDINGS), ("Partidos Santa Claus", _FIXTURES)]
 
     _h2h, comps, skipped = C.read_workbooks([workbook])
 
     assert skipped == []
+    assert [c.label for c in comps] == ["Copa Santa Claus 26-27"]
+    assert [r.jornada for r in comps[0].rounds] == ["1"]
+
+
+def test_a_fixture_list_with_no_table_before_it_is_its_own_competition():
+    _h2h, comps, skipped = C.read_workbooks([[("Partidos Santa Claus", _FIXTURES)]])
+
+    assert skipped == []
     assert [c.label for c in comps] == ["Copa Santa Claus 26-27 — partidos"]
+    assert comps[0].sections == []
 
 
-def test_the_fixture_list_keeps_its_six_columns_and_drops_the_working_ones():
+def test_a_fixture_list_never_joins_another_workbooks_table():
+    first = [("Copa Castolo", _table("Copa Castolo", ["Equipo", "J1"], ["Rayo", "1"]))]
+    second = [("Partidos Santa Claus", _FIXTURES)]
+
+    comps = C.read_workbooks([first, second])[1]
+
+    assert [c.label for c in comps] == [
+        "Copa Castolo",
+        "Copa Santa Claus 26-27 — partidos",
+    ]
+    assert comps[0].rounds == []
+
+
+def test_a_fixture_list_only_joins_the_tab_right_before_it():
+    castolo = ("Copa Castolo", _table("Copa Castolo", ["Equipo", "J1"], ["Rayo", "1"]))
+    notes = ("Notas", [["apuntes sueltos"]])
+
+    comps = C.read_workbooks([[castolo, notes, ("Partidos", _FIXTURES)]])[1]
+
+    assert [c.label for c in comps] == [
+        "Copa Castolo",
+        "Copa Santa Claus 26-27 — partidos",
+    ]
+
+
+def test_fixtures_read_as_matches_and_ignore_the_working_columns():
     """The sums to the right feed the standings; they are not the fixtures."""
     comp = C.read_workbooks([[("Partidos Santa Claus", _FIXTURES)]])[1][0]
-    (section,) = comp.sections
+    (round_one,) = comp.rounds
 
-    assert section.headers == [
-        "Jornada",
-        "Grupo",
-        "Equipo 1",
-        "Puntos 1",
-        "Puntos 2",
-        "Equipo 2",
+    played, pending = round_one.matches
+    assert (played.grupo, played.home, played.away) == (
+        "A",
+        "Cebollitas FC",
+        "El Tercer Reich",
+    )
+    assert (played.home_points, played.away_points) == ("60", "55")
+    assert played.played and played.outcome == "home"
+    assert (pending.home, pending.away) == ("Rayo Entrebirras", "Kairat FC")
+    assert not pending.played and pending.outcome == ""
+    assert round_one.started and not round_one.played
+
+
+def test_rounds_follow_the_sheet_and_only_the_next_one_opens():
+    """Played rounds and the next to play open; later ones stay folded."""
+    rows = _FIXTURES[:3] + [
+        ["1", "A", "Cebollitas FC", "60", "60", "El Tercer Reich"],
+        ["2", "A", "El Tercer Reich", "", "", "Farolillo AI United"],
+        ["3", "A", "Farolillo AI United", "", "", "Cebollitas FC"],
     ]
-    assert section.rows == [
-        ["1", "A", "Cebollitas FC", "60", "55", "El Tercer Reich"],
-        ["1", "B", "Rayo Entrebirras", "", "", "Kairat FC"],
+    comp = C.read_workbooks([[("Partidos", rows)]])[1][0]
+
+    assert [(r.jornada, r.played, r.open) for r in comp.rounds] == [
+        ("1", True, True),
+        ("2", False, True),
+        ("3", False, False),
     ]
+    assert comp.rounds[0].matches[0].outcome == "draw"
 
 
 def test_a_fixture_list_is_not_mistaken_for_the_h2h():

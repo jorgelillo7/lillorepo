@@ -10,8 +10,9 @@ name held in config:
   which owns everything about that competition;
 - a table tab starts with ``Nombre de la liga`` in A1, the format the league
   has used since the awards pages existed;
-- a group stage's fixture list carries a ``Jornada | Grupo | …`` header row,
-  and is shown as it is, results included;
+- a group stage's fixture list carries a ``Jornada | Grupo | …`` header row;
+  it joins the table tab right before it in the same workbook — the
+  standings it feeds — or stands alone when there is none;
 - anything else is reported, never silently dropped.
 
 So adding a competition is adding a tab. No config entry, no secret, no
@@ -55,8 +56,54 @@ class Section:
 
 
 @dataclass
+class Match:
+    """One fixture of a group stage. Points stay as the sheet wrote them."""
+
+    grupo: str
+    home: str
+    home_points: str
+    away_points: str
+    away: str
+
+    @property
+    def played(self) -> bool:
+        return bool(self.home_points and self.away_points)
+
+    @property
+    def outcome(self) -> str:
+        """``home``, ``away``, ``draw``, or empty while unplayed."""
+        if not self.played:
+            return ""
+        try:
+            home, away = (
+                float(p.replace(",", ".")) for p in (self.home_points, self.away_points)
+            )
+        except ValueError:
+            return ""
+        return "home" if home > away else "away" if away > home else "draw"
+
+
+@dataclass
+class FixtureRound:
+    """A jornada's matches; `open` marks the ones shown unfolded."""
+
+    jornada: str
+    matches: list[Match] = field(default_factory=list)
+    open: bool = False
+
+    @property
+    def played(self) -> bool:
+        return all(m.played for m in self.matches)
+
+    @property
+    def started(self) -> bool:
+        return any(m.played for m in self.matches)
+
+
+@dataclass
 class Competition:
-    """A table competition: its blurb and one or more sections."""
+    """A table competition: its blurb, its sections and, for a group stage,
+    its fixtures."""
 
     key: str
     label: str
@@ -64,6 +111,7 @@ class Competition:
     descripcion: str
     premio: str
     sections: list[Section] = field(default_factory=list)
+    rounds: list[FixtureRound] = field(default_factory=list)
 
 
 def _cell(row: list[str], index: int) -> str:
@@ -97,23 +145,42 @@ def is_fixture_tab(rows: list[list[str]]) -> bool:
     return _fixture_header_at(rows) is not None
 
 
-def parse_fixture_tab(title: str, rows: list[list[str]]) -> Competition | None:
-    """A fixture list as a one-section `Competition`, or None with no matches.
+def parse_fixture_rounds(rows: list[list[str]]) -> list[FixtureRound]:
+    """A fixture list's matches, grouped by jornada in the sheet's order.
 
-    Its columns end at the header's first blank cell: whatever the sheet keeps
-    to the right — the per-team sums the standings tab reads — is working
-    space, not part of the fixtures. The label is the title above the header.
+    Only the first six columns are read: whatever the sheet keeps to the
+    right — the per-team sums the standings tab reads — is working space.
+    Played rounds and the next one to play are `open`; later ones fold.
     """
     at = _fixture_header_at(rows)
     if at is None:
+        return []
+    rounds: dict[str, FixtureRound] = {}
+    for row in rows[at + 1 :]:
+        jornada, grupo, home, home_points, away_points, away = (
+            _cell(row, i) for i in range(6)
+        )
+        if not (jornada and home and away):
+            continue
+        rounds.setdefault(jornada, FixtureRound(jornada)).matches.append(
+            Match(grupo, home, home_points, away_points, away)
+        )
+    ordered = list(rounds.values())
+    for r in ordered:
+        r.open = r.started
+    upcoming = next((r for r in ordered if not r.played), None)
+    if upcoming is not None:
+        upcoming.open = True
+    return ordered
+
+
+def parse_fixture_tab(title: str, rows: list[list[str]]) -> Competition | None:
+    """A fixture list standing alone as a `Competition`, or None with no
+    matches. The label is the title above the header."""
+    rounds = parse_fixture_rounds(rows)
+    if not rounds:
         return None
-    header = rows[at]
-    width = next(
-        (i for i, c in enumerate(header) if not (c or "").strip()), len(header)
-    )
-    body = [r[:width] for r in rows[at + 1 :] if any(c.strip() for c in r[:width])]
-    if not body:
-        return None
+    at = _fixture_header_at(rows) or 0
     above = [_cell(r, 0) for r in rows[:at] if _cell(r, 0)]
     nombre = above[0] if above else title
     return Competition(
@@ -122,7 +189,7 @@ def parse_fixture_tab(title: str, rows: list[list[str]]) -> Competition | None:
         nombre=nombre,
         descripcion="",
         premio="",
-        sections=[Section(titulo="", headers=list(header[:width]), rows=body)],
+        rounds=rounds,
     )
 
 
@@ -196,8 +263,9 @@ def read_workbooks(
     """Classify every tab of every workbook a season has.
 
     Returns the H2H fixture rows (empty when the season has no H2H tab), the
-    table competitions in the order the owner arranged them, and the tabs that
-    were skipped with the reason. Nothing disappears without being named — the
+    table competitions in the order the owner arranged them — each with the
+    fixture tab that follows it, if any — and the tabs that were skipped with
+    the reason. Nothing disappears without being named — the
     old reader dropped any tab under six rows in silence, so a half-written
     competition looked identical to one that did not exist.
     """
@@ -206,7 +274,9 @@ def read_workbooks(
     skipped: list[str] = []
 
     for workbook in workbooks:
+        last_table: Competition | None = None
         for title, rows in workbook:
+            previous, last_table = last_table, None
             if is_h2h_tab(rows):
                 if h2h_rows:
                     skipped.append(f"«{title}»: ya hay otra pestaña de H2H, se ignora")
@@ -214,6 +284,11 @@ def read_workbooks(
                     h2h_rows = rows
                 continue
             if is_fixture_tab(rows):
+                if previous is not None:
+                    previous.rounds = parse_fixture_rounds(rows)
+                    if not previous.rounds:
+                        skipped.append(f"«{title}»: sin partidos todavía")
+                    continue
                 fixtures = parse_fixture_tab(title, rows)
                 if fixtures is None:
                     skipped.append(f"«{title}»: sin partidos todavía")
@@ -231,5 +306,6 @@ def read_workbooks(
                 skipped.append(f"«{title}»: sin filas de datos todavía")
                 continue
             competitions.append(competition)
+            last_table = competition
 
     return h2h_rows, competitions, skipped
