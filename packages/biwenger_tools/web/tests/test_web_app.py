@@ -1138,6 +1138,49 @@ def test_competiciones_renders_every_tab_from_one_read(client):
     season_routes.invalidate_competiciones_cache()
 
 
+def test_a_cup_shows_its_fixtures_inside_its_own_tab(client):
+    """The fixture tab is part of the cup it feeds: one tab, the standings
+    on top and the matches below, one line per match."""
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    fixtures = (
+        "Partidos Santa Claus",
+        [
+            ["Copa Santa Claus 26-27 — partidos"],
+            ["Jornada", "Grupo", "Equipo 1", "Puntos 1", "Puntos 2", "Equipo 2"],
+            ["1", "A", "Cebollitas FC", "60", "55", "El Tercer Reich"],
+            ["1", "B", "Rayo Entrebirras", "", "", "Kairat FC"],
+        ],
+    )
+    workbook = _workbook(
+        _table_tab(
+            "Copa Santa Claus",
+            "Copa Santa Claus",
+            ["Grupo", "Equipo"],
+            ["A", "Cebollitas FC"],
+        ),
+        fixtures,
+    )
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=workbook,
+        ),
+    ):
+        body = client.get("/26-27/competiciones").get_data(as_text=True)
+
+    assert 'id="btn-copa-santa-claus"' in body
+    assert 'id="btn-partidos-santa-claus"' not in body
+    assert "60 – 55" in body and "Kairat FC" in body
+    assert 'id="copa-santa-claus-round-1"' in body
+    season_routes.invalidate_competiciones_cache()
+
+
 def test_a_season_only_shows_the_competitions_its_sheet_holds(client):
     """Tabs are the workbook's tabs. A competition exists on the site because
     it exists in the sheet — retiring one is deleting its tab, with no code

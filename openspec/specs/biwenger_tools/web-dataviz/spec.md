@@ -91,10 +91,14 @@ The competitions page SHALL build its tab strip from the tabs of the
 spreadsheets a season points at, classifying each tab by its own shape: a
 `Jornada | Partido` header row is the Liga H2H fixture block, a `Jornada |
 Grupo` header row is a group stage's fixture list, and `Nombre de la liga` in
-A1 is a table competition. A fixture list SHALL render as a competition of its
-own, labelled from the title above its header, keeping the header's columns up
-to its first blank cell — the sheet's working sums to the right stay off the
-page. A tab in none of these formats, or one with no data rows yet, SHALL be
+A1 is a table competition. A fixture list SHALL render inside the tab of the
+table competition right before it in the same workbook — the standings it
+feeds — below that table; with no such table it SHALL be a competition of its
+own, labelled from the title above its header. Its matches SHALL read from the
+first six columns only — the sheet's working sums to the right stay off the
+page — and render grouped by jornada, one line per match (group, home, score,
+away), the winner highlighted; played rounds and the next one to play show
+unfolded, later rounds fold. A tab in none of these formats, or one with no data rows yet, SHALL be
 named on the page — never dropped in silence.
 
 Configuration SHALL hold one entry per season, listing spreadsheet ids
@@ -114,8 +118,10 @@ to it permanently.
 - **WHEN** a workbook holds an H2H tab and a cup tab **THEN** both render as
   tabs, labelled from the sheet rather than the tab name
 - **WHEN** a season lists two workbooks **THEN** their tabs concatenate
-- **WHEN** a tab carries a group stage's fixture list **THEN** it renders with
-  its results and its six columns, and is not reported
+- **WHEN** a group stage's fixture list follows its standings tab **THEN** its
+  matches render under the standings, in the same tab, and are not reported
+- **WHEN** a fixture list has no table right before it in its workbook **THEN**
+  it renders as a tab of its own
 - **WHEN** a tab matches none of the formats, or has no rows **THEN** it is
   reported on the page
 - **WHEN** the season has no workbook **THEN** the page states there are no
@@ -130,8 +136,13 @@ to it permanently.
   `test_workbooks_concatenate_in_order`, `test_a_second_h2h_tab_is_refused`,
   `test_the_old_awards_url_still_resolves`,
   `test_sheet_ids_split_on_semicolons_and_commas`,
-  `test_a_group_fixture_list_is_shown_as_a_competition_not_reported`,
-  `test_the_fixture_list_keeps_its_six_columns_and_drops_the_working_ones`,
+  `test_a_fixture_list_joins_the_standings_it_feeds`,
+  `test_a_fixture_list_with_no_table_before_it_is_its_own_competition`,
+  `test_a_fixture_list_never_joins_another_workbooks_table`,
+  `test_a_fixture_list_only_joins_the_tab_right_before_it`,
+  `test_fixtures_read_as_matches_and_ignore_the_working_columns`,
+  `test_rounds_follow_the_sheet_and_only_the_next_one_opens`,
+  `test_a_cup_shows_its_fixtures_inside_its_own_tab`,
   `test_a_fixture_list_is_not_mistaken_for_the_h2h`
 
 ### Requirement: a group stage is several tables in one tab
