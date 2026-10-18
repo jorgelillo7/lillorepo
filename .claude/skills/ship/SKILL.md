@@ -51,6 +51,11 @@ gh pr checks <pr>
 Both `Lint` and `Test` passing. If a check never appeared, `ci.yml` may not have
 fired — re-push or use `gh workflow run`.
 
+`master` requires the branch to be up to date before merging. If another PR
+landed since this one was pushed, the merge is refused: `gh pr update-branch
+<pr>`, pull it locally, and go back to Step 1 — the checks must be green again
+on the new head.
+
 # Step 4 — Merge
 
 ```bash
