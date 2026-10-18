@@ -131,7 +131,9 @@ A market player rising for `TRADER_BUY_AFTER_RISES` days or more, projected at
 `TRADER_BUY_MARGIN` — for the line with the fewest players first, then the best
 projection, never past `MAX_SQUAD_SIZE`. A goalkeeper is never bought: a
 manager's only keeper cannot be claused (league rule, as in
-`clausulazo-emergency`), and a second one can.
+`clausulazo-emergency`), and a second one can. Nor is a riser from a club the
+squad already holds `MAX_PLAYERS_PER_CLUB` (3) of — the squad, the day's buys
+and the bids already waiting all count, the same cap auto-bid applies.
 
 #### Scenario: risers
 - **WHEN** a riser of three days clears the floor **THEN** he is bid at
@@ -143,7 +145,11 @@ manager's only keeper cannot be claused (league rule, as in
   **THEN** the short line is bought first
 - **WHEN** the riser is a goalkeeper **THEN** he is never bid
 - **WHEN** the squad is full **THEN** nobody is bid, and the plan says so
+- **WHEN** the squad already holds three of a riser's club, counting bids
+  waiting **THEN** he is not bid, and the plan says so
 - *Verifies:* `test_a_market_player_rising_three_days_is_bid_just_over_his_price`,
+  `test_a_riser_from_a_club_already_three_deep_is_not_bought`,
+  `test_a_bid_already_waiting_counts_towards_the_club`,
   `test_a_riser_below_the_projection_floor_is_not_bought`,
   `test_two_days_up_is_not_yet_a_trend`,
   `test_the_best_projected_riser_is_bought_first`,

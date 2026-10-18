@@ -39,6 +39,7 @@ not double-bid the players that already went through.
 import html
 import os
 import random
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Optional
 
@@ -240,6 +241,7 @@ def _build_candidates(
                 "price": int(row.get("price") or 0),
                 "sf": shown_score(row) or 0,
                 "position_id": row.get("position_id"),
+                "team_id": row.get("team_id"),
                 "alt_positions": row.get("alt_positions") or [],
                 "chollo": "chollos" in (row.get("oraculo_lists") or []),
                 "unavailable": availability(jp_player) == "out",
@@ -334,6 +336,11 @@ def _would_be_bench(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
     return True
 
 
+def _club_counts(squad_rows: list) -> Counter:
+    """Players owned per club, for `MAX_PLAYERS_PER_CLUB`."""
+    return Counter(r.get("team_id") for r in squad_rows if r.get("team_id") is not None)
+
+
 def _already_bid_ids(day: str) -> set[int]:
     """Player ids already in today's Firestore log (Cloud Scheduler retries)."""
     try:
@@ -380,6 +387,7 @@ def _format_skip_line(entry: dict, esc) -> str:
     - `already_bid` → 🔁 (idempotency replay).
     - `unavailable` → 🚑 (injured, suspended or no fixture).
     - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
+    - `club_full`   → 🏟️ (already `MAX_PLAYERS_PER_CLUB` from his club).
     - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
 
     The `no_cash` branch is the user-visible payoff: it stops looking
@@ -404,6 +412,11 @@ def _format_skip_line(entry: dict, esc) -> str:
         return f"🚑 No disponible <b>{name}</b> · SF {esc(entry.get('sf', 0))}"
     if kind == "biwenger_reject":
         return f"⚠️ Biwenger rechazó <b>{name}</b>"
+    if kind == "club_full":
+        return (
+            f"🏟️ Tope por equipo <b>{name}</b> · "
+            f"ya tienes {esc(entry.get('count', '?'))} de su equipo"
+        )
     reason = esc(entry.get("reason") or "saltado")
     return f"⏭️ Saltado <b>{name}</b> ({reason})"
 
@@ -491,20 +504,23 @@ def run_auto_bid() -> dict:
     # What we already own, so a bid can be priced against the squad instead
     # of in a vacuum. Best-effort: without it every candidate simply prices
     # off his own SF, which is the behaviour this used to have.
+    # Without the squad the club cap is off too.
+    clubs: Counter | None
     try:
         my_squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, biwenger.user_id)
-        squad_by_pos = _squad_sf_by_position(
-            build_squad_rows(
-                my_squad,
-                ctx.biwenger_players,
-                ctx.jp_index,
-                oraculo_index=ctx.oraculo_index,
-                oraculo_scale=ctx.oraculo_scale,
-            )
+        squad_rows = build_squad_rows(
+            my_squad,
+            ctx.biwenger_players,
+            ctx.jp_index,
+            oraculo_index=ctx.oraculo_index,
+            oraculo_scale=ctx.oraculo_scale,
         )
+        squad_by_pos = _squad_sf_by_position(squad_rows)
+        clubs = _club_counts(squad_rows)
     except Exception:
         logger.exception("Squad fetch failed — bidding without the depth signal.")
         squad_by_pos = {}
+        clubs = None
 
     remaining_cash = int(biwenger.get_account_state().get("cash") or 0)
 
@@ -521,7 +537,11 @@ def run_auto_bid() -> dict:
     skipped: list[dict] = []
 
     for candidate in candidates:
+        club = candidate.get("team_id")
         if candidate["player_id"] in already_bid:
+            # A retry's earlier bids still fill their club.
+            if clubs is not None and club is not None:
+                clubs[club] += 1
             skipped.append(
                 {
                     "player_id": candidate["player_id"],
@@ -538,6 +558,21 @@ def run_auto_bid() -> dict:
                     "name": candidate["name"],
                     "kind": "unavailable",
                     "sf": candidate["sf"],
+                }
+            )
+            continue
+
+        if (
+            clubs is not None
+            and club is not None
+            and clubs[club] >= config.MAX_PLAYERS_PER_CLUB
+        ):
+            skipped.append(
+                {
+                    "player_id": candidate["player_id"],
+                    "name": candidate["name"],
+                    "kind": "club_full",
+                    "count": clubs[club],
                 }
             )
             continue
@@ -643,6 +678,8 @@ def run_auto_bid() -> dict:
         )
         _log_bid(day, candidate, target_bid, offer)
         remaining_cash -= target_bid
+        if clubs is not None and club is not None:
+            clubs[club] += 1
 
     total_bid = sum(entry["bid"] for entry in placed)
     text = _format_telegram_text(day, placed, skipped, total_bid, remaining_cash)

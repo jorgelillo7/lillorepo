@@ -387,6 +387,7 @@ def run_env():
         mock_cfg.USER_SQUAD_URL = "x"
         mock_cfg.TELEGRAM_BOT_TOKEN = "tok" if telegram else ""
         mock_cfg.TELEGRAM_CHAT_ID = "chat" if telegram else ""
+        mock_cfg.MAX_PLAYERS_PER_CLUB = 3
 
         biwenger.get_market_players.return_value = market_players
         # Default to an empty squad: the depth guard is exercised by its
@@ -1139,3 +1140,81 @@ def test_a_chollo_is_bid_on_before_oraculo_has_projected_anybody(run_env):
     biwenger.place_market_bid.assert_called_once_with(
         player_id=1, amount=800_000 + auto_bid.CHOLLO_MARGIN
     )
+
+
+# --- no more than three players from one club --------------------------------
+
+
+def _club_player(player_id, name, team_id, price=3_000_000):
+    return {
+        "id": player_id,
+        "name": name,
+        "price": price,
+        "position": 3,
+        "teamID": team_id,
+    }
+
+
+def test_a_club_already_three_deep_in_the_squad_gets_no_bid(run_env):
+    """A bad day for one club costs every player you own from it."""
+    biwenger_players = {
+        i: _club_player(i, f"Own{i}", team_id=7, price=1_000_000) for i in (1, 2, 3)
+    }
+    biwenger_players[10] = _club_player(10, "SameClub", team_id=7)
+    biwenger_players[11] = _club_player(11, "OtherClub", team_id=8)
+    jp_players = [_jp_with_sf(f"Own{i}", 100) for i in (1, 2, 3)] + [
+        _jp_with_sf("SameClub", 500),
+        _jp_with_sf("OtherClub", 450),
+    ]
+    biwenger, mock_send = run_env(
+        market_players=[_sale(10), _sale(11)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=[{"id": i} for i in (1, 2, 3)],
+    )
+    auto_bid.run_auto_bid()
+
+    assert [
+        c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list
+    ] == [11]
+    assert "Tope por equipo <b>SameClub</b>" in mock_send.call_args.kwargs["text"]
+
+
+def test_bids_placed_in_the_same_run_count_towards_the_club(run_env):
+    biwenger_players = {
+        i: _club_player(i, f"Own{i}", team_id=7, price=1_000_000) for i in (1, 2)
+    }
+    biwenger_players[10] = _club_player(10, "First", team_id=7)
+    biwenger_players[11] = _club_player(11, "Second", team_id=7)
+    jp_players = [_jp_with_sf(f"Own{i}", 100) for i in (1, 2)] + [
+        _jp_with_sf("First", 500),
+        _jp_with_sf("Second", 450),
+    ]
+    biwenger, _ = run_env(
+        market_players=[_sale(10), _sale(11)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=[{"id": 1}, {"id": 2}],
+    )
+    auto_bid.run_auto_bid()
+
+    assert [
+        c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list
+    ] == [10]
+
+
+def test_without_the_squad_the_club_cap_does_not_hold_bids_back(run_env):
+    """A signal we could not read must not quietly suppress a bid."""
+    biwenger_players = {10: _club_player(10, "SameClub", team_id=7)}
+    biwenger, _ = run_env(
+        market_players=[_sale(10)],
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("SameClub", 500)],
+        cash=30_000_000,
+    )
+    biwenger.get_manager_squad.side_effect = RuntimeError("down")
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1

@@ -529,3 +529,47 @@ def test_a_player_with_no_signing_date_is_not_held():
         now=NOW,
     )
     assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+# --- no more than three players from one club --------------------------------
+
+CLUB = Rules(**{**RULES.__dict__, "max_per_club": 3})
+
+
+def _of(player, team_id):
+    return {**player, "team_id": team_id}
+
+
+def test_a_riser_from_a_club_already_three_deep_is_not_bought():
+    squad = [_of(p, 7) if p["bw_id"] in (10, 11, 12) else p for p in _eleven()]
+    market = [_of(_player(60, 400, MID), 7), _of(_player(61, 400, MID), 8)]
+    result = plan(
+        squad,
+        market,
+        _history(p60=50_000, p61=50_000),
+        cash=10_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=CLUB,
+    )
+    assert [m.row["bw_id"] for m in result.buys] == [61]
+    assert (60, "ya hay 3 de su equipo") in [
+        (r["bw_id"], why) for r, why in result.skipped
+    ]
+
+
+def test_a_bid_already_waiting_counts_towards_the_club():
+    squad = [_of(p, 7) if p["bw_id"] in (10, 11) else p for p in _eleven()]
+    waiting = _of(_player(59, 400, DEF), 7)
+    market = [waiting, _of(_player(60, 400, MID), 7)]
+    result = plan(
+        squad,
+        market,
+        _history(p60=50_000),
+        cash=10_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=CLUB,
+        already_bid={59},
+    )
+    assert result.buys == []

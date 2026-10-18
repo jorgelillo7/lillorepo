@@ -84,6 +84,9 @@ TRADER_DEAD_SF = 300
 # Days a signing is kept through a falling price: auto-bid signs on projection,
 # and selling him on the first dip buys high and sells low.
 TRADER_HOLD_DAYS = 14
+# Signings stop at this many players from one club: a bad day for a club costs
+# every player you own from it. Auto-bid and the trader both read it.
+MAX_PLAYERS_PER_CLUB = 3
 TRADER_BUY_AFTER_RISES = 3
 # The league's median overpay on a market buy is +1.7 %; a little over it wins
 # the uncontested ones without chasing the contested.
