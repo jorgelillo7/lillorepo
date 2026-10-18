@@ -186,6 +186,25 @@ one player can move.
 - *Verifies:* `test_the_market_and_the_squad_are_ranked_on_one_scale`,
   `test_without_a_scale_every_projection_stays_raw_jp`
 
+### Requirement: No more than three players from one club
+
+A candidate from a club the squad already holds `MAX_PLAYERS_PER_CLUB` (3) of
+SHALL draw no bid, chollos included, and the summary SHALL say so (🏟️). Bids
+placed earlier in the same run — and, on a retry, the ones already logged —
+count towards the club. A bad day for one club costs every player owned from
+it. When the squad could not be read the cap SHALL NOT apply: a signal that is
+missing never suppresses a bid.
+
+#### Scenario: the club cap
+- **WHEN** the squad already holds three of a candidate's club **THEN** he is
+  skipped and the summary names the cap; a candidate from another club is bid
+- **WHEN** two candidates from a club two-deep are on the market **THEN** only
+  the first is bid
+- **WHEN** the squad read fails **THEN** the cap is off and bids go out
+- *Verifies:* `test_a_club_already_three_deep_in_the_squad_gets_no_bid`,
+  `test_bids_placed_in_the_same_run_count_towards_the_club`,
+  `test_without_the_squad_the_club_cap_does_not_hold_bids_back`
+
 ### Requirement: The chollos trade buys to sell, with pocket money
 
 A player on Oráculo's `chollos` shortlist SHALL be bid `price +

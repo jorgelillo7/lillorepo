@@ -40,6 +40,7 @@ def _rules() -> trader.Rules:
         min_squad=config.TRADER_MIN_SQUAD,
         dead_sf=config.TRADER_DEAD_SF,
         hold_days=config.TRADER_HOLD_DAYS,
+        max_per_club=config.MAX_PLAYERS_PER_CLUB,
     )
 
 

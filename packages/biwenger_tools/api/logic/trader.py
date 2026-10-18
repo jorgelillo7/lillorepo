@@ -33,6 +33,8 @@ class Rules:
     # A signing is not sold on a falling price for this long — the same two
     # weeks Biwenger locks a clause after one.
     hold_days: int = 0
+    # No buy from a club the squad already holds this many of; 0 is no cap.
+    max_per_club: int = 0
 
 
 @dataclass(frozen=True)
@@ -173,7 +175,8 @@ def plan_buys(
     """`(buys, skipped, wallet_after)`: the risers to bid on while the wallet
     stays at or above `floor` — the thinnest line first, then the best
     projection. Never a goalkeeper: a manager's only keeper cannot be claused,
-    a second one can. A player with a bid already waiting is left alone."""
+    a second one can. A player with a bid already waiting is left alone, and
+    counts towards his club's `max_per_club` like the squad does."""
     owned = {r["bw_id"] for r in keep}
     risers = [
         (row, s)
@@ -185,6 +188,11 @@ def plan_buys(
         and lineup.projected_sf(row) >= rules.buy_min_sf
     ]
     line = Counter(r.get("position_id") for r in keep)
+    clubs = Counter(
+        r.get("team_id")
+        for r in keep + [m for m in market if m["bw_id"] in already_bid]
+        if r.get("team_id") is not None
+    )
     buys: list[Move] = []
     skipped: list[tuple[dict, str]] = []
     while risers:
@@ -200,6 +208,14 @@ def plan_buys(
         if len(keep) + len(buys) >= rules.max_squad:
             skipped.append((row, "plantilla llena"))
             continue
+        club = row.get("team_id")
+        if (
+            rules.max_per_club
+            and club is not None
+            and clubs[club] >= rules.max_per_club
+        ):
+            skipped.append((row, f"ya hay {clubs[club]} de su equipo"))
+            continue
         bid = round(int(row.get("price") or 0) * (1 + rules.buy_margin))
         if wallet - bid < floor:
             skipped.append((row, "no cabe en el saldo"))
@@ -207,6 +223,8 @@ def plan_buys(
         wallet -= bid
         buys.append(Move(row, bid, s))
         line[row.get("position_id")] += 1
+        if club is not None:
+            clubs[club] += 1
     return buys, skipped, wallet
 
 
