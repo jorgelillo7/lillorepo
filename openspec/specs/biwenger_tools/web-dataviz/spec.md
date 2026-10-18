@@ -110,6 +110,11 @@ retiring a competition SHALL therefore require no code, no secret and no
 deploy: a sheet id per competition per season is what left these pages empty
 for a year.
 
+On a phone, a table of six columns or fewer — a group's standings — SHALL
+render as a table; a wider one folds each row into a card, since one column
+per round would scroll sideways without end. Cards made the standings read
+like a round of matches.
+
 A season whose sheets hold nothing SHALL say so rather than render empty
 panels, and the page's former `/{season}/lloros-awards` address SHALL redirect
 to it permanently.
@@ -126,6 +131,8 @@ to it permanently.
   reported on the page
 - **WHEN** the season has no workbook **THEN** the page states there are no
   competitions registered
+- **WHEN** a section has six columns or fewer **THEN** a phone shows it as a
+  table; a wider one shows a card per row
 - *Verifies:* `test_competiciones_renders_every_tab_from_one_read`,
   `test_a_season_can_span_several_workbooks`,
   `test_a_season_only_shows_the_competitions_its_sheet_holds`,
@@ -143,6 +150,8 @@ to it permanently.
   `test_fixtures_read_as_matches_and_ignore_the_working_columns`,
   `test_rounds_follow_the_sheet_and_only_the_next_one_opens`,
   `test_a_cup_shows_its_fixtures_inside_its_own_tab`,
+  `test_a_narrow_standings_table_stays_a_table_on_a_phone`,
+  `test_a_wide_table_still_folds_into_cards_on_a_phone`,
   `test_a_fixture_list_is_not_mistaken_for_the_h2h`
 
 ### Requirement: a group stage is several tables in one tab
