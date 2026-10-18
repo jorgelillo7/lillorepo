@@ -30,6 +30,9 @@ class Rules:
     min_squad: int
     # A bench player projected below this is sold whatever his price does.
     dead_sf: int
+    # A signing is not sold on a falling price for this long — the same two
+    # weeks Biwenger locks a clause after one.
+    hold_days: int = 0
 
 
 @dataclass(frozen=True)
@@ -101,14 +104,23 @@ def has_eleven(rows: list[dict]) -> bool:
     )
 
 
+def _days_held(row: dict, now: float) -> int | None:
+    signed = row.get("acq_date")
+    return None if not signed else int((now - signed) // 86_400)
+
+
 def plan_sells(
-    squad: list[dict], history: list[dict[int, int]], rules: Rules
+    squad: list[dict],
+    history: list[dict[int, int]],
+    rules: Rules,
+    now: float = 0.0,
 ) -> tuple[list[Move], list[tuple[dict, str]], list[dict]]:
     """`(sells, held, keep)`: the players to sell at today's price — the
     fallers, and the bench projected below `dead_sf` whatever his price —
     weakest projection first, and why the others stay. Never a starter of the
-    best eleven, never below `min_squad` — an eleven and a bench — and never
-    one whose sale leaves no eleven that plays."""
+    best eleven, never below `min_squad` — an eleven and a bench — never one
+    whose sale leaves no eleven that plays, and never a faller signed less than
+    `hold_days` ago."""
     fallers = sorted(
         (
             (row, s)
@@ -125,6 +137,11 @@ def plan_sells(
     for row, s in fallers:
         if row["bw_id"] in starters:
             held.append((row, "titular del mejor once"))
+            continue
+        days = _days_held(row, now)
+        dead = lineup.projected_sf(row) < rules.dead_sf
+        if not dead and days is not None and days < rules.hold_days:
+            held.append((row, f"fichado hace {days} días, protegido {rules.hold_days}"))
             continue
         if len(keep) - 1 < rules.min_squad:
             held.append((row, "plantilla mínima"))
@@ -204,11 +221,12 @@ def plan(
     rules: Rules,
     committed: int = 0,
     already_bid: frozenset | set = frozenset(),
+    now: float = 0.0,
 ) -> Plan:
     """The day's sells and bids, the sells assumed sold at today's price. Bids
     already waiting (`committed`) are spent; `floor` is the lowest the wallet
     may end at."""
-    sells, held, keep = plan_sells(squad, history, rules)
+    sells, held, keep = plan_sells(squad, history, rules, now)
     floor = 0 if round_eve else -negative_limit
     buys, skipped, wallet = plan_buys(
         keep,

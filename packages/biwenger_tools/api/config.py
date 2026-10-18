@@ -81,6 +81,9 @@ TRADER_MIN_SQUAD = 15
 # A bench player projected below auto-bid's signing floor (T4) is sold
 # whatever his price does: he will not do much, and his money buys a riser.
 TRADER_DEAD_SF = 300
+# Days a signing is kept through a falling price: auto-bid signs on projection,
+# and selling him on the first dip buys high and sells low.
+TRADER_HOLD_DAYS = 14
 TRADER_BUY_AFTER_RISES = 3
 # The league's median overpay on a market buy is +1.7 %; a little over it wins
 # the uncontested ones without chasing the contested.

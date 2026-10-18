@@ -76,6 +76,13 @@ the rest would no longer field a full eleven of players the projection expects
 to play. Either way he is held, and the plan says why. Good players are kept
 for their points; price rotation is for the bench, and the bench is kept.
 
+A player signed less than `TRADER_HOLD_DAYS` (14, the two weeks Biwenger locks
+a clause after a signing) ago SHALL NOT be sold for falling: auto-bid signs on
+projection, and selling him on the first dip buys high and sells low. The hold
+reads the signing date Biwenger returns with the squad; it does not cover a
+projection below `TRADER_DEAD_SF`, and a player with no signing date is not
+held.
+
 Measured and rejected on 15/10: counting a fall only when it beats the day's
 market move. On 90 players' season it sold twice as often, won 48 % of trades
 against 71 %, and turned the median from +12 % to −0.6 % — the market rises on
@@ -93,6 +100,11 @@ most days, so it sold players still gaining value.
 - **WHEN** the squad already lacks an eleven that plays **THEN** even the bench
   is held
 - **WHEN** he has fallen one day **THEN** nothing happens
+- **WHEN** a faller was signed under two weeks ago **THEN** he is held, and the
+  plan says since when; from day fourteen he can be sold
+- **WHEN** a fresh signing's projection drops below the floor **THEN** the hold
+  does not apply
+- **WHEN** a player has no signing date **THEN** he is not held
 - **WHEN** a player is left out by the projection **THEN** he does not count
   towards the eleven
 - *Verifies:*
@@ -106,7 +118,11 @@ most days, so it sold players still gaining value.
   `test_deadwood_still_stops_at_the_minimum_squad`,
   `test_with_no_eleven_that_plays_even_the_bench_is_kept`,
   `test_one_day_down_is_not_a_reason_to_sell`,
-  `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`
+  `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`,
+  `test_a_player_signed_under_two_weeks_ago_is_not_sold_for_falling`,
+  `test_the_hold_ends_after_two_weeks`,
+  `test_a_fresh_signing_whose_projection_collapses_is_still_sold`,
+  `test_a_player_with_no_signing_date_is_not_held`
 
 ### Requirement: Bid on a riser just over his price
 

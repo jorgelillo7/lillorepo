@@ -39,6 +39,7 @@ def _rules() -> trader.Rules:
         max_squad=lineup.MAX_SQUAD_SIZE,
         min_squad=config.TRADER_MIN_SQUAD,
         dead_sf=config.TRADER_DEAD_SF,
+        hold_days=config.TRADER_HOLD_DAYS,
     )
 
 
@@ -71,7 +72,15 @@ def run(
     live = mode == "live"
     if live:
         result = _act(
-            ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve
+            ctx,
+            squad_rows,
+            market_rows,
+            history,
+            cash,
+            committed,
+            already_bid,
+            eve,
+            now,
         )
     else:
         result = trader.plan(
@@ -84,6 +93,7 @@ def run(
             rules=_rules(),
             committed=committed,
             already_bid=already_bid,
+            now=now,
         )
     text = trader.report(result, live=live)
     if len(history) < _HISTORY_DAYS:
@@ -106,12 +116,12 @@ def run(
 
 
 def _act(
-    ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve
+    ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve, now
 ) -> trader.Plan:
     """Sell, list, then bid with what was received. Returns what happened."""
     rules = _rules()
     biwenger = ctx.biwenger
-    planned, held, _ = trader.plan_sells(squad_rows, history, rules)
+    planned, held, _ = trader.plan_sells(squad_rows, history, rules, now)
 
     sold: list[trader.Move] = []
     skipped: list[tuple[dict, str]] = []
