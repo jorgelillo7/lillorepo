@@ -37,7 +37,11 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Switch the market trader on (`TRADER_MODE=live`) | You: a few mornings of simulated plans judged sensible · built and deployed off · how: `packages/biwenger_tools/OPERATIONS.md` · [spec](openspec/specs/biwenger_tools/market-trader/spec.md) |
+| 👤 | Switch the market trader on (`TRADER_MODE=live`) | You: a few mornings of simulated plans judged sensible · built and deployed off · start with `TRADER_NEGATIVE_LIMIT=1000000`, not the 3 M default, and widen if it works · how: `packages/biwenger_tools/OPERATIONS.md` · [spec](openspec/specs/biwenger_tools/market-trader/spec.md) |
+| ⏳ | Auto-bid waits while a T3/T4 target is falling (T1/T2 bid anyway) | ~2 weeks of `price_snapshots` · first week (13–18/10, 759 cases): after 2 days down, 89 % fell again next day, −1.24 %/day on average · small saving per bid, risk is losing him to a rival |
+| ⏳ | Do prices rise Friday→Tuesday and stall towards Friday? | 2–3 weeks of `price_snapshots` · the claim is from a Biwenger guide video; if it holds, the trader buys early in the week and avoids Thursday/Friday buys |
+| 🔨 | Auto-bid and trader read the next 2–3 fixtures, not just the next match | Ready · `fixture_run` already annotates squad rows for `/ofertas`; neither bidder reads it |
+| 🔨 | Cap signings at 2–3 players from the same club | Ready · neither auto-bid nor the trader counts clubs today |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | Promotions to read against real points. **Unblocked**: the projection ledger now stores both, automatically, so the record `log_promotions` could never produce exists. Still needs them to accumulate — one promotion in 12 months means this waits on seasons, not weeks · [how to read it](docs/technical/backend/projection-ledger.md) |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
 | ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
