@@ -124,8 +124,8 @@ If it's urgent, the fast path is the same path: branch, PR, wait for `Lint`
 and `Test`, merge.
 
 This is enforced, not just policy: `master` has branch protection (required
-status checks `Lint` + `Test` from `ci.yml`, `enforce_admins` on, no
-force-pushes). A direct push is rejected by GitHub regardless of intent.
+status checks `Lint` + `Test` from `ci.yml`, branches up to date with
+`master` before merging, `enforce_admins` on, no force-pushes). A direct push is rejected by GitHub regardless of intent.
 
 ```bash
 git checkout -b feat/my-feature
