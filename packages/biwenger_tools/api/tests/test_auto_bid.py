@@ -1155,54 +1155,62 @@ def _club_player(player_id, name, team_id, price=3_000_000):
     }
 
 
+def _eleven_with(club_starters):
+    """A full eleven whose first `club_starters` midfielders play for club 7,
+    every other starter for a club of his own."""
+    shape = [1] + [2] * 4 + [3] * 4 + [4] * 2
+    biwenger_players, jp_players, mids = {}, [], 0
+    for i, pos in enumerate(shape, start=1):
+        team = 100 + i
+        if pos == 3 and mids < club_starters:
+            team, mids = 7, mids + 1
+        biwenger_players[i] = {
+            "id": i,
+            "name": f"Starter{i}",
+            "price": 1_000_000,
+            "position": pos,
+            "teamID": team,
+        }
+        jp_players.append(_jp_starter(f"Starter{i}", 600))
+    return biwenger_players, jp_players, [{"id": i} for i in range(1, 12)]
+
+
 def test_a_club_already_three_deep_in_the_squad_gets_no_bid(run_env):
-    """A bad day for one club costs every player you own from it."""
-    biwenger_players = {
-        i: _club_player(i, f"Own{i}", team_id=7, price=1_000_000) for i in (1, 2, 3)
-    }
-    biwenger_players[10] = _club_player(10, "SameClub", team_id=7)
-    biwenger_players[11] = _club_player(11, "OtherClub", team_id=8)
-    jp_players = [_jp_with_sf(f"Own{i}", 100) for i in (1, 2, 3)] + [
-        _jp_with_sf("SameClub", 500),
-        _jp_with_sf("OtherClub", 450),
-    ]
+    """A bad day for one club costs every starter you own from it."""
+    biwenger_players, jp_players, squad = _eleven_with(3)
+    biwenger_players[30] = _club_player(30, "SameClub", team_id=7)
+    biwenger_players[31] = _club_player(31, "OtherClub", team_id=8)
+    jp_players += [_jp_starter("SameClub", 700), _jp_starter("OtherClub", 700)]
     biwenger, mock_send = run_env(
-        market_players=[_sale(10), _sale(11)],
+        market_players=[_sale(30), _sale(31)],
         biwenger_players=biwenger_players,
         jp_players=jp_players,
         cash=30_000_000,
-        squad=[{"id": i} for i in (1, 2, 3)],
+        squad=squad,
     )
     auto_bid.run_auto_bid()
 
-    assert [
-        c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list
-    ] == [11]
+    bid_ids = [c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list]
+    assert bid_ids == [31]
     assert "Tope por equipo <b>SameClub</b>" in mock_send.call_args.kwargs["text"]
 
 
 def test_bids_placed_in_the_same_run_count_towards_the_club(run_env):
-    biwenger_players = {
-        i: _club_player(i, f"Own{i}", team_id=7, price=1_000_000) for i in (1, 2)
-    }
-    biwenger_players[10] = _club_player(10, "First", team_id=7)
-    biwenger_players[11] = _club_player(11, "Second", team_id=7)
-    jp_players = [_jp_with_sf(f"Own{i}", 100) for i in (1, 2)] + [
-        _jp_with_sf("First", 500),
-        _jp_with_sf("Second", 450),
-    ]
+    biwenger_players, jp_players, squad = _eleven_with(2)
+    biwenger_players[30] = _club_player(30, "First", team_id=7)
+    biwenger_players[31] = _club_player(31, "Second", team_id=7)
+    jp_players += [_jp_starter("First", 720), _jp_starter("Second", 700)]
     biwenger, _ = run_env(
-        market_players=[_sale(10), _sale(11)],
+        market_players=[_sale(30), _sale(31)],
         biwenger_players=biwenger_players,
         jp_players=jp_players,
         cash=30_000_000,
-        squad=[{"id": 1}, {"id": 2}],
+        squad=squad,
     )
     auto_bid.run_auto_bid()
 
-    assert [
-        c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list
-    ] == [10]
+    bid_ids = [c.kwargs["player_id"] for c in biwenger.place_market_bid.call_args_list]
+    assert bid_ids == [30]
 
 
 def test_without_the_squad_the_club_cap_does_not_hold_bids_back(run_env):
@@ -1215,6 +1223,48 @@ def test_without_the_squad_the_club_cap_does_not_hold_bids_back(run_env):
         cash=30_000_000,
     )
     biwenger.get_manager_squad.side_effect = RuntimeError("down")
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1
+
+
+def _jp_starter(name, sf):
+    return {
+        "name": name,
+        "slug": name.lower(),
+        "status": "ok",
+        "nextMatch": {"status": "pending", "playerInLineup": True},
+        "predict": [{"type": 2, "rate": sf}],
+    }
+
+
+def test_bench_players_from_a_club_do_not_fill_its_cap(run_env):
+    """Three weak reserves from a club must not cost the bid on a good one:
+    only the starters of the best eleven count."""
+    shape = [1] + [2] * 4 + [3] * 4 + [4] * 2
+    biwenger_players, jp_players = {}, []
+    for i, pos in enumerate(shape, start=1):
+        biwenger_players[i] = {
+            "id": i,
+            "name": f"Starter{i}",
+            "price": 1_000_000,
+            "position": pos,
+            "teamID": 100 + i,
+        }
+        jp_players.append(_jp_starter(f"Starter{i}", 600))
+    for i in (20, 21, 22):
+        biwenger_players[i] = _club_player(i, f"Reserve{i}", team_id=7, price=500_000)
+        jp_players.append(_jp_starter(f"Reserve{i}", 50))
+    biwenger_players[30] = _club_player(30, "GoodOne", team_id=7)
+    jp_players.append(_jp_starter("GoodOne", 500))
+
+    biwenger, _ = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=[{"id": i} for i in list(range(1, 12)) + [20, 21, 22]],
+    )
     auto_bid.run_auto_bid()
 
     assert biwenger.place_market_bid.call_count == 1

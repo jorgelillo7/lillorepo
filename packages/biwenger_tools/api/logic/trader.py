@@ -175,8 +175,9 @@ def plan_buys(
     """`(buys, skipped, wallet_after)`: the risers to bid on while the wallet
     stays at or above `floor` — the thinnest line first, then the best
     projection. Never a goalkeeper: a manager's only keeper cannot be claused,
-    a second one can. A player with a bid already waiting is left alone, and
-    counts towards his club's `max_per_club` like the squad does."""
+    a second one can. A player with a bid already waiting is left alone.
+    `max_per_club` counts the best eleven's starters, the bids waiting and the
+    day's buys — never the bench, so weak reserves cannot block a good one."""
     owned = {r["bw_id"] for r in keep}
     risers = [
         (row, s)
@@ -188,9 +189,11 @@ def plan_buys(
         and lineup.projected_sf(row) >= rules.buy_min_sf
     ]
     line = Counter(r.get("position_id") for r in keep)
+    starters = best_eleven_ids(keep)
     clubs = Counter(
         r.get("team_id")
-        for r in keep + [m for m in market if m["bw_id"] in already_bid]
+        for r in [r for r in keep if r["bw_id"] in starters]
+        + [m for m in market if m["bw_id"] in already_bid]
         if r.get("team_id") is not None
     )
     buys: list[Move] = []

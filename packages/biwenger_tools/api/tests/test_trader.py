@@ -573,3 +573,20 @@ def test_a_bid_already_waiting_counts_towards_the_club():
         already_bid={59},
     )
     assert result.buys == []
+
+
+def test_bench_players_from_a_club_do_not_fill_its_cap():
+    """Only the best eleven's starters count; three weak reserves from a club
+    must not block a riser from it."""
+    squad = _eleven() + [_of(_player(40 + i, 50, MID), 7) for i in range(3)]
+    market = [_of(_player(60, 400, MID), 7)]
+    result = plan(
+        squad,
+        market,
+        _history(p60=50_000),
+        cash=10_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=CLUB,
+    )
+    assert [m.row["bw_id"] for m in result.buys] == [60]
