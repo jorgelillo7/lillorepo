@@ -453,3 +453,79 @@ def test_a_goalkeeper_is_never_bought():
         rules=RULES,
     )
     assert result.buys == []
+
+
+# --- the hold after a signing ------------------------------------------------
+
+NOW = 1_792_000_000.0
+DAY = 86_400
+HOLD = Rules(**{**RULES.__dict__, "hold_days": 14, "dead_sf": 300})
+
+
+def _signed(player, days_ago):
+    return {**player, "acq_date": int(NOW - days_ago * DAY)}
+
+
+def test_a_player_signed_under_two_weeks_ago_is_not_sold_for_falling():
+    """Auto-bid signs on projection; selling him days later on a falling
+    price buys high and sells low."""
+    squad = _eleven() + [_signed(_player(40, 350, DEF), days_ago=3)]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert result.sells == []
+    ((row, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 40]
+    assert why.startswith("fichado hace 3 días")
+
+
+def test_the_hold_ends_after_two_weeks():
+    squad = _eleven() + [_signed(_player(40, 350, DEF), days_ago=14)]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_a_fresh_signing_whose_projection_collapses_is_still_sold():
+    """The hold protects a price dip, not a player who will not play."""
+    squad = _eleven() + [_signed(_player(40, 120, DEF), days_ago=2)]
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_a_player_with_no_signing_date_is_not_held():
+    squad = _eleven() + [{**_player(40, 350, DEF), "acq_date": None}]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
