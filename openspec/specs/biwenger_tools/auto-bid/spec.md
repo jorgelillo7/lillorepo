@@ -188,22 +188,27 @@ one player can move.
 
 ### Requirement: No more than three players from one club
 
-A candidate from a club the squad already holds `MAX_PLAYERS_PER_CLUB` (3) of
-SHALL draw no bid, chollos included, and the summary SHALL say so (🏟️). Bids
-placed earlier in the same run — and, on a retry, the ones already logged —
-count towards the club. A bad day for one club costs every player owned from
-it. When the squad could not be read the cap SHALL NOT apply: a signal that is
+A candidate from a club that already has `MAX_PLAYERS_PER_CLUB` (3) starters
+in the squad's best eleven SHALL draw no bid, chollos included, and the summary
+SHALL say so (🏟️). The bench does not count — three weak reserves from a club
+must not cost the bid on a good one. Bids placed earlier in the same run — and,
+on a retry, the ones already logged — count when the signing would start. A
+bad day for one club costs every starter owned from it. When the squad could not be read the cap SHALL NOT apply: a signal that is
 missing never suppresses a bid.
 
 #### Scenario: the club cap
-- **WHEN** the squad already holds three of a candidate's club **THEN** he is
-  skipped and the summary names the cap; a candidate from another club is bid
+- **WHEN** the best eleven already starts three of a candidate's club **THEN**
+  he is skipped and the summary names the cap; a candidate from another club
+  is bid
+- **WHEN** the club's players in the squad are reserves **THEN** they do not
+  count and the bid goes out
 - **WHEN** two candidates from a club two-deep are on the market **THEN** only
   the first is bid
 - **WHEN** the squad read fails **THEN** the cap is off and bids go out
 - *Verifies:* `test_a_club_already_three_deep_in_the_squad_gets_no_bid`,
   `test_bids_placed_in_the_same_run_count_towards_the_club`,
-  `test_without_the_squad_the_club_cap_does_not_hold_bids_back`
+  `test_without_the_squad_the_club_cap_does_not_hold_bids_back`,
+  `test_bench_players_from_a_club_do_not_fill_its_cap`
 
 ### Requirement: The chollos trade buys to sell, with pocket money
 

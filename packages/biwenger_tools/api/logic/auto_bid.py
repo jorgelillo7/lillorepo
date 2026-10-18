@@ -53,6 +53,7 @@ from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import rows
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
+from packages.biwenger_tools.api.logic.trader import best_eleven_ids
 from packages.biwenger_tools.api.player_formatting import availability, shown_score
 
 if TYPE_CHECKING:  # the annotation only; importing it at run time cycles
@@ -337,8 +338,19 @@ def _would_be_bench(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
 
 
 def _club_counts(squad_rows: list) -> Counter:
-    """Players owned per club, for `MAX_PLAYERS_PER_CLUB`."""
-    return Counter(r.get("team_id") for r in squad_rows if r.get("team_id") is not None)
+    """Starters of the best eleven per club, for `MAX_PLAYERS_PER_CLUB`. The
+    bench does not count: weak reserves must not block a good signing."""
+    starters = best_eleven_ids(squad_rows)
+    return Counter(
+        r.get("team_id")
+        for r in squad_rows
+        if r["bw_id"] in starters and r.get("team_id") is not None
+    )
+
+
+def _would_start(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
+    """Whether a signing goes into the eleven, and so into his club's count."""
+    return not candidate["uncalled"] and not _would_be_bench(candidate, by_pos)
 
 
 def _already_bid_ids(day: str) -> set[int]:
@@ -541,7 +553,7 @@ def run_auto_bid() -> dict:
         if candidate["player_id"] in already_bid:
             # A retry's earlier bids still fill their club.
             if clubs is not None and club is not None:
-                clubs[club] += 1
+                clubs[club] += _would_start(candidate, squad_by_pos)
             skipped.append(
                 {
                     "player_id": candidate["player_id"],
@@ -679,7 +691,7 @@ def run_auto_bid() -> dict:
         _log_bid(day, candidate, target_bid, offer)
         remaining_cash -= target_bid
         if clubs is not None and club is not None:
-            clubs[club] += 1
+            clubs[club] += _would_start(candidate, squad_by_pos)
 
     total_bid = sum(entry["bid"] for entry in placed)
     text = _format_telegram_text(day, placed, skipped, total_bid, remaining_cash)
