@@ -180,9 +180,11 @@
             <h3 class="font-header text-lg font-bold text-gray-800 mb-3">{{ sec.titulo }}</h3>
             {% endif %}
 
+            {% set compact = sec.headers | length <= 6 %}
+            {% if not compact %}
             <!-- Mobile: una tarjeta por fila. La Copa Castolo suma una columna
                  por jornada, así que en horizontal sería scroll lateral sin fin. -->
-            <div class="md:hidden divide-y divide-gray-100">
+            <div data-layout="cards" class="md:hidden divide-y divide-gray-100">
                 {% for row in sec.rows %}
                 <div class="py-3">
                     <p class="font-medium text-gray-800 mb-1">{{ row[0] }}</p>
@@ -199,13 +201,18 @@
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
 
-            <div class="hidden md:block overflow-x-auto">
-                <table class="min-w-full text-sm">
+            <!-- A narrow table (a group's standings) fits a phone as it is. -->
+            {% set first = sec.rows[0] if sec.rows else [] %}
+            <div data-layout="table" class="{% if not compact %}hidden md:block{% endif %} overflow-x-auto">
+                <table class="min-w-full text-xs md:text-sm">
                     <thead>
                         <tr class="text-gray-500 border-b border-gray-200">
                             {% for h in sec.headers %}
-                            <th class="py-2 px-3 {% if loop.first %}text-left{% endif %} font-semibold uppercase tracking-wider">{{ h }}</th>
+                            {% set sample = (first[loop.index0] if loop.index0 < first | length else '') | string %}
+                            {% set numeric = sample.lstrip('+-').replace(',', '').replace('.', '').isdigit() %}
+                            <th class="py-2 px-2 md:px-3 {% if not numeric %}text-left{% endif %} font-semibold uppercase md:tracking-wider">{{ h }}</th>
                             {% endfor %}
                         </tr>
                     </thead>
@@ -213,7 +220,8 @@
                         {% for row in sec.rows %}
                         <tr class="hover:bg-gray-50 transition">
                             {% for cell in row %}
-                            <td class="py-2 px-3 {% if loop.first %}text-left font-medium text-gray-800{% else %}text-gray-600{% endif %} whitespace-pre-wrap">{{ cell }}</td>
+                            {% set numeric = (cell | string).lstrip('+-').replace(',', '').replace('.', '').isdigit() %}
+                            <td class="py-2 px-2 md:px-3 {% if not numeric %}text-left font-medium text-gray-800{% else %}text-gray-600{% endif %} whitespace-pre-wrap">{{ cell }}</td>
                             {% endfor %}
                         </tr>
                         {% endfor %}

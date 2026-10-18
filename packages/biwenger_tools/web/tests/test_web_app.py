@@ -1181,6 +1181,45 @@ def test_a_cup_shows_its_fixtures_inside_its_own_tab(client):
     season_routes.invalidate_competiciones_cache()
 
 
+def _render_competition(client, header, *rows):
+    from packages.biwenger_tools.web.routes import season as season_routes
+
+    season_routes.invalidate_competiciones_cache()
+    workbook = _workbook(_table_tab("Copa", "Copa", header, *rows))
+    with (
+        patch.multiple(
+            "packages.biwenger_tools.web.routes.season.config",
+            COMPETICIONES_SHEETS={"26-27": ["book-id"]},
+        ),
+        patch(
+            "packages.biwenger_tools.web.routes.season.get_workbook",
+            return_value=workbook,
+        ),
+    ):
+        body = client.get("/26-27/competiciones").get_data(as_text=True)
+    season_routes.invalidate_competiciones_cache()
+    return body
+
+
+def test_a_narrow_standings_table_stays_a_table_on_a_phone(client):
+    """Cards made the group standings read like a round of matches; a table
+    of five columns fits a phone as it is."""
+    body = _render_competition(
+        client,
+        ["Pos", "Equipo", "PF", "PC", "Diferencia"],
+        ["1", "Kairat FC", "0", "0", "0"],
+    )
+    assert 'data-layout="table"' in body
+    assert 'data-layout="cards"' not in body
+
+
+def test_a_wide_table_still_folds_into_cards_on_a_phone(client):
+    """One column per round would scroll sideways for ever on a phone."""
+    header = ["Equipo"] + [f"J{i}" for i in range(1, 9)]
+    body = _render_competition(client, header, ["Kairat FC"] + ["10"] * 8)
+    assert 'data-layout="cards"' in body
+
+
 def test_a_season_only_shows_the_competitions_its_sheet_holds(client):
     """Tabs are the workbook's tabs. A competition exists on the site because
     it exists in the sheet — retiring one is deleting its tab, with no code
