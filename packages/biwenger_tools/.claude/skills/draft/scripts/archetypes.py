@@ -151,6 +151,18 @@ def read_real_points(path):
     return real
 
 
+def read_no_primera(path):
+    """Normalised names `fetch_real_points` found with no LaLiga minutes in the
+    season measured: a promoted club's, or arriving from abroad. Not a zero —
+    an unknown, and the riskiest kind."""
+    with open(path, encoding="utf-8") as fh:
+        return {
+            _norm(r["name"])
+            for r in csv.DictReader(fh)
+            if r.get("no_primera") == "True"
+        }
+
+
 def calibrate(rows):
     """Per-line `real / projection` factors, measured on the players that have
     both. Falls back to the season's measured medians when a line is too thin.
@@ -173,7 +185,7 @@ def calibrate(rows):
     return factors
 
 
-def apply_real_points(rows, real):
+def apply_real_points(rows, real, new=frozenset()):
     """Overlay measured points on the projection and re-score every row.
 
     Rows keep `sf_proj` (the projection) and gain `real`, `games`, `per_game` and
@@ -190,6 +202,7 @@ def apply_real_points(rows, real):
         r["min_per_game"] = match["min_per_game"] if match else None
         r["per_game"] = match["per_game"] if match else None
         r["rounds"] = match["rounds"] if match else None
+        r["no_primera"] = _norm(r["name"]) in new
     factors = calibrate(rows)
     for r in rows:
         if r["real"] is not None:
@@ -758,6 +771,8 @@ def source_cell(r):
     70 points in 5 games and 70 in 38 describe opposite players.
     """
     mark = SOURCE_MARK.get(r.get("source"), "~")
+    if r.get("no_primera"):
+        return "🆕"
     if r.get("source") != "real":
         return mark
     if not is_starter(r):

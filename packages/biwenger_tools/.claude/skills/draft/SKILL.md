@@ -113,6 +113,33 @@ año anterior:
 6. **El capitán**: un titular seguro por debajo de 3M (© en `niveles.md`).
 7. **En vivo**, tras cada pick ajeno: `board.py` (qué queda de cada nivel) y
    medir solo a los candidatos de ese hueco.
+8. **La proyección no sabe quién es suplente.** En el ensayo del 22/10 tres
+   porteros del plan (Aitor Fernández, Fortuño) habían sido titulares una vez
+   o ninguna en 38, con 5,3 puntos por jornada proyectados. **Mide a todo
+   portero que puedas fichar**; la lista corta los pone primero.
+9. **Valor, no puntos.** `Valor` = puntos por jornada × confianza (medido 1,0
+   · proyectado 0,85 · sin Primera 🆕 0,7) − 0,3 por millón, y nada por encima
+   de 8M. Sin tope, el ensayo gastó 32,7M de 50 en dos estrellas y quedó
+   tercero; con él, primero por el once.
+
+### El bucle de pretemporada: ensayar, medir, repetir
+
+```bash
+S=//packages/biwenger_tools/.claude/skills/draft/scripts
+bazel run $S:tiers -- --season 27-28 ... --shortlist-out mide.csv      # a quién medir
+bazel run $S:fetch_real_points -- --shortlist mide.csv --season 2026-2027 --draft-season 27-28
+bazel run $S:mock_draft -- --season 27-28 --real-points ... --history ... \
+    --rivals-season 26-27 --shortlist-out mide.csv                    # ensayo → tus sin medir
+```
+
+`mock_draft` juega el draft contra los rivales (lo que gastó cada uno por ronda
+la última vez) con estas reglas: valor, la línea que se vacía antes de tu
+siguiente turno primero, 1,2M guardados por cada hueco hasta el final para un
+banquillo que juegue, y el portero suplente el último y al precio suelo. Te
+devuelve **quién de tu quince sigue sin medir**: mídelo y repite hasta que el
+quince no cambie. En el ensayo del 22/10 tres vueltas (~50 peticiones) bastaron.
+Los rivales son un modelo tosco del año pasado; la tabla final es una
+proyección, no una previsión.
 
 `archetypes.py` queda como **comprobación**: que un quince legal (once +
 banquillo completo) cabe en el presupuesto con lo que eliges. No es el que

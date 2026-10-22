@@ -800,3 +800,90 @@ def test_the_season_row_is_laliga_s_not_another_competition_s():
     ]
     assert frp._season_row(seasons, "2025-2026")["games"] == 36
     assert frp.served_season(seasons) == "2025-2026"
+
+
+# --- what the mock draft of 22/10 taught -----------------------------------
+
+
+def test_value_trusts_a_measured_total_over_a_projection_and_charges_price():
+    import tiers
+
+    measured = dict(player("M", price=2_000_000, sf=190), pr=5.0, source="real")
+    projected = dict(measured, name="P", source="proj")
+    new = dict(projected, name="N", no_primera=True)
+    pricey = dict(measured, name="X", price=8_000_000)
+    values = [tiers.pick_value(r) for r in (measured, projected, new, pricey)]
+    assert values[0] > values[1] > values[2]
+    assert values[0] > values[3]
+
+
+def test_the_shortlist_proposes_the_unmeasured_of_the_plan_keepers_first():
+    """A keeper's projection cannot see he is the backup — Aitor Fernández,
+    Fortuño: one start in 38 each. Every keeper in reach is measured first."""
+    import tiers
+
+    rows = [
+        dict(player("K", "PT", sf=200), pr=5.0, source="proj"),
+        dict(player("D", "DF", sf=300), pr=6.0, source="proj"),
+        dict(player("R", "DF", sf=300), pr=6.0, source="real"),
+    ]
+    assert tiers.shortlist(rows, limit=2) == ["K", "D"]
+
+
+def test_players_without_primera_minutes_are_marked_not_dropped(tmp_path):
+    path = tmp_path / "real.csv"
+    path.write_text(
+        "name,points,games,starts,no_primera\nA,60,30,25,\nB,,,,True\n",
+        encoding="utf-8",
+    )
+    assert archetypes.read_no_primera(str(path)) == {"b"}
+    row = dict(player("B"), sf=300)
+    archetypes.apply_real_points(
+        [row], archetypes.read_real_points(str(path)), new={"b"}
+    )
+    assert row["no_primera"] is True and archetypes.source_cell(row) == "🆕"
+
+
+def test_the_mock_keeps_the_reserve_keeper_for_last_and_caps_the_price():
+    import mock_draft
+
+    rows = (
+        [dict(player(f"K{i}", "PT", 150_000 + i, 100 + i)) for i in range(5)]
+        + [dict(player("Star", "MC", 20_000_000, 900))]
+        + [dict(player(f"D{i}", "DF", 1_000_000, 300 + i)) for i in range(11)]
+        + [dict(player(f"M{i}", "MC", 1_000_000, 300 + i)) for i in range(11)]
+        + [dict(player(f"F{i}", "DL", 1_000_000, 300 + i)) for i in range(8)]
+    )
+    for r in rows:
+        r["pr"] = r["sf"] / 38
+        r["source"] = "real"
+    squads, log = mock_draft.simulate(
+        rows, order=["A", "Me"], me="Me", budget=40_000_000, habits={}, history=[]
+    )
+    mine = squads["Me"]
+    assert "Star" not in {r["name"] for r in mine}
+    assert sum(1 for r in mine if r["pos"] == "PT") == 2
+    assert mine[-1]["pos"] == "PT"
+
+
+def test_the_mock_keeps_money_for_a_bench_that_plays():
+    """Every slot but the reserve keeper's keeps DEPTH_RESERVE back, so the
+    last outfield picks are players who score, not 0.15M fillers."""
+    import mock_draft
+
+    rows = (
+        [dict(player(f"K{i}", "PT", 150_000 + i, 100 + i)) for i in range(5)]
+        + [dict(player(f"D{i}", "DF", 1_200_000, 150 + i)) for i in range(11)]
+        + [dict(player(f"M{i}", "MC", 1_200_000, 150 + i)) for i in range(11)]
+        + [dict(player(f"F{i}", "DL", 1_200_000, 150 + i)) for i in range(8)]
+        + [dict(player(f"Z{i}", "MC", 150_000, 5)) for i in range(6)]
+        + [dict(player(f"S{i}", "MC", 6_000_000, 400 + i)) for i in range(6)]
+    )
+    for r in rows:
+        r["pr"] = r["sf"] / 38
+        r["source"] = "real"
+    squads, _ = mock_draft.simulate(
+        rows, order=["A", "Me"], me="Me", budget=30_000_000, habits={}, history=[]
+    )
+    outfield = [r for r in squads["Me"] if r["pos"] != "PT"]
+    assert all(not r["name"].startswith("Z") for r in outfield)

@@ -248,6 +248,16 @@ def main() -> int:
         # worse lie than an empty cell, because the optimiser would believe it.
         if not computed["games"]:
             no_history.append(f"{name} ({season.get('games') or 0} partidos fuera)")
+            rows.append(
+                {
+                    "name": name,
+                    "biwenger_name": player.get("name"),
+                    "team": teams.get(entry.get("teamID"), "?"),
+                    "position": POSITION_CODE.get(position, position),
+                    "price": entry.get("price") or 0,
+                    "no_primera": True,
+                }
+            )
             continue
         rows.append(
             {
@@ -278,6 +288,8 @@ def main() -> int:
             break
 
     for row in rows:
+        if row.get("no_primera"):
+            continue
         games = row["games"] or 0
         row["per_game"] = round(row["points"] / games, 2) if games else None
         row["min_per_game"] = round(row["minutes"] / games) if games else None
@@ -303,11 +315,12 @@ def main() -> int:
         "wins",
         "clean_sheets",
         "biwenger_name",
+        "no_primera",
     ]
     with open(destination, "w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=cols)
         writer.writeheader()
-        for row in sorted(rows, key=lambda r: r["points"], reverse=True):
+        for row in sorted(rows, key=lambda r: r.get("points") or -1, reverse=True):
             writer.writerow({c: row.get(c) for c in cols})
 
     print(f"{len(rows)} jugadores · {fetcher.requests_made} peticiones live")
@@ -316,7 +329,11 @@ def main() -> int:
         f"\n{'Jugador':<22}{'Eq':<14}{'Pos':<5}{'Pts':>5}{'PJ':>4}"
         f"{'Tit':>7}{'min':>5}{'/PJ':>7}{'/M':>7}"
     )
-    for row in sorted(rows, key=lambda r: r["points"], reverse=True):
+    for row in sorted(
+        (r for r in rows if not r.get("no_primera")),
+        key=lambda r: r["points"],
+        reverse=True,
+    ):
         print(
             f"{row['name'][:21]:<22}{row['team'][:13]:<14}{row['position']:<5}"
             f"{row['points']:>5}{row['games']:>4}"
@@ -325,8 +342,8 @@ def main() -> int:
         )
     if no_history:
         print(
-            f"\nSin minutos en Primera ({len(no_history)}) — quedan fuera del "
-            f"CSV, no valen 0: {', '.join(no_history)}"
+            f"\nSin minutos en Primera ({len(no_history)}) — en el CSV como "
+            f"`no_primera`, no como 0: {', '.join(no_history)}"
         )
     if unmatched:
         print(f"\nSin emparejar ({len(unmatched)}): {', '.join(unmatched)}")
