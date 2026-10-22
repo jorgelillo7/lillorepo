@@ -703,3 +703,73 @@ def test_ranked_csv_carries_the_price_rise_into_the_rows(tmp_path):
     )
     (row,), _, _ = archetypes.load(path, exclude=())
     assert row["rise"] == 0.125
+
+
+# --- tiers, starts and rivals ----------------------------------------------
+
+
+def test_the_start_rate_is_over_the_rounds_the_sample_covers():
+    """Nine rounds in, seven starts is a regular starter; over 38 it read as a
+    substitute and every measured player got the 🪑."""
+    row = dict(player("A"), starts=7, rounds=9)
+    assert archetypes.start_rate(row) == 7 / 9
+    assert archetypes.is_starter(row) is True
+    assert archetypes.is_starter(dict(row, starts=3)) is False
+
+
+def test_real_points_carry_the_rounds_they_cover(tmp_path):
+    path = tmp_path / "real.csv"
+    path.write_text("name,points,games,starts\nA,60,9,8\nB,20,4,2\n", encoding="utf-8")
+    real = archetypes.read_real_points(str(path))
+    assert real["a"]["rounds"] == 9 and real["b"]["rounds"] == 9
+
+
+def test_tiers_are_league_sized_and_ranked_by_points_per_round():
+    import tiers
+
+    rows = [player(f"D{i}", "DF", sf=100 + i) for i in range(16)]
+    out = tiers.build_tiers(rows, managers=7, rounds=10)
+    assert [len(t) for t in out["DF"]] == [7, 7, 2]
+    assert out["DF"][0][0]["name"] == "D15"
+    assert out["DF"][0][0]["per_round"] == 11.5
+
+
+def test_the_window_counts_lines_picked_between_two_turns():
+    import tiers
+
+    history = [
+        {"pick": 3, "line": "DL"},
+        {"pick": 5, "line": "DF"},
+        {"pick": 8, "line": "DF"},
+        {"pick": 11, "line": "MC"},
+        {"pick": 12, "line": "PT"},
+    ]
+    assert tiers.window_lines(history, 3, 12) == {"DF": 2, "MC": 1}
+
+
+def test_rival_profiles_read_spend_and_lines_by_round():
+    import tiers
+
+    picks = [
+        {"manager_name": "Ana", "global_pick": 1, "round": 1, "price": 13_000_000},
+        {"manager_name": "Ana", "global_pick": 14, "round": 2, "price": 7_000_000},
+        {"manager_name": "Ana", "global_pick": 15, "round": 15, "price": 150_000},
+    ]
+    lines = {1: "DL", 14: "MC", 15: "PT"}
+    (profile,) = tiers.rival_profiles(picks, lines)
+    assert profile["manager"] == "Ana"
+    assert profile["first"] == 13_000_000
+    assert profile["first_lines"] == "DL MC PT"
+    assert profile["cheap"] == 1
+
+
+def test_the_board_counts_what_survives_of_each_tier():
+    """Mid-draft the question is how much of tier A is still free, against
+    how many picks land before your turn."""
+    market = [
+        dict(player(f"D{i}", "DF", sf=100 + i), real=None, placeholder=False)
+        for i in range(10)
+    ]
+    taken = {"d9", "d8", "d0"}
+    survival = board.tier_survival(market, taken, managers=7)
+    assert survival["DF"] == [("A", 5, 7), ("B", 2, 3)]

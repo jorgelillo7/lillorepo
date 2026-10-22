@@ -622,10 +622,18 @@ D=packages/biwenger_tools/.claude/skills/draft
 bazel run $S:draft_ranking -- --csv ~/Downloads/primera-division.csv --season 27-28
 bazel run $S:fetch_real_points -- --shortlist shortlist.csv --season 2026-2027 \
     --draft-season 27-28          # 30-45 names, never the market
+bazel run $S:tiers -- --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+    --exclude-file $D/26-27/exclusiones.txt --pick-position 3 \
+    --history $D/26-27/disponibilidad.csv --rivals-season 26-27   # → niveles.md
 bazel run $S:archetypes -- --season 27-28 --budget 50 \
     --real-points $D/27-28/draft-real-points.csv \
     --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
 ```
+
+`niveles.md` is what the picks are decided on — tiers per line, starts, the
+window between your turns and the rivals' habits; `archetypes` only checks
+that a legal fifteen fits the budget. During the draft, `board` shows how
+much of each tier is still free.
 
 Relative paths resolve from where you type the command; the season folders
 are written under `$D` whatever the directory.

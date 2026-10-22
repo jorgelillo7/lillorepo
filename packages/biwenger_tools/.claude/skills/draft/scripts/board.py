@@ -23,6 +23,7 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0])
 
 import paths  # noqa: E402
 from archetypes import BANDS, NEED, POS, eligibility, price_band  # noqa: E402
+from tiers import TIER_LABELS  # noqa: E402
 
 from packages.biwenger_tools.api.logic.draft import (  # noqa: E402
     draft_composition_ok,
@@ -109,6 +110,21 @@ def overlay_real(market, path):
             if row and r.get("points"):
                 row["real"] = int(r["points"])
                 row["starts"] = int(r.get("starts") or 0)
+
+
+def tier_survival(rows, taken, managers):
+    """`{line: [(tier, free, size), …]}` — league-sized tiers by points
+    (measured or projected, `points`), and how many of each are still free."""
+    from tiers import TIER_LABELS, build_tiers
+
+    scored = [{**r, "sf": points(r)[0] or 0} for r in rows]
+    out = {}
+    for line, groups in build_tiers(scored, managers, rounds=1).items():
+        out[line] = [
+            (label, sum(1 for r in g if _norm(r["name"]) not in taken), len(g))
+            for label, g in zip(TIER_LABELS, groups)
+        ]
+    return out
 
 
 def board_state(market, picks):
@@ -243,8 +259,25 @@ def main():
         "de verdad.\n"
     )
 
-    free, _ = board_state(market, picks)
+    free, taken = board_state(market, picks)
     left_budget = budget - spent
+    upcoming = [s for s in pending if s > last]
+    if upcoming:
+        print(
+            f"## Niveles — libres hasta tu pick {upcoming[0]} "
+            f"(antes caen {upcoming[0] - last - 1})\n"
+        )
+        survival = tier_survival(list(market.values()), taken, args.managers)
+        print("| Línea | " + " | ".join(TIER_LABELS[:4]) + " |")
+        print("|---" * 5 + "|")
+        for code in POS:
+            cells = [f"{free}/{size}" for _, free, size in survival[code][:4]]
+            print(f"| {POS[code]} | " + " | ".join(cells) + " |")
+        print(
+            "\nNivel = tantos jugadores como mánagers, por puntos. El que tenga "
+            "menos libres frente a los picks que caen antes de tu turno es el "
+            "que se juega ahora; el detalle de cada nivel, en `tiers`.\n"
+        )
     print("## Qué queda en cada banda (oferta real, no la drafteada)\n")
     print("| Línea | " + " | ".join(label for _, label in BANDS) + " |")
     print("|---" * (len(BANDS) + 1) + "|")

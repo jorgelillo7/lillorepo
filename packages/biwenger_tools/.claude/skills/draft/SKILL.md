@@ -23,8 +23,9 @@ flowchart TD
     subgraph PREP["🔍 Antes · local · solo lectura"]
         CSV["Exportas el CSV<br/>mercado cerrado"] --> RANK["draft_ranking.py<br/>→ draft-ranked.csv"]
         RANK --> REAL["fetch_real_points.py<br/>→ puntos Personalizado<br/>⚠️ shortlist 30-45, nunca el mercado"]
-        REAL --> ARCH["archetypes.py<br/>→ final-decision.md"]
-        HIST[("{año-1}/disponibilidad.csv")] -.->|--history| ARCH
+        REAL --> TIERS["tiers.py<br/>→ niveles.md · la herramienta principal"]
+        TIERS --> ARCH["archetypes.py<br/>→ comprobación de presupuesto"]
+        HIST[("{año-1}/disponibilidad.csv")] -.->|--history| TIERS
         EXCL[("{año-1}/exclusiones.txt")] -.->|--exclude-file| ARCH
     end
 
@@ -36,7 +37,7 @@ flowchart TD
         BOT["/pick en Telegram<br/>→ api → Biwenger + Firestore"]
         subgraph LOOP["🔁 Por cada hueco: te quitan a alguien → recalibra"]
             direction LR
-            L1["board.py<br/>qué queda y qué cabe"] --> L2["risers.py<br/>a quién compra el mercado"]
+            L1["board.py<br/>qué queda, qué cabe<br/>y cuánto de cada nivel"] --> L2["risers.py<br/>a quién compra el mercado"]
             L2 --> L3["fetch_real_points.py<br/>10-15 peticiones<br/><b>SOLO ese hueco</b>"]
             L3 --> L4["plan A · B · C"]
         end
@@ -90,6 +91,33 @@ flowchart TD
    to Biwenger; turn it on only after the rehearsal and its reset, and off again
    once the draft closes. Commands in `OPERATIONS.md` → "Annual draft", step 3.
 
+## Cómo ayuda, en orden de lo que más pesa
+
+Lo aprendido del 26-27, puntuado con la temporada real, y no la intuición del
+año anterior:
+
+1. **Los minutos mandan.** Los bonus exigen más de 65 minutos y ganar: la
+   primera pregunta de cada jugador es si será titular, no cuánto proyecta.
+   Noticias jugador a jugador (Fase C, paso 3) y `Tit` en `niveles.md`.
+2. **Puntos por jornada, no totales.** Lo medido sobre las jornadas que cubre
+   la muestra; un `~` es una proyección calibrada que se mide antes de creerla.
+3. **Niveles, no listas.** `tiers.py` agrupa cada línea en niveles del tamaño
+   de la liga. En tu turno: ¿en qué nivel quedan menos que te valgan antes de
+   tu siguiente pick? Eso decide el orden, no "quién es el mejor".
+4. **Los rivales tienen costumbres.** `tiers.py --rivals-season` resume el
+   draft anterior de cada uno; la ventana entre tus turnos dice qué líneas se
+   vacían. Contadores, nunca probabilidades por jugador.
+5. **El banquillo juega y el valor es caja.** En el 26-27 ganó la profundidad
+   barata (Manu: lo que menos gastó en R1-3, lo que más en R13-15, y el único
+   que ganó valor). Las estrellas caras solo pueden bajar.
+6. **El capitán**: un titular seguro por debajo de 3M (© en `niveles.md`).
+7. **En vivo**, tras cada pick ajeno: `board.py` (qué queda de cada nivel) y
+   medir solo a los candidatos de ese hueco.
+
+`archetypes.py` queda como **comprobación**: que un quince legal (once +
+banquillo completo) cabe en el presupuesto con lo que eliges. No es el que
+decide: en el backtest su favorito acabó quinto de seis.
+
 ## Una carpeta por temporada, y el mismo árbol cada año
 
 Todo lo que produce un draft vive en `<temporada>/`. La temporada la lleva la
@@ -104,6 +132,7 @@ skills/draft/
   26-27/
     draft-ranked.csv         Fase A · draft_ranking.py
     draft-real-points.csv    Fase B · fetch_real_points.py
+    niveles.md               tiers.py — la tabla con la que se decide
     arquetipos.md            archetypes.py --out
     decision.md              archetypes.py --decision
     disponibilidad.md        availability_report.py — el relato del draft
@@ -240,7 +269,17 @@ winning fifteen fills up with them. Read the **Fuente** column of the result:
 every `~` in the fifteen is a name to add to the next small measurement, then
 re-run.
 
-Feed it back in (paths default to the season folder):
+Then the tiers — the table the decision is made on (paths default to the
+season folder):
+
+```bash
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:tiers -- \
+    --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+    --exclude-file $D/26-27/exclusiones.txt --pick-position 3 \
+    --history $D/26-27/disponibilidad.csv --rivals-season 26-27
+```
+
+And the budget check:
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
@@ -275,7 +314,9 @@ case. **Iterate**: when a player falls (taken, or bad news), promote the next
 candidate, fetch his real points too, and re-check budget and composition.
 Steps:
 
-1. **Build the 15** within budget, respecting the composition rule: **some
+1. **Start from `niveles.md`**, line by line: which tiers are thin, who in
+   them is measured (`✅`) and who is still `~`. Then **build the 15** within
+   budget — `archetypes.py` checks that it fits — respecting the composition rule: **some
    legal XI plus a bench of one keeper, one defender, one midfielder and one
    forward**. El once puede ser cualquiera de las catorce formaciones, `4-6-0`
    incluida, pero el banquillo se rellena entero — por eso hay dos porteros y
@@ -283,7 +324,7 @@ Steps:
    recolocar lo que se quiera. Los multiposición cuentan en cada línea que
    pueden jugar — 107 de 553 traen `altPositions`. El bot lo valida en cada
    pick (`draft_composition_ok`).
-   Favour SofaScore, but weigh value-per-€ for the mid/late picks.
+   Favour points per round, but weigh value-per-€ for the mid/late picks.
 2. **Top-5 = the base**: give each of the first 5 picks **3 alternatives** at
    the same price/points tier. The user picks 3rd in a snake of 7, so their
    global picks land at ~3, 12, 17, 26… — several tiers vanish between picks,
