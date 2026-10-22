@@ -756,6 +756,30 @@ def test_mercado_success(mock_tabla, mock_clausulazos, client):
     assert "Real Madrid" in body
 
 
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+    return_value=[],
+)
+def test_a_cancelled_clausulazo_is_struck_through_and_not_counted(
+    mock_tabla, mock_clausulazos, client
+):
+    mock_clausulazos.return_value = [
+        Clausulazo(
+            "22-10-2026 20:00",
+            "Courtois",
+            "Rayo",
+            "Cebollitas",
+            8_865_000,
+            anulado="clausulazo a único portero - cancelamos",
+        ),
+        Clausulazo("01-10-2026 10:00", "Pedri", "A", "B", 2_000_000),
+    ]
+    body = client.get("/26-27/mercado").get_data(as_text=True)
+    assert "Anulado" in body and "clausulazo a único portero" in body
+    assert "2 M €" in body  # the cancelled 8.865M does not count
+
+
 @patch(
     "packages.biwenger_tools.web.routes.season.repository.get_clausulazos",
     return_value=[],

@@ -166,3 +166,36 @@ def test_build_tabla_justicia():
 
 def test_build_tabla_justicia_empty():
     assert build_tabla_justicia([]) == []
+
+
+def test_parse_anulaciones_reads_admin_transfers_between_two_managers():
+    """A draft transfer has no `from`; only a move between two managers can
+    undo a clausulazo."""
+    from packages.biwenger_tools.scraper_job.logic.processing import parse_anulaciones
+
+    raw = {
+        "data": [
+            {
+                "type": "adminTransfer",
+                "date": 1792696998,
+                "content": [
+                    {
+                        "player": 16738,
+                        "from": {"name": "Cebollitas FC"},
+                        "to": {"name": "Rayo Entrebirras"},
+                        "amount": 8865000,
+                        "reason": "clausulazo a único portero - cancelamos",
+                    },
+                    {"player": 1, "to": {"name": "Kairat FC"}, "amount": 150000},
+                ],
+            }
+        ]
+    }
+    (a,) = parse_anulaciones(raw, {16738: {"name": "Courtois"}})
+    assert (a.jugador, a.de, a.a, a.precio) == (
+        "Courtois",
+        "Cebollitas FC",
+        "Rayo Entrebirras",
+        8865000,
+    )
+    assert a.motivo == "clausulazo a único portero - cancelamos"

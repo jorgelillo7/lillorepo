@@ -9,7 +9,7 @@ about native timestamps.
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import ClassVar, Optional, Tuple
 
@@ -181,6 +181,9 @@ class Clausulazo:
     equipo_vendedor: str
     equipo_comprador: str
     precio: int
+    # The admin's reason when he undid it (see `mark_cancelled`). Read-time
+    # only: the stored clausulazo is never rewritten.
+    anulado: str | None = None
 
     # clausulazos timestamps carry no seconds.
     _FECHA_FMT: ClassVar[str] = "%d-%m-%Y %H:%M"
@@ -205,6 +208,76 @@ class Clausulazo:
             "equipo_comprador": self.equipo_comprador,
             "precio": self.precio,
         }
+
+
+@dataclass(frozen=True)
+class Anulacion:
+    """An admin transfer between two managers: the board's record of a move
+    the league undid, such as a clausulazo on a manager's only keeper."""
+
+    fecha: str
+    jugador: str
+    de: str
+    a: str
+    precio: int
+    motivo: str = ""
+
+    _FECHA_FMT: ClassVar[str] = "%d-%m-%Y %H:%M"
+
+    @classmethod
+    def from_firestore(cls, doc_id: str, data: dict) -> "Anulacion":
+        return cls(
+            fecha=_format_fecha(data.get("fecha"), cls._FECHA_FMT),
+            jugador=data.get("jugador", ""),
+            de=data.get("de", ""),
+            a=data.get("a", ""),
+            precio=int(data.get("precio", 0) or 0),
+            motivo=data.get("motivo", ""),
+        )
+
+    def to_firestore(self) -> dict:
+        return {
+            "fecha": _fecha_for_firestore(self.fecha),
+            "jugador": self.jugador,
+            "de": self.de,
+            "a": self.a,
+            "precio": self.precio,
+            "motivo": self.motivo,
+        }
+
+
+def _cancels(a: Anulacion, c: Clausulazo) -> bool:
+    """The same player, sent from the clause's buyer back to its seller, after
+    the clause."""
+    when_a, when_c = _parse_fecha(a.fecha), _parse_fecha(c.fecha)
+    return (
+        a.jugador == c.jugador
+        and a.de == c.equipo_comprador
+        and a.a == c.equipo_vendedor
+        and when_a is not None
+        and when_c is not None
+        and when_a >= when_c
+    )
+
+
+def mark_cancelled(
+    clausulazos: list[Clausulazo], anulaciones: list[Anulacion]
+) -> list[Clausulazo]:
+    """`clausulazos` with `anulado` set on each one an admin transfer undid.
+    An anulación cancels one clausulazo at most: the latest it follows."""
+    out = list(clausulazos)
+    earliest = datetime.min.replace(tzinfo=MADRID_TZ)
+    order = sorted(
+        range(len(out)),
+        key=lambda i: _parse_fecha(out[i].fecha) or earliest,
+        reverse=True,
+    )
+    for a in anulaciones:
+        for i in order:
+            if out[i].anulado is None and _cancels(a, out[i]):
+                out[i] = replace(out[i], anulado=a.motivo or "anulado por el admin")
+                break
+    return out
 
 
 @dataclass

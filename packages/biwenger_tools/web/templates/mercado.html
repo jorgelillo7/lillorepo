@@ -112,21 +112,28 @@
     {% if clausulazos %}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="clausulazos-grid">
             {% for c in clausulazos %}
-            <div class="card rounded-xl shadow-md p-5 flex flex-col items-center text-center border-t-2 border-green-500"
+            <div class="card rounded-xl shadow-md p-5 flex flex-col items-center text-center border-t-2 {{ 'border-gray-300 opacity-70' if c.anulado else 'border-green-500' }}"
                  data-clausulazo
                  data-jugador="{{ c.jugador }}"
                  data-vendedor="{{ c.equipo_vendedor }}"
                  data-comprador="{{ c.equipo_comprador }}">
                 <p class="text-xs text-gray-400 mb-2">{{ c.fecha }}</p>
-                <h3 class="text-lg font-bold text-gray-900 mb-3">{{ c.jugador }}</h3>
+                <h3 class="text-lg font-bold text-gray-900 mb-3 {{ 'line-through' if c.anulado }}">{{ c.jugador }}</h3>
                 <div class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-3 w-full">
                     <span class="font-medium text-gray-700 truncate">{{ c.equipo_vendedor }}</span>
                     <span class="text-gray-400 flex-shrink-0">→</span>
                     <span class="font-medium text-gray-700 truncate">{{ c.equipo_comprador }}</span>
                 </div>
+                {% if c.anulado %}
+                <span class="mt-auto text-base font-bold text-gray-500 bg-gray-100 px-4 py-1 rounded-full line-through">
+                    {{ "{:,.0f}".format(c.precio).replace(",", ".") }} €
+                </span>
+                <p class="text-xs text-gray-500 mt-2">🚫 Anulado por el admin: {{ c.anulado }}</p>
+                {% else %}
                 <span class="mt-auto text-base font-bold text-green-700 bg-green-50 px-4 py-1 rounded-full">
                     {{ "{:,.0f}".format(c.precio).replace(",", ".") }} €
                 </span>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

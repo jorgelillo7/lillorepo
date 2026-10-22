@@ -263,3 +263,51 @@ def test_participation_and_justice_keep_a_slashed_name_through_the_id():
     entry = JusticeEntry("AC/DC FC", 1, 0, "Rival", "—", [["Rival", 1]], [])
     assert entry.doc_id == "AC%2FDC FC"
     assert JusticeEntry.from_firestore(entry.doc_id, entry.to_firestore()) == entry
+
+
+# --- an admin transfer back cancels a clausulazo ----------------------------
+
+
+def _clause():
+    return Clausulazo("21-10-2026 20:00", "Courtois", "Rayo", "Cebollitas", 8_865_000)
+
+
+def _undo(**over):
+    from core.domain.models import Anulacion
+
+    fields = dict(
+        fecha="22-10-2026 21:23",
+        jugador="Courtois",
+        de="Cebollitas",
+        a="Rayo",
+        precio=8_865_000,
+        motivo="clausulazo a único portero - cancelamos",
+    )
+    fields.update(over)
+    return Anulacion(**fields)
+
+
+def test_the_same_player_sent_back_by_the_admin_cancels_the_clausulazo():
+    from core.domain.models import mark_cancelled
+
+    (c,) = mark_cancelled([_clause()], [_undo()])
+    assert c.anulado == "clausulazo a único portero - cancelamos"
+
+
+def test_only_a_transfer_after_it_back_to_the_seller_cancels():
+    from core.domain.models import mark_cancelled
+
+    for undo in (
+        _undo(fecha="20-10-2026 10:00"),
+        _undo(jugador="Ryan"),
+        _undo(de="Rayo", a="Cebollitas"),
+    ):
+        (c,) = mark_cancelled([_clause()], [undo])
+        assert c.anulado is None
+
+
+def test_an_anulacion_round_trips_through_firestore():
+    from core.domain.models import Anulacion
+
+    a = _undo()
+    assert Anulacion.from_firestore("id", a.to_firestore()) == a

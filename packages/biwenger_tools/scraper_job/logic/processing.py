@@ -4,7 +4,13 @@ from datetime import datetime
 import unidecode
 
 from core.constants import MADRID_TZ
-from core.domain.models import Clausulazo, JusticeEntry, LeagueMessage, Participation
+from core.domain.models import (
+    Anulacion,
+    Clausulazo,
+    JusticeEntry,
+    LeagueMessage,
+    Participation,
+)
 from core.utils import get_logger
 
 logger = get_logger(__name__)
@@ -132,6 +138,40 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
             )
 
     return clausulazos
+
+
+def parse_anulaciones(raw_data: dict, players_map: dict) -> list:
+    """Admin transfers between two managers, as `Anulacion`s.
+
+    A draft transfer carries no `from` and is skipped: only a move from one
+    manager to another can undo a clausulazo. Whether it does is decided
+    against the clausulazos (`core.domain.models.mark_cancelled`), not here.
+    """
+    entries = raw_data.get("data", [])
+    if isinstance(entries, dict):
+        entries = list(entries.values())
+    out: list[Anulacion] = []
+    for entry in entries:
+        if entry.get("type") != "adminTransfer":
+            continue
+        fecha = datetime.fromtimestamp(entry.get("date", 0), tz=MADRID_TZ).strftime(
+            "%d-%m-%Y %H:%M"
+        )
+        for item in entry.get("content") or []:
+            source, target = item.get("from") or {}, item.get("to") or {}
+            if not source.get("name") or not target.get("name"):
+                continue
+            out.append(
+                Anulacion(
+                    fecha=fecha,
+                    jugador=_resolve_player_name(item.get("player"), players_map),
+                    de=source["name"],
+                    a=target["name"],
+                    precio=int(item.get("amount") or 0),
+                    motivo=item.get("reason") or "",
+                )
+            )
+    return out
 
 
 def build_tabla_justicia(clausulazos: list) -> list:

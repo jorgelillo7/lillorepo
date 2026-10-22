@@ -15,7 +15,7 @@ from typing import NamedTuple
 from bs4 import BeautifulSoup
 
 from core.constants import MADRID_TZ
-from core.domain.models import Clausulazo, LeagueMessage
+from core.domain.models import Anulacion, Clausulazo, LeagueMessage, mark_cancelled
 from core.sdk import firestore
 from core.sdk.biwenger import MONEY_ENTRY_TYPES, BiwengerClient, board_entry_key
 from core.sdk.telegram import send_telegram_message
@@ -24,6 +24,7 @@ from packages.biwenger_tools.scraper_job import config
 from packages.biwenger_tools.scraper_job.logic.processing import (
     build_tabla_justicia,
     categorize_title,
+    parse_anulaciones,
     parse_clausulazos,
     process_participation,
     sort_messages,
@@ -35,12 +36,13 @@ _SEASON_START = "seasonStarted"
 
 
 class _Tally(NamedTuple):
-    """What a run added to a collection, what it holds now, and what the feed
-    no longer returns."""
+    """What a run added to a collection, what it holds now, what the feed no
+    longer returns, and — for clausulazos — how many the admin undid."""
 
     new: int
     total: int
     missing: int = 0
+    cancelled: int = 0
 
 
 def _season_floor(season: str) -> datetime:
@@ -155,6 +157,20 @@ def _stored_clausulazos(season: str) -> dict[str, Clausulazo]:
     }
 
 
+def _stored_anulaciones(season: str) -> dict[str, Anulacion]:
+    return {
+        doc_id: Anulacion.from_firestore(doc_id, data)
+        for doc_id, data in firestore.list_documents(
+            f"clausulazos/{season}/anulaciones"
+        )
+    }
+
+
+def _anulacion_doc_id(a: Anulacion) -> str:
+    raw = f"{a.fecha}|{a.jugador}|{a.de}|{a.a}|{a.precio}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
 def _clausulazo_identity(c: Clausulazo) -> tuple[str, int]:
     """Date and price: what a team or player rename cannot change."""
     return c.fecha, c.precio
@@ -197,13 +213,34 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
         f"clausulazos/{season}/transfers",
         [(_clausulazo_doc_id(c), c.to_firestore()) for c in new],
     )
-    tabla_justicia = build_tabla_justicia(stored + new)
+    # An admin transfer that sends a clausulazo's player back to its seller
+    # undid it. Stored beside the clausulazos, append-only too, and only when
+    # it does undo one; the clausulazo itself is never touched.
+    anulaciones = parse_anulaciones(
+        biwenger.get_all_clausulazos(cfg.ADMIN_TRANSFERS_URL), players_map
+    )
+    known = _stored_anulaciones(season)
+    every = stored + new
+    undoing = [
+        a
+        for a in anulaciones
+        if _anulacion_doc_id(a) not in known
+        and any(c.anulado for c in mark_cancelled(every, [a]))
+    ]
+    if undoing:
+        firestore.batch_write(
+            f"clausulazos/{season}/anulaciones",
+            [(_anulacion_doc_id(a), a.to_firestore()) for a in undoing],
+        )
+    marked = mark_cancelled(every, list(known.values()) + undoing)
+    cancelled = sum(1 for c in marked if c.anulado)
+    tabla_justicia = build_tabla_justicia([c for c in marked if not c.anulado])
     _write_collection(
         f"tabla_justicia/{season}/teams",
         [(e.doc_id, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
-    return _Tally(len(new), len(stored) + len(new), missing_count)
+    return _Tally(len(new), len(stored) + len(new), missing_count, cancelled)
 
 
 def _stored_ids(collection_path: str) -> set[str]:
@@ -297,7 +334,8 @@ def _summary(
         "",
         f"💬 Comunicados · {_news(messages_new, 'nuevo')}",
         f"⚔️ Clausulazos · {_news(clausulazos.new, 'nuevo')} · "
-        f"{clausulazos.total} en total",
+        f"{clausulazos.total} en total"
+        + (f" · {clausulazos.cancelled} anulados" if clausulazos.cancelled else ""),
         f"🗄️ Tablón · {_news(archive.new, 'archivado')} · {archive.total} en total",
     ]
     if clausulazos.missing:
