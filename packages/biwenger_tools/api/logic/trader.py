@@ -128,8 +128,9 @@ def plan_sells(
     best eleven, never below `min_squad` — an eleven and a bench — never one
     whose sale leaves no eleven that plays, and never anyone signed less than
     `hold_days` ago — auto-bid signs at the same floor `dead_sf` reads, so a
-    few points of projection noise must not undo a signing days later. A keeper left out of the eleven goes too, whatever his
-    price: a manager's only keeper cannot be claused, a second one exposes both."""
+    few points of projection noise must not undo a signing days later. A
+    keeper left out of the eleven goes too, whatever his price: a manager's
+    only keeper cannot be claused, a second one exposes both."""
     starters = best_eleven_ids(squad)
     keepers = [r for r in squad if r.get("position_id") == lineup.GK]
     spare_keepers = (
