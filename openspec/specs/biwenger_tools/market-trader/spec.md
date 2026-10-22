@@ -84,11 +84,17 @@ eleven-that-plays guard and the signing hold still apply: a new keeper who drops
 out of the eleven for a week is not sold cheap days after he was bought.
 
 A player signed less than `TRADER_HOLD_DAYS` (14, the two weeks Biwenger locks
-a clause after a signing) ago SHALL NOT be sold for falling: auto-bid signs on
-projection, and selling him on the first dip buys high and sells low. The hold
-reads the signing date Biwenger returns with the squad; it does not cover a
-projection below `TRADER_DEAD_SF`, and a player with no signing date is not
-held.
+a clause after a signing) ago SHALL NOT be sold, for falling or for projecting
+below `TRADER_DEAD_SF`: auto-bid signs on projection at the same 300 floor, so
+selling him on the first dip — of price, or of a blend that moves a few points a
+day — buys high and sells low. On 22/10 the plan would have sold Yuri five days
+after signing him at T4, his blended projection just under 300. The hold reads
+the signing date Biwenger returns with the squad; a player with no signing date
+is not held.
+
+When a sale is decided by the projection floor, the plan SHALL name it —
+"proyección baja (SF n)", plus the falling days when both apply — not only the
+falling price.
 
 Measured and rejected on 15/10: counting a fall only when it beats the day's
 market move. On 90 players' season it sold twice as often, won 48 % of trades
@@ -109,8 +115,10 @@ most days, so it sold players still gaining value.
 - **WHEN** he has fallen one day **THEN** nothing happens
 - **WHEN** a faller was signed under two weeks ago **THEN** he is held, and the
   plan says since when; from day fourteen he can be sold
-- **WHEN** a fresh signing's projection drops below the floor **THEN** the hold
-  does not apply
+- **WHEN** a fresh signing's projection drops below the floor **THEN** he is
+  held too
+- **WHEN** a faller past the hold also projects below the floor **THEN** the
+  plan names the projection
 - **WHEN** a player has no signing date **THEN** he is not held
 - **WHEN** a player is left out by the projection **THEN** he does not count
   towards the eleven
@@ -136,7 +144,8 @@ most days, so it sold players still gaining value.
   `test_a_player_the_projection_leaves_out_does_not_count_towards_the_eleven`,
   `test_a_player_signed_under_two_weeks_ago_is_not_sold_for_falling`,
   `test_the_hold_ends_after_two_weeks`,
-  `test_a_fresh_signing_whose_projection_collapses_is_still_sold`,
+  `test_a_fresh_signing_projected_under_the_floor_is_held_too`,
+  `test_a_faller_also_under_the_floor_is_sold_naming_the_projection`,
   `test_a_player_with_no_signing_date_is_not_held`
 
 ### Requirement: Bid on a riser just over his price
