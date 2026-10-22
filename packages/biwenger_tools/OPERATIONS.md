@@ -439,17 +439,18 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     Last, the digest stores the day's prices (`price_snapshots`, kept 60 days)
     and runs the **market trader** (spec `market-trader`): sell bench players
     whose price keeps falling, bid on market players whose price keeps rising.
-    `TRADER_MODE` decides how far it goes — `dry_run` (the default) only sends
-    the plan; `live` lists the squad, accepts the planned sells' offers and
-    places the bids; `off` keeps only the prices:
+    `TRADER_MODE` decides how far it goes — `live` (the default) lists the
+    squad, accepts the planned sells' offers and places the bids, ending at
+    most `TRADER_NEGATIVE_LIMIT` (1M) below zero away from a round's eve;
+    `dry_run` only sends the plan; `off` keeps only the prices:
 
     ```bash
     gcloud run services update biwenger-api --region europe-southwest1 \
-      --update-env-vars TRADER_MODE=live   # or dry_run / off
+      --update-env-vars TRADER_MODE=dry_run   # or off / live
     ```
 
-    Like the switches below, this lasts until the next api deploy; make `live`
-    stick by changing the default in `api/config.py`. To take the whole squad
+    Like the switches below, this lasts until the next api deploy; make a
+    stop stick by changing the default in `api/config.py`. To take the whole squad
     off the market at once, use the app's "retirar todos" — the same
     `{type: "remove"}` call the SDK has as `withdraw_all_sales`.
 

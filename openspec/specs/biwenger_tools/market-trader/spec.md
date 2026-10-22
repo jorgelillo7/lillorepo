@@ -8,7 +8,7 @@ one measured fact: Biwenger prices move in runs (after three days up, the next
 three were up again in ~86 % of the cases sampled on 12/10), and this league
 overpays little on a market buy (median +1.7 %).
 
-**Two modes, `dry_run` by default.** `dry_run` plans and reports; `live` acts —
+**Two modes, `live` by default.** `dry_run` plans and reports; `live` acts —
 it lists the squad every morning (`POST /market {type: "team", price: 100}`,
 in `docs/external/biwenger-api.yaml`), accepts the planned sells' offers and
 places the planned bids. Listing sells nothing by itself: a player leaves only
