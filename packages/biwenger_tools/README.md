@@ -53,7 +53,7 @@ Four modules working together to archive, visualise and analyse data from a Biwe
                               ▲
                               │ HTTPS + OIDC
                           ┌──────────────────┐
-                          │ Cloud Scheduler  │ 09:00 Madrid — digest + auto-bid
+                          │ Cloud Scheduler  │ 09:00 Madrid — digest, auto-bid, trader
                           └──────────────────┘
 ```
 

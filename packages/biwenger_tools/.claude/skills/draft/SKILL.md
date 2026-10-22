@@ -173,7 +173,7 @@ token and reuses `core.sdk.jp.fetch_all_players` + the production
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:draft_ranking -- \
-    --csv /path/to/primera-division.csv --out draft-ranked.csv
+    --csv /path/to/primera-division.csv --season 27-28   # → 27-28/draft-ranked.csv
 ```
 
 It fetches live JP SofaScore, joins on names (accent/slug folding + the
@@ -216,11 +216,12 @@ still open (line, price band, availability), then fetch only those:
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:fetch_real_points -- \
-    --shortlist draft-shortlist.csv --out draft-real-points.csv
+    --shortlist draft-shortlist.csv --season 2026-2027 --draft-season 27-28
 ```
 
 It computes each player's real `Personalizado` from per-match `rawStats` and
-reports **games played** alongside it.
+reports **games played** alongside it. Both matter: *70 points in 5 games and
+70 in 38 describe opposite players*.
 
 **Which season it reads is Biwenger's choice, not yours.** `reports` carry the
 season Biwenger has `selected` and there is no parameter to ask for another. In
@@ -237,14 +238,16 @@ LaLiga minutes.
 has real totals, the unmeasured are scored on a calibrated projection, and the
 winning fifteen fills up with them. Read the **Fuente** column of the result:
 every `~` in the fifteen is a name to add to the next small measurement, then
-re-run. Both matter: *70 points in 5 games and
-70 in 38 describe opposite players*. Feed it back in:
+re-run.
+
+Feed it back in (paths default to the season folder):
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
-    --ranked draft-ranked.csv --real-points draft-real-points.csv \
-    --budget 52 --pick-position 3 --managers 7 --max-per-team 2 \
-    --out mi-arquetipos.md --decision final-decision.md
+    --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+    --budget 50 --pick-position 3 --managers 7 \
+    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
+# D=packages/biwenger_tools/.claude/skills/draft
 ```
 
 The generator then ranks by the real total where it has one, and by a
