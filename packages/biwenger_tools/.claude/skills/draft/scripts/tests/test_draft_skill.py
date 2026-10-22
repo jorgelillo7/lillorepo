@@ -639,3 +639,15 @@ def test_load_skips_a_row_without_a_known_line(tmp_path):
     )
     kept, _, _ = archetypes.load(path, exclude=())
     assert [r["name"] for r in kept] == ["A"]
+
+
+def test_the_season_biwenger_serves_is_read_from_the_selected_flag():
+    """`reports` carry the season Biwenger has selected, with no parameter to
+    ask for another: in pre-season that must still be last season's, and the
+    script has to notice when it is not."""
+    seasons = [
+        {"slug": "2026-2027", "games": 0, "selected": True},
+        {"slug": "2025-2026", "games": 35},
+    ]
+    assert frp.served_season(seasons) == "2026-2027"
+    assert frp.served_season([{"slug": "2025-2026"}]) is None

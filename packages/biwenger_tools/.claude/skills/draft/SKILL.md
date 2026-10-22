@@ -206,7 +206,24 @@ PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/fetch_
 ```
 
 It computes each player's real `Personalizado` from per-match `rawStats` and
-reports **games played** alongside it. Both matter: *70 points in 5 games and
+reports **games played** alongside it.
+
+**Which season it reads is Biwenger's choice, not yours.** `reports` carry the
+season Biwenger has `selected` and there is no parameter to ask for another. In
+pre-season that is still last season — what the draft needs — until Biwenger
+switches to the new one; the script compares the served season with
+`--season` and warns when they differ, because from then on every total is
+the new season's handful of games. Run Phase B early in pre-season.
+
+Matches are counted unless they name another competition: Biwenger stopped
+expanding `match.competition`, and filtering on it read every player as zero
+LaLiga minutes.
+
+**The optimiser drifts towards whoever you did not measure.** Once a shortlist
+has real totals, the unmeasured are scored on a calibrated projection, and the
+winning fifteen fills up with them. Read the **Fuente** column of the result:
+every `~` in the fifteen is a name to add to the next small measurement, then
+re-run. Both matter: *70 points in 5 games and
 70 in 38 describe opposite players*. Feed it back in:
 
 ```bash

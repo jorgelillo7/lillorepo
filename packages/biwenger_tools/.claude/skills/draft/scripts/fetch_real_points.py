@@ -125,6 +125,13 @@ def build_index(players: dict) -> dict:
     return index
 
 
+def served_season(seasons: list[dict] | None) -> str | None:
+    """The slug of the season `reports` belong to: the one Biwenger marks
+    `selected`. There is no parameter to ask for another, so a pre-season run
+    reads last season only until Biwenger switches to the new one."""
+    return next((s.get("slug") for s in seasons or [] if s.get("selected")), None)
+
+
 def league_reports(reports: list[dict]) -> list[dict]:
     """The LaLiga matches among a player's reports. The endpoint is LaLiga's,
     and `match.competition` is no longer expanded, so a report is dropped only
@@ -185,6 +192,7 @@ def main() -> int:
     )
     fetcher = Fetcher(cache, args.delay, args.max_requests)
     rows, unmatched, no_history = [], [], []
+    served: set = set()
     for name in names:
         entry = index.get(_norm(name))
         if not entry:
@@ -196,6 +204,7 @@ def main() -> int:
             continue
         position = player.get("position") or entry.get("position")
         reports = league_reports(player.get("reports") or [])
+        served.add(served_season(player.get("seasons")))
         computed = personalizado(reports, position)
         season = _season_row(player.get("seasons"), args.season)
         season_points = season.get("points") or {}
@@ -287,6 +296,15 @@ def main() -> int:
         )
     if unmatched:
         print(f"\nSin emparejar ({len(unmatched)}): {', '.join(unmatched)}")
+    other = served - {args.season, None}
+    if other:
+        print(
+            f"\n⚠️  Los partidos son de {', '.join(sorted(other))}, no de "
+            f"{args.season}: Biwenger sirve la temporada que tiene seleccionada "
+            "y no se puede pedir otra. En pretemporada, si ya ha cambiado a la "
+            "nueva, estos totales no son los del año pasado.",
+            file=sys.stderr,
+        )
     return 0
 
 
