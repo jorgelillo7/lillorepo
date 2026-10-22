@@ -639,9 +639,9 @@ Relative paths resolve from where you type the command; the season folders
 are written under `$D` whatever the directory.
 
 Always `bazel run`, never the Mac's own Python: its old `requests` gets a 403
-from Oráculo and the ranking silently loses the blend. Run the real-points step
-**early in pre-season** — Biwenger serves the season it has selected, and once
-it switches to the new one last season's totals are gone (the script warns).
+from Oráculo and the ranking silently loses the blend. `--season 2026-2027`
+asks Biwenger for that season by name (`season=2027`), so last season's totals
+are there whenever the step runs.
 Every `~` left in the winning fifteen is a name to measure next.
 
 ### 1. Open the draft (upload the CSV and start the clock)
