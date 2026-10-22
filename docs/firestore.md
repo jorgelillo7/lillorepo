@@ -32,6 +32,7 @@ Reference for the `biwenger-tools` Firestore database.
 comunicados/{season}/messages/{id_hash}
 participacion/{season}/authors/{autor}
 clausulazos/{season}/transfers/{content_hash}
+clausulazos/{season}/anulaciones/{content_hash}
 tabla_justicia/{season}/teams/{equipo}
 board_archive/{season}/entries/{board_entry_key}
 palmares/{temporada}
@@ -88,6 +89,16 @@ The scraper recomputes this every run (no incrementing — full rewrite).
 **Doc id:** the manager's name (`autor`), through `name_to_doc_id`: `/`, `%`
 and the ids `.`/`..` are escaped (Firestore forbids them), every other name is
 its own id, and `from_firestore` restores it.
+
+### `clausulazos/{season}/anulaciones/{content_hash}` — `Anulacion`
+
+An admin transfer that undid a clausulazo: the same player sent from the
+clause's buyer back to its seller, after it (e.g. a clause on a manager's only
+keeper, which the league does not allow). Fields `fecha`, `jugador`, `de`, `a`,
+`precio`, `motivo` (the admin's `reason`). Append-only like the clausulazos,
+and stored only when it matches one. The clausulazo itself is never touched:
+`core.domain.models.mark_cancelled` joins the two at read time, the justice
+table leaves cancelled ones out, and the web shows them struck through.
 
 ### `clausulazos/{season}/transfers/{content_hash}` — `Clausulazo`
 

@@ -40,6 +40,7 @@ def mock_external_deps():
                 "ALL_PLAYERS_DATA_URL": "https://fake-players",
                 "LEAGUE_USERS_URL": "https://fake-users",
                 "CLAUSULAZOS_URL": "https://fake-clausulazos",
+                "ADMIN_TRANSFERS_URL": "https://fake-admin-transfers",
                 "BOARD_MESSAGES_URL": "https://fake-board",
                 "LEAGUE_BOARD_ALL_URL": "https://fake-board-all",
                 "LEAGUE_ID": "340703",
@@ -517,3 +518,34 @@ def test_main_sends_telegram_and_reraises_on_error(mock_external_deps):
     text = mock_send.call_args.kwargs.get("text", "")
     assert "Scraper falló" in text
     assert "biwenger 503" in text
+
+
+def test_a_clausulazo_the_admin_undid_leaves_the_justice_table(mock_external_deps):
+    """The clause stays stored — append-only — but the admin's transfer back
+    is stored beside it, and the justice table no longer counts it."""
+    clause = _clause_entry(_DECEMBER_TS, "Courtois", "Rayo", "Cebollitas", 8_865_000)
+    undo = {
+        "type": "adminTransfer",
+        "date": _DECEMBER_TS + 3600,
+        "content": [
+            {
+                "player": {"name": "Courtois"},
+                "from": {"name": "Cebollitas"},
+                "to": {"name": "Rayo"},
+                "amount": 8_865_000,
+                "reason": "único portero",
+            }
+        ],
+    }
+    _feed_and_store(mock_external_deps, stored=[], fetched=[clause])
+    mock_external_deps["biwenger"].get_all_clausulazos.side_effect = lambda url, *a: (
+        {"data": [undo]} if "admin" in url else {"data": [clause]}
+    )
+
+    main()
+
+    fs = mock_external_deps["firestore"]
+    assert len(_batch_for(fs, "clausulazos/25-26/transfers")) == 1
+    (stored_undo,) = _batch_for(fs, "clausulazos/25-26/anulaciones")
+    assert stored_undo[1]["motivo"] == "único portero"
+    assert _batch_for(fs, "tabla_justicia/25-26/teams") == []

@@ -41,5 +41,6 @@ ACCOUNT_URL = biwenger_sdk.ACCOUNT_URL
 ALL_PLAYERS_DATA_URL = biwenger_sdk.ALL_PLAYERS_DATA_URL
 LEAGUE_USERS_URL = biwenger_sdk.league_standings_url(LEAGUE_ID)
 CLAUSULAZOS_URL = biwenger_sdk.clausulazos_url(LEAGUE_ID)
+ADMIN_TRANSFERS_URL = biwenger_sdk.admin_transfers_url(LEAGUE_ID)
 BOARD_MESSAGES_URL = biwenger_sdk.league_board_url(LEAGUE_ID)
 LEAGUE_BOARD_ALL_URL = biwenger_sdk.league_board_all_url(LEAGUE_ID)

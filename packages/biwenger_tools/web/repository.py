@@ -5,6 +5,7 @@ Collections, written by the scraper and the season-rollover skill:
     comunicados/{season}/messages/{id_hash}
     participacion/{season}/authors/{autor}
     clausulazos/{season}/transfers/{id}
+    clausulazos/{season}/anulaciones/{id}
     tabla_justicia/{season}/teams/{equipo}
     palmares/{temporada}
 
@@ -17,11 +18,13 @@ from typing import Optional
 from google.cloud import firestore as gfs
 
 from core.domain.models import (
+    Anulacion,
     Clausulazo,
     JusticeEntry,
     LeagueMessage,
     Palmares,
     Participation,
+    mark_cancelled,
 )
 from core.sdk.firestore import get_client
 
@@ -124,8 +127,9 @@ def get_participaciones(season: str) -> list[Participation]:
 
 
 def get_clausulazos(season: str) -> list[Clausulazo]:
-    """Release-clause transfers for a season, newest first."""
-    return [
+    """Release-clause transfers for a season, newest first, each one the
+    admin undid marked `anulado` with his reason."""
+    clausulazos = [
         Clausulazo.from_firestore(snap.id, snap.to_dict() or {})
         for snap in (
             get_client()
@@ -134,6 +138,13 @@ def get_clausulazos(season: str) -> list[Clausulazo]:
             .stream()
         )
     ]
+    anulaciones = [
+        Anulacion.from_firestore(snap.id, snap.to_dict() or {})
+        for snap in get_client()
+        .collection(f"clausulazos/{season}/anulaciones")
+        .stream()
+    ]
+    return mark_cancelled(clausulazos, anulaciones)
 
 
 # --- tabla_justicia ------------------------------------------------------

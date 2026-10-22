@@ -312,12 +312,13 @@ def mercado(season: str) -> str:
         )
 
     clausulazos_summary = None
-    if clausulazos:
+    valid = [c for c in clausulazos if not c.anulado]
+    if valid:
         clausulazos_summary = {
-            "total": len(clausulazos),
-            "total_eur": sum(c.precio for c in clausulazos),
-            "max_clausulazo": max(clausulazos, key=lambda c: c.precio),
-            "ultimo": clausulazos[0],
+            "total": len(valid),
+            "total_eur": sum(c.precio for c in valid),
+            "max_clausulazo": max(valid, key=lambda c: c.precio),
+            "ultimo": valid[0],
         }
 
     return render_template(

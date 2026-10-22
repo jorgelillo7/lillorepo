@@ -110,6 +110,36 @@ them from Firestore too. The stored copy is the only history left.
   stored, counted in the justice table or reported missing
 - *Verifies:* `test_last_seasons_clausulazos_are_neither_stored_nor_missed`
 
+### Requirement: A clausulazo the admin undid stops counting, and stays stored
+
+The scraper SHALL read the board's admin transfers and store, append-only in
+`clausulazos/{season}/anulaciones`, each one that sends a clausulazo's player
+from its buyer back to its seller after the clause, with the admin's reason.
+The clausulazo SHALL stay stored untouched; the justice table SHALL leave it
+out, the Sunday summary SHALL count it as cancelled, and the web SHALL show it
+struck through with the reason and outside the season's totals. A draft
+transfer (no `from`) never cancels anything.
+
+On 22/10 the admin undid a clausulazo on Rayo Entrebirras' only keeper
+(Courtois, 8.865M): `/saldos` already netted the two moves, but the scraper
+would have counted the clause forever.
+
+#### Scenario: the admin sends the player back
+- **WHEN** an admin transfer moves the clause's player from its buyer to its
+  seller after it **THEN** the clausulazo is marked cancelled with the reason
+- **WHEN** the transfer is before the clause, for another player, or not back
+  to the seller **THEN** nothing is cancelled
+- **WHEN** a run sees the clause and its undoing **THEN** both are stored and
+  the justice table does not count it
+- **WHEN** the web lists the season **THEN** the cancelled one is struck
+  through and left out of the totals
+- *Verifies:* `test_the_same_player_sent_back_by_the_admin_cancels_the_clausulazo`,
+  `test_only_a_transfer_after_it_back_to_the_seller_cancels`,
+  `test_an_anulacion_round_trips_through_firestore`,
+  `test_parse_anulaciones_reads_admin_transfers_between_two_managers`,
+  `test_a_clausulazo_the_admin_undid_leaves_the_justice_table`,
+  `test_a_cancelled_clausulazo_is_struck_through_and_not_counted`
+
 ### Requirement: The board's money entries are archived, append-only
 
 The scraper SHALL read the board back to the season start and store every
