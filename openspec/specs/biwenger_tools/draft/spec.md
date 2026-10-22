@@ -98,15 +98,20 @@ cheapest available prices.
 
 ---
 
-### Requirement: The squad must remain able to field an XI
+### Requirement: The fifteen must be an XI plus a full bench
 
-A squad is 15 players that can field **some** legal XI. Only the eleven are
-constrained; the four on the bench may be anything. A pick SHALL be rejected
-when it would leave no formation reachable with the slots that remain.
+A draft squad fills all 15 slots: **some** legal XI — any of the fourteen
+formations Biwenger accepts, `4-6-0` included — plus a bench of **one keeper,
+one defender, one midfielder and one forward**. A pick SHALL be rejected when
+it would leave no such fifteen reachable with the slots that remain. So every
+draft squad carries two keepers, and a `4-6-0` eleven still needs a forward on
+the bench.
 
-The bench is deliberately unconstrained. Requiring a substitute in every line
-rejects picks that are perfectly legal — Biwenger accepts fourteen formations
-including `4-6-0`, so a squad with no forward at all is a shape, not a fault.
+This is the reglamento as the league owner states it (22/10). The earlier
+reading — only the eleven constrained, the bench free — let a fifteen with one
+keeper through. After the draft the bench may be sold or reshaped freely, so
+season-time checks (the clausulazo emergency's "can this squad field an
+eleven") keep the XI-only rule, `composition_ok`.
 
 Multi-position players SHALL count for every line they can play. Biwenger gives
 107 of 553 players an `altPositions` list; ignoring it reads a forward who also
@@ -116,9 +121,20 @@ the 26-27 draft.
 #### Scenario: composition reachability
 - **WHEN** the remaining slots cannot complete any formation
 - **THEN** rejected as `COMPOSITION_INFEASIBLE`
-- **WHEN** a squad holds one goalkeeper and a fieldable ten **THEN** it is valid
-- **WHEN** a player lists `altPositions` **THEN** he counts toward each of them
-- *Verifies:* `test_one_goalkeeper_is_enough`,
+- **WHEN** a fifteen has an eleven but no reserve keeper, or no forward on the
+  bench behind a `4-6-0` **THEN** it is not a legal draft squad
+- **WHEN** the last slot left must be the reserve keeper **THEN** any other
+  pick is rejected as `COMPOSITION_INFEASIBLE`
+- **WHEN** a player lists `altPositions` **THEN** he counts toward each of
+  them, bench lines included
+- **WHEN** the season-time check asks only for an eleven **THEN** one keeper
+  and a fieldable ten are enough
+- *Verifies:* `test_a_draft_squad_needs_a_bench_with_every_line`,
+  `test_a_4_6_0_eleven_still_needs_a_forward_on_the_bench`,
+  `test_a_multi_position_player_fills_a_bench_line`,
+  `test_an_empty_draft_squad_needs_all_fifteen`,
+  `test_validate_pick_rejects_a_last_pick_that_leaves_no_reserve_keeper`,
+  `test_one_goalkeeper_is_enough`,
   `test_a_squad_with_no_forward_is_legal`,
   `test_multi_position_players_cover_the_line_that_is_short`,
   `test_composition_reachable_from_scratch_needs_only_the_eleven`,

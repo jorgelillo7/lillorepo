@@ -24,7 +24,9 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0])
 import paths  # noqa: E402
 from archetypes import BANDS, NEED, POS, eligibility, price_band  # noqa: E402
 
-from packages.biwenger_tools.api.logic.draft import composition_ok  # noqa: E402
+from packages.biwenger_tools.api.logic.draft import (  # noqa: E402
+    draft_composition_ok,
+)
 from packages.biwenger_tools.constants import DRAFT_ORDER_NAMES  # noqa: E402
 
 # Median measured `real/projection`. Orders a list; does not compare magnitudes
@@ -226,13 +228,13 @@ def main():
         strict = len(by_line.get(code, []))
         loose = sum(1 for r in held_rows if code in r.get("lines", [r["pos"]]))
         print(f"| {POS[code]} | {strict} | **{loose}** | {NEED[code]} |")
-    legal = composition_ok([eligibility(r) for r in held_rows])
+    legal = draft_composition_ok([eligibility(r) for r in held_rows])
     print(
         "\n"
         + (
-            "✅ Ya puedes alinear un once legal."
+            "✅ Plantilla de draft completa: once legal y banquillo de cada línea."
             if legal
-            else "⚠️ Todavía no puedes alinear un once legal."
+            else "⚠️ Aún no hay once legal más banquillo de cada línea."
         )
     )
     print(
