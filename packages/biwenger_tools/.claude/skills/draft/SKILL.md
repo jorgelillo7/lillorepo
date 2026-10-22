@@ -1,6 +1,6 @@
 ---
 name: draft
-description: Annual pre-season helper for the Lloros League draft. Merges the closed-market CSV (frozen prices) with live Jornada Perfecta SofaScore into a ranked CSV, then advises on the 15-man squad with alternatives for the top picks. Use at the start of each Biwenger season when building the draft squad.
+description: Annual pre-season helper for the Lloros League draft. Merges the closed-market CSV (frozen prices) with the projection production reads (JP SofaScore blended with Oráculo), availability and fixtures into a ranked CSV, then advises on the 15-man squad with alternatives for the top picks. Use at the start of each Biwenger season when building the draft squad.
 model-invocable: false
 allowed-tools:
   - Read
@@ -162,9 +162,26 @@ PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/draft_
 ```
 
 It fetches live JP SofaScore, joins on names (accent/slug folding + the
-`PLAYER_NAME_MAPPINGS` overrides — e.g. De la Fuente→Dela, De Tomás→RDT), adds
-a **value-per-million** column, ranks by SofaScore, and flags players with no
-JP data (`no_jp_data=True`). **Re-runnable**: JP scores update several times a
+`PLAYER_NAME_MAPPINGS` overrides — e.g. De la Fuente→Dela, De Tomás→RDT), and
+builds every row through the **same pipeline auto-bid and the trader use**
+(`rows.build_row` + `enrich_with_custom_prediction` + `shown_score`), so the
+draft buys on the number the season will judge it by. Columns it adds:
+
+| Columna | Qué es |
+|---|---|
+| `projection` | La mezcla JP + Oráculo; **por ella se ordena**. `sofascore` queda al lado como JP puro |
+| `oraculo` | Si a ese jugador se le pudo mezclar. Si Oráculo no se lee, la proyección es JP y el script lo avisa |
+| `availability` | `plays` / `out` / `unknown`. `out` (lesionado, sancionado, sin partido) lo descarta el generador salvo `--keep-unavailable` |
+| `uncalled` | JP no lo pone en su once. Sale como 🪑 en la hoja; no descarta |
+| `fixtures` | Dificultad media de sus tres próximos partidos. **Solo informativa**, como en el digest |
+| `id` | El id de Biwenger, para cruzar con `price_snapshots` |
+
+**Oráculo desde el portátil.** Producción lo lee sin problema, pero en local ha
+devuelto 403 al User-Agent con el que el SDK se identifica. No se falsea: el
+ranking cae a JP solo y lo dice. Compara el `oraculo` de la salida antes de fiarte
+del orden.
+
+It flags players with no JP data (`no_jp_data=True`). **Re-runnable**: JP scores update several times a
 day, so a re-run days later refreshes the points with the same frozen prices —
 no flags needed, `fetch_all_players` self-invalidates on JP's `updated_at`.
 
@@ -189,7 +206,24 @@ PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/fetch_
 ```
 
 It computes each player's real `Personalizado` from per-match `rawStats` and
-reports **games played** alongside it. Both matter: *70 points in 5 games and
+reports **games played** alongside it.
+
+**Which season it reads is Biwenger's choice, not yours.** `reports` carry the
+season Biwenger has `selected` and there is no parameter to ask for another. In
+pre-season that is still last season — what the draft needs — until Biwenger
+switches to the new one; the script compares the served season with
+`--season` and warns when they differ, because from then on every total is
+the new season's handful of games. Run Phase B early in pre-season.
+
+Matches are counted unless they name another competition: Biwenger stopped
+expanding `match.competition`, and filtering on it read every player as zero
+LaLiga minutes.
+
+**The optimiser drifts towards whoever you did not measure.** Once a shortlist
+has real totals, the unmeasured are scored on a calibrated projection, and the
+winning fifteen fills up with them. Read the **Fuente** column of the result:
+every `~` in the fifteen is a name to add to the next small measurement, then
+re-run. Both matter: *70 points in 5 games and
 70 in 38 describe opposite players*. Feed it back in:
 
 ```bash
@@ -279,10 +313,11 @@ Steps:
    - **Placeholder scores**: promoted-club players and new signings often carry
      JP's flat default, not a real score — see "JP placeholder scores" below.
      The generator drops them; if you re-add one by hand, treat him as unrated.
-4. **Cap the club concentration at 2 players per club.** Nothing in the score
-   sees it, but three players from one side means one bad run drags three slots
-   at once — and under the custom scoring below, all three lose the same win
-   bonus on the same weekends. Prefer pairs in different lines.
+4. **Cap the club concentration** — by default the same
+   `MAX_PLAYERS_PER_CLUB` (3) auto-bid and the trader apply all season, counted
+   here on the whole fifteen. Nothing in the score sees it, but teammates lose
+   the same win bonus on the same weekends. `--max-per-team 2` is stricter if
+   you want it.
 5. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
    a lineless bench.
 
@@ -435,7 +470,8 @@ reported alongside as a depth reading).
 | `--decision fichero.md` | Escribe además el **pliego de decisión**: los 15 en orden, alternativas para los 5 primeros y reglas de ejecución. Con `--force` sigue tu elección, no el ranking |
 | `--keep-placeholder` | No descartar a los que JP puntúa por defecto |
 | `--starts-penalty` | **Descuenta los totales de cameo.** `sf` es un total de temporada, y 143 puntos en 32 apariciones con 10 titularidades no se trasladan a un rol titular — pero en el ranking por defecto le ganan a un titular regular. Descuenta linealmente por debajo de 19 titularidades de 38; por encima no toca nada, y a quien no tiene datos medidos tampoco (un ascendido). **Apagado por defecto**: el draft es anual e irreversible, así que se usa para comparar los dos quinces antes de comprometerse con uno |
-| `--max-per-team 2` | Tope de jugadores por club. Los bonus de victoria y portería a cero son de equipo: tres compañeros los ganan y los pierden el mismo fin de semana |
+| `--max-per-team N` | Tope de jugadores por club, sobre los quince. Por defecto el de producción (`MAX_PLAYERS_PER_CLUB`, 3); `0` lo quita. Los bonus de victoria y portería a cero son de equipo |
+| `--keep-unavailable` | No descartar a quien JP da lesionado, sancionado o sin partido |
 
 Los otros dos scripts de la skill, que no son del generador:
 
@@ -462,11 +498,18 @@ precio que se dispara es la liga entera comprando a alguien que espera que sea
 titular, que es justo lo que un total del año pasado no puede decirte.
 
 ```bash
+# Sin exportar nada: los precios diarios que guarda el digest (60 días)
+PYTHONPATH=. python3 .../scripts/risers.py --days 7 --ranked draft-ranked.csv --max 2.55
+
+# O, como antes, dos exportaciones separadas unos días
 PYTHONPATH=. python3 .../scripts/risers.py \
     --before ~/Downloads/primera-division.csv \
     --after "~/Downloads/primera-division (1).csv" \
     --ranked draft-ranked.csv --max 2.55
 ```
+
+`--days` lee `price_snapshots` en Firestore (los escribe el digest diario, también
+en pretemporada) y cruza por id con el CSV rankeado.
 
 **Una subida es una pregunta, no una respuesta.** En el 26-27 los dos defensas
 baratos que más subían, +101% y +90%, eran los dos que no habían jugado ni un
@@ -534,9 +577,19 @@ archetype. The generator auto-detects the spike and **drops those players**,
 listing them in the report; `--keep-placeholder` overrides, `--placeholder-sf N`
 pins the value by hand.
 
-Known limitation: squad shape is fixed at 2-5-5-3. It is a valid composition and
-covers every formation the XI picker uses, but the generator does not explore
-other legal shapes (2-6-5-2, 2-5-6-2…).
+The generator searches every fifteen-man shape that fields one of Biwenger's
+formations. A shape the pool cannot fill to fifteen is never the winner.
+
+**Two keepers, and the second one is the cheapest on the board.** The draft
+requires two; nobody fields the reserve, and a manager's only keeper cannot be
+claused while a second one exposes both — so the generator buys him at the
+floor price, never spends an upgrade on him, and he is **sold as soon as the
+draft closes**. That is the same rule auto-bid and the trader enforce all
+season.
+
+Known limitation: the upgrade pass maximises the fifteen's total, not the XI's,
+so money freed on the bench can land on another substitute. The "Once de gala
+(banco mínimo)" archetype is the one that pushes the budget into the eleven.
 
 ## Cuánto se vació su banda — y por qué eso no predice a un jugador
 

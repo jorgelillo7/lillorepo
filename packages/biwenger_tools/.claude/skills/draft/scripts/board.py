@@ -73,11 +73,12 @@ def load_market(path):
             if not r["price"] or not r["sofascore"]:
                 continue
             market[_norm(r["name"])] = {
+                "id": int(r["id"]) if r.get("id") else None,
                 "name": r["name"],
                 "team": r["team"],
                 "pos": r["position"],
                 "price": int(r["price"]),
-                "sf": int(r["sofascore"]),
+                "sf": int(r.get("projection") or r["sofascore"]),
                 "placeholder": r.get("jp_placeholder") == "True",
                 "lines": (r.get("alt_positions") or r["position"]).split("/"),
                 "real": None,
