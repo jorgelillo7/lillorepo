@@ -391,7 +391,7 @@ def test_searching_shapes_never_scores_below_the_fixed_one():
     fixed, _, _ = archetypes.build(rows, budget)
     best, _, _, shape = archetypes.build_best_shape(rows, budget)
 
-    assert archetypes.xi_effective(best) >= archetypes.xi_effective(fixed)
+    assert archetypes.shape_score(best) >= archetypes.shape_score(fixed)
     assert sum(len(best[c]) for c in archetypes.POS) == archetypes.SQUAD_SIZE
     assert archetypes.squad_is_legal(best), archetypes.shape_label(shape)
 
@@ -598,13 +598,18 @@ def test_rank_carries_the_blend_availability_and_the_fixtures(tmp_path):
         },
     ]
     rows = dr.rank(
-        str(csv_path), jp, competition=competition, upcoming={3: [30, 40, 50]}
+        str(csv_path),
+        jp,
+        competition=competition,
+        upcoming={3: [30, 40, 50]},
+        rises={7: 0.25},
     )
     by = {r["name"]: r for r in rows}
     assert by["Ana"]["id"] == 7 and by["Ana"]["alt_positions"] == "DL/MC"
     assert by["Ana"]["projection"] == 450 and by["Ana"]["oraculo"] is False
     assert by["Ana"]["availability"] == "plays" and by["Ana"]["fixtures"] == "fácil 40"
     assert by["Bea"]["availability"] == "out" and by["Bea"]["uncalled"] is True
+    assert by["Ana"]["rise"] == 0.25 and by["Bea"]["rise"] is None
 
 
 def test_risers_read_the_stored_daily_prices():
@@ -651,3 +656,50 @@ def test_the_season_biwenger_serves_is_read_from_the_selected_flag():
     ]
     assert frp.served_season(seasons) == "2026-2027"
     assert frp.served_season([{"slug": "2025-2026"}]) is None
+
+
+# --- what the backtest of 26-27 taught -------------------------------------
+
+
+def test_shapes_are_judged_on_the_fifteen_not_the_eleven():
+    """Backtested on 26-27: the build the XI metric ranked first (bench at the
+    floor) finished fifth of six in real points, because injuries and rotation
+    put the bench on the pitch. The whole fifteen ranked them far closer."""
+    deep = {
+        "PT": [player("K1", "PT", sf=300), player("K2", "PT", sf=10)],
+        "DF": [player(f"D{i}", "DF", sf=300) for i in range(5)],
+        "MC": [player(f"M{i}", "MC", sf=300) for i in range(5)],
+        "DL": [player(f"F{i}", "DL", sf=300) for i in range(3)],
+    }
+    assert archetypes.shape_score(deep) == archetypes.durable_eff(deep)
+
+
+def test_momentum_lifts_a_riser_and_leaves_a_faller_alone():
+    rows = [
+        dict(player("Up", sf=400), rise=0.20),
+        dict(player("Down", sf=400), rise=-0.10),
+        player("Flat", sf=400),
+    ]
+    boosted = {r["name"]: r["sf"] for r in archetypes.momentum_rows(rows)}
+    assert boosted["Up"] > 400 and boosted["Down"] == 400 and boosted["Flat"] == 400
+    assert [r["sf"] for r in rows] == [400, 400, 400]  # copies, not the originals
+
+
+def test_the_strong_keeper_is_the_best_scorer_under_the_cap():
+    rows = [
+        player("Cheap", "PT", 1_000_000, 300),
+        player("Best", "PT", 4_000_000, 450),
+        player("Star", "PT", 9_000_000, 600),
+        player("Field", "DF", 1_000_000, 900),
+    ]
+    assert archetypes.strong_keeper(rows)["name"] == "Best"
+
+
+def test_ranked_csv_carries_the_price_rise_into_the_rows(tmp_path):
+    path = _ranked(
+        tmp_path,
+        "1,A,X,DL,DL,2000000,400,400,False,plays,False,—,0.125,200,False,False",
+        header=_RANKED_COLS.replace("fixtures,", "fixtures,rise,"),
+    )
+    (row,), _, _ = archetypes.load(path, exclude=())
+    assert row["rise"] == 0.125

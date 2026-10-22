@@ -125,6 +125,25 @@ def _get_round(round_id):
     return response.json().get("data") or {}
 
 
+def read_rises(days: int) -> dict:
+    """`{player id: price change}` over the last `days` of `price_snapshots`,
+    as a fraction (0.1 = +10 %), or `{}` when Firestore cannot be read."""
+    try:
+        from packages.biwenger_tools.api.logic import price_history_store
+
+        snapshots = price_history_store.recent(days)
+    except Exception as exc:
+        print(f"price_snapshots unreadable, no rise column: {exc}")
+        return {}
+    first: dict = {}
+    last: dict = {}
+    for day in snapshots:
+        for pid, price in day.items():
+            first.setdefault(pid, price)
+            last[pid] = price
+    return {pid: last[pid] / first[pid] - 1 for pid in last if first.get(pid)}
+
+
 def read_oraculo(players_by_id: dict, jp_index: dict):
     """Production's Oráculo index and scale, or `(None, None)` when the read
     fails — the ranking then falls back to JP alone and says so."""
@@ -166,6 +185,7 @@ def rank(
     competition: dict | None = None,
     oraculo: tuple = (None, None),
     upcoming: dict | None = None,
+    rises: dict | None = None,
 ) -> list[dict]:
     """Each market row with what production reads about him: JP SofaScore,
     the JP + Oráculo blend (`projection`, the same `shown_score` auto-bid and
@@ -212,6 +232,7 @@ def rank(
                 "uncalled": ((jp or {}).get("nextMatch") or {}).get("playerInLineup")
                 is False,
                 "fixtures": fixture_run.label(ratings) if upcoming is not None else "",
+                "rise": (rises or {}).get(b.get("bw_id")),
                 "value_per_m": round(projection / price_m, 1)
                 if (projection and price_m)
                 else None,
@@ -271,6 +292,7 @@ def write_csv(rows: list[dict], path: str) -> None:
         "availability",
         "uncalled",
         "fixtures",
+        "rise",
         "value_per_m",
         "no_jp_data",
         "jp_placeholder",
@@ -290,6 +312,12 @@ def main() -> int:
     ap.add_argument("--season", default="26-27", help="carpeta de salida")
     ap.add_argument(
         "--out", default="", help="por defecto <temporada>/draft-ranked.csv"
+    )
+    ap.add_argument(
+        "--momentum-days",
+        type=int,
+        default=7,
+        help="days of price_snapshots for the rise column (0 = skip)",
     )
     ap.add_argument(
         "--no-fixtures",
@@ -332,6 +360,7 @@ def main() -> int:
             "the two, so this ranking is not the number the season will read."
         )
     upcoming = None if args.no_fixtures else fetch_upcoming(time.time())
+    rises = read_rises(args.momentum_days) if args.momentum_days else {}
     rows = rank(
         args.csv,
         jp_players,
@@ -339,6 +368,7 @@ def main() -> int:
         competition=competition,
         oraculo=oraculo,
         upcoming=upcoming,
+        rises=rises,
     )
     write_csv(rows, destination)
 

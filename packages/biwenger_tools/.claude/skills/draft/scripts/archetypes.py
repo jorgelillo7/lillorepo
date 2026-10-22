@@ -245,6 +245,7 @@ def load(
                     "sf": sf,
                     "sf_jp": int(r["sofascore"]),
                     "fixtures": r.get("fixtures") or "—",
+                    "rise": float(r["rise"]) if r.get("rise") else None,
                     "uncalled": r.get("uncalled") == "True",
                     "price": price,
                     "vm": sf / (price / 1_000_000),
@@ -570,13 +571,49 @@ def durable_eff(squad):
 
 
 def xi_effective(squad):
-    """XI SF plus the durable captain — the number the comparison ranks by.
-
-    Only the eleven score on a matchday, so a shape is judged on what it can
-    field, never on the fifteen's total.
-    """
+    """XI SF plus the durable captain — what the eleven fields when all eleven
+    play. Reported beside `shape_score`, no longer what decides."""
     _, xi, _, dur = lineup(squad)
     return sum(r["sf"] for r in xi) + (dur["sf"] if dur else 0)
+
+
+def shape_score(squad):
+    """What the comparison ranks by: the whole fifteen plus the durable captain.
+
+    Backtested on 26-27 with the season's real points: the build the XI metric
+    ranked first (bench at the floor) finished fifth of six, because injuries
+    and rotation put the bench on the pitch, and the fifteen's total had ranked
+    the six far closer to how they turned out.
+    """
+    return durable_eff(squad)
+
+
+# How much a pre-draft price rise lifts a player's score in "Revalorización":
+# +10 % on the market reads as +5 % of projection. A rise is the league buying
+# him; it is evidence, not points.
+MOMENTUM_WEIGHT = 0.5
+# "Portería fuerte" looks for its keeper under this price: above it the
+# keeper is a star signing, which "Superestrella" already covers.
+STRONG_KEEPER_MAX = 8_000_000
+
+
+def momentum_rows(rows, weight=MOMENTUM_WEIGHT):
+    """Copies of `rows` with each riser's `sf` lifted by his price rise. A
+    faller or a player without price history keeps his score."""
+    out = []
+    for r in rows:
+        rise = max(r.get("rise") or 0.0, 0.0)
+        sf = round(r["sf"] * (1 + weight * rise))
+        out.append({**r, "sf": sf, "vm": sf / (r["price"] / 1_000_000)})
+    return out
+
+
+def strong_keeper(rows, max_price=STRONG_KEEPER_MAX):
+    """The best-scoring keeper under `max_price` — real points where measured.
+    Clean sheets pay +2 to a keeper in this league and barely move his
+    SofaScore, so the strong one is underpriced by the projection."""
+    keepers = [r for r in rows if r["pos"] == "PT" and r["price"] <= max_price]
+    return max(keepers, key=lambda r: r["sf"], default=None)
 
 
 def build_best_shape(rows, budget, shapes=None, **kw):
@@ -595,7 +632,7 @@ def build_best_shape(rows, budget, shapes=None, **kw):
         full = sum(len(squad[c]) for c in POS) == SQUAD_SIZE
         if not full or not squad_is_legal(squad) or spent > budget:
             continue
-        score = xi_effective(squad)
+        score = shape_score(squad)
         # Ties go to the cheaper squad, then to the shape closest to the
         # `NEED` shape — a coin-flip that at least reads as familiar.
         key = (-score, spent, _shape_distance(shape))
@@ -1191,11 +1228,6 @@ def main():
             {"forced": [top[0]["name"], top[1]["name"]]},
         ),
         (
-            "Ultra equilibrio (3-4M)",
-            "Todos en banda 3-4M (ojo capitán).",
-            {"band": (3_000_000, 4_500_000)},
-        ),
-        (
             "Once de gala (banco mínimo)",
             "Suplentes al precio suelo: todo el dinero en los once.",
             {"thin_bench": True},
@@ -1223,6 +1255,25 @@ def main():
                 {"thin_bench": True, "forced": [thin_star["name"]]},
             )
         )
+    keeper = strong_keeper(rows)
+    if keeper:
+        specs.append(
+            (
+                "Portería fuerte",
+                f"{keeper['name']} ({keeper['price'] / 1e6:.2f}M) en la portería: "
+                "la portería a cero paga +2 y SofaScore apenas la ve.",
+                {"forced": [keeper["name"]]},
+            )
+        )
+    if any(r.get("rise") for r in rows):
+        specs.append(
+            (
+                "Revalorización",
+                "Pesa la subida de precio previa al draft: la liga ya los está "
+                "comprando, y el valor es la caja de la temporada.",
+                {"momentum": True},
+            )
+        )
     # Computed once: the shape list depends only on the formations, not on the
     # players, and each archetype would otherwise re-derive the same 82.
     shapes = [dict(NEED)] if args.fixed_shape else viable_shapes()
@@ -1230,9 +1281,15 @@ def main():
     ranking = []
     seen = {}
     for idx, (name, desc, kw) in enumerate(specs):
+        kw = dict(kw)
+        pool = momentum_rows(rows) if kw.pop("momentum", False) else rows
         squad, spent, warnings, shape = build_best_shape(
-            rows, budget, shapes=shapes, max_per_team=max_per_team, **kw
+            pool, budget, shapes=shapes, max_per_team=max_per_team, **kw
         )
+        if pool is not rows:
+            # Bought on the lifted score, judged on the real one.
+            by_name = {r["name"]: r for r in rows}
+            squad = {c: [by_name[r["name"]] for r in squad[c]] for c in POS}
         if kw.get("band") is None and not kw.get("thin_bench"):
             squad, spent, note = repair_captain(
                 squad, spent, rows, budget, kw.get("forced", ())
@@ -1250,16 +1307,16 @@ def main():
         blocks.append(block)
         ranking.append((xi_eff, eff, raw, spent, idx, name, twin))
 
-    # Ranked by XI points: only the eleven score on a matchday.
-    ranking.sort(key=lambda t: (-t[0], -t[1], t[3], t[4]))
+    # Ranked on the fifteen: see `shape_score` for the backtest behind it.
+    ranking.sort(key=lambda t: (-t[1], -t[0], t[3], t[4]))
     header = [
         "# Arquetipos de draft — comparativa\n",
-        "**Efectivo XI** = SF de los once titulares + SF del capitán. Es la "
-        "columna que manda: en Biwenger sólo puntúan los once, así que un euro "
-        "gastado en el banquillo compra cobertura ante ausencias, no puntos.\n",
-        "**Efectivo durable** suma además los cuatro suplentes — mide el plantel "
-        "entero y por eso premia un banco caro que la liga no recompensa. Se "
-        "mantiene como referencia de profundidad frente a lesiones y rotaciones.\n",
+        "**Efectivo durable** = SF de los quince + SF del capitán. Es la "
+        "columna que manda: en el 26-27, puntuados con los puntos reales de "
+        "la temporada, el banco mínimo que mejor salía por el once acabó "
+        "quinto de seis — lesiones y rotaciones sacan al banquillo al campo.\n",
+        "**Efectivo XI** = solo los once titulares + el capitán, si jugaran "
+        "todas las semanas. Se mantiene como lectura del techo del once.\n",
         "El capitán cuenta sólo si además es titular y aguanta la deriva de "
         "precios (©<3M, ≤2.5M, v/M ≤200); el bruto acepta cualquier capitán "
         "elegible hoy.\n",
@@ -1272,7 +1329,8 @@ def main():
             f"| {i} | {label} | {xi_eff} | {eff} | {raw} | {spent / 1e6:.2f}M |"
         )
     header.append(
-        f"\n> 🏆 **Recomendación: {ranking[0][5]}** ({ranking[0][0]} efectivo XI)\n"
+        f"\n> 🏆 **Recomendación: {ranking[0][5]}** ({ranking[0][1]} efectivo "
+        "durable)\n"
     )
     if placeholder and not args.keep_placeholder:
         names = ", ".join(f"{r['name']} ({r['team']})" for r in dropped)

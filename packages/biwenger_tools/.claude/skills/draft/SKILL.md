@@ -469,8 +469,34 @@ remaining budget, and a tight alternatives block for the top-5.
 
 `scripts/archetypes.py --ranked <draft-ranked.csv>` builds and compares
 squad-construction archetypes under the budget + composition rules, ranked by
-**XI points** (only the eleven score on a matchday; the all-fifteen figure is
-reported alongside as a depth reading).
+**the whole fifteen plus the captain** ("Efectivo durable"); the XI-only figure
+is reported alongside as the eleven's ceiling.
+
+**Why the fifteen and not the XI.** Backtested on 26-27 — the August ranked CSV
+re-run, each archetype scored on the season's real points after nine rounds:
+
+| Arquetipo | Puesto por XI en agosto | Once + © real | Valor |
+|---|:-:|--:|--:|
+| Superestrella | 3º | **414** | −3,4M |
+| 2 galácticos + despojos | 5º | 397 | −9,0M |
+| Value-max | 4º | 360 | −2,7M |
+| Columna vertebral | 6º | 347 | −9,0M |
+| Once de gala (banco mínimo) | **1º** | 301 | −13,4M |
+| Ultra equilibrio (3-4M) | 7º | 292 | −13,9M |
+
+The build the XI metric liked best finished fifth of six: injuries and rotation
+put the bench on the pitch. Ranked by the fifteen, the August order sat far
+closer to how the season went. "Ultra equilibrio" was last in every reading and
+lost the most value, so it is gone.
+
+Two archetypes came out of the same backtest:
+
+- **Portería fuerte** — forces the best-scoring keeper under 8M. A clean sheet
+  pays +2 here and barely moves SofaScore, so the projection underprices him.
+- **Revalorización** — lifts each player's score by half his price rise over
+  the last `--momentum-days` (7) of `price_snapshots`. Manu, the only manager
+  whose draft *gained* value in 26-27 (+1,67M), was also the best XI. A rise is
+  the league buying him; it is evidence, not points, hence the half weight.
 
 | Flag | Qué hace |
 |---|---|
@@ -581,8 +607,8 @@ in:
   captain, the generator swaps in the cheapest one that fits. The premium is
   ~10 SF out of ~7300, so there is no reason to run a build without an anchor —
   which is also why value-max and captain-anchor usually converge on the same 15.
-- A build with **no player under 3M** (the flat 3-4M "ultra-balanced" trap) has
-  no captain at all and throws away ~one player's SF every week.
+- A build with **no player under 3M** has no captain at all and throws away
+  ~one player's SF every week.
 
 **JP placeholder scores.** JP hands out one flat score (400 in 2026/27) to
 players it has no data for — promoted clubs and fresh signings. It is a
