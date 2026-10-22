@@ -30,8 +30,8 @@ class Rules:
     min_squad: int
     # A bench player projected below this is sold whatever his price does.
     dead_sf: int
-    # A signing is not sold on a falling price for this long — the same two
-    # weeks Biwenger locks a clause after one.
+    # A signing is not sold for this long, on price or projection — the same
+    # two weeks Biwenger locks a clause after one.
     hold_days: int = 0
     # No buy from a club the squad already holds this many of; 0 is no cap.
     max_per_club: int = 0
@@ -126,8 +126,9 @@ def plan_sells(
     fallers, and the bench projected below `dead_sf` whatever his price —
     weakest projection first, and why the others stay. Never a starter of the
     best eleven, never below `min_squad` — an eleven and a bench — never one
-    whose sale leaves no eleven that plays, and never a faller signed less than
-    `hold_days` ago. A keeper left out of the eleven goes too, whatever his
+    whose sale leaves no eleven that plays, and never anyone signed less than
+    `hold_days` ago — auto-bid signs at the same floor `dead_sf` reads, so a
+    few points of projection noise must not undo a signing days later. A keeper left out of the eleven goes too, whatever his
     price: a manager's only keeper cannot be claused, a second one exposes both."""
     starters = best_eleven_ids(squad)
     keepers = [r for r in squad if r.get("position_id") == lineup.GK]
@@ -156,7 +157,7 @@ def plan_sells(
         days = _days_held(row, now)
         spare = row["bw_id"] in spare_keepers
         dead = lineup.projected_sf(row) < rules.dead_sf
-        if not dead and days is not None and days < rules.hold_days:
+        if days is not None and days < rules.hold_days:
             held.append((row, f"fichado hace {days} días, protegido {rules.hold_days}"))
             continue
         if len(keep) - 1 < rules.min_squad:
@@ -167,12 +168,15 @@ def plan_sells(
             held.append((row, "sin él no queda un once que juegue"))
             continue
         keep = rest
+        falling = s <= -rules.sell_after_falls
         if spare:
             why = "segundo portero: con dos, los dos se pueden clausular"
-        elif s <= -rules.sell_after_falls:
-            why = ""
+        elif dead:
+            why = f"proyección baja (SF {lineup.projected_sf(row)})" + (
+                f", {-s} días bajando" if falling else ""
+            )
         else:
-            why = f"proyección baja (SF {lineup.projected_sf(row)})"
+            why = ""
         sells.append(Move(row, int(row.get("price") or 0), s, why))
     return sells, held, keep
 

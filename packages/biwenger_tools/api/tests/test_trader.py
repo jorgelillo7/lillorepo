@@ -500,20 +500,42 @@ def test_the_hold_ends_after_two_weeks():
     assert [m.row["bw_id"] for m in result.sells] == [40]
 
 
-def test_a_fresh_signing_whose_projection_collapses_is_still_sold():
-    """The hold protects a price dip, not a player who will not play."""
-    squad = _eleven() + [_signed(_player(40, 120, DEF), days_ago=2)]
+def test_a_fresh_signing_projected_under_the_floor_is_held_too():
+    """Auto-bid signs at SF 300 and the blend moves a few points a day: selling
+    a five-day signing for dipping under the same 300 is churn, not judgement.
+    The hold covers the projection floor as well as the price."""
+    squad = _eleven() + [_signed(_player(40, 290, DEF), days_ago=5)]
     result = plan(
         squad,
         [],
-        _flat(),
+        _history(p40=-50_000),
         cash=0,
         round_eve=False,
         negative_limit=0,
         rules=HOLD,
         now=NOW,
     )
-    assert [m.row["bw_id"] for m in result.sells] == [40]
+    assert result.sells == []
+    ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 40]
+    assert why.startswith("fichado hace 5 días")
+
+
+def test_a_faller_also_under_the_floor_is_sold_naming_the_projection():
+    """Past the hold, the report names the projection when it is below the
+    floor, not only the falling price — that is what decides the sale."""
+    squad = _eleven() + [_signed(_player(40, 290, DEF), days_ago=20)]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    (move,) = result.sells
+    assert "proyección baja (SF 290)" in move.reason
 
 
 def test_a_player_with_no_signing_date_is_not_held():
