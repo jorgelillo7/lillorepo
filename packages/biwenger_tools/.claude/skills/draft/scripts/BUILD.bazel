@@ -39,6 +39,7 @@ _RUN_DEPS = [
         "draft_ranking",
         "fetch_real_points",
         "risers",
+        "tiers",
     ]
 ]
 

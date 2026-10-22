@@ -64,12 +64,16 @@ ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
 # calibrate on. Goalkeepers convert far better: clean sheets and win bonuses
 # land on them every week.
 FALLBACK_FACTOR = {"PT": 0.458, "outfield": 0.371}
-THIN_SEASON = 20  # below this many games, a season total understates the player
-# Starts, out of 38. A substitute's total does not carry over to a starting
-# role, and the league's play/win bonuses need more than 65 minutes to fire:
-# Iago Aspas scored 143 points across 32 appearances but started 10, and
-# cleared 65 minutes eight times all season.
-STARTER_THRESHOLD = 19
+# Below this share of the sample's rounds played, a total understates him.
+THIN_SHARE = 0.5
+# Starts, as a share of the rounds the sample covers (19 of 38 over a full
+# season). A substitute's total does not carry over to a starting role, and
+# the league's play/win bonuses need more than 65 minutes to fire: Iago Aspas
+# scored 143 points across 32 appearances but started 10, and cleared 65
+# minutes eight times all season.
+STARTER_SHARE = 0.5
+STARTER_THRESHOLD = 19  # STARTER_SHARE of a 38-round season, for the reports
+SEASON_ROUNDS = 38
 # Price bands, matching the ones `availability_report.py` writes.
 BANDS = ((6_000_000, "≥ 6M"), (3_000_000, "3–6M"), (1_500_000, "1,5–3M"), (0, "< 1,5M"))
 
@@ -138,6 +142,12 @@ def read_real_points(path):
                 "min_per_game": int(r.get("min_per_game") or 0),
                 "per_game": round(points / games, 2) if games else None,
             }
+    # The rounds the sample covers: the most games anyone in it played. A
+    # full past season reads 38; a run nine rounds into one reads 9, and
+    # measuring starts against 38 then called every regular a substitute.
+    rounds = max((v["games"] for v in real.values()), default=0) or SEASON_ROUNDS
+    for v in real.values():
+        v["rounds"] = rounds
     return real
 
 
@@ -179,6 +189,7 @@ def apply_real_points(rows, real):
         r["starts"] = match["starts"] if match else None
         r["min_per_game"] = match["min_per_game"] if match else None
         r["per_game"] = match["per_game"] if match else None
+        r["rounds"] = match["rounds"] if match else None
     factors = calibrate(rows)
     for r in rows:
         if r["real"] is not None:
@@ -716,20 +727,28 @@ def ranking_score(r):
     sf = r["sf"]
     if not _STARTS_PENALTY:
         return sf
-    starts = r.get("starts")
-    if starts is None or starts >= STARTER_THRESHOLD:
+    rate = start_rate(r)
+    if rate is None or rate >= STARTER_SHARE:
         return sf
-    return sf * (starts / STARTER_THRESHOLD)
+    return sf * (rate / STARTER_SHARE)
+
+
+def start_rate(r):
+    """Starts over the rounds his sample covers, or None when unmeasured."""
+    if r.get("starts") is None:
+        return None
+    return r["starts"] / (r.get("rounds") or SEASON_ROUNDS)
 
 
 def is_starter(r):
-    """Whether last season's total came from starting, not from cameos.
+    """Whether his total came from starting, not from cameos.
 
     Unknown (no measured data) counts as a starter: the projection already
     assumes a regular role, and blocking it here would silently drop every
     player promoted from Segunda.
     """
-    return r.get("starts") is None or r["starts"] >= STARTER_THRESHOLD
+    rate = start_rate(r)
+    return rate is None or rate >= STARTER_SHARE
 
 
 def source_cell(r):
@@ -743,7 +762,7 @@ def source_cell(r):
         return mark
     if not is_starter(r):
         return "🪑"
-    if (r.get("games") or 0) < THIN_SEASON:
+    if (r.get("games") or 0) < THIN_SHARE * (r.get("rounds") or SEASON_ROUNDS):
         return "⚠️"
     return mark
 
@@ -754,7 +773,11 @@ def data_cells(r):
     real = r.get("real")
     games = r.get("games")
     per_game = f"{r['per_game']:.1f}" if r.get("per_game") else "—"
-    starts = f"{r['starts']}/38" if r.get("starts") is not None else "—"
+    starts = (
+        f"{r['starts']}/{r.get('rounds') or SEASON_ROUNDS}"
+        if r.get("starts") is not None
+        else "—"
+    )
     return (
         f"| {r.get('sf_proj') or r.get('sf') or '—'} "
         f"| {real if real is not None else '—'} "
@@ -878,7 +901,7 @@ def decision_sheet(
         )
     o += [
         "",
-        "**Real** son los puntos Personalizado de la temporada pasada — la "
+        "**Real** son los puntos Personalizado medidos — la "
         "puntuación de esta liga, no la de SofaScore. **PJ** son los partidos "
         "que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 "
         "parecen lo mismo. **Proy.** es la proyección que usa producción "
@@ -886,9 +909,10 @@ def decision_sheet(
         "dificultad de sus tres próximos partidos, solo informativa; 🪑 = JP "
         "no lo pone en su once.",
         "",
-        "**Tit** son las titularidades sobre 38. Un suplente no traslada su "
-        "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
-        "`+1 por victoria`) exigen pasar de 65 minutos.",
+        "**Tit** son las titularidades sobre las jornadas medidas. Un "
+        "suplente no traslada su total a una plaza del once: los bonus de "
+        "esta liga (`+1 por jugar`, `+1 por victoria`) exigen pasar de 65 "
+        "minutos.",
         "",
         "**Vaciado** es cuántos de su línea y banda de precio se habían ido a "
         "esa altura en el draft de referencia, sobre los que existen. En "
@@ -897,8 +921,8 @@ def decision_sheet(
         "un draft solo consume un quinto del mercado.",
         "",
         "Fuente: ✅ titular con dato real · 🪑 real pero suplente "
-        f"(menos de {STARTER_THRESHOLD}/38) · ⚠️ real pero de menos de "
-        f"{THIN_SEASON} partidos · ~ proyección calibrada · 🎲 apuesta sin datos.",
+        "(titular en menos de la mitad de las jornadas medidas) · ⚠️ real pero "
+        "jugó menos de la mitad · ~ proyección calibrada · 🎲 apuesta sin datos.",
     ]
     if any(r.get("bet") for _, r in plan):
         o += [
