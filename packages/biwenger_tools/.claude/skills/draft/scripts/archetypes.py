@@ -28,6 +28,7 @@ import sys
 import unicodedata
 from collections import Counter
 
+from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.draft import composition_ok
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
@@ -49,9 +50,13 @@ _LINE_ID = {"PT": GK, "DF": DEF, "MC": MID, "DL": FWD}
 # Minimum per line to *build* a squad from. Not the legality rule: that is
 # `draft.composition_ok`, which only asks for a fieldable XI and counts a
 # multi-position player in every line he plays. These are the shape the
-# generator fills before it starts upgrading.
+# generator fills before it starts upgrading. The draft requires two keepers;
+# the reserve is bought at the floor and sold after it (see `build`).
 NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
 SQUAD_SIZE = sum(NEED.values())
+# The same cap auto-bid and the trader apply all season. Here it counts the
+# whole fifteen, which is stricter than production's starters-only count.
+DEFAULT_MAX_PER_TEAM = config.MAX_PLAYERS_PER_CLUB
 CAPTAIN_CAP = 3_000_000
 CAPTAIN_SAFE = 2_500_000  # durable buffer below the cap
 ROCKET_VM = 200  # above this value-per-M a cheap player rockets past the cap
@@ -147,9 +152,9 @@ def calibrate(rows):
     factors = {}
     for line in POS:
         ratios = [
-            r["real"] / r["sf_jp"]
+            r["real"] / r["sf_proj"]
             for r in rows
-            if r.get("real") and r.get("sf_jp") and line == r["pos"]
+            if r.get("real") and r.get("sf_proj") and line == r["pos"]
         ]
         if len(ratios) >= 3:
             factors[line] = statistics.median(ratios)
@@ -161,13 +166,13 @@ def calibrate(rows):
 def apply_real_points(rows, real):
     """Overlay measured points on the projection and re-score every row.
 
-    Rows keep `sf_jp` (the projection) and gain `real`, `games`, `per_game` and
+    Rows keep `sf_proj` (the projection) and gain `real`, `games`, `per_game` and
     `source`. `sf` — what the optimiser ranks by — becomes the measured total
     where it exists and a line-calibrated projection where it does not, so the
     two are on the same scale.
     """
     for r in rows:
-        r["sf_jp"] = r["sf"]
+        r["sf_proj"] = r["sf"]
         match = real.get(_norm(r["name"]))
         r["real"] = match["points"] if match else None
         r["games"] = match["games"] if match else None
@@ -183,18 +188,42 @@ def apply_real_points(rows, real):
             # a blind bet once last season's total is known.
             r["bet"] = False
         else:
-            r["sf"] = round(r["sf_jp"] * factors[r["pos"]])
+            r["sf"] = round(r["sf_proj"] * factors[r["pos"]])
             r["source"] = "bet" if r.get("bet") else "proj"
         r["vm"] = r["sf"] / (r["price"] / 1_000_000) if r["price"] else 0.0
     return factors
 
 
+def _projection(r):
+    """The blend production reads (JP + Oráculo) when the ranked CSV carries
+    one, JP alone otherwise — an old CSV still loads."""
+    return int(r.get("projection") or r["sofascore"])
+
+
+def unavailable(path):
+    """The players `load` leaves out because they cannot be fielded today."""
+    with open(path, encoding="utf-8") as fh:
+        return [
+            {"name": r["name"], "team": r["team"]}
+            for r in csv.DictReader(fh)
+            if r.get("availability") == "out"
+        ]
+
+
 def load(
-    path, exclude, placeholder_sf=None, keep_placeholder=False, bets=(), bet_sf=400
+    path,
+    exclude,
+    placeholder_sf=None,
+    keep_placeholder=False,
+    bets=(),
+    bet_sf=400,
+    keep_unavailable=False,
 ):
     """Rows usable by the optimiser, plus the placeholder SF that was applied.
     Players carrying the placeholder score have no real data and are dropped
-    unless `keep_placeholder`."""
+    unless `keep_placeholder`; so are those who cannot be fielded (injured,
+    suspended, no fixture) unless `keep_unavailable`. `sf` is the blended
+    projection, `sf_jp` JP's own number."""
     ban = {_norm(x) for x in exclude if x}
     raw = []
     with open(path, encoding="utf-8") as fh:
@@ -202,17 +231,23 @@ def load(
             if r["no_jp_data"] == "True" or not r["sofascore"] or not r["price"]:
                 continue
             price = int(r["price"])
-            if price <= 0 or _norm(r["name"]) in ban:
+            if price <= 0 or _norm(r["name"]) in ban or r["position"] not in POS:
                 continue
+            if r.get("availability") == "out" and not keep_unavailable:
+                continue
+            sf = _projection(r)
             raw.append(
                 {
                     "name": r["name"],
                     "team": r["team"],
                     "pos": r["position"],
                     "lines": (r.get("alt_positions") or r["position"]).split("/"),
-                    "sf": int(r["sofascore"]),
+                    "sf": sf,
+                    "sf_jp": int(r["sofascore"]),
+                    "fixtures": r.get("fixtures") or "—",
+                    "uncalled": r.get("uncalled") == "True",
                     "price": price,
-                    "vm": float(r["value_per_m"]) if r["value_per_m"] else 0.0,
+                    "vm": sf / (price / 1_000_000),
                     "bet": False,
                     "sf_real": None,
                 }
@@ -259,12 +294,10 @@ def viable_shapes(keepers=(2,)):
     kept when some formation fits inside it; the rest of the fifteen are
     substitutes, and where they sit is what the search decides.
 
-    `keepers` defaults to two, and that is a judgement the score cannot make.
-    A benched keeper contributes nothing to the XI, so maximising points always
-    strips him — and the run that follows is worth ~50 points more on paper
-    while risking a matchday fielding ten men and an empty slot at -4. Sole
-    keeper is offered as an explicit choice (`--allow-sole-keeper`), the same
-    way `thin_bench` is, rather than chosen silently on the optimiser's behalf.
+    `keepers` defaults to two, because the draft requires them. The reserve
+    is not a squad decision: `build` buys him at the floor price and never
+    upgrades him, and he is sold once the draft closes — a manager's only
+    keeper cannot be claused, and a second one exposes both all season.
     """
     shapes = []
     for pt in keepers:
@@ -383,7 +416,11 @@ def build(
     but the league's win/clean-sheet bonuses are club-wide: teammates gain and
     lose them on the same weekends. `forced` picks bypass the cap.
 
-    `shape` is how many to take per line, defaulting to the classic 2-5-5-3.
+    `shape` is how many to take per line, defaulting to `NEED` (2-5-5-3).
+
+    With two keepers or more, every keeper past the first is the cheapest one
+    available and frozen there: the draft requires him, nobody fields him, and
+    he is sold as soon as it closes — a euro on him is a euro off the eleven.
     Any of `viable_shapes()` works; the caller searches them.
     """
     shape = dict(NEED) if shape is None else shape
@@ -444,6 +481,11 @@ def build(
     # The frozen substitute of each line: the cheapest pick, left untouched by
     # the hill-climb so its money goes to the eleven instead.
     frozen = set()
+    reserves = sorted(
+        (r for r in squad["PT"] if _norm(r["name"]) not in forced_n),
+        key=lambda r: r["price"],
+    )[: max(0, len(squad["PT"]) - 1)]
+    frozen.update(r["name"] for r in reserves)
     if thin_bench:
         for c in POS:
             free = [r for r in squad[c] if _norm(r["name"]) not in forced_n]
@@ -550,11 +592,12 @@ def build_best_shape(rows, budget, shapes=None, **kw):
     best = None
     for shape in shapes if shapes is not None else viable_shapes():
         squad, spent, warnings = build(rows, budget, shape=shape, **kw)
-        if not squad_is_legal(squad) or spent > budget:
+        full = sum(len(squad[c]) for c in POS) == SQUAD_SIZE
+        if not full or not squad_is_legal(squad) or spent > budget:
             continue
         score = xi_effective(squad)
         # Ties go to the cheaper squad, then to the shape closest to the
-        # classic 2-5-5-3 — a coin-flip that at least reads as familiar.
+        # `NEED` shape — a coin-flip that at least reads as familiar.
         key = (-score, spent, _shape_distance(shape))
         if best is None or key < best[0]:
             best = (key, squad, spent, warnings, shape)
@@ -690,13 +733,14 @@ def data_cells(r):
     per_game = f"{r['per_game']:.1f}" if r.get("per_game") else "—"
     starts = f"{r['starts']}/38" if r.get("starts") is not None else "—"
     return (
-        f"| {r.get('sf_jp') or '—'} "
+        f"| {r.get('sf_proj') or r.get('sf') or '—'} "
         f"| {real if real is not None else '—'} "
         f"| {games if games else '—'} "
         f"| {starts} "
         f"| {per_game} "
         f"| {r['vm']:.0f} "
         f"| {source_cell(r)} "
+        f"| {r.get('fixtures') or '—'}{' 🪑' if r.get('uncalled') else ''} "
     )
 
 
@@ -796,9 +840,9 @@ def decision_sheet(
         "",
         "## Los 15, en orden de pick",
         "",
-        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
-        "| Pts/M | Fuente | Vaciado | XI | © |",
-        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|",
+        "| Pick | Pos | Jugador | Equipo | Precio | Proy. | Real | PJ | Tit "
+        "| Pts/PJ | Pts/M | Fuente | Cal. 3 | Vaciado | XI | © |",
+        "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|:-:|",
     ]
     for slot, r in plan:
         mark = "©" if dur and r["name"] == dur["name"] else ""
@@ -814,7 +858,10 @@ def decision_sheet(
         "**Real** son los puntos Personalizado de la temporada pasada — la "
         "puntuación de esta liga, no la de SofaScore. **PJ** son los partidos "
         "que los produjo: sin esa columna, 70 puntos en 5 partidos y 70 en 38 "
-        "parecen lo mismo. **JP** es la proyección de la temporada que viene.",
+        "parecen lo mismo. **Proy.** es la proyección que usa producción "
+        "(JP mezclado con Oráculo cuando se pudo leer). **Cal. 3** es la "
+        "dificultad de sus tres próximos partidos, solo informativa; 🪑 = JP "
+        "no lo pone en su once.",
         "",
         "**Tit** son las titularidades sobre 38. Un suplente no traslada su "
         "total a una plaza del once: los bonus de esta liga (`+1 por jugar`, "
@@ -872,6 +919,9 @@ def decision_sheet(
         "presupuesto.",
         "3. **El capitán es innegociable.** Si ves que alguien ficha en su "
         "línea, adelántalo un turno.",
+        "4. **El portero suplente es el más barato que quede, en el último "
+        "pick.** El draft lo exige y nadie lo alinea: véndelo en cuanto se "
+        "cierre, porque con dos porteros los dos se pueden clausular.",
     ]
     return "\n".join(o) + "\n"
 
@@ -929,10 +979,10 @@ def render(
             plan[r["name"]] = slot
 
     head = (
-        "| Pick | Pos | Jugador | Equipo | Precio | JP | Real | PJ | Tit | Pts/PJ "
-        "| Pts/M | Fuente | XI | © |"
+        "| Pick | Pos | Jugador | Equipo | Precio | Proy. | Real | PJ | Tit "
+        "| Pts/PJ | Pts/M | Fuente | Cal. 3 | XI | © |"
     )
-    rule = "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|"
+    rule = "|--:|---|---|---|--:|--:|--:|--:|:-:|--:|--:|:-:|:-:|:-:|:-:|"
     if not plan:
         head = head.replace("| Pick ", "")
         rule = rule.replace("|--:", "", 1)
@@ -1007,23 +1057,23 @@ def main():
     ap.add_argument(
         "--max-per-team",
         type=int,
-        default=None,
-        help="cap players per club (the win/clean-sheet bonuses are club-wide)",
+        default=DEFAULT_MAX_PER_TEAM,
+        help=(
+            "cap players per club, whole fifteen (default: production's "
+            "MAX_PLAYERS_PER_CLUB); 0 turns it off"
+        ),
     )
     ap.add_argument(
-        "--allow-sole-keeper",
+        "--keep-unavailable",
         action="store_true",
-        help=(
-            "let the search drop the reserve keeper. Scores higher on paper "
-            "and risks a matchday with ten men and an empty slot at -4"
-        ),
+        help="keep players JP has injured, suspended or without a fixture",
     )
     ap.add_argument(
         "--fixed-shape",
         action="store_true",
         help=(
             "build every archetype as a 2-5-5-3 instead of searching the "
-            "shapes (faster, and what the generator did before 26-27)"
+            "shapes (faster)"
         ),
     )
     ap.add_argument(
@@ -1093,7 +1143,12 @@ def main():
         args.keep_placeholder,
         bets,
         args.bet_sf,
+        keep_unavailable=args.keep_unavailable,
     )
+    out_now = [] if args.keep_unavailable else unavailable(ranked)
+    if out_now:
+        print(f"No disponibles hoy, fuera del ranking: {len(out_now)}")
+    max_per_team = args.max_per_team or None
     factors = None
     if args.real_points:
         real = read_real_points(args.real_points)
@@ -1170,17 +1225,13 @@ def main():
         )
     # Computed once: the shape list depends only on the formations, not on the
     # players, and each archetype would otherwise re-derive the same 82.
-    shapes = (
-        [dict(NEED)]
-        if args.fixed_shape
-        else viable_shapes(keepers=(1, 2) if args.allow_sole_keeper else (2,))
-    )
+    shapes = [dict(NEED)] if args.fixed_shape else viable_shapes()
     blocks = []
     ranking = []
     seen = {}
     for idx, (name, desc, kw) in enumerate(specs):
         squad, spent, warnings, shape = build_best_shape(
-            rows, budget, shapes=shapes, max_per_team=args.max_per_team, **kw
+            rows, budget, shapes=shapes, max_per_team=max_per_team, **kw
         )
         if kw.get("band") is None and not kw.get("thin_bench"):
             squad, spent, note = repair_captain(
@@ -1250,7 +1301,7 @@ def main():
             rows,
             budget,
             shapes=shapes,
-            max_per_team=args.max_per_team,
+            max_per_team=max_per_team,
             **specs[win_idx][2],
         )
         if specs[win_idx][2].get("band") is None and not specs[win_idx][2].get(

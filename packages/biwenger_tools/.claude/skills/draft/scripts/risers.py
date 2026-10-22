@@ -33,8 +33,19 @@ from collections import Counter
 sys.path.insert(0, os.path.dirname(__file__))
 
 import paths  # noqa: E402
-from archetypes import POS  # noqa: E402
+from archetypes import DEFAULT_MAX_PER_TEAM, POS  # noqa: E402
 from board import _eur, _norm, board_state, load_market, load_picks  # noqa: E402
+
+
+def span_from_snapshots(days: list[dict[int, int]]) -> dict[int, tuple[int, int]]:
+    """`{player id: (first price, last price)}` across stored daily snapshots,
+    oldest first — each player's own first and last day seen."""
+    span: dict[int, tuple[int, int]] = {}
+    for day in days:
+        for pid, price in day.items():
+            first = span.get(pid, (price, price))[0]
+            span[pid] = (first, price)
+    return span
 
 
 def load_prices(path):
@@ -51,8 +62,17 @@ def load_prices(path):
 
 def main():
     ap = argparse.ArgumentParser(description="Quién está subiendo en el mercado real")
-    ap.add_argument("--before", required=True, help="market export, the earlier one")
-    ap.add_argument("--after", required=True, help="market export, the later one")
+    ap.add_argument("--before", default="", help="market export, the earlier one")
+    ap.add_argument("--after", default="", help="market export, the later one")
+    ap.add_argument(
+        "--days",
+        type=int,
+        default=0,
+        help=(
+            "read the last N days of `price_snapshots` (Firestore, stored by "
+            "the daily digest) instead of two exports"
+        ),
+    )
     ap.add_argument(
         "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
     )
@@ -60,12 +80,22 @@ def main():
     ap.add_argument("--me", default="Jorge")
     ap.add_argument("--max", type=float, default=0, help="en millones, 0 = sin tope")
     ap.add_argument("--top", type=int, default=12)
-    ap.add_argument("--max-per-team", type=int, default=2)
+    ap.add_argument("--max-per-team", type=int, default=DEFAULT_MAX_PER_TEAM)
     args = ap.parse_args()
 
-    before, after = load_prices(args.before), load_prices(args.after)
     ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
     market = load_market(ranked)
+    if args.days:
+        from packages.biwenger_tools.api.logic import price_history_store
+
+        span = span_from_snapshots(price_history_store.recent(args.days))
+        by_id = {row["id"]: key for key, row in market.items() if row.get("id")}
+        before = {by_id[i]: old for i, (old, _) in span.items() if i in by_id}
+        after = {by_id[i]: new for i, (_, new) in span.items() if i in by_id}
+    elif args.before and args.after:
+        before, after = load_prices(args.before), load_prices(args.after)
+    else:
+        ap.error("give --days N, or both --before and --after")
     picks = load_picks(args.season)
     free, _ = board_state(market, picks)
     mine = [p for p in picks if _norm(p.get("manager_name")) == _norm(args.me)]

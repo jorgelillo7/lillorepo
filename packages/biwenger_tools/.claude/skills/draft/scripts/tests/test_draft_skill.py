@@ -187,15 +187,15 @@ def test_exclusions_append_to_the_command_line_ones(tmp_path):
 
 
 def test_the_cap_reserves_the_slots_you_still_have_to_fill():
-    """3M left and four empty slots: the 2.55M forward is not affordable, because
-    a keeper, a defender and a midfielder still have to be paid for."""
+    """3M left and four empty slots: the 2.55M forward is affordable only just,
+    because a keeper, a defender and a midfielder still have to be paid for."""
     free = [
         player("caro", "DL", 2_550_000),
         player("portero", "PT", 150_000),
         player("defensa", "DF", 150_000),
         player("medio", "MC", 150_000),
     ]
-    squad = held(PT=1, DF=4, MC=4, DL=2)
+    squad = held(PT=0, DF=4, MC=4, DL=3)
 
     cap = board.spend_cap(free, squad, "DL", 3_000_000)
 
@@ -352,17 +352,30 @@ def test_every_viable_shape_holds_fifteen_and_fields_an_eleven():
 
 def test_the_shapes_the_real_squads_play_are_reachable():
     """2-5-5-3 is the classic; 2-5-7-1 is what the 26-27 squad actually is.
-    Only the first was ever proposable."""
-    shapes = archetypes.viable_shapes()
+    Both stay proposable when a second keeper is asked for."""
+    shapes = archetypes.viable_shapes(keepers=(1, 2))
     assert {"PT": 2, "DF": 5, "MC": 5, "DL": 3} in shapes
     assert {"PT": 2, "DF": 5, "MC": 7, "DL": 1} in shapes
+    assert {"PT": 1, "DF": 5, "MC": 7, "DL": 2} in shapes
 
 
-def test_the_reserve_keeper_is_kept_unless_explicitly_dropped():
-    """A benched keeper scores nothing, so maximising points always strips him.
-    That is a risk decision, not an optimisation — it needs asking for."""
+def test_the_draft_carries_two_keepers():
     assert all(s["PT"] == 2 for s in archetypes.viable_shapes())
-    assert any(s["PT"] == 1 for s in archetypes.viable_shapes(keepers=(1, 2)))
+    assert archetypes.NEED["PT"] == 2
+
+
+def test_the_reserve_keeper_is_the_cheapest_and_never_upgraded():
+    """The draft requires a second keeper; nobody fields him and he is sold
+    once it closes, so every euro on him is a euro off the eleven."""
+    rows = (
+        [player("Cheap", "PT", 150_000, 100), player("Mid", "PT", 900_000, 300)]
+        + [player("Star", "PT", 5_000_000, 600)]
+        + [player(f"D{i}", "DF", 1_000_000, 300) for i in range(5)]
+        + [player(f"M{i}", "MC", 1_000_000, 400) for i in range(5)]
+        + [player(f"F{i}", "DL", 1_000_000, 350) for i in range(3)]
+    )
+    squad, _, _ = archetypes.build(rows, 20_000_000)
+    assert {r["name"] for r in squad["PT"]} == {"Cheap", "Star"}
 
 
 def test_searching_shapes_never_scores_below_the_fixed_one():
@@ -381,6 +394,19 @@ def test_searching_shapes_never_scores_below_the_fixed_one():
     assert archetypes.xi_effective(best) >= archetypes.xi_effective(fixed)
     assert sum(len(best[c]) for c in archetypes.POS) == archetypes.SQUAD_SIZE
     assert archetypes.squad_is_legal(best), archetypes.shape_label(shape)
+
+
+def test_a_shape_the_pool_cannot_fill_is_never_the_winner():
+    """A legal eleven is not a fifteen: a shape asking for more of a line than
+    the pool holds used to win with a player missing."""
+    rows = (
+        [player(f"P{i}", "PT", 1_000_000, 200) for i in range(2)]
+        + [player(f"D{i}", "DF", 1_000_000, 300) for i in range(5)]
+        + [player(f"M{i}", "MC", 1_000_000, 400) for i in range(5)]
+        + [player(f"F{i}", "DL", 1_000_000, 350) for i in range(4)]
+    )
+    best, _, _, _ = archetypes.build_best_shape(rows, 20_000_000)
+    assert sum(len(best[c]) for c in archetypes.POS) == archetypes.SQUAD_SIZE
 
 
 def test_build_honours_a_requested_shape():
@@ -456,3 +482,160 @@ def test_the_penalty_is_off_by_default():
     is passed deliberately."""
     cameo = _row("Aspas", sf=143, starts=10)
     assert archetypes.ranking_score(cameo) == 143
+
+
+# --- the projection production reads, and who can play --------------------
+
+
+_RANKED_COLS = (
+    "id,name,team,position,alt_positions,price,sofascore,projection,oraculo,"
+    "availability,uncalled,fixtures,value_per_m,no_jp_data,jp_placeholder"
+)
+
+
+def _ranked(tmp_path, *lines, header=_RANKED_COLS):
+    path = tmp_path / "ranked.csv"
+    path.write_text("\n".join([header, *lines]) + "\n", encoding="utf-8")
+    return str(path)
+
+
+def test_load_ranks_on_the_blend_and_keeps_jp_beside_it(tmp_path):
+    """Auto-bid, the trader and the digest all read the JP + Oráculo blend;
+    a draft on JP alone bought a different fifteen from the one the season
+    then judges."""
+    path = _ranked(
+        tmp_path,
+        "1,A,X,DL,DL,2000000,400,460,True,plays,False,fácil 30,200,False,False",
+    )
+    (row,), _, _ = archetypes.load(path, exclude=())
+    assert row["sf"] == 460 and row["sf_jp"] == 400
+
+
+def test_load_reads_an_old_csv_on_jp_alone(tmp_path):
+    path = _ranked(
+        tmp_path,
+        "A,X,DL,DL,2000000,400,200,False,False",
+        header="name,team,position,alt_positions,price,sofascore,value_per_m,"
+        "no_jp_data,jp_placeholder",
+    )
+    (row,), _, _ = archetypes.load(path, exclude=())
+    assert row["sf"] == 400 and row["sf_jp"] == 400
+
+
+def test_load_drops_who_cannot_play_unless_kept(tmp_path):
+    path = _ranked(
+        tmp_path,
+        "1,Fit,X,DL,DL,2000000,400,400,False,plays,False,—,200,False,False",
+        "2,Hurt,X,DL,DL,2000000,500,500,False,out,False,—,250,False,False",
+    )
+    kept, _, _ = archetypes.load(path, exclude=())
+    assert [r["name"] for r in kept] == ["Fit"]
+    assert [r["name"] for r in archetypes.unavailable(path)] == ["Hurt"]
+    kept, _, _ = archetypes.load(path, exclude=(), keep_unavailable=True)
+    assert {r["name"] for r in kept} == {"Fit", "Hurt"}
+
+
+def test_the_projection_column_is_filled_without_real_points(tmp_path):
+    """It printed "—" for every player unless last season's points were
+    fetched, so the sheet hid the one number it always had."""
+    path = _ranked(
+        tmp_path,
+        "1,A,X,DL,DL,2000000,400,460,True,plays,False,fácil 30,200,False,False",
+    )
+    (row,), _, _ = archetypes.load(path, exclude=())
+    assert archetypes.data_cells(row).startswith("| 460 ")
+    assert row["fixtures"] == "fácil 30"
+
+
+def test_the_club_cap_defaults_to_production_s():
+    from packages.biwenger_tools.api import config
+
+    assert archetypes.DEFAULT_MAX_PER_TEAM == config.MAX_PLAYERS_PER_CLUB
+
+
+def test_rank_carries_the_blend_availability_and_the_fixtures(tmp_path):
+    import draft_ranking as dr
+
+    csv_path = tmp_path / "market.csv"
+    csv_path.write_text(
+        "Equipo;Jugador;Posición;Puntos;Precio\nX;Ana;Delantero;10;2000000\n"
+        "X;Bea;Defensa;5;1000000\n",
+        encoding="utf-8-sig",
+    )
+    competition = {
+        "players": {
+            "7": {
+                "id": 7,
+                "name": "Ana",
+                "position": 4,
+                "altPositions": [3],
+                "teamID": 3,
+                "price": 2_000_000,
+            },
+            "8": {
+                "id": 8,
+                "name": "Bea",
+                "position": 2,
+                "teamID": 3,
+                "price": 1_000_000,
+            },
+        }
+    }
+    jp = [
+        {
+            "name": "Ana",
+            "slug": "ana",
+            "status": "ok",
+            "nextMatch": {"status": "pending", "playerInLineup": True},
+            "predict": [{"type": 2, "rate": 450}],
+        },
+        {
+            "name": "Bea",
+            "slug": "bea",
+            "status": "injured",
+            "nextMatch": {"status": "pending", "playerInLineup": False},
+            "predict": [{"type": 2, "rate": 300}],
+        },
+    ]
+    rows = dr.rank(
+        str(csv_path), jp, competition=competition, upcoming={3: [30, 40, 50]}
+    )
+    by = {r["name"]: r for r in rows}
+    assert by["Ana"]["id"] == 7 and by["Ana"]["alt_positions"] == "DL/MC"
+    assert by["Ana"]["projection"] == 450 and by["Ana"]["oraculo"] is False
+    assert by["Ana"]["availability"] == "plays" and by["Ana"]["fixtures"] == "fácil 40"
+    assert by["Bea"]["availability"] == "out" and by["Bea"]["uncalled"] is True
+
+
+def test_risers_read_the_stored_daily_prices():
+    """`price_snapshots` already holds every player's price each day; two
+    exports by hand were the only way to see a rise before."""
+    import risers
+
+    days = [{7: 1_000_000, 8: 2_000_000}, {7: 1_100_000}, {7: 1_300_000, 8: 1_900_000}]
+    assert risers.span_from_snapshots(days) == {
+        7: (1_000_000, 1_300_000),
+        8: (2_000_000, 1_900_000),
+    }
+
+
+def test_a_report_without_its_competition_still_counts():
+    """The player endpoint is LaLiga's, and Biwenger stopped expanding
+    `match.competition`: filtering on it threw away every match and published
+    thirty players as having no minutes in Primera."""
+    bare = {"match": {"id": 1}, "rawStats": {"minutesPlayed": 90}}
+    cup = {"match": {"competition": {"slug": "copa-del-rey"}}, "rawStats": {}}
+    league = {"match": {"competition": {"slug": "la-liga"}}, "rawStats": {}}
+    assert frp.league_reports([bare, cup, league]) == [bare, league]
+
+
+def test_load_skips_a_row_without_a_known_line(tmp_path):
+    """A row with no line used to load and then crash the real-points
+    calibration, which keys its factors by line."""
+    path = _ranked(
+        tmp_path,
+        "1,A,X,DL,DL,2000000,400,400,False,plays,False,—,200,False,False",
+        "2,B,X,,,2000000,400,400,False,plays,False,—,200,False,False",
+    )
+    kept, _, _ = archetypes.load(path, exclude=())
+    assert [r["name"] for r in kept] == ["A"]

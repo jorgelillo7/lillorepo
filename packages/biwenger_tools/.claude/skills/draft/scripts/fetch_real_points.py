@@ -125,6 +125,18 @@ def build_index(players: dict) -> dict:
     return index
 
 
+def league_reports(reports: list[dict]) -> list[dict]:
+    """The LaLiga matches among a player's reports. The endpoint is LaLiga's,
+    and `match.competition` is no longer expanded, so a report is dropped only
+    when it names another competition."""
+    return [
+        r
+        for r in reports
+        if ((r.get("match") or {}).get("competition") or {}).get("slug", "la-liga")
+        == "la-liga"
+    ]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Draft Phase 2 — real custom points")
     src = ap.add_mutually_exclusive_group(required=True)
@@ -183,12 +195,7 @@ def main() -> int:
             unmatched.append(f"{name} (sin datos: límite alcanzado)")
             continue
         position = player.get("position") or entry.get("position")
-        reports = [
-            r
-            for r in (player.get("reports") or [])
-            if ((r.get("match") or {}).get("competition") or {}).get("slug")
-            == "la-liga"
-        ]
+        reports = league_reports(player.get("reports") or [])
         computed = personalizado(reports, position)
         season = _season_row(player.get("seasons"), args.season)
         season_points = season.get("points") or {}
