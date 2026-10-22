@@ -32,6 +32,31 @@ import paths  # noqa: E402
 
 TIER_LABELS = "ABCDEFGH"
 CHEAP = 1_000_000
+# What the mock draft of 22/10 taught, in numbers. A projection is trusted
+# less than a measured total, and least for a player with no LaLiga minutes
+# last season; each million spent costs points elsewhere in the squad. With
+# no cap the policy spent 32.7M of 50M on two stars in two rounds and
+# finished third; with it, first by the eleven.
+TRUST = {"real": 1.0, "proj": 0.85, "new": 0.7}
+PRICE_WEIGHT = 0.3
+MAX_PICK_PRICE = 8_000_000
+
+
+def pick_value(r):
+    """Points per round as far as they can be trusted, minus what the price
+    costs the rest of the fifteen."""
+    kind = "new" if r.get("no_primera") else r.get("source") or "proj"
+    pr = r.get("pr", r.get("per_round", 0))
+    return pr * TRUST.get(kind, TRUST["proj"]) - PRICE_WEIGHT * r["price"] / 1e6
+
+
+def shortlist(rows, limit):
+    """The unmeasured worth measuring, keepers first, then by value. A
+    keeper's projection cannot see he is the backup — on 22/10 three keepers
+    in the plan had started once or never in 38 — and only his starts can."""
+    pending = [r for r in rows if r.get("source") != "real" and not r.get("no_primera")]
+    pending.sort(key=lambda r: (r["pos"] != "PT", -pick_value(r)))
+    return [r["name"] for r in pending[:limit]]
 
 
 def build_tiers(rows, managers, rounds):
@@ -93,17 +118,17 @@ def render_tiers(tiers, shown):
     for line, groups in tiers.items():
         lines.append(f"## {arch.POS[line]}\n")
         lines.append(
-            "| Nivel | Jugador | Equipo | Precio | Pts/jor | Tit | Fuente "
+            "| Nivel | Jugador | Equipo | Precio | Pts/jor | Valor | Tit | Fuente "
             "| Cal. 3 | Subida | © |"
         )
-        lines.append("|:-:|---|---|--:|--:|:-:|:-:|:-:|--:|:-:|")
+        lines.append("|:-:|---|---|--:|--:|--:|:-:|:-:|:-:|--:|:-:|")
         for label, group in zip(TIER_LABELS, groups[:shown]):
             for r in group:
                 rate = arch.start_rate(r)
                 rise = r.get("rise")
                 lines.append(
                     f"| {label} | {r['name']} | {r['team']} | {_m(r['price'])} "
-                    f"| {r['per_round']} "
+                    f"| {r['per_round']} | {pick_value(r):.1f} "
                     f"| {'—' if rate is None else f'{rate:.0%}'} "
                     f"| {arch.source_cell(r)} | {r.get('fixtures') or '—'} "
                     f"| {'—' if rise is None else f'{rise:+.0%}'} "
@@ -163,6 +188,12 @@ def main():
     ap.add_argument(
         "--max-price", type=float, default=0, help="en millones, 0 = sin tope"
     )
+    ap.add_argument(
+        "--shortlist-out",
+        default="",
+        help="CSV de los sin medir que conviene medir, para fetch_real_points",
+    )
+    ap.add_argument("--shortlist-max", type=int, default=45)
     args = ap.parse_args()
 
     ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
@@ -171,7 +202,11 @@ def main():
     )
     rows, _, _ = arch.load(ranked, excluded)
     if args.real_points:
-        arch.apply_real_points(rows, arch.read_real_points(args.real_points))
+        arch.apply_real_points(
+            rows,
+            arch.read_real_points(args.real_points),
+            new=arch.read_no_primera(args.real_points),
+        )
     if args.max_price:
         rows = [r for r in rows if r["price"] <= args.max_price * 1_000_000]
     rounds = max((r.get("rounds") or 0 for r in rows), default=0) or (
@@ -202,6 +237,24 @@ def main():
             out += render_rivals(
                 rival_profiles(load_picks(args.rivals_season), line_by_pick)
             )
+
+    if args.shortlist_out:
+        in_reach = [r for r in rows if r["price"] <= MAX_PICK_PRICE]
+        for r in in_reach:
+            r["per_round"] = round(r["sf"] / rounds, 1)
+        # The plan's candidates: the first two tiers of every line by value.
+        candidates = [
+            r
+            for line in arch.POS
+            for r in sorted(
+                (x for x in in_reach if x["pos"] == line),
+                key=lambda x: -pick_value(x),
+            )[: 2 * args.managers]
+        ]
+        names = shortlist(candidates, args.shortlist_max)
+        with open(args.shortlist_out, "w", encoding="utf-8") as fh:
+            fh.write("name\n" + "\n".join(names) + "\n")
+        out.append(f"Lista corta para medir: {len(names)} → `{args.shortlist_out}`.\n")
 
     destination = args.out or paths.season_path(args.season, "niveles.md")
     with open(destination, "w", encoding="utf-8") as fh:

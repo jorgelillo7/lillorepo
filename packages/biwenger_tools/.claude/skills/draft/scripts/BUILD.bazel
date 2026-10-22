@@ -38,6 +38,7 @@ _RUN_DEPS = [
         "board",
         "draft_ranking",
         "fetch_real_points",
+        "mock_draft",
         "risers",
         "tiers",
     ]

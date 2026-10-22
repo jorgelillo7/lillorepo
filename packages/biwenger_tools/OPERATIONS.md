@@ -630,10 +630,17 @@ bazel run $S:archetypes -- --season 27-28 --budget 50 \
     --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
 ```
 
-`niveles.md` is what the picks are decided on — tiers per line, starts, the
-window between your turns and the rivals' habits; `archetypes` only checks
-that a legal fifteen fits the budget. During the draft, `board` shows how
-much of each tier is still free.
+`niveles.md` is what the picks are decided on — tiers per line, starts,
+value, the window between your turns and the rivals' habits; `archetypes`
+only checks that a legal fifteen fits the budget. During the draft, `board`
+shows how much of each tier is still free.
+
+Then rehearse: `tiers --shortlist-out mide.csv` proposes whom to measure
+(keepers first — a projection cannot see a backup), `fetch_real_points
+--shortlist mide.csv` measures them, and `mock_draft ... --shortlist-out
+mide.csv` plays the draft against the rivals' habits and lists who in your
+fifteen is still unmeasured. Repeat until the fifteen stops changing — three
+rounds, ~50 requests, on 22/10.
 
 Relative paths resolve from where you type the command; the season folders
 are written under `$D` whatever the directory.
