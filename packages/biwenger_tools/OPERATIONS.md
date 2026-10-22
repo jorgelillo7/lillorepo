@@ -610,6 +610,32 @@ keeps the turn, the budget and the squad shape, and — when the flag is on —
 applies each transfer in Biwenger. Full behaviour in
 `openspec/specs/biwenger_tools/draft/spec.md`.
 
+### 0. Prepare your fifteen (the draft skill)
+
+Local and read-only, days before opening. Every step is in
+`.claude/skills/draft/SKILL.md`; the order, from the repo root, with the
+exported CSV:
+
+```bash
+S=//packages/biwenger_tools/.claude/skills/draft/scripts
+D=packages/biwenger_tools/.claude/skills/draft
+bazel run $S:draft_ranking -- --csv ~/Downloads/primera-division.csv --season 27-28
+bazel run $S:fetch_real_points -- --shortlist shortlist.csv --season 2026-2027 \
+    --draft-season 27-28          # 30-45 names, never the market
+bazel run $S:archetypes -- --season 27-28 --budget 50 \
+    --real-points $D/27-28/draft-real-points.csv \
+    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
+```
+
+Relative paths resolve from where you type the command; the season folders
+are written under `$D` whatever the directory.
+
+Always `bazel run`, never the Mac's own Python: its old `requests` gets a 403
+from Oráculo and the ranking silently loses the blend. Run the real-points step
+**early in pre-season** — Biwenger serves the season it has selected, and once
+it switches to the new one last season's totals are gone (the script warns).
+Every `~` left in the winning fifteen is a name to measure next.
+
 ### 1. Open the draft (upload the CSV and start the clock)
 
 The market is exported by hand from Biwenger **on the agreed market-close
@@ -729,6 +755,9 @@ purpose.
 Turn `DRAFT_APPLY_TO_BIWENGER` back off (step 3, both commands with `false`),
 so next year's rehearsal cannot move a real player.
 
+Sell the reserve keeper: the plan buys him at the floor only to complete the
+squad, and with two keepers both can be claused all season.
+
 `PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/postdraft.py --write`
 compares everyone's draft and posts the verdict to the group, one message per
 manager. Nothing prompts you to run it; without `--write` it is a rehearsal.
@@ -754,11 +783,11 @@ the scraper and reset scripts write with `--apply`, the draft scripts and
 - **`scraper/check_categorias.py`** — read-only audit of `categoria` mismatches.
 - **`draft/open.py`** — open the draft: upload the frozen market CSV,
   stamp the starting instant, greet the group. Dry-run without `--write`. See
-  "Abrir el draft" above.
+  "Open the draft" above.
 - **`draft/close.py`** — close the draft, write `{temporada}/disponibilidad.md` +
   `.csv` and say goodbye. Dry-run without `--write`. The api closes itself on
   the last pick but cannot write files, and `close_draft()` is reachable no
-  other way. See "Cerrar el draft" above.
+  other way. See "Close the draft" above.
 - **`draft/backfill_timings.py`** — recover `applied_at` /
   `waited_seconds` from Cloud Logging for picks made before timings shipped,
   and hand the clock over to live tracking.

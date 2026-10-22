@@ -60,8 +60,14 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   `biwenger-bot` (Telegram webhook), `biwenger-summary` (analytics web),
   `chucknorris-bot`, `be-water` (own GCP project).
 - **Jobs** — weekly league-board scraper, monthly be_water catalog sync.
-- **Auto-bid engine** — tiered `min(price × multiplier, price + cap)` with
-  jitter and Firestore idempotency.
+- **Auto-bid engine** — a flat share over the price per tier (+15 / +8 / +6 /
+  +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
+  start, at most three starters per club, jitter and Firestore idempotency.
+- **Market trader** — live: every morning it lists the squad, sells bench
+  fallers and a spare keeper (never a signing under 14 days, never below 15
+  players) and bids on risers, ending at most 1M below zero and never below it
+  on a round's eve. It runs before the offers inbox, which treats its sells as
+  gone.
 - **Lineup optimizer** — memoised backtracking over 14 formations, captain MV
   cap, full bench, applied every morning at 09:00.
 - **Draft** — 105-pick snake draft arbitrated from Telegram, per-pick budget
