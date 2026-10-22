@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 # The draft skill's analysis scripts are not shipped in any image — they run
 # from a laptop, once a year. They are tested anyway because they produce the
@@ -10,6 +10,37 @@ py_library(
     name = "draft_skill_lib",
     srcs = glob(["*.py"]),
 )
+
+# `bazel run` targets, one per script: the hermetic interpreter and the lock's
+# packages, the same ones production runs. A laptop's own Python drifts — its
+# requests 2.28 / urllib3 1.26 got a 403 from Oráculo that the lock's
+# versions do not.
+_RUN_DEPS = [
+    ":draft_skill_lib",
+    "//core:firestore",
+    "//core:jp",
+    "//core:oraculo",
+    "//packages/biwenger_tools/api:api_lib",
+    "@pypi//python_dotenv",
+    "@pypi//requests",
+]
+
+[
+    py_binary(
+        name = script,
+        srcs = [script + ".py"],
+        main = script + ".py",
+        deps = _RUN_DEPS,
+    )
+    for script in [
+        "archetypes",
+        "availability_report",
+        "board",
+        "draft_ranking",
+        "fetch_real_points",
+        "risers",
+    ]
+]
 
 py_test(
     name = "draft_skill_tests",

@@ -16,7 +16,7 @@ the SF of the best captain that both starts and survives price drift. Raw
 effective points (any eligible captain) are reported alongside as the optimistic
 bound.
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/archetypes.py \
+    bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
         --ranked draft-ranked.csv
 """
 

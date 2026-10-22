@@ -10,7 +10,8 @@ account**, shared with the app: a parallel sweep of the market locks the whole
 league out of Biwenger for hours. Hence sequential, delayed, capped by
 `--max-requests`, cached on disk, and it stops at the first 429.
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/fetch_real_points.py \
+    bazel run \
+        //packages/biwenger_tools/.claude/skills/draft/scripts:fetch_real_points -- \
         --shortlist draft-shortlist.csv --out draft-real-points.csv
 """
 

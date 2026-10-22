@@ -5,7 +5,7 @@ it against Firestore, the only record of who is actually gone.
 
 Read-only: `draft/{season}/picks` and the ranked CSV.
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/board.py \
+    bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:board -- \
         --season 26-27 --me Jorge --ranked draft-ranked.csv \
         --real-points draft-real-points.csv --budget 52
 

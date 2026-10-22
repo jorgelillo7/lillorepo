@@ -16,7 +16,7 @@ Biwenger↔JP name overrides (Vinícius Jr → Vini Jr, …) come for free.
 
 Run from the repo root with the JP token available (api `.env` or JP_AUTH_TOKEN):
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/draft_ranking.py \
+    bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:draft_ranking -- \
         --csv /path/to/primera-division.csv --out draft-ranked.csv
 """
 
@@ -58,17 +58,7 @@ _POSITION = {
 }
 
 
-_API_ENV = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "..",
-    "..",
-    "packages",
-    "biwenger_tools",
-    "api",
-    ".env",
-)
+_API_ENV = os.path.join(paths.REPO_ROOT, "packages", "biwenger_tools", "api", ".env")
 
 
 def _jp_token() -> str:

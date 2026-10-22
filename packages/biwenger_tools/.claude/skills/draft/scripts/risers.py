@@ -9,7 +9,7 @@ tell you, and it is independent of Jornada Perfecta.
 Pair it with the frozen price and the bargains fall out: pay the old price for a
 player the market has already re-rated.
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/risers.py \\
+    bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:risers -- \\
         --before ~/Downloads/primera-division.csv \\
         --after "~/Downloads/primera-division (1).csv" \\
         --ranked draft-ranked.csv --season 26-27 --me Jorge --max 2.55
