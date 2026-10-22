@@ -136,6 +136,21 @@ Silencio significa que la skill es reproducible. Cualquier diferencia que no sea
 un dato de mercado que haya cambiado es un fallo de formato, y hay que
 arreglarlo antes de cerrar la temporada.
 
+## Cómo se ejecuta
+
+Todos los scripts van con **`bazel run`**, desde la raíz del repo:
+
+```bash
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:draft_ranking -- --csv ...
+```
+
+Así corren con el intérprete y los paquetes del lock, los mismos que
+producción. Con el Python del Mac no: su `requests 2.28` / `urllib3 1.26` se
+llevó un 403 de Oráculo que con las versiones del lock no aparece, y la
+proyección caía a JP solo sin que el ranking lo pareciera. Las rutas relativas
+se leen desde donde lanzas el comando, y los ficheros de temporada se escriben
+en la carpeta de la skill del workspace (o en `DRAFT_OUT_ROOT`).
+
 ## Inputs the user provides
 
 - **The closed-market CSV** — the user exports it from Biwenger web on the
@@ -157,7 +172,7 @@ token and reuses `core.sdk.jp.fetch_all_players` + the production
 `player_matching`):
 
 ```bash
-PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/draft_ranking.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:draft_ranking -- \
     --csv /path/to/primera-division.csv --out draft-ranked.csv
 ```
 
@@ -176,10 +191,9 @@ draft buys on the number the season will judge it by. Columns it adds:
 | `fixtures` | Dificultad media de sus tres próximos partidos. **Solo informativa**, como en el digest |
 | `id` | El id de Biwenger, para cruzar con `price_snapshots` |
 
-**Oráculo desde el portátil.** Producción lo lee sin problema, pero en local ha
-devuelto 403 al User-Agent con el que el SDK se identifica. No se falsea: el
-ranking cae a JP solo y lo dice. Compara el `oraculo` de la salida antes de fiarte
-del orden.
+**Oráculo.** Si no se puede leer, el ranking cae a JP solo y lo dice: mira
+`blended` en la salida antes de fiarte del orden. Lanzado con `bazel run` se lee
+igual que en producción (ver "Cómo se ejecuta").
 
 It flags players with no JP data (`no_jp_data=True`). **Re-runnable**: JP scores update several times a
 day, so a re-run days later refreshes the points with the same frozen prices —
@@ -201,7 +215,7 @@ Narrow the market to the **30-45 players that actually compete** for the slots
 still open (line, price band, availability), then fetch only those:
 
 ```bash
-PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/fetch_real_points.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:fetch_real_points -- \
     --shortlist draft-shortlist.csv --out draft-real-points.csv
 ```
 
@@ -227,7 +241,7 @@ re-run. Both matter: *70 points in 5 games and
 70 in 38 describe opposite players*. Feed it back in:
 
 ```bash
-PYTHONPATH=. python3 packages/biwenger_tools/.claude/skills/draft/scripts/archetypes.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
     --ranked draft-ranked.csv --real-points draft-real-points.csv \
     --budget 52 --pick-position 3 --managers 7 --max-per-team 2 \
     --out mi-arquetipos.md --decision final-decision.md
@@ -328,7 +342,7 @@ altura del pick 73 la mitad de sus nombres ya estaban cogidos y el gasto real no
 se parecía al planificado. No decidas de memoria ni releyendo el pliego.
 
 ```bash
-PYTHONPATH=. python3 .../scripts/board.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:board -- \
     --season 26-27 --me Jorge --ranked draft-ranked.csv --budget 52
 ```
 
@@ -499,10 +513,10 @@ titular, que es justo lo que un total del año pasado no puede decirte.
 
 ```bash
 # Sin exportar nada: los precios diarios que guarda el digest (60 días)
-PYTHONPATH=. python3 .../scripts/risers.py --days 7 --ranked draft-ranked.csv --max 2.55
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:risers -- --days 7 --ranked draft-ranked.csv --max 2.55
 
 # O, como antes, dos exportaciones separadas unos días
-PYTHONPATH=. python3 .../scripts/risers.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:risers -- \
     --before ~/Downloads/primera-division.csv \
     --after "~/Downloads/primera-division (1).csv" \
     --ranked draft-ranked.csv --max 2.55
@@ -520,7 +534,7 @@ confirma con `fetch_real_points.py` antes de gastar.
 ### La llamada completa, tal cual se usó en el draft 26/27
 
 ```bash
-python3 packages/biwenger_tools/.claude/skills/draft/scripts/archetypes.py \
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
     --ranked draft-ranked.csv --budget 52 --pick-position 3 --managers 7 \
     --exclude "Aubameyang,Soler,Kike Salas" \
     --bets "Fer Niño,Carlos Maciá,Riedel,Pablo Campos,Odysseas,Marc Bernal,Unai López,Adrián Niño,Julio Díaz" \
@@ -600,7 +614,7 @@ and your second — so a plan without this correction is fantasy.
 Close the previous draft with the machine-readable model and feed it back:
 
 ```bash
-PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- --season 26-27
 
 # al año siguiente
 ... archetypes.py --history 26-27/disponibilidad.csv ...
@@ -660,7 +674,7 @@ cierra sola la puerta a `/pick` y `/deshacer` en el último pick, pero corre en
 Cloud Run y no puede escribir en este repo: el histórico lo generas tú.
 
 ```bash
-PYTHONPATH=. python3 .../scripts/availability_report.py --season 26-27
+bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- --season 26-27
 ```
 
 Escribe `26-27/disponibilidad.md` (el relato) y `26-27/disponibilidad.csv` (el modelo que lee

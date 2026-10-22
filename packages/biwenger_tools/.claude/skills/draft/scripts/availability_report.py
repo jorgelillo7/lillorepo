@@ -10,7 +10,8 @@ Reads `draft/{season}/picks` from Firestore and one public competition payload
 Writes `history/{season}.md` (the readable record) and `history/{season}.csv`
 (what `archetypes.py --history` reads) unless told otherwise.
 
-    PYTHONPATH=. python3 .claude/skills/draft/scripts/availability_report.py \
+    bazel run \
+        //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- \
         --season 26-27
 """
 

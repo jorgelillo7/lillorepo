@@ -24,7 +24,20 @@ AVAILABILITY_CSV = "disponibilidad.csv"
 EXCLUSIONS = "exclusiones.txt"
 CACHE = ".cache"
 
-_SKILL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Under `bazel run` this file sits in the runfiles tree; the season folders
+# and the api `.env` live in the workspace, and relative arguments mean the
+# directory the command was typed in.
+_WORKSPACE = os.getenv("BUILD_WORKSPACE_DIRECTORY")
+_SKILL = (
+    os.path.join(_WORKSPACE, "packages/biwenger_tools/.claude/skills/draft")
+    if _WORKSPACE
+    else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
+REPO_ROOT = _WORKSPACE or os.path.abspath(
+    os.path.join(_SKILL, "..", "..", "..", "..", "..")
+)
+if os.getenv("BUILD_WORKING_DIRECTORY"):
+    os.chdir(os.environ["BUILD_WORKING_DIRECTORY"])
 
 
 def season_dir(season: str) -> str:
