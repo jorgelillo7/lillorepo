@@ -24,8 +24,8 @@ plus jitter.
 |---|---|---|
 | T1 | SF ≥ 700 | `price × 1.15` |
 | T2 | 550 ≤ SF < 700 | `price × 1.08` |
-| T3 | 400 ≤ SF < 550 | `price × 1.05` |
-| T4 | 300 ≤ SF < 400 | `price × 1.03` |
+| T3 | 400 ≤ SF < 550 | `price × 1.06` |
+| T4 | 300 ≤ SF < 400 | `price × 1.05` |
 | skip | SF < 300 | — |
 
 **The shares are set from the market, not by feel.** The first calibration
@@ -36,7 +36,12 @@ price, the question became value: the managers who gain value pay a median
 65 %, +3 % 47 %; and +15 % at the top would still have won every one of our 14
 wins. Under the +40 / +20 / +10 / +5 % ladder we won six, all T3/T4, paying
 0.96M over the next best bid (or the price, where nobody else bid — four of the
-six). The earlier ladder — the whole wallet for T1, and
+six). The third reading (22/10, 196 priced auctions) moved only the bottom:
+a bid of +0 % wins 4–12 % of the auctions under 5M and +5 % wins 68–72 %, so
+most rival bids land in that gap and T4's +3 % sat inside it — two of our
+losses went by 2,000–2,500 €. T3 and T4 moved to +6 % and +5 %, just above it;
+T1 and T2 did not move, since the contested stars go for +19–35 % and the 19
+wins still paid 7.6M over the runner-up. The earlier ladder — the whole wallet for T1, and
 `min(price × 1.7 / 1.5 / 1.2, price + 5M / 2M / 500K)` below — had paid 6.36M
 over the runner-up across eight wins (Valverde alone 3.24M). The trader
 (`market-trader`) buys risers at +3 %, which is where squad trading now lives.
@@ -49,7 +54,7 @@ handful of genuine stars and T2 the next nine.
 #### Scenario: each tier's share
 - **WHEN** a T1 / T2 / T3 / T4 player is priced 26M / 14.3M / 10M / 1M with
   cash to spare
-- **THEN** the bid is 29.9M / 15.444M / 10.5M / 1.03M (+ jitter)
+- **THEN** the bid is 29.9M / 15.444M / 10.6M / 1.05M (+ jitter)
 - *Verifies:* `test_each_tier_bids_its_share_over_the_price`
 
 ### Requirement: Inclusive lower boundaries

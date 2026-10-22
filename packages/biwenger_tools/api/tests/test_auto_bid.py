@@ -26,8 +26,8 @@ from packages.biwenger_tools.api.logic.player_matching import build_jp_index
 J = auto_bid.BID_JITTER_MAX
 
 
-# Each tier bids a flat share over the price, set for value from 95 priced
-# auctions of the season. See the auto-bid spec for the measurement.
+# Each tier bids a flat share over the price, set for value from the season's
+# priced auctions. See the auto-bid spec for the measurement.
 
 
 @pytest.mark.parametrize(
@@ -35,8 +35,8 @@ J = auto_bid.BID_JITTER_MAX
     [
         (910, 26_000_000, 29_900_000, "T1"),  # +15 %
         (620, 14_300_000, 15_444_000, "T2"),  # +8 %
-        (500, 10_000_000, 10_500_000, "T3"),  # +5 %
-        (350, 1_000_000, 1_030_000, "T4"),  # +3 %
+        (500, 10_000_000, 10_600_000, "T3"),  # +6 %
+        (350, 1_000_000, 1_050_000, "T4"),  # +5 %
     ],
 )
 def test_each_tier_bids_its_share_over_the_price(sf, price, expected, tier):
@@ -106,11 +106,11 @@ def test_tier_boundaries(sf, expected_band):
 
 def test_tier_jitter_is_within_advertised_range():
     """Sample the jitter empirically; it must never escape [0, BID_JITTER_MAX].
-    SF 500 at 3M is T3: 3M × 1.05 = 3.15M nominal."""
+    SF 500 at 3M is T3: 3M × 1.06 = 3.18M nominal."""
     seen = set()
     for _ in range(500):
         bid, _ = auto_bid.tier_bid(sf=500, price=3_000_000, remaining_cash=50_000_000)
-        seen.add(bid - 3_150_000)
+        seen.add(bid - 3_180_000)
     assert all(0 <= delta <= J for delta in seen)
     assert len(seen) > 10
 
@@ -785,8 +785,8 @@ def test_run_auto_bid_skips_the_injured_and_does_not_all_in_the_benched(run_env)
 
     assert biwenger.place_market_bid.call_count == 1  # only the benched one
     bid = biwenger.place_market_bid.call_args.kwargs["amount"]
-    assert bid == 5_250_000  # clamped to T3: 5M × 1.05
-    assert result["remaining_cash_eur"] == 24_750_000
+    assert bid == 5_300_000  # clamped to T3: 5M × 1.06
+    assert result["remaining_cash_eur"] == 24_700_000
     text = mock_send.call_args.kwargs["text"]
     assert "🚑 No disponible" in text
     assert "rebajado" in text
@@ -1078,7 +1078,7 @@ def test_the_trade_can_be_switched_off_without_a_deploy(run_env):
 
 
 def test_the_reserve_holds_against_a_bottom_tier_signing(run_env):
-    """T4 is squad filler — SF 300-399, bid at 1.03x. A lottery ticket with an
+    """T4 is squad filler — SF 300-399, bid at 1.05x. A lottery ticket with an
     explicit exit is worth more than a marginal body, so the reserve that
     gives way to a real signing holds against this one."""
     market = [_sale(1), _sale(2)]
@@ -1114,8 +1114,8 @@ def test_the_reserve_still_yields_to_a_third_tier_signing(run_env):
     )
     auto_bid.run_auto_bid()
 
-    # The 2.1M T3 bid (2M × 1.05) needs part of the reserve, and gets it.
-    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=2_100_000)
+    # The 2.12M T3 bid (2M × 1.06) needs part of the reserve, and gets it.
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=2_120_000)
 
 
 def test_a_chollo_is_bid_on_before_oraculo_has_projected_anybody(run_env):

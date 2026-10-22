@@ -13,8 +13,8 @@ not T4). Each tier bids a flat share over the price, plus a random
 
     SF ≥ 700        (T1) → price × 1.15
     550 ≤ SF < 700  (T2) → price × 1.08
-    400 ≤ SF < 550  (T3) → price × 1.05
-    300 ≤ SF < 400  (T4) → price × 1.03
+    400 ≤ SF < 550  (T3) → price × 1.06
+    300 ≤ SF < 400  (T4) → price × 1.05
     SF < 300             → skip
 
 The shares come from the season's resolved market (see `TIER_T*_OVERBID`).
@@ -70,15 +70,14 @@ TIER_ALL_IN_MIN = 700
 TIER_T2_MIN = 550
 TIER_T3_MIN = 400
 TIER_T4_MIN = 300
-# Share bid over the price, per tier, for value rather than win rate. On 95
-# priced auctions of the season the managers who gain value pay a median
-# +0-1 %, and +15 % at the top would still have won all 14 of ours; the
-# previous +40 / +20 / +10 / +5 % paid 0.96M over the next best bid across its
-# six wins, four of them uncontested. Spec: auto-bid, "Tier-based bid sizing".
+# Share bid over the price, per tier, for value rather than win rate. Most
+# rival bids land between +0 and +5 % over the price, so T3/T4 sit just above
+# that cliff; T1/T2 stay lower than the contested stars' +20-35 %, which no
+# tier chases. Spec: auto-bid, "Tier-based bid sizing".
 TIER_T1_OVERBID = 0.15
 TIER_T2_OVERBID = 0.08
-TIER_T3_OVERBID = 0.05
-TIER_T4_OVERBID = 0.03
+TIER_T3_OVERBID = 0.06
+TIER_T4_OVERBID = 0.05
 
 # How many players deep a position is considered covered. Roughly the most
 # any formation fields plus one: no shape uses more than 1 GK, 5 DEF, 6 MID
