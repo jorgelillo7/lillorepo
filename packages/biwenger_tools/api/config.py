@@ -71,10 +71,10 @@ AUTO_BID_PAUSED_UNTIL = os.getenv("AUTO_BID_PAUSED_UNTIL", "2026-09-01")
 # the squad, accepts the planned sells' offers and places the bids; `dry_run`
 # plans and reports to Telegram without touching Biwenger; `off` skips the step
 # (the day's price snapshot is still stored). Switch without a deploy:
-#   gcloud run services update biwenger-api --update-env-vars TRADER_MODE=live
-TRADER_MODE = os.getenv("TRADER_MODE", "dry_run").lower()
+#   gcloud run services update biwenger-api --update-env-vars TRADER_MODE=dry_run
+TRADER_MODE = os.getenv("TRADER_MODE", "live").lower()
 # How far below zero the wallet may end away from a round's eve, in euros.
-TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "3000000"))
+TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "1000000"))
 TRADER_SELL_AFTER_FALLS = 2
 # Sales stop here: an eleven plus the four reserves the lineup fills.
 TRADER_MIN_SQUAD = 15
