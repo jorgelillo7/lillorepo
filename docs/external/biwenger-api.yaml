@@ -884,6 +884,17 @@ paths:
           in: query
           description: Field selector; without it neither expansion is returned.
           schema: {type: string, example: "*,reports(*),seasons(*),prices"}
+        - name: season
+          in: query
+          description: |
+            Which season `reports` belong to, as the year it ends — `2026` for
+            2025/26. That season comes back `selected: true` in `seasons[]`.
+            Without it, Biwenger serves the season it has selected, which in
+            pre-season is the new one with no games. Verified 22/10 on `ryan`:
+            `season=2026` returned 36 reports, J3–J38 of 2025/26. Rows of
+            `seasons[]` that carry a `competition` are the same player in
+            another league or a cup, not LaLiga.
+          schema: {type: string, example: "2026"}
       responses:
         "200":
           description: Player with the requested expansions.

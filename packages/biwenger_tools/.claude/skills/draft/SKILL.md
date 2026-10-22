@@ -252,12 +252,11 @@ It computes each player's real `Personalizado` from per-match `rawStats` and
 reports **games played** alongside it. Both matter: *70 points in 5 games and
 70 in 38 describe opposite players*.
 
-**Which season it reads is Biwenger's choice, not yours.** `reports` carry the
-season Biwenger has `selected` and there is no parameter to ask for another. In
-pre-season that is still last season — what the draft needs — until Biwenger
-switches to the new one; the script compares the served season with
-`--season` and warns when they differ, because from then on every total is
-the new season's handful of games. Run Phase B early in pre-season.
+**The season is asked for by name.** `--season 2025-2026` sends Biwenger's
+`season=2026` (the year it ends), so pre-season reads last season's full
+totals even after Biwenger has switched to the new one — verified on Ryan: 36
+games, J3–J38, 247 points. The cache keeps one file per player and season, and
+the script warns if the answer ever comes back for another season.
 
 Matches are counted unless they name another competition: Biwenger stopped
 expanding `match.competition`, and filtering on it read every player as zero

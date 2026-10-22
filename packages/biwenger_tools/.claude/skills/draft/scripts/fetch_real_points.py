@@ -46,7 +46,26 @@ COMPETITION_URL = f"{CF_BASE}/competitions/la-liga/data?lang=es&score=2"
 # and `rawStats`, and every report came back as `{"home": true}` — which reads
 # as a season of zeros rather than as no data at all.
 _REPORTS = "reports(*,match(*,round(*)),rawStats(*))"
-PLAYER_URL = CF_BASE + "/players/la-liga/{slug}?fields=*," + _REPORTS + ",seasons(*)"
+PLAYER_URL = (
+    CF_BASE
+    + "/players/la-liga/{slug}?season={season}&fields=*,"
+    + _REPORTS
+    + ",seasons(*)"
+)
+
+
+def season_id(slug: str) -> str:
+    """Biwenger's id for a season: the year it ends (`2025-2026` → `2026`)."""
+    return slug.rsplit("-", 1)[-1]
+
+
+def player_url(slug: str, season: str) -> str:
+    """The player's page for `season` (a slug such as `2025-2026`). Without
+    the parameter Biwenger serves whichever season it has selected, which in
+    pre-season flips to the new one with no games in it."""
+    return PLAYER_URL.format(slug=slug, season=season_id(season))
+
+
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 POSITION_CODE = {1: "PT", 2: "DF", 3: "MC", 4: "DL"}
@@ -68,8 +87,10 @@ def _norm(text: str) -> str:
 
 
 def _season_row(seasons: list, season_slug: str) -> dict:
+    # Rows naming a `competition` are the same player elsewhere (Serie A, a
+    # World Cup); LaLiga's own carry none.
     for season in seasons or []:
-        if season.get("slug") == season_slug:
+        if season.get("slug") == season_slug and not season.get("competition"):
             return season
     return {}
 
@@ -77,16 +98,20 @@ def _season_row(seasons: list, season_slug: str) -> dict:
 class Fetcher:
     """Sequential, cached, rate-limit-aware reader of the public player endpoint."""
 
-    def __init__(self, cache_dir: str, delay: float, max_requests: int):
+    def __init__(self, cache_dir: str, delay: float, max_requests: int, season: str):
         self.cache_dir = cache_dir
+        self.season = season
         self.delay = delay
         self.remaining = max_requests
         self.requests_made = 0
         self.rate_limited = False
         os.makedirs(cache_dir, exist_ok=True)
 
+    def cache_path(self, slug: str) -> str:
+        return os.path.join(self.cache_dir, f"{slug}-{self.season}.json")
+
     def player(self, slug: str) -> dict | None:
-        cached = os.path.join(self.cache_dir, f"{slug}.json")
+        cached = self.cache_path(slug)
         if os.path.exists(cached):
             with open(cached, encoding="utf-8") as fh:
                 return json.load(fh)
@@ -95,7 +120,7 @@ class Fetcher:
         self.remaining -= 1
         self.requests_made += 1
         response = requests.get(
-            PLAYER_URL.format(slug=slug), headers=HEADERS, timeout=25
+            player_url(slug, self.season), headers=HEADERS, timeout=25
         )
         # 429 means the window is spent for every consumer of this account,
         # the phone app included. Stop; do not retry into a deeper hole.
@@ -128,9 +153,15 @@ def build_index(players: dict) -> dict:
 
 def served_season(seasons: list[dict] | None) -> str | None:
     """The slug of the season `reports` belong to: the one Biwenger marks
-    `selected`. There is no parameter to ask for another, so a pre-season run
-    reads last season only until Biwenger switches to the new one."""
-    return next((s.get("slug") for s in seasons or [] if s.get("selected")), None)
+    `selected` — the requested one, unless the parameter stops working."""
+    return next(
+        (
+            s.get("slug")
+            for s in seasons or []
+            if s.get("selected") and not s.get("competition")
+        ),
+        None,
+    )
 
 
 def league_reports(reports: list[dict]) -> list[dict]:
@@ -154,7 +185,9 @@ def main() -> int:
         "--out", default="", help="por defecto <temporada>/draft-real-points.csv"
     )
     ap.add_argument("--draft-season", default="26-27", help="carpeta de salida")
-    ap.add_argument("--season", default="2025-2026", help="season slug to report")
+    ap.add_argument(
+        "--season", default="2025-2026", help="season to read, e.g. 2025-2026"
+    )
     ap.add_argument(
         "--max-requests",
         type=int,
@@ -191,7 +224,7 @@ def main() -> int:
     cache = args.cache_dir or os.path.join(
         paths.season_dir(args.draft_season), paths.CACHE, "players"
     )
-    fetcher = Fetcher(cache, args.delay, args.max_requests)
+    fetcher = Fetcher(cache, args.delay, args.max_requests, args.season)
     rows, unmatched, no_history = [], [], []
     served: set = set()
     for name in names:
@@ -301,9 +334,8 @@ def main() -> int:
     if other:
         print(
             f"\n⚠️  Los partidos son de {', '.join(sorted(other))}, no de "
-            f"{args.season}: Biwenger sirve la temporada que tiene seleccionada "
-            "y no se puede pedir otra. En pretemporada, si ya ha cambiado a la "
-            "nueva, estos totales no son los del año pasado.",
+            f"{args.season}: Biwenger no ha respetado el parámetro `season`. "
+            "Estos totales no son los de la temporada pedida.",
             file=sys.stderr,
         )
     return 0

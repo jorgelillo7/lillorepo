@@ -773,3 +773,30 @@ def test_the_board_counts_what_survives_of_each_tier():
     taken = {"d9", "d8", "d0"}
     survival = board.tier_survival(market, taken, managers=7)
     assert survival["DF"] == [("A", 5, 7), ("B", 2, 3)]
+
+
+# --- asking Biwenger for a season by name --------------------------------
+
+
+def test_the_season_parameter_is_the_year_the_season_ends():
+    """`season=2026` returns 2025/26's reports (verified on Ryan: 36 games,
+    J3-J38, 2025-2026 `selected`), whatever season Biwenger is showing."""
+    assert frp.season_id("2025-2026") == "2026"
+    url = frp.player_url("ryan", "2025-2026")
+    assert "season=2026" in url and "/players/la-liga/ryan?" in url
+
+
+def test_the_cache_keeps_each_season_apart(tmp_path):
+    """The same player in two seasons is two answers; one cache file each."""
+    fetcher = frp.Fetcher(str(tmp_path), delay=0, max_requests=0, season="2025-2026")
+    other = frp.Fetcher(str(tmp_path), delay=0, max_requests=0, season="2026-2027")
+    assert fetcher.cache_path("ryan") != other.cache_path("ryan")
+
+
+def test_the_season_row_is_laliga_s_not_another_competition_s():
+    seasons = [
+        {"slug": "2025-2026", "games": 0, "competition": {"slug": "serie-a"}},
+        {"slug": "2025-2026", "games": 36, "selected": True},
+    ]
+    assert frp._season_row(seasons, "2025-2026")["games"] == 36
+    assert frp.served_season(seasons) == "2025-2026"
