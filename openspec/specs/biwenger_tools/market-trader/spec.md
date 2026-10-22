@@ -76,6 +76,13 @@ the rest would no longer field a full eleven of players the projection expects
 to play. Either way he is held, and the plan says why. Good players are kept
 for their points; price rotation is for the bench, and the bench is kept.
 
+With two keepers in the squad, the one the best eleven leaves out SHALL be sold
+whatever his price does: a manager's only keeper cannot be claused, a second one
+exposes both. Auto-bid only signs a keeper who would start (`auto-bid`), so this
+is the step that sells the one he replaces. The minimum squad, the
+eleven-that-plays guard and the signing hold still apply: a new keeper who drops
+out of the eleven for a week is not sold cheap days after he was bought.
+
 A player signed less than `TRADER_HOLD_DAYS` (14, the two weeks Biwenger locks
 a clause after a signing) ago SHALL NOT be sold for falling: auto-bid signs on
 projection, and selling him on the first dip buys high and sells low. The hold
@@ -107,7 +114,15 @@ most days, so it sold players still gaining value.
 - **WHEN** a player has no signing date **THEN** he is not held
 - **WHEN** a player is left out by the projection **THEN** he does not count
   towards the eleven
+- **WHEN** the squad holds two keepers **THEN** the one out of the eleven is
+  sold on a flat price, never the one who starts, and never below the minimum
+  squad; a new keeper who drops out of the eleven is held while the signing
+  hold lasts
 - *Verifies:*
+  `test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price`,
+  `test_the_keeper_who_starts_is_never_the_one_sold`,
+  `test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing`,
+  `test_a_second_keeper_still_stops_at_the_minimum_squad`,
   `test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven`,
   `test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls`,
   `test_sales_stop_at_the_minimum_squad_so_a_bench_is_left`,
@@ -128,8 +143,9 @@ most days, so it sold players still gaining value.
 
 A market player rising for `TRADER_BUY_AFTER_RISES` days or more, projected at
 `TRADER_BUY_MIN_SF` or above and not already owned, SHALL be bid his price plus
-`TRADER_BUY_MARGIN` — for the line with the fewest players first, then the best
-projection, never past `MAX_SQUAD_SIZE`. A goalkeeper is never bought: a
+`TRADER_BUY_MARGIN` — for the line with the fewest players first (a versatile
+player counts on every line he can play, `alt_positions` included), then the
+best projection, never past `MAX_SQUAD_SIZE` counting the bids already waiting. A goalkeeper is never bought: a
 manager's only keeper cannot be claused (league rule, as in
 `clausulazo-emergency`), and a second one can. Nor is a riser from a club with
 `MAX_PLAYERS_PER_CLUB` (3) already counted — the best eleven's starters, the
@@ -146,6 +162,9 @@ cap auto-bid applies.
   **THEN** the short line is bought first
 - **WHEN** the riser is a goalkeeper **THEN** he is never bid
 - **WHEN** the squad is full **THEN** nobody is bid, and the plan says so
+- **WHEN** the morning's waiting bids would fill the squad **THEN** nobody is bid
+- **WHEN** a squad player can play two lines **THEN** he counts on both when
+  choosing the thinnest
 - **WHEN** three of a riser's club start in the best eleven, counting bids
   waiting **THEN** he is not bid, and the plan says so; reserves do not count
 - *Verifies:* `test_a_market_player_rising_three_days_is_bid_just_over_his_price`,
@@ -156,7 +175,8 @@ cap auto-bid applies.
   `test_two_days_up_is_not_yet_a_trend`,
   `test_the_best_projected_riser_is_bought_first`,
   `test_buys_go_to_the_thinnest_line_first`, `test_a_goalkeeper_is_never_bought`,
-  `test_a_full_squad_buys_nobody`
+  `test_a_full_squad_buys_nobody`, `test_bids_already_waiting_count_towards_a_full_squad`,
+  `test_a_versatile_player_covers_every_line_he_can_play`
 
 ### Requirement: No negative wallet on a round's eve
 

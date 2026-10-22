@@ -23,9 +23,10 @@ breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 
 `run_daily` SHALL send both images ("Mi equipo", then "Mercado") **before**
 setting the lineup and running auto-bid exactly once, so the chat reads
-squad → market → lineup → bids. It then chains the offers inbox, accept-only,
-after auto-bid, and last the trading plan (`market-trader`), on the rows and
-rounds already read.
+squad → market → lineup → bids. It then chains the trading plan
+(`market-trader`), on the rows and rounds already read, and last the offers
+inbox, accept-only, handed the players the trader sells — so the two never sell
+the squad below its minimum between them (`offers-inbox`).
 
 The lineup step SHALL reuse the context the digest already built, so chaining it
 costs no second JP + Biwenger round-trip, and SHALL be switchable off by
@@ -37,9 +38,11 @@ sends.
 #### Scenario: happy path ordering
 - **WHEN** credentials are present and both images send
 - **THEN** 2 images go out, then `run_auto_bid` is called once, then the
-  offers inbox; the summary carries each step's result
+  trader, then the offers inbox with the trader's sells; the summary carries
+  each step's result
 - *Verifies:* `test_run_daily_chains_auto_bid_after_sending_images`,
-  `test_run_daily_chains_offers_inbox_after_auto_bid`
+  `test_run_daily_chains_offers_inbox_after_auto_bid`,
+  `test_the_trader_runs_before_the_offers_and_hands_them_its_sells`
 
 #### Scenario: no credentials
 - **WHEN** Telegram credentials are missing
@@ -50,7 +53,8 @@ sends.
 ### Requirement: The morning interrupts only for what needs acting on
 
 `run_daily` SHALL NOT send the league's squad values, and SHALL send an offer
-only when it is scored ACEPTAR — no DUDOSO, no "descartadas" summary.
+only when it is scored ACEPTAR, or was and is held back by the squad floor — no
+other DUDOSO, no "descartadas" summary.
 
 Both are available on demand (`/comparar`, `/ofertas`), and a briefing that
 arrives with six to eight messages every morning trains its reader to skim

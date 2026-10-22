@@ -640,3 +640,24 @@ def test_a_failing_trader_never_costs_the_digest():
 
     mock_offers.assert_called_once()
     assert "fs down" in result["trader"]["error"]
+
+
+def test_the_trader_runs_before_the_offers_and_hands_them_its_sells():
+    """The offers step must know who the trader is selling, or the two can
+    sell the squad below its minimum between them."""
+    stack, _, _, mock_offers = _digest_env()
+    order = []
+    mock_offers.side_effect = lambda *a, **k: order.append("offers") or {}
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(
+            _patches("trader_run.run"),
+            side_effect=lambda *a, **k: order.append("trader") or {"selling": [7, 8]},
+        ):
+            digests.run_daily()
+    finally:
+        stack.close()
+
+    assert order == ["trader", "offers"]
+    assert mock_offers.call_args.kwargs["trader_sells"] == {7, 8}

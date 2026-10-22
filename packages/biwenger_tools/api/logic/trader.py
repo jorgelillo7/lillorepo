@@ -111,6 +111,11 @@ def _days_held(row: dict, now: float) -> int | None:
     return None if not signed else int((now - signed) // 86_400)
 
 
+def _lines(row: dict) -> set:
+    """Every line a player can be fielded in: his position and `alt_positions`."""
+    return {row.get("position_id"), *(row.get("alt_positions") or [])} - {None}
+
+
 def plan_sells(
     squad: list[dict],
     history: list[dict[int, int]],
@@ -122,17 +127,25 @@ def plan_sells(
     weakest projection first, and why the others stay. Never a starter of the
     best eleven, never below `min_squad` — an eleven and a bench — never one
     whose sale leaves no eleven that plays, and never a faller signed less than
-    `hold_days` ago."""
+    `hold_days` ago. A keeper left out of the eleven goes too, whatever his
+    price: a manager's only keeper cannot be claused, a second one exposes both."""
+    starters = best_eleven_ids(squad)
+    keepers = [r for r in squad if r.get("position_id") == lineup.GK]
+    spare_keepers = (
+        {r["bw_id"] for r in keepers if r["bw_id"] not in starters}
+        if len(keepers) > 1
+        else set()
+    )
     fallers = sorted(
         (
             (row, s)
             for row in squad
             if (s := streak(history, row["bw_id"])) <= -rules.sell_after_falls
             or lineup.projected_sf(row) < rules.dead_sf
+            or row["bw_id"] in spare_keepers
         ),
         key=lambda rs: (lineup.projected_sf(rs[0]), rs[1]),
     )
-    starters = best_eleven_ids(squad)
     keep = list(squad)
     sells: list[Move] = []
     held: list[tuple[dict, str]] = []
@@ -141,6 +154,7 @@ def plan_sells(
             held.append((row, "titular del mejor once"))
             continue
         days = _days_held(row, now)
+        spare = row["bw_id"] in spare_keepers
         dead = lineup.projected_sf(row) < rules.dead_sf
         if not dead and days is not None and days < rules.hold_days:
             held.append((row, f"fichado hace {days} días, protegido {rules.hold_days}"))
@@ -153,11 +167,12 @@ def plan_sells(
             held.append((row, "sin él no queda un once que juegue"))
             continue
         keep = rest
-        why = (
-            ""
-            if s <= -rules.sell_after_falls
-            else f"proyección baja (SF {lineup.projected_sf(row)})"
-        )
+        if spare:
+            why = "segundo portero: con dos, los dos se pueden clausular"
+        elif s <= -rules.sell_after_falls:
+            why = ""
+        else:
+            why = f"proyección baja (SF {lineup.projected_sf(row)})"
         sells.append(Move(row, int(row.get("price") or 0), s, why))
     return sells, held, keep
 
@@ -174,8 +189,10 @@ def plan_buys(
 ) -> tuple[list[Move], list[tuple[dict, str]], int]:
     """`(buys, skipped, wallet_after)`: the risers to bid on while the wallet
     stays at or above `floor` — the thinnest line first, then the best
-    projection. Never a goalkeeper: a manager's only keeper cannot be claused,
-    a second one can. A player with a bid already waiting is left alone.
+    projection; a versatile player counts on every line he can play. Bids
+    already waiting count towards `max_squad`. Never a goalkeeper: a manager's
+    only keeper cannot be claused, a second one can. A player with a bid
+    already waiting is left alone.
     `max_per_club` counts the best eleven's starters, the bids waiting and the
     day's buys — never the bench, so weak reserves cannot block a good one."""
     owned = {r["bw_id"] for r in keep}
@@ -188,7 +205,7 @@ def plan_buys(
         and (s := streak(history, row["bw_id"])) >= rules.buy_after_rises
         and lineup.projected_sf(row) >= rules.buy_min_sf
     ]
-    line = Counter(r.get("position_id") for r in keep)
+    line = Counter(p for r in keep for p in _lines(r))
     starters = best_eleven_ids(keep)
     clubs = Counter(
         r.get("team_id")
@@ -202,13 +219,13 @@ def plan_buys(
         row, s = min(
             risers,
             key=lambda rs: (
-                line[rs[0].get("position_id")],
+                min((line[p] for p in _lines(rs[0])), default=0),
                 -lineup.projected_sf(rs[0]),
                 -rs[1],
             ),
         )
         risers.remove((row, s))
-        if len(keep) + len(buys) >= rules.max_squad:
+        if len(keep) + len(already_bid) + len(buys) >= rules.max_squad:
             skipped.append((row, "plantilla llena"))
             continue
         club = row.get("team_id")
@@ -225,7 +242,7 @@ def plan_buys(
             continue
         wallet -= bid
         buys.append(Move(row, bid, s))
-        line[row.get("position_id")] += 1
+        line.update(_lines(row))
         if club is not None:
             clubs[club] += 1
     return buys, skipped, wallet

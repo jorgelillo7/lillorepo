@@ -119,6 +119,28 @@ descending.
 - *Verifies:* `test_build_candidates_drops_user_listings_and_unmatched_players`,
   `test_build_candidates_sorts_by_sf_descending`
 
+### Requirement: A keeper is signed only to replace the one owned
+
+A goalkeeper on the market SHALL get a bid only when he projects above the
+keeper the squad already starts and JP has him in his club's eleven. A
+manager's only keeper cannot be claused (league rule, as in
+`clausulazo-emergency`); a second one exposes both, so a keeper behind the
+current one is skipped — chollo or not — and the summary says who he does not
+beat. One who would start is bid as usual, and the summary names the keeper he
+replaces; the trader then sells that one (`market-trader`). Without the squad
+nothing is skipped: a signal not read must not suppress a bid.
+
+#### Scenario: keepers
+- **WHEN** a market keeper projects below the one owned **THEN** no bid, and
+  the summary shows "Segundo portero"; the same for a chollo keeper
+- **WHEN** he projects above **THEN** he is bid, and the summary names the
+  keeper he replaces
+- **WHEN** the squad could not be read **THEN** he is bid as before
+- *Verifies:* `test_a_keeper_who_would_not_start_gets_no_bid`,
+  `test_a_keeper_who_would_start_is_bid_on_and_the_other_is_named`,
+  `test_a_chollo_keeper_who_would_not_start_gets_no_bid_either`,
+  `test_without_the_squad_a_keeper_is_still_bid_on`
+
 ### Requirement: A bid is priced on whether the player will be on a pitch
 
 The tier ladder reads a single SF number, and JP hands a high one to players who

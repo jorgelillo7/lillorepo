@@ -1,7 +1,7 @@
-"""Daily digest — "my team + market + lineup + auto-bid + offers + trades" to Telegram.
+"""Daily digest — "my team + market + lineup + auto-bid + trades + offers" to Telegram.
 
 Used by `POST /digests/daily`, which Cloud Scheduler hits once a day. The
-chain (squad → market → lineup → bids → offers → trading plan) is fired in this
+chain (squad → market → lineup → bids → trading plan → offers) is fired in this
 order so the user gets a coherent morning briefing in guaranteed sequence,
 instead of multiple independent Scheduler jobs racing.
 
@@ -203,12 +203,14 @@ def _safe_run_protection_watch(ctx) -> dict:
         return {"error": str(exc)}
 
 
-def _safe_run_offers_inbox(ctx) -> dict:
+def _safe_run_offers_inbox(ctx, trader_sells: set) -> dict:
     """Run the offers inbox step but never raise. Reuses the digest's ctx
     so we don't pay a second JP+Biwenger round-trip. Accept-only: the morning
-    interrupts for an offer worth taking; `/ofertas` shows every one."""
+    interrupts for an offer worth taking; `/ofertas` shows every one. The
+    trader's sells count as gone, so the two never sell the squad below its
+    minimum between them."""
     try:
-        return offers.run_offers_inbox(ctx, only_accept=True)
+        return offers.run_offers_inbox(ctx, only_accept=True, trader_sells=trader_sells)
     except Exception as exc:
         logger.exception("Offers inbox step failed inside daily digest.")
         return {"error": str(exc)}
@@ -339,8 +341,8 @@ def _run_daily_inner() -> dict:
     else:
         auto_bid_result = _safe_run_auto_bid()
     protection_result = _safe_run_protection_watch(ctx)
-    offers_result = _safe_run_offers_inbox(ctx)
     trader_result = _safe_run_trader(ctx, built, rounds, token, chat_id)
+    offers_result = _safe_run_offers_inbox(ctx, set(trader_result.get("selling") or []))
 
     sent_count = int(team_sent) + int(market_sent)
     logger.info(

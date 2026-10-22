@@ -51,6 +51,7 @@ from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import rows
+from packages.biwenger_tools.api.logic.lineup import GK
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.logic.trader import best_eleven_ids
@@ -348,6 +349,24 @@ def _club_counts(squad_rows: list) -> Counter:
     )
 
 
+def _starting_keeper(squad_rows: list) -> dict | None:
+    """The owned keeper who projects best, or None without one."""
+    keepers = [r for r in squad_rows if r.get("position_id") == GK]
+    return max(keepers, key=lambda r: shown_score(r) or 0, default=None)
+
+
+def _keeper_verdict(candidate: dict, keeper: dict | None) -> str | None:
+    """For a keeper on the market: `"skip"` when he would not start over the
+    one owned, `"replace"` when he would, None for anyone else. A manager's
+    only keeper cannot be claused; a second one exposes both, so a keeper is
+    only worth buying to replace the current one."""
+    if candidate.get("position_id") != GK or keeper is None:
+        return None
+    if candidate["uncalled"] or candidate["sf"] <= (shown_score(keeper) or 0):
+        return "skip"
+    return "replace"
+
+
 def _would_start(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
     """Whether a signing goes into the eleven, and so into his club's count."""
     return not candidate["uncalled"] and not _would_be_bench(candidate, by_pos)
@@ -400,6 +419,7 @@ def _format_skip_line(entry: dict, esc) -> str:
     - `unavailable` → 🚑 (injured, suspended or no fixture).
     - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
     - `club_full`   → 🏟️ (already `MAX_PLAYERS_PER_CLUB` from his club).
+    - `second_keeper` → 🧤 (a keeper who would not start over the owned one).
     - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
 
     The `no_cash` branch is the user-visible payoff: it stops looking
@@ -424,6 +444,11 @@ def _format_skip_line(entry: dict, esc) -> str:
         return f"🚑 No disponible <b>{name}</b> · SF {esc(entry.get('sf', 0))}"
     if kind == "biwenger_reject":
         return f"⚠️ Biwenger rechazó <b>{name}</b>"
+    if kind == "second_keeper":
+        return (
+            f"🧤 Segundo portero <b>{name}</b> · no supera a "
+            f"{esc(entry.get('keeper', 'tu portero'))}"
+        )
     if kind == "club_full":
         return (
             f"🏟️ Tope por equipo <b>{name}</b> · "
@@ -529,11 +554,14 @@ def run_auto_bid() -> dict:
         )
         squad_by_pos = _squad_sf_by_position(squad_rows)
         clubs = _club_counts(squad_rows)
+        keeper = _starting_keeper(squad_rows)
     except Exception:
         logger.exception("Squad fetch failed — bidding without the depth signal.")
         squad_by_pos = {}
         clubs = None
+        keeper = None
 
+    keeper_name = (keeper or {}).get("name") or "tu portero"
     remaining_cash = int(biwenger.get_account_state().get("cash") or 0)
 
     day = _today_madrid()
@@ -574,6 +602,18 @@ def run_auto_bid() -> dict:
             )
             continue
 
+        keeper_verdict = _keeper_verdict(candidate, keeper)
+        if keeper_verdict == "skip":
+            skipped.append(
+                {
+                    "player_id": candidate["player_id"],
+                    "name": candidate["name"],
+                    "kind": "second_keeper",
+                    "keeper": keeper_name,
+                }
+            )
+            continue
+
         if (
             clubs is not None
             and club is not None
@@ -601,6 +641,8 @@ def run_auto_bid() -> dict:
         )
         if cap_reason:
             label = f"{label} · rebajado: {cap_reason}"
+        if keeper_verdict == "replace":
+            label = f"{label} · sustituye a {keeper_name}, que se vende"
         if (
             target_bid is not None
             and not candidate.get("chollo")

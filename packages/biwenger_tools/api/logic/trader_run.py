@@ -110,6 +110,7 @@ def run(
         "round_eve": result.round_eve,
         "sold" if live else "sells": [m.row["bw_id"] for m in result.sells],
         "bid" if live else "buys": [m.row["bw_id"] for m in result.buys],
+        "selling": [m.row["bw_id"] for m in result.sells + result.waiting],
         "cash_after": result.cash_after,
     }
     logger.info("Trader planned.", extra=summary)
