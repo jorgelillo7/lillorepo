@@ -590,3 +590,80 @@ def test_bench_players_from_a_club_do_not_fill_its_cap():
         rules=CLUB,
     )
     assert [m.row["bw_id"] for m in result.buys] == [60]
+
+
+# --- squad shape: keepers, versatile players, bids already waiting -----------
+
+
+def test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price():
+    """A manager's only keeper cannot be claused; a second one exposes both,
+    so the one left out of the eleven goes, whatever his price does."""
+    squad = _eleven() + [_player(2, 350, GK), _player(40, 380, MID)]
+    result = _plan(squad, [], _flat())
+    assert [m.row["bw_id"] for m in result.sells] == [2]
+    assert "portero" in result.sells[0].reason
+
+
+def test_the_keeper_who_starts_is_never_the_one_sold():
+    squad = _eleven() + [_player(2, 900, GK)]
+    result = _plan(squad, [], _flat())
+    assert [m.row["bw_id"] for m in result.sells] == [1]
+
+
+def test_a_second_keeper_still_stops_at_the_minimum_squad():
+    squad = _eleven() + [_player(2, 350, GK)]
+    rules = Rules(**{**RULES.__dict__, "min_squad": 12})
+    result = plan(
+        squad, [], _flat(), cash=0, round_eve=False, negative_limit=0, rules=rules
+    )
+    assert result.sells == []
+    assert [why for _, why in result.held] == ["plantilla mínima"]
+
+
+def test_a_versatile_player_covers_every_line_he_can_play():
+    """The thinnest line goes first, and a DEF/MID counts on both: with four
+    midfielders, four forwards and a DEF/MID spare, forward is the thin line."""
+    spare = dict(_player(40, 300, DEF), alt_positions=[MID])
+    squad = _eleven() + [spare, _player(41, 300, FWD), _player(42, 300, FWD)]
+    market = [_player(50, 500, MID), _player(51, 400, FWD)]
+    result = _plan(squad, market, _history(p50=100_000, p51=100_000), cash=10_000_000)
+    assert [m.row["bw_id"] for m in result.buys][0] == 51
+
+
+def test_bids_already_waiting_count_towards_a_full_squad():
+    """The morning's auto-bids land in the squad too; buying past them would
+    take it over the maximum."""
+    squad = _eleven() + [_player(60 + i, 100, DEF) for i in range(13)]
+    market = [_player(50, 500, MID)]
+    result = plan(
+        squad,
+        market,
+        _history(p50=100_000),
+        cash=10_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=RULES,
+        already_bid={70},
+    )
+    assert result.buys == []
+    assert [why for _, why in result.skipped] == ["plantilla llena"]
+
+
+def test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing():
+    """Signed to replace the old keeper, then injured for a week: the eleven
+    picks the old one, and the hold keeps the new one from going cheap."""
+    injured = dict(_player(2, 700, GK), acq_date=86_400 * 9)
+    injured["jp_player"] = {**injured["jp_player"], "status": "injured"}
+    squad = _eleven() + [injured]
+    rules = Rules(**{**RULES.__dict__, "hold_days": 14})
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=rules,
+        now=86_400 * 10,
+    )
+    assert result.sells == []

@@ -67,6 +67,42 @@ of running a second opinion, not a regression.
 - **THEN** the recommendation follows the blended tier, not the raw one
 - *Verifies:* `test_run_offers_inbox_scores_the_offer_on_the_blended_projection`
 
+### Requirement: One squad between the offers and the trader
+
+The offers inbox SHALL NOT recommend selling the squad below
+`TRADER_MIN_SQUAD`. The players the trader sells or has listed that morning
+count as gone; the room left goes to the ACEPTAR offers furthest over the
+market, and the rest become DUDOSO, saying the floor is why. Bids still waiting
+do not count — an auction can be lost — and a sale the trader already closed
+is not subtracted twice, since the squad read no longer holds him. The digest still sends an offer held
+back this way: it was worth taking alone, and hiding it would hide the
+trade-off. An offer for a player the trader is selling keeps its verdict and
+says the trader has him listed. An unread squad holds nothing back.
+
+A starter whose eleven barely notices his sale reads "Titular con recambio",
+with what the eleven loses — never "Fondo de armario", which contradicts the
+role line above it.
+
+#### Scenario: the floor
+- **WHEN** the trader sells two of seventeen and two more offers score ACEPTAR
+  **THEN** both become DUDOSO naming the minimum
+- **WHEN** room is left for one **THEN** it goes to the offer furthest over the
+  market
+- **WHEN** the offer is for a player the trader sells **THEN** it stays ACEPTAR
+  and says so
+- **WHEN** an offer is held back by the floor **THEN** the digest still sends it
+- **WHEN** the squad could not be read **THEN** nothing is held back
+- **WHEN** a starter with cover scores ACEPTAR on profit **THEN** the reason
+  says "Titular con recambio" and the SF the eleven loses
+- *Verifies:*
+  `test_offers_that_would_take_the_squad_below_its_minimum_are_held_back`,
+  `test_the_room_left_goes_to_the_offer_furthest_over_the_market`,
+  `test_an_offer_for_a_player_the_trader_sells_says_so_and_stays_accepted`,
+  `test_an_offer_held_back_by_the_floor_still_reaches_the_digest`,
+  `test_an_unread_squad_holds_no_offer_back`,
+  `test_a_sale_the_trader_already_closed_is_not_counted_twice`,
+  `test_a_starter_with_cover_is_not_called_squad_filler`
+
 ### Requirement: Squad depth outranks the projection band
 
 A player's JP projection says how well he is expected to *score*; it does not say

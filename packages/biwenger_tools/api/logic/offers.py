@@ -125,6 +125,7 @@ def run_offers_inbox(
     *,
     notify_empty: bool = False,
     only_accept: bool = False,
+    trader_sells: frozenset | set = frozenset(),
 ) -> dict:
     """Fetch + score the inbox, post one Telegram message per offer.
 
@@ -140,7 +141,11 @@ def run_offers_inbox(
         staring at the "procesando…" line forever.
 
     `only_accept` (the digest) sends only the offers scored ACEPTAR, each with
-    its buttons, and nothing else — no DUDOSO, no "descartadas" summary.
+    its buttons, and nothing else — no DUDOSO, no "descartadas" summary — plus
+    any ACEPTAR held back by the squad floor (`apply_squad_floor`).
+
+    `trader_sells` are the players the trader sells or has listed today; they
+    count as gone when the floor is applied.
     """
     ctx = ctx or build_context()
     telegram = require_telegram()
@@ -184,8 +189,7 @@ def run_offers_inbox(
     # message only — the recommendation below never reads it.
     upcoming = read_fixture_runs(ctx.biwenger)
 
-    actionable: list[dict] = []
-    muted: list[dict] = []
+    every: list[dict] = []
     for offer in inbox:
         scored = _score_offer(
             offer, ctx, acq_by_id, starter_ids, my_team, xi_base, deadline
@@ -195,6 +199,18 @@ def run_offers_inbox(
                 "Skipping malformed offer.", extra={"offer_id": offer.get("id")}
             )
             continue
+        every.append(scored)
+    apply_squad_floor(
+        every,
+        squad_size=len(my_team),
+        trader_sells=set(trader_sells),
+        min_squad=config.TRADER_MIN_SQUAD,
+        squad_ids={row["bw_id"] for row in my_team},
+    )
+
+    actionable: list[dict] = []
+    muted: list[dict] = []
+    for scored in every:
         scored["fixture"] = (
             None
             if upcoming is None
@@ -202,7 +218,11 @@ def run_offers_inbox(
                 fixture_run.next_ratings(upcoming, scored.get("team_id"), 5)
             )
         )
-        if only_accept and scored["recommendation"] != REC_ACCEPT:
+        if (
+            only_accept
+            and scored["recommendation"] != REC_ACCEPT
+            and not scored.get("floor_held")
+        ):
             muted.append(scored)
         elif _is_muted(scored):
             muted.append(scored)
@@ -235,6 +255,48 @@ def run_offers_inbox(
         "actionable": len(actionable),
         "muted": len(muted),
     }
+
+
+def apply_squad_floor(
+    scored: list[dict],
+    *,
+    squad_size: int,
+    trader_sells: set,
+    min_squad: int,
+    squad_ids: set | None = None,
+) -> None:
+    """Hold back the ACEPTAR offers the squad cannot afford to lose, in place.
+
+    The players the trader sells count as gone already — only those still in
+    `squad_ids` are subtracted, since a sale closed in live has left the squad
+    read already. The room left above
+    `min_squad` goes to the accepted offers furthest over the market, and the
+    rest become DUDOSO with `floor_held` set. Bids still waiting do not count:
+    an auction can be lost. An offer for a player the trader sells keeps its
+    verdict and says so. An empty squad is a read that failed, not a squad of
+    nobody, so it holds nothing back.
+    """
+    if squad_size == 0:
+        return
+    still_here = trader_sells if squad_ids is None else trader_sells & squad_ids
+    room = squad_size - len(still_here) - min_squad
+    accepted = sorted(
+        (s for s in scored if s["recommendation"] == REC_ACCEPT),
+        key=lambda s: -(s.get("vs_market_pct") or 0),
+    )
+    for s in accepted:
+        if s.get("player_id") in trader_sells:
+            s["reasons"].append("El trader ya lo tiene en venta")
+            continue
+        if room > 0:
+            room -= 1
+            continue
+        s["recommendation"] = REC_DOUBTFUL
+        s["floor_held"] = True
+        s["reasons"].append(
+            f"Pero bajarías de {min_squad} jugadores contando las ventas del "
+            "trader; acéptala si entra un fichaje o vendes a otro"
+        )
 
 
 def _is_muted(scored: dict) -> bool:
@@ -644,9 +706,16 @@ def _recommend(
 
     # 5. Descarte o fondo de armario con plusvalía → ACEPTAR.
     if sf < ab.TIER_T3_MIN and roi_pct is not None and roi_pct > 0:
-        reasons.append(
-            f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"
-        )
+        if is_starter:
+            loss = "" if xi_loss is None else f", tu 11 pierde {xi_loss} SF"
+            reasons.append(
+                f"Titular con recambio (SF {sf}{loss}) y plusvalía "
+                f"{roi_pct:+.0f}% vs compra"
+            )
+        else:
+            reasons.append(
+                f"Fondo de armario (SF {sf}) y plusvalía {roi_pct:+.0f}% vs compra"
+            )
         return REC_ACCEPT, reasons
 
     # 6. Oferta claramente por encima del valor cf-base → ACEPTAR.

@@ -185,3 +185,11 @@ def test_a_planned_sell_without_an_offer_waits_listed(monkeypatch):
     ctx.biwenger.decide_offer.assert_not_called()
     assert result["sold"] == []
     assert "sin oferta" in sent[0]
+
+
+def test_the_summary_names_everyone_the_trader_is_selling(monkeypatch):
+    """Sold or still listed, they are gone as far as the offers step is
+    concerned; it reads them from here."""
+    ctx = _ctx(cash=5_000_000)
+    result, _ = _live(monkeypatch, ctx)
+    assert result["selling"] == [40]

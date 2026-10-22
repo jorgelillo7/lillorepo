@@ -1268,3 +1268,78 @@ def test_bench_players_from_a_club_do_not_fill_its_cap(run_env):
     auto_bid.run_auto_bid()
 
     assert biwenger.place_market_bid.call_count == 1
+
+
+# --- one keeper: a second can be claused, and exposes the first ----------------
+
+
+def _keeper(player_id, name, price=3_000_000):
+    return {"id": player_id, "name": name, "price": price, "position": 1}
+
+
+def test_a_keeper_who_would_not_start_gets_no_bid(run_env):
+    """A manager's only keeper cannot be claused. Signing a second one who
+    sits behind him buys a bench body and exposes both."""
+    biwenger_players, jp_players, squad = _eleven_with(0)
+    biwenger_players[30] = _keeper(30, "Reserva")
+    jp_players.append(_jp_starter("Reserva", 500))
+    biwenger, mock_send = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+    )
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 0
+    assert "Segundo portero <b>Reserva</b>" in mock_send.call_args.kwargs["text"]
+
+
+def test_a_keeper_who_would_start_is_bid_on_and_the_other_is_named(run_env):
+    """Worth it only to replace the current keeper, who the trader then sells."""
+    biwenger_players, jp_players, squad = _eleven_with(0)
+    biwenger_players[30] = _keeper(30, "Mejor")
+    jp_players.append(_jp_starter("Mejor", 700))
+    biwenger, mock_send = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+    )
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1
+    assert "sustituye a Starter1" in mock_send.call_args.kwargs["text"]
+
+
+def test_a_chollo_keeper_who_would_not_start_gets_no_bid_either(run_env):
+    biwenger_players, jp_players, squad = _eleven_with(0)
+    biwenger_players[30] = _keeper(30, "Ganga", price=800_000)
+    jp_players.append(_jp_starter("Ganga", 100))
+    biwenger, _ = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+        oraculo_index=_chollo_index("Ganga"),
+    )
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 0
+
+
+def test_without_the_squad_a_keeper_is_still_bid_on(run_env):
+    """A signal we could not read must not quietly suppress a bid."""
+    biwenger, _ = run_env(
+        market_players=[_sale(30)],
+        biwenger_players={30: _keeper(30, "Portero")},
+        jp_players=[_jp_with_sf("Portero", 500)],
+        cash=30_000_000,
+    )
+    biwenger.get_manager_squad.side_effect = RuntimeError("down")
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1

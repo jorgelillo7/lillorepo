@@ -851,3 +851,86 @@ def test_the_inbox_reads_the_calendar_once_for_every_offer():
         offers.run_offers_inbox(ctx)
     mock_read.assert_called_once()
     assert seen == ["fácil 30", "difícil 80"]
+
+
+# --- one squad: the trader's sells and the minimum squad ---------------------
+
+
+def _accept(player_id, vs_market_pct=0.0):
+    return {
+        "offer_id": player_id,
+        "player_id": player_id,
+        "recommendation": offers.REC_ACCEPT,
+        "reasons": ["plusvalía"],
+        "vs_market_pct": vs_market_pct,
+    }
+
+
+def test_offers_that_would_take_the_squad_below_its_minimum_are_held_back():
+    """The trader already sells two of seventeen; the squad cannot lose more
+    without dropping under fifteen, however good each offer looks alone."""
+    scored = [_accept(3), _accept(4)]
+    offers.apply_squad_floor(scored, squad_size=17, trader_sells={1, 2}, min_squad=15)
+    assert [s["recommendation"] for s in scored] == [offers.REC_DOUBTFUL] * 2
+    assert all(s["floor_held"] for s in scored)
+    assert all(any("15" in r for r in s["reasons"]) for s in scored)
+
+
+def test_the_room_left_goes_to_the_offer_furthest_over_the_market():
+    scored = [_accept(3, vs_market_pct=1.0), _accept(4, vs_market_pct=20.0)]
+    offers.apply_squad_floor(scored, squad_size=16, trader_sells=set(), min_squad=15)
+    by_id = {s["player_id"]: s["recommendation"] for s in scored}
+    assert by_id == {3: offers.REC_DOUBTFUL, 4: offers.REC_ACCEPT}
+
+
+def test_an_offer_for_a_player_the_trader_sells_says_so_and_stays_accepted():
+    scored = [_accept(1)]
+    offers.apply_squad_floor(scored, squad_size=15, trader_sells={1}, min_squad=15)
+    assert scored[0]["recommendation"] == offers.REC_ACCEPT
+    assert any("trader" in r for r in scored[0]["reasons"])
+
+
+def test_an_offer_held_back_by_the_floor_still_reaches_the_digest():
+    """It was worth taking on its own; hiding it would hide the trade-off."""
+    held = dict(_accept(2), recommendation=offers.REC_DOUBTFUL, floor_held=True)
+    ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
+    with (
+        patch(_p("require_telegram"), return_value=("tok", "chat")),
+        patch(_p("send_telegram_message")) as mock_send,
+        patch(_p("_starter_ids"), return_value=set()),
+        patch(_p("_score_offer"), side_effect=[_accept(1), held]),
+        patch(_p("apply_squad_floor")),
+        patch(
+            _p("_format_offer_message"), side_effect=lambda s: f"offer {s['offer_id']}"
+        ),
+    ):
+        offers.run_offers_inbox(ctx, only_accept=True)
+    assert [c.kwargs["text"] for c in mock_send.call_args_list] == [
+        "offer 1",
+        "offer 2",
+    ]
+
+
+def test_a_starter_with_cover_is_not_called_squad_filler():
+    rec, reasons = offers._recommend(
+        sf=395, roi_pct=39.0, vs_market_pct=0.0, is_starter=True, xi_loss=20
+    )
+    assert rec == offers.REC_ACCEPT
+    assert not any("Fondo de armario" in r for r in reasons)
+    assert any("Titular con recambio" in r and "20 SF" in r for r in reasons)
+
+
+def test_an_unread_squad_holds_no_offer_back():
+    scored = [_accept(3)]
+    offers.apply_squad_floor(scored, squad_size=0, trader_sells=set(), min_squad=15)
+    assert scored[0]["recommendation"] == offers.REC_ACCEPT
+
+
+def test_a_sale_the_trader_already_closed_is_not_counted_twice():
+    """Live: the sold player has left the squad read already; he must not be
+    subtracted again from the room above the minimum."""
+    scored = [_accept(3)]
+    offers.apply_squad_floor(
+        scored, squad_size=16, trader_sells={1}, min_squad=15, squad_ids={2, 3}
+    )
+    assert scored[0]["recommendation"] == offers.REC_ACCEPT
