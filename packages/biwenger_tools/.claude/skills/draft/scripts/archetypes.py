@@ -29,7 +29,7 @@ import unicodedata
 from collections import Counter
 
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic.draft import composition_ok
+from packages.biwenger_tools.api.logic.draft import draft_composition_ok
 from packages.biwenger_tools.api.logic.lineup import (
     DEF,
     FWD,
@@ -48,8 +48,8 @@ POS = {"PT": "POR", "DF": "DEF", "MC": "MED", "DL": "DEL"}
 # Line codes as the api names them, so the shared composition check applies.
 _LINE_ID = {"PT": GK, "DF": DEF, "MC": MID, "DL": FWD}
 # Minimum per line to *build* a squad from. Not the legality rule: that is
-# `draft.composition_ok`, which only asks for a fieldable XI and counts a
-# multi-position player in every line he plays. These are the shape the
+# `draft.draft_composition_ok` — some XI plus a bench of every line, a
+# multi-position player counted in every line he plays. These are the shape the
 # generator fills before it starts upgrading. The draft requires two keepers;
 # the reserve is bought at the floor and sold after it (see `build`).
 NEED = {"PT": 2, "DF": 5, "MC": 5, "DL": 3}
@@ -276,7 +276,7 @@ def load(
 
 
 def eligibility(row):
-    """Line ids this player can be fielded in, for `composition_ok`.
+    """Line ids this player can be fielded in, for `draft_composition_ok`.
 
     Falls back to his single position when the ranked CSV predates the
     `alt_positions` column, so an old CSV still works — just without the
@@ -287,35 +287,21 @@ def eligibility(row):
     )
 
 
-def viable_shapes(keepers=(2,)):
-    """Every 15-man shape that can field one of Biwenger's formations.
+def viable_shapes():
+    """Every legal draft fifteen by line: one of Biwenger's formations plus a
+    bench of one keeper, one defender, one midfielder and one forward — the
+    reglamento fills all fifteen slots. Fourteen shapes, one per formation;
+    2-5-7-1 is the 4-6-0 the 26-27 squad plays.
 
-    The generator used to fill a single hardcoded 2-5-5-3, which is why it
-    could never propose the 2-5-7-1 the 26-27 squad actually plays. A shape is
-    kept when some formation fits inside it; the rest of the fifteen are
-    substitutes, and where they sit is what the search decides.
-
-    `keepers` defaults to two, because the draft requires them. The reserve
-    is not a squad decision: `build` buys him at the floor price and never
-    upgrades him, and he is sold once the draft closes — a manager's only
-    keeper cannot be claused, and a second one exposes both all season.
+    The reserve keeper is not a squad decision: `build` buys him at the floor
+    price and never upgrades him, and he can be sold once the draft closes —
+    a manager's only keeper cannot be claused, a second one exposes both.
     """
     shapes = []
-    for pt in keepers:
-        for df, mc, dl in FORMATIONS:
-            for extra_df in range(0, SQUAD_SIZE):
-                for extra_mc in range(0, SQUAD_SIZE):
-                    extra_dl = SQUAD_SIZE - pt - (df + extra_df) - (mc + extra_mc) - dl
-                    if extra_dl < 0:
-                        continue
-                    shape = {
-                        "PT": pt,
-                        "DF": df + extra_df,
-                        "MC": mc + extra_mc,
-                        "DL": dl + extra_dl,
-                    }
-                    if sum(shape.values()) == SQUAD_SIZE and shape not in shapes:
-                        shapes.append(shape)
+    for df, mc, dl in FORMATIONS:
+        shape = {"PT": 2, "DF": df + 1, "MC": mc + 1, "DL": dl + 1}
+        if shape not in shapes:
+            shapes.append(shape)
     return shapes
 
 
@@ -326,7 +312,7 @@ def shape_label(shape):
 def squad_is_legal(squad):
     """True iff these players can field some legal XI — the api's own rule,
     imported rather than restated so the two cannot drift apart."""
-    return composition_ok([eligibility(r) for c in POS for r in squad[c]])
+    return draft_composition_ok([eligibility(r) for c in POS for r in squad[c]])
 
 
 def price_band(price):

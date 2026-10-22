@@ -275,11 +275,14 @@ case. **Iterate**: when a player falls (taken, or bad news), promote the next
 candidate, fetch his real points too, and re-check budget and composition.
 Steps:
 
-1. **Build the 15** within budget, respecting the composition rule: a valid XI
-   able to field **some** legal XI. El banquillo es libre: Biwenger acepta doce
-   formaciones, `4-6-0` entre ellas, así que una plantilla sin delanteros es una
-   forma, no un error. Y los multiposición cuentan en cada línea que pueden
-   jugar — 107 de 553 traen `altPositions`.
+1. **Build the 15** within budget, respecting the composition rule: **some
+   legal XI plus a bench of one keeper, one defender, one midfielder and one
+   forward**. El once puede ser cualquiera de las catorce formaciones, `4-6-0`
+   incluida, pero el banquillo se rellena entero — por eso hay dos porteros y
+   un 4-6-0 lleva su delantero en el banquillo. Tras el draft se puede vender o
+   recolocar lo que se quiera. Los multiposición cuentan en cada línea que
+   pueden jugar — 107 de 553 traen `altPositions`. El bot lo valida en cada
+   pick (`draft_composition_ok`).
    Favour SofaScore, but weigh value-per-€ for the mid/late picks.
 2. **Top-5 = the base**: give each of the first 5 picks **3 alternatives** at
    the same price/points tier. The user picks 3rd in a snake of 7, so their
@@ -335,8 +338,8 @@ Steps:
    here on the whole fifteen. Nothing in the score sees it, but teammates lose
    the same win bonus on the same weekends. `--max-per-team 2` is stricter if
    you want it.
-5. **Validate**: final 15 ≤ budget and composition-valid — warn on overspend or
-   a lineless bench.
+5. **Validate**: final 15 ≤ budget and composition-valid (eleven + a bench of
+   every line) — warn on overspend.
 
 ## A mitad de draft, el pliego ya no vale — recalcúlalo
 
@@ -620,8 +623,9 @@ archetype. The generator auto-detects the spike and **drops those players**,
 listing them in the report; `--keep-placeholder` overrides, `--placeholder-sf N`
 pins the value by hand.
 
-The generator searches every fifteen-man shape that fields one of Biwenger's
-formations. A shape the pool cannot fill to fifteen is never the winner.
+The generator searches every legal fifteen by line — each formation plus its
+bench of one per line, fourteen shapes. A shape the pool cannot fill to fifteen
+is never the winner.
 
 **Two keepers, and the second one is the cheapest on the board.** The draft
 requires two; nobody fields the reserve, and a manager's only keeper cannot be
@@ -630,9 +634,9 @@ floor price, never spends an upgrade on him, and he is **sold as soon as the
 draft closes**. That is the same rule auto-bid and the trader enforce all
 season.
 
-Known limitation: the upgrade pass maximises the fifteen's total, not the XI's,
-so money freed on the bench can land on another substitute. The "Once de gala
-(banco mínimo)" archetype is the one that pushes the budget into the eleven.
+The upgrade pass maximises the fifteen's total, not the XI's — deliberately,
+for the reason the backtest above gives: the bench plays. "Once de gala (banco
+mínimo)" is still there for whoever wants every euro in the eleven.
 
 ## Cuánto se vació su banda — y por qué eso no predice a un jugador
 
@@ -719,7 +723,7 @@ entonces, el `.md` del 25/26 es la única fuente del «cuándo».
 
 ## Reglamento anchors (stable rules)
 
-15 players able to field some legal XI (bench unconstrained); snake draft (round order reverses each
+15 players: some legal XI plus a bench of one per line; snake draft (round order reverses each
 round); prices frozen to the export day; market closed during the draft;
 **captain must cost < 3M** (Biwenger hard cap). Full text: the Lloros League
 reglamento, Capítulo I.

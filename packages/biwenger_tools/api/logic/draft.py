@@ -211,7 +211,7 @@ def state_from_dict(data: Mapping) -> DraftState:
 
 
 # ---------------------------------------------------------------------------
-# Squad composition: the fifteen must be able to field some legal XI
+# Squad composition: some legal XI, and for the draft a full bench as well
 # ---------------------------------------------------------------------------
 
 _LINES = (GK, DEF, MID, FWD)
@@ -275,10 +275,9 @@ def composition_reachable(
 ) -> bool:
     """True iff the squad can still field some legal XI within `remaining_slots`.
 
-    Only the eleven are checked. The bench is free: the reglamento asks for a
-    fieldable XI, and with twelve formations accepted there is almost always
-    one that fits what you already hold — blocking a pick on the shape of the
-    *bench* rejected picks that were perfectly legal.
+    Only the eleven are checked: the season-time question (can this squad
+    play at all). A draft pick also needs the bench —
+    `draft_composition_reachable`.
     """
     if remaining_slots < 0:
         return False
@@ -291,6 +290,40 @@ def composition_reachable(
 def composition_ok(eligibilities: Sequence[frozenset]) -> bool:
     """True iff these players can field a legal XI right now."""
     return composition_reachable(eligibilities, 0)
+
+
+# Biwenger's bench: one substitute per line.
+_BENCH = {GK: 1, DEF: 1, MID: 1, FWD: 1}
+
+
+def _draft_requirements():
+    """One `{line: needed}` per formation, bench included: the draft fills all
+    fifteen slots, the eleven in any formation Biwenger accepts plus a bench
+    of one keeper, one defender, one midfielder and one forward."""
+    return (
+        {line: n + _BENCH[line] for line, n in requirement.items()}
+        for requirement in _requirements()
+    )
+
+
+def draft_composition_reachable(
+    eligibilities: Sequence[frozenset], remaining_slots: int
+) -> bool:
+    """True iff the draft squad can still reach a legal fifteen — some XI plus
+    a full bench — within `remaining_slots`. Season-time checks (a squad that
+    can field an eleven at all) use `composition_reachable` instead: after the
+    draft, the bench may be sold or reshaped freely."""
+    if remaining_slots < 0:
+        return False
+    return any(
+        _shortfall(eligibilities, requirement) <= remaining_slots
+        for requirement in _draft_requirements()
+    )
+
+
+def draft_composition_ok(eligibilities: Sequence[frozenset]) -> bool:
+    """True iff these fifteen form a legal draft squad right now."""
+    return draft_composition_reachable(eligibilities, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -398,12 +431,13 @@ def validate_pick(
             )
 
     lines_after = squad_lines(squad + [player_id], players)
-    if not composition_reachable(lines_after, remaining_slots):
+    if not draft_composition_reachable(lines_after, remaining_slots):
         return PickResult(
             False,
             DraftError.COMPOSITION_INFEASIBLE,
-            "Esa compra deja imposible formar un once legal con los huecos "
-            f"que te quedan ({remaining_slots}).",
+            "Esa compra deja imposible completar la plantilla con los huecos "
+            f"que te quedan ({remaining_slots}): hace falta un once legal y un "
+            "banquillo con un portero, un defensa, un medio y un delantero.",
         )
 
     return PickResult(True, None, "Fichaje válido.")

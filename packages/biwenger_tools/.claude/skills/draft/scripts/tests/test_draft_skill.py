@@ -340,23 +340,23 @@ def test_formations_come_from_production_not_a_second_list():
     assert archetypes.FORMATIONS == tuple((d, m, f) for _label, d, m, f in prod)
 
 
-def test_every_viable_shape_holds_fifteen_and_fields_an_eleven():
+def test_every_viable_shape_is_an_eleven_plus_a_bench_of_every_line():
     for shape in archetypes.viable_shapes():
         assert sum(shape.values()) == archetypes.SQUAD_SIZE
         outfield = (shape["DF"], shape["MC"], shape["DL"])
         assert any(
-            outfield[0] >= d and outfield[1] >= m and outfield[2] >= f
-            for d, m, f in archetypes.FORMATIONS
+            outfield == (d + 1, m + 1, f + 1) for d, m, f in archetypes.FORMATIONS
         ), archetypes.shape_label(shape)
+    assert len(archetypes.viable_shapes()) == len(archetypes.FORMATIONS)
 
 
 def test_the_shapes_the_real_squads_play_are_reachable():
-    """2-5-5-3 is the classic; 2-5-7-1 is what the 26-27 squad actually is.
-    Both stay proposable when a second keeper is asked for."""
-    shapes = archetypes.viable_shapes(keepers=(1, 2))
+    """2-5-5-3 is the classic (4-4-2); 2-5-7-1 is the 4-6-0 the 26-27 squad
+    plays, with its forward on the bench."""
+    shapes = archetypes.viable_shapes()
     assert {"PT": 2, "DF": 5, "MC": 5, "DL": 3} in shapes
     assert {"PT": 2, "DF": 5, "MC": 7, "DL": 1} in shapes
-    assert {"PT": 1, "DF": 5, "MC": 7, "DL": 2} in shapes
+    assert {"PT": 2, "DF": 5, "MC": 8, "DL": 0} not in shapes
 
 
 def test_the_draft_carries_two_keepers():

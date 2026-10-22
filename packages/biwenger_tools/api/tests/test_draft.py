@@ -19,6 +19,8 @@ from packages.biwenger_tools.api.logic.draft import (
     build_budgets,
     composition_ok,
     composition_reachable,
+    draft_composition_ok,
+    draft_composition_reachable,
     draft_order_sequence,
     join_market_to_biwenger,
     load_market_csv,
@@ -200,6 +202,55 @@ def test_composition_reachable_false_with_negative_slots():
 
 def test_composition_reachable_true_when_already_valid_with_zero_slots_left():
     assert composition_reachable(_lines(gk=1, d=4, m=5, f=2), 0) is True
+
+
+# --- the draft's fifteen: an eleven plus a bench of every line ------------
+
+
+def test_a_draft_squad_needs_a_bench_with_every_line():
+    """The reglamento fills all fifteen slots: any XI Biwenger accepts, plus a
+    bench of one keeper, one defender, one midfielder and one forward."""
+    assert draft_composition_ok(_lines(gk=2, d=5, m=5, f=3)) is True
+    assert draft_composition_ok(_lines(gk=1, d=5, m=5, f=4)) is False
+    assert draft_composition_ok(_lines(gk=2, d=4, m=7, f=2)) is True
+
+
+def test_a_4_6_0_eleven_still_needs_a_forward_on_the_bench():
+    assert draft_composition_ok(_lines(gk=2, d=5, m=7, f=1)) is True
+    assert draft_composition_ok(_lines(gk=2, d=5, m=8, f=0)) is False
+
+
+def test_a_multi_position_player_fills_a_bench_line():
+    squad = _lines(gk=2, d=5, m=5, f=2, hybrids=[(MID, FWD)])
+    assert draft_composition_ok(squad) is True
+
+
+def test_an_empty_draft_squad_needs_all_fifteen():
+    assert draft_composition_reachable([], 15) is True
+    assert draft_composition_reachable([], 14) is False
+
+
+def test_validate_pick_rejects_a_last_pick_that_leaves_no_reserve_keeper():
+    """Fourteen held, one keeper among them: the last slot must be a keeper."""
+    held = {800: GK}
+    held.update({800 + i: DEF for i in range(1, 6)})
+    held.update({810 + i: MID for i in range(5)})
+    held.update({820 + i: FWD for i in range(3)})
+    state = DraftState(
+        order=[1, 2],
+        budgets={1: 50_000_000, 2: 50_000_000},
+        picks=[],
+        squads={1: list(held), 2: []},
+        spent={1: 0, 2: 0},
+    )
+    players = {pid: {"price": 0, "position": pos} for pid, pos in held.items()}
+    players[998] = {"price": 0, "position": FWD}
+    players[999] = {"price": 0, "position": GK}
+
+    rejected = validate_pick(state, manager_id=1, player_id=998, players=players)
+    accepted = validate_pick(state, manager_id=1, player_id=999, players=players)
+    assert rejected.error is DraftError.COMPOSITION_INFEASIBLE
+    assert accepted.ok is True
 
 
 # --- validate_pick / apply_pick ------------------------------------------
