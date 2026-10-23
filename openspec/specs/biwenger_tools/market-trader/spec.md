@@ -81,7 +81,10 @@ whatever his price does: a manager's only keeper cannot be claused, a second one
 exposes both. Auto-bid only signs a keeper who would start (`auto-bid`), so this
 is the step that sells the one he replaces. The minimum squad, the
 eleven-that-plays guard and the signing hold still apply: a new keeper who drops
-out of the eleven for a week is not sold cheap days after he was bought.
+out of the eleven for a week is not sold cheap days after he was bought. And
+while the starting keeper is inside his own signing hold the old one SHALL be
+kept, falling price or not: the new one cannot be claused for those two weeks,
+so the old one is free cover, and a clause on him pays above his value.
 
 A player signed less than `TRADER_HOLD_DAYS` (14, the two weeks Biwenger locks
 a clause after a signing) ago SHALL NOT be sold, for falling or for projecting
@@ -130,6 +133,8 @@ most days, so it sold players still gaining value.
   `test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price`,
   `test_the_keeper_who_starts_is_never_the_one_sold`,
   `test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing`,
+  `test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected`,
+  `test_the_covering_keeper_is_kept_even_while_his_price_falls`,
   `test_a_second_keeper_still_stops_at_the_minimum_squad`,
   `test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven`,
   `test_a_starter_of_the_best_eleven_is_never_sold_however_he_falls`,

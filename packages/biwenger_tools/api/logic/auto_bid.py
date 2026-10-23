@@ -419,6 +419,7 @@ def _format_skip_line(entry: dict, esc) -> str:
     - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
     - `club_full`   → 🏟️ (already `MAX_PLAYERS_PER_CLUB` from his club).
     - `second_keeper` → 🧤 (a keeper who would not start over the owned one).
+    - `bench_depth` → 🪑 (a T4 behind everyone owned at his lines).
     - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
 
     The `no_cash` branch is the user-visible payoff: it stops looking
@@ -443,6 +444,11 @@ def _format_skip_line(entry: dict, esc) -> str:
         return f"🚑 No disponible <b>{name}</b> · SF {esc(entry.get('sf', 0))}"
     if kind == "biwenger_reject":
         return f"⚠️ Biwenger rechazó <b>{name}</b>"
+    if kind == "bench_depth":
+        return (
+            f"🪑 Banquillo <b>{name}</b> · SF {esc(entry.get('sf', 0))}, "
+            "no mejora a ninguno de los tuyos"
+        )
     if kind == "second_keeper":
         return (
             f"🧤 Segundo portero <b>{name}</b> · no supera a "
@@ -609,6 +615,25 @@ def run_auto_bid() -> dict:
                     "name": candidate["name"],
                     "kind": "second_keeper",
                     "keeper": keeper_name,
+                }
+            )
+            continue
+
+        if (
+            candidate["sf"] < TIER_T3_MIN
+            and not candidate.get("chollo")
+            and squad_by_pos
+            and _would_be_bench(candidate, squad_by_pos)
+        ):
+            # A bottom-tier player behind everyone owned at every line he
+            # plays adds a bench body at a starter's bid; above T4 the clamp
+            # in `bid_sf` prices him instead, and a chollo is bought to sell.
+            skipped.append(
+                {
+                    "player_id": candidate["player_id"],
+                    "name": candidate["name"],
+                    "kind": "bench_depth",
+                    "sf": candidate["sf"],
                 }
             )
             continue

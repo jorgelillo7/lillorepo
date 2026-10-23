@@ -328,8 +328,8 @@ longer shortlist, goes sequential, caches to disk and stops at the first 429.
 your own bias. Dmitrović was the *sixth* goalkeeper by projection and the
 *first* by real points; Juan Iglesias was not in any draft and ended up captain.
 
-Players with **no La Liga minutes last season** are excluded from the output
-rather than published as zero — the `seasons` block counts every competition,
+Players with **no La Liga minutes last season** are written as `no_primera`
+rows (🆕 in the tables, trusted least) rather than published as zero — the `seasons` block counts every competition,
 so someone arriving from Ligue 1 or Segunda would otherwise read as a genuine
 zero, which the optimiser would believe.
 
