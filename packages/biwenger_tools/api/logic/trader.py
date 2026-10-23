@@ -133,11 +133,18 @@ def plan_sells(
     only keeper cannot be claused, a second one exposes both."""
     starters = best_eleven_ids(squad)
     keepers = [r for r in squad if r.get("position_id") == lineup.GK]
+    starting = [r for r in keepers if r["bw_id"] in starters]
+    # While the starter is new he cannot be claused anyway, so the old keeper
+    # costs nothing as cover — and a clause on him pays above his value.
+    covering = any(
+        (d := _days_held(r, now)) is not None and d < rules.hold_days for r in starting
+    )
     spare_keepers = (
         {r["bw_id"] for r in keepers if r["bw_id"] not in starters}
         if len(keepers) > 1
         else set()
     )
+    keeper_cover = spare_keepers if covering else set()
     fallers = sorted(
         (
             (row, s)
@@ -154,6 +161,9 @@ def plan_sells(
     for row, s in fallers:
         if row["bw_id"] in starters:
             held.append((row, "titular del mejor once"))
+            continue
+        if row["bw_id"] in keeper_cover:
+            held.append((row, "cubre al portero nuevo mientras está protegido"))
             continue
         days = _days_held(row, now)
         spare = row["bw_id"] in spare_keepers

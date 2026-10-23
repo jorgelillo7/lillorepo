@@ -689,3 +689,54 @@ def test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing
         now=86_400 * 10,
     )
     assert result.sells == []
+
+
+def test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected():
+    """The new keeper cannot be claused for his first two weeks, so the old
+    one costs nothing as cover until then — and a clause on him pays."""
+    new = dict(_player(2, 900, GK), acq_date=int(NOW - 3 * DAY))
+    old = dict(_player(1, 400, GK), acq_date=int(NOW - 100 * DAY))
+    squad = [old] + _eleven()[1:] + [new]
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert result.sells == []
+    ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 1]
+    assert "portero nuevo" in why
+
+    later = NOW + 12 * DAY
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=later,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [1]
+
+
+def test_the_covering_keeper_is_kept_even_while_his_price_falls():
+    new = dict(_player(2, 900, GK), acq_date=int(NOW - 3 * DAY))
+    old = dict(_player(1, 400, GK), acq_date=int(NOW - 100 * DAY))
+    squad = [old] + _eleven()[1:] + [new]
+    result = plan(
+        squad,
+        [],
+        _history(p1=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=HOLD,
+        now=NOW,
+    )
+    assert result.sells == []

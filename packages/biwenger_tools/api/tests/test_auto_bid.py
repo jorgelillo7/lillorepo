@@ -1343,3 +1343,69 @@ def test_without_the_squad_a_keeper_is_still_bid_on(run_env):
     auto_bid.run_auto_bid()
 
     assert biwenger.place_market_bid.call_count == 1
+
+
+# --- a T4 behind the whole depth chart buys nothing ------------------------
+
+
+def _depth_squad(extra_defenders):
+    biwenger_players, jp_players, squad = _eleven_with(0)
+    for i in range(extra_defenders):
+        pid = 40 + i
+        biwenger_players[pid] = {
+            "id": pid,
+            "name": f"Reserve{pid}",
+            "price": 1_000_000,
+            "position": 2,
+            "teamID": 200 + i,
+        }
+        jp_players.append(_jp_starter(f"Reserve{pid}", 400))
+        squad.append({"id": pid})
+    return biwenger_players, jp_players, squad
+
+
+def test_a_bottom_tier_player_behind_every_owned_one_gets_no_bid(run_env):
+    """23/10: 9.65M went on Cucurella (SF 307), Moncayola and Cepeda, each
+    behind all six owned at his line — bench bodies at T4 prices."""
+    biwenger_players, jp_players, squad = _depth_squad(2)
+    biwenger_players[30] = {
+        "id": 30,
+        "name": "Relleno",
+        "price": 5_700_000,
+        "position": 2,
+        "teamID": 300,
+    }
+    jp_players.append(_jp_starter("Relleno", 320))
+    biwenger, mock_send = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+    )
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 0
+    assert "Banquillo <b>Relleno</b>" in mock_send.call_args.kwargs["text"]
+
+
+def test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on(run_env):
+    biwenger_players, jp_players, squad = _depth_squad(0)
+    biwenger_players[30] = {
+        "id": 30,
+        "name": "Relleno",
+        "price": 1_000_000,
+        "position": 2,
+        "teamID": 300,
+    }
+    jp_players.append(_jp_starter("Relleno", 320))
+    biwenger, _ = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+    )
+    auto_bid.run_auto_bid()
+
+    assert biwenger.place_market_bid.call_count == 1

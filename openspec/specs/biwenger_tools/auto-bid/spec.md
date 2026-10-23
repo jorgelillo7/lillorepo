@@ -146,6 +146,23 @@ nothing is skipped: a signal not read must not suppress a bid.
   `test_a_chollo_keeper_who_would_not_start_gets_no_bid_either`,
   `test_without_the_squad_a_keeper_is_still_bid_on`
 
+### Requirement: A bottom-tier player behind the whole squad gets no bid
+
+A T4 candidate (SF under `TIER_T3_MIN`) who would sit behind everyone owned at
+every line he plays (`SQUAD_DEPTH_SLOTS`) SHALL be skipped, and the summary
+SHALL say so (`🪑 Banquillo`). The bench clamp prices a strong player down to
+T3; a T4 is already at the bottom share, so clamping changes nothing and the
+bid buys a bench body. On 23/10 it spent 9.65M of 12.44M on three of them
+(Cucurella at 5.99M with SF 307). A chollo is still bid on — it is bought to
+sell — and without the squad nothing is skipped.
+
+#### Scenario: depth
+- **WHEN** a T4 player projects below every owned one at his lines **THEN** no
+  bid, and the summary shows "Banquillo"
+- **WHEN** his line is thin **THEN** he is bid on as before
+- *Verifies:* `test_a_bottom_tier_player_behind_every_owned_one_gets_no_bid`,
+  `test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on`
+
 ### Requirement: A bid is priced on whether the player will be on a pitch
 
 The tier ladder reads a single SF number, and JP hands a high one to players who
