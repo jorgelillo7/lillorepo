@@ -246,6 +246,7 @@ def _build_candidates(
                 "alt_positions": row.get("alt_positions") or [],
                 "chollo": "chollos" in (row.get("oraculo_lists") or []),
                 "unavailable": availability(jp_player) == "out",
+                "row": row,
                 "uncalled": ((jp_player or {}).get("nextMatch") or {}).get(
                     "playerInLineup"
                 )
@@ -366,6 +367,14 @@ def _keeper_verdict(candidate: dict, keeper: dict | None) -> str | None:
     return "replace"
 
 
+def _starts_in_best_eleven(candidate: dict, squad_rows: list) -> bool:
+    """Whether the lineup search would field him if he joined the squad."""
+    row = candidate.get("row")
+    if not row:
+        return True
+    return row.get("bw_id") in best_eleven_ids(list(squad_rows) + [row])
+
+
 def _would_start(candidate: dict, by_pos: dict[int, list[int]]) -> bool:
     """Whether a signing goes into the eleven, and so into his club's count."""
     return not candidate["uncalled"] and not _would_be_bench(candidate, by_pos)
@@ -419,7 +428,7 @@ def _format_skip_line(entry: dict, esc) -> str:
     - `biwenger_reject` → ⚠️ (Biwenger 4xx on the POST).
     - `club_full`   → 🏟️ (already `MAX_PLAYERS_PER_CLUB` from his club).
     - `second_keeper` → 🧤 (a keeper who would not start over the owned one).
-    - `bench_depth` → 🪑 (a T4 behind everyone owned at his lines).
+    - `bench_depth` → 🪑 (a T3/T4 who would not make the best eleven).
     - `tier_low` (or missing kind) → ⏭️ + the bare reason string.
 
     The `no_cash` branch is the user-visible payoff: it stops looking
@@ -447,7 +456,7 @@ def _format_skip_line(entry: dict, esc) -> str:
     if kind == "bench_depth":
         return (
             f"🪑 Banquillo <b>{name}</b> · SF {esc(entry.get('sf', 0))}, "
-            "no mejora a ninguno de los tuyos"
+            "no entraría en tu once"
         )
     if kind == "second_keeper":
         return (
@@ -562,6 +571,7 @@ def run_auto_bid() -> dict:
         keeper = _starting_keeper(squad_rows)
     except Exception:
         logger.exception("Squad fetch failed — bidding without the depth signal.")
+        squad_rows = None
         squad_by_pos = {}
         clubs = None
         keeper = None
@@ -620,14 +630,15 @@ def run_auto_bid() -> dict:
             continue
 
         if (
-            candidate["sf"] < TIER_T3_MIN
+            TIER_T4_MIN <= candidate["sf"] < TIER_T2_MIN
             and not candidate.get("chollo")
-            and squad_by_pos
-            and _would_be_bench(candidate, squad_by_pos)
+            and squad_rows
+            and not _starts_in_best_eleven(candidate, squad_rows)
         ):
-            # A bottom-tier player behind everyone owned at every line he
-            # plays adds a bench body at a starter's bid; above T4 the clamp
-            # in `bid_sf` prices him instead, and a chollo is bought to sell.
+            # A T3/T4 who would not make the best eleven buys a substitute at
+            # a starter's bid — 5.93M for a sixth defender on 24/10. T1/T2
+            # are priced down by `bid_sf` instead, and a chollo is bought to
+            # sell.
             skipped.append(
                 {
                     "player_id": candidate["player_id"],
