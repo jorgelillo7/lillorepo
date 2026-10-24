@@ -620,7 +620,7 @@ def run_auto_bid() -> dict:
             continue
 
         if (
-            candidate["sf"] < TIER_T3_MIN
+            TIER_T4_MIN <= candidate["sf"] < TIER_T3_MIN
             and not candidate.get("chollo")
             and squad_by_pos
             and _would_be_bench(candidate, squad_by_pos)

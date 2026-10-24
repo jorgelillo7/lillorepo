@@ -148,7 +148,7 @@ nothing is skipped: a signal not read must not suppress a bid.
 
 ### Requirement: A bottom-tier player behind the whole squad gets no bid
 
-A T4 candidate (SF under `TIER_T3_MIN`) who would sit behind everyone owned at
+A T4 candidate (SF from `TIER_T4_MIN` to under `TIER_T3_MIN`) who would sit behind everyone owned at
 every line he plays (`SQUAD_DEPTH_SLOTS`) SHALL be skipped, and the summary
 SHALL say so (`🪑 Banquillo`). The bench clamp prices a strong player down to
 T3; a T4 is already at the bottom share, so clamping changes nothing and the
@@ -160,8 +160,11 @@ sell — and without the squad nothing is skipped.
 - **WHEN** a T4 player projects below every owned one at his lines **THEN** no
   bid, and the summary shows "Banquillo"
 - **WHEN** his line is thin **THEN** he is bid on as before
+- **WHEN** he is below the bid floor anyway **THEN** no "Banquillo" line — he
+  was never going to get a bid
 - *Verifies:* `test_a_bottom_tier_player_behind_every_owned_one_gets_no_bid`,
-  `test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on`
+  `test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on`,
+  `test_a_player_below_the_bid_floor_is_not_reported_as_bench`
 
 ### Requirement: A bid is priced on whether the player will be on a pitch
 

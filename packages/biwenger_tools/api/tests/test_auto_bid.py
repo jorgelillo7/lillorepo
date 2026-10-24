@@ -1409,3 +1409,27 @@ def test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on(run_env):
     auto_bid.run_auto_bid()
 
     assert biwenger.place_market_bid.call_count == 1
+
+
+def test_a_player_below_the_bid_floor_is_not_reported_as_bench(run_env):
+    """24/10: thirteen "Banquillo" lines, most for SF 15-50 players who were
+    never going to get a bid. The note is for those who would have."""
+    biwenger_players, jp_players, squad = _depth_squad(2)
+    biwenger_players[30] = {
+        "id": 30,
+        "name": "Nadie",
+        "price": 500_000,
+        "position": 2,
+        "teamID": 300,
+    }
+    jp_players.append(_jp_starter("Nadie", 40))
+    biwenger, mock_send = run_env(
+        market_players=[_sale(30)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=30_000_000,
+        squad=squad,
+    )
+    auto_bid.run_auto_bid()
+
+    assert "Banquillo" not in mock_send.call_args.kwargs["text"]
