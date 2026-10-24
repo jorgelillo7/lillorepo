@@ -146,25 +146,30 @@ nothing is skipped: a signal not read must not suppress a bid.
   `test_a_chollo_keeper_who_would_not_start_gets_no_bid_either`,
   `test_without_the_squad_a_keeper_is_still_bid_on`
 
-### Requirement: A bottom-tier player behind the whole squad gets no bid
+### Requirement: A T3 or T4 player is bid on only if he would make the eleven
 
-A T4 candidate (SF from `TIER_T4_MIN` to under `TIER_T3_MIN`) who would sit behind everyone owned at
-every line he plays (`SQUAD_DEPTH_SLOTS`) SHALL be skipped, and the summary
-SHALL say so (`🪑 Banquillo`). The bench clamp prices a strong player down to
-T3; a T4 is already at the bottom share, so clamping changes nothing and the
-bid buys a bench body. On 23/10 it spent 9.65M of 12.44M on three of them
-(Cucurella at 5.99M with SF 307). A chollo is still bid on — it is bought to
-sell — and without the squad nothing is skipped.
+A candidate rated T3 or T4 (SF from `TIER_T4_MIN` to under `TIER_T2_MIN`) SHALL
+get a bid only when the lineup search would field him in the best eleven if he
+joined the squad; otherwise he is skipped and the summary says so
+(`🪑 Banquillo … no entraría en tu once`). Below the bid floor no such line is
+written — he was never going to get a bid. T1/T2 keep the bench clamp of
+`bid_sf`; a chollo is still bid on, since it is bought to sell; without the
+squad nothing is skipped.
 
-#### Scenario: depth
-- **WHEN** a T4 player projects below every owned one at his lines **THEN** no
-  bid, and the summary shows "Banquillo"
-- **WHEN** his line is thin **THEN** he is bid on as before
-- **WHEN** he is below the bid floor anyway **THEN** no "Banquillo" line — he
-  was never going to get a bid
+On 23/10 auto-bid spent 9.65M of 12.44M on three players behind every owned
+one at their lines (Cucurella at 5.99M with SF 307). The next morning his
+projection rose to 377, enough to be the sixth defender, and the depth rule
+bid 5.93M on him again: the depth chart counts a spare, the eleven does not.
+
+#### Scenario: the eleven decides
+- **WHEN** a T3/T4 would not make the best eleven **THEN** no bid, and the
+  summary shows "Banquillo"
+- **WHEN** he would start over someone owned **THEN** he is bid on as before
+- **WHEN** he is below the bid floor anyway **THEN** no "Banquillo" line
 - *Verifies:* `test_a_bottom_tier_player_behind_every_owned_one_gets_no_bid`,
-  `test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on`,
-  `test_a_player_below_the_bid_floor_is_not_reported_as_bench`
+  `test_a_bottom_tier_player_who_would_start_is_still_bid_on`,
+  `test_a_player_below_the_bid_floor_is_not_reported_as_bench`,
+  `test_bench_players_from_a_club_do_not_fill_its_cap`
 
 ### Requirement: A bid is priced on whether the player will be on a pitch
 

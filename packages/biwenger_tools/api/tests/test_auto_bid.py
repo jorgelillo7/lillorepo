@@ -1251,7 +1251,7 @@ def test_bench_players_from_a_club_do_not_fill_its_cap(run_env):
             "position": pos,
             "teamID": 100 + i,
         }
-        jp_players.append(_jp_starter(f"Starter{i}", 600))
+        jp_players.append(_jp_starter(f"Starter{i}", 450))
     for i in (20, 21, 22):
         biwenger_players[i] = _club_player(i, f"Reserve{i}", team_id=7, price=500_000)
         jp_players.append(_jp_starter(f"Reserve{i}", 50))
@@ -1389,8 +1389,11 @@ def test_a_bottom_tier_player_behind_every_owned_one_gets_no_bid(run_env):
     assert "Banquillo <b>Relleno</b>" in mock_send.call_args.kwargs["text"]
 
 
-def test_a_bottom_tier_player_who_fills_a_thin_line_is_still_bid_on(run_env):
+def test_a_bottom_tier_player_who_would_start_is_still_bid_on(run_env):
+    """Rule A: a T3/T4 is bid on when he would make the best eleven — here
+    over a defender projecting 100."""
     biwenger_players, jp_players, squad = _depth_squad(0)
+    jp_players[1] = _jp_starter("Starter2", 100)
     biwenger_players[30] = {
         "id": 30,
         "name": "Relleno",
