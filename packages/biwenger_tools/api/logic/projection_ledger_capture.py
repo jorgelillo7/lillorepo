@@ -84,8 +84,10 @@ def capture(ctx) -> dict:
 _PLAYER_READ_DELAY = 1.0
 
 
-def _outcome_for(ctx, round_id: int) -> dict | None:
-    """One finished round's real points, or `None` if any player is missing.
+def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
+    """One finished round's real points — for the eleven fielded and for
+    every other player in `squad_ids`, so the record shows what the bench
+    scored too — or `None` if a fielded player's reports are missing.
 
     An absent report scores zero through `personalizado`, which is the same
     number as a dreadful afternoon — so a partial read would be stored as a
@@ -100,7 +102,7 @@ def _outcome_for(ctx, round_id: int) -> dict | None:
         return None
 
     points, counted = {}, {}
-    for bw_id in sorted(set(applied["player_ids"])):
+    for bw_id in sorted(set(applied["player_ids"]) | set(squad_ids)):
         player = (ctx.biwenger_players or {}).get(bw_id) or {}
         slug = player.get("slug")
         if not slug:
@@ -146,7 +148,11 @@ def collect(ctx) -> dict:
         if round_id is None:
             return {"skipped": "nothing_pending"}
 
-        outcome = _outcome_for(ctx, round_id)
+        snapshot: dict = next(
+            (d for d in documents if d.get("round_id") == round_id), {}
+        )
+        squad_ids = [p["bw_id"] for p in snapshot.get("players") or []]
+        outcome = _outcome_for(ctx, round_id, squad_ids)
         if outcome is None:
             return {"skipped": "incomplete", "round_id": round_id}
 

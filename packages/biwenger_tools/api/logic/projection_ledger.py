@@ -113,6 +113,8 @@ def build_snapshot(
                 "jp_sf": _jp_sf(row),
                 "oraculo_points": row.get("oraculo_points"),
                 "oraculo_matched": bool(row.get("oraculo_matched")),
+                "oraculo_chance": row.get("oraculo_chance"),
+                "oraculo_lists": list(row.get("oraculo_lists") or []),
                 "custom_prediction": row.get("custom_prediction"),
             }
             for row in rows
