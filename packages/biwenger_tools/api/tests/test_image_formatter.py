@@ -319,8 +319,10 @@ def test_stars_count_qualifying_lists_only():
         oraculo_points=7.4,
         oraculo_lists=["chollos", "capitanes"],
     )
-    assert imf._oraculo_cell(qualifying) == "7.4 ★★"
-    assert imf._oraculo_cell(non_qualifying) == "7.4"
+    # Stars still count only the quality lists; every list is named, because
+    # a star alone did not say which one it was (25/10).
+    assert imf._oraculo_cell(qualifying) == "7.4 ★★ gol·asis"
+    assert imf._oraculo_cell(non_qualifying) == "7.4 cap·chollo"
 
 
 def test_jp_cell_is_an_em_dash_with_no_jp_data():

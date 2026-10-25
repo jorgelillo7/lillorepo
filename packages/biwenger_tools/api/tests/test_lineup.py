@@ -1405,7 +1405,7 @@ def test_an_injured_player_stays_at_zero_however_good_the_blend_is():
 def test_the_lineup_message_stars_whoever_is_on_an_oraculo_list():
     """The weight of a star is undecided; seeing it is not. A player on an
     Oráculo list is marked so the owner can promote him by hand."""
-    starred = dict(_named(2, "Yuri"), oraculo_lists=["defensas"])
+    starred = dict(_named(2, "Yuri"), oraculo_lists=["capitanes", "defensas"])
     result = {
         "formation": "4-4-2",
         "starters": [(_named(1, "Keeper"), GK)]
@@ -1417,5 +1417,6 @@ def test_the_lineup_message_stars_whoever_is_on_an_oraculo_list():
         "total_sf": 0,
     }
     msg = format_lineup_message(result)
-    assert "Yuri (SF:" in msg and "⭐" in msg.split("Yuri", 1)[1].splitlines()[0]
+    yuri = msg.split("Yuri", 1)[1].splitlines()[0]
+    assert "⭐" in yuri and "def·cap" in yuri
     assert "⭐" not in msg.split("Keeper", 1)[1].splitlines()[0]

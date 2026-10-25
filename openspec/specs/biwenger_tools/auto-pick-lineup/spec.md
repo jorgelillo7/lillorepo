@@ -268,8 +268,8 @@ we can't see. When no starter qualifies it SHALL return `None` (caller PUTs
 `format_lineup_message` SHALL render the lineup, omitting the © captain marker
 and showing a no-captain warning when no captain was picked.
 
-A player on one of Oráculo's lists SHALL carry ⭐ in the message, starter or
-substitute. Shown, not weighed: the list bonus stays as it is until the
+A player on one of Oráculo's lists SHALL carry ⭐ and the lists' short names
+in the message (`⭐ def·cap`), starter or substitute. Shown, not weighed: the list bonus stays as it is until the
 projection ledger, which now records the lists and the whole squad's points,
 says how much a star is worth.
 

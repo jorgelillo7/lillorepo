@@ -212,10 +212,13 @@ def xi_snapshot(squad_rows: list) -> dict | None:
 
 
 def _star(row: dict) -> str:
-    """` ⭐` for a player on one of Oráculo's lists. Shown, not weighed: how
-    much a list should move the projection is measured first (the ledger
-    keeps them)."""
-    return " ⭐" if row.get("oraculo_lists") else ""
+    """` ⭐ def·cap` for a player on Oráculo's lists, naming them. Shown, not
+    weighed: how much a list should move the projection is measured first
+    (the ledger keeps them)."""
+    from packages.biwenger_tools.api.logic.custom_prediction import list_labels
+
+    labels = list_labels(row)
+    return f" ⭐ {labels}" if labels else ""
 
 
 def format_lineup_message(result: dict) -> str:

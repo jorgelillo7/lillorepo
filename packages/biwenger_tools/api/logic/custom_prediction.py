@@ -104,6 +104,29 @@ def equivalent_jp(scale: ProjectionScale, points: float) -> float:
     return jp[lo - 1] + fraction * (jp[lo] - jp[lo - 1])
 
 
+# Short names for the tables and the lineup message, quality lists first.
+LIST_LABELS = {
+    "goleadores": "gol",
+    "asistentes": "asis",
+    "porteros": "por",
+    "defensas": "def",
+    "centrocampistas": "med",
+    "delanteros": "del",
+    "capitanes": "cap",
+    "chollos": "chollo",
+}
+
+
+def list_labels(row: dict) -> str:
+    """Every Oráculo list the player is on, abbreviated and `·`-joined — the
+    quality lists first, then `capitanes` and `chollos`, which earn no star
+    but say something else (who to captain, who is cheap)."""
+    names = row.get("oraculo_lists") or []
+    ordered = [n for n in LIST_LABELS if n in names]
+    ordered += sorted(n for n in names if n not in LIST_LABELS)
+    return "·".join(LIST_LABELS.get(n, n) for n in ordered)
+
+
 def qualifying_lists(row: dict) -> list[str]:
     return sorted(
         name for name in row.get("oraculo_lists") or [] if name in QUALIFYING_LISTS
