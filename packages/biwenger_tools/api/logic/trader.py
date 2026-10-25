@@ -18,6 +18,7 @@ from html import escape
 from core.constants import MADRID_TZ
 from packages.biwenger_tools.api.logic import lineup
 from packages.biwenger_tools.api.logic.price_history import streak
+from packages.biwenger_tools.api.player_formatting import availability
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,20 @@ def _days_held(row: dict, now: float) -> int | None:
     return None if not signed else int((now - signed) // 86_400)
 
 
+# A player sold or claused is not bought back for this long.
+REBUY_DAYS = 14
+
+
+def _deadwood(row: dict, rules: Rules) -> bool:
+    """A bench player who would play and still projects under `dead_sf`. A
+    suspension or an injury zeroes the projection for a match or a month; it
+    says nothing about the player — Pape Gueye, sent off on 24/10, read as
+    deadwood until this."""
+    if availability(row.get("jp_player")) == "out":
+        return False
+    return lineup.projected_sf(row) < rules.dead_sf
+
+
 def _lines(row: dict) -> set:
     """Every line a player can be fielded in: his position and `alt_positions`."""
     return {row.get("position_id"), *(row.get("alt_positions") or [])} - {None}
@@ -150,7 +165,7 @@ def plan_sells(
             (row, s)
             for row in squad
             if (s := streak(history, row["bw_id"])) <= -rules.sell_after_falls
-            or lineup.projected_sf(row) < rules.dead_sf
+            or _deadwood(row, rules)
             or row["bw_id"] in spare_keepers
         ),
         key=lambda rs: (lineup.projected_sf(rs[0]), rs[1]),
@@ -167,7 +182,7 @@ def plan_sells(
             continue
         days = _days_held(row, now)
         spare = row["bw_id"] in spare_keepers
-        dead = lineup.projected_sf(row) < rules.dead_sf
+        dead = _deadwood(row, rules)
         if days is not None and days < rules.hold_days:
             held.append((row, f"fichado hace {days} días, protegido {rules.hold_days}"))
             continue
@@ -201,13 +216,16 @@ def plan_buys(
     floor: int,
     rules: Rules,
     already_bid: frozenset | set = frozenset(),
+    recently_owned: frozenset | set = frozenset(),
 ) -> tuple[list[Move], list[tuple[dict, str]], int]:
     """`(buys, skipped, wallet_after)`: the risers to bid on while the wallet
     stays at or above `floor` — the thinnest line first, then the best
     projection; a versatile player counts on every line he can play. Bids
     already waiting count towards `max_squad`. Never a goalkeeper: a manager's
     only keeper cannot be claused, a second one can. A player with a bid
-    already waiting is left alone.
+    already waiting is left alone, and so is one the squad held in the last
+    `REBUY_DAYS` (`recently_owned`): buying back the player just sold is the
+    same player for more.
     `max_per_club` counts the best eleven's starters, the bids waiting and the
     day's buys — never the bench, so weak reserves cannot block a good one."""
     owned = {r["bw_id"] for r in keep}
@@ -229,7 +247,12 @@ def plan_buys(
         if r.get("team_id") is not None
     )
     buys: list[Move] = []
-    skipped: list[tuple[dict, str]] = []
+    skipped: list[tuple[dict, str]] = [
+        (row, f"lo tuviste hace menos de {REBUY_DAYS} días")
+        for row, _ in risers
+        if row["bw_id"] in recently_owned
+    ]
+    risers = [(row, s) for row, s in risers if row["bw_id"] not in recently_owned]
     while risers:
         row, s = min(
             risers,
@@ -275,6 +298,7 @@ def plan(
     committed: int = 0,
     already_bid: frozenset | set = frozenset(),
     now: float = 0.0,
+    recently_owned: frozenset | set = frozenset(),
 ) -> Plan:
     """The day's sells and bids, the sells assumed sold at today's price. Bids
     already waiting (`committed`) are spent; `floor` is the lowest the wallet
@@ -289,6 +313,7 @@ def plan(
         floor=floor,
         rules=rules,
         already_bid=already_bid,
+        recently_owned=recently_owned,
     )
     return Plan(sells, buys, cash, wallet, floor, round_eve, held, skipped)
 

@@ -210,6 +210,7 @@ def run_offers_inbox(
 
     actionable: list[dict] = []
     muted: list[dict] = []
+    parked: list[dict] = []
     for scored in every:
         scored["fixture"] = (
             None
@@ -218,11 +219,9 @@ def run_offers_inbox(
                 fixture_run.next_ratings(upcoming, scored.get("team_id"), 5)
             )
         )
-        if (
-            only_accept
-            and scored["recommendation"] != REC_ACCEPT
-            and not scored.get("floor_held")
-        ):
+        if only_accept and scored.get("floor_held"):
+            parked.append(scored)
+        elif only_accept and scored["recommendation"] != REC_ACCEPT:
             muted.append(scored)
         elif _is_muted(scored):
             muted.append(scored)
@@ -236,6 +235,14 @@ def run_offers_inbox(
             chat_id=chat_id,
             text=_format_offer_message(scored),
             reply_markup=_decision_keyboard(scored["offer_id"]),
+        )
+        sent += 1
+
+    if parked:
+        send_telegram_message(
+            bot_token=token,
+            chat_id=chat_id,
+            text=_format_parked(parked, len(my_team)),
         )
         sent += 1
 
@@ -294,8 +301,11 @@ def apply_squad_floor(
         s["recommendation"] = REC_DOUBTFUL
         s["floor_held"] = True
         s["reasons"].append(
-            f"Pero bajarías de {min_squad} jugadores contando las ventas del "
-            "trader; acéptala si entra un fichaje o vendes a otro"
+            f"Pero con las ventas del trader bajarías de {min_squad}; "
+            "acéptala si entra un fichaje"
+            if still_here
+            else f"Pero tienes {squad_size}, el mínimo es {min_squad}: "
+            "acéptala solo si fichas a otro"
         )
 
 
@@ -312,6 +322,24 @@ def _is_muted(scored: dict) -> bool:
     visible and can be accepted in the Biwenger app.
     """
     return config.OFFERS_MUTE_REJECTED and scored["recommendation"] == REC_REJECT
+
+
+def _format_parked(parked: list[dict], squad_size: int) -> str:
+    """One line per offer the squad cannot take, and no buttons. They were
+    three cards on 25/10 and distracted: worth knowing, not acting on."""
+    esc = lambda x: escape(str(x), quote=False)  # noqa: E731
+    n = len(parked)
+    lines = [
+        f"📥 <b>{n} oferta{'s' if n > 1 else ''} aparcada{'s' if n > 1 else ''}"
+        f"</b> · tienes {squad_size} jugadores, el mínimo",
+    ]
+    for s in sorted(parked, key=lambda m: -(m.get("offer_amount") or 0)):
+        lines.append(
+            f"• {esc(s.get('name', '?'))} · "
+            f"{esc(format_euros(s.get('offer_amount') or 0))}"
+        )
+    lines.append("<i>Si fichas a alguien, /ofertas las muestra para aceptarlas.</i>")
+    return "\n".join(lines)
 
 
 def _format_muted_digest(muted: list[dict]) -> str:

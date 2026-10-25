@@ -58,13 +58,19 @@ def run(
     trades and send the plan to Telegram. Returns a summary for the logs."""
     now = time.time() if now is None else now
     today = datetime.fromtimestamp(now, MADRID_TZ).date()
-    price_history_store.write(today, price_history.prices_of(ctx.biwenger_players))
+    squad_ids = {r["bw_id"] for r in squad_rows}
+    price_history_store.write(
+        today, price_history.prices_of(ctx.biwenger_players), squad_ids
+    )
 
     mode = config.TRADER_MODE
     if mode == "off":
         return {"mode": "off"}
 
     history = price_history_store.recent(_HISTORY_DAYS)
+    owned_before = recently_owned(
+        price_history_store.recent_squads(trader.REBUY_DAYS), squad_ids
+    )
     cash = int(ctx.biwenger.get_account_state()["cash"])
     pending = ctx.biwenger.get_my_pending_bids(config.MARKET_URL)
     committed = sum(int(b.get("amount") or 0) for b in pending)
@@ -82,6 +88,7 @@ def run(
             already_bid,
             eve,
             now,
+            owned_before,
         )
     else:
         result = trader.plan(
@@ -95,6 +102,7 @@ def run(
             committed=committed,
             already_bid=already_bid,
             now=now,
+            recently_owned=owned_before,
         )
     text = trader.report(result, live=live)
     if len(history) < _HISTORY_DAYS:
@@ -117,8 +125,23 @@ def run(
     return summary
 
 
+def recently_owned(squads: list[set[int]], current: set[int]) -> set[int]:
+    """Players in any of the past `squads` who are not in `current`: sold or
+    claused within the window."""
+    return set().union(*squads) - current if squads else set()
+
+
 def _act(
-    ctx, squad_rows, market_rows, history, cash, committed, already_bid, eve, now
+    ctx,
+    squad_rows,
+    market_rows,
+    history,
+    cash,
+    committed,
+    already_bid,
+    eve,
+    now,
+    owned_before=frozenset(),
 ) -> trader.Plan:
     """Sell, list, then bid with what was received. Returns what happened."""
     rules = _rules()
@@ -161,6 +184,7 @@ def _act(
         floor=floor,
         rules=rules,
         already_bid=already_bid,
+        recently_owned=owned_before,
     )
     skipped += buy_skips
     placed: list[trader.Move] = []
