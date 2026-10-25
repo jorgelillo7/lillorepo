@@ -268,10 +268,20 @@ we can't see. When no starter qualifies it SHALL return `None` (caller PUTs
 `format_lineup_message` SHALL render the lineup, omitting the © captain marker
 and showing a no-captain warning when no captain was picked.
 
+A player on one of Oráculo's lists SHALL carry ⭐ in the message, starter or
+substitute. Shown, not weighed: the list bonus stays as it is until the
+projection ledger, which now records the lists and the whole squad's points,
+says how much a star is worth.
+
 #### Scenario: no captain
 - **WHEN** captain is `None`
 - **THEN** the message omits © and shows the warning
 - *Verifies:* `test_format_lineup_message_renders_no_captain_warning`
+
+#### Scenario: a star is shown
+- **WHEN** a player in the message is on an Oráculo list **THEN** his line
+  ends in ⭐; others do not
+- *Verifies:* `test_the_lineup_message_stars_whoever_is_on_an_oraculo_list`
 
 ### Requirement: cf-base pricing
 

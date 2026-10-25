@@ -170,6 +170,8 @@ def test_the_snapshot_carries_every_provider_number_per_player():
         "jp_sf": 200,
         "oraculo_points": 200,
         "oraculo_matched": True,
+        "oraculo_chance": 90,
+        "oraculo_lists": [],
         "custom_prediction": 200,
     }
     assert snapshot["season"] == "26-27"
@@ -360,3 +362,15 @@ def test_a_round_biwenger_has_not_finished_is_not_collected():
 def test_nothing_to_collect_is_not_an_error():
     assert pl.next_round_to_collect([], {1, 2}) is None
     assert pl.next_round_to_collect([{"round_id": 1, "actual": {}}], {1}) is None
+
+
+def test_the_snapshot_keeps_the_oraculo_lists_each_player_was_on():
+    """25/10: Yuri was on two of Oráculo's lists, projected 321, sat out and
+    scored 21. Whether a star should weigh more can only be measured if the
+    lists are on the record."""
+    rows = _squad_where_nothing_moves()
+    rows[0]["oraculo_lists"] = ["capitanes", "defensas"]
+
+    snapshot = pl.build_snapshot(4901, "Jornada 6", "26-27", rows, NOW)
+
+    assert snapshot["players"][0]["oraculo_lists"] == ["capitanes", "defensas"]

@@ -110,6 +110,16 @@ it; running one afterwards writes nothing.
 Each document holds both elevens, the per-player projections behind them, and
 once graded, the real outcome. 38 documents a season.
 
+Per player: JP's number, Oráculo's points, chance and **the Oráculo lists he
+was on** (`oraculo_lists` — the ⭐ in the lineup message), and the blend. The
+outcome's `player_points` covers **the whole squad**, not only the eleven
+fielded: until 25/10 only the eleven were scored, so Yuri's 21 from the bench
+— on two Oráculo lists, projected 321 — left no trace, and the ledger could
+never learn from who was left out. Bench reads cost one request per extra
+player, once per finished round. `applied_total` is still the eleven's score.
+How much a list should move the projection is decided from this record, once
+it holds a few rounds.
+
 
 ## When the numbers look wrong
 

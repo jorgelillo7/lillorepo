@@ -1400,3 +1400,22 @@ def test_an_injured_player_stays_at_zero_however_good_the_blend_is():
     row["custom_prediction"] = 900
     assert lineup._sf(row) == lineup._DOUBTFUL_SF
     assert lineup._fallback_rate(row) == 0
+
+
+def test_the_lineup_message_stars_whoever_is_on_an_oraculo_list():
+    """The weight of a star is undecided; seeing it is not. A player on an
+    Oráculo list is marked so the owner can promote him by hand."""
+    starred = dict(_named(2, "Yuri"), oraculo_lists=["defensas"])
+    result = {
+        "formation": "4-4-2",
+        "starters": [(_named(1, "Keeper"), GK)]
+        + [(_named(3, "Defender"), DEF)] * 4
+        + [(_named(4, "Midfielder"), MID)] * 4
+        + [(_named(5, "Forward"), FWD)] * 2,
+        "reserves": [None, starred, None, None],
+        "captain": None,
+        "total_sf": 0,
+    }
+    msg = format_lineup_message(result)
+    assert "Yuri (SF:" in msg and "⭐" in msg.split("Yuri", 1)[1].splitlines()[0]
+    assert "⭐" not in msg.split("Keeper", 1)[1].splitlines()[0]

@@ -211,6 +211,13 @@ def xi_snapshot(squad_rows: list) -> dict | None:
     }
 
 
+def _star(row: dict) -> str:
+    """` ⭐` for a player on one of Oráculo's lists. Shown, not weighed: how
+    much a list should move the projection is measured first (the ledger
+    keeps them)."""
+    return " ⭐" if row.get("oraculo_lists") else ""
+
+
 def format_lineup_message(result: dict) -> str:
     """Returns an HTML Telegram message confirming the lineup."""
     formation = result["formation"]
@@ -229,7 +236,9 @@ def format_lineup_message(result: dict) -> str:
         for row, _ in group:
             sf = _sf(row)
             cap = " ©" if captain_bw_id and row["bw_id"] == captain_bw_id else ""
-            lines.append(f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}")
+            lines.append(
+                f"{pos_name[pos_id]} {escape(row['name'])} (SF:{sf}){cap}{_star(row)}"
+            )
 
     if captain is None:
         lines.append(
@@ -241,7 +250,7 @@ def format_lineup_message(result: dict) -> str:
     if filled:
         lines.append("\n<b>Suplentes:</b>")
         for label, r in filled:
-            lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)})")
+            lines.append(f"  {label} {escape(r['name'])} (SF:{_sf(r)}){_star(r)}")
 
     # Two different things happened to two different kinds of uncalled player,
     # and one warning for both told the reader the opposite of the truth: a
