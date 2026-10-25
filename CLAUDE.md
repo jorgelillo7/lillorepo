@@ -66,6 +66,15 @@ bazel test //<package path>:<suite> --test_output=errors
 python3 scripts/affected_tests.py origin/master       # what CI would run here
 ```
 
+**Anything that calls a provider runs on the lock, never on the Mac's Python.**
+The system `python3` carries stale packages (requests 2.28 / urllib3 1.26):
+Oráculo answers it 403, and the code silently falls back to JP alone, so a
+ranking looks right and is not. Use a `bazel run` target (the draft skill's
+scripts have one each), or a venv built from `requirements_lock.txt` on
+Python 3.14 for one-off scripts. And read `oraculo_coverage` before blaming
+the read: under `ORACULO_MIN_COVERAGE` (60 %, e.g. mid-round, when Oráculo
+only covers the next matchday) the blend is off by design, in production too.
+
 ## Python Dependency Management
 
 Three-level system: `[module]/requirements.txt` → `requirements.in` (auto-generated) → `requirements_lock.txt` (Bazel lock file).
