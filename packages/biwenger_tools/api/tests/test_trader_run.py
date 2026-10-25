@@ -13,11 +13,14 @@ class _Store:
         self.history = history
         self.written = []
 
-    def write(self, day, prices):
+    def write(self, day, prices, squad=None):
         self.written.append((day.isoformat(), prices))
 
     def recent(self, days):
         return self.history[-days:]
+
+    def recent_squads(self, days):
+        return []
 
 
 def _ctx(cash=5_000_000, pending=(), inbox=()):
@@ -193,3 +196,8 @@ def test_the_summary_names_everyone_the_trader_is_selling(monkeypatch):
     ctx = _ctx(cash=5_000_000)
     result, _ = _live(monkeypatch, ctx)
     assert result["selling"] == [40]
+
+
+def test_recently_owned_is_who_left_the_squad_in_the_window():
+    days = [{1, 2, 3}, {1, 2}, {1, 4}]
+    assert trader_run.recently_owned(days, current={1, 4}) == {2, 3}

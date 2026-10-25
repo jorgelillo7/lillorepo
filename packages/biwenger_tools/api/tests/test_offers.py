@@ -890,8 +890,10 @@ def test_an_offer_for_a_player_the_trader_sells_says_so_and_stays_accepted():
     assert any("trader" in r for r in scored[0]["reasons"])
 
 
-def test_an_offer_held_back_by_the_floor_still_reaches_the_digest():
-    """It was worth taking on its own; hiding it would hide the trade-off."""
+def test_offers_held_back_by_the_floor_arrive_as_one_summary_line():
+    """25/10: three offers the squad could not take arrived as three cards
+    with buttons and distracted. They are worth knowing, not acting on: one
+    line names them, and `/ofertas` still shows each in full."""
     held = dict(_accept(2), recommendation=offers.REC_DOUBTFUL, floor_held=True)
     ctx = _ctx_with_offers([{"id": 1}, {"id": 2}])
     with (
@@ -905,10 +907,10 @@ def test_an_offer_held_back_by_the_floor_still_reaches_the_digest():
         ),
     ):
         offers.run_offers_inbox(ctx, only_accept=True)
-    assert [c.kwargs["text"] for c in mock_send.call_args_list] == [
-        "offer 1",
-        "offer 2",
-    ]
+    texts = [c.kwargs["text"] for c in mock_send.call_args_list]
+    assert texts[0] == "offer 1" and len(texts) == 2
+    assert "aparcada" in texts[1] and "offer 2" not in texts[1]
+    assert mock_send.call_args_list[1].kwargs.get("reply_markup") is None
 
 
 def test_a_starter_with_cover_is_not_called_squad_filler():
@@ -934,3 +936,10 @@ def test_a_sale_the_trader_already_closed_is_not_counted_twice():
         scored, squad_size=16, trader_sells={1}, min_squad=15, squad_ids={2, 3}
     )
     assert scored[0]["recommendation"] == offers.REC_ACCEPT
+
+
+def test_the_floor_reason_names_the_trader_only_when_he_sells():
+    scored = [_accept(3)]
+    offers.apply_squad_floor(scored, squad_size=15, trader_sells=set(), min_squad=15)
+    (reason,) = [r for r in scored[0]["reasons"] if "15" in r]
+    assert "trader" not in reason and "tienes 15" in reason.lower()

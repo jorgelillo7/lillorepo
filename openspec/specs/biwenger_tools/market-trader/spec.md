@@ -31,7 +31,8 @@ squad off the market at once. Plan: `.claude/plans/market-trader.md`.
 
 The step SHALL store every priced player's cf-base price once a day in
 `price_snapshots/{YYYY-MM-DD}`, from the players map the digest already reads,
-with an `expires_at` sixty days out for the collection's TTL policy — whatever
+together with the ids in the squad that day (`squad`), with an `expires_at`
+sixty days out for the collection's TTL policy — whatever
 `TRADER_MODE` is, `off` included, so switching the trader on finds history
 waiting. A second write the same day replaces the first.
 
@@ -95,6 +96,11 @@ after signing him at T4, his blended projection just under 300. The hold reads
 the signing date Biwenger returns with the squad; a player with no signing date
 is not held.
 
+A player who cannot be fielded — injured or suspended — SHALL NOT be sold
+for projecting below the floor: the sanction or the injury zeroes his
+projection, not his worth. On 25/10 Pape Gueye, sent off the round before,
+read as deadwood and only the minimum squad kept him.
+
 When a sale is decided by the projection floor, the plan SHALL name it —
 "proyección baja (SF n)", plus the falling days when both apply — not only the
 falling price.
@@ -151,6 +157,7 @@ most days, so it sold players still gaining value.
   `test_the_hold_ends_after_two_weeks`,
   `test_a_fresh_signing_projected_under_the_floor_is_held_too`,
   `test_a_faller_also_under_the_floor_is_sold_naming_the_projection`,
+  `test_a_suspended_player_is_not_sold_as_deadwood`,
   `test_a_player_with_no_signing_date_is_not_held`
 
 ### Requirement: Bid on a riser just over his price
@@ -164,7 +171,9 @@ manager's only keeper cannot be claused (league rule, as in
 `clausulazo-emergency`), and a second one can. Nor is a riser from a club with
 `MAX_PLAYERS_PER_CLUB` (3) already counted — the best eleven's starters, the
 day's buys and the bids already waiting count, the bench does not; the same
-cap auto-bid applies.
+cap auto-bid applies. Nor is a player the squad held in the last `REBUY_DAYS`
+(14), read off the stored squads: on 25/10 the trader bid 1.45M on Moi Gómez,
+sold the day before at 1.44M.
 
 #### Scenario: risers
 - **WHEN** a riser of three days clears the floor **THEN** he is bid at
@@ -176,6 +185,8 @@ cap auto-bid applies.
   **THEN** the short line is bought first
 - **WHEN** the riser is a goalkeeper **THEN** he is never bid
 - **WHEN** the squad is full **THEN** nobody is bid, and the plan says so
+- **WHEN** a riser was in the squad within the last 14 days **THEN** he is
+  not bid, and the plan says so
 - **WHEN** the morning's waiting bids would fill the squad **THEN** nobody is bid
 - **WHEN** a squad player can play two lines **THEN** he counts on both when
   choosing the thinnest
@@ -190,7 +201,9 @@ cap auto-bid applies.
   `test_the_best_projected_riser_is_bought_first`,
   `test_buys_go_to_the_thinnest_line_first`, `test_a_goalkeeper_is_never_bought`,
   `test_a_full_squad_buys_nobody`, `test_bids_already_waiting_count_towards_a_full_squad`,
-  `test_a_versatile_player_covers_every_line_he_can_play`
+  `test_a_versatile_player_covers_every_line_he_can_play`,
+  `test_a_player_owned_in_the_last_two_weeks_is_not_bought_back`,
+  `test_recently_owned_is_who_left_the_squad_in_the_window`
 
 ### Requirement: No negative wallet on a round's eve
 

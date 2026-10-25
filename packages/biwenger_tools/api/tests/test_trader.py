@@ -740,3 +740,40 @@ def test_the_covering_keeper_is_kept_even_while_his_price_falls():
         now=NOW,
     )
     assert result.sells == []
+
+
+def test_a_player_owned_in_the_last_two_weeks_is_not_bought_back():
+    """25/10: the trader bid 1.45M on Moi Gómez the day after he was sold
+    at 1.44M — the same player, back, for more."""
+    market = [_player(50, 500, MID)]
+    result = plan(
+        _eleven(),
+        market,
+        _history(p50=100_000),
+        cash=10_000_000,
+        round_eve=False,
+        negative_limit=0,
+        rules=RULES,
+        recently_owned={50},
+    )
+    assert result.buys == []
+    assert [why for _, why in result.skipped] == ["lo tuviste hace menos de 14 días"]
+
+
+def test_a_suspended_player_is_not_sold_as_deadwood():
+    """25/10: Pape Gueye, sent off, projected 0 for a match and the trader
+    wanted him gone; only the minimum squad held him. A sanction or an injury
+    is not a low projection."""
+    banned = _player(40, 0, MID)
+    banned["jp_player"] = {**banned["jp_player"], "status": "sanctioned"}
+    squad = _eleven() + [banned]
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=Rules(**{**RULES.__dict__, "dead_sf": 300}),
+    )
+    assert result.sells == []

@@ -53,8 +53,8 @@ sends.
 ### Requirement: The morning interrupts only for what needs acting on
 
 `run_daily` SHALL NOT send the league's squad values, and SHALL send an offer
-only when it is scored ACEPTAR, or was and is held back by the squad floor — no
-other DUDOSO, no "descartadas" summary.
+only when it is scored ACEPTAR — plus one line naming those the squad floor
+holds back — no other DUDOSO, no "descartadas" summary.
 
 Both are available on demand (`/comparar`, `/ofertas`), and a briefing that
 arrives with six to eight messages every morning trains its reader to skim
