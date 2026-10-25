@@ -223,7 +223,8 @@ def _jp_cell(sf) -> str:
 
 
 def _oraculo_cell(row: dict) -> str:
-    """`points ★★` — one star per qualifying list — or an em-dash for "no
+    """`points ★★ gol·asis` — one star per qualifying list, then every list
+    named (a bare star did not say which) — or an em-dash for "no
     opinion". Matching the player and having a projection are different
     states (`oraculo_matched=True` with `oraculo_points=None` is still "no
     opinion yet"); only the second earns a number."""
@@ -233,8 +234,8 @@ def _oraculo_cell(row: dict) -> str:
     if points is None:
         return "—"
     stars = "★" * len(cp.qualifying_lists(row))
-    text = f"{points:.1f}"
-    return f"{text} {stars}" if stars else text
+    parts = [f"{points:.1f}", stars, cp.list_labels(row)]
+    return " ".join(p for p in parts if p)
 
 
 def _blended_rows(rows: list[dict]) -> tuple[list[dict], bool]:

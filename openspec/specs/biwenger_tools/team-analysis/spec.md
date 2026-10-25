@@ -118,7 +118,11 @@ Shortlist membership SHALL render as stars beside that number, one per
 qualifying list, capped at three so the bonus cannot outweigh the blend and so
 the count stays legible without a legend. `chollos` and `capitanes` SHALL NOT
 earn a star — the first ranks by price, which is not a question the projection
-asks, and the second is already answered by the projection itself.
+asks, and the second is already answered by the projection itself. Every list
+the player is on SHALL be named after the stars, abbreviated (`gol`, `asis`,
+`por`, `def`, `med`, `del`, `cap`, `chollo`), `cap` and `chollo` included: a
+bare star did not say which list it was, and on 25/10 Yuri's `capitanes` place
+was invisible.
 
 The reach is deliberate and was checked against a live read: 8 lists, 60 slots,
 41 distinct players in the whole division. Stars are a Yamal/Raphinha/Fermín
@@ -132,7 +136,7 @@ starred Yamal is the table saying what his clause costs.
 - **WHEN** Oráculo never rated him **THEN** the cell reads `—`; **WHEN** it rates
   him zero **THEN** the cell reads the number
 - **WHEN** he appears on qualifying lists **THEN** one star per list, three at most,
-  and `chollos` / `capitanes` add none
+  and `chollos` / `capitanes` add none; every list is named after the stars
 - *Verifies:* `test_a_matched_player_carries_the_oraculo_numbers`,
   `test_an_unmatched_player_is_marked_not_zeroed`,
   `test_a_zero_projection_is_an_opinion_not_a_gap`,
