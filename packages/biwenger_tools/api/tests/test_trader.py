@@ -777,3 +777,24 @@ def test_a_suspended_player_is_not_sold_as_deadwood():
         rules=Rules(**{**RULES.__dict__, "dead_sf": 300}),
     )
     assert result.sells == []
+
+
+def test_a_suspended_player_is_not_sold_for_a_falling_price_either():
+    """26/10: Pape Gueye, sent off, dropped out of the eleven and his price
+    fell — so he read as a bench faller, held only by the minimum squad. A
+    player who cannot play is not sold for any reason until he can."""
+    banned = _player(40, 500, MID)
+    banned["jp_player"] = {**banned["jp_player"], "status": "sanctioned"}
+    squad = _eleven() + [banned]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=RULES,
+    )
+    assert result.sells == []
+    ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 40]
+    assert "no puede jugar" in why

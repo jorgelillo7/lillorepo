@@ -97,8 +97,10 @@ the signing date Biwenger returns with the squad; a player with no signing date
 is not held.
 
 A player who cannot be fielded — injured or suspended — SHALL NOT be sold
-for projecting below the floor: the sanction or the injury zeroes his
-projection, not his worth. On 25/10 Pape Gueye, sent off the round before,
+at all while he cannot play, for projecting below the floor or for a falling
+price: the sanction or the injury zeroes his projection and drags his price,
+not his worth, and selling then is selling at the bottom. He is weighed again
+once he can play. On 25/10 Pape Gueye, sent off the round before,
 read as deadwood and only the minimum squad kept him.
 
 When a sale is decided by the projection floor, the plan SHALL name it —
@@ -158,6 +160,7 @@ most days, so it sold players still gaining value.
   `test_a_fresh_signing_projected_under_the_floor_is_held_too`,
   `test_a_faller_also_under_the_floor_is_sold_naming_the_projection`,
   `test_a_suspended_player_is_not_sold_as_deadwood`,
+  `test_a_suspended_player_is_not_sold_for_a_falling_price_either`,
   `test_a_player_with_no_signing_date_is_not_held`
 
 ### Requirement: Bid on a riser just over his price
