@@ -534,14 +534,15 @@ def _maybe_notify(text: str) -> int:
     return 1
 
 
-def run_auto_bid() -> dict:
+def run_auto_bid(ctx=None) -> dict:
     """Walk the daily market, place tiered bids, log + notify.
 
-    Returns a summary dict consumed by the route handler. Side effects:
-    Biwenger session + N `POST /api/v2/offers`, Firestore writes per
+    `ctx` lets the daily digest hand over its session, so chaining this step
+    costs no second login. Returns a summary dict consumed by the route
+    handler. Side effects: N `POST /api/v2/offers`, Firestore writes per
     successful bid, one Telegram message.
     """
-    ctx = build_context()
+    ctx = ctx or build_context()
     biwenger = ctx.biwenger
     market_players = biwenger.get_market_players(config.MARKET_URL)
     candidates = _build_candidates(

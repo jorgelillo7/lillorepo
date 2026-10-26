@@ -19,6 +19,45 @@ project SLO). It chains: JP fetch + Biwenger session + market read + N bids +
 Firestore log writes + 2 Telegram photos + 1 summary. Rationale, budget
 breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 
+### Requirement: One session, each read once
+
+Every step of the digest SHALL run on the one Biwenger session the digest
+opened — auto-bid included, which no longer logs in on its own — and that
+session SHALL answer a repeated read of a round, the owner's squad or the
+market from the first read (`logic/read_once.py`). The calendar alone was
+read some fifteen times a morning, against an account window the phone app
+shares.
+
+What is kept SHALL never outlive a write that could change it: any write but
+a lineup, an unresolved bid or a listing re-reads the squad (an offer the
+trader accepted must be gone from the offers step's squad), and any write but
+a lineup re-reads the market. Pending bids, received offers, cash and the
+saved lineup are read after writes in the same digest and SHALL never be kept.
+A failed or empty read SHALL NOT be kept, so the next step gets its own try.
+
+#### Scenario: a morning reads each thing once
+- **WHEN** the digest runs its sections, lineup, auto-bid, trader and offers
+- **THEN** each round is read once, the squad once, and auto-bid gets the
+  digest's session
+- *Verifies:* `test_run_daily_reads_each_round_and_the_squad_once_and_shares_its_session`,
+  `test_run_auto_bid_uses_the_context_it_is_handed`,
+  `test_each_round_is_read_once`,
+  `test_squad_and_market_are_read_once_across_lineup_and_bids`
+
+#### Scenario: a sale forces a fresh squad
+- **WHEN** a write that can move a player runs (an accepted offer, a clause,
+  an admin operation), even one that raised
+- **THEN** the next squad read goes to Biwenger
+- *Verifies:* `test_a_write_that_can_change_the_squad_forces_a_fresh_read`,
+  `test_a_write_that_failed_still_forces_a_fresh_read`,
+  `test_listing_the_squad_for_sale_drops_the_market`
+
+#### Scenario: what follows a write is always read live
+- **WHEN** pending bids, offers, cash or the saved lineup are read twice
+- **THEN** both reads reach Biwenger, and a failed or empty read is retried
+- *Verifies:* `test_reads_that_follow_writes_are_never_kept`,
+  `test_a_failed_or_empty_read_is_not_kept`
+
 ### Requirement: Ordered sections, then bidding
 
 `run_daily` SHALL send both images ("Mi equipo", then "Mercado") **before**
