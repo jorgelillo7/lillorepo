@@ -1407,3 +1407,27 @@ def test_my_pending_bids_leave_out_the_offers_made_to_me(
         bids = client.get_my_pending_bids(market_url=TEST_MARKET_URL)
 
     assert bids == [mine]
+
+
+def test_an_old_app_version_is_upgraded_from_biwengers_own_answer(load_json_fixture):
+    """26/10: Biwenger moved to 632 and answered every 628 request with 400
+    "Old version" — the whole digest would have failed the next morning. The
+    answer carries the new number (`?cb=632`); the client takes it and retries
+    once."""
+    old = {
+        "status": 400,
+        "message": "Old version",
+        "userMessage": "<a href='#' onclick='location.href=&#039;?cb=632&amp;'>",
+    }
+    with requests_mock.Mocker() as m:
+        m.post(TEST_LOGIN_URL, json=load_json_fixture("login_response.json"))
+        account = load_json_fixture("account_response.json")
+        m.get(
+            TEST_ACCOUNT_URL,
+            [{"json": old, "status_code": 400}, {"json": account, "status_code": 200}],
+        )
+        client = BiwengerClient(
+            TEST_EMAIL, TEST_PASSWORD, TEST_LOGIN_URL, TEST_ACCOUNT_URL, TEST_LEAGUE_ID
+        )
+        assert client.session.headers["X-Version"] == "632"
+        assert m.request_history[-1].headers["X-Version"] == "632"

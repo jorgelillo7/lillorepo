@@ -116,6 +116,25 @@ def league_board_all_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/board?fields=*"
 
 
+# The app version Biwenger's API expects in `X-Version`. An older one gets
+# 400 "Old version"; `_required_version` reads the current one from that answer.
+APP_VERSION = "632"
+
+
+def _required_version(response) -> str | None:
+    """The version Biwenger asks for when it rejects ours, or None."""
+    if response.status_code != 400:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if body.get("message") != "Old version":
+        return None
+    match = re.search(r"cb=(\d+)", body.get("userMessage") or "")
+    return match.group(1) if match else None
+
+
 def clausulazos_url(league_id: Union[str, int]) -> str:
     return f"{league_url(league_id)}/board?type=transfer&fields=*,content(*,player(*))"
 
@@ -192,7 +211,7 @@ class BiwengerClient:
                 "Chrome/138.0.0.0 Safari/537.36"
             ),
             "X-Lang": "es",
-            "X-Version": "628",
+            "X-Version": APP_VERSION,
         }
         login_payload = {"email": self.email, "password": self.password}
 
@@ -210,6 +229,16 @@ class BiwengerClient:
 
         logger.info("Fetching account data...")
         account_response = self.session.get(self.account_url)
+        newer = _required_version(account_response)
+        if newer:
+            # Biwenger rejects an outdated app with 400 "Old version" and names
+            # the current one; take it and retry once rather than lose the run.
+            logger.warning(
+                "Biwenger asked for a newer app version; retrying with it.",
+                extra={"sent": self.session.headers.get("X-Version"), "now": newer},
+            )
+            self.session.headers.update({"X-Version": newer})
+            account_response = self.session.get(self.account_url)
         account_response.raise_for_status()
         account_data = account_response.json()
 
