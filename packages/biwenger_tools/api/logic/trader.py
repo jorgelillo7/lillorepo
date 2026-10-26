@@ -177,6 +177,11 @@ def plan_sells(
         if row["bw_id"] in starters:
             held.append((row, "titular del mejor once"))
             continue
+        if availability(row.get("jp_player")) == "out":
+            # Suspended or injured: out of the eleven and falling in price for
+            # a reason that ends. Selling then is selling at the bottom.
+            held.append((row, "no puede jugar ahora; se valora cuando vuelva"))
+            continue
         if row["bw_id"] in keeper_cover:
             held.append((row, "cubre al portero nuevo mientras está protegido"))
             continue
