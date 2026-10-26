@@ -1436,3 +1436,22 @@ def test_a_player_below_the_bid_floor_is_not_reported_as_bench(run_env):
     auto_bid.run_auto_bid()
 
     assert "Banquillo" not in mock_send.call_args.kwargs["text"]
+
+
+def test_run_auto_bid_uses_the_context_it_is_handed(run_env):
+    """The digest hands over its own session: no second login, no second
+    read of the players map, JP or Oráculo."""
+    run_env(market_players=[], biwenger_players={}, jp_players=[], cash=0)
+    from packages.biwenger_tools.api.logic.orchestration import OrchestratorContext
+
+    handed = OrchestratorContext(
+        biwenger=MagicMock(), biwenger_players={}, jp_index={}, oraculo_index={}
+    )
+    handed.biwenger.get_market_players.return_value = []
+    handed.biwenger.get_manager_squad.return_value = []
+    handed.biwenger.get_account_state.return_value = {"cash": 0}
+    with patch(_patches("build_context")) as fresh:
+        auto_bid.run_auto_bid(handed)
+
+    fresh.assert_not_called()
+    handed.biwenger.get_market_players.assert_called_once()

@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from core.constants import MADRID_TZ
-from packages.biwenger_tools.api.logic import actions
+from packages.biwenger_tools.api.logic import actions, projection_ledger_store
 
 
 def _patches(target):
@@ -661,3 +661,40 @@ def test_the_trader_runs_before_the_offers_and_hands_them_its_sells():
 
     assert order == ["trader", "offers"]
     assert mock_offers.call_args.kwargs["trader_sells"] == {7, 8}
+
+
+def test_run_daily_reads_each_round_and_the_squad_once_and_shares_its_session():
+    """The calendar used to be read by the fixture column, the ledger, the
+    lineup and the offers step, and auto-bid logged in again on its own: some
+    seventeen requests a morning repeated against the account's window."""
+    stack, _, mock_auto_bid, mock_offers = _digest_env(
+        round_data={"id": 10, "status": "active", "games": []}
+    )
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        ctx_biwenger = digests.build_context.return_value.biwenger
+        ctx_biwenger.get_manager_squad.return_value = [{"id": 1}]
+        stack.enter_context(
+            patch.object(projection_ledger_store, "list_all", return_value=[])
+        )
+        stack.enter_context(patch.object(projection_ledger_store, "write"))
+
+        def _offers(ctx, **_):
+            ctx.biwenger.get_round()
+            ctx.biwenger.get_manager_squad("x/{manager_id}", 1)
+            return {"sent": 0, "offers": 0}
+
+        mock_offers.side_effect = _offers
+        digests.run_daily()
+    finally:
+        stack.close()
+
+    rounds_by_id = {}
+    for call in ctx_biwenger.get_round.call_args_list:
+        key = call.args[0] if call.args else call.kwargs.get("round_id")
+        rounds_by_id[key] = rounds_by_id.get(key, 0) + 1
+    assert rounds_by_id and set(rounds_by_id.values()) == {1}
+    assert ctx_biwenger.get_manager_squad.call_count == 1
+    (shared,) = mock_auto_bid.call_args.args
+    assert shared.biwenger is mock_offers.call_args.args[0].biwenger

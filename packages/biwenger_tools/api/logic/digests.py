@@ -25,9 +25,12 @@ note instead. The manual `POST /market/auto-bid` endpoint is not affected.
 """
 
 import time
+from dataclasses import replace
 from datetime import date, datetime
+from typing import cast
 
 from core.constants import MADRID_TZ
+from core.sdk.biwenger import BiwengerClient
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
@@ -45,6 +48,7 @@ from packages.biwenger_tools.api.logic.orchestration import (
     require_telegram,
     send_image_or_text_fallback,
 )
+from packages.biwenger_tools.api.logic.read_once import ReadOnce
 from packages.biwenger_tools.api.logic.rows import build_market_rows, build_squad_rows
 
 logger = get_logger(__name__)
@@ -153,10 +157,11 @@ def _safe_send_section(
         return False, 0
 
 
-def _safe_run_auto_bid() -> dict:
-    """Run auto-bid but never raise — the digest above already shipped."""
+def _safe_run_auto_bid(ctx) -> dict:
+    """Run auto-bid on the digest's session but never raise — the digest
+    above already shipped."""
     try:
-        return auto_bid.run_auto_bid()
+        return auto_bid.run_auto_bid(ctx)
     except Exception as exc:
         logger.exception("Auto-bid step failed inside daily digest.")
         return {"error": str(exc)}
@@ -279,6 +284,8 @@ def run_daily() -> dict:
 
 def _run_daily_inner() -> dict:
     ctx = build_context()
+    # Every step below reads through one session that answers repeats.
+    ctx = replace(ctx, biwenger=cast(BiwengerClient, ReadOnce(ctx.biwenger)))
     telegram = require_telegram()
     if telegram is None:
         return {"sent": 0, "reason": "telegram_credentials_missing"}
@@ -339,7 +346,7 @@ def _run_daily_inner() -> dict:
         _notify_auto_bid_paused(token, chat_id)
         auto_bid_result = {"paused_until": config.AUTO_BID_PAUSED_UNTIL}
     else:
-        auto_bid_result = _safe_run_auto_bid()
+        auto_bid_result = _safe_run_auto_bid(ctx)
     protection_result = _safe_run_protection_watch(ctx)
     trader_result = _safe_run_trader(ctx, built, rounds, token, chat_id)
     offers_result = _safe_run_offers_inbox(ctx, set(trader_result.get("selling") or []))
