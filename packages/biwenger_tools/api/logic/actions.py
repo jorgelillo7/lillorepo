@@ -383,9 +383,9 @@ def _league_money(
     its archive.
 
     Returns `(rows, squads_by_manager_id, book, board_entries, lost)`; rows
-    carry `id`, `name`, `cash`, `max_bid`, `is_me`; `lost` is how many archived
-    entries the live board no longer returns, None when the archive could not
-    be read. ~12 sequential reads.
+    carry `id`, `name`, `cash`, `in_clauses`, `recoverable`, `max_bid`,
+    `is_me`; `lost` is how many archived entries the live board no longer
+    returns, None when the archive could not be read. ~12 sequential reads.
     """
     live = biwenger.get_all_board_messages(
         config.LEAGUE_BOARD_ALL_URL, until_type=league_cash.SEASON_START_TYPE
@@ -401,11 +401,14 @@ def _league_money(
         squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
         squads[manager_id] = squad
         cash = book.cash_of(manager_id)
+        invested = league_cash.in_clauses(squad)
         rows.append(
             {
                 "id": manager_id,
                 "name": name,
                 "cash": cash,
+                "in_clauses": invested,
+                "recoverable": league_cash.recoverable(invested),
                 "max_bid": league_cash.max_bid(
                     cash, league_cash.squad_value(squad, players)
                 ),

@@ -2,6 +2,7 @@
 
 import io
 from datetime import datetime
+from unittest.mock import patch
 
 from packages.biwenger_tools.api.logic.image_formatter import (
     _BENCH,
@@ -502,6 +503,33 @@ def test_build_cash_image_returns_a_png():
     ]
     png = build_cash_image(rows, "💰 Saldos", notes)
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_build_cash_image_shows_money_in_clauses():
+    rows = [
+        {
+            "name": "La Luceneta",
+            "cash": 5_000_000,
+            "max_bid": 30_000_000,
+            "in_clauses": 12_500_000,
+            "recoverable": 9_375_000,
+        },
+        {
+            "name": "Farolillo",
+            "cash": 1_000_000,
+            "max_bid": 9_000_000,
+            "in_clauses": 0,
+            "recoverable": 0,
+            "is_me": True,
+        },
+    ]
+    with patch("matplotlib.axes.Axes.table", wraps=None) as table:
+        table.return_value.get_celld.return_value = {}
+        build_cash_image(rows, "Saldos", [])
+    headers = table.call_args_list[0].kwargs["colLabels"]
+    cells = table.call_args_list[0].kwargs["cellText"]
+    assert "En cláusulas" in headers
+    assert "12.500.000" in cells[0][headers.index("En cláusulas")]
 
 
 def test_build_cash_image_draws_the_exposure_block():

@@ -128,6 +128,21 @@ def squad_value(squad: list[dict], players: dict) -> int:
     return sum(int((players.get(p.get("id")) or {}).get("price") or 0) for p in squad)
 
 
+# Lowering a raised clause refunds this share of what went in, on the spot
+# (`clauseDecrement = 75`): money a rival can turn back into cash any day.
+CLAUSE_REFUND_PERCENT = 75
+
+
+def in_clauses(squad: list[dict]) -> int:
+    """What a manager has put into raising the clauses of the squad he holds."""
+    return sum(int((p.get("owner") or {}).get("invested") or 0) for p in squad)
+
+
+def recoverable(invested: int) -> int:
+    """The part of `invested` a manager gets back by lowering the clauses."""
+    return invested * CLAUSE_REFUND_PERCENT // 100
+
+
 def max_bid(cash: int, squad_value: int) -> int:
     """`maximumBid = quarterTeam`: cash plus a quarter of the squad's value."""
     return cash + squad_value // 4
@@ -173,6 +188,10 @@ def notes(
             "salen del archivo."
         )
     lines.append("Puja máx. = saldo + ¼ de la plantilla, sin restar pujas pendientes.")
+    lines.append(
+        "En cláusulas = lo metido en subirlas; bajándolas recupera el 75 %, "
+        "y eso ya cuenta para quién llega a tus cláusulas."
+    )
     return lines
 
 
@@ -194,15 +213,21 @@ class Reach:
 
 
 def reach(clause: int, rivals: list[dict]) -> Reach:
-    """Split `rivals` (`name`, `cash`, `max_bid`) by how they could pay `clause`.
+    """Split `rivals` (`name`, `cash`, `max_bid`, optional `recoverable`) by
+    how they could pay `clause`.
 
-    Paying past cash leaves the rival negative, which costs them the round if
-    it is still negative when the matchday starts — a real but lesser threat.
+    Cash counts what a rival gets back by lowering his own clauses, since he
+    can do it the same minute. Paying past that leaves him negative, which
+    costs him the round if it lasts to the kickoff — a real but lesser threat.
     """
     if not clause:
         return Reach()
-    by_cash = tuple(r for r in rivals if r["cash"] >= clause)
-    by_max_bid = tuple(r for r in rivals if r["cash"] < clause <= r["max_bid"])
+
+    def liquid(r: dict) -> int:
+        return r["cash"] + int(r.get("recoverable") or 0)
+
+    by_cash = tuple(r for r in rivals if liquid(r) >= clause)
+    by_max_bid = tuple(r for r in rivals if liquid(r) < clause <= r["max_bid"])
     return Reach(by_cash, by_max_bid)
 
 

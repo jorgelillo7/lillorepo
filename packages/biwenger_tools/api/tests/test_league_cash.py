@@ -322,6 +322,31 @@ def test_reach_splits_rivals_by_cash_and_by_max_bid():
     assert [r["name"] for r in got.by_max_bid] == ["Kairat", "Reich"]
 
 
+def test_money_in_clauses_is_summed_and_three_quarters_come_back():
+    """Lowering a raised clause refunds 75 % of what went in, on the spot."""
+    squad = [
+        {"id": 1, "owner": {"invested": 7_000_000}},
+        {"id": 2, "owner": {"invested": 3_000_000}},
+        {"id": 3, "owner": {}},
+        {"id": 4},
+    ]
+    assert league_cash.in_clauses(squad) == 10_000_000
+    assert league_cash.recoverable(10_000_000) == 7_500_000
+
+
+def test_reach_counts_what_a_rival_can_take_back_out_of_his_clauses():
+    """Lucena with 5M in cash and 7M sunk in Raphinha's clause can lower it,
+    get 5.25M back, and pay a 10M clause without going negative."""
+    rival = {
+        "name": "Lucena",
+        "cash": 5_000_000,
+        "max_bid": 30_000_000,
+        "recoverable": 5_250_000,
+    }
+    got = league_cash.reach(10_000_000, [rival])
+    assert [r["name"] for r in got.by_cash] == ["Lucena"]
+
+
 def test_reach_is_nobody_above_every_max_bid():
     got = league_cash.reach(60_000_000, RIVALS)
     assert not got.by_cash and not got.by_max_bid and not got.anyone

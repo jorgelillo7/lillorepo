@@ -192,7 +192,11 @@ stated on the image rather than left to look like data:
 
 `/saldos` SHALL call `POST /league/cash`, which sends one image to the owner's
 chat: one row per playing manager (non-playing accounts excluded), with full
-euro figures for cash and maximum bid, ordered by maximum bid, highest first.
+euro figures for cash, money in clauses and maximum bid, ordered by maximum
+bid, highest first. Money in clauses is what each manager has put into raising
+the clauses of the squad he holds today (`owner.invested`, from the squad reads
+the image already makes); it is already out of his cash, and lowering a clause
+gives back 75 % of it on the spot.
 
 It goes to `TELEGRAM_CHAT_ID` only, like `/comparar`: the league hides these
 numbers from everyone, and the tooling is the owner's edge.
@@ -208,7 +212,8 @@ numbers from everyone, and the tooling is the owner's edge.
 
 For a clause of the owner's, rivals SHALL be split into those who can pay it
 **from cash** and those who can only reach it **by going negative** (cash <
-clause ≤ max bid). The second is a lesser threat: a rival still negative when
+clause ≤ max bid). Cash here SHALL include the 75 % a rival gets back by
+lowering his own raised clauses, since he can do it the same minute. The second is a lesser threat: a rival still negative when
 the matchday starts scores nothing for it. A missing clause is reached by
 nobody. A rival under the non-aggression pact SHALL be marked, not dropped —
 the pact binds the owner, and nothing says it binds the rival.
@@ -217,7 +222,12 @@ the pact binds the owner, and nothing says it binds the rival.
 - **WHEN** a clause sits above one rival's cash and below two others' max bid
 - **THEN** one is listed by cash, two by max bid
 - **WHEN** it sits above every max bid **THEN** nobody reaches it
+- **WHEN** a rival's cash falls short but his cash plus 75 % of his money in
+  clauses does not **THEN** he is listed by cash
 - *Verifies:* `test_reach_splits_rivals_by_cash_and_by_max_bid`,
+  `test_reach_counts_what_a_rival_can_take_back_out_of_his_clauses`,
+  `test_money_in_clauses_is_summed_and_three_quarters_come_back`,
+  `test_build_cash_image_shows_money_in_clauses`,
   `test_reach_is_nobody_above_every_max_bid`,
   `test_exposure_rows_count_who_reaches_each_top_player`
 

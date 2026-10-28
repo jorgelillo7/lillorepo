@@ -615,13 +615,15 @@ def build_cash_image(
     notes: list[str],
     exposure: list[dict] | None = None,
 ) -> bytes:
-    """PNG of `/saldos`: manager, cash and maximum bid, in the order given.
+    """PNG of `/saldos`: manager, cash, money in clauses and maximum bid, in
+    the order given.
 
-    `rows` carry `name`, `cash`, `max_bid` and an optional `is_me`, drawn in
-    bold. `notes` go underneath; a line opening with ⚠️ is a warning and is
-    drawn in the critical colour, spelled out in words since the font has no
-    emoji. `exposure` (see `league_cash.exposure_rows`) adds a second table:
-    the owner's best players, their clause and how many rivals reach it.
+    `rows` carry `name`, `cash`, `max_bid`, an optional `in_clauses` and an
+    optional `is_me`, drawn in bold. `notes` go underneath; a line opening
+    with ⚠️ is a warning and is drawn in the critical colour, spelled out in
+    words since the font has no emoji. `exposure` (see
+    `league_cash.exposure_rows`) adds a second table: the owner's best
+    players, their clause and how many rivals reach it.
     """
     exposure = exposure or []
     line_in = 0.42
@@ -651,12 +653,20 @@ def build_cash_image(
     main_bottom = main_top + line_in * (len(rows) + 1)
     _draw_cash_table(
         ax,
-        ["Manager", "Saldo", "Puja máx."],
-        [[_plain(r["name"]), _eur(r["cash"]), _eur(r["max_bid"])] for r in rows],
-        [0.44, 0.28, 0.28],
+        ["Manager", "Saldo", "En cláusulas", "Puja máx."],
+        [
+            [
+                _plain(r["name"]),
+                _eur(r["cash"]),
+                _eur(r["in_clauses"]) if r.get("in_clauses") else "—",
+                _eur(r["max_bid"]),
+            ]
+            for r in rows
+        ],
+        [0.34, 0.22, 0.22, 0.22],
         y(main_bottom),
         y(main_top),
-        lambda i, j: rows[i].get("is_me") or j == 2,
+        lambda i, j: rows[i].get("is_me") or j == 3,
     )
     for k, note in enumerate(notes):
         warning = note.startswith("⚠️")
