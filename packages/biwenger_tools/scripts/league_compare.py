@@ -43,9 +43,10 @@ def main() -> int:
         summary,
         title=f"📊 <b>La liga hoy</b> · {today}",
         note=(
-            "Valor de mercado actual y proyección de Jornada Perfecta para la "
-            "próxima jornada. Son dos preguntas distintas y por eso van sin "
-            "combinar: un equipo caro no es un equipo que puntúe."
+            "Valor de mercado actual y SF del mejor once que puede alinear "
+            "cada uno (JP + Oráculo); entre paréntesis, la plantilla entera. "
+            "Son dos preguntas distintas y por eso van sin combinar: un "
+            "equipo caro no es un equipo que puntúe."
         ),
     )
     print(message)

@@ -352,8 +352,9 @@ def run_league_compare() -> dict:
             summary,
             title=f"📊 <b>La liga hoy</b> · {today}",
             note=(
-                "Valor de mercado actual y proyección de Jornada Perfecta para "
-                "la próxima jornada. Van sin combinar porque son dos preguntas "
+                "Valor de mercado actual y SF del mejor once que puede alinear "
+                "cada uno (JP + Oráculo, como en tus imágenes); entre paréntesis, "
+                "la plantilla entera. Van sin combinar porque son dos preguntas "
                 "distintas: un equipo caro no es un equipo que puntúe."
             ),
         ),
