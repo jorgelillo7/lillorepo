@@ -327,6 +327,12 @@ by projected points, and send the result to the owner's chat — never to the
 draft group. Handing every rival the projection of their own squad gives away
 the only edge the tooling provides.
 
+The projection ranking SHALL be the SF of the best eleven each squad can
+field — the same search that picks the owner's lineup — because only the eleven
+scores; the whole-squad sum is shown beside it, never ranked on, since it
+rewards the longest bench (an 18-man squad outranked a 14-man one with the
+better eleven). A squad that cannot field an eleven ranks at 0.
+
 The two rankings SHALL stay separate and uncombined: they answer different
 questions, and merging them needs a weighting that would be invented rather
 than measured. The value heading SHALL follow the data — with a cost to compare
@@ -345,7 +351,12 @@ cached for a few minutes.
 - **WHEN** a cost is present **THEN** the value ranking is titled "quién compró mejor"
 - **WHEN** it is absent **THEN** it is titled "equipo más caro"
 - **WHEN** it is invoked twice inside the cache window **THEN** Biwenger is read once
+- **WHEN** a squad of 18 has the bigger total but a worse eleven than a squad
+  of 14 **THEN** the squad of 14 ranks first, with both totals shown
 - *Verifies:* `test_league_compare_calls_the_action`,
+  `test_the_projection_ranks_the_best_eleven_not_the_whole_squad`,
+  `test_collect_measures_each_squad_best_eleven`,
+  `test_a_squad_that_cannot_field_an_eleven_ranks_at_zero`,
   `test_league_compare_rejects_get`,
   `test_render_says_who_bought_best_only_when_there_is_a_cost`,
   `test_the_two_rankings_are_independent`,

@@ -21,6 +21,7 @@ import time
 
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
+from packages.biwenger_tools.api.logic.lineup import xi_snapshot
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 from packages.biwenger_tools.api.player_formatting import shown_score
 
@@ -36,7 +37,9 @@ def _thousands(number) -> str:
 
 
 def collect(ctx) -> dict:
-    """`{manager: {value, projection, size}}` for every squad in the league.
+    """`{manager: {value, projection, eleven, size}}` for every squad in the
+    league: `projection` sums every player, `eleven` only the best eleven the
+    squad can field — the one that scores — and is 0 when it cannot field one.
 
     Reuses the caller's context so a report chained onto something else pays
     for no second round-trip.
@@ -54,9 +57,11 @@ def collect(ctx) -> dict:
             ctx.oraculo_index,
             oraculo_scale=ctx.oraculo_scale,
         )
+        best = xi_snapshot(rows)
         out[name] = {
             "value": sum(r.get("price") or 0 for r in rows),
             "projection": sum(shown_score(r) or 0 for r in rows),
+            "eleven": best["total_sf"] if best else 0,
             "size": len(rows),
         }
         logger.info("Squad measured.", extra={"manager": name, "size": len(rows)})
@@ -106,16 +111,30 @@ def render(summary: dict, title: str, note: str = "") -> str:
         + (f" ({_eur(summary[m]['gain'])} sobre lo que pagó)" if has_gain else "")
         for i, m in enumerate(rank(summary, "gain" if has_gain else "value"), 1)
     )
-    projection_rows = "\n".join(
-        f"{i}. <b>{m}</b> — {_thousands(summary[m]['projection'])} SF"
-        for i, m in enumerate(rank(summary, "projection"), 1)
+    # Only the eleven scores; a whole-squad sum rewards the longest bench.
+    # The draft post-mortem has no eleven and ranks the fifteen it drafted.
+    by_eleven = all("eleven" in record for record in summary.values())
+    if by_eleven:
+        projection_rows = "\n".join(
+            f"{i}. <b>{m}</b> — {_thousands(summary[m]['eleven'])} SF "
+            f"<i>(plantilla {_thousands(summary[m]['projection'])}, "
+            f"{summary[m].get('size', 0)} jug.)</i>"
+            for i, m in enumerate(rank(summary, "eleven"), 1)
+        )
+    else:
+        projection_rows = "\n".join(
+            f"{i}. <b>{m}</b> — {_thousands(summary[m]['projection'])} SF"
+            for i, m in enumerate(rank(summary, "projection"), 1)
+        )
+    projection_heading = (
+        "📈 <b>Quién proyecta más</b> · mejor once"
+        if by_eleven
+        else "📈 <b>Quién proyecta más</b>"
     )
     heading = (
         "💰 <b>Quién compró mejor</b>" if has_gain else "💰 <b>Equipo más caro</b>"
     )
     body = (
-        f"{title}\n\n"
-        f"{heading}\n{value_rows}\n\n"
-        f"📈 <b>Quién proyecta más</b>\n{projection_rows}"
+        f"{title}\n\n{heading}\n{value_rows}\n\n{projection_heading}\n{projection_rows}"
     )
     return f"{body}\n\n<i>{note}</i>" if note else body

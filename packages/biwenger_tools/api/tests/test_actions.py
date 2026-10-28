@@ -166,8 +166,14 @@ def test_collect_survives_a_player_jornada_perfecta_does_not_carry():
     ctx = MagicMock(biwenger=biwenger, biwenger_players={}, jp_index={})
 
     rows = [
-        {"price": 7_400_000, "jp_player": {"predict": [{"type": 2, "rate": 538}]}},
-        {"price": 2_200_000, "jp_player": None},  # signed, not in JP yet
+        {
+            "bw_id": 10,
+            "position_id": 3,
+            "price": 7_400_000,
+            "jp_player": {"predict": [{"type": 2, "rate": 538}]},
+        },
+        # Signed, not in JP yet.
+        {"bw_id": 11, "position_id": 3, "price": 2_200_000, "jp_player": None},
     ]
     league_compare.reset_cache()
     with patch(
@@ -248,6 +254,59 @@ def test_collect_ranks_every_squad_on_the_same_oraculo_scale():
     assert summary["Ana"]["projection"] == 360  # 300 blended up via Oráculo
     assert summary["Beto"]["projection"] == 275  # 350 blended down via Oráculo
     assert league_compare.rank(summary, "projection") == ["Ana", "Beto"]
+
+
+def test_the_projection_ranks_the_best_eleven_not_the_whole_squad():
+    """Only the eleven scores. Summing every player rewarded the manager
+    with eighteen over the one with a better eleven and fourteen."""
+    summary = {
+        "Muchos": {**_squad(90_000_000, 8000), "eleven": 5000, "size": 18},
+        "Mejor once": {**_squad(60_000_000, 6500), "eleven": 5500, "size": 14},
+    }
+
+    text = league_compare.render(summary, "t")
+
+    assert text.index("Mejor once</b> — 5.500") < text.index("Muchos</b> — 5.000")
+    assert "mejor once" in text.lower()
+    assert "plantilla 8.000" in text
+
+
+def test_collect_measures_each_squad_best_eleven():
+    from unittest.mock import MagicMock, patch
+
+    biwenger = MagicMock()
+    biwenger.get_league_users.return_value = {1: "Jorge"}
+    biwenger.get_manager_squad.return_value = [{"id": 10}]
+    ctx = MagicMock(biwenger=biwenger, biwenger_players={}, jp_index={})
+    target = "packages.biwenger_tools.api.logic.league_compare"
+    with (
+        patch(f"{target}.build_squad_rows", return_value=[{"price": 1}]),
+        patch(f"{target}.xi_snapshot", return_value={"total_sf": 4321}),
+    ):
+        league_compare.reset_cache()
+        summary = league_compare.collect(ctx)
+        league_compare.reset_cache()
+
+    assert summary["Jorge"]["eleven"] == 4321
+
+
+def test_a_squad_that_cannot_field_an_eleven_ranks_at_zero():
+    from unittest.mock import MagicMock, patch
+
+    biwenger = MagicMock()
+    biwenger.get_league_users.return_value = {1: "Jorge"}
+    biwenger.get_manager_squad.return_value = []
+    ctx = MagicMock(biwenger=biwenger, biwenger_players={}, jp_index={})
+    target = "packages.biwenger_tools.api.logic.league_compare"
+    with (
+        patch(f"{target}.build_squad_rows", return_value=[]),
+        patch(f"{target}.xi_snapshot", return_value=None),
+    ):
+        league_compare.reset_cache()
+        summary = league_compare.collect(ctx)
+        league_compare.reset_cache()
+
+    assert summary["Jorge"]["eleven"] == 0
 
 
 # --- the protection watch (daily digest) -----------------------------------
