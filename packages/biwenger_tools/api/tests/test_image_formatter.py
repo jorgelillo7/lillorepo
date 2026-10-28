@@ -505,6 +505,21 @@ def test_build_cash_image_returns_a_png():
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
 
 
+def test_a_long_note_wraps_instead_of_widening_the_cash_image():
+    """28/10: one note ran past the canvas, the tight crop widened the image to
+    fit it, and the tables and title slid off centre."""
+    import struct
+
+    rows = [{"name": "A", "cash": 1, "max_bid": 2}]
+
+    def width(png: bytes) -> int:
+        return struct.unpack(">I", png[16:20])[0]
+
+    short = build_cash_image(rows, "Saldos", ["Nota corta."])
+    long = build_cash_image(rows, "Saldos", ["palabra " * 40])
+    assert width(long) == width(short)
+
+
 def test_build_cash_image_shows_money_in_clauses():
     rows = [
         {
