@@ -76,7 +76,7 @@ market, and the rest become DUDOSO, saying the floor is why. Bids still waiting
 do not count — an auction can be lost — and a sale the trader already closed
 is not subtracted twice, since the squad read no longer holds him. The digest
 names the offers held back this way in **one summary line, without buttons**
-("📥 N ofertas aparcadas · tienes 15 jugadores, el mínimo"): they were worth
+("📥 N ofertas aparcadas · tienes 14 jugadores; vender te deja sin suplentes"): they were worth
 taking alone and hiding them would hide the trade-off, but on 25/10 three
 cards with buttons for offers the squad could not take distracted more than
 they told. `/ofertas` still shows each in full. The reason names the trader

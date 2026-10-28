@@ -2,8 +2,8 @@
 
 The daily digest's trading step: sell the squad's price fallers and bid on the
 market's risers, inside the owner's limits — the best eleven's starters are
-never sold, an eleven that plays is always left, and on the eve of a round the
-wallet may not end below zero. It rests on
+never sold, an eleven that plays is always left, and in the two days before a
+round the wallet may not end below zero. It rests on
 one measured fact: Biwenger prices move in runs (after three days up, the next
 three were up again in ~86 % of the cases sampled on 12/10), and this league
 overpays little on a market buy (median +1.7 %).
@@ -72,7 +72,8 @@ player projected below `TRADER_DEAD_SF` (300, auto-bid's signing floor),
 whatever his price does — SHALL be sold at today's price, weakest projection
 first, so the bench that will not do much pays for the risers; unless he starts in the best
 eleven the lineup search picks today, the sale would take the squad below
-`TRADER_MIN_SQUAD` (15: an eleven and the four reserves the lineup fills), or
+`TRADER_MIN_SQUAD` (14: an eleven and three reserves — the league's fifteen
+binds only the draft), or
 the rest would no longer field a full eleven of players the projection expects
 to play. Either way he is held, and the plan says why. Good players are kept
 for their points; price rotation is for the bench, and the bench is kept.
@@ -208,16 +209,16 @@ sold the day before at 1.44M.
   `test_a_player_owned_in_the_last_two_weeks_is_not_bought_back`,
   `test_recently_owned_is_who_left_the_squad_in_the_window`
 
-### Requirement: No negative wallet on a round's eve
+### Requirement: No negative wallet in the two days before a round
 
 Today's sales SHALL count towards today's bids. The wallet MAY end as low as
-−`TRADER_NEGATIVE_LIMIT` on an ordinary day, since the whole squad is on sale
-and something sells by the next morning, but SHALL NOT end below zero when a
-round's first match still to be played falls tomorrow (Madrid). Biwenger's rule
-is the balance at the exact moment a round starts, and the market settles bids
-around 07:00 the next morning: the day before the kickoff is the one day a bid
-lands before it, while on the kickoff day itself the morning's bids settle
-after it. Only
+−`TRADER_NEGATIVE_LIMIT` on an ordinary day, since the whole squad is on sale,
+but SHALL NOT end below zero when a round's first match still to be played
+falls tomorrow or the day after (Madrid). Biwenger's rule is the balance at
+the exact moment a round starts, and the market settles bids around 07:00 the
+next morning: a bid placed two days out settles on the eve, and nothing sells
+to repair a negative wallet, so it would still be red at the kickoff. On the
+kickoff day itself the morning's bids settle after it. Only
 rounds still `pending` start; the rest of one under way does not, and a
 postponed round — `pending` with most of its games played — starts only with
 the games it has left. An unreadable calendar counts as an eve.
@@ -225,8 +226,8 @@ the games it has left. An unreadable calendar counts as an eve.
 #### Scenario: the floor
 - **WHEN** no round is near **THEN** a bid may take the wallet negative down to
   the limit, and one past it is skipped
-- **WHEN** a round starts tomorrow **THEN** no bid may leave the wallet below
-  zero, however high the limit
+- **WHEN** a round starts tomorrow or the day after **THEN** no bid may leave
+  the wallet below zero, however high the limit
 - **WHEN** a round starts today **THEN** today is not its eve
 - **WHEN** a sale is planned **THEN** its price pays for the day's bids
 - **WHEN** a postponed round has played games and one left **THEN** only the
@@ -238,6 +239,7 @@ the games it has left. An unreadable calendar counts as an eve.
   `test_on_a_round_s_eve_nothing_may_take_the_wallet_below_zero`,
   `test_today_s_sales_pay_for_today_s_buys`,
   `test_a_round_starting_tomorrow_makes_today_its_eve`,
+  `test_the_day_before_the_eve_has_no_negative_floor_either`,
   `test_a_round_three_days_out_is_not_its_eve`,
   `test_the_day_a_round_starts_is_not_its_eve`,
   `test_the_rest_of_a_round_already_under_way_does_not_count_as_a_start`,

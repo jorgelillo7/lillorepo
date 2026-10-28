@@ -60,11 +60,12 @@ class Plan:
 
 
 def round_eve(rounds: list[dict] | None, now: float) -> bool:
-    """Whether a round's first match still to be played falls tomorrow,
-    Madrid time — the one day a bid placed this morning settles (the market
-    closes around 07:00) before a kickoff. The day of the match itself is not
-    an eve: that morning's bids settle after it has started, and the rule is
-    the balance at the exact moment the round starts.
+    """Whether a round's first match still to be played falls tomorrow or the
+    day after, Madrid time. A bid placed this morning settles around 07:00
+    tomorrow, and nothing sells to repair a negative wallet, so a bid two days
+    out still lands red at the kickoff. The day of the match itself is not an
+    eve: that morning's bids settle after it has started, and the rule is the
+    balance at the exact moment the round starts.
 
     Only rounds still `pending` start; the games left in one already under way
     do not. A postponed round stays `pending` with most of its games played,
@@ -85,8 +86,9 @@ def round_eve(rounds: list[dict] | None, now: float) -> bool:
     ]
     if not starts:
         return True
-    tomorrow = datetime.fromtimestamp(now, MADRID_TZ).date() + timedelta(days=1)
-    return any(datetime.fromtimestamp(s, MADRID_TZ).date() == tomorrow for s in starts)
+    today = datetime.fromtimestamp(now, MADRID_TZ).date()
+    near = {today + timedelta(days=1), today + timedelta(days=2)}
+    return any(datetime.fromtimestamp(s, MADRID_TZ).date() in near for s in starts)
 
 
 def best_eleven_ids(rows: list[dict]) -> set:
@@ -355,7 +357,10 @@ def report(result: Plan, live: bool) -> str:
     verb_sell, verb_buy = ("Vendo", "Pujo") if live else ("Vendería", "Pujaría")
     lines = [title, ""]
     if result.round_eve:
-        lines.append("⚠️ Víspera de jornada: el saldo no puede quedar en negativo.")
+        lines.append(
+            "⚠️ La jornada empieza en dos días o menos: el saldo no puede "
+            "quedar en negativo."
+        )
     lines.append(f"Saldo {_eur(result.cash)} → {_eur(result.cash_after)}")
     lines.append("")
     lines.append(

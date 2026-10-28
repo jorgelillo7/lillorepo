@@ -240,6 +240,13 @@ def test_a_round_starting_tomorrow_makes_today_its_eve():
     assert round_eve([_round("pending", tomorrow_evening)], _NOW)
 
 
+def test_the_day_before_the_eve_has_no_negative_floor_either():
+    """A bid placed two days out settles on the eve, and the trader never
+    sells to repair a negative wallet: it would still be red at kickoff."""
+    in_two_days = _NOW + 2 * 86400 + 9 * 3600  # Wednesday 19:00
+    assert round_eve([_round("pending", in_two_days)], _NOW)
+
+
 def test_a_round_three_days_out_is_not_its_eve():
     assert not round_eve([_round("pending", _NOW + 3 * 86400)], _NOW)
 

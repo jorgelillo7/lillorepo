@@ -76,8 +76,9 @@ TRADER_MODE = os.getenv("TRADER_MODE", "live").lower()
 # How far below zero the wallet may end away from a round's eve, in euros.
 TRADER_NEGATIVE_LIMIT = int(os.getenv("TRADER_NEGATIVE_LIMIT", "1000000"))
 TRADER_SELL_AFTER_FALLS = 2
-# Sales stop here: an eleven plus the four reserves the lineup fills.
-TRADER_MIN_SQUAD = 15
+# Sales stop here: an eleven and three reserves. The league's fifteen is a
+# draft rule only; in season a squad may hold fewer.
+TRADER_MIN_SQUAD = 14
 # A bench player projected below auto-bid's signing floor (T4) is sold
 # whatever his price does: he will not do much, and his money buys a riser.
 TRADER_DEAD_SF = 300
