@@ -282,6 +282,15 @@ def test_a_transfer_of_an_unseen_kind_is_reported():
     assert book.unknown_types == frozenset({"transfer:exchange"})
 
 
+def test_an_immediate_sale_pays_the_seller_and_is_not_reported():
+    """Selling straight to the market for cash on the spot: a transfer with
+    no buyer and the kind `immediateSale`, first seen on 28/10."""
+    move = {"from": _user(RIVAL), "amount": 660_000, "type": "immediateSale"}
+    book = _rebuild(_season_started(), _entry("transfer", [move], SEASON_START + 1))
+    assert book.unknown_types == frozenset()
+    assert book.cash_of(RIVAL) == book.starting_balance + 660_000
+
+
 # --- Requirement: `/saldos` ranks richest first ----------------------------
 
 

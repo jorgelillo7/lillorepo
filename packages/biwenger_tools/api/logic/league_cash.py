@@ -23,10 +23,11 @@ SEASON_START_TYPE = "seasonStarted"
 # Entry types that move money between a `from` and a `to`.
 _TRANSFER_TYPES = frozenset({"transfer", "market", "adminTransfer"})
 
-# `transfer` kinds seen so far: a plain sale or purchase, and a clause. Any
-# other kind — an exchange is the likely one — is booked the same way but
-# reported, since that is a guess.
-_SEEN_TRANSFER_KINDS = frozenset({None, "clause"})
+# `transfer` kinds seen so far: a plain sale or purchase, a clause, and an
+# immediate sale to the market (no buyer, cash on the spot). Any other kind —
+# an exchange is the likely one — is booked the same way but reported, since
+# that is a guess.
+_SEEN_TRANSFER_KINDS = frozenset({None, "clause", "immediateSale"})
 
 
 @dataclass(frozen=True)
