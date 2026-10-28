@@ -1,6 +1,7 @@
 """Generates PNG table images for Telegram using matplotlib."""
 
 import io
+import textwrap
 import time
 import unicodedata
 from datetime import datetime
@@ -609,6 +610,10 @@ def _draw_cash_table(ax, headers, cells, widths, bottom, top, bold):
             text.set_fontweight("bold")
 
 
+# Characters of an 8.5 pt note that fit the 6.4 in cash canvas.
+_NOTE_WRAP_CHARS = 78
+
+
 def build_cash_image(
     rows: list[dict],
     title: str,
@@ -626,8 +631,18 @@ def build_cash_image(
     players, their clause and how many rivals reach it.
     """
     exposure = exposure or []
+    # Wrapped to the canvas: an unwrapped line runs past it, and the tight
+    # crop widens the whole image to fit, pushing the tables off centre.
+    note_lines = [
+        (wrapped, note.startswith("⚠️"))
+        for note in notes
+        for wrapped in textwrap.wrap(
+            f"Atención: {_plain(note)}" if note.startswith("⚠️") else _plain(note),
+            _NOTE_WRAP_CHARS,
+        )
+    ]
     line_in = 0.42
-    main_in = 0.75 + line_in * (len(rows) + 1) + 0.3 * len(notes) + 0.25
+    main_in = 0.75 + line_in * (len(rows) + 1) + 0.25 * len(note_lines) + 0.25
     expo_in = (0.55 + line_in * (len(exposure) + 1)) if exposure else 0
     fig_h = main_in + expo_in + 0.2
     fig, ax = plt.subplots(figsize=(6.4, fig_h))
@@ -668,13 +683,11 @@ def build_cash_image(
         y(main_top),
         lambda i, j: rows[i].get("is_me") or j == 3,
     )
-    for k, note in enumerate(notes):
-        warning = note.startswith("⚠️")
-        line = _plain(note)
+    for k, (line, warning) in enumerate(note_lines):
         ax.text(
             0,
-            y(main_bottom + 0.1 + 0.3 * k),
-            f"Atención: {line}" if warning else line,
+            y(main_bottom + 0.1 + 0.25 * k),
+            line,
             transform=ax.transAxes,
             fontsize=8.5,
             ha="left",
