@@ -876,6 +876,19 @@ def test_offers_that_would_take_the_squad_below_its_minimum_are_held_back():
     assert all(any("15" in r for r in s["reasons"]) for s in scored)
 
 
+def test_the_floor_is_the_tools_own_and_says_what_it_protects():
+    """The league's fifteen is a draft rule only. In season the floor is an
+    eleven and three reserves, and the note must not read as a league rule."""
+    from packages.biwenger_tools.api import config
+
+    assert config.TRADER_MIN_SQUAD == 14
+    scored = [_accept(3)]
+    offers.apply_squad_floor(scored, squad_size=14, trader_sells=set(), min_squad=14)
+    reason = scored[0]["reasons"][-1]
+    assert "el mínimo es" not in reason
+    assert "suplentes" in reason
+
+
 def test_the_room_left_goes_to_the_offer_furthest_over_the_market():
     scored = [_accept(3, vs_market_pct=1.0), _accept(4, vs_market_pct=20.0)]
     offers.apply_squad_floor(scored, squad_size=16, trader_sells=set(), min_squad=15)

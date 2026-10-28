@@ -304,8 +304,8 @@ def apply_squad_floor(
             f"Pero con las ventas del trader bajarías de {min_squad}; "
             "acéptala si entra un fichaje"
             if still_here
-            else f"Pero tienes {squad_size}, el mínimo es {min_squad}: "
-            "acéptala solo si fichas a otro"
+            else f"Pero tienes {squad_size}: por debajo de {min_squad} te "
+            "quedas sin suplentes. Acéptala solo si fichas a otro"
         )
 
 
@@ -331,7 +331,7 @@ def _format_parked(parked: list[dict], squad_size: int) -> str:
     n = len(parked)
     lines = [
         f"📥 <b>{n} oferta{'s' if n > 1 else ''} aparcada{'s' if n > 1 else ''}"
-        f"</b> · tienes {squad_size} jugadores, el mínimo",
+        f"</b> · tienes {squad_size} jugadores; vender te deja sin suplentes",
     ]
     for s in sorted(parked, key=lambda m: -(m.get("offer_amount") or 0)):
         lines.append(
