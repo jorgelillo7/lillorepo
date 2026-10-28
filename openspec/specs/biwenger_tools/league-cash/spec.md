@@ -162,8 +162,9 @@ stated on the image rather than left to look like data:
 - **A movement the rebuild does not know.** Any board entry of a type the
   rebuild does not book money for that nonetheless carries an `amount` — none
   ever has, `bettingPool` included — and any `transfer` of a kind other than a
-  plain one or a `clause` SHALL be named on the image as a reason the figures
-  may be wrong. The league allows loans and exchanges and neither has been
+  plain one, a `clause` or an `immediateSale` (a sale straight to the market,
+  no buyer, booked like any sale) SHALL be named on the image as a reason the
+  figures may be wrong. The league allows loans and exchanges and neither has been
   seen yet; an exchange would most likely arrive as a new `transfer` kind.
   The scraper archives such an entry too, so fixing the rule later can still
   count it.
@@ -183,6 +184,7 @@ stated on the image rather than left to look like data:
   `test_an_unknown_type_with_an_amount_is_reported`,
   `test_an_untyped_entry_with_an_amount_is_reported_not_a_crash`,
   `test_an_unknown_type_without_an_amount_is_ignored`,
+  `test_an_immediate_sale_pays_the_seller_and_is_not_reported`,
   `test_a_moneyless_type_that_starts_carrying_an_amount_is_reported`,
   `test_a_transfer_of_an_unseen_kind_is_reported`
 
