@@ -21,7 +21,14 @@ OIDC ID token; the bot's and the Scheduler's service accounts both have
 | `GET`  | `/market` | Transfer market (was `/mercado`) |
 | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
 | `GET`  | `/budget/recommendations[?top=N]` | Top-N affordable clausulazo targets per position |
-| `POST` | `/digests/daily` | Cron only — my team + market |
+| `POST` | `/digests/daily` | Cron only — squad, market, lineup, auto-bid, trader, offers |
+| `POST` | `/league/compare` | `/comparar`: value and best-eleven SF of every squad |
+| `POST` | `/league/cash` | `/saldos`: every manager's cash, money in clauses and max bid |
+| `POST` | `/league/top` | `/top`: every squad's five best, one image |
+| `GET`/`POST` | `/pact`, `/pact/toggle` | The non-aggression pact behind `/pacto` |
+| `POST` | `/public/check` | The bot's gate for non-owner chats; remembers unknown ones |
+| `GET`/`POST` | `/public/members` | The public allowlist behind `/publico` |
+| `POST` | `/public/league/cash`, `/public/movements`, `/public/managers`, `/public/teams`, `/public/top` | Public commands, answered to `chat_id`, cached in `public_cache` |
 | `GET`  | `/draft/managers` | Draft managers + who has claimed each — backs the `/soy` picker |
 | `POST` | `/draft/register` | Bind a Telegram user to a draft manager |
 | `GET`  | `/draft/state` | Whose turn it is, budgets/spend/squad size per manager |
