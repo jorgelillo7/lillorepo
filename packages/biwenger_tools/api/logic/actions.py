@@ -35,6 +35,9 @@ from packages.biwenger_tools.api.logic import (
     trader,
 )
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
+from packages.biwenger_tools.api.logic.draft_service.managers import (
+    names_by_telegram_id as draft_names_by_telegram_id,
+)
 from packages.biwenger_tools.api.logic.image_formatter import (
     build_cash_image,
     build_table_image,
@@ -590,16 +593,42 @@ def run_public_movements(chat_id: str) -> dict:
 
 
 def list_public_members() -> dict:
-    return {"members": sorted(public_members_store.load())}
+    """The allowlist, each id labelled: the owner's own name for him if he
+    gave one, else the manager he registered as in the draft."""
+    members = public_members_store.load()
+    names: dict[int, str] = {}
+    try:
+        names.update(draft_names_by_telegram_id())
+    except Exception:
+        logger.warning("Draft registry unreadable — members go unnamed.")
+    names.update(public_members_store.load_names())
+    return {
+        "members": sorted(members),
+        "names": {str(m): names[m] for m in sorted(members) if m in names},
+        "pending": {
+            str(c): title for c, title in public_members_store.load_pending().items()
+        },
+    }
 
 
-def edit_public_members(user_id: int, action: str) -> dict:
-    members = (
-        public_members_store.add(user_id)
-        if action == "add"
-        else public_members_store.remove(user_id)
-    )
-    return {"members": sorted(members)}
+def check_public_chat(chat_id: str, title: str) -> dict:
+    """The bot's gate. A chat that is not a member is remembered, unanswered,
+    so the owner can authorize it from `/publico`."""
+    if public_members_store.is_member(chat_id):
+        return {"allowed": True}
+    try:
+        public_members_store.remember_pending(int(chat_id), title)
+    except (TypeError, ValueError):
+        pass
+    return {"allowed": False}
+
+
+def edit_public_members(user_id: int, action: str, name: str | None = None) -> dict:
+    if action == "add":
+        public_members_store.add(user_id, name)
+    else:
+        public_members_store.remove(user_id)
+    return list_public_members()
 
 
 def run_protection_watch(ctx) -> dict:

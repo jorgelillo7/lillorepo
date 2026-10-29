@@ -806,5 +806,17 @@ def test_public_members_edit_validates_its_input(client):
         return_value={"members": [5]},
     ) as mock_edit:
         resp = client.post("/public/members", json={"user_id": "5", "action": "add"})
-    mock_edit.assert_called_once_with(5, "add")
+    mock_edit.assert_called_once_with(5, "add", None)
     assert resp.get_json()["members"] == [5]
+
+
+def test_public_members_edit_passes_an_optional_name(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.edit_public_members",
+        return_value={"members": [5], "names": {"5": "Manu"}},
+    ) as mock_edit:
+        client.post(
+            "/public/members",
+            json={"user_id": 5, "action": "add", "name": "  Manu  "},
+        )
+    mock_edit.assert_called_once_with(5, "add", "Manu")

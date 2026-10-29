@@ -32,6 +32,17 @@ def _resolve_manager_name(name: str) -> Optional[int]:
     return matches[0] if len(matches) == 1 else None
 
 
+def names_by_telegram_id() -> dict[int, str]:
+    """`{telegram_user_id: manager_name}` from this season's `/soy` registry."""
+    out = {}
+    for doc_id, data in store.fs.list_documents(_managers_path(config.DRAFT_SEASON)):
+        try:
+            out[int(data.get("telegram_user_id") or doc_id)] = data["manager_name"]
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
 def list_draft_managers() -> dict:
     """Every manager in the draft order, with who has claimed each one.
 
