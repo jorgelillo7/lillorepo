@@ -276,6 +276,7 @@ def run(season="26-27", ranked="", gif=DEFAULT_GIF, write=False, echo=print):
         "skills",
         "draft",
         season,
+        "datos",
         "draft-ranked.csv",
     )
     picks = load_picks(season)
@@ -324,7 +325,7 @@ def main():
     ap.add_argument(
         "--ranked",
         default="",
-        help="CSV rankeado; por defecto <skill>/<temporada>/draft-ranked.csv",
+        help="CSV rankeado; por defecto <skill>/<temporada>/datos/draft-ranked.csv",
     )
     ap.add_argument("--write", action="store_true", help="enviar (por defecto: ensayo)")
     args = ap.parse_args()

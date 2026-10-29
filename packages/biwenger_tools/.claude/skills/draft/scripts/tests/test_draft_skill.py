@@ -887,3 +887,64 @@ def test_the_mock_keeps_money_for_a_bench_that_plays():
     )
     outfield = [r for r in squads["Me"] if r["pos"] != "PT"]
     assert all(not r["name"].startswith("Z") for r in outfield)
+
+
+# --- the season folder: the plan, what was drafted, then analysis and data ---
+
+
+def test_a_season_file_in_a_subfolder_gets_its_folder(tmp_path, monkeypatch):
+    import paths
+
+    monkeypatch.setenv("DRAFT_OUT_ROOT", str(tmp_path))
+    path = paths.season_path("27-28", paths.RANKED)
+    assert path == str(tmp_path / "27-28" / "datos" / "draft-ranked.csv")
+    assert (tmp_path / "27-28" / "datos").is_dir()
+
+
+def test_the_plan_and_what_was_drafted_sit_at_the_top_of_the_season():
+    import paths
+
+    assert paths.DECISION == "plan.md"
+    assert paths.MY_DRAFT == "mi-draft.md"
+    assert paths.AVAILABILITY == "historial.md"
+    for name in (paths.RANKED, paths.REAL_POINTS, paths.AVAILABILITY_CSV):
+        assert name.startswith("datos/")
+    for name in (paths.ARCHETYPES, paths.TIERS, paths.REHEARSAL):
+        assert name.startswith("analisis/")
+
+
+def test_my_draft_lists_only_my_picks_with_what_they_cost():
+    import availability_report
+
+    picks = [
+        {
+            "global_pick": 3,
+            "round": 1,
+            "manager_name": "Jorge",
+            "player_name": "Olmo",
+            "player_team": "Barcelona",
+            "line": "MC",
+            "price": 11_250_000,
+        },
+        {
+            "global_pick": 4,
+            "round": 1,
+            "manager_name": "Manu",
+            "player_name": "X",
+            "player_team": "Y",
+            "line": "DL",
+            "price": 1,
+        },
+        {
+            "global_pick": 12,
+            "round": 2,
+            "manager_name": "Jorge",
+            "player_name": "Dmitrovic",
+            "player_team": "Espanyol",
+            "line": "PT",
+            "price": 3_970_000,
+        },
+    ]
+    text = availability_report.render_mine(picks, "26-27", "Jorge")
+    assert "Olmo" in text and "Dmitrovic" in text and "| X |" not in text
+    assert "2 jugadores" in text and "15,22M" in text

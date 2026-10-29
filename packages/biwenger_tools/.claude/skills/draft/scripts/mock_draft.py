@@ -14,7 +14,7 @@ not a forecast of the league.
 
     bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:mock_draft -- \\
         --season 27-28 --real-points <draft-real-points.csv> \\
-        --exclude-file 26-27/exclusiones.txt --history 26-27/disponibilidad.csv \\
+        --exclude-file 26-27/exclusiones.txt --history 26-27/datos/historial.csv \\
         --rivals-season 26-27 --shortlist-out mide.csv
 """
 
@@ -168,12 +168,16 @@ def main():
     ap.add_argument("--ranked", default="")
     ap.add_argument("--real-points", default="")
     ap.add_argument("--exclude-file", default="")
-    ap.add_argument("--history", required=True, help="disponibilidad.csv anterior")
+    ap.add_argument(
+        "--history", required=True, help="datos/historial.csv del draft anterior"
+    )
     ap.add_argument("--rivals-season", required=True, help="picks de Firestore")
     ap.add_argument("--me", default="Jorge")
     ap.add_argument("--budget", type=float, default=50, help="en millones")
     ap.add_argument("--shortlist-out", default="", help="tus sin medir, en CSV")
-    ap.add_argument("--out", default="", help="por defecto <temporada>/ensayo.md")
+    ap.add_argument(
+        "--out", default="", help="por defecto <temporada>/analisis/ensayo.md"
+    )
     args = ap.parse_args()
 
     ranked = args.ranked or paths.season_path(args.season, paths.RANKED)
@@ -234,7 +238,7 @@ def main():
             fh.write("name\n" + "\n".join(pending) + "\n")
         out.append(f"→ `{args.shortlist_out}` para `fetch_real_points`.")
 
-    destination = args.out or paths.season_path(args.season, "ensayo.md")
+    destination = args.out or paths.season_path(args.season, paths.REHEARSAL)
     with open(destination, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")
     print("\n".join(out))

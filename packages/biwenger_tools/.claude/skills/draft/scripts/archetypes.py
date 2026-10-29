@@ -1068,7 +1068,7 @@ def main():
     ap = argparse.ArgumentParser(description="Draft archetype generator")
     ap.add_argument("--season", default="26-27", help="carpeta de salida")
     ap.add_argument(
-        "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
+        "--ranked", default="", help="por defecto <temporada>/datos/draft-ranked.csv"
     )
     ap.add_argument(
         "--real-points",
@@ -1169,7 +1169,9 @@ def main():
         action="store_true",
         help="keep unrated players instead of dropping them",
     )
-    ap.add_argument("--out", default="", help="por defecto <temporada>/arquetipos.md")
+    ap.add_argument(
+        "--out", default="", help="por defecto <temporada>/analisis/arquetipos.md"
+    )
     ap.add_argument(
         "--decision",
         default="",

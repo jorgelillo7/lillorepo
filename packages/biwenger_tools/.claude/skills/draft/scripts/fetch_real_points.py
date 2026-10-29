@@ -182,7 +182,7 @@ def main() -> int:
     src.add_argument("--shortlist", help="CSV with a 'name' column")
     src.add_argument("--names", help="comma-separated player names")
     ap.add_argument(
-        "--out", default="", help="por defecto <temporada>/draft-real-points.csv"
+        "--out", default="", help="por defecto <temporada>/datos/draft-real-points.csv"
     )
     ap.add_argument("--draft-season", default="26-27", help="carpeta de salida")
     ap.add_argument(

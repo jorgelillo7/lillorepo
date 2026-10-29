@@ -21,11 +21,11 @@ cuál, cuál escribe de verdad y cuál corre dónde**.
 ```mermaid
 flowchart TD
     subgraph PREP["🔍 Antes · local · solo lectura"]
-        CSV["Exportas el CSV<br/>mercado cerrado"] --> RANK["draft_ranking.py<br/>→ draft-ranked.csv"]
+        CSV["Exportas el CSV<br/>mercado cerrado"] --> RANK["draft_ranking.py<br/>→ datos/draft-ranked.csv"]
         RANK --> REAL["fetch_real_points.py<br/>→ puntos Personalizado<br/>⚠️ shortlist 30-45, nunca el mercado"]
-        REAL --> TIERS["tiers.py<br/>→ niveles.md · la herramienta principal"]
+        REAL --> TIERS["tiers.py<br/>→ analisis/niveles.md · la herramienta principal"]
         TIERS --> ARCH["archetypes.py<br/>→ comprobación de presupuesto"]
-        HIST[("{año-1}/disponibilidad.csv")] -.->|--history| TIERS
+        HIST[("{año-1}/datos/historial.csv")] -.->|--history| TIERS
         EXCL[("{año-1}/exclusiones.txt")] -.->|--exclude-file| ARCH
     end
 
@@ -51,8 +51,8 @@ flowchart TD
         MAN --> POST
     end
 
-    subgraph AFTER["📦 Después · se commitea"]
-        OUT[("{año}/disponibilidad.md + .csv")]
+    subgraph AFTER["📦 Después · sync.sh push"]
+        OUT[("{año}/historial.md · mi-draft.md · datos/historial.csv")]
         VETO[("{año}/exclusiones.txt<br/>a mano, según se descarta")]
     end
 
@@ -72,7 +72,7 @@ flowchart TD
 
 **Las cinco cosas que se olvidan:**
 
-1. **El pliego no se hace una vez, se recalibra.** `final-decision.md` caduca con
+1. **El pliego no se hace una vez, se recalibra.** `plan.md` caduca con
    cada pick ajeno. Por cada hueco que te tumban se repite el bucle entero —
    `board.py`, `risers.py` y **medir con datos reales los candidatos de ese
    hueco**. Ese último paso es el que se salta y el que más veces cambia la
@@ -153,27 +153,44 @@ decide: en el backtest su favorito acabó quinto de seis.
 Todo lo que produce un draft vive en `<temporada>/`. La temporada la lleva la
 carpeta, **nunca el nombre del fichero** — eso es lo que permite comparar dos
 años con un `diff -r` y lo que hace que una ejecución limpia genere el mismo
-árbol que generó el año pasado.
+árbol que generó el año pasado. Arriba, lo que abres tú; debajo, lo que leen
+los scripts.
 
 ```
 skills/draft/
-  25-26/
-    draft.md                 relato a mano; de ese año no hay datos en Firestore
   26-27/
-    draft-ranked.csv         Fase A · draft_ranking.py
-    draft-real-points.csv    Fase B · fetch_real_points.py
-    niveles.md               tiers.py — la tabla con la que se decide
-    arquetipos.md            archetypes.py --out
-    decision.md              archetypes.py --decision
-    disponibilidad.md        availability_report.py — el relato del draft
-    disponibilidad.csv       availability_report.py — el modelo del año siguiente
+    plan.md                  ★ tu plan de un vistazo · archetypes.py --decision
+    mi-draft.md              ★ lo que cogiste de verdad · availability_report.py
+    historial.md             el draft de toda la liga, pick a pick · availability_report.py
+    rivales.md               lo que dicen los rivales, a mano durante la temporada
     exclusiones.txt          los vetos de noticias, a mano
-    .cache/                  payloads descargados (lo único gitignorado)
+    analisis/
+      niveles.md             tiers.py — la tabla con la que se decide
+      arquetipos.md          archetypes.py --out
+      ensayo.md              mock_draft.py
+    datos/
+      draft-ranked.csv       Fase A · draft_ranking.py
+      draft-real-points.csv  Fase B · fetch_real_points.py
+      historial.csv          el modelo del año siguiente (--history)
+      .cache/                payloads descargados, reproducibles
+  25-26/
+    historial.md             relato a mano; de ese año no hay datos en Firestore
 ```
 
-**Todo se commitea salvo `.cache/`.** Sin el CSV rankeado y el informe de
-arquetipos en git no hay contra qué diffear la ejecución del año que viene, que
-es justo para lo que existe esta estructura.
+### Dónde vive cada temporada
+
+**Las carpetas de temporada no van a git: el repo es público** y guardan tu
+plan, lo que cogiste y tus notas sobre los demás. Viven en tu máquina, con una
+copia privada en Cloud Storage (`gs://biwenger-draft-private`, acceso público
+bloqueado, con versiones):
+
+```bash
+bash packages/biwenger_tools/.claude/skills/draft/sync.sh push   # tras cada fase y al cerrar el draft
+bash packages/biwenger_tools/.claude/skills/draft/sync.sh pull   # en una máquina nueva, antes de empezar
+```
+
+Ninguno de los dos borra nada; `datos/.cache/` se queda en local porque se
+vuelve a descargar.
 
 Ningún script pide rutas: `scripts/paths.py` las resuelve todas a partir de
 `--season`. Si dos ejecuciones difieren en dónde escriben, es un bug de ahí y de
@@ -232,7 +249,7 @@ token and reuses `core.sdk.jp.fetch_all_players` + the production
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:draft_ranking -- \
-    --csv /path/to/primera-division.csv --season 27-28   # → 27-28/draft-ranked.csv
+    --csv /path/to/primera-division.csv --season 27-28   # → 27-28/datos/draft-ranked.csv
 ```
 
 It fetches live JP SofaScore, joins on names (accent/slug folding + the
@@ -303,18 +320,18 @@ season folder):
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:tiers -- \
-    --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+    --season 27-28 --real-points $D/27-28/datos/draft-real-points.csv \
     --exclude-file $D/26-27/exclusiones.txt --pick-position 3 \
-    --history $D/26-27/disponibilidad.csv --rivals-season 26-27
+    --history $D/26-27/datos/historial.csv --rivals-season 26-27
 ```
 
 And the budget check:
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
-    --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+    --season 27-28 --real-points $D/27-28/datos/draft-real-points.csv \
     --budget 50 --pick-position 3 --managers 7 \
-    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
+    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/datos/historial.csv
 # D=packages/biwenger_tools/.claude/skills/draft
 ```
 
@@ -413,7 +430,7 @@ Steps:
 
 ## A mitad de draft, el pliego ya no vale — recalcúlalo
 
-`final-decision.md` se escribe una vez y envejece con cada pick ajeno: a la
+`plan.md` se escribe una vez y envejece con cada pick ajeno: a la
 altura del pick 73 la mitad de sus nombres ya estaban cogidos y el gasto real no
 se parecía al planificado. No decidas de memoria ni releyendo el pliego.
 
@@ -596,7 +613,7 @@ Los otros dos scripts de la skill, que no son del generador:
 | `board.py` | **A mitad de draft.** Qué tienes, qué te cabe y quién sigue libre, contra Firestore |
 | `risers.py` | **Quién sube en el mercado real.** Dos exportaciones separadas unos días |
 
-Escribe `mi-arquetipos.md` (gitignored) y, con `--decision`, el pliego aparte.
+Escribe `analisis/arquetipos.md` y, con `--decision`, el pliego aparte en `plan.md`.
 
 **Arranca siempre con el `--exclude-file` del año anterior.** `26-27/exclusiones.txt`
 guarda los 19 descartes de aquel draft con su motivo. No es una lista negra: un
@@ -637,11 +654,11 @@ confirma con `fetch_real_points.py` antes de gastar.
 
 ```bash
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:archetypes -- \
-    --ranked draft-ranked.csv --budget 52 --pick-position 3 --managers 7 \
+    --season 26-27 --budget 52 --pick-position 3 --managers 7 \
     --exclude "Aubameyang,Soler,Kike Salas" \
     --bets "Fer Niño,Carlos Maciá,Riedel,Pablo Campos,Odysseas,Marc Bernal,Unai López,Adrián Niño,Julio Díaz" \
     --force "Dani Olmo" \
-    --out arquetipos.md --decision final-decision.md
+    --decision 26-27/plan.md
 ```
 
 De dónde sale cada cosa, porque los nombres cambian cada año y lo que hay que
@@ -720,7 +737,7 @@ Close the previous draft with the machine-readable model and feed it back:
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- --season 26-27
 
 # al año siguiente
-... archetypes.py --history 26-27/disponibilidad.csv ...
+... archetypes.py --history 26-27/datos/historial.csv ...
 ```
 
 The **Vaciado** column then reports, for each planned pick, `gone/supply`: how
@@ -767,7 +784,7 @@ Si en tu tier hay tres jugadores parecidos, espera; si hay uno solo, cógelo ya.
 
 ## El histórico es la mejor fuente de "cuándo"
 
-`{temporada}/disponibilidad.md` guarda cada draft pick a pick. Cotejar el 15 objetivo
+`{temporada}/historial.md` guarda cada draft pick a pick. Cotejar el 15 objetivo
 contra el anterior es lo único que dice si el plan es realista: en el 25/26
 Gerard Moreno se fue en el pick 7 y Marcos Alonso — que hoy costaría 3,32M — en
 el pick 10. Un plan que los espere en el pick 40 es papel mojado.
@@ -780,11 +797,11 @@ Cloud Run y no puede escribir en este repo: el histórico lo generas tú.
 bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- --season 26-27
 ```
 
-Escribe `26-27/disponibilidad.md` (el relato) y `26-27/disponibilidad.csv` (el modelo que lee
-`archetypes.py --history`). **Ambos se commitean** — son el único artefacto de
-esta skill que sobrevive a la semana en que se usó. Todo lo demás
-(`final-decision.md`, `mi-arquetipos.md`, el CSV rankeado) está gitignorado a
-propósito: es de un año y de una persona.
+Escribe `26-27/historial.md` (el draft de la liga), `26-27/mi-draft.md` (lo que
+cogiste) y `26-27/datos/historial.csv` (el modelo que leen `tiers`,
+`mock_draft` y `archetypes.py --history`). Son el único artefacto de esta skill
+que sobrevive a la semana en que se usó: **haz `sync.sh push` en cuanto se
+escriban**.
 
 **Firestore solo tiene el 26/27 en adelante.** `draft/25-26/picks` está vacío, así
 que el `.csv` de aquel año no se puede reconstruir y `--history` no tuvo

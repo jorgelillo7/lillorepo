@@ -1,9 +1,6 @@
-# One folder per season holds everything that season produced, and all of it is
-# committed: without the ranked CSV and the archetype report in git there is
-# nothing to diff next year's run against, which is the whole point of the
-# per-season layout.
-#
-# The exception is the fetched payload cache. It is ~800 KB of raw Biwenger
-# responses per season, it is reproducible from the API, and it says nothing a
-# reader would ever want to read.
-*/.cache/
+# Season folders (`25-26/`, `26-27/`, …) never reach git: this repo is
+# public, and they hold the owner's draft plan, what he took and his notes on
+# the other managers. They live on the owner's machine with a private copy in
+# Cloud Storage — `sync.sh push|pull` (see SKILL.md → "Dónde vive cada
+# temporada").
+/[0-9][0-9]-[0-9][0-9]/

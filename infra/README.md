@@ -19,7 +19,7 @@ another existing resource takes a temporary `import` block, or
 | `workload_identity.tf` | Pool `github`, provider `github-oidc` (this repo, `master` only) |
 | `artifact_registry.tf` | `biwenger-docker`, `be-water-docker`, CI's `repoAdmin` on each |
 | `secrets.tf` | Secret **containers** and who may read them — never values |
-| `storage.tf` | Buckets `biwenger` and `be-water-photos`, their public read and writers |
+| `storage.tf` | Buckets `biwenger` and `be-water-photos`, their public read and writers; `biwenger-draft-private` (public access prevention enforced) for the draft skill's season folders |
 | `cloud_run_iam.tf` | Who may invoke each Cloud Run service and the scraper job |
 | `scheduler.tf` | Daily digest and weekly scraper triggers (`europe-west1`) |
 | `firestore.tf` | Both `(default)` databases, `messages` composite indexes, field overrides and the `bids.expires_at` / `price_snapshots.expires_at` TTLs |
