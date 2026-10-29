@@ -2,6 +2,20 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v11.0 - The League Gets a Window (29 October 2026)**
+
+Eleven clausulazos in five days. The owner's squad lost four starters on the way and still came out stronger, and from today a league mate reads the league's money from the same bot without seeing the owner's hand.
+
+* **🪟 Public league info (the headline)**: chats on an allowlist (a mate's private chat, or a group the owner opens with him to follow what he asks) get `/saldos`, `/movimientos` (the board's trades, clausulazos and clause raises of the last 24 h), `/analizar` (rivals only: the owner's team is never offered and the api refuses it by id), `/top` and `/mercado`. Nothing that reads or acts on the owner's team. `/publico` manages the list: it names members from their draft `/soy`, and offers every chat that wrote without access with an "Autorizar" button, because the bot still never answers a stranger. Each command block shows only in its own chats: public, draft, and the owner's.
+* **🛡️ A cache that holds when they hammer it**: every fresh read is paid from the owner's Biwenger account, so public reads share one Firestore document per answer, across Cloud Run instances. Taps that arrive during a read wait for it, and a failure is remembered for a minute so nobody taps through a 429. The owner's `/saldos` always reads fresh and refreshes it.
+* **🏆 `/top`**: every squad's five best in one image, one block per manager under a header row, with club and clause. Players still under protection are greyed out, so the eye skips them, and red still means "does not play".
+* **💰 `/saldos` sees the money in clauses**: a new column shows what each manager has sunk into raising clauses. Its 75 % refund now counts as cash when the bot works out who can pay your clauses, and Biwenger's "venta inmediata" is understood instead of flagged. The notes wrap, so the image no longer slides off centre.
+* **⚖️ `/comparar` ranks the eleven, not the bench**: it used to sum every player, so an 18-man squad outranked a 14-man one with the better eleven. It now ranks the best eleven each squad can field, with the whole-squad sum beside it.
+* **🤖 The trader and auto-bid, tightened by a live week**: no negative wallet two days before a round, because a bid placed then settles on the eve and nothing sells to repair it. The squad floor is 14, since the league's 15 binds only the draft. It never sells a player who cannot play, never buys back one it just sold, and parks offers in one line. Auto-bid bids on a T3/T4 only if he would start.
+* **⚡ Half the morning's requests**: the digest read the calendar seventeen times and auto-bid logged in on its own. Now each round, the squad and the market are read once per digest, and auto-bid shares the digest's session: about 40 Biwenger requests a morning down to about 22.
+* **🏁 The draft skill, rebuilt around how drafts are won**: it decides on tiers, starts and rivals' habits, reads last season's real points by name, and rehearses against the league with a mock draft. What rivals say during the season goes in `rivales.md`. Every season folder now reads at a glance: `plan.md`, `mi-draft.md` (what was actually taken), `historial.md`, with `analisis/` and `datos/` below. It stays out of the public repo, with a private, versioned copy in Cloud Storage (`sync.sh push|pull`).
+* **🐛 Smaller fixes**: the client follows Biwenger's app-version bumps by itself (632 broke `/saldos`); a clausulazo the admin undid stops counting; the ⭐ next to a player names which Oráculo list it comes from.
+
 ### **v10.0 - The Market Trades Itself (22 October 2026)**
 
 Three weeks ago the squad only moved when someone opened the app. Since today it buys and sells on its own every morning — and the three steps that touch the market finally agree with each other before they do.

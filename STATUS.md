@@ -64,17 +64,21 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
   start, at most three starters per club, jitter and Firestore idempotency.
 - **Market trader** — live: every morning it lists the squad, sells bench
-  fallers and a spare keeper (never a signing under 14 days, never below 15
-  players) and bids on risers, ending at most 1M below zero and never below it
-  on a round's eve. It runs before the offers inbox, which treats its sells as
+  fallers and a spare keeper (never a signing under 14 days, never below 14
+  players — the league's 15 binds only the draft) and bids on risers, ending at
+  most 1M below zero and never below it in the two days before a round. It runs before the offers inbox, which treats its sells as
   gone.
 - **Lineup optimizer** — memoised backtracking over 14 formations, captain MV
   cap, full bench, applied every morning at 09:00.
 - **Draft** — 105-pick snake draft arbitrated from Telegram, per-pick budget
   and composition validation, plus an offline squad-shape search.
 - **Recommender** — clausulazo targets under `clause ≤ cash + dynamic margin`.
-- **League cash** — every manager's hidden balance rebuilt from the board for
-  `/saldos`, backed by the scraper's append-only archive of the board's money
+- **Public league info** — allowlisted chats (a mate's private chat or a group
+  the owner opened) get `/saldos`, `/movimientos`, `/analizar` (rivals only),
+  `/top` and `/mercado` from the same bot, behind a Firestore cache shared
+  across instances. The owner manages the list with `/publico`.
+- **League cash** — every manager's hidden balance and money in clauses
+  rebuilt from the board for `/saldos`, backed by the scraper's append-only archive of the board's money
   entries, so what Biwenger forgets mid-season or purges at the season change
   still counts. Clausulazos are never deleted either.
 - **Reverse-engineered APIs** — Biwenger `/api/v2/*` and Jornada Perfecta

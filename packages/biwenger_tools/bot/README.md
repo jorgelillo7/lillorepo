@@ -4,10 +4,16 @@ Cloud Run **Service** (`biwenger-bot`) that receives Telegram webhooks and
 calls the [`biwenger-api`](../api/README.md) service over HTTP. Pure
 orchestrator — no business logic lives here.
 
-Two chats are routed, each with its own command set: the owner private chat
-(`config.TELEGRAM_CHAT_ID`) gets the full admin surface below; the draft
-supergroup (`config.TELEGRAM_DRAFT_CHAT_ID`) only sees the draft commands.
-Any other chat is silently dropped (returns `200` so Telegram does not retry).
+Three audiences are routed by chat id, each with its own command set:
+
+| Chat | Commands |
+|---|---|
+| The owner's chat (`config.TELEGRAM_CHAT_ID`) | The full admin surface below |
+| The draft supergroup (`config.TELEGRAM_DRAFT_CHAT_ID`) | Only the draft commands |
+| A chat on the public allowlist (a mate's private chat, or a group the owner opened with him) | Only the public commands: no projection of the owner's team, nothing that acts on it |
+
+Any other chat gets no reply (`200`, so Telegram does not retry). Its message
+is only noted by the api, so the owner can authorize it from `/publico`.
 
 ## El bot en el grupo
 
@@ -39,12 +45,35 @@ Any other chat is silently dropped (returns `200` so Telegram does not retry).
 /preview     →  POST /lineups/auto-pick?dry_run=1
 /recomendar  →  GET  /budget/recommendations
 /pujar       →  POST /market/auto-bid
+/comparar    →  POST /league/compare
+/saldos      →  POST /league/cash
+/top         →  POST /league/top
 /ofertas     →  POST /offers/inbox
 /emergencia  →  POST /emergency/clausulazo/preview
+/pacto       →  GET  /pact, then POST /pact/toggle per tap
+/publico     →  GET/POST /public/members (list, add, remove; authorize a waiting chat)
 /scrapper    →  POST /scraper/trigger
 /version     →  bot SHA + GET /version on biwenger-api
 /help        →  static HTML message (no api call)
 ```
+
+### Public chats
+
+Every message first asks `POST /public/check` (which also remembers an unknown
+chat for `/publico`); only an allowlisted chat goes on. Each public endpoint
+re-checks the allowlist and answers the chat that asked:
+
+```
+/saldos       →  POST /public/league/cash   (no "your best players" block)
+/movimientos  →  POST /public/movements     (board trades, clauses, raises; last 24 h)
+/analizar     →  POST /public/managers, then /public/teams per tap (rivals only)
+/top          →  POST /public/top
+/mercado      →  a link to the web's clausulazo page (BIWENGER_WEB_URL)
+/ayuda        →  the public help (anything else gets it too)
+```
+
+Public reads share a Firestore cache (`public_cache`) across instances, so
+repeated taps never reach Biwenger twice in its window.
 
 Inline-keyboard taps come back as `callback_query` updates. They share
 the same webhook entry point and dispatch on a `prefix:value`
@@ -92,23 +121,23 @@ these keys:
 
 `draft_chat_id` is optional — empty disables the draft supergroup entirely.
 
-For local dev, fall back to the same names as plain env vars. After deploying,
-register the webhook once with Telegram:
+For local dev, fall back to the same names as plain env vars.
 
-```bash
-curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-  -d "url=https://biwenger-bot-.../telegram/webhook" \
-  -d "secret_token=<WEBHOOK_SECRET>"
-```
+## 📋 Commands, menus and webhook
 
-## 📋 Bot command menu
+CI runs `setup_commands.py` after every bot deploy. It registers each command
+block for its own chats only: the public block for private chats, the draft
+block for the draft group, and the full list for the owner's chat (nothing in
+any other group). It refuses to run without the owner's chat id. With
+`BIWENGER_BOT_URL` set, it also registers the webhook with
+`allowed_updates=["message", "callback_query"]`. **Never register the webhook
+by hand with a bare `setWebhook`**: without `callback_query`, Telegram silently
+drops every button tap. To run it locally, see
+[`../OPERATIONS.md`](../OPERATIONS.md) → *Commands, menu and webhook*.
 
-`setup_commands.py` registers the menu shown in Telegram's `/` UI. Run it once
-after creating the bot or whenever commands change:
-
-```bash
-python3 packages/biwenger_tools/bot/setup_commands.py
-```
+A group authorized from `/publico` gets the public block scoped to it at that
+moment. If the public block changes later, re-register it for the authorized
+groups, which the deploy does not do on its own.
 
 ## 🚀 Runtime config
 

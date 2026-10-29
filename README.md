@@ -17,6 +17,7 @@ graph TD
     API -->|PNG + summary| TG[Telegram]
     USR((Users)) -->|/menu /analizar /pujar ...| BOT[bot<br/>Cloud Run Service]
     USR -->|draft group: /soy /pick ...| BOT
+    USR -->|public chats: /saldos /top ...| BOT
     BOT -->|HTTP + ID token| API
     SCH[Cloud Scheduler] -->|daily digest + auto-bid| API
     USR -->|/random /science ...| CBOT[chucknorris_bot<br/>Cloud Run Service]
@@ -36,7 +37,7 @@ graph TD
 | `biwenger_tools/web` | Flask analytics dashboard | Cloud Run Service |
 | `biwenger_tools/scraper_job` | League board scraper → Firestore (deterministic doc IDs, idempotent) | Cloud Run Job (weekly cron) |
 | `biwenger_tools/api` | Biwenger business logic over HTTP: `/teams`, `/lineups/auto-pick`, `/budget/recommendations`, `/digests/daily`, `/managers`, `/draft/*` (annual snake draft), etc. Renders PNG, sends to Telegram. | Cloud Run Service (`--no-allow-unauthenticated`) |
-| `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/preview`, `/recomendar`, `/comparar`, `/saldos`, `/pujar`, `/ofertas`, `/emergencia`, `/scrapper`, `/version`, `/help` plus inline-keyboard callbacks — calls the api with an ID token. Also arbitrates the annual draft (`/soy`, `/pick`, `/estado`, `/deshacer`, `/exportar`) from a separate Telegram group. | Cloud Run Service |
+| `biwenger_tools/bot` | Webhook handler for `/menu`, `/analizar`, `/mercado`, `/alinear`, `/preview`, `/recomendar`, `/comparar`, `/saldos`, `/top`, `/pujar`, `/ofertas`, `/emergencia`, `/pacto`, `/publico`, `/scrapper`, `/version`, `/help` plus inline-keyboard callbacks — calls the api with an ID token. Also arbitrates the annual draft (`/soy`, `/pick`, `/estado`, `/deshacer`, `/exportar`) from a separate Telegram group, and answers allowlisted league mates a public set (`/saldos`, `/movimientos`, `/analizar`, `/top`, `/mercado`). | Cloud Run Service |
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 | `group_polls` | Backend of the Android app "¿Qué votáis?": Firestore security rules (tested against the emulator), moderation CLI. No server: the app talks to Firestore | Own GCP/Firebase project (not created yet; `infra/group_polls.tf` is off until then) |
