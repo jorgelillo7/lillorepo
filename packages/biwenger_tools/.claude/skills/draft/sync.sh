@@ -17,7 +17,7 @@ case "${1:-}" in
     for dir in "$HERE"/[0-9][0-9]-[0-9][0-9]; do
       [ -d "$dir" ] || continue
       season="$(basename "$dir")"
-      gcloud storage rsync -r "$dir" "$BUCKET/$season" --exclude='(^|/)\.cache/'
+      gcloud storage rsync -r "$dir" "$BUCKET/$season" --exclude='.*\.cache/.*'
     done
     ;;
   pull)
