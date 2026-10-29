@@ -468,6 +468,15 @@ jobs:
             --format='value(status.url)')
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve biwenger-summary URL
+        id: web_url
+        run: |
+          URL=$(gcloud run services describe biwenger-summary \
+            --region ${{ env.REGION }} \
+            --project ${{ env.PROJECT_ID }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
       - name: Deploy bot to Cloud Run
         run: |
           gcloud run deploy biwenger-bot \
@@ -483,6 +492,7 @@ jobs:
             --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
             --set-env-vars="\
           BIWENGER_API_URL=${{ steps.api_url.outputs.url }},\
+          BIWENGER_WEB_URL=${{ steps.web_url.outputs.url }},\
           GIT_COMMIT=${GITHUB_SHA::7},\
           DEPLOY_TIME=$(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
 
@@ -498,6 +508,10 @@ jobs:
             --secret=biwenger-secrets --project=${{ env.PROJECT_ID }})
           TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
           TELEGRAM_WEBHOOK_SECRET=$(echo "$CFG" | jq -r .webhook_secret)
+          # Each command block is scoped to its own chat: the owner's and the
+          # draft group's ids come from the same secret.
+          TELEGRAM_CHAT_ID=$(echo "$CFG" | jq -r '.chat_id // empty')
+          TELEGRAM_DRAFT_CHAT_ID=$(echo "$CFG" | jq -r '.draft_chat_id // empty')
           BOT_URL=$(gcloud run services describe biwenger-bot \
             --region ${{ env.REGION }} --project ${{ env.PROJECT_ID }} \
             --format='value(status.url)')
@@ -509,6 +523,8 @@ jobs:
           PYTHONPATH=. \
             TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
             TELEGRAM_WEBHOOK_SECRET="$TELEGRAM_WEBHOOK_SECRET" \
+            TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
+            TELEGRAM_DRAFT_CHAT_ID="$TELEGRAM_DRAFT_CHAT_ID" \
             BIWENGER_BOT_URL="${BOT_URL}/telegram/webhook" \
             python3 packages/biwenger_tools/bot/setup_commands.py
 

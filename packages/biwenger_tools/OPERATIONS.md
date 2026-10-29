@@ -493,12 +493,17 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
     ```
 
   * **Commands, menu and webhook:** CI runs `bot/setup_commands.py` after every
-    bot deploy. It calls `setMyCommands` + `setChatMenuButton`, and with
+    bot deploy. It registers three command blocks, each scoped to its own
+    chats: the public block for private chats, the draft block for the draft
+    group, and the base and management block for the owner's chat only (none
+    for any other group). It refuses to run without `TELEGRAM_CHAT_ID`. It
+    also calls `setChatMenuButton`, and with
     `BIWENGER_BOT_URL` set it also re-registers the webhook with
     `allowed_updates=["message", "callback_query"]` — without `callback_query`
     Telegram silently drops menu taps, so never register the webhook by hand
-    with a bare `setWebhook`. To run it locally (with `TELEGRAM_BOT_TOKEN` and
-    `TELEGRAM_WEBHOOK_SECRET` in `bot/.env`):
+    with a bare `setWebhook`. To run it locally (with `TELEGRAM_BOT_TOKEN`,
+    `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_CHAT_ID` and `TELEGRAM_DRAFT_CHAT_ID`
+    in `bot/.env`):
 
     ```bash
       URL=$(gcloud run services describe biwenger-bot --region europe-southwest1 \
@@ -509,6 +514,21 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
 
     Leave `BIWENGER_BOT_URL` out to refresh only the commands; Telegram keeps
     the last webhook.
+
+  * **Public league info (a league mate's `/saldos` and `/movimientos`):**
+    1. The mate gets his Telegram id from any id bot (e.g. `@userinfobot`) and
+       opens a private chat with this bot.
+    2. The owner sends `/publico <id>` from his own chat. `/publico` alone
+       lists the members, with a button to remove each.
+    3. The mate's `/` menu shows `/saldos`, `/movimientos`, `/mercado` and
+       `/ayuda`, and nothing else answers him. A chat not on the list gets no
+       reply at all.
+
+    Every fresh read is paid from the owner's Biwenger account: about 13
+    requests for `/saldos` and 4 for `/movimientos`. Public reads share a
+    Firestore cache (`public_cache`): fresh for 5 minutes, a failure
+    remembered for 1 minute. The owner's own `/saldos` always reads fresh and
+    refreshes it. Spec: `telegram-commands`, `league-cash`.
 
   * **Deploy to production (Cloud Run Service):**
 

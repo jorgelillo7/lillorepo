@@ -59,6 +59,7 @@ _HELP_TEXT = (
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/pacto — Pacto de no agresión: a quién no clausular\n"
+    "/publico — Quién puede ver /saldos y /movimientos\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje\n\n"
@@ -78,6 +79,15 @@ _DRAFT_HELP_TEXT = (
     "/deshacer — Revierte el último fichaje (admin)\n"
     "/exportar — Exporta todos los fichajes del draft"
 )
+
+_PUBLIC_HELP_TEXT = (
+    "<b>Lloros League · info</b>\n\n"
+    "/saldos — Saldo, dinero en cláusulas y puja máxima de cada manager\n"
+    "/movimientos — Fichajes, clausulazos y blindajes de las últimas 24 h\n"
+    "/mercado — Clausulazos y tabla de justicia en la web\n"
+    "/ayuda — Este mensaje"
+)
+_PUBLIC_UNAVAILABLE = "⚠️ No disponible ahora. Prueba en unos minutos."
 
 # Map main-menu action key → (api path, http method, query params).
 # `analizar` is special because it opens the manager picker before
@@ -652,6 +662,14 @@ def _handle_callback(cb: dict) -> None:
             _run_emergencia_confirm(value, edit_into)
         return
 
+    if prefix == "pub":
+        parts = value.split(":", 1)
+        if len(parts) != 2 or parts[0] != "rm" or not parts[1].isdigit():
+            logger.info("Webhook: malformed public callback", extra={"value": value})
+            return
+        _run_in_background(_edit_public_member, int(parts[1]), "remove", edit_into)
+        return
+
     if prefix == "o":
         # Expected shape: `o:a:<id>` / `o:r:<id>` / `o:i:<id>`.
         parts = value.split(":", 1)
@@ -662,6 +680,68 @@ def _handle_callback(cb: dict) -> None:
         return
 
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
+
+
+def _send_public_members_list(edit_into=None, members=None) -> None:
+    if members is None:
+        try:
+            members = api_client.call_api_json(
+                config.BIWENGER_API_URL, "/public/members", method="GET", timeout=30
+            ).get("members")
+        except Exception as exc:
+            _report_api_error("👥 Público", exc, log="Public members list failed")
+            return
+    text = (
+        "<b>👥 Info pública</b>\n\n"
+        + ("\n".join(f"• <code>{m}</code>" for m in members) or "Nadie autorizado.")
+        + "\n\n<i>Añade con /publico &lt;id&gt; (el id lo da @userinfobot).</i>"
+    )
+    markup = menu.public_members_keyboard(members)
+    if edit_into:
+        chat_id, message_id = edit_into
+        edit_message_text(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=message_id,
+            text=text,
+            reply_markup=markup,
+        )
+        return
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=config.TELEGRAM_CHAT_ID,
+        text=text,
+        reply_markup=markup,
+    )
+
+
+def _edit_public_member(user_id: int, action: str, edit_into=None) -> None:
+    try:
+        result = api_client.call_api_json(
+            config.BIWENGER_API_URL,
+            "/public/members",
+            payload={"user_id": user_id, "action": action},
+            timeout=30,
+        )
+    except Exception as exc:
+        _report_api_error("👥 Público", exc, log="Public members edit failed")
+        return
+    _send_public_members_list(edit_into, members=(result or {}).get("members") or [])
+
+
+def _run_publico(arg: str) -> None:
+    """`/publico` lists; `/publico <id>` adds a numeric Telegram id."""
+    if not arg:
+        _send_public_members_list()
+        return
+    if not arg.isdigit():
+        send_telegram_message(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=config.TELEGRAM_CHAT_ID,
+            text="❌ El id tiene que ser un número (te lo da @userinfobot).",
+        )
+        return
+    _edit_public_member(int(arg), "add")
 
 
 def _open_pact_picker() -> None:
@@ -738,6 +818,8 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("saldos", "💰 Saldos")
     elif cmd == "/ofertas":
         _dispatch_action("ofertas", "📥 Ofertas")
+    elif cmd == "/publico":
+        _run_in_background(_run_publico, _command_arg(text))
     elif cmd == "/help":
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
@@ -1130,6 +1212,68 @@ def _handle_draft_callback(cb: dict) -> None:
     _run_in_background(_call)
 
 
+def _public_members() -> set[str] | None:
+    """The allowlist as chat-id strings, or None when the api cannot say."""
+    try:
+        result = api_client.call_api_json(
+            config.BIWENGER_API_URL, "/public/members", method="GET", timeout=30
+        )
+    except Exception as exc:
+        logger.warning("Public allowlist unreadable.", extra={"error": str(exc)})
+        return None
+    return {str(m) for m in (result or {}).get("members") or []}
+
+
+def _send_public(chat_id: str, text: str) -> None:
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN, chat_id=chat_id, text=text
+    )
+
+
+def _call_public_api(chat_id: str, path: str, label: str) -> None:
+    """Public endpoints answer the member themselves; a failure here is the
+    api unreachable, and the member reads a short note, never the exception."""
+    try:
+        api_client.call_api_json(
+            config.BIWENGER_API_URL, path, payload={"chat_id": chat_id}, timeout=600
+        )
+    except Exception as exc:
+        logger.error(
+            "Public api call failed.",
+            extra={"path": path, "chat_id": chat_id, "error": str(exc)},
+        )
+        _send_public(chat_id, _PUBLIC_UNAVAILABLE)
+
+
+_PUBLIC_ROUTES = {
+    "/saldos": ("/public/league/cash", "💰 Saldos"),
+    "/movimientos": ("/public/movements", "📋 Movimientos"),
+}
+
+
+def _handle_public_message(chat_id: str, text: str) -> None:
+    """A private chat that is neither the owner's nor the draft group's.
+    Ignored silently unless allowlisted; then only the public set answers."""
+    members = _public_members()
+    if members is None or chat_id not in members:
+        logger.info(
+            "Webhook: ignoring message from unknown chat", extra={"chat_id": chat_id}
+        )
+        return
+    cmd = parse_command(text)
+    if cmd in _PUBLIC_ROUTES:
+        path, label = _PUBLIC_ROUTES[cmd]
+        _send_public(chat_id, f"⏳ <b>{label}</b> — procesando…")
+        _call_public_api(chat_id, path, label)
+    elif cmd == "/mercado" and config.BIWENGER_WEB_URL:
+        _send_public(
+            chat_id,
+            f"🔗 Clausulazos y tabla de justicia: {config.BIWENGER_WEB_URL}/mercado",
+        )
+    else:
+        _send_public(chat_id, _PUBLIC_HELP_TEXT)
+
+
 @app.route("/telegram/webhook", methods=["POST"])
 def webhook():
     if not validate_webhook_secret(request, config.TELEGRAM_WEBHOOK_SECRET):
@@ -1180,6 +1324,9 @@ def webhook():
         _handle_owner_message(text)
     elif config.TELEGRAM_DRAFT_CHAT_ID and chat_id == config.TELEGRAM_DRAFT_CHAT_ID:
         _handle_draft_message(text, user_id)
+    elif text and chat_id and chat_id == user_id:
+        # A private chat (its id is the sender's): maybe an allowlisted member.
+        _run_in_background(_handle_public_message, chat_id, text)
     else:
         logger.info(
             "Webhook: ignoring message from unknown chat",

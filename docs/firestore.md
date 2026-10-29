@@ -40,6 +40,8 @@ auto_bid_log/{YYYY-MM-DD}/bids/{player_id}
 draft/{season}/managers|picks|state/{id}
 emergencia/{season}/planes/{plan_id}
 pactos/actual
+public_members/actual
+public_cache/{key}
 proyecciones/{season}-{round_id}
 ```
 
@@ -216,6 +218,8 @@ not here.
 | `draft/{season}/managers/{telegram_user_id}` · `picks/R{round}P{position}` · `state/current`, `state/lifecycle` | as shown | `api/logic/draft_service/store.py` · spec `draft` | Once a year; picks reserved inside a transaction so two managers cannot take the same slot |
 | `emergencia/{season}/planes/{plan_id}` | uuid | `api/logic/rebuild_store.py` · spec `clausulazo-emergency` | One live plan per season: storing a plan deletes the others |
 | `pactos/actual` | fixed | `api/logic/pact_store.py` | One document, rewritten on every `/pacto` toggle; deliberately not per season |
+| `public_members/actual` | fixed | `api/logic/public_members_store.py` · spec `telegram-commands` | One document, the Telegram ids allowed the public commands; rewritten on every `/publico` change; not per season |
+| `public_cache/{key}` | `league_cash`, `movements` | `api/logic/public_cache.py` · spec `league-cash` | One document per read, overwritten: the last good payload, the last failure and a read lease, shared across instances |
 | `proyecciones/{season}-{round_id}` | season + round | `api/logic/projection_ledger_store.py` · `docs/technical/backend/projection-ledger.md` | One per round, kept |
 
 ---

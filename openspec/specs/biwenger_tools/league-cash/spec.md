@@ -288,3 +288,102 @@ read only once a lock is actually ending. A failure SHALL NOT stop the digest.
   `test_protection_alert_is_one_line_per_player_under_one_heading`,
   `test_run_daily_runs_the_protection_watch_and_survives_its_failure`,
   `test_a_squad_row_carries_the_raw_clause_lock`
+
+---
+
+### Requirement: The public `/saldos` is the league's figures, never the owner's edge
+
+The public variant SHALL send the same table the owner gets: every playing
+manager's cash, money in clauses and maximum bid, with the trust notes. It
+SHALL send it to the chat that asked, never to the owner's. The block about
+the owner's best players and who reaches their clauses SHALL NOT be drawn,
+because it is the owner's information about his own team. No projection
+SHALL appear.
+
+A failure SHALL reach the member only as "no disponible ahora". The detail
+goes to the logs.
+
+#### Scenario: the public image
+- **WHEN** a public member asks for `/saldos` **THEN** the image reaches his
+  chat, with the table and notes and without the exposure block
+- **WHEN** the owner asks **THEN** his image still carries the exposure block
+- **WHEN** the read fails **THEN** the member gets a short unavailable note
+  and no exception text
+- *Verifies:* `test_public_league_cash_goes_to_the_asking_chat`,
+  `test_public_league_cash_draws_no_exposure_block`,
+  `test_owner_league_cash_keeps_the_exposure_block`,
+  `test_public_league_cash_failure_says_unavailable`
+
+### Requirement: `/movimientos` lists the last 24 hours of the board
+
+A league mate asked to hear of every movement. Polling the board for it would
+spend about a hundred requests a day of an account window shared with the
+phone app. `/movimientos` SHALL answer on demand instead, with the board
+entries of the last 24 hours, newest first:
+
+- market buys and sales, immediate sales and admin transfers included;
+- clausulazos;
+- clause raises.
+
+Each line SHALL name the managers, the player and the amount. Round payouts,
+bonuses and text posts SHALL NOT be listed. An empty window SHALL say so
+rather than send nothing.
+
+The read SHALL stop at the first page that reaches past the window, not walk
+the season.
+
+#### Scenario: what is listed
+- **WHEN** the last 24 hours hold a sale, an immediate sale, a clausulazo, a
+  clause raise and a round payout **THEN** the first four are listed, newest
+  first, and the payout is not
+- **WHEN** an entry is older than 24 hours **THEN** it is not listed
+- **WHEN** nothing moved **THEN** the reply says there were no movements
+- **WHEN** the newest page already reaches past the window **THEN** no second
+  page is read
+- *Verifies:* `test_movements_list_trades_clauses_and_raises_newest_first`,
+  `test_movements_leave_out_payouts_and_posts`,
+  `test_movements_older_than_a_day_are_not_listed`,
+  `test_movements_say_so_when_nothing_moved`,
+  `test_movements_stop_reading_at_the_window`
+
+### Requirement: Public reads are cached, the owner's stay fresh
+
+Every fresh read is paid from the owner's Biwenger account. A public
+`/saldos` or `/movimientos` SHALL reuse a read made in the last few minutes,
+so repeated taps inside the window cost no Biwenger request.
+
+The owner's own `/saldos` SHALL keep reading fresh. He reads it right after a
+clausulazo to decide the next one, and a figure five minutes old is the wrong
+one then. His read refreshes the cache the public variant draws on.
+
+The cache SHALL hold however the taps arrive:
+
+- **Across instances.** The bot and api run on Cloud Run, where two taps can
+  land on two containers. A cache held in one process would let each of them
+  read Biwenger, so the cached read SHALL be shared through Firestore.
+- **At the same moment.** Taps that arrive while a read is under way SHALL
+  wait for it and use it, never start a second one.
+- **When Biwenger fails.** A failed read SHALL also be remembered for a
+  short while, and a public caller inside that while gets "no disponible
+  ahora" without a new request. Tapping through a `429` would dig the
+  account deeper into a window it shares with the phone app.
+
+#### Scenario: a second tap is free, the owner is never served stale
+- **WHEN** a member asks for `/saldos` twice inside the window **THEN** the
+  board and the squads are read once
+- **WHEN** the owner asks inside the window **THEN** Biwenger is read again,
+  and a member asking next is served that newer read
+- **WHEN** `/movimientos` is asked twice inside the window **THEN** the board
+  is read once
+- **WHEN** two public taps arrive while one read is under way **THEN** one
+  Biwenger read serves both
+- **WHEN** the cached read was written by another instance **THEN** it is
+  reused, not read again
+- **WHEN** the last read failed a moment ago **THEN** a public tap gets the
+  unavailable note and makes no request
+- *Verifies:* `test_public_league_cash_reuses_a_recent_read`,
+  `test_owner_league_cash_always_reads_fresh_and_refreshes_the_cache`,
+  `test_movements_read_is_cached`,
+  `test_concurrent_public_taps_share_one_read`,
+  `test_a_read_cached_by_another_instance_is_reused`,
+  `test_a_recent_failure_is_not_retried_by_public_taps`

@@ -447,3 +447,95 @@ def test_exposure_rows_count_who_reaches_each_top_player():
         "locked_until": None,
     }
     assert got[1]["by_cash"] == 0 and got[1]["by_max_bid"] == 0
+
+
+# --- Requirement: `/movimientos` lists the last 24 hours of the board -------
+
+_NOW = 1_800_000_000
+_PLAYERS = {10: {"name": "Iñigo Vicente"}, 11: {"name": "Hugo Duro"}}
+
+
+def _who(uid, name):
+    return {"id": uid, "name": name}
+
+
+def _board():
+    lucena, rayo, ud = _who(1, "La Luceneta"), _who(2, "Rayo"), _who(3, "UD Paja")
+    return [
+        {
+            "type": "transfer",
+            "date": _NOW - 60,
+            "content": [
+                {
+                    "player": 10,
+                    "from": lucena,
+                    "to": rayo,
+                    "amount": 11_620_000,
+                    "type": "clause",
+                }
+            ],
+        },
+        {
+            "type": "clauseIncrement",
+            "date": _NOW - 120,
+            "content": [
+                {
+                    "user": lucena,
+                    "player": 10,
+                    "amount": 3_000_000,
+                    "releaseClause": 11_850_000,
+                }
+            ],
+        },
+        {
+            "type": "roundFinished",
+            "date": _NOW - 180,
+            "content": {
+                "round": {"id": 1},
+                "results": [{"user": rayo, "bonus": 5_000_000}],
+            },
+        },
+        {"type": "text", "date": _NOW - 200, "content": "hola"},
+        {
+            "type": "transfer",
+            "date": _NOW - 240,
+            "content": [
+                {"player": 11, "from": ud, "amount": 660_000, "type": "immediateSale"}
+            ],
+        },
+        {
+            "type": "market",
+            "date": _NOW - 300,
+            "content": [{"player": 11, "to": rayo, "amount": 700_000}],
+        },
+        {
+            "type": "transfer",
+            "date": _NOW - 2 * 86_400,
+            "content": [{"player": 11, "from": ud, "amount": 1}],
+        },
+    ]
+
+
+def test_movements_list_trades_clauses_and_raises_newest_first():
+    items = league_cash.movements(_board(), _NOW, _PLAYERS)
+    lines = [m["line"] for m in items]
+    assert len(lines) == 4
+    assert "Rayo clausula a Iñigo Vicente de La Luceneta" in lines[0]
+    assert "11.620.000" in lines[0]
+    assert "La Luceneta blinda a Iñigo Vicente" in lines[1]
+    assert "venta inmediata" in lines[2] and "660.000" in lines[2]
+    assert "Rayo ficha a Hugo Duro del mercado" in lines[3]
+
+
+def test_movements_leave_out_payouts_and_posts():
+    text = "\n".join(m["line"] for m in league_cash.movements(_board(), _NOW, _PLAYERS))
+    assert "5.000.000" not in text and "hola" not in text
+
+
+def test_movements_older_than_a_day_are_not_listed():
+    items = league_cash.movements(_board(), _NOW, _PLAYERS)
+    assert all(m["date"] >= _NOW - league_cash.MOVEMENTS_WINDOW_S for m in items)
+
+
+def test_movements_say_so_when_nothing_moved():
+    assert "Sin movimientos" in league_cash.render_movements([])
