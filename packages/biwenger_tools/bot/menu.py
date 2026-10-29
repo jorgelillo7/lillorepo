@@ -105,3 +105,13 @@ def public_members_keyboard(
         for chat, title in (pending or {}).items()
     ]
     return {"inline_keyboard": rows}
+
+
+def public_managers_keyboard(managers: Iterable[dict]) -> dict:
+    """Public `/analizar`: one button per rival the api offers (`id`, `name`)."""
+    return {
+        "inline_keyboard": [
+            [{"text": f"👤 {m['name']}", "callback_data": f"pa:{m['id']}"}]
+            for m in managers
+        ]
+    }

@@ -88,6 +88,7 @@ PUBLIC_COMMANDS = [
         "description": "Saldo, cláusulas y puja máxima de cada manager",
     },
     {"command": "movimientos", "description": "Movimientos de las últimas 24 h"},
+    {"command": "analizar", "description": "Plantilla de un rival (te pregunta cuál)"},
     {"command": "mercado", "description": "Clausulazos en la web"},
     {"command": "ayuda", "description": "Qué puedo consultar"},
 ]

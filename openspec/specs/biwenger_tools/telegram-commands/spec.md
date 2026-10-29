@@ -154,7 +154,8 @@ instead, for the chats the owner chooses, without opening anything else to
 them.
 
 A chat on the public allowlist SHALL be routed to a public handler that
-answers `/saldos`, `/movimientos`, `/mercado` and `/ayuda`. Any other text
+answers `/saldos`, `/movimientos`, `/analizar`, `/mercado` and `/ayuda`. Any
+other text
 gets the short help. An allowlisted chat is either a mate's private chat (his
 user id) or a group the owner opened with the bot and the mate, so he can
 follow what the mate asks. A group counts only once its own id is on the list,
@@ -207,6 +208,39 @@ otherwise hard to find.
 - **WHEN** the public API call fails **THEN** the member reads "no disponible
   ahora", with no exception text
 - *Verifies:* `test_public_failure_hides_the_exception`
+
+### Requirement: The public `/analizar` shows the rivals, never the owner
+
+`/analizar` from a public chat SHALL offer a picker of every manager but the
+owner, and a tap SHALL send that rival's squad image to the chat that asked:
+the blended projection, the clause columns and the fixtures, as the owner's
+own `/analizar` draws a rival. The owner's squad SHALL never be offered, and
+the api SHALL refuse it even when asked for by id. It is his information about
+his own team. There is no "TODOS" and no market.
+
+Each rival's image and the picker's list SHALL go through the public cache.
+A fresh image costs a JP and Oráculo read plus about ten Biwenger requests
+from the owner's account, and the button invites repeated taps. A cache write
+that fails SHALL still answer.
+
+Only the `pa:<manager_id>` callback SHALL be read from a public chat, and
+only after the gate. Every other callback from such a chat stays ignored.
+
+#### Scenario: rivals only, cached, gated
+- **WHEN** a public chat sends `/analizar` **THEN** the picker lists the rivals
+  and not the owner
+- **WHEN** a rival is tapped **THEN** `/public/teams` is called for that chat and
+  manager, through a cache keyed by manager
+- **WHEN** the owner's id is asked for **THEN** nothing is read or sent
+- **WHEN** the tap comes from a chat not on the allowlist **THEN** it is ignored
+- *Verifies:* `test_public_analizar_opens_a_rivals_picker`,
+  `test_public_analizar_tap_calls_the_public_api`,
+  `test_public_analizar_tap_from_an_unlisted_chat_is_ignored`,
+  `test_public_analizar_lists_only_rivals`,
+  `test_public_analizar_never_shows_the_owner_team`,
+  `test_public_analizar_sends_a_rival_to_the_asking_chat_cached_per_manager`,
+  `test_public_analizar_refuses_a_non_member`,
+  `test_a_cache_write_failure_still_answers`
 
 ### Requirement: `/publico` edits the public allowlist
 
@@ -268,7 +302,7 @@ read it gives away what the owner can do.
 
 | Block | Chats |
 |---|---|
-| Public (`/saldos`, `/movimientos`, `/mercado`, `/ayuda`) | private chats, and each group the owner authorizes |
+| Public (`/saldos`, `/movimientos`, `/analizar`, `/mercado`, `/ayuda`) | private chats, and each group the owner authorizes |
 | Draft (`/pick`, `/estado`, `/soy`, `/deshacer`, `/exportar`) | the draft group |
 | Base and management (everything else, `/publico` included, no draft command) | the owner's chat |
 | None | any other group |

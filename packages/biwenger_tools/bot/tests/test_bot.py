@@ -1667,3 +1667,55 @@ def test_publico_adds_an_id_with_a_name(client):
     assert _posts(calls) == [
         ("/public/members", {"user_id": 777, "action": "add", "name": "Manu"})
     ]
+
+
+# --- public /analizar ---
+
+
+def _analizar_api(members=(-100123,)):
+    calls = []
+
+    def fake(base_url, path, method="POST", payload=None, timeout=60):
+        calls.append((method, path, payload))
+        if path == "/public/check":
+            return {"allowed": str(payload["chat_id"]) in {str(m) for m in members}}
+        if path == "/public/managers":
+            return {"managers": [{"id": 2, "name": "Manu"}]}
+        return {}
+
+    return fake, calls
+
+
+def test_public_analizar_opens_a_rivals_picker(client):
+    fake, calls = _analizar_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _group_update("-100123", "/analizar", _MEMBER))
+    markup = send.call_args.kwargs["reply_markup"]
+    assert markup["inline_keyboard"] == [[{"text": "👤 Manu", "callback_data": "pa:2"}]]
+    assert ("POST", "/public/managers", {"chat_id": "-100123"}) in calls
+
+
+def test_public_analizar_tap_calls_the_public_api(client):
+    fake, calls = _analizar_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.answer_callback_query"),
+        patch(f"{_APP}.edit_message_text"),
+    ):
+        _post(client, _callback_update("-100123", "pa:2", from_user_id=_MEMBER))
+    assert ("POST", "/public/teams", {"chat_id": "-100123", "manager_id": 2}) in calls
+
+
+def test_public_analizar_tap_from_an_unlisted_chat_is_ignored(client):
+    fake, calls = _analizar_api(members=())
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.answer_callback_query"),
+        patch(f"{_APP}.edit_message_text") as edit,
+    ):
+        _post(client, _callback_update("-100123", "pa:2", from_user_id=_MEMBER))
+    assert not [c for c in calls if c[1] == "/public/teams"]
+    edit.assert_not_called()

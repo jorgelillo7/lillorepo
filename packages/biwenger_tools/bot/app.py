@@ -86,6 +86,7 @@ _PUBLIC_HELP_TEXT = (
     "<b>Lloros League · info</b>\n\n"
     "/saldos — Saldo, dinero en cláusulas y puja máxima de cada manager\n"
     "/movimientos — Fichajes, clausulazos y blindajes de las últimas 24 h\n"
+    "/analizar — Plantilla de un rival, con proyección y cláusula\n"
     "/mercado — Clausulazos y tabla de justicia en la web\n"
     "/ayuda — Este mensaje"
 )
@@ -1269,6 +1270,14 @@ def _public_allowed(chat_id: str, title: str) -> bool:
     return bool((result or {}).get("allowed"))
 
 
+def _callback_chat_title() -> str:
+    """The tapped message's chat title, for the gate's pending list."""
+    body = request.get_json(silent=True) or {}
+    message = (body.get("callback_query") or {}).get("message") or {}
+    chat = message.get("chat") or {}
+    return str(chat.get("title") or chat.get("first_name") or "")
+
+
 def _chat_title() -> str:
     """The chat's title (a group) or the sender's first name (a private chat),
     read off the raw update so `/publico` can show who asked."""
@@ -1286,9 +1295,70 @@ def _send_public(chat_id: str, text: str) -> None:
 def _call_public_api(chat_id: str, path: str, label: str) -> None:
     """Public endpoints answer the member themselves; a failure here is the
     api unreachable, and the member reads a short note, never the exception."""
+    _call_public_api_with(chat_id, path, {})
+
+
+_PUBLIC_ROUTES = {
+    "/saldos": ("/public/league/cash", "💰 Saldos"),
+    "/movimientos": ("/public/movements", "📋 Movimientos"),
+}
+
+
+def _send_public_rivals_picker(chat_id: str) -> None:
+    """Public `/analizar`: the rivals the api offers, the owner never among
+    them."""
+    try:
+        result = api_client.call_api_json(
+            config.BIWENGER_API_URL,
+            "/public/managers",
+            payload={"chat_id": chat_id},
+            timeout=60,
+        )
+    except Exception as exc:
+        logger.error("Public managers failed.", extra={"error": str(exc)})
+        _send_public(chat_id, _PUBLIC_UNAVAILABLE)
+        return
+    managers = (result or {}).get("managers") or []
+    if not managers:
+        _send_public(chat_id, _PUBLIC_UNAVAILABLE)
+        return
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id,
+        text="<b>📊 Analizar — ¿a quién?</b>",
+        reply_markup=menu.public_managers_keyboard(managers),
+    )
+
+
+def _handle_public_callback(cb: dict, title: str) -> None:
+    """A `pa:<manager_id>` tap from a public chat: one rival's squad. Any
+    other callback from such a chat never gets here."""
+    chat_id = cb["chat_id"]
+    if not _public_allowed(chat_id, title):
+        logger.info("Webhook: ignoring callback from unknown chat")
+        return
+    value = cb.get("data", "").split(":", 1)[1]
+    if not value.isdigit():
+        logger.info("Webhook: malformed public analizar", extra={"value": value})
+        return
+    answer_callback_query(config.TELEGRAM_BOT_TOKEN, cb["id"], text="⏳ Analizando…")
+    if cb.get("message_id"):
+        edit_message_text(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            message_id=cb["message_id"],
+            text="⏳ <b>📊 Analizar</b> — procesando…",
+        )
+    _call_public_api_with(chat_id, "/public/teams", {"manager_id": int(value)})
+
+
+def _call_public_api_with(chat_id: str, path: str, extra: dict) -> None:
     try:
         api_client.call_api_json(
-            config.BIWENGER_API_URL, path, payload={"chat_id": chat_id}, timeout=600
+            config.BIWENGER_API_URL,
+            path,
+            payload={"chat_id": chat_id, **extra},
+            timeout=600,
         )
     except Exception as exc:
         logger.error(
@@ -1296,12 +1366,6 @@ def _call_public_api(chat_id: str, path: str, label: str) -> None:
             extra={"path": path, "chat_id": chat_id, "error": str(exc)},
         )
         _send_public(chat_id, _PUBLIC_UNAVAILABLE)
-
-
-_PUBLIC_ROUTES = {
-    "/saldos": ("/public/league/cash", "💰 Saldos"),
-    "/movimientos": ("/public/movements", "📋 Movimientos"),
-}
 
 
 def _handle_public_message(chat_id: str, text: str, title: str = "") -> None:
@@ -1318,6 +1382,8 @@ def _handle_public_message(chat_id: str, text: str, title: str = "") -> None:
         path, label = _PUBLIC_ROUTES[cmd]
         _send_public(chat_id, f"⏳ <b>{label}</b> — procesando…")
         _call_public_api(chat_id, path, label)
+    elif cmd == "/analizar":
+        _send_public_rivals_picker(chat_id)
     elif cmd == "/mercado" and config.BIWENGER_WEB_URL:
         _send_public(
             chat_id,
@@ -1349,6 +1415,10 @@ def webhook():
             and cb["chat_id"] == config.TELEGRAM_DRAFT_CHAT_ID
         ):
             _handle_draft_callback(cb)
+        elif (cb.get("data") or "").startswith("pa:"):
+            # Only the public analizar tap is ever looked at outside the
+            # owner's and the draft's chats; the gate decides inside.
+            _run_in_background(_handle_public_callback, cb, _callback_chat_title())
         else:
             logger.info(
                 "Webhook: ignoring callback from unknown chat",

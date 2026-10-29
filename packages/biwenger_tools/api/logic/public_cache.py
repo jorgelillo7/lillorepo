@@ -90,7 +90,12 @@ def get_or_read(
             logger.exception("Public read failed.", extra={"key": key})
             _write(key, {"failed_at": now(), "lease_until": 0})
             raise Unavailable(key) from exc
-        _write(key, {"data": data, "ok_at": now(), "lease_until": 0})
+        try:
+            _write(key, {"data": data, "ok_at": now(), "lease_until": 0})
+        except Exception:
+            # The answer was read; only its reuse is lost. The lease expires
+            # on its own.
+            logger.exception("Could not cache a public read.", extra={"key": key})
         return data
 
 
