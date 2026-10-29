@@ -16,7 +16,7 @@ three readings, all read-only:
     bazel run //packages/biwenger_tools/.claude/skills/draft/scripts:tiers -- \\
         --season 27-28 --real-points <draft-real-points.csv> \\
         --exclude-file 26-27/exclusiones.txt --pick-position 3 \\
-        --history 26-27/disponibilidad.csv --rivals-season 26-27
+        --history 26-27/datos/historial.csv --rivals-season 26-27
 """
 
 import argparse
@@ -174,17 +174,23 @@ def render_rivals(profiles):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--season", default="26-27")
-    ap.add_argument("--ranked", default="", help="por defecto <temporada>/ranked")
+    ap.add_argument(
+        "--ranked", default="", help="por defecto <temporada>/datos/draft-ranked.csv"
+    )
     ap.add_argument("--real-points", default="", help="CSV de fetch_real_points")
     ap.add_argument("--exclude-file", default="")
     ap.add_argument("--managers", type=int, default=7)
     ap.add_argument("--pick-position", type=int, default=0)
-    ap.add_argument("--history", default="", help="disponibilidad.csv anterior")
+    ap.add_argument(
+        "--history", default="", help="datos/historial.csv del draft anterior"
+    )
     ap.add_argument(
         "--rivals-season", default="", help="temporada de Firestore a perfilar"
     )
     ap.add_argument("--tiers", type=int, default=4, help="niveles por línea")
-    ap.add_argument("--out", default="", help="por defecto <temporada>/niveles.md")
+    ap.add_argument(
+        "--out", default="", help="por defecto <temporada>/analisis/niveles.md"
+    )
     ap.add_argument(
         "--max-price", type=float, default=0, help="en millones, 0 = sin tope"
     )
@@ -256,7 +262,7 @@ def main():
             fh.write("name\n" + "\n".join(names) + "\n")
         out.append(f"Lista corta para medir: {len(names)} → `{args.shortlist_out}`.\n")
 
-    destination = args.out or paths.season_path(args.season, "niveles.md")
+    destination = args.out or paths.season_path(args.season, paths.TIERS)
     with open(destination, "w", encoding="utf-8") as fh:
         fh.write("\n".join(out) + "\n")
     print("\n".join(out))

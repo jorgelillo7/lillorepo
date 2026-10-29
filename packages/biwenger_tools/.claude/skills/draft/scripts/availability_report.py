@@ -7,8 +7,10 @@ of a guess.
 Reads `draft/{season}/picks` from Firestore and one public competition payload
 (for each player's line); it never touches the per-player endpoint.
 
-Writes `history/{season}.md` (the readable record) and `history/{season}.csv`
-(what `archetypes.py --history` reads) unless told otherwise.
+Writes `{season}/historial.md` (the league's draft, readable),
+`{season}/mi-draft.md` (what the owner took) and `{season}/datos/historial.csv`
+(what `tiers`, `mock_draft` and `archetypes --history` read) unless told
+otherwise.
 
     bazel run \
         //packages/biwenger_tools/.claude/skills/draft/scripts:availability_report -- \
@@ -77,7 +79,7 @@ def load_picks(season: str) -> list[dict]:
 
 def render(picks: list[dict], season: str) -> str:
     total = len(picks)
-    out = [f"# Draft {season} — disponibilidad\n"]
+    out = [f"# Draft {season} — historial de la liga\n"]
     out.append(
         f"{total} picks. Esto es lo que se agotó y cuándo: la referencia para "
         "decidir el año que viene en qué ronda hay que moverse por cada línea.\n"
@@ -140,6 +142,27 @@ def render(picks: list[dict], season: str) -> str:
     return "\n".join(out) + "\n"
 
 
+def render_mine(picks: list[dict], season: str, me: str) -> str:
+    """`mi-draft.md`: the owner's own picks, in order, with what they cost —
+    the record of what was actually taken, beside `plan.md`'s intent."""
+    mine = [p for p in picks if p.get("manager_name") == me]
+    spent = sum(p.get("price") or 0 for p in mine)
+    out = [f"# Mi draft {season} — lo que cogí\n"]
+    out.append(
+        f"{len(mine)} jugadores · {_eur(spent)}. Lo planeado está en `plan.md`; "
+        "el draft de toda la liga, en `historial.md`.\n"
+    )
+    out.append("| # | Ronda | Jugador | Equipo | Línea | Precio |")
+    out.append("|--:|--:|---|---|:-:|--:|")
+    for pick in mine:
+        out.append(
+            f"| {pick['global_pick']} | {pick.get('round', '—')} "
+            f"| {pick.get('player_name', '—')} | {pick.get('player_team', '—')} "
+            f"| {pick['line']} | {_eur(pick.get('price'))} |"
+        )
+    return "\n".join(out) + "\n"
+
+
 def write_history(picks: list[dict], path: str) -> None:
     """The same picks as `line,band,price,pick` — the model next year reads.
 
@@ -171,9 +194,10 @@ def main() -> int:
         default="",
         help="also write the machine-readable model archetypes.py reads",
     )
+    ap.add_argument("--me", default="Jorge", help="whose picks go to mi-draft.md")
     args = ap.parse_args()
-    # Both default into `history/`, one file per season: a draft's record is
-    # the only artefact of this skill that outlives the week it was run.
+    # A draft's record is the only artefact of this skill that outlives the
+    # week it was run.
     out = args.out or paths.season_path(args.season, paths.AVAILABILITY)
     history_csv = args.history_csv or paths.season_path(
         args.season, paths.AVAILABILITY_CSV
@@ -186,6 +210,10 @@ def main() -> int:
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(render(picks, args.season))
     print(f"{len(picks)} picks · escrito {out}")
+    mine_path = paths.season_path(args.season, paths.MY_DRAFT)
+    with open(mine_path, "w", encoding="utf-8") as fh:
+        fh.write(render_mine(picks, args.season, args.me))
+    print(f"Mi draft · escrito {mine_path}")
     write_history(picks, history_csv)
     print(f"Modelo de disponibilidad · escrito {history_csv}")
     return 0

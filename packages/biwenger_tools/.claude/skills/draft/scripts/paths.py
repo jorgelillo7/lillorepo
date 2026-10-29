@@ -15,14 +15,21 @@ is the only way the check means anything:
 
 import os
 
-RANKED = "draft-ranked.csv"
-REAL_POINTS = "draft-real-points.csv"
-ARCHETYPES = "arquetipos.md"
-DECISION = "decision.md"
-AVAILABILITY = "disponibilidad.md"
-AVAILABILITY_CSV = "disponibilidad.csv"
+# At the top, what a person opens: the plan, what was actually drafted, the
+# league's draft, and the hand-written inputs.
+DECISION = "plan.md"
+MY_DRAFT = "mi-draft.md"
+AVAILABILITY = "historial.md"
 EXCLUSIONS = "exclusiones.txt"
-CACHE = ".cache"
+# `analisis/`: the working reports the plan is decided from.
+ARCHETYPES = "analisis/arquetipos.md"
+TIERS = "analisis/niveles.md"
+REHEARSAL = "analisis/ensayo.md"
+# `datos/`: what the scripts read back, rarely opened by hand.
+RANKED = "datos/draft-ranked.csv"
+REAL_POINTS = "datos/draft-real-points.csv"
+AVAILABILITY_CSV = "datos/historial.csv"
+CACHE = "datos/.cache"
 
 # Under `bazel run` this file sits in the runfiles tree; the season folders
 # and the api `.env` live in the workspace, and relative arguments mean the
@@ -49,5 +56,8 @@ def season_dir(season: str) -> str:
 
 
 def season_path(season: str, name: str) -> str:
-    """`<season folder>/<name>`, for the constants above."""
-    return os.path.join(season_dir(season), name)
+    """`<season folder>/<name>`, for the constants above; a subfolder in
+    `name` is created on demand."""
+    path = os.path.join(season_dir(season), name)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    return path

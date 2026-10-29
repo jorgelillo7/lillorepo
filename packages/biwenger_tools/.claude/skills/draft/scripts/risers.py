@@ -74,7 +74,7 @@ def main():
         ),
     )
     ap.add_argument(
-        "--ranked", default="", help="por defecto <temporada>/draft-ranked.csv"
+        "--ranked", default="", help="por defecto <temporada>/datos/draft-ranked.csv"
     )
     ap.add_argument("--season", default="26-27")
     ap.add_argument("--me", default="Jorge")

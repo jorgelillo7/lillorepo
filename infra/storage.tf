@@ -68,3 +68,28 @@ resource "google_storage_bucket_iam_member" "this" {
 
   depends_on = [google_storage_bucket.biwenger, google_storage_bucket.be_water_photos]
 }
+
+# The draft skill's season folders: the owner's plan, what he drafted and his
+# notes on the other managers. Never public — the `biwenger` bucket above
+# serves the draft market CSV to everyone, so it cannot hold these.
+resource "google_storage_bucket" "draft_private" {
+  project                     = local.biwenger
+  name                        = "biwenger-draft-private"
+  location                    = "US-CENTRAL1"
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  # A sync that overwrote a season with a stale copy is undone from here.
+  versioning {
+    enabled = true
+  }
+
+  soft_delete_policy {
+    retention_duration_seconds = 604800
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}

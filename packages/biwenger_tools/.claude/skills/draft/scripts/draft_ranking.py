@@ -311,7 +311,7 @@ def main() -> int:
     ap.add_argument("--csv", required=True, help="Biwenger closed-market export")
     ap.add_argument("--season", default="26-27", help="carpeta de salida")
     ap.add_argument(
-        "--out", default="", help="por defecto <temporada>/draft-ranked.csv"
+        "--out", default="", help="por defecto <temporada>/datos/draft-ranked.csv"
     )
     ap.add_argument(
         "--momentum-days",

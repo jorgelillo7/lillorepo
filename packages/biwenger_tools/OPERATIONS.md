@@ -648,15 +648,15 @@ D=packages/biwenger_tools/.claude/skills/draft
 bazel run $S:draft_ranking -- --csv ~/Downloads/primera-division.csv --season 27-28
 bazel run $S:fetch_real_points -- --shortlist shortlist.csv --season 2026-2027 \
     --draft-season 27-28          # 30-45 names, never the market
-bazel run $S:tiers -- --season 27-28 --real-points $D/27-28/draft-real-points.csv \
+bazel run $S:tiers -- --season 27-28 --real-points $D/27-28/datos/draft-real-points.csv \
     --exclude-file $D/26-27/exclusiones.txt --pick-position 3 \
-    --history $D/26-27/disponibilidad.csv --rivals-season 26-27   # → niveles.md
+    --history $D/26-27/datos/historial.csv --rivals-season 26-27   # → analisis/niveles.md
 bazel run $S:archetypes -- --season 27-28 --budget 50 \
-    --real-points $D/27-28/draft-real-points.csv \
-    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/disponibilidad.csv
+    --real-points $D/27-28/datos/draft-real-points.csv \
+    --exclude-file $D/26-27/exclusiones.txt --history $D/26-27/datos/historial.csv
 ```
 
-`niveles.md` is what the picks are decided on — tiers per line, starts,
+`analisis/niveles.md` is what the picks are decided on — tiers per line, starts,
 value, the window between your turns and the rivals' habits; `archetypes`
 only checks that a legal fifteen fits the budget. During the draft, `board`
 shows how much of each tier is still free.
@@ -773,8 +773,9 @@ call undoes the latest pick.
 PYTHONPATH=. python3 packages/biwenger_tools/scripts/draft/close.py --write
 ```
 
-It closes the draft, writes `{season}/disponibilidad.md` + `.csv` into the
-skill and says goodbye to the group. Without `--write` it only shows what it
+It closes the draft, writes `{season}/historial.md`, `{season}/mi-draft.md`
+and `{season}/datos/historial.csv` into the skill and says goodbye to the
+group. Without `--write` it only shows what it
 would do. It refuses to close with picks pending unless given
 `--force --reason "..."`.
 
@@ -784,12 +785,15 @@ Two reasons it exists even though closing is automatic:
   effect of the last pick. If the final pick lands on an old revision, the
   draft stays open forever and `/deshacer` keeps selling real players.
 - **The api cannot write the history.** It runs on Cloud Run and never touches
-  this repo. `{season}/disponibilidad.csv` is what `archetypes.py --history`
-  reads the following year, so if nobody generates it there is no reference
-  next year.
+  this repo. `{season}/datos/historial.csv` is what `tiers`, `mock_draft`
+  and `archetypes.py --history` read the following year, so if nobody
+  generates it there is no reference next year.
 
-Both files **are committed**. The skill's other outputs are gitignored on
-purpose.
+Season folders are **not committed** (the repo is public and they hold the
+owner's plan and notes on the other managers). Back them up straight away:
+`bash packages/biwenger_tools/.claude/skills/draft/sync.sh push` copies every
+season folder to the private bucket `gs://biwenger-draft-private`; `pull`
+restores them on another machine.
 
 ### 7. After the draft
 
@@ -825,8 +829,8 @@ the scraper and reset scripts write with `--apply`, the draft scripts and
 - **`draft/open.py`** — open the draft: upload the frozen market CSV,
   stamp the starting instant, greet the group. Dry-run without `--write`. See
   "Open the draft" above.
-- **`draft/close.py`** — close the draft, write `{temporada}/disponibilidad.md` +
-  `.csv` and say goodbye. Dry-run without `--write`. The api closes itself on
+- **`draft/close.py`** — close the draft, write `{temporada}/historial.md`,
+  `mi-draft.md` and `datos/historial.csv`, and say goodbye. Dry-run without `--write`. The api closes itself on
   the last pick but cannot write files, and `close_draft()` is reachable no
   other way. See "Close the draft" above.
 - **`draft/backfill_timings.py`** — recover `applied_at` /
