@@ -4,6 +4,7 @@ import io
 import textwrap
 import time
 import unicodedata
+from collections.abc import Callable
 from datetime import datetime
 
 import matplotlib
@@ -100,6 +101,9 @@ _EDGE = "#252a33"
 # surface: eleven of these in a column of fifteen, and anything more legible
 # competes with the three that are the reason the column exists.
 _MARK_QUIET = "#3c4354"
+# A row the reader may skip (`dim`): the "no projection" grey, far enough
+# below the body ink to read as set aside, still legible on the surface.
+_DIM_INK = _BAND_FG["none"]
 
 # The bench marker. A filled circle starts, a hollow one comes on later — the
 # shape carries it, so the amber is reinforcement rather than the only signal.
@@ -427,6 +431,7 @@ def build_table_image(
     keep_order: bool = False,
     group_by: str | None = None,
     hide_cols: tuple[str, ...] = (),
+    dim: Callable[[dict], bool] | None = None,
 ) -> bytes:
     """Returns PNG bytes of a styled player table, best projection first —
     or in the order given with `keep_order`, for a table already grouped.
@@ -434,6 +439,8 @@ def build_table_image(
     header row carrying it, so blocks read apart without a colour.
     `hide_cols` drops base columns by header (`/top` drops `Juega`; the
     status marker in the first column still flags who is out).
+    `dim` greys out every row it answers True for, the marker aside: a row
+    not worth reading, which is not the same news as red's "does not play".
 
     `show_total_value` adds the summed cf-base price of the rows to the
     header. Off by default because the same renderer draws the market, where
@@ -612,6 +619,11 @@ def build_table_image(
                     out_cell = table[i, plays_col].get_text()
                     out_cell.set_color(_CRITICAL)
                     out_cell.set_fontweight("bold")
+
+            if dim is not None and dim(source_row):
+                for j in range(n_cols):
+                    if j != mark_col:
+                        table[i, j].get_text().set_color(_DIM_INK)
 
         for j, width in enumerate(col_widths):
             for i in range(n_rows + 1):
