@@ -106,7 +106,10 @@ año anterior:
    tu siguiente pick? Eso decide el orden, no "quién es el mejor".
 4. **Los rivales tienen costumbres.** `tiers.py --rivals-season` resume el
    draft anterior de cada uno; la ventana entre tus turnos dice qué líneas se
-   vacían. Contadores, nunca probabilidades por jugador.
+   vacían. Contadores, nunca probabilidades por jugador. Lo que un rival
+   *dice* que cogería se apunta durante la temporada en
+   `<temporada>/rivales.md`: léelo antes del ensayo y contrástalo con lo que
+   hizo.
 5. **El banquillo juega y el valor es caja.** En el 26-27 ganó la profundidad
    barata (Manu: lo que menos gastó en R1-3, lo que más en R13-15, y el único
    que ganó valor). Las estrellas caras solo pueden bajar.
