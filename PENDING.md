@@ -54,7 +54,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · steps in `packages/group_polls/OPERATIONS.md` → "Create the project" |
+| 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
 
 ## be_water
 
