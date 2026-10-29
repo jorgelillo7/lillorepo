@@ -35,3 +35,7 @@ BIWENGER_API_URL = os.getenv("BIWENGER_API_URL", "")
 # Deployed version metadata (set by CI, see deploy.yml). Used by /version.
 GIT_COMMIT = os.getenv("GIT_COMMIT", "local")
 DEPLOY_TIME = os.getenv("DEPLOY_TIME", "")
+
+# Public web (biwenger-summary). `/mercado` for public members links its
+# clausulazo page. Set by CI from the live service URL; empty hides the link.
+BIWENGER_WEB_URL = os.getenv("BIWENGER_WEB_URL", "").rstrip("/")

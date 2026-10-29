@@ -307,3 +307,70 @@ def exposure_rows(rows: list[dict], rivals: list[dict]) -> list[dict]:
             }
         )
     return out
+
+
+MOVEMENTS_WINDOW_S = 24 * 3600
+_MOVEMENT_TYPES = frozenset({"transfer", "market", "adminTransfer", "clauseIncrement"})
+
+
+def _who(user) -> str:
+    return escape((user or {}).get("name") or "?")
+
+
+def _movement_line(kind: str, move: dict, players: dict) -> str | None:
+    """One Telegram HTML line for a board item, or None for a shape not listed."""
+    player = escape(
+        ((players.get(move.get("player")) or {}).get("name"))
+        or f"#{move.get('player')}"
+    )
+    amount = _eur(abs(int(move.get("amount") or 0)))
+    seller, buyer = move.get("from"), move.get("to")
+    if kind == "clauseIncrement":
+        if int(move.get("amount") or 0) < 0:
+            who = _who(move.get("user"))
+            return f"🔓 {who} baja la cláusula de {player} · recupera {amount}"
+        return (
+            f"🔒 {_who(move.get('user'))} blinda a {player} · +{amount}"
+            f" (cláusula {_eur(int(move.get('releaseClause') or 0))})"
+        )
+    if move.get("type") == "clause":
+        return f"🎯 {_who(buyer)} clausula a {player} de {_who(seller)} · {amount}"
+    if move.get("type") == "immediateSale":
+        return f"⚡ {_who(seller)} vende {player} en venta inmediata · {amount}"
+    if kind == "adminTransfer":
+        target = f"a {_who(buyer)}" if buyer else f"desde {_who(seller)}"
+        return f"🛠️ Admin: {player} {target} · {amount}"
+    if seller and buyer:
+        return f"🤝 {_who(seller)} vende {player} a {_who(buyer)} · {amount}"
+    if buyer:
+        return f"🛒 {_who(buyer)} ficha a {player} del mercado · {amount}"
+    if seller:
+        return f"💸 {_who(seller)} vende {player} al mercado · {amount}"
+    return None
+
+
+def movements(entries: list[dict], now: float, players: dict) -> list[dict]:
+    """Board movements of the last `MOVEMENTS_WINDOW_S`, newest first:
+    `{date, line}`. Trades, clausulazos and clause raises only."""
+    since = now - MOVEMENTS_WINDOW_S
+    out = []
+    for entry in entries:
+        if entry.get("type") not in _MOVEMENT_TYPES or entry.get("date", 0) < since:
+            continue
+        for move in entry.get("content") or []:
+            line = _movement_line(entry["type"], move, players)
+            if line:
+                out.append({"date": entry["date"], "line": line})
+    return sorted(out, key=lambda m: -m["date"])
+
+
+def render_movements(items: list[dict]) -> str:
+    """The `/movimientos` message."""
+    if not items:
+        return "📋 <b>Movimientos · últimas 24 h</b>\n\nSin movimientos."
+
+    def when(m: dict) -> str:
+        return datetime.fromtimestamp(m["date"], MADRID_TZ).strftime("%d/%m %H:%M")
+
+    lines = [f"{when(m)} · {m['line']}" for m in items]
+    return "📋 <b>Movimientos · últimas 24 h</b>\n\n" + "\n".join(lines)

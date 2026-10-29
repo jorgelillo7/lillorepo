@@ -83,3 +83,13 @@ def pact_keyboard(managers: Iterable[dict]) -> dict:
         if not m.get("is_me")
     ]
     return {"inline_keyboard": rows}
+
+
+def public_members_keyboard(members: Iterable[int]) -> dict:
+    """`/publico`: one remove button per allowlisted Telegram id."""
+    return {
+        "inline_keyboard": [
+            [{"text": f"❌ Quitar {m}", "callback_data": f"pub:rm:{m}"}]
+            for m in members
+        ]
+    }

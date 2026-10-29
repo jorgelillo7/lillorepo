@@ -784,3 +784,27 @@ def test_portada_route_reports_a_write_failure_as_500(client):
 
     assert resp.status_code == 500
     assert "403" in resp.get_json()["error"]
+
+
+def test_public_league_cash_needs_the_asking_chat(client):
+    assert client.post("/public/league/cash", json={}).status_code == 400
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_public_league_cash",
+        return_value={"sent": 1},
+    ) as mock_run:
+        resp = client.post("/public/league/cash", json={"chat_id": "777"})
+    mock_run.assert_called_once_with("777")
+    assert resp.status_code == 200
+
+
+def test_public_members_edit_validates_its_input(client):
+    assert client.post("/public/members", json={"user_id": 1}).status_code == 400
+    bad = {"user_id": "x", "action": "add"}
+    assert client.post("/public/members", json=bad).status_code == 400
+    with patch(
+        "packages.biwenger_tools.api.app.actions.edit_public_members",
+        return_value={"members": [5]},
+    ) as mock_edit:
+        resp = client.post("/public/members", json={"user_id": "5", "action": "add"})
+    mock_edit.assert_called_once_with(5, "add")
+    assert resp.get_json()["members"] == [5]

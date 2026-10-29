@@ -564,6 +564,56 @@ def league_cash_route():
     return _run_action("league.cash", actions.run_league_cash)
 
 
+def _chat_id_from_body():
+    chat_id = str((request.get_json(silent=True) or {}).get("chat_id") or "").strip()
+    return chat_id or None
+
+
+@app.route("/public/league/cash", methods=["POST"])
+def public_league_cash_route():
+    """`/saldos` for an allowlisted league member, answered to his chat."""
+    chat_id = _chat_id_from_body()
+    if chat_id is None:
+        return jsonify({"status": "error", "error": "chat_id is required"}), 400
+    return _run_action(
+        "public.league.cash", lambda: actions.run_public_league_cash(chat_id)
+    )
+
+
+@app.route("/public/movements", methods=["POST"])
+def public_movements_route():
+    """`/movimientos` for an allowlisted league member."""
+    chat_id = _chat_id_from_body()
+    if chat_id is None:
+        return jsonify({"status": "error", "error": "chat_id is required"}), 400
+    return _run_action(
+        "public.movements", lambda: actions.run_public_movements(chat_id)
+    )
+
+
+@app.route("/public/members", methods=["GET"])
+def public_members_route():
+    """The public allowlist — the bot's gate and the `/publico` list."""
+    return _run_action("public.members", actions.list_public_members)
+
+
+@app.route("/public/members", methods=["POST"])
+def public_members_edit_route():
+    """Add or remove one member: `{"user_id": int, "action": "add"|"remove"}`."""
+    payload = request.get_json(silent=True) or {}
+    action = payload.get("action")
+    if action not in ("add", "remove"):
+        return jsonify({"status": "error", "error": "action must be add|remove"}), 400
+    try:
+        user_id = int(payload.get("user_id"))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "error": "user_id must be an int"}), 400
+    return _run_action(
+        "public.members.edit",
+        lambda: actions.edit_public_members(user_id, action),
+    )
+
+
 @app.route("/market/auto-bid", methods=["POST"])
 def market_auto_bid():
     """Cron-triggered (09:00 Madrid): tiered auto-bid on the daily market.

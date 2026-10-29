@@ -13,6 +13,7 @@ from datetime import datetime
 import requests
 
 from core.constants import MADRID_TZ
+from core.sdk.biwenger import BiwengerClient
 from core.sdk.telegram import (
     send_telegram_message,
     send_telegram_message_or_raise,
@@ -28,6 +29,8 @@ from packages.biwenger_tools.api.logic import (
     league_compare,
     pact_store,
     projection_ledger_capture,
+    public_cache,
+    public_members_store,
     round_context,
     trader,
 )
@@ -442,12 +445,39 @@ def _my_clause_rows(ctx, squad: list) -> list[dict]:
     )
 
 
+_CASH_KEY = "league_cash"
+_MOVEMENTS_KEY = "movements"
+
+
+def _cash_figures(biwenger, players: dict) -> tuple[dict, dict, list[dict]]:
+    """The public part of `/saldos` — `{rows, notes, self_check_ok, ...}`,
+    plain JSON so the cache can hold it — plus the squads and raw money rows
+    the owner's exposure block needs."""
+    money, squads, book, n_entries, lost = _league_money(biwenger, players)
+    real_mine = biwenger.get_account_state()["cash"]
+    rebuilt_mine = book.cash_of(biwenger.user_id)
+    figures = {
+        "rows": league_cash.ranked(money),
+        "notes": league_cash.notes(book.unknown_types, rebuilt_mine, real_mine, lost),
+        "self_check_ok": rebuilt_mine == real_mine,
+        "board_entries": n_entries,
+        "unknown_types": sorted(book.unknown_types),
+        "archive_lost": lost,
+    }
+    return figures, squads, money
+
+
+def _cash_title() -> str:
+    return f"💰 Saldos · {datetime.now(MADRID_TZ).strftime('%d/%m %H:%M')}"
+
+
 def run_league_cash() -> dict:
     """Send every manager's cash and maximum bid, rebuilt from the board, with
     the owner's three best-projected players and who can reach their clause.
 
     Owner-only, like `/comparar`: the league hides these figures from all its
-    members. Rebuilt on every call — nothing stored.
+    members. Always read fresh — the owner reads it right after a clausulazo —
+    and the read refreshes the cache the public `/saldos` draws on.
     """
     telegram = require_telegram()
     if telegram is None:
@@ -456,33 +486,120 @@ def run_league_cash() -> dict:
 
     ctx = build_context()
     biwenger = ctx.biwenger
-    money, squads, book, n_entries, lost = _league_money(biwenger, ctx.biwenger_players)
+    figures, squads, money = _cash_figures(biwenger, ctx.biwenger_players)
+    public_cache.refresh(_CASH_KEY, figures)
     top = league_cash.exposed(_my_clause_rows(ctx, squads[biwenger.user_id]), 3)
     exposure = league_cash.exposure_rows(top, _rivals(money))
-
-    real_mine = biwenger.get_account_state()["cash"]
-    rebuilt_mine = book.cash_of(biwenger.user_id)
-    notes = league_cash.notes(book.unknown_types, rebuilt_mine, real_mine, lost)
-    today = datetime.now(MADRID_TZ).strftime("%d/%m %H:%M")
-    title = f"💰 Saldos · {today}"
-    image = build_cash_image(league_cash.ranked(money), title, notes, exposure=exposure)
+    title = _cash_title()
+    image = build_cash_image(
+        figures["rows"], title, figures["notes"], exposure=exposure
+    )
     send_telegram_photo_or_raise(token, chat_id, image, title)
     logger.info(
         "League cash sent.",
         extra={
             "managers": len(money),
-            "board_entries": n_entries,
-            "self_check_ok": rebuilt_mine == real_mine,
-            "unknown_types": sorted(book.unknown_types),
-            "archive_lost": lost,
+            "board_entries": figures["board_entries"],
+            "self_check_ok": figures["self_check_ok"],
+            "unknown_types": figures["unknown_types"],
+            "archive_lost": figures["archive_lost"],
         },
     )
     return {
         "sent": 1,
         "managers": len(money),
-        "self_check_ok": rebuilt_mine == real_mine,
-        "unknown_types": sorted(book.unknown_types),
+        "self_check_ok": figures["self_check_ok"],
+        "unknown_types": figures["unknown_types"],
     }
+
+
+_UNAVAILABLE = "⚠️ {what} no disponible ahora. Prueba en unos minutos."
+
+
+def _public_reply_unavailable(chat_id: str, what: str) -> dict:
+    send_telegram_message(
+        bot_token=config.TELEGRAM_BOT_TOKEN,
+        chat_id=chat_id,
+        text=_UNAVAILABLE.format(what=what),
+    )
+    return {"sent": 1, "unavailable": True}
+
+
+def _read_public_cash() -> dict:
+    """A fresh read without JP or Oráculo: the public table needs neither."""
+    biwenger = build_biwenger_session()
+    players, _ = BiwengerClient.get_competition_maps(config.ALL_PLAYERS_DATA_URL)
+    figures, _, _ = _cash_figures(biwenger, players)
+    return figures
+
+
+def run_public_league_cash(chat_id: str) -> dict:
+    """`/saldos` for an allowlisted member: the league table and notes, never
+    the owner's exposure block, sent to the chat that asked."""
+    if not public_members_store.is_member(chat_id):
+        logger.warning("Public cash refused.", extra={"chat_id": chat_id})
+        return {"sent": 0, "reason": "not_a_member"}
+    try:
+        figures = public_cache.get_or_read(_CASH_KEY, _read_public_cash)
+        title = _cash_title()
+        image = build_cash_image(figures["rows"], title, figures["notes"])
+        send_telegram_photo_or_raise(config.TELEGRAM_BOT_TOKEN, chat_id, image, title)
+    except Exception:
+        logger.exception("Public cash failed.", extra={"chat_id": chat_id})
+        return _public_reply_unavailable(chat_id, "Saldos")
+    return {"sent": 1}
+
+
+def _board_since(biwenger, since: float, page: int = 50) -> list[dict]:
+    """Board entries newest first, paging only until one is older than `since`."""
+    entries: list[dict] = []
+    offset = 0
+    while True:
+        url = f"{config.LEAGUE_BOARD_ALL_URL}&limit={page}&offset={offset}"
+        batch = biwenger.get_board_messages(url).get("data") or []
+        entries.extend(batch)
+        if len(batch) < page or any(e.get("date", 0) < since for e in batch):
+            return entries
+        offset += page
+
+
+def _read_public_movements() -> list[dict]:
+    biwenger = build_biwenger_session()
+    players, _ = BiwengerClient.get_competition_maps(config.ALL_PLAYERS_DATA_URL)
+    now = time.time()
+    entries = _board_since(biwenger, now - league_cash.MOVEMENTS_WINDOW_S)
+    return league_cash.movements(entries, now, players)
+
+
+def run_public_movements(chat_id: str) -> dict:
+    """`/movimientos` for an allowlisted member."""
+    if not public_members_store.is_member(chat_id):
+        logger.warning("Public movements refused.", extra={"chat_id": chat_id})
+        return {"sent": 0, "reason": "not_a_member"}
+    try:
+        items = public_cache.get_or_read(_MOVEMENTS_KEY, _read_public_movements)
+        send_telegram_message_or_raise(
+            bot_token=config.TELEGRAM_BOT_TOKEN,
+            chat_id=chat_id,
+            text=league_cash.render_movements(items),
+        )
+    except Exception:
+        logger.exception("Public movements failed.", extra={"chat_id": chat_id})
+        return _public_reply_unavailable(chat_id, "Movimientos")
+    return {"sent": 1, "movements": len(items)}
+
+
+def list_public_members() -> dict:
+    return {"members": sorted(public_members_store.load())}
+
+
+def edit_public_members(user_id: int, action: str) -> dict:
+    members = (
+        public_members_store.add(user_id)
+        if action == "add"
+        else public_members_store.remove(user_id)
+    )
+    return {"members": sorted(members)}
 
 
 def run_protection_watch(ctx) -> dict:

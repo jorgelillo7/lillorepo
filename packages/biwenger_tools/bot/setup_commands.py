@@ -6,7 +6,9 @@ CI runs this after every bot deploy (see `deploy-bot` in
 
   python3 packages/biwenger_tools/bot/setup_commands.py
 
-Required env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`. Optional
+Required env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`,
+`TELEGRAM_CHAT_ID` (the owner's list is scoped to it), and
+`TELEGRAM_DRAFT_CHAT_ID` for the draft group's list. Optional
 `BIWENGER_BOT_URL` (full webhook URL, e.g.
 `https://biwenger-bot-.../telegram/webhook`); when set the script also
 calls `setWebhook` with `allowed_updates=["message", "callback_query"]`.
@@ -61,6 +63,7 @@ COMMANDS = [
         "command": "scrapper",
         "description": "Lanza el scraper a demanda (te avisa al acabar)",
     },
+    {"command": "publico", "description": "Quién puede ver la info pública"},
     {"command": "version", "description": "Versión desplegada del bot y de la API"},
     {"command": "help", "description": "Muestra todos los comandos disponibles"},
 ]
@@ -77,18 +80,45 @@ DRAFT_COMMANDS = [
 ]
 
 
+# The `/` menu of every private chat that has no list of its own: what an
+# allowlisted member may run. Strangers see it too and get no reply.
+PUBLIC_COMMANDS = [
+    {
+        "command": "saldos",
+        "description": "Saldo, cláusulas y puja máxima de cada manager",
+    },
+    {"command": "movimientos", "description": "Movimientos de las últimas 24 h"},
+    {"command": "mercado", "description": "Clausulazos en la web"},
+    {"command": "ayuda", "description": "Qué puedo consultar"},
+]
+
+
 def main():
     token = config.TELEGRAM_BOT_TOKEN
     if not token:
         print("ERROR: TELEGRAM_BOT_TOKEN not set.", file=sys.stderr)
         sys.exit(1)
+    owner_chat_id = config.TELEGRAM_CHAT_ID
+    if not owner_chat_id:
+        # Without it the owner's list cannot be scoped, and publishing it
+        # globally is exactly what the three blocks exist to prevent.
+        print("ERROR: TELEGRAM_CHAT_ID not set.", file=sys.stderr)
+        sys.exit(1)
 
-    print("Configuring commands + resetting menu button to default…")
-    configure_bot_commands(token, COMMANDS)
+    # Telegram shows the narrowest list that matches a chat: chat >
+    # all_private_chats > default. Each block reaches only its own chats.
+    print("Default scope: no commands (other groups see none)…")
+    configure_bot_commands(token, [])
+    print("Private chats: the public commands…")
+    configure_bot_commands(token, PUBLIC_COMMANDS, scope={"type": "all_private_chats"})
+    print(f"Owner chat {owner_chat_id}: base and management commands…")
+    configure_bot_commands(
+        token, COMMANDS, scope={"type": "chat", "chat_id": owner_chat_id}
+    )
 
     draft_chat_id = config.TELEGRAM_DRAFT_CHAT_ID
     if draft_chat_id:
-        print(f"Configuring draft commands scoped to chat {draft_chat_id}…")
+        print(f"Draft group {draft_chat_id}: draft commands…")
         configure_bot_commands(
             token,
             DRAFT_COMMANDS,

@@ -1336,3 +1336,212 @@ def test_pact_callback_ignores_a_malformed_manager_id(client):
         resp = _post(client, _callback_update(_VALID_CHAT, "pact:nope"))
     assert resp.status_code == 200
     mock_call.assert_not_called()
+
+
+# --- public league info: allowlisted private chats -------------------------
+
+_MEMBER = "777"
+_APP = "packages.biwenger_tools.bot.app"
+
+
+def _private_update(user_id, text):
+    """A private chat: Telegram gives it the sender's own id."""
+    return {
+        "update_id": 1,
+        "message": {"chat": {"id": user_id}, "text": text, "from": {"id": user_id}},
+    }
+
+
+def _public_api(members=(777,), post_raises=None):
+    """`call_api_json` double: GET /public/members answers the allowlist,
+    every POST is recorded (and may raise)."""
+    calls = []
+
+    def fake(base_url, path, method="POST", payload=None, timeout=60):
+        calls.append((method, path, payload))
+        if method == "GET" and path == "/public/members":
+            return {"members": list(members)}
+        if post_raises:
+            raise post_raises
+        return {"members": list(members)}
+
+    return fake, calls
+
+
+def _posts(calls):
+    return [(path, payload) for method, path, payload in calls if method == "POST"]
+
+
+def test_allowlisted_member_saldos_calls_the_public_api(client):
+    fake, calls = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _private_update(_MEMBER, "/saldos"))
+    assert _posts(calls) == [("/public/league/cash", {"chat_id": _MEMBER})]
+
+
+def test_allowlisted_member_movimientos_calls_the_public_api(client):
+    fake, calls = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _private_update(_MEMBER, "/movimientos"))
+    assert _posts(calls) == [("/public/movements", {"chat_id": _MEMBER})]
+
+
+def test_admin_command_from_a_public_member_gets_the_help_not_the_api(client):
+    fake, calls = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.api_client.call_api") as admin_call,
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _private_update(_MEMBER, "/alinear"))
+    admin_call.assert_not_called()
+    assert _posts(calls) == []
+    assert "/movimientos" in send.call_args.kwargs["text"]
+    assert send.call_args.kwargs["chat_id"] == _MEMBER
+
+
+def test_public_member_message_does_not_consult_label_dispatch(client):
+    fake, _ = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}._try_dispatch_label") as label,
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _private_update(_MEMBER, "💰 Saldos"))
+    label.assert_not_called()
+
+
+def test_admin_callback_from_a_public_member_is_refused(client):
+    with (
+        patch(f"{_APP}.api_client.call_api") as call,
+        patch(f"{_APP}.api_client.call_api_json") as call_json,
+    ):
+        _post(client, _callback_update(_MEMBER, "o:a:1", from_user_id=_MEMBER))
+    call.assert_not_called()
+    call_json.assert_not_called()
+
+
+def test_photo_from_a_public_member_is_ignored(client):
+    body = {
+        "update_id": 1,
+        "message": {
+            "chat": {"id": _MEMBER},
+            "from": {"id": _MEMBER},
+            "photo": [{"file_id": "f", "width": 10, "height": 10}],
+            "caption": "Titular",
+        },
+    }
+    with patch(f"{_APP}._handle_portada") as portada:
+        _post(client, body)
+    portada.assert_not_called()
+
+
+def test_unlisted_private_chat_is_silently_ignored(client):
+    fake, calls = _public_api(members=())
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _private_update(_MEMBER, "/saldos"))
+    send.assert_not_called()
+    assert _posts(calls) == []
+
+
+def test_a_group_chat_is_never_a_public_member(client):
+    with (
+        patch(f"{_APP}.api_client.call_api_json") as call_json,
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _group_update("-100123", "/saldos", _MEMBER))
+    call_json.assert_not_called()
+    send.assert_not_called()
+
+
+def test_a_removed_member_is_ignored_again(client):
+    fake_in, _ = _public_api()
+    fake_out, calls_out = _public_api(members=())
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake_in),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _private_update(_MEMBER, "/ayuda"))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake_out),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _private_update(_MEMBER, "/saldos"))
+    send.assert_not_called()
+    assert _posts(calls_out) == []
+
+
+def test_public_failure_hides_the_exception(client):
+    fake, _ = _public_api(post_raises=RuntimeError("secret detail"))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _private_update(_MEMBER, "/saldos"))
+    last = send.call_args.kwargs["text"]
+    assert "No disponible" in last
+    assert "secret detail" not in last
+
+
+def test_publico_adds_a_numeric_id(client):
+    fake, calls = _public_api(members=(123456,))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico 123456"))
+    assert _posts(calls) == [("/public/members", {"user_id": 123456, "action": "add"})]
+
+
+def test_publico_lists_members_with_remove_buttons(client):
+    fake, _ = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico"))
+    markup = send.call_args.kwargs["reply_markup"]
+    assert markup["inline_keyboard"][0][0]["callback_data"] == "pub:rm:777"
+
+
+def test_publico_remove_tap_redraws_in_place(client):
+    fake, calls = _public_api(members=())
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.answer_callback_query"),
+        patch(f"{_APP}.edit_message_text") as edit,
+    ):
+        _post(client, _callback_update(_VALID_CHAT, "pub:rm:777", message_id=9))
+    assert _posts(calls) == [("/public/members", {"user_id": 777, "action": "remove"})]
+    assert edit.call_args.kwargs["message_id"] == 9
+
+
+def test_publico_rejects_a_non_numeric_id(client):
+    with (
+        patch(f"{_APP}.api_client.call_api_json") as call_json,
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico abc"))
+    call_json.assert_not_called()
+    assert "número" in send.call_args.kwargs["text"]
+
+
+def test_publico_is_owner_only(client):
+    fake, calls = _public_api()
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _private_update(_MEMBER, "/publico 1"))
+        _post(client, _group_update(_VALID_DRAFT_CHAT, "/publico 1", _MEMBER))
+    assert _posts(calls) == []
+    assert "/movimientos" in send.call_args_list[0].kwargs["text"]

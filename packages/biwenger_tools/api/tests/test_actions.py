@@ -508,3 +508,139 @@ def test_a_single_squad_image_carries_the_fixture_column():
     assert _run_teams(2)[0] == {
         "👤 Rival": ["Clausulable", "Cláusula", "Calendario (5)"]
     }
+
+
+# --- public league info: /saldos and /movimientos for allowlisted members ---
+
+_FIGURES = {
+    "rows": [{"name": "A", "cash": 1, "max_bid": 2, "in_clauses": 0}],
+    "notes": ["✅ ok"],
+    "self_check_ok": True,
+    "board_entries": 3,
+    "unknown_types": [],
+    "archive_lost": 0,
+}
+
+
+def _public_cash(is_member=True, cached=None, raises=None):
+    from packages.biwenger_tools.api.logic import actions
+
+    get_or_read = (
+        {"side_effect": raises}
+        if raises
+        else {"return_value": cached if cached is not None else _FIGURES}
+    )
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=is_member),
+        patch(_patches("public_cache.get_or_read"), **get_or_read),
+        patch(_patches("build_cash_image"), return_value=b"png") as image,
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+        patch(_patches("send_telegram_message")) as text,
+    ):
+        result = actions.run_public_league_cash("777")
+    return result, image, photo, text
+
+
+def test_public_league_cash_goes_to_the_asking_chat():
+    result, _, photo, _ = _public_cash()
+    assert result == {"sent": 1}
+    assert photo.call_args.args[1] == "777"
+
+
+def test_public_league_cash_draws_no_exposure_block():
+    _, image, _, _ = _public_cash()
+    assert not image.call_args.kwargs.get("exposure")
+
+
+def test_public_league_cash_failure_says_unavailable():
+    from packages.biwenger_tools.api.logic import public_cache
+
+    result, _, photo, text = _public_cash(
+        raises=public_cache.Unavailable("league_cash")
+    )
+    photo.assert_not_called()
+    sent = text.call_args.kwargs
+    assert sent["chat_id"] == "777"
+    assert "no disponible" in sent["text"]
+    assert "league_cash" not in sent["text"]
+    assert result["unavailable"] is True
+
+
+def test_public_league_cash_refuses_a_non_member():
+    result, _, photo, text = _public_cash(is_member=False)
+    assert result["sent"] == 0
+    photo.assert_not_called()
+    text.assert_not_called()
+
+
+def _owner_cash():
+    from unittest.mock import MagicMock
+
+    from packages.biwenger_tools.api.logic import actions
+
+    ctx = MagicMock()
+    ctx.biwenger.user_id = 1
+    with (
+        patch(_patches("require_telegram"), return_value=("tok", "chat")),
+        patch(_patches("build_context"), return_value=ctx),
+        patch(
+            _patches("_cash_figures"), return_value=(_FIGURES, {1: []}, [])
+        ) as figures,
+        patch(_patches("_my_clause_rows"), return_value=[]),
+        patch(_patches("league_cash.exposed"), return_value=[{"name": "x"}]),
+        patch(_patches("league_cash.exposure_rows"), return_value=[{"name": "x"}]),
+        patch(_patches("pact_store.load"), return_value=set()),
+        patch(_patches("public_cache.refresh")) as refresh,
+        patch(_patches("public_cache.get_or_read")) as cached,
+        patch(_patches("build_cash_image"), return_value=b"png") as image,
+        patch(_patches("send_telegram_photo_or_raise")),
+    ):
+        actions.run_league_cash()
+    return figures, refresh, cached, image
+
+
+def test_owner_league_cash_keeps_the_exposure_block():
+    _, _, _, image = _owner_cash()
+    assert image.call_args.kwargs["exposure"]
+
+
+def test_owner_league_cash_always_reads_fresh_and_refreshes_the_cache():
+    figures, refresh, cached, _ = _owner_cash()
+    figures.assert_called_once()
+    cached.assert_not_called()
+    refresh.assert_called_once_with("league_cash", _FIGURES)
+
+
+def test_movements_stop_reading_at_the_window():
+    from unittest.mock import MagicMock
+
+    from packages.biwenger_tools.api.logic import actions
+
+    now = 1_800_000_000
+    page = [{"type": "transfer", "date": now - i * 3600} for i in range(50)]
+    biwenger = MagicMock()
+    biwenger.get_board_messages.return_value = {"data": page}
+    entries = actions._board_since(biwenger, now - 24 * 3600)
+    biwenger.get_board_messages.assert_called_once()
+    assert len(entries) == 50
+
+
+def test_movements_read_is_cached(monkeypatch):
+    from packages.biwenger_tools.api.logic import actions, public_cache
+    from packages.biwenger_tools.api.tests.test_public_cache import _FakeStore
+
+    store = _FakeStore()
+    monkeypatch.setattr(public_cache, "_claim", store.claim)
+    monkeypatch.setattr(public_cache, "_write", store.write)
+    reads = []
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(
+            _patches("_read_public_movements"),
+            side_effect=lambda: reads.append(1) or [],
+        ),
+        patch(_patches("send_telegram_message_or_raise")),
+    ):
+        actions.run_public_movements("777")
+        actions.run_public_movements("777")
+    assert reads == [1]

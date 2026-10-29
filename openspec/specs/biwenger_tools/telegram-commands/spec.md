@@ -143,3 +143,114 @@ sits behind a cold start plus a Biwenger league call:
   `test_pact_callback_toggles_the_manager_and_redraws_in_place`,
   `test_pact_callback_ignores_a_malformed_manager_id`,
   `test_pacto_command_handles_a_fetch_failure`
+
+---
+
+### Requirement: Allowlisted members get the public commands, and only those
+
+The owner shares the league's cash with a league mate by hand, by
+screenshots cropped to hide what concerns his own team. The bot SHALL do it
+instead, for the people the owner chooses, without opening anything else to
+them.
+
+A private chat whose id is on the public allowlist SHALL be routed to a public
+handler that answers `/saldos`, `/movimientos`, `/mercado` and `/ayuda`. Any
+other text gets the short help. The admin commands, the reply-keyboard label
+router, every callback prefix and the photo path SHALL be unreachable from
+that chat, as they are from the draft group. A chat that is neither the
+owner's, the draft group's nor on the allowlist SHALL still be ignored
+silently, with no reply. Answering strangers, even to say access is closed,
+makes the bot something anyone can probe.
+
+Only private chats SHALL count. A group an allowlisted member belongs to is
+not authorised by his membership.
+
+#### Scenario: an allowlisted member reaches the public set only
+- **WHEN** an allowlisted private chat sends `/saldos` or `/movimientos`
+  **THEN** the matching public API call is made, answered to that chat
+- **WHEN** it sends an admin command (`/alinear`, `/ofertas`, `/analizar` …)
+  **THEN** the API is not called and the short help is sent
+- **WHEN** it sends text matching a reply-keyboard label **THEN** the label
+  router is not consulted
+- **WHEN** it sends a callback with an admin prefix **THEN** it is refused
+- **WHEN** it sends a photo **THEN** it is ignored
+- *Verifies:* `test_allowlisted_member_saldos_calls_the_public_api`,
+  `test_allowlisted_member_movimientos_calls_the_public_api`,
+  `test_admin_command_from_a_public_member_gets_the_help_not_the_api`,
+  `test_public_member_message_does_not_consult_label_dispatch`,
+  `test_admin_callback_from_a_public_member_is_refused`,
+  `test_photo_from_a_public_member_is_ignored`
+
+#### Scenario: who is not let in
+- **WHEN** a private chat not on the allowlist sends `/saldos` **THEN** it is
+  ignored: no reply, and nothing reaches a public endpoint or Biwenger (the
+  allowlist lookup itself is the only call)
+- **WHEN** a group chat whose id is not the draft group's sends a public
+  command **THEN** it is ignored
+- **WHEN** an id is removed from the allowlist **THEN** that chat is ignored
+  from the next message on
+- *Verifies:* `test_unlisted_private_chat_is_silently_ignored`,
+  `test_a_group_chat_is_never_a_public_member`,
+  `test_a_removed_member_is_ignored_again`
+
+#### Scenario: a failure says little
+- **WHEN** the public API call fails **THEN** the member reads "no disponible
+  ahora", with no exception text
+- *Verifies:* `test_public_failure_hides_the_exception`
+
+### Requirement: `/publico` edits the public allowlist
+
+The owner SHALL add and remove the members of the public allowlist from his
+own chat, without a redeploy. `/publico <id>` adds a numeric Telegram id.
+`/publico` alone lists the members, each with a remove button.
+
+The list SHALL be stored by the api, like the pact. The bot holds no state of
+its own, per the zero-logic bot rule. A non-numeric id SHALL be refused
+without an API call. `/publico` SHALL be reachable only from the owner's chat.
+
+#### Scenario: add, list, remove, reject junk
+- **WHEN** the owner sends `/publico 123456` **THEN** the id is added and
+  confirmed
+- **WHEN** he sends `/publico` **THEN** one remove button per member
+- **WHEN** he taps one **THEN** that id is removed and the list redrawn in
+  place
+- **WHEN** the id is not numeric **THEN** it is refused, with no API call
+- **WHEN** `/publico` arrives from a public member or the draft group **THEN**
+  it is refused
+- *Verifies:* `test_publico_adds_a_numeric_id`,
+  `test_publico_lists_members_with_remove_buttons`,
+  `test_publico_remove_tap_redraws_in_place`,
+  `test_publico_rejects_a_non_numeric_id`,
+  `test_publico_is_owner_only`
+
+### Requirement: Each command block is offered only in its own chats
+
+The bot serves three audiences, and the `/` menu SHALL offer each one only
+its own block. An operation suggested in the wrong chat invites a tap that
+the routing will refuse, and an admin command listed where a league mate can
+read it gives away what the owner can do.
+
+| Block | Chats |
+|---|---|
+| Public (`/saldos`, `/movimientos`, `/mercado`, `/ayuda`) | private chats |
+| Draft (`/pick`, `/estado`, `/soy`, `/deshacer`, `/exportar`) | the draft group |
+| Base and management (everything else, `/publico` included, no draft command) | the owner's chat |
+| None | any other group |
+
+The post-deploy hook SHALL register them by Telegram scope, which picks the
+narrowest match for each chat. It SHALL refuse to run without the owner's
+chat id rather than fall back to a global list, since that fallback is
+exactly the leak the blocks exist to prevent. The menu only suggests: the
+webhook routing is what refuses a command outside its chat.
+
+#### Scenario: each block in its own chats
+- **WHEN** the hook runs **THEN** the default scope gets no commands, private
+  chats get the public block, the owner's chat gets the base and management
+  block and the draft group gets the draft block
+- **WHEN** the owner's chat id is missing **THEN** it stops before
+  registering anything
+- **WHEN** the two lists are compared **THEN** the owner's block holds no
+  draft command
+- *Verifies:* `test_setup_scopes_each_block_to_its_chats`,
+  `test_setup_refuses_to_publish_without_the_owner_chat`,
+  `test_the_owner_block_holds_no_draft_command`
