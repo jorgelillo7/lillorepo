@@ -2,7 +2,7 @@
 
 import io
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from packages.biwenger_tools.api.logic.image_formatter import (
     _BENCH,
@@ -624,3 +624,14 @@ def test_a_grouped_table_renders():
     ]
     png = build_table_image(rows, "Top", keep_order=True, group_by="M")
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_a_table_can_hide_a_base_column():
+    """`/top` drops `Juega`; the status marker still flags who is out."""
+    rows = [{"name": "Isco", "price": 1, "custom_prediction": 500, "M": "Fabio"}]
+    with patch("matplotlib.axes.Axes.table") as table:
+        table.return_value.__getitem__.return_value.get_text.return_value = MagicMock()
+        build_table_image(rows, "Top", group_by="M", hide_cols=("Juega",))
+    headers = table.call_args.kwargs["colLabels"]
+    assert "Juega" not in headers and "Jugador" in headers
+    assert all(len(r) == len(headers) for r in table.call_args.kwargs["cellText"])

@@ -474,8 +474,9 @@ five players with the highest shown projection. Each manager's rows SHALL sit
 together, best first, under a header row with his name, never mixed by a
 global sort. The blocks are told apart by those rows and not by a colour,
 because the palette's hues are already reserved for status and projection.
-Each row carries the usual columns (price, JP, Oráculo, projection, whether
-he plays), plus the club and the clause, and `Clausulable` says whether it
+Each row carries the usual columns (price, JP, Oráculo, projection) but not
+`Juega` — the first column's marker already flags who is out — plus the club
+and the clause, and `Clausulable` says whether it
 can be paid today or how many days of protection are left.
 
 It answers in the owner's chat and in every chat on the public allowlist, with
@@ -495,6 +496,7 @@ costs a JP and Oráculo read plus a squad read per manager.
   `test_a_grouped_table_keeps_the_order_it_is_given`,
   `test_a_grouped_table_opens_each_group_with_a_header_row`,
   `test_a_grouped_table_renders`,
+  `test_a_table_can_hide_a_base_column`,
   `test_public_top_goes_to_the_asking_chat`,
   `test_public_top_refuses_a_non_member`,
   `test_owner_top_goes_to_the_owner_chat_through_the_same_cache`,

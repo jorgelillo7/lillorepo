@@ -426,11 +426,14 @@ def build_table_image(
     show_total_value: bool = False,
     keep_order: bool = False,
     group_by: str | None = None,
+    hide_cols: tuple[str, ...] = (),
 ) -> bytes:
     """Returns PNG bytes of a styled player table, best projection first —
     or in the order given with `keep_order`, for a table already grouped.
     `group_by` names a row key: each run of the same value opens with a
     header row carrying it, so blocks read apart without a colour.
+    `hide_cols` drops base columns by header (`/top` drops `Juega`; the
+    status marker in the first column still flags who is out).
 
     `show_total_value` adds the summed cf-base price of the rows to the
     header. Off by default because the same renderer draws the market, where
@@ -463,12 +466,17 @@ def build_table_image(
 
     def _cells(row: dict) -> list[str]:
         if _GROUP_HEADER in row:
-            cells = [""] * len(headers)
+            cells = [""] * (len(base_headers) + len(extra_cols))
             cells[name_col] = _strip_emoji(row[_GROUP_HEADER])
             return cells
         return _row_data(row, extra_cols)
 
-    cell_data = [_cells(row) for row in display_rows]
+    # Columns kept, by their position in the full layout; every index below
+    # is remapped through it, so a hidden column is simply never styled.
+    keep = [j for j, h in enumerate(base_headers + extra_cols) if h not in hide_cols]
+    at = {orig: new for new, orig in enumerate(keep)}
+    headers = [headers[j] for j in keep]
+    cell_data = [[cells[j] for j in keep] for cells in map(_cells, display_rows)]
     cell_colors = [
         [_HEADER_BG if _GROUP_HEADER in row else _row_bg(row.get("jp_player"))]
         * len(headers)
@@ -517,6 +525,7 @@ def build_table_image(
     _draw_status_summary(ax, sorted_rows, show_total_value)
 
     col_widths = base_widths + [_EXTRA_COL_WIDTH] * len(extra_cols)
+    col_widths = [col_widths[j] for j in keep]
     total = sum(col_widths)
     col_widths = [w / total for w in col_widths]
 
@@ -551,9 +560,11 @@ def build_table_image(
             cell.get_text().set_fontsize(10)
             cell.set_edgecolor(_EDGE)
 
-        mark_col = 0
-        sf_col = proj_col
-        plays_col = base_headers.index("Juega")
+        # The marker and the name are never hidden; the rest may be.
+        mark_col = at[0]
+        row_name_col = at[name_col]
+        sf_col = at.get(proj_col)
+        plays_col = at.get(base_headers.index("Juega"))
         # Squad size is a per-league setting, commonly up to 25, so that is the
         # density this has to stay legible at. Below ~18 rows the figure still
         # grows; past that it is capped, so the type gives back the room.
@@ -563,7 +574,7 @@ def build_table_image(
             if _GROUP_HEADER in source_row:
                 for j in range(n_cols):
                     table[i, j].set_edgecolor(_EDGE)
-                text = table[i, name_col].get_text()
+                text = table[i, row_name_col].get_text()
                 text.set_color(_TITLE_FG)
                 text.set_fontweight("bold")
                 text.set_fontsize(body_size + 0.5)
@@ -578,10 +589,11 @@ def build_table_image(
                 # columns nothing else recolours (Pos, Precio, Juega).
                 cell.get_text().set_color(_INK_SOFT)
             # Three independent signals, three independent colours.
-            table[i, sf_col].get_text().set_color(
-                _BAND_FG[band_for_score(shown_score(source_row))]
-            )
-            table[i, name_col].get_text().set_color(_INK)
+            if sf_col is not None:
+                table[i, sf_col].get_text().set_color(
+                    _BAND_FG[band_for_score(shown_score(source_row))]
+                )
+            table[i, row_name_col].get_text().set_color(_INK)
             table[i, mark_col].get_text().set_color(_MARK_QUIET)
             if is_bench(jp):
                 # Marker, name and reason together: one glance down the
@@ -589,15 +601,17 @@ def build_table_image(
                 # stops on the row gets the word rather than a colour to
                 # decode.
                 table[i, mark_col].get_text().set_color(_BENCH)
-                table[i, name_col].get_text().set_color(_BENCH)
-                bench_cell = table[i, plays_col].get_text()
-                bench_cell.set_color(_BENCH)
-                bench_cell.set_fontweight("bold")
+                table[i, row_name_col].get_text().set_color(_BENCH)
+                if plays_col is not None:
+                    bench_cell = table[i, plays_col].get_text()
+                    bench_cell.set_color(_BENCH)
+                    bench_cell.set_fontweight("bold")
             if availability(jp) == "out":
                 table[i, mark_col].get_text().set_color(_CRITICAL)
-                out_cell = table[i, plays_col].get_text()
-                out_cell.set_color(_CRITICAL)
-                out_cell.set_fontweight("bold")
+                if plays_col is not None:
+                    out_cell = table[i, plays_col].get_text()
+                    out_cell.set_color(_CRITICAL)
+                    out_cell.set_fontweight("bold")
 
         for j, width in enumerate(col_widths):
             for i in range(n_rows + 1):

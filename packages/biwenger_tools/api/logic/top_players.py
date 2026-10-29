@@ -9,6 +9,9 @@ from packages.biwenger_tools.api.player_formatting import shown_score
 
 TOP_N = 5
 EXTRA_COLS = ["Equipo", "Clausulable", "Cláusula"]
+# Who plays is already the first column's marker; the word is room the club
+# and the clause need more.
+HIDDEN_COLS = ("Juega",)
 # Each manager's block opens with a header row naming him (image `group_by`).
 GROUP_KEY = "Mánager"
 

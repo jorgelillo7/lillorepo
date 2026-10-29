@@ -684,6 +684,7 @@ def _read_top() -> dict:
         extra_cols=top_players.EXTRA_COLS,
         keep_order=True,
         group_by=top_players.GROUP_KEY,
+        hide_cols=top_players.HIDDEN_COLS,
     )
     return {"png": png, "title": title}
 
