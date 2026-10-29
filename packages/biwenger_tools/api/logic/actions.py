@@ -683,6 +683,7 @@ def _read_top() -> dict:
         title,
         extra_cols=top_players.EXTRA_COLS,
         keep_order=True,
+        group_by=top_players.GROUP_KEY,
     )
     return {"png": png, "title": title}
 

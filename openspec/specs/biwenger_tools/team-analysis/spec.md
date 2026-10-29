@@ -471,10 +471,12 @@ wrong player; it renders as "sin datos".
 
 `/top` SHALL send one table image with, for every manager in the league, the
 five players with the highest shown projection. Each manager's rows SHALL sit
-together, best first, never mixed by a global sort. Each row carries the usual
-columns (price, JP, Oráculo, projection, whether he plays), plus the manager,
-the club and the clause, and `Clausulable` says whether it can be paid today
-or how many days of protection are left.
+together, best first, under a header row with his name, never mixed by a
+global sort. The blocks are told apart by those rows and not by a colour,
+because the palette's hues are already reserved for status and projection.
+Each row carries the usual columns (price, JP, Oráculo, projection, whether
+he plays), plus the club and the clause, and `Clausulable` says whether it
+can be paid today or how many days of protection are left.
 
 It answers in the owner's chat and in every chat on the public allowlist, with
 all seven managers in both: the owner's call. One read SHALL serve every
@@ -484,13 +486,15 @@ costs a JP and Oráculo read plus a squad read per manager.
 #### Scenario: the table
 - **WHEN** a squad holds more than five players **THEN** its five best by
   shown projection are drawn, best first
-- **WHEN** the rows reach the image **THEN** they keep the manager grouping and
-  carry the manager and club
+- **WHEN** the rows reach the image **THEN** they keep the manager grouping,
+  each block opened by a header row with the manager's name
 - **WHEN** a public chat or the owner asks **THEN** the same cached image goes
   to that chat; a chat off the allowlist gets nothing
 - *Verifies:* `test_top_ranks_each_squad_by_its_shown_projection`,
   `test_top_rows_carry_manager_and_club_in_manager_order`,
   `test_a_grouped_table_keeps_the_order_it_is_given`,
+  `test_a_grouped_table_opens_each_group_with_a_header_row`,
+  `test_a_grouped_table_renders`,
   `test_public_top_goes_to_the_asking_chat`,
   `test_public_top_refuses_a_non_member`,
   `test_owner_top_goes_to_the_owner_chat_through_the_same_cache`,

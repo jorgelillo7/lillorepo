@@ -1,14 +1,16 @@
 """The five best players of every squad, for `/top`. Pure: no I/O.
 
-Rows go to the shared table image, grouped manager by manager, with the
-columns a manager weighs before a clausulazo: whose he is, his club, and the
-clause — `Clausulable` says whether it can be paid today.
+Rows go to the shared table image, one block per manager under a header row
+with his name, with the columns a manager weighs before a clausulazo: the
+club and the clause — `Clausulable` says whether it can be paid today.
 """
 
 from packages.biwenger_tools.api.player_formatting import shown_score
 
 TOP_N = 5
-EXTRA_COLS = ["Mánager", "Equipo", "Clausulable", "Cláusula"]
+EXTRA_COLS = ["Equipo", "Clausulable", "Cláusula"]
+# Each manager's block opens with a header row naming him (image `group_by`).
+GROUP_KEY = "Mánager"
 
 
 def best(rows: list[dict], n: int = TOP_N) -> list[dict]:

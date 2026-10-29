@@ -403,15 +403,34 @@ def _draw_generated_stamp(ax) -> None:
     )
 
 
+# Marks a header row inserted by `group_by`; a key no player row carries.
+_GROUP_HEADER = "_group_header"
+
+
+def _with_group_headers(rows: list[dict], key: str) -> list[dict]:
+    """`rows` with a header row before each run of the same `key` value."""
+    out: list[dict] = []
+    last: object = object()
+    for row in rows:
+        if row.get(key) != last:
+            out.append({_GROUP_HEADER: str(row.get(key) or "—")})
+            last = row.get(key)
+        out.append(row)
+    return out
+
+
 def build_table_image(
     rows: list[dict],
     title: str,
     extra_cols: list[str] | None = None,
     show_total_value: bool = False,
     keep_order: bool = False,
+    group_by: str | None = None,
 ) -> bytes:
     """Returns PNG bytes of a styled player table, best projection first —
     or in the order given with `keep_order`, for a table already grouped.
+    `group_by` names a row key: each run of the same value opens with a
+    header row carrying it, so blocks read apart without a colour.
 
     `show_total_value` adds the summed cf-base price of the rows to the
     header. Off by default because the same renderer draws the market, where
@@ -437,9 +456,23 @@ def build_table_image(
     sorted_rows = (
         list(rows) if keep_order else sorted(rows, key=sort_key_sf_desc, reverse=True)
     )
-    cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
+    name_col = base_headers.index("Jugador")
+    display_rows = (
+        _with_group_headers(sorted_rows, group_by) if group_by else sorted_rows
+    )
+
+    def _cells(row: dict) -> list[str]:
+        if _GROUP_HEADER in row:
+            cells = [""] * len(headers)
+            cells[name_col] = _strip_emoji(row[_GROUP_HEADER])
+            return cells
+        return _row_data(row, extra_cols)
+
+    cell_data = [_cells(row) for row in display_rows]
     cell_colors = [
-        [_row_bg(row.get("jp_player"))] * len(headers) for row in sorted_rows
+        [_HEADER_BG if _GROUP_HEADER in row else _row_bg(row.get("jp_player"))]
+        * len(headers)
+        for row in display_rows
     ]
 
     n_rows = len(cell_data)
@@ -519,7 +552,6 @@ def build_table_image(
             cell.set_edgecolor(_EDGE)
 
         mark_col = 0
-        name_col = base_headers.index("Jugador")
         sf_col = proj_col
         plays_col = base_headers.index("Juega")
         # Squad size is a per-league setting, commonly up to 25, so that is the
@@ -527,7 +559,15 @@ def build_table_image(
         # grows; past that it is capped, so the type gives back the room.
         body_size = 9.5 if n_rows <= 18 else 8.5
         for i in range(1, n_rows + 1):
-            source_row = sorted_rows[i - 1]
+            source_row = display_rows[i - 1]
+            if _GROUP_HEADER in source_row:
+                for j in range(n_cols):
+                    table[i, j].set_edgecolor(_EDGE)
+                text = table[i, name_col].get_text()
+                text.set_color(_TITLE_FG)
+                text.set_fontweight("bold")
+                text.set_fontsize(body_size + 0.5)
+                continue
             jp = source_row.get("jp_player")
             for j in range(n_cols):
                 cell = table[i, j]
