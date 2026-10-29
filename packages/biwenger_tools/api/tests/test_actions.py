@@ -788,3 +788,49 @@ def test_public_analizar_refuses_a_non_member():
     ):
         assert actions.run_public_team("-100", 2)["sent"] == 0
     photo.assert_not_called()
+
+
+# --- /top: the five best of every squad, owner's chat and public chats ---
+
+
+def test_public_top_goes_to_the_asking_chat():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(
+            _patches("public_cache.get_or_read"),
+            return_value={"png": b"png", "title": "🏆 Top"},
+        ) as cached,
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        assert actions.run_public_top("-100") == {"sent": 1}
+    assert cached.call_args.args[0] == "top"
+    assert photo.call_args.args[1] == "-100"
+
+
+def test_public_top_refuses_a_non_member():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=False),
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        assert actions.run_public_top("-100")["sent"] == 0
+    photo.assert_not_called()
+
+
+def test_owner_top_goes_to_the_owner_chat_through_the_same_cache():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("require_telegram"), return_value=("tok", "owner")),
+        patch(
+            _patches("public_cache.get_or_read"),
+            return_value={"png": b"png", "title": "🏆 Top"},
+        ) as cached,
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        actions.run_league_top()
+    assert cached.call_args.args[0] == "top"
+    assert photo.call_args.args[1] == "owner"

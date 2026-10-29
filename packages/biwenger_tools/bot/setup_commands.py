@@ -43,6 +43,7 @@ COMMANDS = [
         "command": "saldos",
         "description": "Saldo y puja máxima de cada manager",
     },
+    {"command": "top", "description": "Los 5 mejores de cada manager"},
     {
         "command": "pujar",
         "description": "Lanza el auto-bid del mercado diario por tiers",
@@ -89,6 +90,7 @@ PUBLIC_COMMANDS = [
     },
     {"command": "movimientos", "description": "Movimientos de las últimas 24 h"},
     {"command": "analizar", "description": "Plantilla de un rival (te pregunta cuál)"},
+    {"command": "top", "description": "Los 5 mejores de cada manager"},
     {"command": "mercado", "description": "Clausulazos en la web"},
     {"command": "ayuda", "description": "Qué puedo consultar"},
 ]

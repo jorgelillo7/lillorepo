@@ -526,8 +526,8 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
        named by that label, else by their draft `/soy`, and each has a remove
        button. Authorizing a group also gives it the public `/` menu.
     3. The chat's `/` menu shows `/saldos`, `/movimientos`, `/analizar`
-       (rivals only, never the owner's team), `/mercado` and `/ayuda`, and
-       nothing else answers. A chat not on the list gets no
+       (rivals only, never the owner's team), `/top` (every squad's best
+       five), `/mercado` and `/ayuda`, and nothing else answers. A chat not on the list gets no
        reply at all.
 
     Every fresh read is paid from the owner's Biwenger account: about 13

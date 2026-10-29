@@ -630,6 +630,21 @@ def public_teams_route():
     )
 
 
+@app.route("/league/top", methods=["POST"])
+def league_top_route():
+    """The five best players of every squad — `/top` in the owner's chat."""
+    return _run_action("league.top", actions.run_league_top)
+
+
+@app.route("/public/top", methods=["POST"])
+def public_top_route():
+    """`/top` for an allowlisted chat."""
+    chat_id = _chat_id_from_body()
+    if chat_id is None:
+        return jsonify({"status": "error", "error": "chat_id is required"}), 400
+    return _run_action("public.top", lambda: actions.run_public_top(chat_id))
+
+
 @app.route("/public/members", methods=["GET"])
 def public_members_route():
     """The public allowlist — the bot's gate and the `/publico` list."""

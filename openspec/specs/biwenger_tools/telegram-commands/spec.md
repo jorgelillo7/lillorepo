@@ -154,7 +154,8 @@ instead, for the chats the owner chooses, without opening anything else to
 them.
 
 A chat on the public allowlist SHALL be routed to a public handler that
-answers `/saldos`, `/movimientos`, `/analizar`, `/mercado` and `/ayuda`. Any
+answers `/saldos`, `/movimientos`, `/analizar`, `/top`, `/mercado` and
+`/ayuda`. Any
 other text
 gets the short help. An allowlisted chat is either a mate's private chat (his
 user id) or a group the owner opened with the bot and the mate, so he can
@@ -302,7 +303,7 @@ read it gives away what the owner can do.
 
 | Block | Chats |
 |---|---|
-| Public (`/saldos`, `/movimientos`, `/analizar`, `/mercado`, `/ayuda`) | private chats, and each group the owner authorizes |
+| Public (`/saldos`, `/movimientos`, `/analizar`, `/top`, `/mercado`, `/ayuda`) | private chats, and each group the owner authorizes |
 | Draft (`/pick`, `/estado`, `/soy`, `/deshacer`, `/exportar`) | the draft group |
 | Base and management (everything else, `/publico` included, no draft command) | the owner's chat |
 | None | any other group |

@@ -2,7 +2,7 @@
 
 import io
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from packages.biwenger_tools.api.logic.image_formatter import (
     _BENCH,
@@ -578,3 +578,60 @@ def test_build_cash_image_draws_the_exposure_block():
 
     height = lambda png: Image.open(io.BytesIO(png)).size[1]  # noqa: E731
     assert height(with_block) > height(plain)
+
+
+def test_a_grouped_table_keeps_the_order_it_is_given():
+    """`/top` groups rows by manager; sorting by projection would mix them."""
+    rows = [
+        {"name": "Low", "price": 1, "custom_prediction": 100, "Mánager": "A"},
+        {"name": "High", "price": 1, "custom_prediction": 900, "Mánager": "B"},
+    ]
+    with patch(
+        "packages.biwenger_tools.api.logic.image_formatter._row_data",
+        side_effect=lambda row, extra: [row["name"]] * 9,
+    ) as row_data:
+        build_table_image(rows, "Top", extra_cols=["Mánager"], keep_order=True)
+    assert [c.args[0]["name"] for c in row_data.call_args_list] == ["Low", "High"]
+
+
+def test_a_grouped_table_opens_each_group_with_a_header_row():
+    """`/top`'s seven managers read as seven blocks: a header row naming the
+    manager, then his players, rather than one column repeating the name."""
+    from packages.biwenger_tools.api.logic.image_formatter import (
+        _GROUP_HEADER,
+        _with_group_headers,
+    )
+
+    rows = [
+        {"name": "a", "M": "Lucena"},
+        {"name": "b", "M": "Lucena"},
+        {"name": "c", "M": "Manu"},
+    ]
+    out = _with_group_headers(rows, "M")
+    assert [r.get(_GROUP_HEADER) or r["name"] for r in out] == [
+        "Lucena",
+        "a",
+        "b",
+        "Manu",
+        "c",
+    ]
+
+
+def test_a_grouped_table_renders():
+    rows = [
+        {"name": "Raphinha", "price": 1, "custom_prediction": 900, "M": "Lucena"},
+        {"name": "Isco", "price": 1, "custom_prediction": 500, "M": "Fabio"},
+    ]
+    png = build_table_image(rows, "Top", keep_order=True, group_by="M")
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_a_table_can_hide_a_base_column():
+    """`/top` drops `Juega`; the status marker still flags who is out."""
+    rows = [{"name": "Isco", "price": 1, "custom_prediction": 500, "M": "Fabio"}]
+    with patch("matplotlib.axes.Axes.table") as table:
+        table.return_value.__getitem__.return_value.get_text.return_value = MagicMock()
+        build_table_image(rows, "Top", group_by="M", hide_cols=("Juega",))
+    headers = table.call_args.kwargs["colLabels"]
+    assert "Juega" not in headers and "Jugador" in headers
+    assert all(len(r) == len(headers) for r in table.call_args.kwargs["cellText"])

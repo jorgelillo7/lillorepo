@@ -1719,3 +1719,22 @@ def test_public_analizar_tap_from_an_unlisted_chat_is_ignored(client):
         _post(client, _callback_update("-100123", "pa:2", from_user_id=_MEMBER))
     assert not [c for c in calls if c[1] == "/public/teams"]
     edit.assert_not_called()
+
+
+def test_allowlisted_chat_top_calls_the_public_api(client):
+    fake, calls = _public_api(members=(-100123,))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _group_update("-100123", "/top", _MEMBER))
+    assert _posts(calls) == [("/public/top", {"chat_id": "-100123"})]
+
+
+def test_owner_top_calls_the_league_top_route(client):
+    with (
+        patch(f"{_APP}.api_client.call_api") as call,
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _update(_VALID_CHAT, "/top"))
+    assert call.call_args.args[1] == "/league/top"
