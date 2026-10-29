@@ -714,3 +714,77 @@ def test_a_member_chat_passes_the_gate_and_is_not_remembered():
     ):
         assert actions.check_public_chat("-100123", "x") == {"allowed": True}
     remember.assert_not_called()
+
+
+# --- public /analizar: the rivals, never the owner's team ---
+
+
+def test_public_analizar_lists_only_rivals():
+    from packages.biwenger_tools.api.logic import actions
+
+    managers = {
+        "managers": [
+            {"id": 1, "name": "Jorge", "is_me": True},
+            {"id": 2, "name": "Manu", "is_me": False},
+        ]
+    }
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(
+            _patches("public_cache.get_or_read"),
+            side_effect=lambda key, read: read(),
+        ),
+        patch(_patches("list_managers"), return_value=managers),
+    ):
+        result = actions.list_public_managers("-100")
+    assert result == {"managers": [{"id": 2, "name": "Manu"}]}
+
+
+def test_public_analizar_never_shows_the_owner_team():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(
+            _patches("list_public_managers"),
+            return_value={"managers": [{"id": 2, "name": "Manu"}]},
+        ),
+        patch(_patches("public_cache.get_or_read")) as cached,
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        result = actions.run_public_team("-100", 1)
+    assert result["sent"] == 0
+    cached.assert_not_called()
+    photo.assert_not_called()
+
+
+def test_public_analizar_sends_a_rival_to_the_asking_chat_cached_per_manager():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(
+            _patches("list_public_managers"),
+            return_value={"managers": [{"id": 2, "name": "Manu"}]},
+        ),
+        patch(
+            _patches("public_cache.get_or_read"),
+            return_value={"png": b"png", "title": "👤 Manu"},
+        ) as cached,
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        result = actions.run_public_team("-100", 2)
+    assert result == {"sent": 1}
+    assert cached.call_args.args[0] == "team:2"
+    assert photo.call_args.args[1] == "-100"
+
+
+def test_public_analizar_refuses_a_non_member():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=False),
+        patch(_patches("send_telegram_photo_or_raise")) as photo,
+    ):
+        assert actions.run_public_team("-100", 2)["sent"] == 0
+    photo.assert_not_called()

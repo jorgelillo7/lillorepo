@@ -592,6 +592,69 @@ def run_public_movements(chat_id: str) -> dict:
     return {"sent": 1, "movements": len(items)}
 
 
+def list_public_managers(chat_id: str) -> dict:
+    """The rivals a public chat may analyse: every manager but the owner,
+    whose squad and projections are his own edge. Cached like the rest."""
+    if not public_members_store.is_member(chat_id):
+        return {"managers": []}
+
+    def read() -> list[dict]:
+        return [
+            {"id": m["id"], "name": m["name"]}
+            for m in list_managers()["managers"]
+            if not m.get("is_me")
+        ]
+
+    return {"managers": public_cache.get_or_read("managers", read)}
+
+
+def _read_public_team(manager_id: int) -> dict:
+    """One rival's squad image, clause columns included, as bytes to cache."""
+    ctx = build_context()
+    biwenger = ctx.biwenger
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
+    upcoming = read_fixture_runs(biwenger)
+    squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+    rows = build_squad_rows(
+        squad,
+        ctx.biwenger_players,
+        ctx.jp_index,
+        ctx.oraculo_index,
+        include_clause=True,
+        oraculo_scale=ctx.oraculo_scale,
+    )
+    title = f"👤 {managers.get(manager_id, manager_id)}"
+    return {"png": _squad_image(rows, title, upcoming, True), "title": title}
+
+
+def run_public_team(chat_id: str, manager_id: int) -> dict:
+    """`/analizar` for a public chat: one rival's squad, sent to that chat.
+    The owner's own team is refused however it is asked for."""
+    if not public_members_store.is_member(chat_id):
+        logger.warning("Public team refused.", extra={"chat_id": chat_id})
+        return {"sent": 0, "reason": "not_a_member"}
+    try:
+        rivals = {m["id"] for m in list_public_managers(chat_id)["managers"]}
+        if manager_id not in rivals:
+            logger.warning(
+                "Public team outside the rivals.",
+                extra={"chat_id": chat_id, "manager_id": manager_id},
+            )
+            return {"sent": 0, "reason": "not_a_rival"}
+        image = public_cache.get_or_read(
+            f"team:{manager_id}", lambda: _read_public_team(manager_id)
+        )
+        send_telegram_photo_or_raise(
+            config.TELEGRAM_BOT_TOKEN, chat_id, image["png"], image["title"]
+        )
+    except Exception:
+        logger.exception("Public team failed.", extra={"chat_id": chat_id})
+        return _public_reply_unavailable(chat_id, "Análisis")
+    return {"sent": 1}
+
+
 def list_public_members() -> dict:
     """The allowlist, each id labelled: the owner's own name for him if he
     gave one, else the manager he registered as in the draft."""

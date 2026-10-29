@@ -113,3 +113,16 @@ def test_refresh_never_raises(monkeypatch):
 
     monkeypatch.setattr(public_cache, "_write", boom)
     public_cache.refresh("k", {"rows": []})
+
+
+def test_a_cache_write_failure_still_answers(monkeypatch):
+    """A payload too big or a Firestore hiccup must not cost the member the
+    answer that was already read."""
+    fake = _FakeStore()
+    monkeypatch.setattr(public_cache, "_claim", fake.claim)
+
+    def boom(key, fields):
+        raise RuntimeError("document too large")
+
+    monkeypatch.setattr(public_cache, "_write", boom)
+    assert public_cache.get_or_read("k", lambda: "payload") == "payload"

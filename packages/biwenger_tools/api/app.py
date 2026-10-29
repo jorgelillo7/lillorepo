@@ -603,6 +603,33 @@ def public_check_route():
     )
 
 
+@app.route("/public/managers", methods=["POST"])
+def public_managers_route():
+    """The rivals a public chat may analyse (never the owner)."""
+    chat_id = _chat_id_from_body()
+    if chat_id is None:
+        return jsonify({"status": "error", "error": "chat_id is required"}), 400
+    return _run_action("public.managers", lambda: actions.list_public_managers(chat_id))
+
+
+@app.route("/public/teams", methods=["POST"])
+def public_teams_route():
+    """One rival's squad image for a public chat: `{chat_id, manager_id}`."""
+    chat_id = _chat_id_from_body()
+    try:
+        manager_id = int((request.get_json(silent=True) or {}).get("manager_id"))
+    except (TypeError, ValueError):
+        manager_id = None
+    if chat_id is None or manager_id is None:
+        return (
+            jsonify({"status": "error", "error": "chat_id and manager_id required"}),
+            400,
+        )
+    return _run_action(
+        "public.teams", lambda: actions.run_public_team(chat_id, manager_id)
+    )
+
+
 @app.route("/public/members", methods=["GET"])
 def public_members_route():
     """The public allowlist — the bot's gate and the `/publico` list."""
