@@ -21,3 +21,11 @@ def test_top_rows_carry_manager_and_club_in_manager_order():
         ("Lucena", "Barcelona", "Raphinha"),
         ("Manu", "—", "X"),
     ]
+
+
+def test_a_protected_player_is_not_worth_reading_yet():
+    import time
+
+    assert top_players.locked({"clause_locked_until": time.time() + 86_400})
+    assert not top_players.locked({"clause_locked_until": time.time() - 1})
+    assert not top_players.locked({"clause_locked_until": None})

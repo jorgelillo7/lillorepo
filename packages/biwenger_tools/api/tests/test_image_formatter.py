@@ -635,3 +635,27 @@ def test_a_table_can_hide_a_base_column():
     headers = table.call_args.kwargs["colLabels"]
     assert "Juega" not in headers and "Jugador" in headers
     assert all(len(r) == len(headers) for r in table.call_args.kwargs["cellText"])
+
+
+def test_a_row_the_caller_marks_is_drawn_dim():
+    """`/top` greys out a player who cannot be claused yet: not worth reading,
+    and not red, which says he does not play."""
+    from packages.biwenger_tools.api.logic.image_formatter import _DIM_INK
+
+    rows = [
+        {"name": "Locked", "price": 1, "custom_prediction": 500, "lock": True},
+        {"name": "Open", "price": 1, "custom_prediction": 400, "lock": False},
+    ]
+    cells = {}
+
+    def cell_at(key):
+        return cells.setdefault(key, MagicMock())
+
+    with patch("matplotlib.axes.Axes.table") as table:
+        table.return_value.__getitem__.side_effect = cell_at
+        build_table_image(rows, "Top", keep_order=True, dim=lambda r: r["lock"])
+    name_col = 1
+    locked = cells[(1, name_col)].get_text.return_value.set_color.call_args.args[0]
+    opened = cells[(2, name_col)].get_text.return_value.set_color.call_args.args[0]
+    assert locked == _DIM_INK
+    assert opened != _DIM_INK

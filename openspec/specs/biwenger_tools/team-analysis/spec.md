@@ -477,7 +477,9 @@ because the palette's hues are already reserved for status and projection.
 Each row carries the usual columns (price, JP, Oráculo, projection) but not
 `Juega` — the first column's marker already flags who is out — plus the club
 and the clause, and `Clausulable` says whether it
-can be paid today or how many days of protection are left.
+can be paid today or how many days of protection are left. A player still
+under protection SHALL be drawn with his whole row greyed out, so the eye
+skips him, and never in red, which says he does not play.
 
 It answers in the owner's chat and in every chat on the public allowlist, with
 all seven managers in both: the owner's call. One read SHALL serve every
@@ -497,6 +499,8 @@ costs a JP and Oráculo read plus a squad read per manager.
   `test_a_grouped_table_opens_each_group_with_a_header_row`,
   `test_a_grouped_table_renders`,
   `test_a_table_can_hide_a_base_column`,
+  `test_a_row_the_caller_marks_is_drawn_dim`,
+  `test_a_protected_player_is_not_worth_reading_yet`,
   `test_public_top_goes_to_the_asking_chat`,
   `test_public_top_refuses_a_non_member`,
   `test_owner_top_goes_to_the_owner_chat_through_the_same_cache`,

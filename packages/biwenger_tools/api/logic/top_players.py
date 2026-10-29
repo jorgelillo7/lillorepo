@@ -5,6 +5,8 @@ with his name, with the columns a manager weighs before a clausulazo: the
 club and the clause — `Clausulable` says whether it can be paid today.
 """
 
+import time
+
 from packages.biwenger_tools.api.player_formatting import shown_score
 
 TOP_N = 5
@@ -29,3 +31,9 @@ def rows_for_image(blocks: list[tuple[str, list[dict]]], teams: dict) -> list[di
         for manager, rows in blocks
         for row in rows
     ]
+
+
+def locked(row: dict) -> bool:
+    """Still under clause protection: drawn dim, since nobody can pay it yet."""
+    until = row.get("clause_locked_until")
+    return until is not None and until > time.time()
