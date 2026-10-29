@@ -33,12 +33,14 @@ from core.sdk.telegram import (
     extract_webhook_media,
     extract_webhook_update,
     parse_command,
+    register_bot_commands,
     send_telegram_message,
     validate_webhook_secret,
 )
 from core.utils import get_logger
 from core.web.logs import use_json_logging
 from packages.biwenger_tools.bot import api_client, config, menu
+from packages.biwenger_tools.bot.setup_commands import PUBLIC_COMMANDS
 
 logger = get_logger(__name__)
 
@@ -59,7 +61,7 @@ _HELP_TEXT = (
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/pacto — Pacto de no agresión: a quién no clausular\n"
-    "/publico — Quién puede ver /saldos y /movimientos\n"
+    "/publico [id] [nombre] — Quién puede ver /saldos y /movimientos\n"
     "/scrapper — Lanza el scraper a demanda (te avisa al acabar)\n"
     "/version — Versión desplegada del bot y de la API\n"
     "/help — Muestra este mensaje\n\n"
@@ -664,10 +666,12 @@ def _handle_callback(cb: dict) -> None:
 
     if prefix == "pub":
         parts = value.split(":", 1)
-        if len(parts) != 2 or parts[0] != "rm" or not parts[1].isdigit():
+        chat = _chat_number(parts[1]) if len(parts) == 2 else None
+        if parts[0] not in ("add", "rm") or chat is None:
             logger.info("Webhook: malformed public callback", extra={"value": value})
             return
-        _run_in_background(_edit_public_member, int(parts[1]), "remove", edit_into)
+        action = "add" if parts[0] == "add" else "remove"
+        _run_in_background(_edit_public_member, chat, action, edit_into)
         return
 
     if prefix == "o":
@@ -682,21 +686,39 @@ def _handle_callback(cb: dict) -> None:
     logger.info("Webhook: unhandled callback prefix", extra={"prefix": prefix})
 
 
-def _send_public_members_list(edit_into=None, members=None) -> None:
-    if members is None:
+def _send_public_members_list(edit_into=None, listing: dict | None = None) -> None:
+    """Post (or redraw) the allowlist: one line and one remove button each.
+    `listing` is the api's `{members, names}`; absent, it is fetched."""
+    if listing is None:
         try:
-            members = api_client.call_api_json(
+            listing = api_client.call_api_json(
                 config.BIWENGER_API_URL, "/public/members", method="GET", timeout=30
-            ).get("members")
+            )
         except Exception as exc:
             _report_api_error("👥 Público", exc, log="Public members list failed")
             return
+    members = (listing or {}).get("members") or []
+    names = (listing or {}).get("names") or {}
+    pending = (listing or {}).get("pending") or {}
+
+    def line(m) -> str:
+        name = names.get(str(m))
+        label = f"{html.escape(name)} · " if name else ""
+        return f"• {label}<code>{m}</code>"
+
     text = (
         "<b>👥 Info pública</b>\n\n"
-        + ("\n".join(f"• <code>{m}</code>" for m in members) or "Nadie autorizado.")
-        + "\n\n<i>Añade con /publico &lt;id&gt; (el id lo da @userinfobot).</i>"
+        + ("\n".join(line(m) for m in members) or "Nadie autorizado.")
+        + "\n\n<i>Añade con /publico &lt;id&gt; [nombre] "
+        "(el id lo da @userinfobot).</i>"
     )
-    markup = menu.public_members_keyboard(members)
+    if pending:
+        text += "\n\n<b>Han escrito sin acceso</b> (no les he contestado):\n" + (
+            "\n".join(
+                f"• {html.escape(t)} · <code>{c}</code>" for c, t in pending.items()
+            )
+        )
+    markup = menu.public_members_keyboard(members, names, pending)
     if edit_into:
         chat_id, message_id = edit_into
         edit_message_text(
@@ -715,33 +737,51 @@ def _send_public_members_list(edit_into=None, members=None) -> None:
     )
 
 
-def _edit_public_member(user_id: int, action: str, edit_into=None) -> None:
+def _edit_public_member(
+    user_id: int, action: str, edit_into=None, name: str | None = None
+) -> None:
+    payload: dict = {"user_id": user_id, "action": action}
+    if name:
+        payload["name"] = name
     try:
         result = api_client.call_api_json(
-            config.BIWENGER_API_URL,
-            "/public/members",
-            payload={"user_id": user_id, "action": action},
-            timeout=30,
+            config.BIWENGER_API_URL, "/public/members", payload=payload, timeout=30
         )
     except Exception as exc:
         _report_api_error("👥 Público", exc, log="Public members edit failed")
         return
-    _send_public_members_list(edit_into, members=(result or {}).get("members") or [])
+    if user_id < 0:
+        # A group has no `all_private_chats` menu to fall back on: give it the
+        # public block on the way in, and take it away on the way out.
+        register_bot_commands(
+            config.TELEGRAM_BOT_TOKEN,
+            PUBLIC_COMMANDS if action == "add" else [],
+            scope={"type": "chat", "chat_id": user_id},
+        )
+    _send_public_members_list(edit_into, listing=result or {})
 
 
 def _run_publico(arg: str) -> None:
-    """`/publico` lists; `/publico <id>` adds a numeric Telegram id."""
+    """`/publico` lists; `/publico <id> [nombre]` adds a numeric Telegram id."""
     if not arg:
         _send_public_members_list()
         return
-    if not arg.isdigit():
+    raw_id, _, name = arg.partition(" ")
+    user_id = _chat_number(raw_id)
+    if user_id is None:
         send_telegram_message(
             bot_token=config.TELEGRAM_BOT_TOKEN,
             chat_id=config.TELEGRAM_CHAT_ID,
             text="❌ El id tiene que ser un número (te lo da @userinfobot).",
         )
         return
-    _edit_public_member(int(arg), "add")
+    _edit_public_member(user_id, "add", name=name.strip() or None)
+
+
+def _chat_number(raw: str) -> int | None:
+    """A Telegram chat id: digits, with a leading minus for a group."""
+    digits = raw[1:] if raw.startswith("-") else raw
+    return int(raw) if digits.isdigit() else None
 
 
 def _open_pact_picker() -> None:
@@ -1212,16 +1252,29 @@ def _handle_draft_callback(cb: dict) -> None:
     _run_in_background(_call)
 
 
-def _public_members() -> set[str] | None:
-    """The allowlist as chat-id strings, or None when the api cannot say."""
+def _public_allowed(chat_id: str, title: str) -> bool:
+    """Ask the api whether this chat may use the public commands. It notes an
+    unknown chat for the owner's `/publico`; it is never answered. An api that
+    cannot say counts as no."""
     try:
         result = api_client.call_api_json(
-            config.BIWENGER_API_URL, "/public/members", method="GET", timeout=30
+            config.BIWENGER_API_URL,
+            "/public/check",
+            payload={"chat_id": chat_id, "title": title},
+            timeout=30,
         )
     except Exception as exc:
-        logger.warning("Public allowlist unreadable.", extra={"error": str(exc)})
-        return None
-    return {str(m) for m in (result or {}).get("members") or []}
+        logger.warning("Public gate unreadable.", extra={"error": str(exc)})
+        return False
+    return bool((result or {}).get("allowed"))
+
+
+def _chat_title() -> str:
+    """The chat's title (a group) or the sender's first name (a private chat),
+    read off the raw update so `/publico` can show who asked."""
+    body = request.get_json(silent=True) or {}
+    chat = (body.get("message") or {}).get("chat") or {}
+    return str(chat.get("title") or chat.get("first_name") or "")
 
 
 def _send_public(chat_id: str, text: str) -> None:
@@ -1251,11 +1304,11 @@ _PUBLIC_ROUTES = {
 }
 
 
-def _handle_public_message(chat_id: str, text: str) -> None:
-    """A private chat that is neither the owner's nor the draft group's.
-    Ignored silently unless allowlisted; then only the public set answers."""
-    members = _public_members()
-    if members is None or chat_id not in members:
+def _handle_public_message(chat_id: str, text: str, title: str = "") -> None:
+    """A chat that is neither the owner's nor the draft group's: a mate's
+    private chat, or a group the owner opened with him. Ignored silently
+    unless allowlisted; then only the public set answers."""
+    if not _public_allowed(chat_id, title):
         logger.info(
             "Webhook: ignoring message from unknown chat", extra={"chat_id": chat_id}
         )
@@ -1324,9 +1377,10 @@ def webhook():
         _handle_owner_message(text)
     elif config.TELEGRAM_DRAFT_CHAT_ID and chat_id == config.TELEGRAM_DRAFT_CHAT_ID:
         _handle_draft_message(text, user_id)
-    elif text and chat_id and chat_id == user_id:
-        # A private chat (its id is the sender's): maybe an allowlisted member.
-        _run_in_background(_handle_public_message, chat_id, text)
+    elif text and chat_id:
+        # Maybe an allowlisted chat: a mate's private chat or a group the
+        # owner opened with him. The api decides; strangers get no reply.
+        _run_in_background(_handle_public_message, chat_id, text, _chat_title())
     else:
         logger.info(
             "Webhook: ignoring message from unknown chat",

@@ -146,28 +146,34 @@ sits behind a cold start plus a Biwenger league call:
 
 ---
 
-### Requirement: Allowlisted members get the public commands, and only those
+### Requirement: Allowlisted chats get the public commands, and only those
 
 The owner shares the league's cash with a league mate by hand, by
 screenshots cropped to hide what concerns his own team. The bot SHALL do it
-instead, for the people the owner chooses, without opening anything else to
+instead, for the chats the owner chooses, without opening anything else to
 them.
 
-A private chat whose id is on the public allowlist SHALL be routed to a public
-handler that answers `/saldos`, `/movimientos`, `/mercado` and `/ayuda`. Any
-other text gets the short help. The admin commands, the reply-keyboard label
-router, every callback prefix and the photo path SHALL be unreachable from
-that chat, as they are from the draft group. A chat that is neither the
-owner's, the draft group's nor on the allowlist SHALL still be ignored
-silently, with no reply. Answering strangers, even to say access is closed,
-makes the bot something anyone can probe.
+A chat on the public allowlist SHALL be routed to a public handler that
+answers `/saldos`, `/movimientos`, `/mercado` and `/ayuda`. Any other text
+gets the short help. An allowlisted chat is either a mate's private chat (his
+user id) or a group the owner opened with the bot and the mate, so he can
+follow what the mate asks. A group counts only once its own id is on the list,
+never because a member of it is. The admin commands, the reply-keyboard label
+router, every admin callback prefix and the photo path SHALL be unreachable
+from those chats, as they are from the draft group, and that includes the
+owner's own messages inside such a group.
 
-Only private chats SHALL count. A group an allowlisted member belongs to is
-not authorised by his membership.
+A chat that is neither the owner's, the draft group's nor on the allowlist
+SHALL still get no reply. Answering strangers, even to say access is closed,
+makes the bot something anyone can probe. It SHALL, though, be remembered,
+with its title, for the owner to authorize from `/publico`. A group's id is
+otherwise hard to find.
 
-#### Scenario: an allowlisted member reaches the public set only
+#### Scenario: an allowlisted chat reaches the public set only
 - **WHEN** an allowlisted private chat sends `/saldos` or `/movimientos`
   **THEN** the matching public API call is made, answered to that chat
+- **WHEN** a group the owner added sends `/saldos@bot` **THEN** it is answered
+  in that group
 - **WHEN** it sends an admin command (`/alinear`, `/ofertas`, `/analizar` …)
   **THEN** the API is not called and the short help is sent
 - **WHEN** it sends text matching a reply-keyboard label **THEN** the label
@@ -176,21 +182,25 @@ not authorised by his membership.
 - **WHEN** it sends a photo **THEN** it is ignored
 - *Verifies:* `test_allowlisted_member_saldos_calls_the_public_api`,
   `test_allowlisted_member_movimientos_calls_the_public_api`,
+  `test_a_group_the_owner_added_gets_the_public_set`,
   `test_admin_command_from_a_public_member_gets_the_help_not_the_api`,
   `test_public_member_message_does_not_consult_label_dispatch`,
   `test_admin_callback_from_a_public_member_is_refused`,
   `test_photo_from_a_public_member_is_ignored`
 
 #### Scenario: who is not let in
-- **WHEN** a private chat not on the allowlist sends `/saldos` **THEN** it is
-  ignored: no reply, and nothing reaches a public endpoint or Biwenger (the
-  allowlist lookup itself is the only call)
-- **WHEN** a group chat whose id is not the draft group's sends a public
-  command **THEN** it is ignored
+- **WHEN** a private chat not on the allowlist sends `/saldos` **THEN** it gets
+  no reply and nothing reaches a public endpoint or Biwenger. The gate check
+  is the only call, and it remembers the chat for `/publico`.
+- **WHEN** a group not on the allowlist sends a public command **THEN** it is
+  ignored the same way
 - **WHEN** an id is removed from the allowlist **THEN** that chat is ignored
   from the next message on
 - *Verifies:* `test_unlisted_private_chat_is_silently_ignored`,
-  `test_a_group_chat_is_never_a_public_member`,
+  `test_an_unlisted_group_is_ignored`,
+  `test_an_unknown_chat_is_offered_to_the_owner_without_a_reply`,
+  `test_an_unknown_chat_is_remembered_for_the_owner_to_authorize`,
+  `test_a_member_chat_passes_the_gate_and_is_not_remembered`,
   `test_a_removed_member_is_ignored_again`
 
 #### Scenario: a failure says little
@@ -200,28 +210,54 @@ not authorised by his membership.
 
 ### Requirement: `/publico` edits the public allowlist
 
-The owner SHALL add and remove the members of the public allowlist from his
-own chat, without a redeploy. `/publico <id>` adds a numeric Telegram id.
-`/publico` alone lists the members, each with a remove button.
+The owner SHALL add and remove the chats on the public allowlist from his own
+chat, without a redeploy:
+
+- **`/publico <id> [nombre]`** adds a chat id: a user's, or a group's, which
+  starts with a minus.
+- **`/publico` alone** lists the members. Each is named by the label the owner
+  gave him, else by the manager he registered as in the draft (`/soy`), and
+  each has a remove button. Below them come the chats that wrote without
+  access, each with an authorize button.
+
+Adding a group SHALL register the public command block for that group and
+removing it SHALL clear it, since a group has no private-chat menu to fall
+back on.
 
 The list SHALL be stored by the api, like the pact. The bot holds no state of
-its own, per the zero-logic bot rule. A non-numeric id SHALL be refused
-without an API call. `/publico` SHALL be reachable only from the owner's chat.
+its own, per the zero-logic bot rule. A malformed id SHALL be refused without
+an API call. `/publico` SHALL be reachable only from the owner's chat. A
+draft registry that cannot be read SHALL cost only the names.
 
-#### Scenario: add, list, remove, reject junk
+#### Scenario: add, name, list, authorize, remove, reject junk
 - **WHEN** the owner sends `/publico 123456` **THEN** the id is added and
   confirmed
-- **WHEN** he sends `/publico` **THEN** one remove button per member
-- **WHEN** he taps one **THEN** that id is removed and the list redrawn in
+- **WHEN** he sends `/publico 777 Manu` **THEN** it is added with that name
+- **WHEN** he sends `/publico` **THEN** each member is named (the given label
+  wins over the draft name), with one remove button each
+- **WHEN** a chat wrote without access **THEN** the list offers it with an
+  authorize button
+- **WHEN** he authorizes a group **THEN** it is added and its menu gets the
+  public block; removing a group clears its menu
+- **WHEN** he taps remove **THEN** that id is removed and the list redrawn in
   place
 - **WHEN** the id is not numeric **THEN** it is refused, with no API call
-- **WHEN** `/publico` arrives from a public member or the draft group **THEN**
-  it is refused
+- **WHEN** `/publico` arrives from a public chat or the draft group **THEN** it
+  is refused
 - *Verifies:* `test_publico_adds_a_numeric_id`,
+  `test_publico_adds_an_id_with_a_name`,
   `test_publico_lists_members_with_remove_buttons`,
+  `test_publico_list_shows_each_member_by_name`,
+  `test_public_members_are_named_from_the_draft_registry`,
+  `test_a_name_given_by_hand_wins_over_the_draft`,
+  `test_a_draft_registry_that_cannot_be_read_costs_only_the_names`,
+  `test_publico_list_offers_unknown_chats_to_authorize`,
+  `test_publico_authorize_tap_adds_the_chat_and_scopes_its_menu`,
+  `test_removing_a_group_clears_its_menu`,
   `test_publico_remove_tap_redraws_in_place`,
   `test_publico_rejects_a_non_numeric_id`,
-  `test_publico_is_owner_only`
+  `test_publico_is_owner_only`,
+  `test_public_members_edit_passes_an_optional_name`
 
 ### Requirement: Each command block is offered only in its own chats
 
@@ -232,7 +268,7 @@ read it gives away what the owner can do.
 
 | Block | Chats |
 |---|---|
-| Public (`/saldos`, `/movimientos`, `/mercado`, `/ayuda`) | private chats |
+| Public (`/saldos`, `/movimientos`, `/mercado`, `/ayuda`) | private chats, and each group the owner authorizes |
 | Draft (`/pick`, `/estado`, `/soy`, `/deshacer`, `/exportar`) | the draft group |
 | Base and management (everything else, `/publico` included, no draft command) | the owner's chat |
 | None | any other group |

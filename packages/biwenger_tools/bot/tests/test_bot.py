@@ -40,6 +40,17 @@ def run_background_sync():
         yield
 
 
+@pytest.fixture(autouse=True)
+def public_gate_closed():
+    """Chats outside the owner's and the draft group's ask the api whether
+    they are public members; by default nobody is, and no network is hit."""
+    with patch(
+        "packages.biwenger_tools.bot.app.api_client.call_api_json",
+        return_value={"allowed": False},
+    ):
+        yield
+
+
 @pytest.fixture
 def client():
     app.config["TESTING"] = True
@@ -1359,6 +1370,8 @@ def _public_api(members=(777,), post_raises=None):
 
     def fake(base_url, path, method="POST", payload=None, timeout=60):
         calls.append((method, path, payload))
+        if path == "/public/check":
+            return {"allowed": str(payload["chat_id"]) in {str(m) for m in members}}
         if method == "GET" and path == "/public/members":
             return {"members": list(members)}
         if post_raises:
@@ -1369,7 +1382,16 @@ def _public_api(members=(777,), post_raises=None):
 
 
 def _posts(calls):
-    return [(path, payload) for method, path, payload in calls if method == "POST"]
+    """Every POST but the gate check, which every message makes."""
+    return [
+        (path, payload)
+        for method, path, payload in calls
+        if method == "POST" and path != "/public/check"
+    ]
+
+
+def _checks(calls):
+    return [payload for _, path, payload in calls if path == "/public/check"]
 
 
 def test_allowlisted_member_saldos_calls_the_public_api(client):
@@ -1453,14 +1475,88 @@ def test_unlisted_private_chat_is_silently_ignored(client):
     assert _posts(calls) == []
 
 
-def test_a_group_chat_is_never_a_public_member(client):
+def test_an_unlisted_group_is_ignored(client):
+    fake, calls = _public_api(members=())
     with (
-        patch(f"{_APP}.api_client.call_api_json") as call_json,
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
         patch(f"{_APP}.send_telegram_message") as send,
     ):
         _post(client, _group_update("-100123", "/saldos", _MEMBER))
-    call_json.assert_not_called()
     send.assert_not_called()
+    assert _posts(calls) == []
+
+
+def test_a_group_the_owner_added_gets_the_public_set(client):
+    """The owner can open a group with the bot and a mate, to see what the
+    mate asks; it counts only once its own id is on the allowlist."""
+    fake, calls = _public_api(members=(-100123,))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(
+            client,
+            _group_update("-100123", "/saldos@biwenger_tools_bot", _MEMBER),
+        )
+    assert _posts(calls) == [("/public/league/cash", {"chat_id": "-100123"})]
+
+
+def test_an_unknown_chat_is_offered_to_the_owner_without_a_reply(client):
+    fake, calls = _public_api(members=())
+    body = _group_update("-100123", "/saldos", _MEMBER)
+    body["message"]["chat"]["title"] = "Grupo Manu"
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, body)
+    send.assert_not_called()
+    assert _checks(calls) == [{"chat_id": "-100123", "title": "Grupo Manu"}]
+
+
+def test_publico_list_offers_unknown_chats_to_authorize(client):
+    def fake(base_url, path, method="POST", payload=None, timeout=60):
+        return {"members": [], "names": {}, "pending": {"-100123": "Grupo Manu"}}
+
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico"))
+    button = send.call_args.kwargs["reply_markup"]["inline_keyboard"][0][0]
+    assert button["callback_data"] == "pub:add:-100123"
+    assert "Grupo Manu" in button["text"]
+
+
+def test_publico_authorize_tap_adds_the_chat_and_scopes_its_menu(client):
+    from packages.biwenger_tools.bot.setup_commands import PUBLIC_COMMANDS
+
+    fake, calls = _public_api(members=(-100123,))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.answer_callback_query"),
+        patch(f"{_APP}.edit_message_text"),
+        patch(f"{_APP}.register_bot_commands") as register,
+    ):
+        _post(client, _callback_update(_VALID_CHAT, "pub:add:-100123"))
+    assert _posts(calls) == [("/public/members", {"user_id": -100123, "action": "add"})]
+    register.assert_called_once_with(
+        "test-token", PUBLIC_COMMANDS, scope={"type": "chat", "chat_id": -100123}
+    )
+
+
+def test_removing_a_group_clears_its_menu(client):
+    fake, _ = _public_api(members=())
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.answer_callback_query"),
+        patch(f"{_APP}.edit_message_text"),
+        patch(f"{_APP}.register_bot_commands") as register,
+    ):
+        _post(client, _callback_update(_VALID_CHAT, "pub:rm:-100123"))
+    register.assert_called_once_with(
+        "test-token", [], scope={"type": "chat", "chat_id": -100123}
+    )
 
 
 def test_a_removed_member_is_ignored_again(client):
@@ -1545,3 +1641,29 @@ def test_publico_is_owner_only(client):
         _post(client, _group_update(_VALID_DRAFT_CHAT, "/publico 1", _MEMBER))
     assert _posts(calls) == []
     assert "/movimientos" in send.call_args_list[0].kwargs["text"]
+
+
+def test_publico_list_shows_each_member_by_name(client):
+    def fake(base_url, path, method="POST", payload=None, timeout=60):
+        return {"members": [777], "names": {"777": "Manu"}}
+
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message") as send,
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico"))
+    sent = send.call_args.kwargs
+    assert "Manu" in sent["text"] and "777" in sent["text"]
+    assert "Manu" in sent["reply_markup"]["inline_keyboard"][0][0]["text"]
+
+
+def test_publico_adds_an_id_with_a_name(client):
+    fake, calls = _public_api(members=(777,))
+    with (
+        patch(f"{_APP}.api_client.call_api_json", side_effect=fake),
+        patch(f"{_APP}.send_telegram_message"),
+    ):
+        _post(client, _update(_VALID_CHAT, "/publico 777 Manu"))
+    assert _posts(calls) == [
+        ("/public/members", {"user_id": 777, "action": "add", "name": "Manu"})
+    ]

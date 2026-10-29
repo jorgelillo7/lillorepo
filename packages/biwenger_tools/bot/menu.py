@@ -85,11 +85,23 @@ def pact_keyboard(managers: Iterable[dict]) -> dict:
     return {"inline_keyboard": rows}
 
 
-def public_members_keyboard(members: Iterable[int]) -> dict:
-    """`/publico`: one remove button per allowlisted Telegram id."""
-    return {
-        "inline_keyboard": [
-            [{"text": f"❌ Quitar {m}", "callback_data": f"pub:rm:{m}"}]
-            for m in members
+def public_members_keyboard(
+    members: Iterable[int], names: dict | None = None, pending: dict | None = None
+) -> dict:
+    """`/publico`: a remove button per allowlisted chat, by name when the api
+    knows one, and an authorize button per chat that asked without access."""
+    names = names or {}
+    rows = [
+        [
+            {
+                "text": f"❌ Quitar {names.get(str(m)) or m}",
+                "callback_data": f"pub:rm:{m}",
+            }
         ]
-    }
+        for m in members
+    ]
+    rows += [
+        [{"text": f"✅ Autorizar {title}", "callback_data": f"pub:add:{chat}"}]
+        for chat, title in (pending or {}).items()
+    ]
+    return {"inline_keyboard": rows}

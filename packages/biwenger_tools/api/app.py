@@ -591,6 +591,18 @@ def public_movements_route():
     )
 
 
+@app.route("/public/check", methods=["POST"])
+def public_check_route():
+    """Whether a chat may use the public commands; remembers it when not."""
+    chat_id = _chat_id_from_body()
+    if chat_id is None:
+        return jsonify({"status": "error", "error": "chat_id is required"}), 400
+    title = str((request.get_json(silent=True) or {}).get("title") or "")[:60]
+    return _run_action(
+        "public.check", lambda: actions.check_public_chat(chat_id, title)
+    )
+
+
 @app.route("/public/members", methods=["GET"])
 def public_members_route():
     """The public allowlist — the bot's gate and the `/publico` list."""
@@ -599,7 +611,8 @@ def public_members_route():
 
 @app.route("/public/members", methods=["POST"])
 def public_members_edit_route():
-    """Add or remove one member: `{"user_id": int, "action": "add"|"remove"}`."""
+    """Add or remove one member: `{"user_id": int, "action": "add"|"remove",
+    "name"?: str}`."""
     payload = request.get_json(silent=True) or {}
     action = payload.get("action")
     if action not in ("add", "remove"):
@@ -608,9 +621,10 @@ def public_members_edit_route():
         user_id = int(payload.get("user_id"))
     except (TypeError, ValueError):
         return jsonify({"status": "error", "error": "user_id must be an int"}), 400
+    name = str(payload.get("name") or "").strip()[:30] or None
     return _run_action(
         "public.members.edit",
-        lambda: actions.edit_public_members(user_id, action),
+        lambda: actions.edit_public_members(user_id, action, name),
     )
 
 

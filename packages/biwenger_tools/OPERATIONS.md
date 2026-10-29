@@ -516,10 +516,15 @@ over HTTP with an ID token. Stateless orchestrator — no business logic.
     the last webhook.
 
   * **Public league info (a league mate's `/saldos` and `/movimientos`):**
-    1. The mate gets his Telegram id from any id bot (e.g. `@userinfobot`) and
-       opens a private chat with this bot.
-    2. The owner sends `/publico <id>` from his own chat. `/publico` alone
-       lists the members, with a button to remove each.
+    1. Either the mate opens a private chat with this bot, or the owner
+       creates a group with the bot and the mate, to follow what he asks.
+       Anything sent there before access is granted gets no reply, but the
+       chat is remembered.
+    2. The owner sends `/publico` from his own chat. Chats that wrote
+       without access appear with an "✅ Autorizar" button. `/publico <id>
+       [nombre]` adds one by hand; a group id starts with `-`. Members are
+       named by that label, else by their draft `/soy`, and each has a remove
+       button. Authorizing a group also gives it the public `/` menu.
     3. The mate's `/` menu shows `/saldos`, `/movimientos`, `/mercado` and
        `/ayuda`, and nothing else answers him. A chat not on the list gets no
        reply at all.

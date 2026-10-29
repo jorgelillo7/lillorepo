@@ -644,3 +644,73 @@ def test_movements_read_is_cached(monkeypatch):
         actions.run_public_movements("777")
         actions.run_public_movements("777")
     assert reads == [1]
+
+
+def test_public_members_are_named_from_the_draft_registry():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.load"), return_value={279708352, 5}),
+        patch(_patches("public_members_store.load_names"), return_value={}),
+        patch(_patches("public_members_store.load_pending"), return_value={}),
+        patch(
+            _patches("draft_names_by_telegram_id"),
+            return_value={279708352: "Manu"},
+        ),
+    ):
+        result = actions.list_public_members()
+    assert result == {
+        "members": [5, 279708352],
+        "names": {"279708352": "Manu"},
+        "pending": {},
+    }
+
+
+def test_a_name_given_by_hand_wins_over_the_draft():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.load"), return_value={7}),
+        patch(_patches("public_members_store.load_names"), return_value={7: "Primo"}),
+        patch(_patches("public_members_store.load_pending"), return_value={}),
+        patch(_patches("draft_names_by_telegram_id"), return_value={7: "Manu"}),
+    ):
+        assert actions.list_public_members()["names"] == {"7": "Primo"}
+
+
+def test_a_draft_registry_that_cannot_be_read_costs_only_the_names():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.load"), return_value={7}),
+        patch(_patches("public_members_store.load_names"), return_value={}),
+        patch(_patches("public_members_store.load_pending"), return_value={}),
+        patch(_patches("draft_names_by_telegram_id"), side_effect=RuntimeError),
+    ):
+        assert actions.list_public_members() == {
+            "members": [7],
+            "names": {},
+            "pending": {},
+        }
+
+
+def test_an_unknown_chat_is_remembered_for_the_owner_to_authorize():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=False),
+        patch(_patches("public_members_store.remember_pending")) as remember,
+    ):
+        assert actions.check_public_chat("-100123", "Grupo Manu") == {"allowed": False}
+    remember.assert_called_once_with(-100123, "Grupo Manu")
+
+
+def test_a_member_chat_passes_the_gate_and_is_not_remembered():
+    from packages.biwenger_tools.api.logic import actions
+
+    with (
+        patch(_patches("public_members_store.is_member"), return_value=True),
+        patch(_patches("public_members_store.remember_pending")) as remember,
+    ):
+        assert actions.check_public_chat("-100123", "x") == {"allowed": True}
+    remember.assert_not_called()
