@@ -58,6 +58,7 @@ _HELP_TEXT = (
     "/pujar — Lanza el auto-bid del mercado diario por tiers\n"
     "/comparar — Valor y proyección de todas las plantillas de la liga\n"
     "/saldos — Saldo y puja máxima de cada manager\n"
+    "/top — Los 5 mejores de cada manager, con su cláusula\n"
     "/ofertas — Lista ofertas entrantes con recomendación + botones\n"
     "/emergencia — Clausulazo de emergencia con confirmación (irreversible)\n"
     "/pacto — Pacto de no agresión: a quién no clausular\n"
@@ -87,6 +88,7 @@ _PUBLIC_HELP_TEXT = (
     "/saldos — Saldo, dinero en cláusulas y puja máxima de cada manager\n"
     "/movimientos — Fichajes, clausulazos y blindajes de las últimas 24 h\n"
     "/analizar — Plantilla de un rival, con proyección y cláusula\n"
+    "/top — Los 5 mejores de cada manager, con su cláusula\n"
     "/mercado — Clausulazos y tabla de justicia en la web\n"
     "/ayuda — Este mensaje"
 )
@@ -104,6 +106,7 @@ _ACTION_ROUTES: dict[str, tuple[str, str, dict | None]] = {
     "pujar": ("/market/auto-bid", "POST", None),
     "comparar": ("/league/compare", "POST", None),
     "saldos": ("/league/cash", "POST", None),
+    "top": ("/league/top", "POST", None),
     "scrapper": ("/scraper/trigger", "POST", None),
     "emergencia": ("/emergency/clausulazo/preview", "POST", None),
     "ofertas": ("/offers/inbox", "POST", None),
@@ -857,6 +860,8 @@ def _handle_owner_message(text: str) -> None:
         _dispatch_action("comparar", "⚖️ Comparar")
     elif cmd == "/saldos":
         _dispatch_action("saldos", "💰 Saldos")
+    elif cmd == "/top":
+        _dispatch_action("top", "🏆 Top 5")
     elif cmd == "/ofertas":
         _dispatch_action("ofertas", "📥 Ofertas")
     elif cmd == "/publico":
@@ -1301,6 +1306,7 @@ def _call_public_api(chat_id: str, path: str, label: str) -> None:
 _PUBLIC_ROUTES = {
     "/saldos": ("/public/league/cash", "💰 Saldos"),
     "/movimientos": ("/public/movements", "📋 Movimientos"),
+    "/top": ("/public/top", "🏆 Top 5"),
 }
 
 

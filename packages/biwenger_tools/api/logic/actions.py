@@ -32,6 +32,7 @@ from packages.biwenger_tools.api.logic import (
     public_cache,
     public_members_store,
     round_context,
+    top_players,
     trader,
 )
 from packages.biwenger_tools.api.logic import lineup as lineup_logic
@@ -652,6 +653,64 @@ def run_public_team(chat_id: str, manager_id: int) -> dict:
     except Exception:
         logger.exception("Public team failed.", extra={"chat_id": chat_id})
         return _public_reply_unavailable(chat_id, "Análisis")
+    return {"sent": 1}
+
+
+def _read_top() -> dict:
+    """Every manager's five best as one table image. Cached as PNG bytes: one
+    read serves the owner and every public chat for the cache window."""
+    ctx = build_context()
+    biwenger = ctx.biwenger
+    teams = biwenger.get_all_teams_map(config.ALL_PLAYERS_DATA_URL)
+    managers = biwenger.get_league_users(
+        config.LEAGUE_DATA_URL, config.NON_PLAYING_MEMBER_IDS
+    )
+    blocks = []
+    for manager_id, name in managers.items():
+        squad = biwenger.get_manager_squad(config.USER_SQUAD_URL, manager_id)
+        rows = build_squad_rows(
+            squad,
+            ctx.biwenger_players,
+            ctx.jp_index,
+            ctx.oraculo_index,
+            include_clause=True,
+            oraculo_scale=ctx.oraculo_scale,
+        )
+        blocks.append((name, top_players.best(rows)))
+    title = "🏆 Top 5 por mánager"
+    png = build_table_image(
+        top_players.rows_for_image(blocks, teams),
+        title,
+        extra_cols=top_players.EXTRA_COLS,
+        keep_order=True,
+    )
+    return {"png": png, "title": title}
+
+
+def run_league_top() -> dict:
+    """`/top` in the owner's chat."""
+    telegram = require_telegram()
+    if telegram is None:
+        return {"sent": 0, "reason": "telegram_credentials_missing"}
+    token, chat_id = telegram
+    image = public_cache.get_or_read("top", _read_top)
+    send_telegram_photo_or_raise(token, chat_id, image["png"], image["title"])
+    return {"sent": 1}
+
+
+def run_public_top(chat_id: str) -> dict:
+    """`/top` for a public chat: the same read, sent to the chat that asked."""
+    if not public_members_store.is_member(chat_id):
+        logger.warning("Public top refused.", extra={"chat_id": chat_id})
+        return {"sent": 0, "reason": "not_a_member"}
+    try:
+        image = public_cache.get_or_read("top", _read_top)
+        send_telegram_photo_or_raise(
+            config.TELEGRAM_BOT_TOKEN, chat_id, image["png"], image["title"]
+        )
+    except Exception:
+        logger.exception("Public top failed.", extra={"chat_id": chat_id})
+        return _public_reply_unavailable(chat_id, "Top")
     return {"sent": 1}
 
 

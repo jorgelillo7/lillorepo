@@ -408,8 +408,10 @@ def build_table_image(
     title: str,
     extra_cols: list[str] | None = None,
     show_total_value: bool = False,
+    keep_order: bool = False,
 ) -> bytes:
-    """Returns PNG bytes of a styled player table.
+    """Returns PNG bytes of a styled player table, best projection first —
+    or in the order given with `keep_order`, for a table already grouped.
 
     `show_total_value` adds the summed cf-base price of the rows to the
     header. Off by default because the same renderer draws the market, where
@@ -432,7 +434,9 @@ def build_table_image(
         display_headers[proj_col] = _projection_header(blend_ran)
     headers = display_headers + extra_cols
 
-    sorted_rows = sorted(rows, key=sort_key_sf_desc, reverse=True)
+    sorted_rows = (
+        list(rows) if keep_order else sorted(rows, key=sort_key_sf_desc, reverse=True)
+    )
     cell_data = [_row_data(row, extra_cols) for row in sorted_rows]
     cell_colors = [
         [_row_bg(row.get("jp_player"))] * len(headers) for row in sorted_rows
