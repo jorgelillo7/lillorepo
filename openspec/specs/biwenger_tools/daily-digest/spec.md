@@ -19,6 +19,33 @@ project SLO). It chains: JP fetch + Biwenger session + market read + N bids +
 Firestore log writes + 2 Telegram photos + 1 summary. Rationale, budget
 breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
 
+### Requirement: One digest per Madrid day
+
+The digest SHALL run at most once per Madrid day, however many times its
+trigger arrives. Cloud Scheduler delivers at least once: one tick reached the
+service twice, forty seconds apart, and the second run bid the cash the first
+had already promised. `digest_runs/{day}` is taken inside a Firestore
+transaction (`logic/digest_runs.py`); a delivery that finds the day taken
+SHALL return `already_ran` without reading Biwenger or posting to Telegram.
+A run that raised SHALL leave the day open for a retry, and one that never
+finished SHALL stop blocking after fifteen minutes.
+
+#### Scenario: a duplicate delivery does nothing
+- **WHEN** the day is already done or a run started under fifteen minutes ago
+- **THEN** the digest returns `already_ran` and no step runs
+- *Verifies:* `test_a_second_delivery_on_the_same_day_does_nothing`,
+  `test_a_finished_run_blocks_the_day`,
+  `test_a_run_under_way_blocks_a_duplicate_delivery`,
+  `test_a_day_with_no_run_yet_may_start`
+
+#### Scenario: a failed or abandoned run can be retried
+- **WHEN** the day's run raised, or has been running for fifteen minutes
+- **THEN** the next delivery runs the digest
+- *Verifies:* `test_a_run_that_raises_is_marked_failed_so_it_can_be_retried`,
+  `test_a_failed_run_may_be_retried`,
+  `test_a_run_that_never_finished_stops_blocking_once_stale`,
+  `test_a_run_is_marked_done_when_it_completes`
+
 ### Requirement: One session, each read once
 
 Every step of the digest SHALL run on the one Biwenger session the digest

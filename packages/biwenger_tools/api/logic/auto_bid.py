@@ -578,7 +578,11 @@ def run_auto_bid(ctx=None) -> dict:
         keeper = None
 
     keeper_name = (keeper or {}).get("name") or "tu portero"
-    remaining_cash = int(biwenger.get_account_state().get("cash") or 0)
+    # Biwenger leaves waiting bids in the balance, so cash already promised to
+    # them is taken off before anything is bid twice.
+    pending = biwenger.get_my_pending_bids(config.MARKET_URL)
+    committed = sum(int(b.get("amount") or 0) for b in pending)
+    remaining_cash = int(biwenger.get_account_state().get("cash") or 0) - committed
 
     day = _today_madrid()
     already_bid = _already_bid_ids(day)

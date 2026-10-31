@@ -220,6 +220,7 @@ not here.
 | `pactos/actual` | fixed | `api/logic/pact_store.py` | One document, rewritten on every `/pacto` toggle; deliberately not per season |
 | `public_members/actual` | fixed | `api/logic/public_members_store.py` · spec `telegram-commands` | One document: the chat ids allowed the public commands, their names, and the last chats that wrote without access; rewritten on every `/publico` change; not per season |
 | `public_cache/{key}` | `league_cash`, `movements`, `managers`, `team:{id}`, `top` | `api/logic/public_cache.py` · spec `league-cash` | One document per read, overwritten: the last good payload, the last failure and a read lease, shared across instances |
+| `digest_runs/{YYYY-MM-DD}` | Madrid day | `api/logic/digest_runs.py` · spec `daily-digest` | One per day, taken in a transaction: `running`, then `done` (blocks the day) or `failed` (open for a retry); a stale `running` stops blocking after 15 min |
 | `proyecciones/{season}-{round_id}` | season + round | `api/logic/projection_ledger_store.py` · `docs/technical/backend/projection-ledger.md` | One per round, kept |
 
 ---
