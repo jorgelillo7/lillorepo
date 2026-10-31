@@ -56,6 +56,13 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
 
+## interactive_fiction
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 👤 | Agree the hand-off with the author, get his OK to host the chapters, and send him the first validator/explorer report | You · `packages/interactive_fiction/OPERATIONS.md` → "The author hand-off" |
+| 👤 | Free Cloudflare account + Pages project, then upload `dist/` by hand for the test URL | You · same file → "Deploying" |
+
 ## be_water
 
 | | What is missing | Waiting on |

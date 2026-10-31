@@ -1,0 +1,4 @@
+node_modules/
+dist/
+stories/
+public/stories/

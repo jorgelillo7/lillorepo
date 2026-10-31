@@ -2,3 +2,4 @@ venv
 .vscode
 .git
 bazel-*
+packages/interactive_fiction/node_modules

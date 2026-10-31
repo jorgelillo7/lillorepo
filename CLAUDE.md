@@ -1,8 +1,9 @@
 # CLAUDE.md — lillorepo
 
-Bazel monorepo with Python projects targeting Google Cloud: four packages —
-`biwenger_tools`, `be_water`, `chucknorris_bot` and `my_photos` (plan only) —
-over one shared `core`.
+Bazel monorepo with Python projects targeting Google Cloud — `biwenger_tools`,
+`be_water`, `chucknorris_bot`, `group_polls` and `my_photos` (plan only) — over
+one shared `core`. One package is not Python: `interactive_fiction` is a Node
+static site outside Bazel, with its own `npm` workflow (see its README).
 
 ## Ground rules
 

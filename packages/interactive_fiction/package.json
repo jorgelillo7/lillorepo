@@ -1,0 +1,24 @@
+{
+  "name": "interactive-fiction",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "STORIES_DRAFTS=1 npm run stories && vite",
+    "build": "npm run stories && tsc --noEmit && vite build",
+    "build:drafts": "STORIES_DRAFTS=1 npm run build",
+    "preview": "vite preview",
+    "stories": "node scripts/build-stories.ts",
+    "explore": "node scripts/explore.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

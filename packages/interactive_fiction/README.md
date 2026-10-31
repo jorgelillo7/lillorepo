@@ -1,0 +1,89 @@
+# interactive_fiction
+
+A web reader for interactive stories written in **Twine 2 with the Harlowe
+format**. The author keeps writing in Twine; this package reads his Twee source
+(or a published Twine HTML build), checks it, and serves every chapter of a
+series from one site: chapter list, autosave, undo, and the end-of-chapter code
+carried into the next chapter.
+
+It is a static site (Vite + TypeScript, no runtime dependencies) plus three
+Node scripts. It is outside Bazel: the first package in the repo that is not
+Python.
+
+## How a story gets in
+
+Stories are **not in git** — the repo is public and the text belongs to its
+author. They live in `stories/<series>/` (gitignored):
+
+```
+stories/<series>/
+├── series.json              # title, chapter order, draft flags, code carry
+├── 01-first-chapter.twee    # Twee 3 export (or a published .html build)
+├── 02-second-chapter.twee
+└── resources/images/…       # the paths the passages use
+```
+
+```json
+{
+  "title": "Series title",
+  "chapters": [
+    { "id": "01", "source": "01-first-chapter.twee" },
+    { "id": "02", "source": "02-second-chapter.twee", "draft": true }
+  ],
+  "carry": { "from": "end_code", "to": "previous_code" }
+}
+```
+
+`carry` names the variable that holds a chapter's end code and the
+`(input: bind …)` variable of the next chapter that asks for it. A chapter
+marked `draft` is left out of `npm run build`; `npm run build:drafts` and
+`npm run dev` include it, so an unpublished chapter never reaches a public
+upload by accident. The reader
+pre-fills that field with the code the reader earned, so the story still works
+unchanged in the author's own Twine builds.
+
+The hand-off with the author — what he sends, how, and what we send back — is
+in [OPERATIONS.md](OPERATIONS.md).
+
+## What it supports
+
+A deliberate subset of Harlowe 3, the one the stories use. Anything else fails
+the build with the passage name, so nothing renders silently wrong.
+
+- **Macros:** `set`, `if`, `unless`, `else`, `else-if`, `cond`, `display`,
+  `goto`, `link`, `a`, `for: each _x, ...`, `print`, `str`, `uppercase`,
+  `find: _x where …, ...`, `input: bind $v`, `text-colour`.
+- **Operators:** `is`, `is not`, `is in`, `contains`, `and`, `or`, `not`,
+  `< > <= >=`, `+ - * /` (`+` joins strings and arrays).
+- **Markup:** `[[label|target]]` (and `->`, `<-`), hooks, `{collapsed}`,
+  `''bold''`, `//italic//`, raw HTML, `$variables` in text.
+- **Tags:** `startup` runs once, `header` renders above every passage; the
+  rest are passed to the author's CSS as `<tw-passage tags="…">`.
+
+Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
+`(history:)`, save macros, audio. Add them when a story needs them.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore` |
+| `src/app/` | The site: library, reader, `save` (localStorage), Harlowe-like base CSS |
+| `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
+| `scripts/explore.ts` | Plays every path; the report for the author |
+| `tests/` | Vitest, on `tests/fixtures/mini.twee` — a story written for the tests |
+
+## Commands
+
+```bash
+npm ci                 # once
+npm run stories        # validate + build stories/ into public/stories/
+npm run dev            # local site with hot reload
+npm run build          # stories (no drafts) + typecheck + dist/
+npm run build:drafts   # the same, drafts included — never upload this one publicly
+npm run preview        # serve dist/ on localhost:4173
+npm run explore        # path report for every series (or: npm run explore -- <series>)
+npm test               # engine tests
+```
+
+Scripts run TypeScript directly on Node ≥ 24 (type stripping), no build step.

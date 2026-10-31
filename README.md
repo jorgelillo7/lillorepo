@@ -41,6 +41,7 @@ graph TD
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 | `group_polls` | Backend of the Android app "¿Qué votáis?": Firestore security rules (tested against the emulator), moderation CLI. No server: the app talks to Firestore | Own GCP/Firebase project (not created yet; `infra/group_polls.tf` is off until then) |
+| `interactive_fiction` | Web reader for Twine/Harlowe interactive stories: one site per series, autosave, the end code carried between chapters, a validator and a path explorer that test a chapter before it ships. Node + Vite, outside Bazel; story text is not in the repo | Static site (Cloudflare Pages, not deployed yet) |
 
 ## Repository Structure
 
