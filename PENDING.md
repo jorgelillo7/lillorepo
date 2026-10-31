@@ -58,11 +58,18 @@ in `STATUS.md` — neither belongs here.
 
 ## interactive_fiction
 
+Next session starts here; the story-specific detail is in the local plan (`.claude/plans/interactive-fiction.md`, gitignored).
+
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Agree the hand-off with the author, get his OK to host the chapters, and send him the first validator/explorer report | You · `packages/interactive_fiction/OPERATIONS.md` → "The author hand-off" |
-| 👤 | Free Cloudflare account + Pages project, then upload `dist/` by hand for the test URL | You · same file → "Deploying" |
-| 👤 | Room art for chapters 2–3: generate it in the Gemini app with the saved prompts (chapter 1 is done) | You · same file → "Art for point-and-click" |
+| 👤 | Free Cloudflare account; then `! npm exec wrangler login` inside the package (or drag `dist/` into Workers & Pages → Upload assets) | You · `packages/interactive_fiction/OPERATIONS.md` → "Deploying" |
+| 🔨 | Pinned `wrangler` devDependency + `npm run deploy` (`wrangler pages deploy dist`); first deploy = the test URL for the author | The account |
+| 👤 | Send the author the URL, the validator/explorer report and the art bible's open questions; agree the Twee hand-off (shared Drive folder) and whether his drafts are shown | You · same file → "The author hand-off" |
+| 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 1 fixes, then the chapter 2 rooms | You · `packages/interactive_fiction/.claude/skills/scene-art` |
+| 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
+| 🔨 | Survival-horror UI: a viewer for in-story documents, a condition (ECG) and an inventory HUD for stories that track them | — |
+| ⏳ | Private bucket for `stories/` (Terraform; ask before apply). Until then the copy of record is the author's folder | Your OK |
+| 🔨 | Merge PR #654 — deploys nothing, the package has no deploy job yet | Your review |
 
 ## be_water
 
