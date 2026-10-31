@@ -87,6 +87,17 @@ two views of the same room, or a scene with no `room`, change without it.
 Only media files (images, audio) under `scenes/` and `resources/` are
 published; prompts, scripts and originals kept beside them stay local.
 
+## Art bible
+
+A series may keep `stories/<series>/art-bible.json`: one English description per
+character and place, each backed by sentences quoted verbatim from the story,
+and a register of every image (place, characters, the shot, the image it edits,
+the prompt that made it). `npm run prompts -- <series>` composes the prompts for
+the planned images from it, and the build fails when a quote is no longer in
+the text, a scene image is not registered, or a generated image has no prompt
+recorded. The whole procedure — new chapter to published scene — is the
+[`scene-art`](.claude/skills/scene-art/SKILL.md) skill.
+
 ## What it supports
 
 A deliberate subset of Harlowe 3, the one the stories use. Anything else fails
@@ -113,6 +124,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 | `src/app/` | The site: library, reader, `save` (localStorage), Harlowe-like base CSS |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
+| `scripts/art-bible.ts`, `scripts/prompts.ts` | The art bible's checks, and the prompts composed from it |
 | `tests/` | Vitest, on `tests/fixtures/mini.twee` — a story written for the tests |
 
 ## Commands
@@ -125,6 +137,7 @@ npm run build          # stories (no drafts) + typecheck + dist/
 npm run build:drafts   # the same, drafts included — never upload this one publicly
 npm run preview        # serve dist/ on localhost:4173
 npm run explore        # path report for every series (or: npm run explore -- <series>)
+npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
 ```
 

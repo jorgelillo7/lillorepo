@@ -10,6 +10,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
+import { validateBible, type ArtBible } from "./art-bible.ts";
 import { validate } from "../src/engine/validate.ts";
 import type { Story } from "../src/engine/source.ts";
 import { loadSeries, seriesIds } from "./series.ts";
@@ -66,6 +67,20 @@ for (const id of seriesIds()) {
     writeFileSync(join(outDir, `${entry.id}.json`), JSON.stringify(out));
     return [{ id: entry.id, title: story.title, draft: Boolean(entry.draft) }];
   });
+  const biblePath = join(series.dir, "art-bible.json");
+  if (existsSync(biblePath)) {
+    const bible = JSON.parse(readFileSync(biblePath, "utf8")) as ArtBible;
+    const chapterStories = Object.fromEntries(series.manifest.chapters.map((c, i) => [c.id, series.stories[i]]));
+    const sceneImages = series.manifest.chapters.flatMap((c) =>
+      c.scenes
+        ? Object.values((JSON.parse(readFileSync(join(series.dir, c.scenes), "utf8")) as SceneFile).scenes).map((x) => x.image)
+        : [],
+    );
+    for (const message of validateBible(bible, chapterStories, sceneImages, (path) => existsSync(join(series.dir, path)))) {
+      console.log(`✗ ${id} [art bible] ${message}`);
+      failed = true;
+    }
+  }
   for (const assets of ["resources", "scenes"]) {
     if (existsSync(join(series.dir, assets))) {
       cpSync(join(series.dir, assets), join(outDir, assets), {

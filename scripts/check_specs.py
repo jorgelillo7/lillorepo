@@ -23,6 +23,10 @@ problem:
 A reference resolves against either a test function or a test file: specs
 legitimately point at both, and an early version of this check that only knew
 about functions reported 27 false positives.
+
+Node packages name their tests with sentences, not identifiers. A spec cites
+one as `` `name.test.ts: the test's exact title` `` and it resolves against the
+`test("…")` titles in that tracked file.
 """
 
 import re
@@ -53,6 +57,25 @@ def known_tests() -> set[str]:
     }
 
 
+VITEST_REF = re.compile(r"`([\w.-]+\.test\.ts): ([^`]+)`")
+
+
+def known_vitest_titles() -> dict[str, set[str]]:
+    """Test titles per tracked `*.test.ts` file name."""
+    files = subprocess.run(
+        ["git", "ls-files", "*.test.ts"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    ).stdout.split()
+    titles: dict[str, set[str]] = {}
+    for path in files:
+        source = (REPO_ROOT / path).read_text()
+        found = re.findall(r"""\btest\(\s*(["'`])(.+?)\1\s*,""", source)
+        titles.setdefault(Path(path).name, set()).update(t for _, t in found)
+    return titles
+
+
 def scenarios(text: str) -> list[tuple[str, bool]]:
     """`[(title, has_verifier)]` for one spec, in document order."""
     blocks = re.split(r"^#+\s*Scenario:\s*", text, flags=re.M)[1:]
@@ -65,6 +88,7 @@ def main() -> int:
         return 1
 
     tests = known_tests()
+    vitest = known_vitest_titles()
     specs = sorted(SPECS.rglob("spec.md"))
     broken: list[str] = []
     unverified: list[str] = []
@@ -76,6 +100,9 @@ def main() -> int:
         for name in sorted(set(re.findall(r"\b(test_[A-Za-z0-9_]+)", text))):
             if name not in tests:
                 broken.append(f"{rel} → {name}")
+        for file, title in VITEST_REF.findall(text):
+            if title not in vitest.get(file, set()):
+                broken.append(f"{rel} → {file}: {title}")
         for title, verified in scenarios(text):
             total_scenarios += 1
             if not verified:

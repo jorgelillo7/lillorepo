@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "stories": "node scripts/build-stories.ts",
     "explore": "node scripts/explore.ts",
+    "prompts": "node scripts/prompts.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
