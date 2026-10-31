@@ -37,6 +37,7 @@ from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import (
     actions,
     auto_bid,
+    digest_runs,
     fixture_run,
     offers,
     provider_watch,
@@ -273,13 +274,21 @@ def run_daily() -> dict:
     Side effects: hits JP, hits Biwenger, sets the lineup, sends 2 PNGs +
     2 text messages to Telegram (lineup + auto-bid). Top-level errors are surfaced
     to Telegram before propagating so the user never gets silent
-    failures like the 22/06–23/06 incidents.
+    failures like the 22/06–23/06 incidents. Runs once per Madrid day: a
+    duplicate delivery returns `already_ran` without touching anything.
     """
+    day = datetime.now(MADRID_TZ).date().isoformat()
+    if not digest_runs.claim(day, time.time()):
+        logger.warning("Daily digest already ran today — duplicate delivery ignored.")
+        return {"sent": 0, "reason": "already_ran"}
     try:
-        return _run_daily_inner()
+        result = _run_daily_inner()
     except Exception as exc:
+        digest_runs.finish(day, ok=False, now=time.time())
         _notify_digest_failure(exc)
         raise
+    digest_runs.finish(day, ok=True, now=time.time())
+    return result
 
 
 def _run_daily_inner() -> dict:

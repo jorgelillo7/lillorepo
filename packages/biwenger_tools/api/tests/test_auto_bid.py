@@ -350,6 +350,7 @@ def run_env():
         telegram=True,
         squad=None,
         oraculo_index=None,
+        pending_bids=None,
     ):
         stack = ExitStack()
         mock_cfg = stack.enter_context(patch(_patches("config")))
@@ -395,6 +396,7 @@ def run_env():
         # a swallowed TypeError from `build_squad_rows`.
         biwenger.get_manager_squad.return_value = squad or []
         biwenger.get_account_state.return_value = {"cash": cash, "max_bid": cash}
+        biwenger.get_my_pending_bids.return_value = pending_bids or []
         if bid_side_effect is not None:
             biwenger.place_market_bid.side_effect = bid_side_effect
         else:
@@ -446,6 +448,26 @@ def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
     assert result["skipped_count"] == 2  # Lewa + Pedri don't fit
     assert result["sent"] == 1
     mock_send.assert_called_once()
+
+
+def test_cash_already_promised_to_waiting_bids_is_not_bid_again(run_env):
+    """Biwenger leaves waiting bids in the balance. A duplicate delivery of the
+    digest read the full balance again and bid it a second time, so the bids
+    waiting on the market come off the cash before the ladder starts."""
+    market = [_sale(3)]
+    biwenger_players = {3: _bw(3, "Pedri", 3_000_000)}
+    jp_players = [_jp_with_sf("Pedri", 500)]
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=5_000_000,
+        pending_bids=[{"amount": 3_000_000, "requestedPlayers": [99]}],
+    )
+    result = auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_not_called()
+    assert result["remaining_cash_eur"] == 2_000_000
 
 
 def test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next(run_env):

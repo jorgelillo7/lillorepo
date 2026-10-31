@@ -97,6 +97,19 @@ is only decremented by bids that actually land.
   is bid; the run continues
 - *Verifies:* `test_run_auto_bid_first_too_expensive_does_not_block_cheaper_next`
 
+### Requirement: Cash already promised to waiting bids is not bid again
+
+`remaining_cash` SHALL start from the account balance minus every bid still
+waiting on the market. Biwenger does not take a waiting bid off the balance,
+so a second run on the same morning read the full balance again and bid it a
+second time — three bids for 13.4M against 8.5M of cash. A failed read of the
+waiting bids SHALL stop the run rather than bid on the gross balance.
+
+#### Scenario: a waiting bid shrinks the wallet
+- **WHEN** cash is 5M and 3M are already waiting on another player
+- **THEN** a 3.15M bid does not fit and the run reports 2M remaining
+- *Verifies:* `test_cash_already_promised_to_waiting_bids_is_not_bid_again`
+
 ### Requirement: Anti-pattern jitter stays negligible and in range
 
 Every non-skipped bid SHALL carry a random 0–`BID_JITTER_MAX` (1000 €) offset

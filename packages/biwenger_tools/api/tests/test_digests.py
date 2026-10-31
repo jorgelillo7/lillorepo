@@ -9,12 +9,58 @@ from contextlib import ExitStack
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from core.constants import MADRID_TZ
 from packages.biwenger_tools.api.logic import actions, projection_ledger_store
 
 
 def _patches(target):
     return f"packages.biwenger_tools.api.logic.digests.{target}"
+
+
+@pytest.fixture(autouse=True)
+def runs():
+    """The day is free unless a test says otherwise; nothing reaches Firestore."""
+    with (
+        patch(_patches("digest_runs.claim"), return_value=True) as claim,
+        patch(_patches("digest_runs.finish")) as finish,
+    ):
+        yield claim, finish
+
+
+def test_a_second_delivery_on_the_same_day_does_nothing(runs):
+    claim, finish = runs
+    claim.return_value = False
+    with patch(_patches("_run_daily_inner")) as inner:
+        from packages.biwenger_tools.api.logic import digests
+
+        result = digests.run_daily()
+    inner.assert_not_called()
+    finish.assert_not_called()
+    assert result == {"sent": 0, "reason": "already_ran"}
+
+
+def test_a_run_is_marked_done_when_it_completes(runs):
+    _, finish = runs
+    with patch(_patches("_run_daily_inner"), return_value={"sent": 2}):
+        from packages.biwenger_tools.api.logic import digests
+
+        digests.run_daily()
+    assert finish.call_args.kwargs["ok"] is True
+
+
+def test_a_run_that_raises_is_marked_failed_so_it_can_be_retried(runs):
+    _, finish = runs
+    with (
+        patch(_patches("_run_daily_inner"), side_effect=RuntimeError("boom")),
+        patch(_patches("_notify_digest_failure")),
+        pytest.raises(RuntimeError),
+    ):
+        from packages.biwenger_tools.api.logic import digests
+
+        digests.run_daily()
+    assert finish.call_args.kwargs["ok"] is False
 
 
 def _build_ctx(biwenger):
