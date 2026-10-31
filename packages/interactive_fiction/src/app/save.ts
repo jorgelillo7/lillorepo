@@ -65,3 +65,22 @@ export function storeCode(series: string, chapter: string, code: string): void {
     // The reader can still type the code by hand.
   }
 }
+
+const MODE_KEY = `${PREFIX}mode`;
+
+/** The reader's choice between point-and-click and plain text, for chapters that have scenes. */
+export function loadMode(): "game" | "text" {
+  try {
+    return localStorage.getItem(MODE_KEY) === "text" ? "text" : "game";
+  } catch {
+    return "game";
+  }
+}
+
+export function storeMode(mode: "game" | "text"): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // The choice lasts until the page reloads.
+  }
+}

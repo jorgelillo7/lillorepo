@@ -8,6 +8,8 @@ export interface ChapterEntry {
   id: string;
   source: string;
   draft?: boolean;
+  /** Point-and-click scene file for this chapter, relative to the series folder. */
+  scenes?: string;
 }
 
 export interface SeriesManifest {
@@ -15,6 +17,8 @@ export interface SeriesManifest {
   chapters: ChapterEntry[];
   /** The end code of one chapter is pre-filled into this input of the next. */
   carry?: { from: string; to: string };
+  /** Paragraphs for the "about" page: credits, how the art was made. */
+  about?: string[];
 }
 
 export interface Series {

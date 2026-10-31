@@ -62,6 +62,7 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | Agree the hand-off with the author, get his OK to host the chapters, and send him the first validator/explorer report | You · `packages/interactive_fiction/OPERATIONS.md` → "The author hand-off" |
 | 👤 | Free Cloudflare account + Pages project, then upload `dist/` by hand for the test URL | You · same file → "Deploying" |
+| 👤 | Room art for chapters 2–3: generate it in the Gemini app with the saved prompts (chapter 1 is done) | You · same file → "Art for point-and-click" |
 
 ## be_water
 

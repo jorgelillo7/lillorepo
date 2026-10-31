@@ -32,6 +32,24 @@ He overwrites the files there; we copy them into `stories/<series>/`.
    one treats like a wrong code.
 3. The test URL.
 
+## Art for point-and-click
+
+Each scene is one image per room plus its clickable areas. The areas are
+percentages of the image, so they survive a resize but not a re-drawn room: new
+art means re-measuring the rectangles in the chapter's scene file. Who makes
+the art (the author, an illustrator, generated) and under what licence is
+decided per series before any of it is published.
+
+**Generating it with AI:** one consistent style prompt for every room plus a
+scene description taken from the passage text, 16:9, all rooms in one chat so
+the style holds; a variant of a room (someone on the bed, a door ajar) is an
+edit of the first image, not a new one. Keep the prompts and the full-size
+originals next to the art in the series folder — they are not published.
+Resize to ~1600 px wide for the web, then place the rectangles and check them
+with an overlay before shipping. The Gemini API's free tier allows no image
+generation, so this runs in the Gemini app, by hand. Say so on the series'
+"about" page.
+
 ## Updating a chapter
 
 ```bash

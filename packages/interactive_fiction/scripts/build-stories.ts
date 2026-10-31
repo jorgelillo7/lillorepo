@@ -7,8 +7,9 @@
  * author has not published must not reach a public upload by accident.
  */
 
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
 import { validate } from "../src/engine/validate.ts";
 import type { Story } from "../src/engine/source.ts";
 import { loadSeries, seriesIds } from "./series.ts";
@@ -52,13 +53,35 @@ for (const id of seriesIds()) {
       console.log(`${issue.level === "error" ? "✗" : "·"} ${id}/${entry.id}${where} ${issue.message}`);
     }
     if (issues.some((x) => x.level === "error")) failed = true;
-    writeFileSync(join(outDir, `${entry.id}.json`), JSON.stringify(rebaseStory(story, `stories/${id}/`)));
+    let scenes: SceneFile | undefined;
+    if (entry.scenes) {
+      scenes = JSON.parse(readFileSync(join(series.dir, entry.scenes), "utf8")) as SceneFile;
+      for (const message of validateScenes(story, scenes, (path) => existsSync(join(series.dir, path)))) {
+        console.log(`✗ ${id}/${entry.id} [scenes] ${message}`);
+        failed = true;
+      }
+      for (const scene of Object.values(scenes.scenes)) scene.image = `stories/${id}/${scene.image}`;
+    }
+    const out = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null };
+    writeFileSync(join(outDir, `${entry.id}.json`), JSON.stringify(out));
     return [{ id: entry.id, title: story.title, draft: Boolean(entry.draft) }];
   });
-  if (existsSync(join(series.dir, "resources"))) {
-    cpSync(join(series.dir, "resources"), join(outDir, "resources"), { recursive: true });
+  for (const assets of ["resources", "scenes"]) {
+    if (existsSync(join(series.dir, assets))) {
+      cpSync(join(series.dir, assets), join(outDir, assets), {
+        recursive: true,
+        // Only media is published; scripts and notes kept next to the art stay local.
+        filter: (src) => !/\.[^/]+$/.test(src) || /\.(png|jpe?g|webp|avif|gif|svg|mp3|ogg|webm|m4a)$/i.test(src),
+      });
+    }
   }
-  library.push({ id, title: series.manifest.title, carry: series.manifest.carry ?? null, chapters });
+  library.push({
+    id,
+    title: series.manifest.title,
+    carry: series.manifest.carry ?? null,
+    about: series.manifest.about ?? [],
+    chapters,
+  });
   console.log(`✓ ${id}: ${chapters.length} chapters`);
 }
 

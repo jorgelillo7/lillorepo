@@ -3,9 +3,12 @@
 import "./harlowe.css";
 import "./app.css";
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
+import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import type { Story } from "../engine/source.ts";
 import { toText } from "../engine/values.ts";
-import { clear, load, loadCodes, store, storeCode, type Progress } from "./save.ts";
+import { clear, load, loadCodes, loadMode, store, storeCode, storeMode, type Progress } from "./save.ts";
+
+type Chapter = Story & { scenes: SceneFile | null };
 
 interface ChapterInfo {
   id: string;
@@ -17,12 +20,13 @@ interface SeriesInfo {
   id: string;
   title: string;
   carry: { from: string; to: string } | null;
+  about: string[];
   chapters: ChapterInfo[];
 }
 
 const app = document.getElementById("app")!;
 let library: SeriesInfo[] = [];
-const stories = new Map<string, Story>();
+const stories = new Map<string, Chapter>();
 
 function el(html: string): HTMLElement {
   const t = document.createElement("template");
@@ -46,11 +50,11 @@ async function fetchJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function story(series: string, chapter: string): Promise<Story> {
+async function story(series: string, chapter: string): Promise<Chapter> {
   const k = `${series}/${chapter}`;
   let s = stories.get(k);
   if (!s) {
-    s = await fetchJson<Story>(`stories/${k}.json`);
+    s = await fetchJson<Chapter>(`stories/${k}.json`);
     stories.set(k, s);
   }
   return s;
@@ -94,10 +98,25 @@ function renderLibrary(): void {
         </li>`;
       })
       .join("");
-    return `<section class="series"><h1>${esc(series.title)}</h1><ol class="chapters">${items}</ol></section>`;
+    const about = series.about.length ? `<a class="about-link" href="#/acerca/${series.id}">Acerca de</a>` : "";
+    return `<section class="series"><h1>${esc(series.title)}</h1><ol class="chapters">${items}</ol>${about}</section>`;
   });
   app.replaceChildren(
     el(`<main class="library">${blocks.join("")}<p class="note">Tu progreso se guarda en este navegador.</p></main>`),
+  );
+}
+
+function renderAbout(seriesId: string): void {
+  const series = library.find((s) => s.id === seriesId);
+  if (!series) {
+    location.hash = "#/";
+    return;
+  }
+  setStoryCss("");
+  const paragraphs = series.about.map((p) => `<p>${esc(p)}</p>`).join("");
+  app.replaceChildren(
+    el(`<main class="library about"><h1>${esc(series.title)}</h1><h2>Acerca de</h2>${paragraphs}
+      <a class="button secondary" href="#/">← Volver</a></main>`),
   );
 }
 
@@ -107,6 +126,9 @@ interface Session {
   series: SeriesInfo;
   chapter: ChapterInfo;
   rt: Runtime;
+  scenes: SceneFile | null;
+  /** Scene shown last, so a change of room can play the door. */
+  lastScene?: string;
   vars: Vars;
   progress: Progress;
   actions: Action[];
@@ -134,11 +156,12 @@ async function openChapter(seriesId: string, chapterId: string): Promise<void> {
     location.hash = "#/";
     return;
   }
-  const rt = new Runtime(await story(series.id, chapter.id));
+  const data = await story(series.id, chapter.id);
+  const rt = new Runtime(data);
   setStoryCss(rt.story.stylesheet);
   document.title = shortTitle(rt.story.title);
   const progress = load(series.id, chapter.id) ?? freshStart(rt);
-  session = { series, chapter, rt, vars: {}, progress, actions: [] };
+  session = { series, chapter, rt, scenes: data.scenes, vars: {}, progress, actions: [] };
   show();
 }
 
@@ -170,12 +193,20 @@ function show(): void {
   renderPage(page, ended ? endPanel() : stuck ? unwrittenPanel() : "");
 }
 
+function gameMode(): boolean {
+  return Boolean(session?.scenes) && loadMode() !== "text";
+}
+
 function toolbar(): string {
   const s = session!;
   const canUndo = s.progress.undo.length > 0;
+  const mode = s.scenes
+    ? `<button class="tool" data-tool="mode">${gameMode() ? "📖 Texto" : "🎮 Juego"}</button>`
+    : "";
   return `<nav class="toolbar">
     <a class="tool" href="#/">← Capítulos</a>
     <span class="tool-title">${esc(shortTitle(s.rt.story.title))}</span>
+    ${mode}
     <button class="tool" data-tool="undo" ${canUndo ? "" : "disabled"}>↶ Atrás</button>
     <button class="tool" data-tool="restart">⟲ Reiniciar</button>
   </nav>`;
@@ -197,12 +228,60 @@ function unwrittenPanel(): string {
 
 function renderPage(page: Rendered, footer: string): void {
   const tags = esc(page.tags.join(" "));
-  app.replaceChildren(
-    el(`<div class="reader">${toolbar()}
-      <tw-story tags="${tags}"><tw-passage tags="${tags}">${page.html}</tw-passage></tw-story>
-      ${footer}</div>`),
-  );
+  const passage = `<tw-story tags="${tags}"><tw-passage tags="${tags}">${page.html}</tw-passage></tw-story>`;
+  const s = session!;
+  const sceneId = gameMode() ? s.scenes?.passages[page.passage] : undefined;
+  const scene = sceneId ? s.scenes!.scenes[sceneId] : undefined;
+  if (!scene) {
+    app.replaceChildren(el(`<div class="reader">${toolbar()}${passage}${footer}</div>`));
+    window.scrollTo({ top: 0 });
+    return;
+  }
+  const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
+  const changedRoom = Boolean(lastRoom && scene.room && lastRoom !== scene.room);
+  s.lastScene = sceneId;
+  const { shown } = hotspotsFor(scene, page.actions);
+  const seen = new Set(s.progress.undo.map((u) => u.passage));
+  const spots = shown
+    .map(({ hotspot, action }) => {
+      const [x, y, w, h] = hotspot.rect;
+      const target = (page.actions[action] as { target: string }).target;
+      const visited = seen.has(target) ? " visited" : "";
+      return `<button class="hotspot${visited}" data-action="${action}" aria-label="${esc(hotspot.label)}"
+        style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><span class="hotspot-label">${esc(hotspot.label)}</span></button>`;
+    })
+    .join("");
+  const [aw, ah] = scene.aspect;
+  const root = el(`<div class="reader game">${toolbar()}
+    <div class="game-layout">
+      <div class="stage-wrap"><div class="stage" style="--ar:${aw / ah}">
+        <img src="${esc(scene.image)}" alt="" draggable="false">${spots}
+      </div></div>
+      <section class="panel">${passage}${footer}</section>
+    </div></div>`);
+  // A link the scene already shows as a hotspot is not repeated in the text.
+  const inScene = new Set(shown.map((x) => String(x.action)));
+  root.querySelectorAll<HTMLElement>("tw-passage tw-link[data-action]").forEach((link) => {
+    if (!inScene.has(link.dataset.action!)) return;
+    if (link.nextElementSibling?.tagName === "BR") link.nextElementSibling.remove();
+    link.remove();
+  });
+  app.replaceChildren(root);
   window.scrollTo({ top: 0 });
+  if (changedRoom) playDoor();
+}
+
+/** The survival-horror door between rooms. Click to skip; off when the reader asks for less motion. */
+function playDoor(): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const door = el(`<div class="door-transition" aria-hidden="true">
+    <div class="door-frame"><div class="door-leaf"><span class="door-knob"></span></div></div></div>`);
+  const done = () => door.remove();
+  door.addEventListener("click", done);
+  door.addEventListener("animationend", (e) => {
+    if ((e as AnimationEvent).animationName === "door-fade") done();
+  });
+  document.body.appendChild(door);
 }
 
 function renderError(e: Error): void {
@@ -252,7 +331,7 @@ function onAction(link: HTMLElement): void {
 
 app.addEventListener("click", (ev) => {
   const target = ev.target as HTMLElement;
-  const link = target.closest<HTMLElement>("tw-link[data-action]");
+  const link = target.closest<HTMLElement>("tw-link[data-action], .hotspot[data-action]");
   if (link && session) {
     onAction(link);
     return;
@@ -260,14 +339,29 @@ app.addEventListener("click", (ev) => {
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (!tool || !session) return;
   const s = session;
-  if (tool.dataset.tool === "undo") {
+  if (tool.dataset.tool === "mode") {
+    storeMode(gameMode() ? "text" : "game");
+    show();
+  } else if (tool.dataset.tool === "undo") {
     const prev = s.progress.undo.pop();
     if (!prev) return;
     s.progress = { ...s.progress, ...prev, finished: false, code: undefined };
     show();
-  } else if (tool.dataset.tool === "restart" && confirm("¿Empezar el capítulo desde el principio?")) {
+  } else if (tool.dataset.tool === "restart" && !tool.dataset.armed) {
+    // Asked in the page: embedded viewers block window.confirm().
+    tool.dataset.armed = "1";
+    tool.textContent = "¿Seguro? Toca otra vez";
+    tool.classList.add("armed");
+    setTimeout(() => {
+      if (!tool.isConnected) return;
+      delete tool.dataset.armed;
+      tool.textContent = "⟲ Reiniciar";
+      tool.classList.remove("armed");
+    }, 4000);
+  } else if (tool.dataset.tool === "restart") {
     clear(s.series.id, s.chapter.id);
     s.progress = freshStart(s.rt);
+    s.lastScene = undefined;
     show();
   }
 });
@@ -289,7 +383,10 @@ app.addEventListener("input", (ev) => {
 
 function route(): void {
   const [, seriesId, chapterId] = location.hash.replace(/^#\/?/, "#/").split("/");
-  if (seriesId && chapterId) void openChapter(seriesId, chapterId);
+  if (seriesId === "acerca" && chapterId) {
+    session = null;
+    renderAbout(chapterId);
+  } else if (seriesId && chapterId) void openChapter(seriesId, chapterId);
   else {
     session = null;
     renderLibrary();

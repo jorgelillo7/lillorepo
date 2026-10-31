@@ -34,6 +34,9 @@ stories/<series>/
 }
 ```
 
+An optional `"about": ["…", "…"]` adds an "Acerca de" page to the series
+(credits, and how the art was made).
+
 `carry` names the variable that holds a chapter's end code and the
 `(input: bind …)` variable of the next chapter that asks for it. A chapter
 marked `draft` is left out of `npm run build`; `npm run build:drafts` and
@@ -44,6 +47,45 @@ unchanged in the author's own Twine builds.
 
 The hand-off with the author — what he sends, how, and what we send back — is
 in [OPERATIONS.md](OPERATIONS.md).
+
+## Point-and-click mode
+
+A chapter can carry a **scene file** (`"scenes": "01-scenes.json"` on the
+chapter in `series.json`). Passages listed in it are shown as an image with
+clickable areas beside the text; the rest, and every chapter without one, are
+read as text. The toolbar switches between the two.
+
+```json
+{
+  "scenes": {
+    "room": {
+      "image": "scenes/room.jpg",
+      "room": "cell",
+      "aspect": [16, 9],
+      "hotspots": [
+        { "label": "Door", "targets": ["Door", "Leave"], "rect": [51, 25, 11, 45] }
+      ]
+    }
+  },
+  "passages": { "Start": "room", "Door": "room" }
+}
+```
+
+- `rect` is `[x, y, width, height]` in percent of the image.
+- **An area appears only when one of its `targets` is a link the passage offers
+  right now**, so the story's own `(if:)`s decide what can be clicked; the
+  first target offered wins. Links with no area stay as buttons in the text.
+- The build fails on a scene that names a missing passage, a target that is not
+  a passage, or a missing image. Scene images live in the series folder
+  (`scenes/`, `resources/`), out of git like the text.
+
+The engine side is `src/engine/scenes.ts` (`hotspotsFor`, `validateScenes`).
+Moving between scenes of two different `room`s plays a short door-opening
+transition (click to skip; skipped when the reader prefers reduced motion);
+two views of the same room, or a scene with no `room`, change without it.
+
+Only media files (images, audio) under `scenes/` and `resources/` are
+published; prompts, scripts and originals kept beside them stay local.
 
 ## What it supports
 
@@ -67,7 +109,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 
 | Path | What |
 |---|---|
-| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore` |
+| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes` |
 | `src/app/` | The site: library, reader, `save` (localStorage), Harlowe-like base CSS |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
