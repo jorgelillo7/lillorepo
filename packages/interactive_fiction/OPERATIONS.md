@@ -63,20 +63,26 @@ npm run build && npm run preview     # check it at http://localhost:4173
 Static assets on Cloudflare Pages are free and unlimited; Firebase Hosting's
 free plan caps transfer at 360 MB/day, which a few readers with images exhaust.
 
-**First deploy, by hand (no token):** create a free Cloudflare account →
-*Workers & Pages → Create → Pages → Upload assets* → name the project → drag
-`dist/` (built with `npm run build`, which leaves draft chapters out). The
-site is at `https://<project>.pages.dev`. Each update is another
-upload to the same project.
+**Once:** a free Cloudflare account, then `npm run deploy:login` in this
+package (opens the browser; wrangler keeps the login on this Mac).
 
-**From the terminal, later:** `wrangler pages deploy dist --project-name <project>`
-after `wrangler login`. Install wrangler as a pinned devDependency rather than
-through `npx`.
+**Every deploy:** `npm run deploy` — builds (drafts left out) and uploads
+`dist/` to the Pages project named in `wrangler.toml` (`historias`), creating it
+on the first run. The site is at `https://historias.pages.dev` or, if that name
+is taken, the one wrangler prints.
 
-**From CI, later:** needs a Cloudflare API token scoped to Pages edit and the
-account id as GitHub secrets. CI cannot build the stories, which are not in the
-repo, so it would pull `stories/` from the private bucket with a read-only key
-first. Not set up.
+`wrangler` lives in `deploy/` with its own lockfile, pinned, so the test job
+never installs its ~270 MB. To show the author a draft chapter, deploy
+`npm run build:drafts` output to a separate project
+(`deploy/node_modules/.bin/wrangler pages deploy dist --project-name <name>-borrador`),
+never to the public one.
+
+**By hand instead:** Workers & Pages → Create → Pages → Upload assets, and
+drag `dist/` from `npm run build`.
+
+**From CI, later:** a Cloudflare API token scoped to Pages edit and the
+account id as GitHub secrets. CI cannot build the stories (not in the repo), so
+it would pull `stories/` from the private bucket first. Not set up.
 
 ## Backing up the stories
 

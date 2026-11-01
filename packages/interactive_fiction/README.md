@@ -136,6 +136,8 @@ npm run dev            # local site with hot reload
 npm run build          # stories (no drafts) + typecheck + dist/
 npm run build:drafts   # the same, drafts included — never upload this one publicly
 npm run preview        # serve dist/ on localhost:4173
+npm run deploy:login   # once: log wrangler in to Cloudflare
+npm run deploy         # build (no drafts) and upload to Cloudflare Pages
 npm run explore        # path report for every series (or: npm run explore -- <series>)
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests

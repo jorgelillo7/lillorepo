@@ -2,3 +2,5 @@ node_modules/
 dist/
 stories/
 public/stories/
+deploy/node_modules/
+.wrangler/

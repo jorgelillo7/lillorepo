@@ -62,12 +62,12 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Free Cloudflare account; then `! npm exec wrangler login` inside the package (or drag `dist/` into Workers & Pages → Upload assets) | You · `packages/interactive_fiction/OPERATIONS.md` → "Deploying" |
-| 🔨 | Pinned `wrangler` devDependency + `npm run deploy` (`wrangler pages deploy dist`); first deploy = the test URL for the author | The account |
+| 👤 | Free Cloudflare account, then `! npm run deploy:login` and `npm run deploy` in the package — the URL it prints is the test site for the author | You · `packages/interactive_fiction/OPERATIONS.md` → "Deploying" |
 | 👤 | Send the author the URL, the validator/explorer report and the art bible's open questions; agree the Twee hand-off (shared Drive folder) and whether his drafts are shown | You · same file → "The author hand-off" |
 | 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 1 fixes, then the chapter 2 rooms | You · `packages/interactive_fiction/.claude/skills/scene-art` |
 | 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
 | 🔨 | Survival-horror UI: a viewer for in-story documents, a condition (ECG) and an inventory HUD for stories that track them | — |
+| 🔨 | Sound: ambience per room, doors and steps, with the Web Audio API (built into the browser); generated procedurally or from CC0 libraries, listed on the "about" page | — |
 | ⏳ | Private bucket for `stories/` (Terraform; ask before apply). Until then the copy of record is the author's folder | Your OK |
 | 🔨 | Merge PR #654 — deploys nothing, the package has no deploy job yet | Your review |
 

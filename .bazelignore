@@ -3,3 +3,4 @@ venv
 .git
 bazel-*
 packages/interactive_fiction/node_modules
+packages/interactive_fiction/deploy/node_modules
