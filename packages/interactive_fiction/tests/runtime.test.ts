@@ -27,6 +27,11 @@ describe("markup", () => {
     expect(show({ Start: "a\nb{\n c \n  d\n}" }).html).toBe("a<br>bc d");
   });
 
+  test("a collapsed block keeps the line breaks of what it displays or prints, as Harlowe does", () => {
+    const html = show({ Start: '{\nx (display:"B") (print:"p1\np2")\ny\n}', B: "b1\nb2" }).html;
+    expect(html).toBe("x b1<br>b2 p1<br>p2 y");
+  });
+
   test("bold, italic and raw HTML pass through", () => {
     expect(show({ Start: "''b'' //i// <span class=\"x\">s</span>" }).html).toBe(
       '<b>b</b> <i>i</i> <span class="x">s</span>',

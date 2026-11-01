@@ -221,12 +221,13 @@ export class Runtime {
         const name = this.text(this.evalArg(node.args, 0, ctx), "display");
         if (ctx.depth > 50) throw new StoryError("(display:) nested too deep.");
         this.onDisplay?.(name);
-        return this.renderNodes(this.tree(this.passage(name).text), { ...ctx, depth: ctx.depth + 1 });
+        // Harlowe collapses whitespace in the markup it reads, not in what a (display:) or (print:) produces.
+        return this.renderNodes(this.tree(this.passage(name).text), { ...ctx, collapse: false, depth: ctx.depth + 1 });
       }
       case "goto":
         throw new Goto(this.text(this.evalArg(node.args, 0, ctx), "goto"));
       case "print":
-        return this.renderValue(this.evalArg(node.args, 0, ctx), ctx);
+        return this.renderValue(this.evalArg(node.args, 0, ctx), { ...ctx, collapse: false });
       case "input": {
         const bind = node.args[0];
         if (!bind || bind.k !== "bind" || bind.target.k !== "var") {
