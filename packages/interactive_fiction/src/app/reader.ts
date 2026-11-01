@@ -1,10 +1,13 @@
 /** The chapter reader: one passage at a time, its actions, undo, restart, game and text modes. */
 
+import { ambienceFor, isSting } from "../engine/game.ts";
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { toText } from "../engine/values.ts";
 import { app, el, esc, setStoryCss, shortTitle } from "./dom.ts";
+import { door as doorSound, setAmbience, step, sting, applyVolume } from "./audio.ts";
 import { playDoor } from "./door.ts";
+import { settings, updateSettings } from "./settings.ts";
 import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
 import { clear, load, loadCodes, loadMode, store, storeCode, storeMode, type Progress } from "./save.ts";
 
@@ -15,6 +18,8 @@ interface Session {
   scenes: SceneFile | null;
   /** Scene shown last, so a change of room can play the door. */
   lastScene?: string;
+  /** Set by a click, so a sting plays on arrival and never on undo or resume. */
+  arrived?: boolean;
   vars: Vars;
   progress: Progress;
   actions: Action[];
@@ -81,6 +86,8 @@ function show(): void {
   }
   store(s.series.id, s.chapter.id, s.progress);
   renderPage(page, ended ? endPanel() : stuck ? unwrittenPanel() : "");
+  if (s.arrived && isSting(s.series.game, s.chapter.id, page.passage)) sting();
+  s.arrived = false;
 }
 
 function gameMode(): boolean {
@@ -97,6 +104,7 @@ function toolbar(): string {
     <a class="tool" href="#/">← Capítulos</a>
     <span class="tool-title">${esc(shortTitle(s.rt.story.title))}</span>
     ${mode}
+    <button class="tool" data-tool="mute" aria-label="Sonido">${settings().muted ? "🔇" : "🔊"}</button>
     <button class="tool" data-tool="undo" ${canUndo ? "" : "disabled"}>↶ Atrás</button>
     <button class="tool" data-tool="restart">⟲ Reiniciar</button>
   </nav>`;
@@ -122,9 +130,11 @@ function renderPage(page: Rendered, footer: string): void {
   const s = session!;
   const sceneId = gameMode() ? s.scenes?.passages[page.passage] : undefined;
   const scene = sceneId ? s.scenes!.scenes[sceneId] : undefined;
+  setAmbience(ambienceFor(s.series.game, scene?.room, page.tags));
   if (!scene) {
     app.replaceChildren(el(`<div class="reader">${toolbar()}${passage}${footer}</div>`));
     window.scrollTo({ top: 0 });
+    if (s.arrived) step();
     return;
   }
   const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
@@ -158,7 +168,10 @@ function renderPage(page: Rendered, footer: string): void {
   });
   app.replaceChildren(root);
   window.scrollTo({ top: 0 });
-  if (changedRoom) playDoor();
+  if (changedRoom) {
+    playDoor();
+    doorSound();
+  } else if (s.arrived) step();
 }
 
 function renderError(e: Error): void {
@@ -174,6 +187,7 @@ function navigate(target: string): void {
   const s = session!;
   s.progress.undo.push({ passage: s.progress.passage, vars: s.progress.vars });
   s.progress = { ...s.progress, passage: target, vars: structuredClone(s.vars), finished: false, code: undefined };
+  s.arrived = true;
   show();
 }
 
@@ -216,7 +230,11 @@ app.addEventListener("click", (ev) => {
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (!tool || !session) return;
   const s = session;
-  if (tool.dataset.tool === "mode") {
+  if (tool.dataset.tool === "mute") {
+    updateSettings({ muted: !settings().muted });
+    applyVolume();
+    tool.textContent = settings().muted ? "🔇" : "🔊";
+  } else if (tool.dataset.tool === "mode") {
     storeMode(gameMode() ? "text" : "game");
     show();
   } else if (tool.dataset.tool === "undo") {

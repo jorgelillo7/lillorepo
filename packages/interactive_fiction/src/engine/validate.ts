@@ -100,19 +100,29 @@ function walkSource(src: string, scan: Scan): void {
   }
 }
 
+function scanStory(story: Story): Scan {
+  const scan: Scan = { passage: "", issues: [], read: new Map(), set: new Set(), targets: [] };
+  for (const p of story.passages) {
+    scan.passage = p.name;
+    walkSource(p.text, scan);
+  }
+  return scan;
+}
+
+/** Every story variable the chapter assigns, with (set:) or an input binding. */
+export function variablesSet(story: Story): Set<string> {
+  return scanStory(story).set;
+}
+
 /** Every problem found in `story`, errors first. */
 export function validate(story: Story): Issue[] {
   const names = new Set(story.passages.map((p) => p.name));
-  const scan: Scan = { passage: "", issues: [], read: new Map(), set: new Set(), targets: [] };
+  const scan = scanStory(story);
   if (!names.has(story.start)) {
     scan.issues.push({ level: "error", passage: "", message: `Start passage "${story.start}" does not exist.` });
   }
   if (!story.passages.some((p) => p.tags.includes("startup"))) {
     scan.issues.push({ level: "warning", passage: "", message: "No startup passage: variables start unset." });
-  }
-  for (const p of story.passages) {
-    scan.passage = p.name;
-    walkSource(p.text, scan);
   }
   for (const { target, passage } of scan.targets) {
     if (!names.has(target)) {

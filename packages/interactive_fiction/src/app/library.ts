@@ -1,5 +1,6 @@
 /** What the build publishes about the series, and the screens that list it. */
 
+import type { GameConfig } from "../engine/game.ts";
 import type { SceneFile } from "../engine/scenes.ts";
 import type { Story } from "../engine/source.ts";
 import { app, el, esc, fetchJson, setStoryCss, shortTitle } from "./dom.ts";
@@ -18,6 +19,7 @@ export interface SeriesInfo {
   title: string;
   carry: { from: string; to: string } | null;
   about: string[];
+  game: GameConfig;
   chapters: ChapterInfo[];
 }
 

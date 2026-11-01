@@ -9,9 +9,10 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { validateGame, type GameConfig } from "../src/engine/game.ts";
 import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
 import { validateBible, type ArtBible } from "./art-bible.ts";
-import { validate } from "../src/engine/validate.ts";
+import { validate, variablesSet } from "../src/engine/validate.ts";
 import type { Story } from "../src/engine/source.ts";
 import { loadSeries, seriesIds } from "./series.ts";
 
@@ -81,6 +82,18 @@ for (const id of seriesIds()) {
       failed = true;
     }
   }
+  let game: GameConfig = {};
+  const gamePath = join(series.dir, "game.json");
+  if (existsSync(gamePath)) {
+    game = JSON.parse(readFileSync(gamePath, "utf8")) as GameConfig;
+    const chapterStories = Object.fromEntries(series.manifest.chapters.map((c, i) => [c.id, series.stories[i]]));
+    const setAnywhere = new Set(series.stories.flatMap((st) => [...variablesSet(st)]));
+    for (const message of validateGame(game, chapterStories, setAnywhere, (path) => existsSync(join(series.dir, path)))) {
+      console.log(`✗ ${id} [game] ${message}`);
+      failed = true;
+    }
+    if (game.title?.image) game.title.image = `stories/${id}/${game.title.image}`;
+  }
   for (const assets of ["resources", "scenes"]) {
     if (existsSync(join(series.dir, assets))) {
       cpSync(join(series.dir, assets), join(outDir, assets), {
@@ -95,6 +108,7 @@ for (const id of seriesIds()) {
     title: series.manifest.title,
     carry: series.manifest.carry ?? null,
     about: series.manifest.about ?? [],
+    game,
     chapters,
   });
   console.log(`✓ ${id}: ${chapters.length} chapters`);
