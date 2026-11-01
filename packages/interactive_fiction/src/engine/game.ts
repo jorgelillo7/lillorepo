@@ -6,6 +6,7 @@
  */
 
 import type { Story } from "./source.ts";
+import { quotes } from "./text.ts";
 import { toText, type Value } from "./values.ts";
 
 /** Sounds the reader synthesizes; no audio files, so no licences to track. */
@@ -92,12 +93,6 @@ export function documentFor(config: GameConfig, chapter: string, passage: string
   return config.documents?.find((d) => d.chapter === chapter && d.passage === passage);
 }
 
-const squash = (s: string) =>
-  s
-    .replace(/\/\/|''/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
 /**
  * Problems in a game config, against the series' chapters. `variablesSet` is
  * every story variable some chapter assigns, so a HUD bound to a misspelt
@@ -132,7 +127,7 @@ export function validateGame(
     for (const [name, item] of Object.entries(config.inventory.items ?? {})) {
       const p = passage(item.quote);
       if (!p) errors.push(`inventory item "${name}": passage "${item.quote.passage}" not found.`);
-      else if (!squash(p.text).includes(squash(item.quote.text))) {
+      else if (!quotes(p.text, item.quote.text)) {
         errors.push(`inventory item "${name}": the quote is no longer in "${item.quote.passage}".`);
       }
     }

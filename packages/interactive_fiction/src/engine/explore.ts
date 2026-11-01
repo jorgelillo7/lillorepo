@@ -1,5 +1,6 @@
 /** Plays every path through a chapter and reports what a reader can and cannot reach. */
 
+import type { Carry } from "../contract.ts";
 import { Runtime, type Action, type Vars } from "./runtime.ts";
 import type { Story } from "./source.ts";
 import { toText } from "./values.ts";
@@ -149,4 +150,24 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
     endPaths,
     errors,
   };
+}
+
+/** A code no chapter produces: how a chapter treats a wrong code is the baseline for an accepted one. */
+export const WRONG_CODE = "NO-ES-UN-CODIGO";
+
+/**
+ * Explore a series' chapters in order. A chapter that asks for the previous
+ * one's end code is tried with every code that chapter can produce, plus a
+ * wrong one.
+ */
+export function exploreSeries(stories: Story[], carry: Carry | undefined): ExploreReport[] {
+  const reports: ExploreReport[] = [];
+  let previous: string[] = [];
+  for (const story of stories) {
+    const inputs = carry && previous.length ? { [carry.to]: [...previous, WRONG_CODE] } : {};
+    const report = explore(story, { endVar: carry?.from, inputs });
+    reports.push(report);
+    previous = Object.keys(report.endCodes);
+  }
+  return reports;
 }

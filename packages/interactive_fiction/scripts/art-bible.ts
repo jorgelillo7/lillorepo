@@ -6,6 +6,7 @@
  */
 
 import type { Story } from "../src/engine/source.ts";
+import { quotes } from "../src/engine/text.ts";
 
 /** A sentence from the story that a description is based on. */
 export interface Quote {
@@ -46,12 +47,6 @@ export interface ArtBible {
   locations: Record<string, Entry>;
   images: Record<string, ImageEntry>;
 }
-
-const squash = (s: string) =>
-  s
-    .replace(/\/\/|''/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 
 /** The prompt for one image, from the style, its place, its characters and its shot. */
 export function composePrompt(bible: ArtBible, id: string): string {
@@ -100,7 +95,7 @@ export function validateBible(
         const passage = chapters[q.chapter]?.passages.find((p) => p.name === q.passage);
         if (!passage) {
           errors.push(`${kind} "${id}": passage "${q.passage}" not found in chapter ${q.chapter}.`);
-        } else if (!squash(passage.text).includes(squash(q.text))) {
+        } else if (!quotes(passage.text, q.text)) {
           errors.push(`${kind} "${id}": the quote from "${q.passage}" is no longer in the text — review the description.`);
         }
       }

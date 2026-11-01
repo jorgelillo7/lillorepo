@@ -6,10 +6,8 @@
  *   node scripts/explore.ts [series]
  */
 
-import { explore, type ExploreReport } from "../src/engine/explore.ts";
+import { explore, exploreSeries, WRONG_CODE } from "../src/engine/explore.ts";
 import { loadSeries, seriesIds } from "./series.ts";
-
-const WRONG_CODE = "NO-ES-UN-CODIGO";
 
 function section(title: string, lines: string[]): void {
   if (lines.length) console.log(`  ${title}:\n${lines.map((l) => `    - ${l}`).join("\n")}`);
@@ -19,11 +17,11 @@ for (const id of process.argv[2] ? [process.argv[2]] : seriesIds()) {
   const series = loadSeries(id);
   const carry = series.manifest.carry;
   console.log(`\n# ${series.manifest.title}`);
-  let previous: string[] = [];
+  const reports = exploreSeries(series.stories, carry);
   series.manifest.chapters.forEach((entry, i) => {
     const story = series.stories[i];
-    const inputs = carry && previous.length ? { [carry.to]: [...previous, WRONG_CODE] } : {};
-    const report: ExploreReport = explore(story, { endVar: carry?.from, inputs });
+    const report = reports[i];
+    const previous = i > 0 ? Object.keys(reports[i - 1].endCodes) : [];
     console.log(`\n## ${entry.id} · ${story.title}${entry.draft ? " (draft)" : ""}`);
     console.log(`  ${report.states} states explored${report.truncated ? " — TRUNCATED, results incomplete" : ""}`);
     section("Unreachable passages", report.unreached);
@@ -54,6 +52,5 @@ for (const id of process.argv[2] ? [process.argv[2]] : seriesIds()) {
       );
       if (!rejected.length) console.log(`  Every code from chapter ${series.manifest.chapters[i - 1].id} is accepted.`);
     }
-    previous = Object.keys(report.endCodes);
   });
 }

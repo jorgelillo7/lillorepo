@@ -1,7 +1,7 @@
 /**
  * Validates every series under stories/ and writes what the reader loads to
- * public/stories/. Exits non-zero on any validation error, so a chapter the
- * reader cannot run never reaches a build.
+ * public/stories/ (the shapes in src/contract.ts). Exits non-zero on any
+ * validation error, so a chapter the reader cannot run never reaches a build.
  *
  * Chapters marked `draft` are left out unless STORIES_DRAFTS=1: a draft the
  * author has not published must not reach a public upload by accident.
@@ -10,17 +10,30 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type SeriesEntry } from "../src/contract.ts";
-import { discoveriesOf, type ChapterDiscoveries } from "../src/engine/discoveries.ts";
-import { explore } from "../src/engine/explore.ts";
+import { discoveriesOf } from "../src/engine/discoveries.ts";
+import { exploreSeries } from "../src/engine/explore.ts";
 import { validateGame, type GameConfig } from "../src/engine/game.ts";
 import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
-import { validateBible, type ArtBible } from "./art-bible.ts";
-import { validate, variablesSet } from "../src/engine/validate.ts";
 import type { Story } from "../src/engine/source.ts";
-import { loadSeries, seriesIds } from "./series.ts";
+import { validate, variablesSet } from "../src/engine/validate.ts";
+import { validateBible, type ArtBible } from "./art-bible.ts";
+import { loadSeries, seriesIds, type Series } from "./series.ts";
 
 const OUT = new URL("../public/stories/", import.meta.url).pathname;
 const WITH_DRAFTS = process.env.STORIES_DRAFTS === "1";
+/** Only media is published from a series folder; prompts, scripts and notes beside the art stay local. */
+const MEDIA = /\.(png|jpe?g|webp|avif|gif|svg|mp3|ogg|webm|m4a)$/i;
+
+let failed = false;
+
+function report(where: string, messages: string[]): void {
+  for (const m of messages) console.log(`✗ ${where} ${m}`);
+  if (messages.length) failed = true;
+}
+
+function readJson<T>(path: string): T {
+  return JSON.parse(readFileSync(path, "utf8")) as T;
+}
 
 /** Relative asset paths in passages and CSS point into the series folder once served. */
 function rebase(text: string, prefix: string): string {
@@ -37,97 +50,105 @@ function rebaseStory(story: Story, prefix: string): Story {
   };
 }
 
-rmSync(OUT, { recursive: true, force: true });
-mkdirSync(OUT, { recursive: true });
-const library: SeriesEntry[] = [];
-let failed = false;
+/** Every chapter's scene file, parsed once; null for chapters without one. */
+function loadScenes(series: Series): (SceneFile | null)[] {
+  return series.manifest.chapters.map((c) => (c.scenes ? readJson<SceneFile>(join(series.dir, c.scenes)) : null));
+}
 
-for (const id of seriesIds()) {
+function checkChapter(series: Series, i: number, scenes: SceneFile | null): void {
+  const entry = series.manifest.chapters[i];
+  const story = series.stories[i];
+  const where = `${series.id}/${entry.id}`;
+  const issues = validate(story);
+  for (const issue of issues.filter((x) => x.level === "warning")) {
+    console.log(`· ${where}${issue.passage ? ` [${issue.passage}]` : ""} ${issue.message}`);
+  }
+  report(
+    where,
+    issues.filter((x) => x.level === "error").map((x) => `${x.passage ? `[${x.passage}] ` : ""}${x.message}`),
+  );
+  if (scenes) {
+    report(`${where} [scenes]`, validateScenes(story, scenes, (path) => existsSync(join(series.dir, path))));
+  }
+}
+
+function checkBible(series: Series, scenes: (SceneFile | null)[], chapters: Record<string, Story>): void {
+  const path = join(series.dir, "art-bible.json");
+  if (!existsSync(path)) return;
+  const images = scenes.flatMap((f) => (f ? Object.values(f.scenes).map((s) => s.image) : []));
+  const exists = (p: string) => existsSync(join(series.dir, p));
+  report(`${series.id} [art bible]`, validateBible(readJson<ArtBible>(path), chapters, images, exists));
+}
+
+function loadGame(series: Series, chapters: Record<string, Story>): GameConfig {
+  const path = join(series.dir, "game.json");
+  if (!existsSync(path)) return {};
+  const game = readJson<GameConfig>(path);
+  const setAnywhere = new Set(series.stories.flatMap((st) => [...variablesSet(st)]));
+  report(`${series.id} [game]`, validateGame(game, chapters, setAnywhere, (p) => existsSync(join(series.dir, p))));
+  return game;
+}
+
+function copyMedia(series: Series, outDir: string): void {
+  for (const folder of ["resources", "scenes"]) {
+    if (!existsSync(join(series.dir, folder))) continue;
+    cpSync(join(series.dir, folder), join(outDir, folder), {
+      recursive: true,
+      filter: (src) => !/\.[^/]+$/.test(src) || MEDIA.test(src),
+    });
+  }
+}
+
+function buildSeries(id: string): SeriesEntry {
   const series = loadSeries(id);
+  const served = `stories/${id}/`;
   const outDir = join(OUT, id);
   mkdirSync(outDir, { recursive: true });
-  // What each chapter holds to discover. Explored in order, every chapter (drafts
-  // too), so a chapter that asks for the previous one's code is tried with them all.
-  const discoveries: ChapterDiscoveries[] = [];
-  let previousCodes: string[] = [];
-  for (const [i, story] of series.stories.entries()) {
-    const carry = series.manifest.carry;
-    const inputs = carry && previousCodes.length ? { [carry.to]: [...previousCodes, "NO-ES-UN-CODIGO"] } : {};
-    const report = explore(story, { endVar: carry?.from, inputs });
-    discoveries[i] = discoveriesOf(report);
-    previousCodes = Object.keys(report.endCodes);
-  }
-  const chapters = series.manifest.chapters.flatMap((entry, i): ChapterSummary[] => {
-    const story = series.stories[i];
+  const chapters = Object.fromEntries(series.manifest.chapters.map((c, i) => [c.id, series.stories[i]]));
+  const scenes = loadScenes(series);
+  // Every chapter is explored, drafts too: a chapter that asks for the previous
+  // one's code must be tried with every code that one can produce.
+  const reports = exploreSeries(series.stories, series.manifest.carry);
+
+  const published: ChapterSummary[] = [];
+  series.manifest.chapters.forEach((entry, i) => {
     if (entry.draft && !WITH_DRAFTS) {
       console.log(`· ${id}/${entry.id} is a draft — left out (STORIES_DRAFTS=1 to include it)`);
-      return [];
+      return;
     }
-    const issues = validate(story);
-    for (const issue of issues) {
-      const where = issue.passage ? ` [${issue.passage}]` : "";
-      console.log(`${issue.level === "error" ? "✗" : "·"} ${id}/${entry.id}${where} ${issue.message}`);
-    }
-    if (issues.some((x) => x.level === "error")) failed = true;
-    let scenes: SceneFile | undefined;
-    if (entry.scenes) {
-      scenes = JSON.parse(readFileSync(join(series.dir, entry.scenes), "utf8")) as SceneFile;
-      for (const message of validateScenes(story, scenes, (path) => existsSync(join(series.dir, path)))) {
-        console.log(`✗ ${id}/${entry.id} [scenes] ${message}`);
-        failed = true;
-      }
-      for (const scene of Object.values(scenes.scenes)) scene.image = `stories/${id}/${scene.image}`;
-    }
-    const out: ChapterData = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null, discoveries: discoveries[i] };
-    writeFileSync(join(OUT, chapterFile(id, entry.id)), JSON.stringify(out));
-    return [{ id: entry.id, title: story.title, draft: Boolean(entry.draft) }];
+    checkChapter(series, i, scenes[i]);
+    const own = scenes[i];
+    const sceneFile: SceneFile | null = own && {
+      ...own,
+      scenes: Object.fromEntries(Object.entries(own.scenes).map(([k, s]) => [k, { ...s, image: served + s.image }])),
+    };
+    const data: ChapterData = {
+      ...rebaseStory(series.stories[i], served),
+      scenes: sceneFile,
+      discoveries: discoveriesOf(reports[i]),
+    };
+    writeFileSync(join(OUT, chapterFile(id, entry.id)), JSON.stringify(data));
+    published.push({ id: entry.id, title: series.stories[i].title, draft: Boolean(entry.draft) });
   });
-  const biblePath = join(series.dir, "art-bible.json");
-  if (existsSync(biblePath)) {
-    const bible = JSON.parse(readFileSync(biblePath, "utf8")) as ArtBible;
-    const chapterStories = Object.fromEntries(series.manifest.chapters.map((c, i) => [c.id, series.stories[i]]));
-    const sceneImages = series.manifest.chapters.flatMap((c) =>
-      c.scenes
-        ? Object.values((JSON.parse(readFileSync(join(series.dir, c.scenes), "utf8")) as SceneFile).scenes).map((x) => x.image)
-        : [],
-    );
-    for (const message of validateBible(bible, chapterStories, sceneImages, (path) => existsSync(join(series.dir, path)))) {
-      console.log(`✗ ${id} [art bible] ${message}`);
-      failed = true;
-    }
-  }
-  let game: GameConfig = {};
-  const gamePath = join(series.dir, "game.json");
-  if (existsSync(gamePath)) {
-    game = JSON.parse(readFileSync(gamePath, "utf8")) as GameConfig;
-    const chapterStories = Object.fromEntries(series.manifest.chapters.map((c, i) => [c.id, series.stories[i]]));
-    const setAnywhere = new Set(series.stories.flatMap((st) => [...variablesSet(st)]));
-    for (const message of validateGame(game, chapterStories, setAnywhere, (path) => existsSync(join(series.dir, path)))) {
-      console.log(`✗ ${id} [game] ${message}`);
-      failed = true;
-    }
-    if (game.title?.image) game.title.image = `stories/${id}/${game.title.image}`;
-  }
-  for (const assets of ["resources", "scenes"]) {
-    if (existsSync(join(series.dir, assets))) {
-      cpSync(join(series.dir, assets), join(outDir, assets), {
-        recursive: true,
-        // Only media is published; scripts and notes kept next to the art stay local.
-        filter: (src) => !/\.[^/]+$/.test(src) || /\.(png|jpe?g|webp|avif|gif|svg|mp3|ogg|webm|m4a)$/i.test(src),
-      });
-    }
-  }
-  library.push({
+
+  checkBible(series, scenes, chapters);
+  const game = loadGame(series, chapters);
+  if (game.title?.image) game.title.image = served + game.title.image;
+  copyMedia(series, outDir);
+  console.log(`✓ ${id}: ${published.length} chapters`);
+  return {
     id,
     title: series.manifest.title,
     carry: series.manifest.carry ?? null,
     about: series.manifest.about ?? [],
     game,
-    chapters,
-  });
-  console.log(`✓ ${id}: ${chapters.length} chapters`);
+    chapters: published,
+  };
 }
 
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+const library = seriesIds().map(buildSeries);
 writeFileSync(join(OUT, LIBRARY_FILE), JSON.stringify(library, null, 2));
 if (failed) {
   console.error("Validation failed: fix the errors above.");
