@@ -1,0 +1,76 @@
+/* An approximation of Harlowe 3's default look, so a story's own stylesheet lands on familiar ground. */
+html {
+  margin: 0;
+  background: #000;
+  color: #fff;
+}
+body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+}
+tw-story {
+  display: block;
+  box-sizing: border-box;
+  width: 60%;
+  margin: 0 auto;
+  padding: 5% 5%;
+  font: 100% Georgia, serif;
+  font-size: 1.5em;
+  line-height: 1.5em;
+  overflow-wrap: break-word;
+}
+tw-passage {
+  display: block;
+  animation: tw-appear 0.8s ease-in;
+}
+@keyframes tw-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+tw-link {
+  color: #4169e1;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+}
+tw-link:hover,
+tw-link:focus-visible {
+  color: #00bfff;
+  outline: none;
+}
+tw-hook,
+tw-expansion {
+  display: inline;
+}
+tw-passage img {
+  max-width: 100%;
+  height: auto;
+}
+.tw-input {
+  font: inherit;
+  font-size: 0.9em;
+  color: #fff;
+  background: #111;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.2em 0.5em;
+  margin: 0.5em 0;
+  width: min(20em, 100%);
+  text-transform: uppercase;
+}
+@media (max-width: 1000px) {
+  tw-story {
+    width: 80%;
+    font-size: 1.2em;
+  }
+}
+@media (max-width: 600px) {
+  tw-story {
+    width: 100%;
+    padding: 5% 16px;
+    font-size: 1.05em;
+    line-height: 1.55em;
+  }
+}

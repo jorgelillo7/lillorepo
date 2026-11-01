@@ -57,6 +57,19 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
 
+## interactive_fiction
+
+Next session starts here; the story-specific detail is in the local plan (`.claude/plans/interactive-fiction.md`, gitignored).
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 2 rooms, his concept art (`Concept Art/Personajes/` in his repo) attached for each character; the chapter 1 keychain fixes are optional (author: fine for a beta) | You · `packages/interactive_fiction/.claude/skills/scene-art` |
+| 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
+| ⏳ | Back up our own series files (scene files, art bible, `game.json`, generated art) — his chapters are in his repo now; a private bucket (Terraform, ask before apply) or a folder in his repo, where we have write access | Your call |
+| 👤 | Make the author CODEOWNER of `packages/interactive_fiction/` (GitHub `AlbertoMercado`): `CODEOWNERS` only counts a user with write access, so it means inviting him as a collaborator — review not made mandatory | You · the invite |
+| 🔨 | Publish on itch.io too (free, the genre's community, devlogs per chapter) — last, after the author's review | The author's OK |
+| 🔨 | Merge PR #654 — the site is already live (`npm run deploy` by hand); merging deploys nothing | Your review |
+
 ## be_water
 
 | | What is missing | Waiting on |

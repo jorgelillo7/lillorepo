@@ -1,0 +1,66 @@
+/* The condition shown on the page: worse is greyer, darker, unsteady. Nothing flashes. */
+.reader[data-condition="caution"] .stage img,
+.reader[data-condition="caution"] tw-story {
+  filter: saturate(0.75);
+}
+.reader[data-condition="danger"] .stage img,
+.reader[data-condition="danger"] tw-story {
+  filter: saturate(0.45) contrast(1.1);
+  animation: uneasy 9s ease-in-out infinite;
+}
+.reader[data-condition="critical"] .stage img,
+.reader[data-condition="critical"] tw-story {
+  filter: saturate(0.2) contrast(1.25) sepia(0.25) hue-rotate(-20deg);
+  animation: panic 5s ease-in-out infinite;
+}
+.reader[data-condition="danger"] .stage::after,
+.reader[data-condition="critical"] .stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(60, 0, 0, 0.55) 100%);
+}
+/* A darkening red edge round the whole screen, in text mode as in game mode. */
+.reader[data-condition="caution"]::before,
+.reader[data-condition="danger"]::before,
+.reader[data-condition="critical"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+.reader[data-condition="caution"]::before {
+  background: radial-gradient(ellipse at center, transparent 65%, rgba(40, 0, 0, 0.35) 100%);
+}
+.reader[data-condition="danger"]::before {
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(70, 0, 0, 0.55) 100%);
+}
+.reader[data-condition="critical"]::before {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(90, 0, 0, 0.7) 100%);
+  animation: vignette-breathe 3.2s ease-in-out infinite;
+}
+@keyframes vignette-breathe {
+  50% { opacity: 0.75; }
+}
+.reader[data-condition="critical"] tw-story {
+  text-shadow: 0 0 1px rgba(255, 60, 60, 0.35);
+}
+@keyframes uneasy {
+  0%, 100% { transform: none; }
+  50% { transform: scale(1.006); }
+}
+@keyframes panic {
+  0%, 100% { transform: none; }
+  20% { transform: translate(1px, 0); }
+  40% { transform: translate(-1px, 1px); }
+  60% { transform: translate(0, -1px) scale(1.008); }
+  80% { transform: translate(1px, 1px); }
+}
+:root[data-effects="off"] .reader [class],
+:root[data-effects="off"] tw-story {
+  animation-play-state: paused;
+}
+

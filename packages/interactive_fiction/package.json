@@ -1,0 +1,29 @@
+{
+  "name": "interactive-fiction",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "STORIES_DRAFTS=1 npm run stories && vite",
+    "build": "npm run stories && tsc --noEmit && vite build",
+    "build:drafts": "STORIES_DRAFTS=1 npm run build",
+    "preview": "vite preview",
+    "deploy": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler deploy",
+    "deploy:login": "npm --prefix deploy ci --no-audit --no-fund && deploy/node_modules/.bin/wrangler login",
+    "stories": "node scripts/build-stories.ts",
+    "explore": "node scripts/explore.ts",
+    "prompts": "node scripts/prompts.ts",
+    "play": "npm run build:drafts && node scripts/play.ts; status=$?; npm run build > /dev/null; exit $status",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "happy-dom": "21.0.4",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}

@@ -30,6 +30,7 @@ working inside that package.
 |---|---|---|
 | Repo-wide | `.claude/skills/` | this file |
 | `biwenger_tools` | [`packages/biwenger_tools/.claude/`](../packages/biwenger_tools/.claude/CLAUDE.md) | its own `CLAUDE.md` |
+| `interactive_fiction` | [`packages/interactive_fiction/.claude/`](../packages/interactive_fiction/.claude/CLAUDE.md) | its own `CLAUDE.md` |
 
 Each `.claude/` indexes only its own skills. Adding a package-scoped skill
 means creating that package's `.claude/CLAUDE.md` if it has none yet — an

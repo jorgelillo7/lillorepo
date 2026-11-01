@@ -1,0 +1,40 @@
+/* Settings. */
+.settings-sheet .setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.8rem 0;
+}
+.settings-sheet input[type="range"] {
+  flex: 1;
+  min-width: 10rem;
+  accent-color: #e9e2c9;
+}
+.chip {
+  font: 0.85rem "Times New Roman", Georgia, serif;
+  color: #cfc8b2;
+  background: #141812;
+  border: 1px solid #39412f;
+  border-radius: 3px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+.chip.on {
+  color: #000;
+  background: #e9e2c9;
+  border-color: #e9e2c9;
+}
+.settings-note {
+  font-size: 0.8rem;
+  color: #8f8a7a;
+}
+
+/* Text size, over the story's own sizes. */
+:root[data-text-size="s"] .reader tw-story tw-passage {
+  font-size: 0.88em !important;
+}
+:root[data-text-size="l"] .reader tw-story tw-passage {
+  font-size: 1.18em !important;
+}
+

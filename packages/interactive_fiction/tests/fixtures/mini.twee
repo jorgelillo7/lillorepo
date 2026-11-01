@@ -1,0 +1,55 @@
+:: StoryTitle
+Mini
+
+
+:: StoryData
+{
+  "ifid": "00000000-0000-4000-8000-000000000000",
+  "format": "Harlowe",
+  "format-version": "3.3.9",
+  "start": "Start"
+}
+
+
+:: Setup [startup]
+{(set:$keys to 0)
+(set:$bag to (a:))
+(set:$code to "")
+(set:$name to "")}
+
+
+:: HUD [header]
+{(if:$keys > 0)[<div id="hud">Keys: $keys</div>]}
+
+
+:: Start [scene]
+Hello //reader//.
+{(set:$routes to (a:'[[Take a key|Key]]'))
+(if:$keys is 0)[(set:$routes to it + (a:'[[Leave|Door]]'))]}
+(for:each _r, ...$routes) [(print:_r) <br>]
+
+
+:: Key
+(set:$keys to 1)(set:$bag to (a:"Key", "Map"))
+(link:"Pick it up")[(set:$code to "KEY")(goto:"Door")]
+(link:"Look around")[[[Back|Start]]]
+
+
+:: Door
+(cond:$keys > 0, [''Open''], true, [Locked])
+(text-colour:navy)[Guard:] (text-colour:#cece3b)[Halt.]
+(set:$bag to (find: _i where _i is not "Map", ...$bag))
+(if:"Key" is in $bag)[(display:"Ending")](else-if:$keys is 0)[(set:$code to "LOST")(display:"Ending")](else:)[never]
+
+
+:: Ending
+<h3>$code</h3>
+(input: bind $name)(uppercase:"done")
+
+
+:: Orphan
+Nobody links here.
+
+
+:: Style [stylesheet]
+tw-passage[tags~="scene"] { color: red; }

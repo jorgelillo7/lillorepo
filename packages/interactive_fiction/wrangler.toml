@@ -1,0 +1,6 @@
+# Cloudflare Workers static-assets project for the reader. `npm run deploy` uploads dist/ here.
+name = "historias"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "./dist"

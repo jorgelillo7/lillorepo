@@ -1,0 +1,202 @@
+/* Point-and-click mode: the scene beside the text on wide screens, above it on phones. */
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+  align-items: start;
+}
+.stage-wrap {
+  position: sticky;
+  top: 41px;
+  display: flex;
+  justify-content: center;
+  background: #000;
+}
+.stage {
+  position: relative;
+  width: min(100%, calc((100vh - 41px) * var(--ar)));
+  aspect-ratio: var(--ar);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stage img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: stage-flicker 7s infinite;
+}
+@keyframes stage-flicker {
+  0%, 92%, 100% { filter: brightness(1); }
+  93% { filter: brightness(0.6); }
+  94% { filter: brightness(1.05); }
+  96% { filter: brightness(0.75); }
+}
+.hotspot {
+  position: absolute;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.hotspot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5);
+  animation: hotspot-pulse 2.2s infinite;
+}
+.hotspot.visited::after {
+  background: rgba(255, 255, 255, 0.3);
+  animation: none;
+}
+@keyframes hotspot-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.45); }
+  70% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+.hotspot:hover,
+.hotspot:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.35);
+  outline: none;
+}
+.hotspot-label {
+  position: absolute;
+  left: 50%;
+  bottom: calc(50% + 14px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font: 0.8rem Georgia, serif;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.hotspot:hover .hotspot-label,
+.hotspot:focus-visible .hotspot-label {
+  opacity: 1;
+}
+@media (hover: none) {
+  .hotspot-label {
+    opacity: 0.85;
+    font-size: 0.7rem;
+  }
+}
+.panel {
+  min-width: 0;
+  border-left: 1px solid var(--line);
+}
+/* The story's stylesheet sizes tw-story for a whole page; inside the panel it fits the column. */
+.reader.game .panel tw-story,
+.reader.game .panel tw-story tw-passage {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+.reader.game .panel tw-story {
+  padding: 1.5rem 1.5rem 2rem !important;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+.reader.game .panel tw-story tw-passage {
+  padding: 0 !important;
+}
+.game .panel tw-link {
+  display: inline-block;
+  margin: 0.3rem 0;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid rgba(65, 105, 225, 0.6);
+  border-radius: 4px;
+}
+@media (max-width: 900px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+  .stage-wrap {
+    top: 41px;
+    z-index: 5;
+  }
+  .stage {
+    width: 100%;
+  }
+  .panel {
+    border-left: 0;
+  }
+}
+
+/* Survival-horror touches: the door between rooms, and labels in the period's type. */
+.door-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: #000;
+  perspective: 900px;
+  animation: door-fade 1.5s ease-in forwards;
+  cursor: pointer;
+}
+.door-frame {
+  width: min(28vw, 220px);
+  aspect-ratio: 1 / 2;
+  border: 10px solid #1d1a17;
+  background: radial-gradient(ellipse at center, #8a7a5a 0%, #2a2218 55%, #000 100%);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.9) inset;
+  animation: door-approach 1.5s ease-in forwards;
+}
+.door-leaf {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #3b3a36, #55534c 50%, #3a3934);
+  box-shadow: inset 0 0 0 6px #2c2b27, inset 0 0 0 12px #4a4843;
+  transform-origin: left center;
+  animation: door-open 1.5s cubic-bezier(0.5, 0, 0.3, 1) forwards;
+}
+.door-knob {
+  position: absolute;
+  right: 12%;
+  top: 52%;
+  width: 10%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #8c6a3e;
+}
+@keyframes door-open {
+  0%, 25% { transform: rotateY(0deg); }
+  80%, 100% { transform: rotateY(-100deg); }
+}
+@keyframes door-approach {
+  0%, 30% { transform: scale(1); }
+  100% { transform: scale(4.5); }
+}
+@keyframes door-fade {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.hotspot-label {
+  font-family: "Times New Roman", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: #e9e2c9;
+  background: rgba(10, 8, 6, 0.85);
+  border-color: rgba(233, 226, 201, 0.25);
+}

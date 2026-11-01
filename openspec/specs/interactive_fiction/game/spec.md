@@ -1,0 +1,136 @@
+# Capability: game
+
+The game layer a series adds over its chapters without touching the story:
+sound, documents, the condition and inventory read from the story's own
+variables, text pacing, settings, the title screen, and what a reader has
+discovered. Its configuration lives in the series folder (`game.json`, out of
+git) and is validated at build like the scenes.
+
+- **Source:** `packages/interactive_fiction/src/engine/game.ts`,
+  `packages/interactive_fiction/src/app/` (`audio`, `settings`, `reader`)
+- **Verified by:** `packages/interactive_fiction/tests/game.test.ts`
+
+---
+
+### Requirement: The game config is checked against the story at build
+
+The build SHALL fail when the config names a passage that does not exist, a
+condition or inventory variable no chapter sets, an ambience the reader cannot
+play, a title image that is missing, or an item description whose quote is no
+longer in the text. Descriptions shown to the reader SHALL be sentences quoted
+from the story, never invented prose.
+
+#### Scenario: a broken config
+- **WHEN** any of those is wrong
+- **THEN** the build reports each one
+- *Verifies:* `game.test.ts: missing passages, unset variables, unknown sounds, changed quotes and missing art are errors`,
+  `game.test.ts: a consistent config passes`
+
+### Requirement: Sound is synthesized, follows the room, and waits for the reader
+
+Ambience SHALL come from the scene's room, else the passage's tags, else the
+series default, and SHALL crossfade when it changes. Doors, steps, scare
+stings and a heartbeat are synthesized with the Web Audio API — no audio files.
+Nothing SHALL sound before the reader's first tap or key (browsers forbid it);
+a sting SHALL play only on arriving at a passage the config names, never on
+undo or resume; the toolbar mutes, and the choice is remembered; audio is
+suspended while the page is hidden.
+
+#### Scenario: picking the ambience and the stings
+- **WHEN** a passage is shown
+- **THEN** its ambience is the room's, the tags', or the default, and a sting fires only where configured
+- *Verifies:* `game.test.ts: ambience comes from the room, then the passage's tags, then the default`,
+  `game.test.ts: stings and documents fire only on the passages configured for them`
+
+### Requirement: Condition and inventory are the author's own
+
+The condition SHALL be read from the story variable the config names and
+shown with the author's own word for each value; an unknown value shows none.
+The inventory SHALL be the story's own array of item names, absent in chapters
+that do not track one.
+
+#### Scenario: reading them from the story
+- **WHEN** the variables hold a value
+- **THEN** the condition label and the item list come from them unchanged
+- *Verifies:* `game.test.ts: the condition is the author's own state for the variable's value`,
+  `game.test.ts: the inventory is read from the story's array, and absent when the chapter has none`
+
+### Requirement: Text is read paragraph by paragraph, and nothing is ever hidden for good
+
+On arrival at a passage its text SHALL appear one paragraph at a time: split
+at line breaks among the passage's top-level nodes, short lines joined to the
+next (about 300 characters at least), and never inside an element, so the
+author's own HTML appears whole. A tap on the text, Space or Enter shows the
+next paragraph; "Mostrar todo" shows the rest. Hotspots and the end panel
+SHALL wait until the text is read. A passage reached by undo or resume, or any
+passage when the reader chose "all at once", SHALL appear whole. Every node is
+moved, in order, never dropped: the revealed text was checked word for word
+against the engine's output, which matches Harlowe's.
+
+#### Scenario: splitting without losing anything
+- **WHEN** a passage is split into paragraphs
+- **THEN** its text and markup are unchanged once revealed, and an element is never cut
+- *Verifies:* `pacing.test.ts: paragraphs split at line breaks, short lines are joined, and nothing is lost, in order`,
+  `pacing.test.ts: an element is never split, even with blank lines inside it`
+
+#### Scenario: reading
+- **WHEN** the reader advances
+- **THEN** one paragraph appears at a time, and the passage is done exactly once at the end; an instant reveal is done at once
+- *Verifies:* `pacing.test.ts: reading reveals one paragraph at a time and calls back once at the end`,
+  `pacing.test.ts: an instant reveal, or a single paragraph, is done straight away`
+
+### Requirement: Status, documents and the condition on screen
+
+When a chapter tracks the configured condition or inventory, the toolbar
+SHALL show a heartbeat line coloured by the condition's level and the author's
+word for it; it opens a status screen with the inventory, where examining an
+item shows its quoted sentence (or only its name). The author's own HUD SHALL
+be hidden only when the config names its selector. A passage the config lists
+as a document SHALL be read on its own sheet over the page, its page links
+still working. As the condition worsens the page greys, darkens at the edges
+and, at the worst levels, sways slightly with a heartbeat; nothing flashes,
+and all of it stops under reduced motion or the effects setting.
+
+#### Scenario: which passages are documents
+- **WHEN** a passage is shown
+- **THEN** it is a document only if the config lists it for that chapter
+- *Verifies:* `game.test.ts: stings and documents fire only on the passages configured for them`
+
+### Requirement: A title screen and the reader's settings
+
+A site with a single series SHALL open on its title screen: the key art (an
+image registered in the art bible), the series title, an optional content
+warning, and Continuar (the chapter read last), Empezar / Nueva partida (which
+asks for a second tap before wiping chapter 1's progress, since embedded
+viewers block browser dialogs), Capítulos, Ajustes and Acerca de. Settings —
+volume, sound on or off, pacing, text size, effects, images or text only —
+SHALL apply at once, be kept in one guarded browser key, and be reachable from
+the title screen and from the reader's toolbar.
+
+### Requirement: What there is to discover, and what the reader found, without spoilers
+
+The build SHALL explore every chapter (drafts too, in order, each tried with
+the previous chapter's codes) and embed what it holds: its end codes, or its
+ending passages when it has no code, and how many passages a reader can land
+on. The reader SHALL accumulate, apart from progress so undo and restart never
+lose them, every ending and passage reached. At a chapter's end "Tu camino"
+shows the ending, how many endings there are with the unfound ones as "???",
+the choices made (kept with each undo step, so undo forgets them), and how
+much was seen. A page of endings and achievements covers the series; the
+achievements are generic, derived from what the engine knows: a chapter
+finished, every ending found, every passage seen, every chapter finished.
+
+#### Scenario: what a chapter holds
+- **WHEN** a chapter is explored at build
+- **THEN** its endings are its codes, or its ending passages, and its passage count is the passages a reader lands on
+- *Verifies:* `discoveries.test.ts: a chapter's endings are its end codes, or its ending passages when it has none`
+
+#### Scenario: no spoilers
+- **WHEN** the reader has found some endings
+- **THEN** the others are shown as unknown, and the counts are of what was seen
+- *Verifies:* `discoveries.test.ts: the summary hides the endings not found yet and counts what was seen`
+
+#### Scenario: achievements
+- **WHEN** chapters are finished, endings found and passages seen
+- **THEN** the matching achievements are earned and the rest stay locked
+- *Verifies:* `discoveries.test.ts: achievements come from finishing, finding every ending and seeing every passage`

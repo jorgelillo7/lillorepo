@@ -1,0 +1,70 @@
+/* Title screen. */
+.title-screen {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: end center;
+  background-color: #000;
+  background-position: center 30%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  color: #e9e2c9;
+  overflow: hidden;
+}
+.title-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.55) 45%, #000 92%);
+}
+.title-content {
+  position: relative;
+  width: min(30rem, 100%);
+  padding: 0 16px 3rem;
+  text-align: center;
+}
+.title-name {
+  font: 700 clamp(2.6rem, 11vw, 4.6rem) "Times New Roman", Georgia, serif;
+  letter-spacing: 0.18em;
+  margin: 0 0 0.5rem;
+  text-shadow: 0 0 24px rgba(0, 0, 0, 0.9);
+}
+.title-tagline {
+  color: #b9b3a0;
+  font-style: italic;
+  margin: 0 0 1.5rem;
+}
+.title-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 1.5rem 0;
+}
+.title-button {
+  display: block;
+  padding: 0.65rem;
+  font: 1.05rem "Times New Roman", Georgia, serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #cfc8b2;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.title-button:hover,
+.title-button:focus-visible {
+  color: #fff;
+  outline: none;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+.title-button.primary {
+  color: #fff;
+  font-size: 1.2rem;
+}
+.title-warning {
+  font-size: 0.8rem;
+  color: #8f8a7a;
+  line-height: 1.5;
+}
+
