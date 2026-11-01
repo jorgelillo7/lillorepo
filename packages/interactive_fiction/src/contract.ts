@@ -14,6 +14,14 @@ export interface Carry {
   to: string;
 }
 
+/** Someone credited on the series' "about" page, with links to their profiles. */
+export interface Credit {
+  name: string;
+  role: string;
+  /** Link text → https URL, e.g. `{ "GitHub": "https://github.com/…" }`. */
+  links: Record<string, string>;
+}
+
 export interface ChapterSummary {
   id: string;
   title: string;
@@ -26,6 +34,7 @@ export interface SeriesEntry {
   title: string;
   carry: Carry | null;
   about: string[];
+  credits: Credit[];
   game: GameConfig;
   chapters: ChapterSummary[];
 }

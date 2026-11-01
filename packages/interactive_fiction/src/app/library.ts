@@ -1,6 +1,6 @@
 /** What the build publishes about the series, and the screens that list it. */
 
-import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type SeriesEntry } from "../contract.ts";
+import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type Credit, type SeriesEntry } from "../contract.ts";
 import { app, el, esc, fetchJson, setStoryCss, shortTitle } from "./dom.ts";
 import { load, loadCodes } from "./save.ts";
 
@@ -52,12 +52,25 @@ export function renderLibrary(only?: string): void {
         </li>`;
       })
       .join("");
-    const about = series.about.length ? `<a class="about-link" href="#/acerca/${series.id}">Acerca de</a>` : "";
+    const about = series.about.length || series.credits.length ? `<a class="about-link" href="#/acerca/${series.id}">Acerca de</a>` : "";
     return `<section class="series"><h1>${esc(series.title)}</h1><ol class="chapters">${items}</ol>${about}</section>`;
   });
   app.replaceChildren(
     el(`<main class="library">${blocks.join("")}<p class="note">Tu progreso se guarda en este navegador.</p>${back}</main>`),
   );
+}
+
+function creditCards(series: SeriesEntry): string {
+  if (!series.credits.length) return "";
+  const card = (c: Credit) => {
+    const links = Object.entries(c.links)
+      .map(([label, url]) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`)
+      .join(" · ");
+    return `<li class="credit"><span class="credit-name">${esc(c.name)}</span><span class="credit-role">${esc(c.role)}</span>${
+      links ? `<span class="credit-links">${links}</span>` : ""
+    }</li>`;
+  };
+  return `<ul class="credits">${series.credits.map(card).join("")}</ul>`;
 }
 
 export function renderAbout(seriesId: string): void {
@@ -69,7 +82,7 @@ export function renderAbout(seriesId: string): void {
   setStoryCss("");
   const paragraphs = series.about.map((p) => `<p>${esc(p)}</p>`).join("");
   app.replaceChildren(
-    el(`<main class="library about"><h1>${esc(series.title)}</h1><h2>Acerca de</h2>${paragraphs}
+    el(`<main class="library about"><h1>${esc(series.title)}</h1><h2>Acerca de</h2>${creditCards(series)}${paragraphs}
       <a class="button secondary" href="#/">← Volver</a></main>`),
   );
 }

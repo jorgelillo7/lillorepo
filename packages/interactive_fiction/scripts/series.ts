@@ -3,7 +3,7 @@
 import { readFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
-import type { Carry } from "../src/contract.ts";
+import type { Carry, Credit } from "../src/contract.ts";
 import { parseStory, type Story } from "../src/engine/source.ts";
 
 export interface ChapterEntry {
@@ -27,8 +27,10 @@ export interface SeriesManifest {
   sourceRoot?: string;
   chapters: ChapterEntry[];
   carry?: Carry;
-  /** Paragraphs for the "about" page: credits, how the art was made. */
+  /** Paragraphs for the "about" page: how the story and the art were made. */
   about?: string[];
+  /** Who made it, shown on the "about" page and the title screen. */
+  credits?: Credit[];
 }
 
 export interface Series {
@@ -62,4 +64,24 @@ export function loadSeries(id: string): Series {
   if (!existsSync(sourceDir)) throw new Error(`${id}: sourceRoot ${sourceDir} not found — clone the author's repository there.`);
   const stories = manifest.chapters.map((c) => parseStory(readFileSync(join(sourceDir, c.source), "utf8")));
   return { id, dir, sourceDir, manifest, stories };
+}
+
+/** Problems in a series' credits: every entry needs a name and a role, and every link an https URL. */
+export function validateCredits(credits: Credit[]): string[] {
+  const errors: string[] = [];
+  for (const [i, c] of credits.entries()) {
+    const who = c.name?.trim() || `#${i + 1}`;
+    if (!c.name?.trim()) errors.push(`credit ${who}: no name.`);
+    if (!c.role?.trim()) errors.push(`credit ${who}: no role.`);
+    for (const [label, url] of Object.entries(c.links ?? {})) {
+      let ok = false;
+      try {
+        ok = new URL(url).protocol === "https:";
+      } catch {
+        // Not a URL at all.
+      }
+      if (!ok) errors.push(`credit ${who}: link "${label}" is not an https URL.`);
+    }
+  }
+  return errors;
 }

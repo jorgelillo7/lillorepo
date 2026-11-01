@@ -179,6 +179,33 @@ body {
 .about p {
   line-height: 1.7;
 }
+.credits {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 2rem;
+  display: grid;
+  gap: 1rem;
+}
+.credit {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.credit-name {
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.credit-role {
+  color: var(--muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+}
+.credit-links a {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
 .tool.armed {
   color: #ffb3b3;
 }
