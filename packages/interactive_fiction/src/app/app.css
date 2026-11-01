@@ -267,19 +267,19 @@ body {
   border-left: 1px solid var(--line);
 }
 /* The story's stylesheet sizes tw-story for a whole page; inside the panel it fits the column. */
-.game .panel tw-story,
-.game .panel tw-story tw-passage {
+.reader.game .panel tw-story,
+.reader.game .panel tw-story tw-passage {
   width: auto !important;
   max-width: none !important;
   margin: 0 !important;
   box-sizing: border-box;
 }
-.game .panel tw-story {
+.reader.game .panel tw-story {
   padding: 1.5rem 1.5rem 2rem !important;
   font-size: 1.05rem;
   line-height: 1.6;
 }
-.game .panel tw-story tw-passage {
+.reader.game .panel tw-story tw-passage {
   padding: 0 !important;
 }
 .game .panel tw-link {
@@ -434,4 +434,218 @@ tw-seg.seg-in {
   .pace-next {
     animation: none;
   }
+}
+
+/* Status: a heartbeat line in the author's condition colours, and the inventory. */
+.ecg {
+  width: 48px;
+  height: 14px;
+  vertical-align: middle;
+}
+.ecg path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.ecg .ecg-base {
+  opacity: 0.3;
+}
+.ecg .ecg-pulse {
+  stroke-dasharray: 30 70;
+  animation: ecg-run 1.6s linear infinite;
+}
+.ecg-fine path { stroke: #19e619; }
+.ecg-caution path { stroke: #e5e619; animation-duration: 1.2s; }
+.ecg-danger path { stroke: #e68019; animation-duration: 0.9s; }
+.ecg-critical path { stroke: #e61919; animation-duration: 0.6s; }
+.ecg-caution .ecg-pulse { animation-duration: 1.2s; }
+.ecg-danger .ecg-pulse { animation-duration: 0.9s; }
+.ecg-critical .ecg-pulse { animation-duration: 0.6s; }
+@keyframes ecg-run {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+.status-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "Times New Roman", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+.status-overlay,
+.doc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.82);
+  overflow-y: auto;
+}
+.status-sheet {
+  width: min(32rem, 100%);
+  background: #0d0f0c;
+  border: 1px solid #3a4136;
+  box-shadow: 0 0 0 4px #000, 0 0 40px rgba(0, 0, 0, 0.9);
+  padding: 1.5rem;
+  color: #e9e2c9;
+  font-family: "Times New Roman", Georgia, serif;
+}
+.status-condition {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #050605;
+  border: 1px solid #263021;
+}
+.ecg-big {
+  width: 100%;
+  max-width: 260px;
+  height: 64px;
+}
+.status-label {
+  font-size: 1.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.status-fine { color: #19e619; }
+.status-caution { color: #e5e619; }
+.status-danger { color: #e68019; }
+.status-critical { color: #e61919; }
+.status-sheet h3 {
+  margin: 1.2rem 0 0.6rem;
+  font-weight: normal;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: #9aa38f;
+}
+.items {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.item {
+  aspect-ratio: 1;
+  background: #141812;
+  border: 1px solid #39412f;
+  color: #e9e2c9;
+  font: 0.75rem "Times New Roman", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 4px;
+}
+.item.selected,
+.item:focus-visible {
+  border-color: #e9e2c9;
+  outline: none;
+}
+.item-detail {
+  min-height: 3em;
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+.status-empty {
+  color: #9aa38f;
+  font-style: italic;
+}
+
+/* Documents: the page on its own sheet over everything. */
+.doc-reader .toolbar {
+  position: relative;
+  z-index: 41;
+}
+.doc-overlay {
+  top: 41px;
+  align-items: start;
+}
+.doc-sheet {
+  width: min(48rem, 100%);
+}
+.doc-title {
+  font: normal 0.85rem "Times New Roman", Georgia, serif;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #9aa38f;
+  margin: 1rem 0 0;
+}
+/* The story's stylesheet sizes tw-story for a whole page and loads after this one: out-rank it. */
+.reader .doc-sheet tw-story,
+.reader .doc-sheet tw-story tw-passage {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0.5rem !important;
+}
+
+/* The condition shown on the page: worse is greyer, darker, unsteady. Nothing flashes. */
+.reader[data-condition="caution"] .stage img,
+.reader[data-condition="caution"] tw-story {
+  filter: saturate(0.75);
+}
+.reader[data-condition="danger"] .stage img,
+.reader[data-condition="danger"] tw-story {
+  filter: saturate(0.45) contrast(1.1);
+  animation: uneasy 9s ease-in-out infinite;
+}
+.reader[data-condition="critical"] .stage img,
+.reader[data-condition="critical"] tw-story {
+  filter: saturate(0.2) contrast(1.25) sepia(0.25) hue-rotate(-20deg);
+  animation: panic 5s ease-in-out infinite;
+}
+.reader[data-condition="danger"] .stage::after,
+.reader[data-condition="critical"] .stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(60, 0, 0, 0.55) 100%);
+}
+/* A darkening red edge round the whole screen, in text mode as in game mode. */
+.reader[data-condition="caution"]::before,
+.reader[data-condition="danger"]::before,
+.reader[data-condition="critical"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+.reader[data-condition="caution"]::before {
+  background: radial-gradient(ellipse at center, transparent 65%, rgba(40, 0, 0, 0.35) 100%);
+}
+.reader[data-condition="danger"]::before {
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(70, 0, 0, 0.55) 100%);
+}
+.reader[data-condition="critical"]::before {
+  background: radial-gradient(ellipse at center, transparent 35%, rgba(90, 0, 0, 0.7) 100%);
+  animation: vignette-breathe 3.2s ease-in-out infinite;
+}
+@keyframes vignette-breathe {
+  50% { opacity: 0.75; }
+}
+.reader[data-condition="critical"] tw-story {
+  text-shadow: 0 0 1px rgba(255, 60, 60, 0.35);
+}
+@keyframes uneasy {
+  0%, 100% { transform: none; }
+  50% { transform: scale(1.006); }
+}
+@keyframes panic {
+  0%, 100% { transform: none; }
+  20% { transform: translate(1px, 0); }
+  40% { transform: translate(-1px, 1px); }
+  60% { transform: translate(0, -1px) scale(1.008); }
+  80% { transform: translate(1px, 1px); }
+}
+:root[data-effects="off"] .reader [class],
+:root[data-effects="off"] tw-story {
+  animation-play-state: paused;
 }

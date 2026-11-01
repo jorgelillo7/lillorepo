@@ -1,12 +1,13 @@
 /** The chapter reader: one passage at a time, its actions, undo, restart, game and text modes. */
 
-import { ambienceFor, isSting } from "../engine/game.ts";
+import { ambienceFor, conditionFor, documentFor, inventoryOf, isSting, type ConditionState } from "../engine/game.ts";
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { toText } from "../engine/values.ts";
-import { app, el, esc, setStoryCss, shortTitle } from "./dom.ts";
-import { door as doorSound, setAmbience, step, sting, applyVolume } from "./audio.ts";
+import { app, el, esc, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { door as doorSound, heartbeat, setAmbience, step, sting, applyVolume } from "./audio.ts";
 import { playDoor } from "./door.ts";
+import { openStatus, statusButton } from "./hud.ts";
 import { pace, type Pacing } from "./pacing.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
@@ -32,6 +33,7 @@ let pacing: Pacing | null = null;
 
 export function closeChapter(): void {
   session = null;
+  heartbeat(null);
 }
 
 function freshStart(rt: Runtime): Progress {
@@ -56,7 +58,8 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
   }
   const data = await loadChapter(series.id, chapter.id);
   const rt = new Runtime(data);
-  setStoryCss(rt.story.stylesheet);
+  const hideHud = series.game.condition?.hideAuthorHud;
+  setStoryCss(rt.story.stylesheet + (hideHud ? `\n${hideHud}{display:none !important}` : ""));
   document.title = shortTitle(rt.story.title);
   const saved = load(series.id, chapter.id);
   const progress = saved ?? freshStart(rt);
@@ -94,6 +97,22 @@ function show(): void {
   s.arrived = false;
 }
 
+function condition(): ConditionState | undefined {
+  const s = session!;
+  const cfg = s.series.game.condition;
+  return cfg ? conditionFor(s.series.game, s.vars[cfg.variable]) : undefined;
+}
+
+const HEART_BPM: Record<ConditionState["level"], number | null> = { fine: null, caution: null, danger: 84, critical: 112 };
+
+/** The condition's effects on the page and the heartbeat; off with reduced motion or the setting. */
+function applyCondition(root: HTMLElement): void {
+  const state = condition();
+  const effects = settings().effects && !reducedMotion();
+  root.dataset.condition = effects && state ? state.level : "fine";
+  heartbeat(state ? HEART_BPM[state.level] : null);
+}
+
 function gameMode(): boolean {
   return Boolean(session?.scenes) && loadMode() !== "text";
 }
@@ -107,6 +126,7 @@ function toolbar(): string {
   return `<nav class="toolbar">
     <a class="tool" href="#/">← Capítulos</a>
     <span class="tool-title">${esc(shortTitle(s.rt.story.title))}</span>
+    ${statusButton(condition(), inventoryOf(s.series.game, s.vars))}
     ${mode}
     <button class="tool" data-tool="mute" aria-label="Sonido">${settings().muted ? "🔇" : "🔊"}</button>
     <button class="tool" data-tool="undo" ${canUndo ? "" : "disabled"}>↶ Atrás</button>
@@ -132,11 +152,24 @@ function renderPage(page: Rendered, footer: string): void {
   const tags = esc(page.tags.join(" "));
   const passage = `<tw-story tags="${tags}"><tw-passage tags="${tags}">${page.html}</tw-passage></tw-story>`;
   const s = session!;
+  const doc = documentFor(s.series.game, s.chapter.id, page.passage);
+  if (doc) {
+    // A document is read on its own sheet; its page links still work.
+    setAmbience(ambienceFor(s.series.game, undefined, page.tags));
+    const root = el(`<div class="reader doc-reader">${toolbar()}
+      <div class="doc-overlay"><div class="doc-sheet"><h2 class="doc-title">${esc(doc.title)}</h2>${passage}${footer}</div></div></div>`);
+    app.replaceChildren(root);
+    applyCondition(root);
+    window.scrollTo({ top: 0 });
+    return;
+  }
   const sceneId = gameMode() ? s.scenes?.passages[page.passage] : undefined;
   const scene = sceneId ? s.scenes!.scenes[sceneId] : undefined;
   setAmbience(ambienceFor(s.series.game, scene?.room, page.tags));
   if (!scene) {
-    app.replaceChildren(el(`<div class="reader">${toolbar()}${passage}${footer}</div>`));
+    const root = el(`<div class="reader">${toolbar()}${passage}${footer}</div>`);
+    app.replaceChildren(root);
+    applyCondition(root);
     window.scrollTo({ top: 0 });
     startPacing();
     if (s.arrived) step();
@@ -172,6 +205,7 @@ function renderPage(page: Rendered, footer: string): void {
     link.remove();
   });
   app.replaceChildren(root);
+  applyCondition(root);
   window.scrollTo({ top: 0 });
   startPacing();
   if (changedRoom) {
@@ -270,7 +304,9 @@ app.addEventListener("click", (ev) => {
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (!tool || !session) return;
   const s = session;
-  if (tool.dataset.tool === "mute") {
+  if (tool.dataset.tool === "status") {
+    openStatus(s.series.game, condition(), inventoryOf(s.series.game, s.vars));
+  } else if (tool.dataset.tool === "mute") {
     updateSettings({ muted: !settings().muted });
     applyVolume();
     tool.textContent = settings().muted ? "🔇" : "🔊";

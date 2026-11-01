@@ -78,3 +78,20 @@ against the engine's output, which matches Harlowe's.
 - **THEN** one paragraph appears at a time, and the passage is done exactly once at the end; an instant reveal is done at once
 - *Verifies:* `pacing.test.ts: reading reveals one paragraph at a time and calls back once at the end`,
   `pacing.test.ts: an instant reveal, or a single paragraph, is done straight away`
+
+### Requirement: Status, documents and the condition on screen
+
+When a chapter tracks the configured condition or inventory, the toolbar
+SHALL show a heartbeat line coloured by the condition's level and the author's
+word for it; it opens a status screen with the inventory, where examining an
+item shows its quoted sentence (or only its name). The author's own HUD SHALL
+be hidden only when the config names its selector. A passage the config lists
+as a document SHALL be read on its own sheet over the page, its page links
+still working. As the condition worsens the page greys, darkens at the edges
+and, at the worst levels, sways slightly with a heartbeat; nothing flashes,
+and all of it stops under reduced motion or the effects setting.
+
+#### Scenario: which passages are documents
+- **WHEN** a passage is shown
+- **THEN** it is a document only if the config lists it for that chapter
+- *Verifies:* `game.test.ts: stings and documents fire only on the passages configured for them`
