@@ -1,7 +1,16 @@
 /** The reader app: routes between the library, the about page and a chapter. */
 
-import "./harlowe.css";
-import "./app.css";
+// Order matters: each sheet may refine the ones before it.
+import "./styles/harlowe.css";
+import "./styles/base.css";
+import "./styles/scenes.css";
+import "./styles/pacing.css";
+import "./styles/hud.css";
+import "./styles/documents.css";
+import "./styles/effects.css";
+import "./styles/title.css";
+import "./styles/settings.css";
+import "./styles/discoveries.css";
 import { unlock } from "./audio.ts";
 import { app, el } from "./dom.ts";
 import { applySettings } from "./settings.ts";

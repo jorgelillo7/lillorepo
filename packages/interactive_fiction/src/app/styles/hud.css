@@ -1,0 +1,119 @@
+/* Status: a heartbeat line in the author's condition colours, and the inventory. */
+.ecg {
+  width: 48px;
+  height: 14px;
+  vertical-align: middle;
+}
+.ecg path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.ecg .ecg-base {
+  opacity: 0.3;
+}
+.ecg .ecg-pulse {
+  stroke-dasharray: 30 70;
+  animation: ecg-run 1.6s linear infinite;
+}
+.ecg-fine path { stroke: #19e619; }
+.ecg-caution path { stroke: #e5e619; animation-duration: 1.2s; }
+.ecg-danger path { stroke: #e68019; animation-duration: 0.9s; }
+.ecg-critical path { stroke: #e61919; animation-duration: 0.6s; }
+.ecg-caution .ecg-pulse { animation-duration: 1.2s; }
+.ecg-danger .ecg-pulse { animation-duration: 0.9s; }
+.ecg-critical .ecg-pulse { animation-duration: 0.6s; }
+@keyframes ecg-run {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+.status-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: "Times New Roman", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+.status-overlay,
+.doc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.82);
+  overflow-y: auto;
+}
+.status-sheet {
+  width: min(32rem, 100%);
+  background: #0d0f0c;
+  border: 1px solid #3a4136;
+  box-shadow: 0 0 0 4px #000, 0 0 40px rgba(0, 0, 0, 0.9);
+  padding: 1.5rem;
+  color: #e9e2c9;
+  font-family: "Times New Roman", Georgia, serif;
+}
+.status-condition {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #050605;
+  border: 1px solid #263021;
+}
+.ecg-big {
+  width: 100%;
+  max-width: 260px;
+  height: 64px;
+}
+.status-label {
+  font-size: 1.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.status-fine { color: #19e619; }
+.status-caution { color: #e5e619; }
+.status-danger { color: #e68019; }
+.status-critical { color: #e61919; }
+.status-sheet h3 {
+  margin: 1.2rem 0 0.6rem;
+  font-weight: normal;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: #9aa38f;
+}
+.items {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.item {
+  aspect-ratio: 1;
+  background: #141812;
+  border: 1px solid #39412f;
+  color: #e9e2c9;
+  font: 0.75rem "Times New Roman", Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 4px;
+}
+.item.selected,
+.item:focus-visible {
+  border-color: #e9e2c9;
+  outline: none;
+}
+.item-detail {
+  min-height: 3em;
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+.status-empty {
+  color: #9aa38f;
+  font-style: italic;
+}
+

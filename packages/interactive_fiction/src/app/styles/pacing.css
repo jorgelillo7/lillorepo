@@ -1,0 +1,52 @@
+/* Paragraph-by-paragraph reading. */
+tw-seg {
+  display: block;
+}
+tw-seg.seg-in {
+  animation: seg-in 0.5s ease-out;
+}
+@keyframes seg-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.reader.pacing .hotspot,
+.reader.pacing .end-panel {
+  visibility: hidden;
+}
+.reader.pacing tw-story {
+  cursor: pointer;
+}
+.pace-hint {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.8rem 16px calc(0.8rem + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.92) 40%);
+}
+.pace-hint button {
+  font: 0.9rem Georgia, serif;
+  color: #e9e2c9;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+}
+.pace-next {
+  animation: pace-blink 1.6s ease-in-out infinite;
+}
+.pace-all {
+  color: var(--muted) !important;
+  text-decoration: underline;
+}
+@keyframes pace-blink {
+  50% { opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  tw-seg.seg-in,
+  .pace-next {
+    animation: none;
+  }
+}
+

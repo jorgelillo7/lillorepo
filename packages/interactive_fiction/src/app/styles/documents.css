@@ -1,0 +1,29 @@
+/* Documents: the page on its own sheet over everything. */
+.doc-reader .toolbar {
+  position: relative;
+  z-index: 41;
+}
+.doc-overlay {
+  top: 41px;
+  align-items: start;
+}
+.doc-sheet {
+  width: min(48rem, 100%);
+}
+.doc-title {
+  font: normal 0.85rem "Times New Roman", Georgia, serif;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #9aa38f;
+  margin: 1rem 0 0;
+}
+/* The story's stylesheet sizes tw-story for a whole page and loads after this one: out-rank it. */
+.reader .doc-sheet tw-story,
+.reader .doc-sheet tw-story tw-passage {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0.5rem !important;
+}
+

@@ -163,8 +163,10 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 
 | Path | What |
 |---|---|
-| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes`, `game`, `discoveries` |
-| `src/app/` | The site: `main` (routes), `title`, `library`, `reader`, `pacing`, `hud`, `audio`, `settings`/`settings-ui`, `achievements`, `door`, `save` (localStorage), Harlowe-like base CSS |
+| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `macros` (the supported list), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes`, `game`, `discoveries`, `text` |
+| `src/app/` | The site: `main` (routes), `title`, `library`, `achievements`, `reader` (session and events), `views` (its HTML), `progression` (pure: moving, undo, endings), `pacing`, `hud`, `audio`, `settings`/`settings-ui`, `door`, `save`/`storage` (localStorage) |
+| `src/app/styles/` | One sheet per component, imported in order from `main.ts`; `harlowe.css` approximates Harlowe's default look |
+| `src/contract.ts` | The shapes of `public/stories/`, shared by the build and the app |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
 | `scripts/art-bible.ts`, `scripts/prompts.ts` | The art bible's checks, and the prompts composed from it |
