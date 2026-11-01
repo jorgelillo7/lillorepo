@@ -99,7 +99,9 @@ function yourPath(discoveries: ChapterDiscoveries, found: Found, progress: Progr
     <p>Finales descubiertos: <b>${sum.endingsFound}</b> de <b>${sum.endings.length}</b></p>
     <div class="endings">${chips}</div>
     ${list}
-    <p class="path-explored">Has visto ${sum.passagesSeen} de ${sum.passagesTotal} lugares de este capítulo.</p>
+    <p class="path-explored">Has explorado ${sum.passagesSeen} de ${sum.passagesTotal} rincones de este capítulo.${
+      sum.passagesSeen < sum.passagesTotal ? " Aún queda algo por descubrir: prueba otras decisiones, o el mismo camino en otro orden." : ""
+    }</p>
   </section>`;
 }
 

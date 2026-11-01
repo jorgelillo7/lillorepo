@@ -11,10 +11,12 @@ export interface Settings {
   textSize: "s" | "m" | "l";
   /** Shakes, flickers and distortions. Also off whenever the system asks for reduced motion. */
   effects: boolean;
+  /** In a scene, choices the image shows as hotspots: only there, or also as buttons under the text. */
+  sceneChoices: "image" | "both";
 }
 
 const KEY = "settings";
-const DEFAULTS: Settings = { volume: 0.5, muted: false, pacing: "paragraph", textSize: "m", effects: true };
+const DEFAULTS: Settings = { volume: 0.5, muted: false, pacing: "paragraph", textSize: "m", effects: true, sceneChoices: "image" };
 
 let cached: Settings | null = null;
 

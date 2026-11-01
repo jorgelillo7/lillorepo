@@ -39,6 +39,8 @@ export interface ImageEntry {
   prompt?: string;
   /** Supplied by the story's author: no prompt of ours to record. */
   fromAuthor?: boolean;
+  /** Chapter id → the passages this image is the scene of; what `npm run scenes:draft` builds from. */
+  passages?: Record<string, string[]>;
 }
 
 export interface ArtBible {
@@ -102,6 +104,7 @@ export function validateBible(
     }
   }
   const files = new Map<string, string>();
+  const claimed = new Map<string, string>();
   for (const [id, image] of Object.entries(bible.images)) {
     if (image.location && !bible.locations[image.location]) {
       errors.push(`image "${id}": unknown location "${image.location}".`);
@@ -117,6 +120,17 @@ export function validateBible(
       if (!image.prompt && !image.fromAuthor) errors.push(`image "${id}": generated but the prompt used is not recorded.`);
     }
     if (image.file) files.set(image.file, id);
+    for (const [chapter, names] of Object.entries(image.passages ?? {})) {
+      for (const name of names) {
+        if (!chapters[chapter]?.passages.some((p) => p.name === name)) {
+          errors.push(`image "${id}": passage "${name}" not found in chapter ${chapter}.`);
+        }
+        const key = `${chapter}\u0000${name}`;
+        const other = claimed.get(key);
+        if (other) errors.push(`image "${id}": passage "${name}" (chapter ${chapter}) is already the scene of "${other}".`);
+        claimed.set(key, id);
+      }
+    }
   }
   for (const file of new Set(sceneImages)) {
     if (!files.has(file)) errors.push(`scene image "${file}" is not in the art bible.`);

@@ -66,6 +66,7 @@ export function validateScenes(story: Story, file: SceneFile, imageExists: (path
   for (const [id, scene] of Object.entries(file.scenes)) {
     if (!imageExists(scene.image)) errors.push(`Scene "${id}": image "${scene.image}" not found.`);
     for (const h of scene.hotspots) {
+      if (!(h.rect[2] > 0 && h.rect[3] > 0)) errors.push(`Scene "${id}": hotspot "${h.label}" has no area yet — place it on the image.`);
       for (const t of h.targets) {
         if (!names.has(t)) errors.push(`Scene "${id}": hotspot "${h.label}" targets "${t}", which is not a passage.`);
       }

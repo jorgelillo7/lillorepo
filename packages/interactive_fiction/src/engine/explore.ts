@@ -14,6 +14,8 @@ export interface ExploreOptions {
   endVar?: string;
   /** Stop after this many distinct (passage, state) pairs. */
   maxStates?: number;
+  /** Called with every distinct (passage, state) pair, before it is rendered. */
+  onVisit?: (passage: string, vars: Vars) => void;
 }
 
 export interface ExploreReport {
@@ -105,6 +107,7 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
   enqueue(story.start, initial, []);
   while (queue.length) {
     const { passage, vars, path } = queue.shift()!;
+    options.onVisit?.(passage, clone(vars));
     try {
       const first = rt.visit(clone(vars), passage);
       reached.add(first.passage);
@@ -165,12 +168,16 @@ export const WRONG_CODE = "NO-ES-UN-CODIGO";
  * one's end code is tried with every code that chapter can produce, plus a
  * wrong one.
  */
-export function exploreSeries(stories: Story[], carry: Carry | undefined): ExploreReport[] {
+export function exploreSeries(
+  stories: Story[],
+  carry: Carry | undefined,
+  onVisit?: (chapter: number, passage: string, vars: Vars) => void,
+): ExploreReport[] {
   const reports: ExploreReport[] = [];
   let previous: string[] = [];
-  for (const story of stories) {
+  for (const [i, story] of stories.entries()) {
     const inputs = carry && previous.length ? { [carry.to]: [...previous, WRONG_CODE] } : {};
-    const report = explore(story, { endVar: carry?.from, inputs });
+    const report = explore(story, { endVar: carry?.from, inputs, onVisit: onVisit && ((p, v) => onVisit(i, p, v)) });
     reports.push(report);
     previous = Object.keys(report.endCodes);
   }

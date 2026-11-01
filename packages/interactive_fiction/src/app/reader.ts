@@ -177,8 +177,8 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
   const { shown } = hotspotsFor(scene, page.actions);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
   const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer));
-  // A link the scene already shows as a hotspot is not repeated in the text.
-  const inScene = new Set(shown.map((x) => String(x.action)));
+  // A link the scene already shows as a hotspot is not repeated in the text, unless the reader asked for both.
+  const inScene = new Set(settings().sceneChoices === "both" ? [] : shown.map((x) => String(x.action)));
   root.querySelectorAll<HTMLElement>("tw-passage tw-link[data-action]").forEach((link) => {
     if (!inScene.has(link.dataset.action!)) return;
     if (link.nextElementSibling?.tagName === "BR") link.nextElementSibling.remove();

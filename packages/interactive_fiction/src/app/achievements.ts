@@ -22,7 +22,7 @@ export async function renderAchievements(seriesId: string): Promise<void> {
       const sum = summarize(c.discoveries, found[c.id] ?? { endings: [], passages: [] });
       const chips = sum.endings.map((e) => `<span class="ending${e ? " found" : ""}">${e ? esc(e) : "???"}</span>`).join("");
       return `<section class="ach-chapter"><h3>${esc(c.title)}</h3>
-        <p>Finales: <b>${sum.endingsFound}</b> de <b>${sum.endings.length}</b> · Lugares: ${sum.passagesSeen} de ${sum.passagesTotal}</p>
+        <p>Finales: <b>${sum.endingsFound}</b> de <b>${sum.endings.length}</b> · Rincones explorados: ${sum.passagesSeen} de ${sum.passagesTotal}</p>
         <div class="endings">${chips}</div></section>`;
     })
     .join("");

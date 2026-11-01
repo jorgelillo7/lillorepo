@@ -1,6 +1,6 @@
 /** Reads a series folder under stories/: its manifest and every chapter, parsed. */
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import type { Carry } from "../src/contract.ts";
@@ -57,7 +57,8 @@ export function sourceDirOf(seriesDir: string, sourceRoot: string | undefined, h
 export function loadSeries(id: string): Series {
   const dir = join(STORIES_DIR, id);
   const manifest = JSON.parse(readFileSync(join(dir, "series.json"), "utf8")) as SeriesManifest;
-  const sourceDir = sourceDirOf(dir, manifest.sourceRoot);
+  // Through the real path: a series folder may be a link into the author's clone, and `..` must mean his repository.
+  const sourceDir = sourceDirOf(realpathSync(dir), manifest.sourceRoot);
   if (!existsSync(sourceDir)) throw new Error(`${id}: sourceRoot ${sourceDir} not found — clone the author's repository there.`);
   const stories = manifest.chapters.map((c) => parseStory(readFileSync(join(sourceDir, c.source), "utf8")));
   return { id, dir, sourceDir, manifest, stories };

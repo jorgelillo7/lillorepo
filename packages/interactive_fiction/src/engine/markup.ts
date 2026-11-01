@@ -93,6 +93,19 @@ class MarkupParser {
         out.push({ t: "collapsed", body });
         continue;
       }
+      if (this.at("[")) {
+        const open = this.pos;
+        this.pos++;
+        const body = this.parse(["]", ...stops]);
+        if (this.at("]")) {
+          flush();
+          this.pos++;
+          out.push({ t: "hook", body });
+          continue;
+        }
+        // No `]` closes it: the bracket is plain text.
+        this.pos = open;
+      }
       if (this.at("''") || this.at("//")) {
         const mark = this.at("''") ? "''" : "//";
         flush();

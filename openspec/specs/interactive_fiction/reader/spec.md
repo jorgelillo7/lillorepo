@@ -68,18 +68,28 @@ validator and runtime all read that list.
 
 The runtime SHALL render the supported subset as Harlowe does: startup passages
 first, header passages above every passage, newlines as breaks except inside
-collapsed blocks, `else`/`else-if` chained to the previous condition among
+collapsed blocks — which collapse their own markup, not what a `(display:)` or
+`(print:)` inside them produces — bare hooks shown without their brackets,
+`else`/`else-if` chained to the previous condition among
 siblings, `cond` returning its first true branch, `print` re-parsing strings as
 markup, `goto` keeping what was set before it, `(link:)` running its hook on
 click, `display` sharing state, and `(input: bind)` bound to its variable. An
-unset variable SHALL fail loudly rather than print nothing. Its output was
-checked against the author's own Harlowe builds: every passage of one chapter
-word for word, and the end codes of five paths of another.
+unset variable SHALL fail loudly rather than print nothing.
+
+`npm run parity` SHALL compare the reader with a real Harlowe build page by
+page: every distinct page the explorer reaches is rendered by both in headless
+Chrome, with the page's state set through a startup passage, and the visible
+text is compared line by line, line breaks included. A word-by-word check had
+missed paragraphs run together in the author's chapter 2; this one finds them
+(30 of its 69 pages) and passes once they are fixed.
 
 #### Scenario: markup and state
 - **WHEN** a passage uses breaks, collapsed blocks, styles, raw HTML, colours, variables and conditions
 - **THEN** it renders as Harlowe does
 - *Verifies:* `runtime.test.ts: a newline is a line break, but not inside a collapsed block`,
+  `runtime.test.ts: a collapsed block keeps the line breaks of what it displays or prints, as Harlowe does`,
+  `runtime.test.ts: a bare hook shows its text without the brackets, as Harlowe does`,
+  `runtime.test.ts: a lone bracket with no hook to close is plain text`,
   `runtime.test.ts: bold, italic and raw HTML pass through`,
   `runtime.test.ts: a bare variable prints escaped, inside raw HTML too`,
   `runtime.test.ts: text-colour wraps its hook in the Harlowe colour`,
@@ -98,6 +108,11 @@ word for word, and the end codes of five paths of another.
   `runtime.test.ts: display renders another passage inline with the same state`,
   `runtime.test.ts: a header passage is rendered above every passage`,
   `runtime.test.ts: an input is bound to its variable and shows its current value`
+
+#### Scenario: comparing with real Harlowe
+- **WHEN** a page's state is handed to Harlowe
+- **THEN** every value is written as the Harlowe literal that sets it back
+- *Verifies:* `parity.test.ts: every story value becomes the Harlowe literal that sets it back`
 
 ### Requirement: Every path is played before a chapter ships
 

@@ -194,6 +194,8 @@ npm run explore        # path report for every series (or: npm run explore -- <s
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
 npm run play           # every built chapter played end to end in headless Chrome (needs Chrome)
+npm run parity -- <series> --harlowe <Twine build.html>   # every page compared with real Harlowe, line breaks included
+npm run scenes:draft -- <series> <chapter>    # a first scene file from the art bible, hotspots still to place
 ```
 
 Scripts run TypeScript directly on Node ≥ 24 (type stripping), no build step.
