@@ -8,10 +8,11 @@ import { app, el, esc, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
 import { door as doorSound, heartbeat, setAmbience, step, sting, applyVolume } from "./audio.ts";
 import { playDoor } from "./door.ts";
 import { openStatus, statusButton } from "./hud.ts";
+import { openSettings } from "./settings-ui.ts";
 import { pace, type Pacing } from "./pacing.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
-import { clear, load, loadCodes, loadMode, store, storeCode, storeMode, type Progress } from "./save.ts";
+import { clear, load, loadCodes, loadMode, store, storeCode, storeLastPlayed, storeMode, type Progress } from "./save.ts";
 
 interface Session {
   series: SeriesInfo;
@@ -64,6 +65,7 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
   const saved = load(series.id, chapter.id);
   const progress = saved ?? freshStart(rt);
   session = { series, chapter, rt, scenes: data.scenes, vars: {}, progress, actions: [], arrived: !saved };
+  storeLastPlayed(series.id, chapter.id);
   show();
 }
 
@@ -124,11 +126,12 @@ function toolbar(): string {
     ? `<button class="tool" data-tool="mode">${gameMode() ? "📖 Texto" : "🎮 Juego"}</button>`
     : "";
   return `<nav class="toolbar">
-    <a class="tool" href="#/">← Capítulos</a>
+    <a class="tool" href="#/capitulos/${s.series.id}">← Capítulos</a>
     <span class="tool-title">${esc(shortTitle(s.rt.story.title))}</span>
     ${statusButton(condition(), inventoryOf(s.series.game, s.vars))}
     ${mode}
     <button class="tool" data-tool="mute" aria-label="Sonido">${settings().muted ? "🔇" : "🔊"}</button>
+    <button class="tool" data-tool="settings" aria-label="Ajustes">⚙</button>
     <button class="tool" data-tool="undo" ${canUndo ? "" : "disabled"}>↶ Atrás</button>
     <button class="tool" data-tool="restart">⟲ Reiniciar</button>
   </nav>`;
@@ -140,7 +143,7 @@ function endPanel(): string {
   const next = s.series.chapters[i + 1];
   const code = s.progress.code ? `<p>Tu código: <b>${esc(s.progress.code)}</b>. Se guardará para el siguiente capítulo.</p>` : "";
   const nextLink = next ? `<a class="button" href="#/${s.series.id}/${next.id}">Siguiente capítulo →</a>` : "";
-  return `<footer class="end-panel">${code}<div class="end-actions"><a class="button secondary" href="#/">Índice</a>${nextLink}</div></footer>`;
+  return `<footer class="end-panel">${code}<div class="end-actions"><a class="button secondary" href="#/capitulos/${s.series.id}">Índice</a>${nextLink}</div></footer>`;
 }
 
 function unwrittenPanel(): string {
@@ -304,7 +307,9 @@ app.addEventListener("click", (ev) => {
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (!tool || !session) return;
   const s = session;
-  if (tool.dataset.tool === "status") {
+  if (tool.dataset.tool === "settings") {
+    openSettings(() => show());
+  } else if (tool.dataset.tool === "status") {
     openStatus(s.series.game, condition(), inventoryOf(s.series.game, s.vars));
   } else if (tool.dataset.tool === "mute") {
     updateSettings({ muted: !settings().muted });

@@ -84,3 +84,23 @@ export function storeMode(mode: "game" | "text"): void {
     // The choice lasts until the page reloads.
   }
 }
+
+const LAST_KEY = `${PREFIX}last`;
+
+/** The chapter read most recently, for "Continuar". */
+export function lastPlayed(): { series: string; chapter: string } | null {
+  try {
+    const raw = localStorage.getItem(LAST_KEY);
+    return raw ? (JSON.parse(raw) as { series: string; chapter: string }) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeLastPlayed(series: string, chapter: string): void {
+  try {
+    localStorage.setItem(LAST_KEY, JSON.stringify({ series, chapter }));
+  } catch {
+    // "Continuar" will simply not show.
+  }
+}

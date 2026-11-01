@@ -5,18 +5,24 @@ import "./app.css";
 import { unlock } from "./audio.ts";
 import { app, el } from "./dom.ts";
 import { applySettings } from "./settings.ts";
-import { loadLibrary, renderAbout, renderLibrary } from "./library.ts";
+import { library, loadLibrary, renderAbout, renderLibrary } from "./library.ts";
 import { closeChapter, openChapter } from "./reader.ts";
+import { renderTitle } from "./title.ts";
 
 function route(): void {
-  const [, seriesId, chapterId] = location.hash.replace(/^#\/?/, "#/").split("/");
-  if (seriesId === "acerca" && chapterId) {
+  const [, first, second] = location.hash.replace(/^#\/?/, "#/").split("/");
+  if (first === "acerca" && second) {
     closeChapter();
-    renderAbout(chapterId);
-  } else if (seriesId && chapterId) void openChapter(seriesId, chapterId);
+    renderAbout(second);
+  } else if (first === "capitulos") {
+    closeChapter();
+    renderLibrary(second);
+  } else if (first && second) void openChapter(first, second);
   else {
     closeChapter();
-    renderLibrary();
+    // One series opens on its title screen; several on the list of all of them.
+    if (library.length === 1) renderTitle(library[0]);
+    else renderLibrary();
   }
 }
 

@@ -48,10 +48,13 @@ function status(series: SeriesInfo, chapter: ChapterInfo): string {
   return (p.finished ? "Terminado" : "En curso") + earned;
 }
 
-export function renderLibrary(): void {
+/** The chapter lists of every series (or of one, with `only`). */
+export function renderLibrary(only?: string): void {
   setStoryCss("");
   document.title = library.length === 1 ? library[0].title : "Historias";
-  const blocks = library.map((series) => {
+  const shown = only ? library.filter((s) => s.id === only) : library;
+  const back = only && library.length === 1 ? `<a class="about-link" href="#/">← Título</a>` : "";
+  const blocks = shown.map((series) => {
     const items = series.chapters
       .map((c, i) => {
         const p = load(series.id, c.id);
@@ -70,7 +73,7 @@ export function renderLibrary(): void {
     return `<section class="series"><h1>${esc(series.title)}</h1><ol class="chapters">${items}</ol>${about}</section>`;
   });
   app.replaceChildren(
-    el(`<main class="library">${blocks.join("")}<p class="note">Tu progreso se guarda en este navegador.</p></main>`),
+    el(`<main class="library">${blocks.join("")}<p class="note">Tu progreso se guarda en este navegador.</p>${back}</main>`),
   );
 }
 

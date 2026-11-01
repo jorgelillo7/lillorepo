@@ -95,3 +95,14 @@ and all of it stops under reduced motion or the effects setting.
 - **WHEN** a passage is shown
 - **THEN** it is a document only if the config lists it for that chapter
 - *Verifies:* `game.test.ts: stings and documents fire only on the passages configured for them`
+
+### Requirement: A title screen and the reader's settings
+
+A site with a single series SHALL open on its title screen: the key art (an
+image registered in the art bible), the series title, an optional content
+warning, and Continuar (the chapter read last), Empezar / Nueva partida (which
+asks for a second tap before wiping chapter 1's progress, since embedded
+viewers block browser dialogs), Capítulos, Ajustes and Acerca de. Settings —
+volume, sound on or off, pacing, text size, effects, images or text only —
+SHALL apply at once, be kept in one guarded browser key, and be reachable from
+the title screen and from the reader's toolbar.
