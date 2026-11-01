@@ -205,7 +205,7 @@ export class Runtime {
 
   private linkHtml(ctx: Ctx, action: Action): string {
     const i = ctx.actions.push(action) - 1;
-    return `<tw-link tabindex="0" role="link" data-action="${i}">${this.renderLabel(action.label)}</tw-link>`;
+    return `<tw-link tabindex="0" role="link" data-action="${i}" data-choice="${escapeHtml(action.label)}">${this.renderLabel(action.label)}</tw-link>`;
   }
 
   private renderLabel(label: string): string {

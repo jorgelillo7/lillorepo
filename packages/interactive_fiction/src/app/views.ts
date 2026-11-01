@@ -63,7 +63,7 @@ export function scenePage(
       const [x, y, w, h] = hotspot.rect;
       const target = (actions[action] as { target: string }).target;
       const visited = seen.has(target) ? " visited" : "";
-      return `<button class="hotspot${visited}" data-action="${action}" aria-label="${esc(hotspot.label)}"
+      return `<button class="hotspot${visited}" data-action="${action}" data-choice="${esc(actions[action].label)}" aria-label="${esc(hotspot.label)}"
         style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><span class="hotspot-label">${esc(hotspot.label)}</span></button>`;
     })
     .join("");

@@ -87,9 +87,14 @@ npm test
 npm run build      # drafts left out
 ```
 
-Play the chapter end to end by clicking hotspots (headless Chrome over CDP, or
-by hand on `npm run preview`), and check that a move between rooms plays the door
-and a move within one does not.
+```bash
+npm run play       # each chapter's shortest path to an ending, clicked in headless Chrome
+```
+
+It clicks hotspots and links by their choice label, so a hotspot whose targets
+no longer match the passage's links shows up here. Then look at it by hand on
+`npm run preview`: a move between rooms plays the door, a move within one does
+not.
 
 # Step 7 — Publish and report
 

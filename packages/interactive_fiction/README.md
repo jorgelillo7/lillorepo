@@ -169,6 +169,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 | `src/contract.ts` | The shapes of `public/stories/`, shared by the build and the app |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
+| `scripts/play.ts` | Clicks each chapter's shortest path to an ending in a real Chrome — hotspots and links alike, codes typed — and fails on a missing choice, no end panel, or a console error |
 | `scripts/art-bible.ts`, `scripts/prompts.ts` | The art bible's checks, and the prompts composed from it |
 | `tests/` | Vitest, on `tests/fixtures/mini.twee` — a story written for the tests |
 
@@ -186,6 +187,7 @@ npm run deploy         # build (no drafts) and upload to Cloudflare Pages
 npm run explore        # path report for every series (or: npm run explore -- <series>)
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
+npm run play           # every built chapter played end to end in headless Chrome (needs Chrome)
 ```
 
 Scripts run TypeScript directly on Node ≥ 24 (type stripping), no build step.

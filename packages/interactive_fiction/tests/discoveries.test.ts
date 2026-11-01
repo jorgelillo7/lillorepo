@@ -11,6 +11,7 @@ const report = (endCodes: Record<string, number>, deadEnds: Record<string, numbe
   deadEnds,
   endCodes,
   endPaths: {},
+  deadEndPaths: {},
   errors: {},
 });
 

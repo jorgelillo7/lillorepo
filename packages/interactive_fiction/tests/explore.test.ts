@@ -14,6 +14,7 @@ test("every path is played: end codes, dead ends and unreachable passages are re
   expect(report.truncated).toBe(false);
   expect(report.endPaths.LOST).toEqual(["Leave"]);
   expect(report.endPaths.KEY).toEqual(["Take a key", "Pick it up"]);
+  expect(report.deadEndPaths.Door).toEqual(["Leave"]);
 });
 
 test("a loop between passages terminates once a state repeats", () => {

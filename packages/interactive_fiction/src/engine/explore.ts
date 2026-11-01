@@ -30,6 +30,8 @@ export interface ExploreReport {
   endCodes: Record<string, number>;
   /** End code → the shortest list of clicks (link labels, input values) that reaches it. */
   endPaths: Record<string, string[]>;
+  /** Dead-end passage → the shortest list of clicks that reaches it. */
+  deadEndPaths: Record<string, string[]>;
   /** Runtime errors, by passage. */
   errors: Record<string, string>;
 }
@@ -64,6 +66,7 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
   const deadEnds: Record<string, number> = {};
   const endCodes: Record<string, number> = {};
   const endPaths: Record<string, string[]> = {};
+  const deadEndPaths: Record<string, string[]> = {};
   const errors: Record<string, string> = {};
   let truncated = false;
 
@@ -107,6 +110,7 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
       reached.add(first.passage);
       if (first.actions.length === 0) {
         deadEnds[first.passage] = (deadEnds[first.passage] ?? 0) + 1;
+        deadEndPaths[first.passage] ??= path;
         if (options.endVar) {
           const after = clone(vars);
           rt.visit(after, passage);
@@ -148,6 +152,7 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
     deadEnds,
     endCodes,
     endPaths,
+    deadEndPaths,
     errors,
   };
 }
