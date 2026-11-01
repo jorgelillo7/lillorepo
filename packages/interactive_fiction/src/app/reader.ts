@@ -11,7 +11,7 @@ import { openStatus, statusButton } from "./hud.ts";
 import { openSettings } from "./settings-ui.ts";
 import { pace, type Pacing } from "./pacing.ts";
 import { settings, updateSettings } from "./settings.ts";
-import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
+import { library, loadChapter, type ChapterSummary, type SeriesEntry } from "./library.ts";
 import { summarize, type ChapterDiscoveries } from "../engine/discoveries.ts";
 import {
   clear,
@@ -28,8 +28,8 @@ import {
 } from "./save.ts";
 
 interface Session {
-  series: SeriesInfo;
-  chapter: ChapterInfo;
+  series: SeriesEntry;
+  chapter: ChapterSummary;
   rt: Runtime;
   scenes: SceneFile | null;
   discoveries: ChapterDiscoveries | null;

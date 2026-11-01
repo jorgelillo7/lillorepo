@@ -2,11 +2,11 @@
 
 import { setAmbience } from "./audio.ts";
 import { app, el, esc, setStoryCss } from "./dom.ts";
-import type { SeriesInfo } from "./library.ts";
+import type { SeriesEntry } from "./library.ts";
 import { clear, lastPlayed, load } from "./save.ts";
 import { openSettings } from "./settings-ui.ts";
 
-export function renderTitle(series: SeriesInfo): void {
+export function renderTitle(series: SeriesEntry): void {
   setStoryCss("");
   document.title = series.title;
   setAmbience(series.game.audio?.default ?? "silence");

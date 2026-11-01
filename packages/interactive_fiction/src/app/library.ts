@@ -1,47 +1,29 @@
 /** What the build publishes about the series, and the screens that list it. */
 
-import type { ChapterDiscoveries } from "../engine/discoveries.ts";
-import type { GameConfig } from "../engine/game.ts";
-import type { SceneFile } from "../engine/scenes.ts";
-import type { Story } from "../engine/source.ts";
+import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type SeriesEntry } from "../contract.ts";
 import { app, el, esc, fetchJson, setStoryCss, shortTitle } from "./dom.ts";
 import { load, loadCodes } from "./save.ts";
 
-export type Chapter = Story & { scenes: SceneFile | null; discoveries: ChapterDiscoveries | null };
+export type { ChapterData, ChapterSummary, SeriesEntry };
 
-export interface ChapterInfo {
-  id: string;
-  title: string;
-  draft: boolean;
-}
-
-export interface SeriesInfo {
-  id: string;
-  title: string;
-  carry: { from: string; to: string } | null;
-  about: string[];
-  game: GameConfig;
-  chapters: ChapterInfo[];
-}
-
-export let library: SeriesInfo[] = [];
-const chapters = new Map<string, Chapter>();
+export let library: SeriesEntry[] = [];
+const chapters = new Map<string, ChapterData>();
 
 export async function loadLibrary(): Promise<void> {
-  library = await fetchJson<SeriesInfo[]>("stories/library.json");
+  library = await fetchJson<SeriesEntry[]>(`stories/${LIBRARY_FILE}`);
 }
 
-export async function loadChapter(series: string, chapter: string): Promise<Chapter> {
+export async function loadChapter(series: string, chapter: string): Promise<ChapterData> {
   const k = `${series}/${chapter}`;
   let c = chapters.get(k);
   if (!c) {
-    c = await fetchJson<Chapter>(`stories/${k}.json`);
+    c = await fetchJson<ChapterData>(`stories/${chapterFile(series, chapter)}`);
     chapters.set(k, c);
   }
   return c;
 }
 
-function status(series: SeriesInfo, chapter: ChapterInfo): string {
+function status(series: SeriesEntry, chapter: ChapterSummary): string {
   const p = load(series.id, chapter.id);
   const code = loadCodes(series.id)[chapter.id];
   const earned = code ? ` · código <b>${esc(code)}</b>` : "";

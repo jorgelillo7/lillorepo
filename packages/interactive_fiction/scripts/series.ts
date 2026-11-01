@@ -2,6 +2,7 @@
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import type { Carry } from "../src/contract.ts";
 import { parseStory, type Story } from "../src/engine/source.ts";
 
 export interface ChapterEntry {
@@ -15,8 +16,7 @@ export interface ChapterEntry {
 export interface SeriesManifest {
   title: string;
   chapters: ChapterEntry[];
-  /** The end code of one chapter is pre-filled into this input of the next. */
-  carry?: { from: string; to: string };
+  carry?: Carry;
   /** Paragraphs for the "about" page: credits, how the art was made. */
   about?: string[];
 }

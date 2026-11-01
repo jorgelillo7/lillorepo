@@ -9,6 +9,7 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type SeriesEntry } from "../src/contract.ts";
 import { discoveriesOf, type ChapterDiscoveries } from "../src/engine/discoveries.ts";
 import { explore } from "../src/engine/explore.ts";
 import { validateGame, type GameConfig } from "../src/engine/game.ts";
@@ -38,7 +39,7 @@ function rebaseStory(story: Story, prefix: string): Story {
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-const library: unknown[] = [];
+const library: SeriesEntry[] = [];
 let failed = false;
 
 for (const id of seriesIds()) {
@@ -56,7 +57,7 @@ for (const id of seriesIds()) {
     discoveries[i] = discoveriesOf(report);
     previousCodes = Object.keys(report.endCodes);
   }
-  const chapters = series.manifest.chapters.flatMap((entry, i) => {
+  const chapters = series.manifest.chapters.flatMap((entry, i): ChapterSummary[] => {
     const story = series.stories[i];
     if (entry.draft && !WITH_DRAFTS) {
       console.log(`· ${id}/${entry.id} is a draft — left out (STORIES_DRAFTS=1 to include it)`);
@@ -77,8 +78,8 @@ for (const id of seriesIds()) {
       }
       for (const scene of Object.values(scenes.scenes)) scene.image = `stories/${id}/${scene.image}`;
     }
-    const out = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null, discoveries: discoveries[i] };
-    writeFileSync(join(outDir, `${entry.id}.json`), JSON.stringify(out));
+    const out: ChapterData = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null, discoveries: discoveries[i] };
+    writeFileSync(join(OUT, chapterFile(id, entry.id)), JSON.stringify(out));
     return [{ id: entry.id, title: story.title, draft: Boolean(entry.draft) }];
   });
   const biblePath = join(series.dir, "art-bible.json");
@@ -127,7 +128,7 @@ for (const id of seriesIds()) {
   console.log(`✓ ${id}: ${chapters.length} chapters`);
 }
 
-writeFileSync(join(OUT, "library.json"), JSON.stringify(library, null, 2));
+writeFileSync(join(OUT, LIBRARY_FILE), JSON.stringify(library, null, 2));
 if (failed) {
   console.error("Validation failed: fix the errors above.");
   process.exit(1);
