@@ -45,12 +45,16 @@ The build SHALL validate every chapter and stop on: a macro outside the
 supported subset, a changer without its hook, a link (including one inside a
 string later printed) to a passage that does not exist, and a variable read but
 never set. A silent mis-render is the failure this prevents: the reader would
-show something the author did not write, and nobody would know.
+show something the author did not write, and nobody would know. The supported
+macros and their aliases are listed once (`src/engine/macros.ts`); parser,
+validator and runtime all read that list.
 
 #### Scenario: unsupported syntax and broken links
 - **WHEN** a chapter uses an unsupported macro, a hookless changer, or links to a missing passage
 - **THEN** validation reports an error naming it
 - *Verifies:* `validate.test.ts: an unsupported macro is an error, not a silent mis-render`,
+  `validate.test.ts: a macro written in a syntax the reader does not run is refused at build`,
+  `validate.test.ts: aliases are the same macro as their main name`,
   `validate.test.ts: a changer with no hook is an error`,
   `validate.test.ts: a link to a missing passage is an error, including links inside strings`,
   `validate.test.ts: the fixture story is clean`

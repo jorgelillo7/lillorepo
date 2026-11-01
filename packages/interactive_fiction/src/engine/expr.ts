@@ -1,5 +1,6 @@
 /** Macro arguments: tokenizer and precedence parser for the supported Harlowe subset. */
 
+import { canonical } from "./macros.ts";
 import { StoryError } from "./values.ts";
 
 export type Expr =
@@ -263,7 +264,7 @@ class Parser {
         this.i += 3;
         const args = this.args();
         this.expectOp(")");
-        return { k: "call", name: name.v, args };
+        return { k: "call", name: canonical(name.v), args };
       }
       this.i++;
       const e = this.or();

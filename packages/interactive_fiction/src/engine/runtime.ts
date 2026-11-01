@@ -151,7 +151,7 @@ export class Runtime {
     // Outcome of the last if/unless/else-if among these siblings, for (else:).
     let last: boolean | undefined;
     for (const node of nodes) {
-      if (node.t === "macro" && ["if", "unless", "else", "else-if", "elseif"].includes(node.name)) {
+      if (node.t === "macro" && ["if", "unless", "else", "else-if"].includes(node.name)) {
         let show: boolean;
         if (node.name === "if" || node.name === "unless") {
           const v = bool(this.evalArg(node.args, 0, ctx), node.name);
@@ -215,7 +215,6 @@ export class Runtime {
   private renderMacro(node: Extract<Node, { t: "macro" }>, ctx: Ctx): string {
     switch (node.name) {
       case "set":
-      case "put":
         for (const a of node.args) this.assign(a, ctx);
         return "";
       case "display": {
@@ -244,8 +243,7 @@ export class Runtime {
         if (!node.hook) throw new StoryError("(link:) needs a hook [ ] after it.");
         return this.linkHtml(ctx, { kind: "reveal", label, body: node.hook, temps: { ...ctx.temps } });
       }
-      case "for":
-      case "loop": {
+      case "for": {
         const [lambda, ...rest] = node.args;
         if (!lambda || lambda.k !== "each") throw new StoryError("(for:) is supported as (for: each _x, ...).");
         if (!node.hook) throw new StoryError("(for:) needs a hook [ ] after it.");
@@ -255,10 +253,7 @@ export class Runtime {
         }
         return out;
       }
-      case "text-colour":
-      case "text-color":
-      case "colour":
-      case "color": {
+      case "text-colour": {
         const colour = this.colour(node.args[0], ctx);
         if (!node.hook) throw new StoryError(`(${node.name}:) needs a hook [ ] after it.`);
         return `<tw-hook style="color:${colour}">${this.renderNodes(node.hook, ctx)}</tw-hook>`;
@@ -392,10 +387,8 @@ export class Runtime {
   private evalCall(name: string, args: Expr[], ctx: Ctx): Value {
     switch (name) {
       case "a":
-      case "array":
         return this.evalList(args, ctx);
       case "str":
-      case "string":
         return this.evalList(args, ctx).map(toText).join("");
       case "uppercase":
         return this.text(this.evalArg(args, 0, ctx), name).toUpperCase();

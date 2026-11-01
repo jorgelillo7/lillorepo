@@ -1,7 +1,8 @@
 /** Static checks run before a story is built: anything the reader cannot run fails loudly here. */
 
 import type { Expr } from "./expr.ts";
-import { CHANGERS, SUPPORTED, parseMarkup, type Node } from "./markup.ts";
+import { kindOf } from "./macros.ts";
+import { parseMarkup, type Node } from "./markup.ts";
 import type { Story } from "./source.ts";
 
 export interface Issue {
@@ -31,7 +32,7 @@ function walkExpr(e: Expr, scan: Scan): void {
       walkSource(e.src, scan);
       return;
     case "call":
-      if (!SUPPORTED.has(e.name)) issue(scan, "error", `(${e.name}:) is not supported.`);
+      if (!kindOf(e.name)) issue(scan, "error", `(${e.name}:) is not supported.`);
       e.args.forEach((a) => walkExpr(a, scan));
       return;
     case "bin":
@@ -72,8 +73,8 @@ function walkNodes(nodes: Node[], scan: Scan): void {
         if (!n.temp && !scan.read.has(n.name)) scan.read.set(n.name, scan.passage);
         break;
       case "macro": {
-        if (!SUPPORTED.has(n.name)) issue(scan, "error", `(${n.name}:) is not supported.`);
-        if (CHANGERS.has(n.name) && !n.hook) issue(scan, "error", `(${n.name}:) has no hook [ ] after it.`);
+        if (!kindOf(n.name)) issue(scan, "error", `(${n.name}:) is not supported.`);
+        if (kindOf(n.name) === "changer" && !n.hook) issue(scan, "error", `(${n.name}:) has no hook [ ] after it.`);
         if (n.name === "goto" || n.name === "display") {
           const a = n.args[0];
           if (a?.k === "lit" && typeof a.v === "string") scan.targets.push({ target: a.v, passage: scan.passage });

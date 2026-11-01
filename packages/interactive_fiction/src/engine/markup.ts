@@ -1,6 +1,7 @@
 /** Passage text → syntax tree, for the Harlowe markup the supported subset uses. */
 
 import { parseArgs, type Expr } from "./expr.ts";
+import { canonical, kindOf } from "./macros.ts";
 import { StoryError } from "./values.ts";
 
 export type Node =
@@ -13,30 +14,6 @@ export type Node =
   | { t: "style"; tag: "b" | "i"; body: Node[] }
   | { t: "html"; s: string }
   | { t: "var"; name: string; temp: boolean };
-
-/** Macros that take a hook. */
-export const CHANGERS = new Set([
-  "if",
-  "unless",
-  "else",
-  "else-if",
-  "elseif",
-  "for",
-  "loop",
-  "link",
-  "text-colour",
-  "text-color",
-  "colour",
-  "color",
-]);
-
-/** Macros that run or print without a hook. */
-export const COMMANDS = new Set(["set", "put", "display", "goto", "print", "input"]);
-
-/** Macros that compute a value. */
-export const VALUES = new Set(["a", "array", "str", "string", "uppercase", "cond", "find"]);
-
-export const SUPPORTED = new Set([...CHANGERS, ...COMMANDS, ...VALUES]);
 
 const MACRO_START = /^\(([A-Za-z][\w-]*):/;
 
@@ -104,7 +81,7 @@ class MarkupParser {
       const macro = MACRO_START.exec(rest);
       if (macro) {
         flush();
-        out.push(this.macro(macro[1].toLowerCase(), macro[0].length));
+        out.push(this.macro(canonical(macro[1]), macro[0].length));
         continue;
       }
       if (this.at("{")) {
@@ -169,14 +146,18 @@ class MarkupParser {
     const start = this.pos;
     const end = macroEnd(this.src, start);
     const argSrc = this.src.slice(start + headLength, end);
-    let args: Expr[];
-    try {
-      args = parseArgs(argSrc);
-    } catch (e) {
-      throw new StoryError(`(${name}:) ${(e as Error).message}`);
+    // An unsupported macro may use syntax this parser does not know: leave its
+    // arguments unparsed so the validator reports the macro itself.
+    let args: Expr[] = [];
+    if (kindOf(name)) {
+      try {
+        args = parseArgs(argSrc);
+      } catch (e) {
+        throw new StoryError(`(${name}:) ${(e as Error).message}`);
+      }
     }
     this.pos = end + 1;
-    if (!CHANGERS.has(name)) return { t: "macro", name, args };
+    if (kindOf(name) !== "changer") return { t: "macro", name, args };
     const ws = /^\s*/.exec(this.src.slice(this.pos))![0];
     const after = this.pos + ws.length;
     if (this.src[after] !== "[" || (this.src.startsWith("[[", after) && !this.src.startsWith("[[[", after))) {

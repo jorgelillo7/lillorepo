@@ -39,3 +39,12 @@ test("a variable read but never set is an error", () => {
 test("a changer with no hook is an error", () => {
   expect(errors("(if: $x is 1) no hook")).toContain("(if:) has no hook [ ] after it.");
 });
+
+test("a macro written in a syntax the reader does not run is refused at build", () => {
+  // Harlowe's (put: value into $var) used to be accepted and then fail mid-story.
+  expect(errors("(put: 1 into $x)$x")).toContain("(put:) is not supported.");
+});
+
+test("aliases are the same macro as their main name", () => {
+  expect(errors("(set:$x to (array: 1))(if: $x contains 1)[ok](elseif: true)[no](text-color: red)[r]")).toEqual([]);
+});
