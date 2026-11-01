@@ -8,12 +8,16 @@ import { applySettings } from "./settings.ts";
 import { library, loadLibrary, renderAbout, renderLibrary } from "./library.ts";
 import { closeChapter, openChapter } from "./reader.ts";
 import { renderTitle } from "./title.ts";
+import { renderAchievements } from "./achievements.ts";
 
 function route(): void {
   const [, first, second] = location.hash.replace(/^#\/?/, "#/").split("/");
   if (first === "acerca" && second) {
     closeChapter();
     renderAbout(second);
+  } else if (first === "logros" && second) {
+    closeChapter();
+    void renderAchievements(second);
   } else if (first === "capitulos") {
     closeChapter();
     renderLibrary(second);

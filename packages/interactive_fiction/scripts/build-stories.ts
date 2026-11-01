@@ -9,6 +9,8 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { discoveriesOf, type ChapterDiscoveries } from "../src/engine/discoveries.ts";
+import { explore } from "../src/engine/explore.ts";
 import { validateGame, type GameConfig } from "../src/engine/game.ts";
 import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
 import { validateBible, type ArtBible } from "./art-bible.ts";
@@ -43,6 +45,17 @@ for (const id of seriesIds()) {
   const series = loadSeries(id);
   const outDir = join(OUT, id);
   mkdirSync(outDir, { recursive: true });
+  // What each chapter holds to discover. Explored in order, every chapter (drafts
+  // too), so a chapter that asks for the previous one's code is tried with them all.
+  const discoveries: ChapterDiscoveries[] = [];
+  let previousCodes: string[] = [];
+  for (const [i, story] of series.stories.entries()) {
+    const carry = series.manifest.carry;
+    const inputs = carry && previousCodes.length ? { [carry.to]: [...previousCodes, "NO-ES-UN-CODIGO"] } : {};
+    const report = explore(story, { endVar: carry?.from, inputs });
+    discoveries[i] = discoveriesOf(report);
+    previousCodes = Object.keys(report.endCodes);
+  }
   const chapters = series.manifest.chapters.flatMap((entry, i) => {
     const story = series.stories[i];
     if (entry.draft && !WITH_DRAFTS) {
@@ -64,7 +77,7 @@ for (const id of seriesIds()) {
       }
       for (const scene of Object.values(scenes.scenes)) scene.image = `stories/${id}/${scene.image}`;
     }
-    const out = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null };
+    const out = { ...rebaseStory(story, `stories/${id}/`), scenes: scenes ?? null, discoveries: discoveries[i] };
     writeFileSync(join(outDir, `${entry.id}.json`), JSON.stringify(out));
     return [{ id: entry.id, title: story.title, draft: Boolean(entry.draft) }];
   });

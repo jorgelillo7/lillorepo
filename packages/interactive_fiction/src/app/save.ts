@@ -6,6 +6,8 @@ export interface Snapshot {
   passage: string;
   /** State *before* the passage rendered, so resuming never re-applies its (set:)s. */
   vars: Vars;
+  /** The choice the reader made on this passage, once they left it. */
+  choice?: string;
 }
 
 export interface Progress extends Snapshot {
@@ -102,5 +104,30 @@ export function storeLastPlayed(series: string, chapter: string): void {
     localStorage.setItem(LAST_KEY, JSON.stringify({ series, chapter }));
   } catch {
     // "Continuar" will simply not show.
+  }
+}
+
+const foundKey = (series: string) => `${PREFIX}${series}:found`;
+
+/** Every ending and passage the reader has ever reached, per chapter. Only grows; undo and restart keep it. */
+export function loadFound(series: string): Record<string, { endings: string[]; passages: string[] }> {
+  try {
+    const raw = localStorage.getItem(foundKey(series));
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function recordFound(series: string, chapter: string, what: { ending?: string; passage?: string }): void {
+  try {
+    const all = loadFound(series);
+    const mine = all[chapter] ?? { endings: [], passages: [] };
+    if (what.ending && !mine.endings.includes(what.ending)) mine.endings.push(what.ending);
+    if (what.passage && !mine.passages.includes(what.passage)) mine.passages.push(what.passage);
+    all[chapter] = mine;
+    localStorage.setItem(foundKey(series), JSON.stringify(all));
+  } catch {
+    // Discoveries are a bonus; reading goes on without them.
   }
 }

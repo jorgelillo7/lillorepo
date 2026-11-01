@@ -1,12 +1,13 @@
 /** What the build publishes about the series, and the screens that list it. */
 
+import type { ChapterDiscoveries } from "../engine/discoveries.ts";
 import type { GameConfig } from "../engine/game.ts";
 import type { SceneFile } from "../engine/scenes.ts";
 import type { Story } from "../engine/source.ts";
 import { app, el, esc, fetchJson, setStoryCss, shortTitle } from "./dom.ts";
 import { load, loadCodes } from "./save.ts";
 
-export type Chapter = Story & { scenes: SceneFile | null };
+export type Chapter = Story & { scenes: SceneFile | null; discoveries: ChapterDiscoveries | null };
 
 export interface ChapterInfo {
   id: string;

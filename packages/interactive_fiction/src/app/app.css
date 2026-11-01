@@ -759,3 +759,76 @@ tw-seg.seg-in {
 :root[data-text-size="l"] .reader tw-story tw-passage {
   font-size: 1.18em !important;
 }
+
+/* "Tu camino" and the achievements page. */
+.your-path {
+  text-align: left;
+  margin: 1rem auto 1.5rem;
+  max-width: 34rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  background: #070807;
+}
+.your-path h3,
+.achievements h3 {
+  margin: 0 0 0.6rem;
+  font: normal 0.85rem "Times New Roman", Georgia, serif;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #9aa38f;
+}
+.endings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0.6rem 0;
+}
+.ending {
+  font: 0.75rem "Times New Roman", Georgia, serif;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.5rem;
+  border: 1px dashed #39412f;
+  color: #5c6355;
+}
+.ending.found {
+  border-style: solid;
+  color: #e9e2c9;
+}
+.ending.current {
+  border-color: #e9e2c9;
+  background: #e9e2c9;
+  color: #000;
+}
+.path-choices summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.path-choices ol {
+  color: #cfc8b2;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.path-explored {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.ach-chapter {
+  margin: 1.2rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.ach-list {
+  list-style: none;
+  padding: 0;
+}
+.ach {
+  padding: 0.35rem 0;
+  color: #5c6355;
+}
+.ach.done {
+  color: #e9e2c9;
+}
+.ach-mark {
+  display: inline-block;
+  width: 1.6em;
+}

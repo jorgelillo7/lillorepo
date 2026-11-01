@@ -12,13 +12,27 @@ import { openSettings } from "./settings-ui.ts";
 import { pace, type Pacing } from "./pacing.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
-import { clear, load, loadCodes, loadMode, store, storeCode, storeLastPlayed, storeMode, type Progress } from "./save.ts";
+import { summarize, type ChapterDiscoveries } from "../engine/discoveries.ts";
+import {
+  clear,
+  load,
+  loadCodes,
+  loadFound,
+  loadMode,
+  recordFound,
+  store,
+  storeCode,
+  storeLastPlayed,
+  storeMode,
+  type Progress,
+} from "./save.ts";
 
 interface Session {
   series: SeriesInfo;
   chapter: ChapterInfo;
   rt: Runtime;
   scenes: SceneFile | null;
+  discoveries: ChapterDiscoveries | null;
   /** Scene shown last, so a change of room can play the door. */
   lastScene?: string;
   /** Set by a click, so a sting plays on arrival and never on undo or resume. */
@@ -64,7 +78,17 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
   document.title = shortTitle(rt.story.title);
   const saved = load(series.id, chapter.id);
   const progress = saved ?? freshStart(rt);
-  session = { series, chapter, rt, scenes: data.scenes, vars: {}, progress, actions: [], arrived: !saved };
+  session = {
+    series,
+    chapter,
+    rt,
+    scenes: data.scenes,
+    discoveries: data.discoveries,
+    vars: {},
+    progress,
+    actions: [],
+    arrived: !saved,
+  };
   storeLastPlayed(series.id, chapter.id);
   show();
 }
@@ -88,10 +112,15 @@ function show(): void {
   const carry = s.series.carry;
   const code = carry ? s.vars[carry.from] : undefined;
   const ended = stuck && (code === undefined || toText(code) !== "");
+  recordFound(s.series.id, s.chapter.id, { passage: page.passage });
   if (ended && !s.progress.finished) {
     s.progress.finished = true;
     s.progress.code = code !== undefined ? toText(code) : undefined;
     if (s.progress.code) storeCode(s.series.id, s.chapter.id, s.progress.code);
+  }
+  if (ended) {
+    const ending = s.discoveries?.kind === "codes" ? s.progress.code : page.passage;
+    if (ending) recordFound(s.series.id, s.chapter.id, { ending });
   }
   store(s.series.id, s.chapter.id, s.progress);
   renderPage(page, ended ? endPanel() : stuck ? unwrittenPanel() : "");
@@ -137,13 +166,36 @@ function toolbar(): string {
   </nav>`;
 }
 
+/** "Tu camino": the ending reached, how many there are (unfound ones hidden), the choices made, how much was seen. */
+function yourPath(): string {
+  const s = session!;
+  if (!s.discoveries) return "";
+  const found = loadFound(s.series.id)[s.chapter.id] ?? { endings: [], passages: [] };
+  const sum = summarize(s.discoveries, found);
+  const current = s.discoveries.kind === "codes" ? s.progress.code : s.progress.passage;
+  const chips = sum.endings
+    .map((e) => `<span class="ending${e ? " found" : ""}${e && e === current ? " current" : ""}">${e ? esc(e) : "???"}</span>`)
+    .join("");
+  const choices = s.progress.undo.map((u) => u.choice).filter((c): c is string => Boolean(c));
+  const list = choices.length
+    ? `<details class="path-choices"><summary>Tus decisiones (${choices.length})</summary><ol>${choices.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></details>`
+    : "";
+  return `<section class="your-path">
+    <h3>Tu camino</h3>
+    <p>Finales descubiertos: <b>${sum.endingsFound}</b> de <b>${sum.endings.length}</b></p>
+    <div class="endings">${chips}</div>
+    ${list}
+    <p class="path-explored">Has visto ${sum.passagesSeen} de ${sum.passagesTotal} lugares de este capítulo.</p>
+  </section>`;
+}
+
 function endPanel(): string {
   const s = session!;
   const i = s.series.chapters.indexOf(s.chapter);
   const next = s.series.chapters[i + 1];
   const code = s.progress.code ? `<p>Tu código: <b>${esc(s.progress.code)}</b>. Se guardará para el siguiente capítulo.</p>` : "";
   const nextLink = next ? `<a class="button" href="#/${s.series.id}/${next.id}">Siguiente capítulo →</a>` : "";
-  return `<footer class="end-panel">${code}<div class="end-actions"><a class="button secondary" href="#/capitulos/${s.series.id}">Índice</a>${nextLink}</div></footer>`;
+  return `<footer class="end-panel">${code}${yourPath()}<div class="end-actions"><a class="button secondary" href="#/capitulos/${s.series.id}">Índice</a><a class="button secondary" href="#/logros/${s.series.id}">Logros</a>${nextLink}</div></footer>`;
 }
 
 function unwrittenPanel(): string {
@@ -249,9 +301,9 @@ function renderError(e: Error): void {
   );
 }
 
-function navigate(target: string): void {
+function navigate(target: string, choice?: string): void {
   const s = session!;
-  s.progress.undo.push({ passage: s.progress.passage, vars: s.progress.vars });
+  s.progress.undo.push({ passage: s.progress.passage, vars: s.progress.vars, choice });
   s.progress = { ...s.progress, passage: target, vars: structuredClone(s.vars), finished: false, code: undefined };
   s.arrived = true;
   show();
@@ -262,7 +314,7 @@ function onAction(link: HTMLElement): void {
   const action = s.actions[Number(link.dataset.action)];
   if (!action) return;
   if (action.kind === "link") {
-    navigate(action.target);
+    navigate(action.target, action.label);
     return;
   }
   let out;
@@ -273,7 +325,7 @@ function onAction(link: HTMLElement): void {
     return;
   }
   if (out.goto) {
-    navigate(out.goto);
+    navigate(out.goto, action.label);
     return;
   }
   const offset = s.actions.length;
@@ -321,7 +373,7 @@ app.addEventListener("click", (ev) => {
   } else if (tool.dataset.tool === "undo") {
     const prev = s.progress.undo.pop();
     if (!prev) return;
-    s.progress = { ...s.progress, ...prev, finished: false, code: undefined };
+    s.progress = { ...s.progress, passage: prev.passage, vars: prev.vars, finished: false, code: undefined };
     show();
   } else if (tool.dataset.tool === "restart" && !tool.dataset.armed) {
     // Asked in the page: embedded viewers block window.confirm().

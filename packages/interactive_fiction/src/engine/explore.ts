@@ -18,7 +18,10 @@ export interface ExploreOptions {
 export interface ExploreReport {
   states: number;
   truncated: boolean;
+  /** Passages reached, including those only shown through (display:). */
   reached: string[];
+  /** Passages a reader lands on (not counting ones only displayed inside others). */
+  visited: string[];
   unreached: string[];
   /** Passages with nothing to click, with how often they were reached. */
   deadEnds: Record<string, number>;
@@ -139,6 +142,7 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
     states: seen.size,
     truncated,
     reached: [...reachedAll].sort(),
+    visited: [...reached].sort(),
     unreached: all.filter((n) => !reachedAll.has(n)).sort(),
     deadEnds,
     endCodes,

@@ -29,6 +29,7 @@ export function renderTitle(series: SeriesInfo): void {
         ${resume}
         ${first ? `<button class="title-button${resume ? "" : " primary"}" data-new>${started ? "Nueva partida" : "Empezar"}</button>` : ""}
         <a class="title-button" href="#/capitulos/${series.id}">Capítulos</a>
+        <a class="title-button" href="#/logros/${series.id}">Finales y logros</a>
         <button class="title-button" data-settings>Ajustes</button>
         ${series.about.length ? `<a class="title-button" href="#/acerca/${series.id}">Acerca de</a>` : ""}
       </nav>

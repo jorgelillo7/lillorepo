@@ -106,3 +106,31 @@ viewers block browser dialogs), Capítulos, Ajustes and Acerca de. Settings —
 volume, sound on or off, pacing, text size, effects, images or text only —
 SHALL apply at once, be kept in one guarded browser key, and be reachable from
 the title screen and from the reader's toolbar.
+
+### Requirement: What there is to discover, and what the reader found, without spoilers
+
+The build SHALL explore every chapter (drafts too, in order, each tried with
+the previous chapter's codes) and embed what it holds: its end codes, or its
+ending passages when it has no code, and how many passages a reader can land
+on. The reader SHALL accumulate, apart from progress so undo and restart never
+lose them, every ending and passage reached. At a chapter's end "Tu camino"
+shows the ending, how many endings there are with the unfound ones as "???",
+the choices made (kept with each undo step, so undo forgets them), and how
+much was seen. A page of endings and achievements covers the series; the
+achievements are generic, derived from what the engine knows: a chapter
+finished, every ending found, every passage seen, every chapter finished.
+
+#### Scenario: what a chapter holds
+- **WHEN** a chapter is explored at build
+- **THEN** its endings are its codes, or its ending passages, and its passage count is the passages a reader lands on
+- *Verifies:* `discoveries.test.ts: a chapter's endings are its end codes, or its ending passages when it has none`
+
+#### Scenario: no spoilers
+- **WHEN** the reader has found some endings
+- **THEN** the others are shown as unknown, and the counts are of what was seen
+- *Verifies:* `discoveries.test.ts: the summary hides the endings not found yet and counts what was seen`
+
+#### Scenario: achievements
+- **WHEN** chapters are finished, endings found and passages seen
+- **THEN** the matching achievements are earned and the rest stay locked
+- *Verifies:* `discoveries.test.ts: achievements come from finishing, finding every ending and seeing every passage`
