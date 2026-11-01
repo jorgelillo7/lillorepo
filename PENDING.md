@@ -67,6 +67,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 1 fixes, then the chapter 2 rooms | You · `packages/interactive_fiction/.claude/skills/scene-art` |
 | 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
 | ⏳ | Private bucket for `stories/` (Terraform; ask before apply). Until then the copy of record is the author's folder | Your OK |
+| 👤 | Make the author (a developer) CODEOWNER of `packages/interactive_fiction/` — needs his GitHub username; then decide with him whether his chapters may live in git (public repo, or a private one) and whether he writes Twee directly (Tweego) instead of exporting | You · his GitHub user and OK |
 | 🔨 | Publish on itch.io too (free, the genre's community, devlogs per chapter) — last, after the author's review | The author's OK |
 | 🔨 | Merge PR #654 — deploys nothing, the package has no deploy job yet | Your review |
 
