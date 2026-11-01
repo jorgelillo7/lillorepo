@@ -54,6 +54,7 @@ generation, so this runs in the Gemini app, by hand. Say so on the series'
 ```bash
 git -C ~/Projects/<his repo> pull
 npm run stories && npm run explore -- <series>
+npm run parity -- <series> --harlowe "$HOME/Projects/<his repo>/Capitulo 1/build/index.html"
 npm run build && npm run preview     # check it at http://localhost:4173
 npm run deploy
 ```

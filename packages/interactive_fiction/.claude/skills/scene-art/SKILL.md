@@ -72,6 +72,19 @@ quota; never use a paid key). One chat per batch so the style holds; an
 
 # Step 5 — Hotspots
 
+Start from a draft: list each image's passages in the bible
+(`"passages": { "02": ["Inicio", …] }`), then
+
+```bash
+npm run scenes:draft -- <series> <chapter>   # writes <chapter>-scenes.json
+```
+
+It has one scene per image and one hotspot per linked passage, labelled with
+the story's own link text, each with no area yet — the build refuses the file
+until every hotspot is placed. Wire it into `series.json` only once the
+images are in. A passage whose picture depends on the state (the same passage
+showing two moments) can have one scene only: pick the common one.
+
 - One rectangle per clickable object, `[x, y, w, h]` in percent of the image;
   `targets` are the passages it leads to (first one offered wins).
 - Same `room` for every view of one room (no door transition between them).

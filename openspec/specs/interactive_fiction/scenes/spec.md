@@ -20,7 +20,10 @@ whose descriptions are quoted from the story.
 A hotspot SHALL appear only when one of its targets is a link the passage
 offers in this render; the first target offered wins. Links with no hotspot,
 and `(link:)` reveals, SHALL stay available as buttons in the text. Without
-this, an area drawn on the image would bypass the story's own conditions.
+this, an area drawn on the image would bypass the story's own conditions. A
+link the image shows is not repeated in the text, unless the reader sets
+"Opciones: También como botones" in the settings, for whoever prefers not to
+search the image.
 
 #### Scenario: a gated link
 - **WHEN** a condition removes a link from the passage
@@ -37,13 +40,31 @@ this, an area drawn on the image would bypass the story's own conditions.
 
 The build SHALL fail when a scene file names a passage that does not exist, a
 hotspot targets something that is not a passage, a passage uses an undefined
-scene, or an image file is missing.
+scene, an image file is missing, or a hotspot has no area yet.
 
 #### Scenario: a broken scene file
 - **WHEN** any of those is wrong
 - **THEN** the build reports each error and stops
 - *Verifies:* `scenes.test.ts: unknown passages, unknown targets and missing images are errors`,
-  `scenes.test.ts: a clean scene file passes`
+  `scenes.test.ts: a clean scene file passes`,
+  `scenes.test.ts: a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced`
+
+### Requirement: A chapter's scene file is drafted from the art bible
+
+An image in the art bible MAY list, per chapter, the passages it is the scene
+of. `npm run scenes:draft` SHALL then write that chapter's scene file: one
+scene per image, on it one hotspot per passage its passages link to in any
+state, labelled as the story labels the link, with no area yet — so the art
+can arrive and only the rectangles remain. An edit is the same room as the
+image it edits unless it names another place, and a room another chapter's
+scene file already names keeps that name, so its sound and the door follow.
+
+#### Scenario: drafting a chapter
+- **WHEN** a chapter's images list their passages
+- **THEN** the draft has their scenes, rooms and unplaced hotspots
+- *Verifies:* `scene-draft.test.ts: one scene per image of the chapter, one unplaced hotspot per linked passage, labelled by the story`,
+  `scene-draft.test.ts: an edit is the same room as the image it edits, and a planned image gets its future file name`,
+  `scene-draft.test.ts: a room already named by another chapter's scene file keeps that name`
 
 ### Requirement: Moving between rooms plays the door; views of one room do not
 
@@ -61,8 +82,9 @@ style, place, characters, shot; an edit names the image it changes and adds the
 new place's description when it becomes another place. The build SHALL fail
 when a quote is no longer in its passage (the author changed the text, so the
 description needs review), when an image a scene uses is not registered, when
-a generated image has no recorded prompt, or when an image names an unknown
-character, place or base image.
+a generated image has no recorded prompt, when an image names an unknown
+character, place or base image, or when an image's passage does not exist or is
+already the scene of another image.
 
 #### Scenario: composing prompts
 - **WHEN** a prompt is composed for a new image or for an edit
@@ -81,4 +103,5 @@ character, place or base image.
 - **WHEN** a scene uses an image the bible does not list, or a generated image has no prompt, or an image names something unknown
 - **THEN** the build reports it
 - *Verifies:* `art-bible.test.ts: an image used by a scene but missing from the bible, or generated without its prompt, is an error`,
-  `art-bible.test.ts: unknown characters, places and edit bases are errors`
+  `art-bible.test.ts: unknown characters, places and edit bases are errors`,
+  `art-bible.test.ts: an image's passages must exist, and a passage is the scene of one image only`

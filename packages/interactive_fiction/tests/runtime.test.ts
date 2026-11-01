@@ -32,6 +32,14 @@ describe("markup", () => {
     expect(html).toBe("x b1<br>b2 p1<br>p2 y");
   });
 
+  test("a bare hook shows its text without the brackets, as Harlowe does", () => {
+    expect(show({ Start: "a [b ''c''] d" }).html).toBe("a b <b>c</b> d");
+  });
+
+  test("a lone bracket with no hook to close is plain text", () => {
+    expect(show({ Start: "a [b" }).html).toBe("a [b");
+  });
+
   test("bold, italic and raw HTML pass through", () => {
     expect(show({ Start: "''b'' //i// <span class=\"x\">s</span>" }).html).toBe(
       '<b>b</b> <i>i</i> <span class="x">s</span>',

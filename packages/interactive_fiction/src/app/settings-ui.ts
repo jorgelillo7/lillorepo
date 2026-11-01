@@ -28,6 +28,7 @@ export function openSettings(onChange: () => void = () => {}): void {
         <button class="chip${mode === "game" ? " on" : ""}" data-mode="game">Imágenes</button>
         <button class="chip${mode === "text" ? " on" : ""}" data-mode="text">Solo texto</button>
       </div>
+      <div class="setting">Opciones ${choice("sceneChoices", "image", "En la imagen")}${choice("sceneChoices", "both", "También como botones")}</div>
       <p class="settings-note">Los efectos (temblores, viñetas, parpadeos) también se apagan si tu sistema pide reducir el movimiento.</p>
       <button class="button secondary status-close">Cerrar</button>
     </div></div>`);

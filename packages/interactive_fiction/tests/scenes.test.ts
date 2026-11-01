@@ -67,4 +67,12 @@ describe("scene validation", () => {
       'Passage "Key" uses scene "cellar", which is not defined.',
     ]);
   });
+
+  test("a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced", () => {
+    const draft: SceneFile = {
+      scenes: { hall: { ...scenes.scenes.hall, hotspots: [{ label: "Door", targets: ["Start"], rect: [0, 0, 0, 0] }] } },
+      passages: {},
+    };
+    expect(validateScenes(mini, draft, () => true)).toEqual(['Scene "hall": hotspot "Door" has no area yet — place it on the image.']);
+  });
 });

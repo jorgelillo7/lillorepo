@@ -11,85 +11,17 @@
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chapterFile, LIBRARY_FILE, type ChapterData, type SeriesEntry } from "../src/contract.ts";
 import { exploreSeries } from "../src/engine/explore.ts";
+import { sleep, waitFor, withChrome, type Devtools } from "./chrome.ts";
 
 const ROOT = new URL("../", import.meta.url).pathname;
 const DIST = join(ROOT, "dist/stories");
 const WEB_PORT = 4179;
 const CDP_PORT = 9399;
 const BASE = `http://localhost:${WEB_PORT}/`;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function chromePath(): string {
-  const candidates = [
-    process.env.CHROME_PATH,
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-  ];
-  const found = candidates.find((c) => c && existsSync(c));
-  if (!found) throw new Error("Google Chrome not found: set CHROME_PATH.");
-  return found;
-}
-
-async function waitFor(url: string, what: string): Promise<void> {
-  for (let i = 0; i < 80; i++) {
-    try {
-      if ((await fetch(url)).ok) return;
-    } catch {
-      // Not up yet.
-    }
-    await sleep(250);
-  }
-  throw new Error(`${what} did not start.`);
-}
-
-/** A minimal Chrome DevTools Protocol client over the built-in WebSocket. */
-async function devtools() {
-  const pages = (await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).json()) as {
-    type: string;
-    webSocketDebuggerUrl: string;
-  }[];
-  const ws = new WebSocket(pages.find((p) => p.type === "page")!.webSocketDebuggerUrl);
-  await new Promise((r) => ws.addEventListener("open", r));
-  let id = 0;
-  const pending = new Map<number, (v: { result?: { result?: { value?: unknown } } }) => void>();
-  const errors: string[] = [];
-  ws.addEventListener("message", (m) => {
-    const d = JSON.parse(String(m.data));
-    if (d.method === "Runtime.exceptionThrown") errors.push(d.params.exceptionDetails.exception?.description ?? d.params.exceptionDetails.text);
-    if (d.method === "Runtime.consoleAPICalled" && d.params.type === "error") errors.push(JSON.stringify(d.params.args));
-    pending.get(d.id)?.(d);
-    pending.delete(d.id);
-  });
-  const send = (method: string, params: object = {}) =>
-    new Promise<{ result?: { result?: { value?: unknown } } }>((r) => {
-      const i = ++id;
-      pending.set(i, r);
-      ws.send(JSON.stringify({ id: i, method, params }));
-    });
-  await send("Runtime.enable");
-  const ev = async <T>(expression: string): Promise<T> =>
-    (await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result?.result?.value as T;
-  /** A real mouse click (a user gesture), at the centre of the element the expression returns. */
-  const click = async (expression: string): Promise<boolean> => {
-    const box = await ev<{ x: number; y: number } | null>(`(() => { const e = ${expression}; if (!e) return null;
-      e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-    if (!box) return false;
-    for (const type of ["mousePressed", "mouseReleased"]) {
-      await send("Input.dispatchMouseEvent", { type, x: box.x, y: box.y, button: "left", clickCount: 1 });
-    }
-    return true;
-  };
-  return { send, ev, click, errors, close: () => ws.close() };
-}
-
-type Devtools = Awaited<ReturnType<typeof devtools>>;
 
 /** Clear the way to the next choice: read the whole passage and skip the door. */
 async function settle(c: Devtools): Promise<void> {
@@ -128,42 +60,31 @@ async function main(): Promise<number> {
     cwd: ROOT,
     stdio: "ignore",
   });
-  const profile = mkdtempSync(join(tmpdir(), "if-play-"));
-  const chrome = spawn(
-    chromePath(),
-    ["--headless=new", "--disable-gpu", "--window-size=1400,900", `--remote-debugging-port=${CDP_PORT}`, "--remote-debugging-address=127.0.0.1", `--user-data-dir=${profile}`, "about:blank"],
-    { stdio: "ignore" },
-  );
   let failures = 0;
   try {
     await waitFor(BASE, "vite preview");
-    await waitFor(`http://127.0.0.1:${CDP_PORT}/json/version`, "Chrome");
-    const c = await devtools();
-    for (const series of library) {
-      const data = series.chapters.map((ch) => JSON.parse(readFileSync(join(DIST, chapterFile(series.id, ch.id)), "utf8")) as ChapterData);
-      const reports = exploreSeries(data, series.carry ?? undefined);
-      for (const [i, ch] of series.chapters.entries()) {
-        const d = data[i].discoveries;
-        const report = reports[i];
-        const ending = d?.endings[0];
-        const path = !ending ? undefined : d!.kind === "codes" ? report.endPaths[ending] : report.deadEndPaths[ending];
-        if (!path) {
-          console.log(`· ${series.id}/${ch.id}: no ending to play to`);
-          continue;
+    await withChrome(CDP_PORT, async (c) => {
+      for (const series of library) {
+        const data = series.chapters.map((ch) => JSON.parse(readFileSync(join(DIST, chapterFile(series.id, ch.id)), "utf8")) as ChapterData);
+        const reports = exploreSeries(data, series.carry ?? undefined);
+        for (const [i, ch] of series.chapters.entries()) {
+          const d = data[i].discoveries;
+          const report = reports[i];
+          const ending = d?.endings[0];
+          const path = !ending ? undefined : d!.kind === "codes" ? report.endPaths[ending] : report.deadEndPaths[ending];
+          if (!path) {
+            console.log(`· ${series.id}/${ch.id}: no ending to play to`);
+            continue;
+          }
+          const before = c.errors.length;
+          const problem = (await playChapter(c, series, ch.id, path)) ?? (c.errors.length > before ? `console: ${c.errors.slice(before).join(" / ")}` : null);
+          console.log(`${problem ? "✗" : "✓"} ${series.id}/${ch.id} → ${ending} in ${path.length} clicks${problem ? ` — ${problem}` : ""}`);
+          if (problem) failures++;
         }
-        const before = c.errors.length;
-        const problem = (await playChapter(c, series, ch.id, path)) ?? (c.errors.length > before ? `console: ${c.errors.slice(before).join(" / ")}` : null);
-        console.log(`${problem ? "✗" : "✓"} ${series.id}/${ch.id} → ${ending} in ${path.length} clicks${problem ? ` — ${problem}` : ""}`);
-        if (problem) failures++;
       }
-    }
-    c.close();
+    });
   } finally {
-    const exited = new Promise((r) => chrome.once("exit", r));
-    chrome.kill();
     web.kill();
-    await exited;
-    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
   return failures ? 1 : 0;
 }
