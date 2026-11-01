@@ -2,16 +2,15 @@
 
 ## The author hand-off
 
-**What he sends, per chapter**
+**Where his chapters live:** his own private git repository, cloned beside
+this one (`~/Projects/<his repo>`). `series.json` points `sourceRoot` at the
+clone and each chapter's `source` / `resources` at his files, so the build
+reads them in place — nothing is copied. A chapter is his Twee source
+(`Capitulo N/src/*.twee`); the media its passages reference is his build's
+`resources/` folder. The series folder here keeps only what is ours: scene
+files, the art bible, `game.json`, the generated art.
 
-- The Twee export from Twine: *Library → select the story → Build → Export As
-  Twee*. One file per chapter, named `NN-slug.twee`.
-- Images in a folder that mirrors the paths used in the passages
-  (`resources/images/…`). WebP or JPEG under 500 KB each is plenty.
-- One line: draft or final, and what changed.
-
-**Channel:** a shared Google Drive folder with `capitulos/` and `resources/`.
-He overwrites the files there; we copy them into `stories/<series>/`.
+**Each delivery:** he pushes and says draft or final, and what changed.
 
 **What keeps a chapter importable**
 
@@ -53,9 +52,10 @@ generation, so this runs in the Gemini app, by hand. Say so on the series'
 ## Updating a chapter
 
 ```bash
-cp ~/Downloads/03-chapter.twee stories/<series>/
+git -C ~/Projects/<his repo> pull
 npm run stories && npm run explore -- <series>
 npm run build && npm run preview     # check it at http://localhost:4173
+npm run deploy
 ```
 
 ## Deploying (Cloudflare Workers static assets)
@@ -86,6 +86,7 @@ it would pull `stories/` from the private bucket first. Not set up.
 
 ## Backing up the stories
 
-`stories/` is local only. Until there is a private bucket prefix for it (same
-pattern as the draft season data), the copy of record is the author's Drive
-folder.
+The author's chapters and media are in his git repository, which is their copy
+of record. What is ours — scene files, the art bible, `game.json`, the
+generated art and its prompts — lives only in `stories/<series>/` on this Mac
+until it gets a backup of its own (see `PENDING.md`).

@@ -62,13 +62,12 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Send the author the URL, the validator/explorer report and the art bible's open questions; agree the Twee hand-off (shared Drive folder) and whether his drafts are shown | You · same file → "The author hand-off" |
-| 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 1 fixes, then the chapter 2 rooms | You · `packages/interactive_fiction/.claude/skills/scene-art` |
+| 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 2 rooms, his concept art (`Concept Art/Personajes/` in his repo) attached for each character; the chapter 1 keychain fixes are optional (author: fine for a beta) | You · `packages/interactive_fiction/.claude/skills/scene-art` |
 | 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
-| ⏳ | Private bucket for `stories/` (Terraform; ask before apply). Until then the copy of record is the author's folder | Your OK |
-| 👤 | Make the author (a developer) CODEOWNER of `packages/interactive_fiction/` — needs his GitHub username; then decide with him whether his chapters may live in git (public repo, or a private one) and whether he writes Twee directly (Tweego) instead of exporting | You · his GitHub user and OK |
+| ⏳ | Back up our own series files (scene files, art bible, `game.json`, generated art) — his chapters are in his repo now; a private bucket (Terraform, ask before apply) or a folder in his repo, where we have write access | Your call |
+| 👤 | Make the author CODEOWNER of `packages/interactive_fiction/` (GitHub `AlbertoMercado`): `CODEOWNERS` only counts a user with write access, so it means inviting him as a collaborator — review not made mandatory | You · the invite |
 | 🔨 | Publish on itch.io too (free, the genre's community, devlogs per chapter) — last, after the author's review | The author's OK |
-| 🔨 | Merge PR #654 — deploys nothing, the package has no deploy job yet | Your review |
+| 🔨 | Merge PR #654 — the site is already live (`npm run deploy` by hand); merging deploys nothing | Your review |
 
 ## be_water
 

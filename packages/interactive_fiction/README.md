@@ -34,6 +34,12 @@ stories/<series>/
 }
 ```
 
+When the author keeps the chapters in his own repository, `"sourceRoot":
+"~/Projects/<his repo>"` (absolute, relative to the series folder, or under
+`~/`) makes every `source` and the optional per-chapter `"resources"` folder
+resolve inside his clone, read in place — see OPERATIONS.md, "The author
+hand-off".
+
 An optional `"about": ["…", "…"]` adds an "Acerca de" page to the series
 (credits, and how the art was made).
 

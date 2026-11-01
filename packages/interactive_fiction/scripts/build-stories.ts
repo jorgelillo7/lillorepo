@@ -90,12 +90,13 @@ function loadGame(series: Series, chapters: Record<string, Story>): GameConfig {
 }
 
 function copyMedia(series: Series, outDir: string): void {
-  for (const folder of ["resources", "scenes"]) {
-    if (!existsSync(join(series.dir, folder))) continue;
-    cpSync(join(series.dir, folder), join(outDir, folder), {
-      recursive: true,
-      filter: (src) => !/\.[^/]+$/.test(src) || MEDIA.test(src),
-    });
+  const copies: [string, string][] = [
+    ...["resources", "scenes"].map((f): [string, string] => [join(series.dir, f), f]),
+    ...series.manifest.chapters.flatMap((c): [string, string][] => (c.resources ? [[join(series.sourceDir, c.resources), "resources"]] : [])),
+  ];
+  for (const [from, to] of copies) {
+    if (!existsSync(from)) continue;
+    cpSync(from, join(outDir, to), { recursive: true, filter: (src) => !/\.[^/]+$/.test(src) || MEDIA.test(src) });
   }
 }
 

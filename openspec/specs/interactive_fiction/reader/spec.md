@@ -127,6 +127,18 @@ marked `draft` SHALL be left out of `npm run build`, so an unpublished chapter
 never reaches a public upload by accident; `build:drafts` and `dev` include it.
 Only media files are published from a series folder.
 
+A series MAY name a `sourceRoot` — the author's own clone, outside this
+repository — and its chapter sources and media are then read there in place,
+so importing a delivery is a `git pull` and his repository stays the copy of
+record.
+
+#### Scenario: A series reads its chapters from the author's clone
+- **WHEN** `series.json` sets `sourceRoot` relative to the series folder, as an
+  absolute path, or under `~/`
+- **THEN** chapter sources resolve inside that folder, and without it inside
+  the series folder
+- *Verifies:* `series.test.ts: a sourceRoot may be relative to the series folder, absolute, or under the home folder`
+
 ### Requirement: The reader keeps progress, and carries the end code
 
 Progress SHALL be saved per chapter in the browser as the state *before* the
