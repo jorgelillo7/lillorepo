@@ -54,3 +54,27 @@ that do not track one.
 - **THEN** the condition label and the item list come from them unchanged
 - *Verifies:* `game.test.ts: the condition is the author's own state for the variable's value`,
   `game.test.ts: the inventory is read from the story's array, and absent when the chapter has none`
+
+### Requirement: Text is read paragraph by paragraph, and nothing is ever hidden for good
+
+On arrival at a passage its text SHALL appear one paragraph at a time: split
+at line breaks among the passage's top-level nodes, short lines joined to the
+next (about 300 characters at least), and never inside an element, so the
+author's own HTML appears whole. A tap on the text, Space or Enter shows the
+next paragraph; "Mostrar todo" shows the rest. Hotspots and the end panel
+SHALL wait until the text is read. A passage reached by undo or resume, or any
+passage when the reader chose "all at once", SHALL appear whole. Every node is
+moved, in order, never dropped: the revealed text was checked word for word
+against the engine's output, which matches Harlowe's.
+
+#### Scenario: splitting without losing anything
+- **WHEN** a passage is split into paragraphs
+- **THEN** its text and markup are unchanged once revealed, and an element is never cut
+- *Verifies:* `pacing.test.ts: paragraphs split at line breaks, short lines are joined, and nothing is lost, in order`,
+  `pacing.test.ts: an element is never split, even with blank lines inside it`
+
+#### Scenario: reading
+- **WHEN** the reader advances
+- **THEN** one paragraph appears at a time, and the passage is done exactly once at the end; an instant reveal is done at once
+- *Verifies:* `pacing.test.ts: reading reveals one paragraph at a time and calls back once at the end`,
+  `pacing.test.ts: an instant reveal, or a single paragraph, is done straight away`

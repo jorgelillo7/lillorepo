@@ -7,6 +7,7 @@ import { toText } from "../engine/values.ts";
 import { app, el, esc, setStoryCss, shortTitle } from "./dom.ts";
 import { door as doorSound, setAmbience, step, sting, applyVolume } from "./audio.ts";
 import { playDoor } from "./door.ts";
+import { pace, type Pacing } from "./pacing.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { library, loadChapter, type ChapterInfo, type SeriesInfo } from "./library.ts";
 import { clear, load, loadCodes, loadMode, store, storeCode, storeMode, type Progress } from "./save.ts";
@@ -26,6 +27,8 @@ interface Session {
 }
 
 export let session: Session | null = null;
+/** The reveal of the passage on screen, while it is still being read. */
+let pacing: Pacing | null = null;
 
 export function closeChapter(): void {
   session = null;
@@ -55,8 +58,9 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
   const rt = new Runtime(data);
   setStoryCss(rt.story.stylesheet);
   document.title = shortTitle(rt.story.title);
-  const progress = load(series.id, chapter.id) ?? freshStart(rt);
-  session = { series, chapter, rt, scenes: data.scenes, vars: {}, progress, actions: [] };
+  const saved = load(series.id, chapter.id);
+  const progress = saved ?? freshStart(rt);
+  session = { series, chapter, rt, scenes: data.scenes, vars: {}, progress, actions: [], arrived: !saved };
   show();
 }
 
@@ -134,6 +138,7 @@ function renderPage(page: Rendered, footer: string): void {
   if (!scene) {
     app.replaceChildren(el(`<div class="reader">${toolbar()}${passage}${footer}</div>`));
     window.scrollTo({ top: 0 });
+    startPacing();
     if (s.arrived) step();
     return;
   }
@@ -168,10 +173,34 @@ function renderPage(page: Rendered, footer: string): void {
   });
   app.replaceChildren(root);
   window.scrollTo({ top: 0 });
+  startPacing();
   if (changedRoom) {
     playDoor();
     doorSound();
   } else if (s.arrived) step();
+}
+
+/**
+ * Reveal the passage paragraph by paragraph on arrival; everything at once on
+ * undo, resume, or when the reader chose so. Hotspots and the end panel wait
+ * until the text has been read.
+ */
+function startPacing(): void {
+  const s = session!;
+  const reader = app.querySelector<HTMLElement>(".reader")!;
+  const passageEl = reader.querySelector<HTMLElement>("tw-passage");
+  if (!passageEl) return;
+  const instant = !s.arrived || settings().pacing === "all";
+  reader.classList.add("pacing");
+  const hint = el(`<div class="pace-hint" role="status">
+    <button class="pace-next" data-pace="next">▼ Toca para continuar</button>
+    <button class="pace-all" data-pace="all">Mostrar todo</button></div>`);
+  (reader.querySelector(".panel") ?? reader).appendChild(hint);
+  pacing = pace(passageEl, instant, () => {
+    reader.classList.remove("pacing");
+    hint.remove();
+    pacing = null;
+  });
 }
 
 function renderError(e: Error): void {
@@ -222,6 +251,17 @@ function onAction(link: HTMLElement): void {
 
 app.addEventListener("click", (ev) => {
   const target = ev.target as HTMLElement;
+  const paceButton = target.closest<HTMLElement>("[data-pace]");
+  if (paceButton && pacing) {
+    if (paceButton.dataset.pace === "all") pacing.all();
+    else pacing.next();
+    return;
+  }
+  // While a passage is being read, a tap on its text shows the next paragraph.
+  if (pacing && target.closest("tw-story") && !target.closest("tw-link, input, button, a")) {
+    pacing.next();
+    return;
+  }
   const link = target.closest<HTMLElement>("tw-link[data-action], .hotspot[data-action]");
   if (link && session) {
     onAction(link);
@@ -257,7 +297,17 @@ app.addEventListener("click", (ev) => {
     clear(s.series.id, s.chapter.id);
     s.progress = freshStart(s.rt);
     s.lastScene = undefined;
+    s.arrived = true;
     show();
+  }
+});
+
+// On the window: with nothing focused, keys go to the body, outside the app.
+window.addEventListener("keydown", (ev) => {
+  const t = ev.target as HTMLElement;
+  if (pacing && (ev.key === " " || ev.key === "Enter") && !t.closest?.("tw-link, input, button, a")) {
+    ev.preventDefault();
+    pacing.next();
   }
 });
 
