@@ -87,6 +87,49 @@ two views of the same room, or a scene with no `room`, change without it.
 Only media files (images, audio) under `scenes/` and `resources/` are
 published; prompts, scripts and originals kept beside them stay local.
 
+## Game layer
+
+A series may add `stories/<series>/game.json` — checked at build against the
+chapters, like the scenes:
+
+```json
+{
+  "title": { "image": "scenes/key-art.jpg", "warning": "Content warning…" },
+  "audio": {
+    "default": "drone",
+    "rooms": { "cell": "hum", "bathroom": "drip" },
+    "tags": { "floor-3": "wind" },
+    "stings": [{ "chapter": "02", "passage": "The Attack" }]
+  },
+  "documents": [{ "chapter": "02", "passage": "Diary", "title": "Diario" }],
+  "condition": {
+    "variable": "sanity",
+    "states": [{ "value": 4, "label": "Normal", "level": "fine" }, { "value": 1, "label": "Pánico", "level": "critical" }],
+    "hideAuthorHud": "#hud"
+  },
+  "inventory": {
+    "variable": "items",
+    "items": { "Knife": { "quote": { "chapter": "02", "passage": "Room", "text": "A sentence from the story." } } }
+  }
+}
+```
+
+What it gives the reader:
+
+- **Sound**, synthesized with the Web Audio API (no files): `hum`, `drip`,
+  `drone`, `wind` per room or tag, doors between rooms, steps, a sting on the
+  listed passages, a heartbeat when the condition is bad. Starts on the first
+  tap; mute in the toolbar.
+- **Paragraph-by-paragraph reading**, hotspots after the text.
+- **Status**: a heartbeat line with the author's own condition words, an
+  inventory where examining shows a quoted sentence; condition effects on the
+  page (off under reduced motion or the setting).
+- **Documents** on their own sheet.
+- **Title screen**, **settings**, and at each chapter's end **"Tu camino"**
+  (endings found of all, as ???, choices, places seen) plus a page of endings
+  and generic achievements. The build explores every chapter to know its
+  endings.
+
 ## Art bible
 
 A series may keep `stories/<series>/art-bible.json`: one English description per
@@ -120,8 +163,8 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 
 | Path | What |
 |---|---|
-| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes` |
-| `src/app/` | The site: library, reader, `save` (localStorage), Harlowe-like base CSS |
+| `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes`, `game`, `discoveries` |
+| `src/app/` | The site: `main` (routes), `title`, `library`, `reader`, `pacing`, `hud`, `audio`, `settings`/`settings-ui`, `achievements`, `door`, `save` (localStorage), Harlowe-like base CSS |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
 | `scripts/art-bible.ts`, `scripts/prompts.ts` | The art bible's checks, and the prompts composed from it |
