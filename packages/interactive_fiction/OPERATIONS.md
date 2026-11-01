@@ -58,29 +58,29 @@ npm run stories && npm run explore -- <series>
 npm run build && npm run preview     # check it at http://localhost:4173
 ```
 
-## Deploying (Cloudflare Pages)
+## Deploying (Cloudflare Workers static assets)
 
-Static assets on Cloudflare Pages are free and unlimited; Firebase Hosting's
-free plan caps transfer at 360 MB/day, which a few readers with images exhaust.
+Static assets on Cloudflare are free and unlimited; Firebase Hosting's free
+plan caps transfer at 360 MB/day, which a few readers with images exhaust.
+Cloudflare has folded Pages into Workers, and wrangler 4 refuses to create a
+new Pages project without `--force`, so the reader is a Workers project that
+serves `dist/` as static assets and runs no code.
 
 **Once:** a free Cloudflare account, then `npm run deploy:login` in this
-package (opens the browser; wrangler keeps the login on this Mac).
+package (opens the browser; wrangler keeps the login on this Mac). The first
+deploy registers the account's `workers.dev` subdomain.
 
 **Every deploy:** `npm run deploy` — builds (drafts left out) and uploads
-`dist/` to the Pages project named in `wrangler.toml` (`historias`), creating it
-on the first run. The site is at `https://historias.pages.dev` or, if that name
-is taken, the one wrangler prints.
+`dist/` to the project named in `wrangler.toml` (`historias`). The site is at
+`https://historias.interactive-fiction.workers.dev`.
 
 `wrangler` lives in `deploy/` with its own lockfile, pinned, so the test job
 never installs its ~270 MB. To show the author a draft chapter, deploy
-`npm run build:drafts` output to a separate project
-(`deploy/node_modules/.bin/wrangler pages deploy dist --project-name <name>-borrador`),
-never to the public one.
+`npm run build:drafts` output under another name
+(`deploy/node_modules/.bin/wrangler deploy --name historias-borrador`), never
+to the public one.
 
-**By hand instead:** Workers & Pages → Create → Pages → Upload assets, and
-drag `dist/` from `npm run build`.
-
-**From CI, later:** a Cloudflare API token scoped to Pages edit and the
+**From CI, later:** a Cloudflare API token scoped to Workers edit and the
 account id as GitHub secrets. CI cannot build the stories (not in the repo), so
 it would pull `stories/` from the private bucket first. Not set up.
 

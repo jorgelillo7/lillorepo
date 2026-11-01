@@ -62,7 +62,6 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Free Cloudflare account, then `! npm run deploy:login` and `npm run deploy` in the package — the URL it prints is the test site for the author | You · `packages/interactive_fiction/OPERATIONS.md` → "Deploying" |
 | 👤 | Send the author the URL, the validator/explorer report and the art bible's open questions; agree the Twee hand-off (shared Drive folder) and whether his drafts are shown | You · same file → "The author hand-off" |
 | 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 1 fixes, then the chapter 2 rooms | You · `packages/interactive_fiction/.claude/skills/scene-art` |
 | 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |

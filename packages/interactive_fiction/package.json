@@ -10,7 +10,7 @@
     "build": "npm run stories && tsc --noEmit && vite build",
     "build:drafts": "STORIES_DRAFTS=1 npm run build",
     "preview": "vite preview",
-    "deploy": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler pages deploy",
+    "deploy": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler deploy",
     "deploy:login": "npm --prefix deploy ci --no-audit --no-fund && deploy/node_modules/.bin/wrangler login",
     "stories": "node scripts/build-stories.ts",
     "explore": "node scripts/explore.ts",
