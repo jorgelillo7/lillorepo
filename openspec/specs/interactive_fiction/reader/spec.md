@@ -135,4 +135,28 @@ code, once earned, SHALL be kept apart from progress so undo never loses it,
 and SHALL be written into the next chapter's code field while that field is
 empty. A link-less passage before the end code is set SHALL read as a path not
 yet written, not as the end of the chapter. Restart SHALL ask for confirmation
-inside the page, since embedded viewers block browser dialogs.
+inside the page, since embedded viewers block browser dialogs. A chapter that
+cannot be loaded SHALL say so instead of leaving the page blank. These rules
+are pure functions on the progress (`src/app/progression.ts`), tested without
+a browser.
+
+#### Scenario: moving, undoing and the history
+- **WHEN** the reader moves on, undoes, or plays a long session
+- **THEN** each step keeps the state before its passage and the choice made on it, undo forgets that choice, and only the last steps are kept
+- *Verifies:* `progression.test.ts: advancing keeps the state before each passage and the choice made on it`,
+  `progression.test.ts: undo returns to the step before and forgets the choice made from it`,
+  `progression.test.ts: the history keeps the last steps only`,
+  `progression.test.ts: advancing copies the state, so later changes on the page do not leak into history`
+
+#### Scenario: endings and unwritten paths
+- **WHEN** a passage offers nothing to click or type
+- **THEN** it ends the chapter if the chapter keeps no code or its code is set, and is an unwritten path otherwise; the chapter is finished once
+- *Verifies:* `progression.test.ts: a passage with something to click or type does not end the chapter`,
+  `progression.test.ts: a dead end ends a chapter without codes, and one whose code is set`,
+  `progression.test.ts: a dead end before the code is set is a path not written yet`,
+  `progression.test.ts: a chapter is marked finished once, with the code it ended on`
+
+#### Scenario: the carried code
+- **WHEN** a chapter opens after the previous one ended with a code
+- **THEN** the code fills its code field only while that field is empty
+- *Verifies:* `progression.test.ts: fills the code field while it is empty, and only then`

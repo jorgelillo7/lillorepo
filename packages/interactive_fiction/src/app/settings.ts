@@ -1,4 +1,6 @@
-/** Reader preferences, in one localStorage key. Every access is guarded; defaults apply without storage. */
+/** Reader preferences, in one storage key; defaults apply without storage. */
+
+import { readJson, writeJson } from "./storage.ts";
 
 export interface Settings {
   /** 0–1. */
@@ -11,29 +13,19 @@ export interface Settings {
   effects: boolean;
 }
 
-const KEY = "if:v1:settings";
+const KEY = "settings";
 const DEFAULTS: Settings = { volume: 0.5, muted: false, pacing: "paragraph", textSize: "m", effects: true };
 
 let cached: Settings | null = null;
 
 export function settings(): Settings {
-  if (cached) return cached;
-  try {
-    const raw = localStorage.getItem(KEY);
-    cached = { ...DEFAULTS, ...(raw ? (JSON.parse(raw) as Partial<Settings>) : {}) };
-  } catch {
-    cached = { ...DEFAULTS };
-  }
+  cached ??= { ...DEFAULTS, ...readJson<Partial<Settings>>(KEY, {}) };
   return cached;
 }
 
 export function updateSettings(change: Partial<Settings>): Settings {
   cached = { ...settings(), ...change };
-  try {
-    localStorage.setItem(KEY, JSON.stringify(cached));
-  } catch {
-    // Kept for this visit only.
-  }
+  writeJson(KEY, cached);
   applySettings();
   return cached;
 }
