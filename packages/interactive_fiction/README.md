@@ -40,6 +40,10 @@ When the author keeps the chapters in his own repository, `"sourceRoot":
 resolve inside his clone, read in place — see OPERATIONS.md, "The author
 hand-off".
 
+An optional `"credits"` list — `{ "name", "role", "links": { "GitHub": "https://…" } }`
+per person — shows who made the series on "Acerca de" and under the title
+screen's menu; links must be https.
+
 An optional `"about": ["…", "…"]` adds an "Acerca de" page to the series
 (credits, and how the art was made).
 

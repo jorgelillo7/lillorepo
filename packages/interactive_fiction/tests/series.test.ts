@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { sourceDirOf } from "../scripts/series.ts";
+import { sourceDirOf, validateCredits } from "../scripts/series.ts";
 
 describe("where a series reads its chapters", () => {
   test("without a sourceRoot, from the series folder", () => {
@@ -10,5 +10,22 @@ describe("where a series reads its chapters", () => {
     expect(sourceDirOf("/repo/stories/s", "../../author")).toBe("/repo/author");
     expect(sourceDirOf("/repo/stories/s", "/clones/author")).toBe("/clones/author");
     expect(sourceDirOf("/repo/stories/s", "~/Projects/author", "/home/me")).toBe("/home/me/Projects/author");
+  });
+});
+
+describe("credits", () => {
+  test("every credit needs a name and a role, and every link an https URL", () => {
+    expect(validateCredits([{ name: "A", role: "Writing", links: { GitHub: "https://github.com/a" } }])).toEqual([]);
+    expect(
+      validateCredits([
+        { name: "", role: "", links: {} },
+        { name: "B", role: "Web", links: { LinkedIn: "http://x.com", Site: "not a url" } },
+      ]),
+    ).toEqual([
+      "credit #1: no name.",
+      "credit #1: no role.",
+      'credit B: link "LinkedIn" is not an https URL.',
+      'credit B: link "Site" is not an https URL.',
+    ]);
   });
 });
