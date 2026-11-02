@@ -34,6 +34,10 @@ stories/<series>/
 }
 ```
 
+A chapter's `source` can also be a list of folders and files, as Tweego takes
+them — `["shared/style", "Capitulo 1/fuente"]` — whose `.twee` passages and
+`.css` stylesheets make one story (a `.js` script is refused).
+
 When the author keeps the chapters in his own repository, `"sourceRoot":
 "~/Projects/<his repo>"` (absolute, relative to the series folder, or under
 `~/`) makes every `source` and the optional per-chapter `"resources"` folder
