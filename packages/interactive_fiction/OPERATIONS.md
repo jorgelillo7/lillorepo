@@ -9,7 +9,7 @@ reads them in place — nothing is copied. A chapter is his Tweego source as
 his `tools/build.sh` compiles it — the shared stylesheet folder plus the
 chapter's `fuente/` folder, one `.twee` per scene — so there is no generated
 copy to keep in step; the media its passages reference is the folder its
-`resources/` folder. The series folder here keeps only what is ours: scene
+`resources` entry names. The series folder here keeps only what is ours: scene
 files, the art bible, `game.json`, the generated art.
 
 **Each delivery:** he pushes and says draft or final, and what changed.
