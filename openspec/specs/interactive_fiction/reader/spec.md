@@ -19,7 +19,11 @@ end code of one chapter carried into the next.
 ### Requirement: Both Twine formats are read, and story JavaScript is refused
 
 The importer SHALL read a Twee 3 file and a published Twine 2 HTML build into
-the same story shape (title, start passage, tags, stylesheet). A story that
+the same story shape (title, start passage, tags, stylesheet), and — as Tweego
+takes them — a list of folders and files whose `.twee` passages, `.css`
+stylesheets and `.js` scripts make one chapter, so an author who splits a
+chapter by scene publishes his source as written, with no generated copy to
+keep in step. A story that
 carries JavaScript SHALL be refused, because the reader cannot run it and a
 story missing its script misbehaves silently.
 
@@ -28,6 +32,12 @@ story missing its script misbehaves silently.
 - **THEN** title, start, tags and stylesheet are read and the special passages dropped
 - *Verifies:* `source.test.ts: reads title, start, tags and the stylesheet, and drops the special passages`,
   `source.test.ts: parseStory tells the two formats apart`
+
+#### Scenario: Tweego sources
+- **WHEN** a chapter is a list of folders and files
+- **THEN** their passages and stylesheets make one story in the order given, and a script among them is refused
+- *Verifies:* `series.test.ts: passages, stylesheets and scripts from several files make one story, in the order given`,
+  `series.test.ts: a script among the sources is refused, as story JavaScript always is`
 
 #### Scenario: published HTML
 - **WHEN** a published HTML build is imported

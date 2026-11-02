@@ -5,9 +5,11 @@
 **Where his chapters live:** his own private git repository, cloned beside
 this one (`~/Projects/<his repo>`). `series.json` points `sourceRoot` at the
 clone and each chapter's `source` / `resources` at his files, so the build
-reads them in place — nothing is copied. A chapter is his Twee source
-(`Capitulo N/src/*.twee`); the media its passages reference is his build's
-`resources/` folder. The series folder here keeps only what is ours: scene
+reads them in place — nothing is copied. A chapter is his Tweego source as
+his `tools/build.sh` compiles it — the shared stylesheet folder plus the
+chapter's `fuente/` folder, one `.twee` per scene — so there is no generated
+copy to keep in step; the media its passages reference is the folder its
+`resources` entry names. The series folder here keeps only what is ours: scene
 files, the art bible, `game.json`, the generated art.
 
 **Each delivery:** he pushes and says draft or final, and what changed.
