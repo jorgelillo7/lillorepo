@@ -56,7 +56,8 @@ async function playChapter(c: Devtools, series: SeriesEntry, chapter: string, pa
     const target = `[...document.querySelectorAll('[data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)} && e.offsetParent !== null)`;
     if (!(await appears(c, target)) || !(await c.click(target))) {
       const visible = await c.ev<string>(`[...document.querySelectorAll('[data-choice]')].map(e => e.dataset.choice).join(' | ')`);
-      return `could not find «${step}» — on screen: ${visible}`;
+      const page = await c.ev<string>(`location.hash + ' — ' + document.body.innerText.replace(/\\s+/g, ' ').slice(0, 200)`);
+      return `could not find «${step}» — choices on screen: ${visible || "none"} — page ${page}`;
     }
     await sleep(350);
   }
