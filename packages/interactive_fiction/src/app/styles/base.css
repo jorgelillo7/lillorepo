@@ -6,6 +6,11 @@
   --panel: #0e0e0e;
   --accent: #4169e1;
 }
+/* No rubber-band at the edges: it pulls the sticky toolbar and scene apart on iOS. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
 body {
   font-family: Georgia, serif;
   -webkit-text-size-adjust: 100%;
@@ -97,8 +102,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 16px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(6px);
+  background: #000;
   border-bottom: 1px solid var(--line);
   font-size: 0.85rem;
 }
