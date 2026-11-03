@@ -49,6 +49,30 @@ scene, an image file is missing, or a hotspot has no area yet.
   `scenes.test.ts: a clean scene file passes`,
   `scenes.test.ts: a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced`
 
+### Requirement: Planned images are generated from the bible, and every call is paid
+
+`npm run art` SHALL send each planned image to the Gemini API with the prompt
+composed from the bible: an edit with the image it changes (its full-size
+original when there is one), any other image with the bible's style reference,
+and each character with its reference image (the author's concept art), so new
+rooms match the old ones and characters look as the author drew them. The
+result SHALL be saved full size and as a web copy, and registered in the bible
+with the exact prompt that made it. Image models have no free tier, so the key
+SHALL come only from the environment, never a file; a run SHALL say its
+estimated cost first, stop at `--max` calls, and `--dry-run` SHALL show every
+request without calling.
+
+#### Scenario: what is sent for an image
+- **WHEN** a new image, or an edit, is requested
+- **THEN** the new one carries the style reference and its characters' references before the prompt, and the edit carries only the image it changes
+- *Verifies:* `art.test.ts: a new image carries the style reference, the references of its characters, then the composed prompt`,
+  `art.test.ts: an edit carries only the image it edits, at full size when there is an original`
+
+#### Scenario: a missing reference
+- **WHEN** the style reference or a character's reference image is not there
+- **THEN** the build reports it
+- *Verifies:* `art-bible.test.ts: a style or concept-art reference that is not there is an error`
+
 ### Requirement: A chapter's scene file is drafted from the art bible
 
 An image in the art bible MAY list, per chapter, the passages it is the scene

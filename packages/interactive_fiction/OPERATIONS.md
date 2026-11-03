@@ -41,15 +41,33 @@ art means re-measuring the rectangles in the chapter's scene file. Who makes
 the art (the author, an illustrator, generated) and under what licence is
 decided per series before any of it is published.
 
-**Generating it with AI:** one consistent style prompt for every room plus a
-scene description taken from the passage text, 16:9, all rooms in one chat so
-the style holds; a variant of a room (someone on the bed, a door ajar) is an
-edit of the first image, not a new one. Keep the prompts and the full-size
-originals next to the art in the series folder — they are not published.
-Resize to ~1600 px wide for the web, then place the rectangles and check them
-with an overlay before shipping. The Gemini API's free tier allows no image
-generation, so this runs in the Gemini app, by hand. Say so on the series'
-"about" page.
+**Generating it with AI:** `npm run art -- <series>` sends every planned
+image of the art bible to the Gemini API: the composed prompt, plus the image
+an edit changes — or else the bible's `styleReference` and each character's
+`reference` (the author's concept art) — and saves the full-size original in
+`art-originals/`, a 1600 px copy in `scenes/`, and the exact prompt in the
+bible. A variant of a room (someone on the bed, a door ajar) is an edit of the
+first image, not a new one, so the room stays the same.
+
+- **It costs money.** Image models have no free tier in the API (the free
+  key answers 429 with a limit of 0). About US$0.12 per 2K image with the
+  default `gemini-3.1-flash-image`; a chapter of a dozen rooms with a few
+  retries is about US$2–3.
+- **The key:** a paid Gemini API key in `GEMINI_API_KEY`, for the shell only,
+  never written to a file. Use a project with a daily cap on the image model,
+  so a mistake is bounded in money. `be_water`'s paid key works, and has one
+  (see its OPERATIONS, "Two Gemini keys"):
+  `export GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=be-water-secrets --project be-water-app | python3 -c "import sys,json;print(json.load(sys.stdin)['gemini_api_key_paid'])")`
+- **Before paying:** `--dry-run` prints each request and the estimated cost;
+  `--max N` (default 15) caps the calls of one run.
+- **A detail that comes out wrong** is fixed with `--note "…"` on that image,
+  appended to its prompt and recorded with it. Each call is paid, so look at
+  the result before asking again.
+
+Review every image against the bible before a scene uses it, then place the
+rectangles and check them with an overlay. Say on the series' "about" page
+that the art is generated. Without a key, `npm run prompts -- <series>` prints
+the same prompts for the Gemini app, by hand.
 
 ## Updating a chapter
 

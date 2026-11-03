@@ -23,6 +23,8 @@ export interface Entry {
   sources: Quote[];
   /** Questions for the author about this entry, kept until answered. */
   open?: string[];
+  /** An image of it under the series folder (the author's concept art), attached when an image of it is generated. */
+  reference?: string;
 }
 
 export interface ImageEntry {
@@ -45,6 +47,8 @@ export interface ImageEntry {
 
 export interface ArtBible {
   style: string;
+  /** An image under the series folder whose look new images match: attached to every image that is not an edit. */
+  styleReference?: string;
   characters: Record<string, Entry>;
   locations: Record<string, Entry>;
   images: Record<string, ImageEntry>;
@@ -101,6 +105,17 @@ export function validateBible(
           errors.push(`${kind} "${id}": the quote from "${q.passage}" is no longer in the text — review the description.`);
         }
       }
+    }
+  }
+  if (bible.styleReference && !fileExists(bible.styleReference)) {
+    errors.push(`style reference "${bible.styleReference}" not found.`);
+  }
+  for (const [kind, entries] of [
+    ["character", bible.characters],
+    ["location", bible.locations],
+  ] as const) {
+    for (const [id, entry] of Object.entries(entries)) {
+      if (entry.reference && !fileExists(entry.reference)) errors.push(`${kind} "${id}": reference "${entry.reference}" not found.`);
     }
   }
   const files = new Map<string, string>();

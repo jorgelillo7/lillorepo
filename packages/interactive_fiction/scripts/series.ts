@@ -104,10 +104,10 @@ function readChapter(sourceDir: string, source: string | string[]): Story {
 }
 
 export function loadSeries(id: string): Series {
-  const dir = join(STORIES_DIR, id);
+  // The real path: a series folder may be a link into the author's clone, and its `..` must mean his repository.
+  const dir = realpathSync(join(STORIES_DIR, id));
   const manifest = JSON.parse(readFileSync(join(dir, "series.json"), "utf8")) as SeriesManifest;
-  // Through the real path: a series folder may be a link into the author's clone, and `..` must mean his repository.
-  const sourceDir = sourceDirOf(realpathSync(dir), manifest.sourceRoot);
+  const sourceDir = sourceDirOf(dir, manifest.sourceRoot);
   if (!existsSync(sourceDir)) throw new Error(`${id}: sourceRoot ${sourceDir} not found — clone the author's repository there.`);
   const stories = manifest.chapters.map((c) => readChapter(sourceDir, c.source));
   return { id, dir, sourceDir, manifest, stories };

@@ -29,24 +29,35 @@ async function settle(c: Devtools): Promise<void> {
   await sleep(120);
 }
 
+/** Wait for what `expression` finds to be on screen — a page with heavy images takes a moment — up to `ms`. */
+async function appears(c: Devtools, expression: string, ms = 8000): Promise<boolean> {
+  for (let waited = 0; waited < ms; waited += 200) {
+    await settle(c);
+    if (await c.ev<boolean>(`!!(${expression})`)) return true;
+    await sleep(80);
+  }
+  return false;
+}
+
 async function playChapter(c: Devtools, series: SeriesEntry, chapter: string, path: string[]): Promise<string | null> {
   await c.ev(`localStorage.removeItem('if:v1:${series.id}:${chapter}'); true`);
   await c.send("Page.navigate", { url: `${BASE}#/${series.id}/${chapter}` });
   await c.send("Page.reload");
-  await sleep(1200);
   for (const step of path) {
     await settle(c);
     const typed = /^«(.*)»$/.exec(step);
     if (typed) {
+      await appears(c, `document.querySelector('input[data-bind]')`);
       const ok = await c.ev<boolean>(`(() => { const i = document.querySelector('input[data-bind]'); if (!i) return false;
         i.value = ${JSON.stringify(typed[1])}; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
       if (!ok) return `no code field for ${step}`;
       continue;
     }
     const target = `[...document.querySelectorAll('[data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)} && e.offsetParent !== null)`;
-    if (!(await c.click(target))) {
+    if (!(await appears(c, target)) || !(await c.click(target))) {
       const visible = await c.ev<string>(`[...document.querySelectorAll('[data-choice]')].map(e => e.dataset.choice).join(' | ')`);
-      return `could not find «${step}» — on screen: ${visible}`;
+      const page = await c.ev<string>(`location.hash + ' — ' + document.body.innerText.replace(/\\s+/g, ' ').slice(0, 200)`);
+      return `could not find «${step}» — choices on screen: ${visible || "none"} — page ${page}`;
     }
     await sleep(350);
   }
