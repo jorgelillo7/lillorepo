@@ -15,6 +15,7 @@
     "stories": "node scripts/build-stories.ts",
     "explore": "node scripts/explore.ts",
     "prompts": "node scripts/prompts.ts",
+    "art": "node scripts/art.ts",
     "scenes:draft": "node scripts/scene-draft.ts",
     "parity": "node scripts/parity.ts",
     "play": "npm run build:drafts && node scripts/play.ts; status=$?; npm run build > /dev/null; exit $status",

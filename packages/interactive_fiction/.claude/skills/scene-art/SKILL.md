@@ -49,26 +49,39 @@ ajar, someone on the bed) is a variant of a room, not a new room.
   `scene` (the shot: composition, the moment, every clickable object visible
   and separate), and `editOf` when it is the same room changed.
 
-# Step 3 — Prompts
+# Step 3 — Generate
+
+Every call is paid (the API has no free tier for images), so confirm the
+spend with the owner first, and dry-run:
 
 ```bash
-npm run prompts -- <series>            # every planned image
-npm run prompts -- <series> <id> ...   # specific ones
+npm run art -- <series> --dry-run      # the requests and their estimated cost
+npm run art -- <series>                # every planned image (--max N caps the run)
+npm run art -- <series> <id> --note "…"   # one image again, with a correction
 ```
 
-Hand them to the owner for the Gemini app (the API's free tier has no image
-quota; never use a paid key). One chat per batch so the style holds; an
-`editOf` image needs its base uploaded first.
+`GEMINI_API_KEY` must hold a paid key, exported for the shell only — see
+OPERATIONS, "Art for point-and-click". New images get the bible's
+`styleReference`, and each character's `reference` (the author's concept art);
+an edit gets the full-size original of the image it changes.
 
-# Step 4 — Take the images in
+Without a key: `npm run prompts -- <series>` prints the same prompts for the
+owner to paste in the Gemini app; an `editOf` image needs its base uploaded.
 
-1. Save originals to `art-originals/<id>.jpg`.
-2. Web copy: `sips -Z 1600 -s format jpeg -s formatOptions 78 <original> --out scenes/<id>.jpg`.
-3. **Review against the bible before using it.** Crop the details at the
+# Step 4 — Review the images
+
+`npm run art` has already saved the original, the web copy and the prompt.
+(Images made in the app by hand: original to `art-originals/<id>.jpg`, web copy
+with `sips -Z 1600 -s format jpeg -s formatOptions 78 <original> --out scenes/<id>.jpg`,
+then `status`, `file` and `prompt` in the bible.)
+
+1. **Review against the bible before using it.** Crop the details at the
    original's scale and check every fact the description fixes (counts,
    clothes, accessories, what is on the desk). A miss becomes a new planned
-   `editOf` image that fixes only that, not a regeneration.
-4. In the bible: `status: "generated"`, `file`, and `prompt` (what was pasted).
+   `editOf` image that fixes only that, not a regeneration of the room.
+2. Watch for additions nobody asked for: the model sometimes adds a close-up
+   or a second copy of a detail it was told to change. `--note` says what it
+   must not add.
 
 # Step 5 — Hotspots
 

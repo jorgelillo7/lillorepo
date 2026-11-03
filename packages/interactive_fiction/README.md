@@ -10,6 +10,37 @@ It is a static site (Vite + TypeScript, no runtime dependencies) plus three
 Node scripts. It is outside Bazel: the first package in the repo that is not
 Python.
 
+## Two repositories, one workflow
+
+The story, and everything about it, lives in the author's repository; this
+package is only the reader. Both are cloned side by side
+(`~/Projects/project-silent-hill`, `~/Projects/lillorepo`).
+
+| Repository | Folder | What it holds | Who edits it |
+|---|---|---|---|
+| `project-silent-hill` (the author's, private) | `Capitulo N/fuente/` | The chapter, one `.twee` per scene: what the site reads | The author |
+| | `shared/style/`, `shared/logic/` | CSS and passages shared by every chapter | The author |
+| | `Capitulo N/build/` | His Tweego build for his Netlify site, and `resources/`, the media the passages use | The author |
+| | `bible/`, `prompts/`, `docs/`, `tools/`, `tests/` | His canon, his AI writing workflow, build, lint and walkthrough tests | The author |
+| | `Concept Art/` | His character sketches; the generated art uses them as references | The author |
+| | `web/` | The reader's own files: `series.json`, scene files, `game.json`, the art bible, the generated images | Us, through PRs he reviews |
+| `lillorepo` (public) | `packages/interactive_fiction/` | This reader: engine, site, build, checks, deploy | Us |
+| | `stories/<series>` (gitignored) | A link to the author's `web/` folder | — |
+
+**When a chapter changes:**
+
+1. The author writes in `fuente/`, checks it with his `tools/build.sh` and
+   walkthrough tests, and merges to his `master`.
+2. Here: `git -C ~/Projects/project-silent-hill pull`.
+3. `npm run stories`, `npm run explore -- <series>` and `npm run parity`. What
+   fails goes back to him by passage name.
+4. New rooms or characters: art-bible entries quoted from the text, each image
+   listing its passages; `npm run art` generates them; review each against the
+   bible; `npm run scenes:draft`, then place the hotspots and check them with
+   an overlay ([`scene-art`](.claude/skills/scene-art/SKILL.md)); `npm run play`.
+5. Changes to `web/` go to the author as a PR in his repository.
+6. `npm run deploy`.
+
 ## How a story gets in
 
 Stories are **not in git** — the repo is public and the text belongs to its
@@ -184,7 +215,11 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |
 | `scripts/play.ts` | Clicks each chapter's shortest path to an ending in a real Chrome — hotspots and links alike, codes typed — and fails on a missing choice, no end panel, or a console error |
+| `scripts/series.ts` | Reads a series: its manifest, its chapters (one file, or Tweego-style folders), where its sources live |
 | `scripts/art-bible.ts`, `scripts/prompts.ts` | The art bible's checks, and the prompts composed from it |
+| `scripts/art.ts` | Generates planned images through the Gemini API and registers them in the bible |
+| `scripts/scene-draft.ts` | A chapter's first scene file from the art bible, hotspots still to place |
+| `scripts/parity.ts`, `scripts/chrome.ts` | Every page compared with real Harlowe in headless Chrome; the Chrome driver it shares with `play` |
 | `tests/` | Vitest, on `tests/fixtures/mini.twee` — a story written for the tests |
 
 ## Commands
@@ -204,6 +239,7 @@ npm test               # engine tests
 npm run play           # every built chapter played end to end in headless Chrome (needs Chrome)
 npm run parity -- <series> --harlowe <Twine build.html>   # every page compared with real Harlowe, line breaks included
 npm run scenes:draft -- <series> <chapter>    # a first scene file from the art bible, hotspots still to place
+npm run art -- <series> [ids] [--dry-run]     # generate planned images (paid Gemini API key in GEMINI_API_KEY)
 ```
 
 Scripts run TypeScript directly on Node ≥ 24 (type stripping), no build step.

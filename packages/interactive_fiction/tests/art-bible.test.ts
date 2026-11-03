@@ -96,4 +96,12 @@ describe("bible validation", () => {
       'image "cell-girl": passage "Cell" (chapter 01) is already the scene of "cell".',
     ]);
   });
+
+  test("a style or concept-art reference that is not there is an error", () => {
+    const b = bible();
+    b.styleReference = "scenes/style.jpg";
+    b.characters.girl.reference = "../Concept Art/girl.png";
+    const errors = validateBible(b, { "01": chapter }, ["scenes/cell.jpg"], (p) => p === "scenes/cell.jpg");
+    expect(errors).toEqual(['style reference "scenes/style.jpg" not found.', 'character "girl": reference "../Concept Art/girl.png" not found.']);
+  });
 });
