@@ -199,8 +199,21 @@ function mount(s: Session, html: string): HTMLElement {
   const effects = settings().effects && !reducedMotion();
   root.dataset.condition = effects && state ? state.level : "fine";
   heartbeat(state ? HEART_BPM[state.level] : null);
+  trackToolbarHeight(root.querySelector<HTMLElement>(".toolbar"));
   window.scrollTo({ top: 0 });
   return root;
+}
+
+let toolbarObserver: ResizeObserver | null = null;
+
+/** Keep `--bar-h` at the toolbar's height, so the sticky scene sits right under it however the toolbar wraps. */
+function trackToolbarHeight(bar: HTMLElement | null): void {
+  toolbarObserver?.disconnect();
+  if (!bar) return;
+  const set = () => document.documentElement.style.setProperty("--bar-h", `${bar.offsetHeight}px`);
+  set();
+  toolbarObserver = new ResizeObserver(set);
+  toolbarObserver.observe(bar);
 }
 
 /**

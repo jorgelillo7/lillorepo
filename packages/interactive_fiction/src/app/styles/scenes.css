@@ -6,7 +6,7 @@
 }
 .stage-wrap {
   position: sticky;
-  top: 41px;
+  top: var(--bar-h, 41px);
   display: flex;
   justify-content: center;
   background: #000;
@@ -130,7 +130,7 @@
     grid-template-columns: 1fr;
   }
   .stage-wrap {
-    top: 41px;
+    top: var(--bar-h, 41px);
     z-index: 5;
   }
   .stage {
