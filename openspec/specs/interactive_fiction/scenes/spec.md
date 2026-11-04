@@ -17,8 +17,13 @@ whose descriptions are quoted from the story.
 
 ### Requirement: Only what the passage offers can be clicked
 
-A hotspot SHALL appear only when one of its targets is a link the passage
-offers in this render; the first target offered wins. Links with no hotspot,
+A hotspot SHALL appear only when some of its targets are links the passage
+offers in this render. When the passage offers one of them, tapping the
+hotspot follows it; when it offers several at once — the three exits of one
+door, the answers given to one character — tapping it SHALL open a menu of
+those choices beside it, fitted inside the picture, so every choice tied to
+something visible is played from the image and none is left as a button only
+because two of them share an object. Links with no hotspot,
 and `(link:)` reveals, SHALL stay available as buttons in the text. Without
 this, an area drawn on the image would bypass the story's own conditions. A
 link the image shows is not repeated in the text, unless the reader sets
@@ -29,7 +34,12 @@ search the image.
 - **WHEN** a condition removes a link from the passage
 - **THEN** the hotspot for it disappears too
 - *Verifies:* `scenes.test.ts: only what the passage offers is clickable: a gated link hides its hotspot`,
-  `scenes.test.ts: the first target that is a current action wins`
+  `scenes.test.ts: a hotspot whose passage offers one of its targets leads straight there`
+
+#### Scenario: several ways through one object
+- **WHEN** the passage offers several of one hotspot's targets
+- **THEN** the hotspot carries them all, in its own order, and opens a menu of them
+- *Verifies:* `scenes.test.ts: a hotspot whose passage offers several of its targets carries them all, for a menu`
 
 #### Scenario: links without an area
 - **WHEN** a passage offers actions no hotspot covers

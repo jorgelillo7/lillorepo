@@ -43,10 +43,22 @@ describe("hotspots", () => {
     expect(rest.map((i) => page.actions[i].label)).toEqual(["Pick it up", "Look around"]);
   });
 
-  test("the first target that is a current action wins", () => {
-    const multi = { image: "x", aspect: [1, 1] as [number, number], hotspots: [{ label: "Door", targets: ["A", "B"], rect: [0, 0, 1, 1] as [number, number, number, number] }] };
-    const { shown } = hotspotsFor(multi, [{ kind: "link", label: "to B", target: "B" }]);
-    expect(shown[0].action).toBe(0);
+  const door = { image: "x", aspect: [1, 1] as [number, number], hotspots: [{ label: "Door", targets: ["A", "B", "C"], rect: [0, 0, 1, 1] as [number, number, number, number] }] };
+
+  test("a hotspot whose passage offers one of its targets leads straight there", () => {
+    const { shown } = hotspotsFor(door, [{ kind: "link", label: "to B", target: "B" }]);
+    expect(shown[0].actions).toEqual([0]);
+  });
+
+  test("a hotspot whose passage offers several of its targets carries them all, for a menu", () => {
+    const actions = [
+      { kind: "link" as const, label: "Talk", target: "X" },
+      { kind: "link" as const, label: "Downstairs", target: "C" },
+      { kind: "link" as const, label: "Upstairs", target: "A" },
+    ];
+    const { shown, rest } = hotspotsFor(door, actions);
+    expect(shown[0].actions).toEqual([2, 1]);
+    expect(rest).toEqual([0]);
   });
 });
 

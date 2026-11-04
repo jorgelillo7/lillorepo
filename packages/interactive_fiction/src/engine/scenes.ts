@@ -6,7 +6,10 @@ import type { Story } from "./source.ts";
 export interface Hotspot {
   /** Shown on hover/focus and read by screen readers. */
   label: string;
-  /** Passages this area leads to; the first one the passage currently offers wins. */
+  /**
+   * Passages this area leads to. One the passage offers is a straight click;
+   * several offered at once — the exits of one door — open a menu of them.
+   */
   targets: string[];
   /** `[x, y, width, height]` in percent of the image. */
   rect: [number, number, number, number];
@@ -33,27 +36,27 @@ export interface SceneFile {
 
 export interface ShownHotspot {
   hotspot: Hotspot;
-  /** Index into the passage's actions. */
-  action: number;
+  /** Indexes into the passage's actions, in the hotspot's target order: one is a click, more open a menu. */
+  actions: number[];
 }
 
 /**
  * Split a passage's actions into hotspots on the scene and the rest.
- * A hotspot appears only when one of its targets is a link the passage offers
+ * A hotspot appears only when some of its targets are links the passage offers
  * right now, so the story's own conditions decide what can be clicked.
  */
 export function hotspotsFor(scene: Scene, actions: Action[]): { shown: ShownHotspot[]; rest: number[] } {
   const used = new Set<number>();
   const shown: ShownHotspot[] = [];
   for (const hotspot of scene.hotspots) {
+    const mine: number[] = [];
     for (const target of hotspot.targets) {
       const i = actions.findIndex((a, n) => !used.has(n) && a.kind === "link" && a.target === target);
-      if (i !== -1) {
-        used.add(i);
-        shown.push({ hotspot, action: i });
-        break;
-      }
+      if (i === -1) continue;
+      used.add(i);
+      mine.push(i);
     }
+    if (mine.length) shown.push({ hotspot, actions: mine });
   }
   const rest = actions.map((_, i) => i).filter((i) => !used.has(i));
   return { shown, rest };

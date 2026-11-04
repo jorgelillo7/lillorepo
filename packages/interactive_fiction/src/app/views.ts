@@ -58,13 +58,23 @@ export function scenePage(
   passage: string,
   footer: string,
 ): string {
+  const targetOf = (i: number) => (actions[i] as { target: string }).target;
   const spots = shown
-    .map(({ hotspot, action }) => {
+    .map(({ hotspot, actions: mine }, n) => {
       const [x, y, w, h] = hotspot.rect;
-      const target = (actions[action] as { target: string }).target;
-      const visited = seen.has(target) ? " visited" : "";
-      return `<button class="hotspot${visited}" data-action="${action}" data-choice="${esc(actions[action].label)}" aria-label="${esc(hotspot.label)}"
-        style="left:${x}%;top:${y}%;width:${w}%;height:${h}%"><span class="hotspot-label">${esc(hotspot.label)}</span></button>`;
+      const visited = mine.every((i) => seen.has(targetOf(i))) ? " visited" : "";
+      const box = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
+      const label = `<span class="hotspot-label">${esc(hotspot.label)}</span>`;
+      if (mine.length === 1) {
+        const i = mine[0];
+        return `<button class="hotspot${visited}" data-action="${i}" data-choice="${esc(actions[i].label)}" aria-label="${esc(hotspot.label)}" style="${box}">${label}</button>`;
+      }
+      // Several ways through one object: a menu, placed beside it when it opens (the reader fits it in the picture).
+      const options = mine
+        .map((i) => `<button class="hotspot-option${seen.has(targetOf(i)) ? " visited" : ""}" role="menuitem" data-action="${i}" data-choice="${esc(actions[i].label)}">${esc(actions[i].label)}</button>`)
+        .join("");
+      return `<button class="hotspot has-menu${visited}" data-menu="${n}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(hotspot.label)}" style="${box}">${label}</button>
+        <div class="hotspot-menu" role="menu" data-menu-of="${n}" hidden>${options}</div>`;
     })
     .join("");
   const [aw, ah] = scene.aspect;

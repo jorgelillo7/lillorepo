@@ -99,7 +99,14 @@ images are in. A passage whose picture depends on the state (the same passage
 showing two moments) can have one scene only: pick the common one.
 
 - One rectangle per clickable object, `[x, y, w, h]` in percent of the image;
-  `targets` are the passages it leads to (first one offered wins).
+  `targets` are the passages it leads to.
+- **Several choices, one object — the standard:** when choices go through the
+  same thing in the picture (the three exits of a door, the two corridors at
+  the top of a stair, the answers given to a character), give that object
+  **one** hotspot listing all their targets. A passage that offers one of them
+  makes it a plain click; one that offers several opens a menu beside the
+  object. Merge the draft's hotspots that way; leave a choice as a text button
+  only when nothing in the picture stands for it.
 - Same `room` for every view of one room (no door transition between them).
 - Check with an overlay before shipping: render the image with the rectangles
   drawn on it (an HTML page with absolutely positioned outlined boxes,

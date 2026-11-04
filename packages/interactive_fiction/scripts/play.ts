@@ -54,6 +54,10 @@ async function playChapter(c: Devtools, series: SeriesEntry, chapter: string, pa
       continue;
     }
     const target = `[...document.querySelectorAll('[data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)} && e.offsetParent !== null)`;
+    // A choice inside a closed hotspot menu: open the menu first, as a reader would.
+    const menu = `(() => { const o = [...document.querySelectorAll('.hotspot-menu[hidden] [data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)});
+      return o && document.querySelector('.hotspot[data-menu="' + o.closest('.hotspot-menu').dataset.menuOf + '"]'); })()`;
+    if (!(await c.ev<boolean>(`!!(${target})`)) && (await c.ev<boolean>(`!!(${menu})`))) await c.click(menu);
     if (!(await appears(c, target)) || !(await c.click(target))) {
       const visible = await c.ev<string>(`[...document.querySelectorAll('[data-choice]')].map(e => e.dataset.choice).join(' | ')`);
       const page = await c.ev<string>(`location.hash + ' — ' + document.body.innerText.replace(/\\s+/g, ' ').slice(0, 200)`);
