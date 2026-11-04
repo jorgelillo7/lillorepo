@@ -159,14 +159,24 @@ def _print_comparison(doc: dict, actual: dict) -> None:
     points = actual["player_points"]
 
     print(f"\n=== {doc.get('round_name') or doc['round_id']} ({doc['season']}) ===")
-    print(
-        f"  Blend  {blended.get('formation') or '?'}  real: {actual['blended_total']}"
-    )
-    print(
-        f"  JP     {jp_only.get('formation') or '?'}  real: {actual['jp_only_total']}"
-    )
-    delta = actual["blended_total"] - actual["jp_only_total"]
-    print(f"  Diferencia (blend - JP): {delta:+d}")
+    totals = projection_ledger.outcome_totals({**doc, "actual": actual})
+    if totals is None:
+        print("  Sin puntos de algún jugador de los onces: no se puede puntuar.")
+        return
+    blended_total, jp_only_total = totals
+    print(f"  Blend  {blended.get('formation') or '?'}  real: {blended_total}")
+    print(f"  JP     {jp_only.get('formation') or '?'}  real: {jp_only_total}")
+    print(f"  Diferencia (blend - JP): {blended_total - jp_only_total:+d}")
+
+    ranking = projection_ledger.league_ranking({**doc, "actual": actual})
+    if ranking:
+        print("  Liga (proyección del once → resultado):")
+        for row in ranking:
+            print(
+                f"    {row['projected_rank']}º {row['manager'][:28]:28} "
+                f"SF {row['projected']:>5} → {row['points']:>4} pts "
+                f"({row['points_rank']}º)"
+            )
 
     if not doc.get("xi_differs"):
         print("  (mismo once — nada que aprender esta jornada)")
