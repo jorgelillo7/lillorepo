@@ -99,7 +99,20 @@ images are in. A passage whose picture depends on the state (the same passage
 showing two moments) can have one scene only: pick the common one.
 
 - One rectangle per clickable object, `[x, y, w, h]` in percent of the image;
-  `targets` are the passages it leads to (first one offered wins).
+  `targets` are the passages it leads to.
+- **Several choices, one object — the standard.** Pick by where the choices
+  are seen:
+  - **Seen from somewhere else** (a room whose exits are on the corridor
+    beyond its door): give the door a hotspot with `"view": "<the corridor
+    scene>"` and `"targets": []`. Tapping it shows the corridor, and the
+    choices sit on its stairs and doors. The corridor's own scene must have
+    hotspots for those targets.
+  - **On the same thing in this picture** (the two corridors at the top of a
+    stair, the answers given to a character): give that object **one**
+    hotspot listing all their targets. One offered is a plain click; several
+    open a menu beside the object.
+  - Merge the draft's hotspots that way. Leave a choice as a text button only
+    when nothing in any picture stands for it.
 - Same `room` for every view of one room (no door transition between them).
 - Check with an overlay before shipping: render the image with the rectangles
   drawn on it (an HTML page with absolutely positioned outlined boxes,

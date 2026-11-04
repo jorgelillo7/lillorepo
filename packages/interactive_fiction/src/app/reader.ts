@@ -174,11 +174,11 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
   const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
   const changedRoom = Boolean(lastRoom && scene.room && lastRoom !== scene.room);
   s.lastScene = sceneId;
-  const { shown } = hotspotsFor(scene, page.actions);
+  const { shown } = hotspotsFor(scene, page.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
   const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer));
   // A link the scene already shows as a hotspot is not repeated in the text, unless the reader asked for both.
-  const inScene = new Set(settings().sceneChoices === "both" ? [] : shown.map((x) => String(x.action)));
+  const inScene = new Set(settings().sceneChoices === "both" ? [] : shown.flatMap((x) => x.actions.map(String)));
   root.querySelectorAll<HTMLElement>("tw-passage tw-link[data-action]").forEach((link) => {
     if (!inScene.has(link.dataset.action!)) return;
     if (link.nextElementSibling?.tagName === "BR") link.nextElementSibling.remove();
@@ -329,18 +329,85 @@ app.addEventListener("click", (ev) => {
     pacing.next();
     return;
   }
-  const link = target.closest<HTMLElement>("tw-link[data-action], .hotspot[data-action]");
+  const viewButton = target.closest<HTMLElement>(".hotspot[data-view]");
+  if (viewButton) {
+    showView(s, viewButton.dataset.view!);
+    return;
+  }
+  const menuButton = target.closest<HTMLElement>(".hotspot[data-menu]");
+  if (menuButton) {
+    toggleMenu(menuButton);
+    return;
+  }
+  const link = target.closest<HTMLElement>("tw-link[data-action], .hotspot[data-action], .hotspot-option[data-action]");
   if (link) {
+    closeMenus();
     onAction(s, link);
     return;
   }
+  if (!target.closest(".hotspot-menu")) closeMenus();
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (tool) TOOLS[tool.dataset.tool!]?.(s, tool);
 });
 
+/**
+ * Show another scene for the passage on screen — out through a door — with the
+ * passage's choices on what they lead to. Only the picture changes: the text
+ * stays as it is, read.
+ */
+function showView(s: Session, sceneId: string): void {
+  const scene = s.scenes?.scenes[sceneId];
+  const holder = app.querySelector<HTMLElement>(".stage-wrap");
+  if (!scene || !holder) return;
+  closeMenus();
+  const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
+  s.lastScene = sceneId;
+  const { shown } = hotspotsFor(scene, s.actions, s.scenes!.scenes);
+  const seen = new Set(s.progress.undo.map((u) => u.passage));
+  holder.innerHTML = view.stage(scene, shown, s.actions, seen);
+  setAmbience(ambienceFor(s.series.game, scene.room, []));
+  if (lastRoom && scene.room && lastRoom !== scene.room) {
+    playDoor();
+    doorSound();
+  }
+}
+
+/** Open a hotspot's menu of the ways through it, closing any other. */
+function toggleMenu(button: HTMLElement): void {
+  const menu = app.querySelector<HTMLElement>(`.hotspot-menu[data-menu-of="${button.dataset.menu}"]`);
+  if (!menu) return;
+  const open = menu.hidden;
+  closeMenus();
+  menu.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+  if (!open) return;
+  placeMenu(menu, button);
+  menu.querySelector<HTMLElement>(".hotspot-option")?.focus();
+}
+
+/** Below the object if the menu fits, else above it, else centred: always inside the picture, which may be small on a phone. */
+function placeMenu(menu: HTMLElement, button: HTMLElement): void {
+  const stage = menu.parentElement!.getBoundingClientRect();
+  const spot = button.getBoundingClientRect();
+  menu.style.maxHeight = `${stage.height - 8}px`;
+  const { width, height } = menu.getBoundingClientRect();
+  let top = spot.bottom - stage.top + 4;
+  if (top + height > stage.height) top = spot.top - stage.top - height - 4;
+  if (top < 0) top = (stage.height - height) / 2;
+  const left = Math.min(Math.max(0, spot.left - stage.left), stage.width - width);
+  menu.style.top = `${Math.max(4, top)}px`;
+  menu.style.left = `${Math.max(0, left)}px`;
+}
+
+function closeMenus(): void {
+  app.querySelectorAll<HTMLElement>(".hotspot-menu").forEach((m) => (m.hidden = true));
+  app.querySelectorAll<HTMLElement>(".hotspot[data-menu]").forEach((b) => b.setAttribute("aria-expanded", "false"));
+}
+
 // On the window: with nothing focused, keys go to the body, outside the app.
 window.addEventListener("keydown", (ev) => {
   const t = ev.target as HTMLElement;
+  if (ev.key === "Escape") closeMenus();
   if (pacing && (ev.key === " " || ev.key === "Enter") && !t.closest?.("tw-link, input, button, a")) {
     ev.preventDefault();
     pacing.next();
