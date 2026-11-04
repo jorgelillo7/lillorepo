@@ -337,6 +337,109 @@ def test_a_verdict_appears_once_there_is_enough_to_read():
     assert summary["rounds_needed"] == 0
 
 
+def _captured(round_id, points):
+    """A round as the morning digest stores it: the two elevens projected,
+    and an outcome of per-player points with no totals."""
+    return {
+        "round_id": round_id,
+        "has_projection": True,
+        "xi_differs": True,
+        "blended_xi": {"player_ids": [1, 2, 3], "captain_id": 1},
+        "jp_only_xi": {"player_ids": [1, 2, 4], "captain_id": 4},
+        "actual": {"applied_total": 0, "player_points": points},
+    }
+
+
+def test_a_round_stored_by_the_daily_capture_is_graded_from_its_player_points():
+    """The digest stores per-player points and no totals; grading must score
+    both elevens from them, or every automatically captured round is skipped
+    and the comparison never counts a single one."""
+    doc = _captured(11, {1: 5, 2: 3, 3: 9, 4: 2})
+    summary = pl.grade([doc])
+    assert summary["rounds_compared"] == 1
+    # blend: 5*2 + 3 + 9 = 22; JP alone: 5 + 3 + 2*2 = 12
+    assert summary["deltas"] == [10]
+
+
+def test_a_round_missing_the_points_of_an_eleven_player_is_not_graded():
+    """A player whose reports could not be read has no points stored, and
+    scoring him as 0 would make up a result."""
+    doc = _captured(11, {1: 5, 2: 3, 3: 9})
+    assert pl.grade([doc])["rounds_compared"] == 0
+
+
+# --- the league: every squad's projection against its result ---------------
+
+
+def _round_league(*entries):
+    return {
+        "league": {
+            "standings": [
+                {"id": mid, "name": name, "lineup": {"points": points}}
+                for mid, name, points in entries
+            ]
+        }
+    }
+
+
+def test_the_league_round_is_read_for_every_manager_who_played():
+    """What every squad scored comes in the read the outcome already makes;
+    a member who fielded nothing has no points and is left out, not zeroed."""
+    data = _round_league((1, "A", 90), (2, "B", 63), (3, "Ghost", None))
+    assert pl.extract_league_points(data) == [
+        {"id": 1, "name": "A", "points": 90},
+        {"id": 2, "name": "B", "points": 63},
+    ]
+
+
+def test_each_squads_projected_rank_is_set_against_its_real_rank():
+    """The question the ledger could not answer: whether the projection that
+    ranks a squad second is the one that finishes it last."""
+    doc = {
+        "league_projection": {"A": 5200, "B": 5600, "C": 4900},
+        "actual": {
+            "league_points": [
+                {"id": 1, "name": "A", "points": 99},
+                {"id": 2, "name": "B", "points": 63},
+                {"id": 3, "name": "C", "points": 81},
+            ]
+        },
+    }
+    assert pl.league_ranking(doc) == [
+        {
+            "manager": "B",
+            "projected": 5600,
+            "projected_rank": 1,
+            "points": 63,
+            "points_rank": 3,
+        },
+        {
+            "manager": "A",
+            "projected": 5200,
+            "projected_rank": 2,
+            "points": 99,
+            "points_rank": 1,
+        },
+        {
+            "manager": "C",
+            "projected": 4900,
+            "projected_rank": 3,
+            "points": 81,
+            "points_rank": 2,
+        },
+    ]
+
+
+def test_a_round_without_both_halves_has_no_league_ranking():
+    assert pl.league_ranking({"league_projection": {"A": 1}}) == []
+    assert (
+        pl.league_ranking(
+            {"actual": {"league_points": [{"id": 1, "name": "A", "points": 9}]}}
+        )
+        == []
+    )
+
+
 # --- which finished round still needs its outcome --------------------------
 
 

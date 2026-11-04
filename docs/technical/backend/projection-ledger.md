@@ -120,6 +120,25 @@ player, once per finished round. `applied_total` is still the eleven's score.
 How much a list should move the projection is decided from this record, once
 it holds a few rounds.
 
+**Where the two totals come from.** `report.py --apply` stores
+`blended_total` and `jp_only_total`; the daily collection stores
+`player_points` and no totals, so `projection_ledger.outcome_totals` scores
+both elevens from those points, and only when every player of both has them.
+Until it did, grading skipped every automatically collected round without a
+word, and the script crashed on them.
+
+**The league, both halves.** Each projection also stores
+`league_projection`: every squad's projected eleven (`total_sf`) from the same
+morning, read through `league_compare` (eight squad reads, cached five
+minutes; a failed read leaves our own projection stored without it). Each
+outcome stores `league_points`: what every squad scored, from the round read
+the collection already makes, at no extra cost. `projection_ledger.league_ranking`
+sets the two side by side and the script prints it per round. It answers a
+different question from the blend's: whether the projection ranks our squad
+near the top in rounds it finishes at the bottom. It is a question about the
+projection and the shape of a squad, so it is not graded against a threshold
+here. Read it over several rounds, not one.
+
 
 ## When the numbers look wrong
 
