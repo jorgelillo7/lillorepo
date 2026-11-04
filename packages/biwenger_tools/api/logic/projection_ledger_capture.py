@@ -11,7 +11,11 @@ from datetime import datetime
 from core.constants import MADRID_TZ
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import projection_ledger, projection_ledger_store
+from packages.biwenger_tools.api.logic import (
+    league_compare,
+    projection_ledger,
+    projection_ledger_store,
+)
 from packages.biwenger_tools.api.logic.real_points import (
     missing_reports,
     personalizado,
@@ -68,6 +72,17 @@ def capture(ctx) -> dict:
             rows,
             now,
         )
+        # Every squad's projected eleven, from the same morning as ours. It is
+        # the extra, not the record: a failed read leaves our projection whole.
+        try:
+            league = league_compare.collect_cached(ctx)
+            snapshot["league_projection"] = {
+                name: entry["eleven"] for name, entry in league.items()
+            }
+        except Exception:
+            logger.exception(
+                "League projection not captured; ours is stored without it."
+            )
         projection_ledger_store.write(snapshot)
         return {
             "written": True,
@@ -119,6 +134,7 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
         "fetched_at": datetime.now(MADRID_TZ).isoformat(),
         "applied": applied,
         "player_points": points,
+        "league_points": projection_ledger.extract_league_points(round_league),
         "applied_total": projection_ledger.xi_real_points(
             applied["player_ids"], applied["captain_id"], points
         ),
