@@ -48,23 +48,20 @@ export function documentPage(bar: string, title: string, passage: string, footer
     <div class="doc-overlay"><div class="doc-sheet"><h2 class="doc-title">${esc(title)}</h2>${passage}${footer}</div></div></div>`;
 }
 
-/** The scene with its clickable areas beside the text. `seen` dims areas leading somewhere already visited. */
-export function scenePage(
-  bar: string,
-  scene: Scene,
-  shown: ShownHotspot[],
-  actions: Action[],
-  seen: Set<string>,
-  passage: string,
-  footer: string,
-): string {
+/** The picture and its clickable areas. `seen` dims areas leading only to places already visited. */
+export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], seen: Set<string>): string {
   const targetOf = (i: number) => (actions[i] as { target: string }).target;
   const spots = shown
-    .map(({ hotspot, actions: mine }, n) => {
+    .map(({ hotspot, actions: mine, view }, n) => {
       const [x, y, w, h] = hotspot.rect;
       const visited = mine.every((i) => seen.has(targetOf(i))) ? " visited" : "";
       const box = `left:${x}%;top:${y}%;width:${w}%;height:${h}%`;
       const label = `<span class="hotspot-label">${esc(hotspot.label)}</span>`;
+      if (view) {
+        // Stepping through to another picture; `data-reaches` names the choices waiting there.
+        const reaches = esc(JSON.stringify(mine.map((i) => actions[i].label)));
+        return `<button class="hotspot is-view${visited}" data-view="${esc(view)}" data-reaches="${reaches}" aria-label="${esc(hotspot.label)}" style="${box}">${label}</button>`;
+      }
       if (mine.length === 1) {
         const i = mine[0];
         return `<button class="hotspot${visited}" data-action="${i}" data-choice="${esc(actions[i].label)}" aria-label="${esc(hotspot.label)}" style="${box}">${label}</button>`;
@@ -78,11 +75,22 @@ export function scenePage(
     })
     .join("");
   const [aw, ah] = scene.aspect;
+  return `<div class="stage" style="--ar:${aw / ah}"><img src="${esc(scene.image)}" alt="" draggable="false">${spots}</div>`;
+}
+
+/** The scene with its clickable areas beside the text. */
+export function scenePage(
+  bar: string,
+  scene: Scene,
+  shown: ShownHotspot[],
+  actions: Action[],
+  seen: Set<string>,
+  passage: string,
+  footer: string,
+): string {
   return `<div class="reader game">${bar}
     <div class="game-layout">
-      <div class="stage-wrap"><div class="stage" style="--ar:${aw / ah}">
-        <img src="${esc(scene.image)}" alt="" draggable="false">${spots}
-      </div></div>
+      <div class="stage-wrap">${stage(scene, shown, actions, seen)}</div>
       <section class="panel">${passage}${footer}</section>
     </div></div>`;
 }

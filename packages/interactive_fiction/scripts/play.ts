@@ -54,6 +54,13 @@ async function playChapter(c: Devtools, series: SeriesEntry, chapter: string, pa
       continue;
     }
     const target = `[...document.querySelectorAll('[data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)} && e.offsetParent !== null)`;
+    // A choice waiting in another view: step through to it first, as a reader would.
+    const door = `[...document.querySelectorAll('.hotspot[data-view]')].find(e => JSON.parse(e.dataset.reaches).includes(${JSON.stringify(step)}))`;
+    if (!(await c.ev<boolean>(`!!(${target})`)) && (await c.ev<boolean>(`!!(${door})`))) {
+      await c.click(door);
+      await sleep(300);
+      await settle(c);
+    }
     // A choice inside a closed hotspot menu: open the menu first, as a reader would.
     const menu = `(() => { const o = [...document.querySelectorAll('.hotspot-menu[hidden] [data-choice]')].find(e => e.dataset.choice === ${JSON.stringify(step)});
       return o && document.querySelector('.hotspot[data-menu="' + o.closest('.hotspot-menu').dataset.menuOf + '"]'); })()`;

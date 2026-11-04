@@ -123,9 +123,17 @@ read as text. The toolbar switches between the two.
 - **Several offered at once open a menu** beside the area: the standard for
   choices that go through one object, such as a door's three exits or the
   answers given to a character. Give the object one area listing every target.
+- **An area with a `view` steps through to another scene** for the same
+  passage (`{ "label": "Out to the corridor", "targets": [], "view": "corridor", … }`).
+  The picture changes, with the door if the room does, and the text stays.
+  The passage's choices appear on what they lead to in that picture: the
+  stairs, the end of the corridor. Use it when a passage's exits are seen
+  from somewhere else; it shows only when that view holds a choice the
+  passage offers.
 - Links with no area stay as buttons in the text.
 - The build fails on a scene that names a missing passage, a target that is not
-  a passage, a missing image, or an area with no rectangle yet. Scene images live in the series folder
+  a passage, a missing image, an area with no rectangle yet, a `view` that is
+  not a scene of the file, or an area with neither targets nor a view. Scene images live in the series folder
   (`scenes/`, `resources/`), out of git like the text.
 
 The engine side is `src/engine/scenes.ts` (`hotspotsFor`, `validateScenes`).

@@ -174,7 +174,7 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
   const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
   const changedRoom = Boolean(lastRoom && scene.room && lastRoom !== scene.room);
   s.lastScene = sceneId;
-  const { shown } = hotspotsFor(scene, page.actions);
+  const { shown } = hotspotsFor(scene, page.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
   const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer));
   // A link the scene already shows as a hotspot is not repeated in the text, unless the reader asked for both.
@@ -329,6 +329,11 @@ app.addEventListener("click", (ev) => {
     pacing.next();
     return;
   }
+  const viewButton = target.closest<HTMLElement>(".hotspot[data-view]");
+  if (viewButton) {
+    showView(s, viewButton.dataset.view!);
+    return;
+  }
   const menuButton = target.closest<HTMLElement>(".hotspot[data-menu]");
   if (menuButton) {
     toggleMenu(menuButton);
@@ -344,6 +349,28 @@ app.addEventListener("click", (ev) => {
   const tool = target.closest<HTMLElement>("[data-tool]");
   if (tool) TOOLS[tool.dataset.tool!]?.(s, tool);
 });
+
+/**
+ * Show another scene for the passage on screen — out through a door — with the
+ * passage's choices on what they lead to. Only the picture changes: the text
+ * stays as it is, read.
+ */
+function showView(s: Session, sceneId: string): void {
+  const scene = s.scenes?.scenes[sceneId];
+  const holder = app.querySelector<HTMLElement>(".stage-wrap");
+  if (!scene || !holder) return;
+  closeMenus();
+  const lastRoom = s.lastScene ? s.scenes!.scenes[s.lastScene]?.room : undefined;
+  s.lastScene = sceneId;
+  const { shown } = hotspotsFor(scene, s.actions, s.scenes!.scenes);
+  const seen = new Set(s.progress.undo.map((u) => u.passage));
+  holder.innerHTML = view.stage(scene, shown, s.actions, seen);
+  setAmbience(ambienceFor(s.series.game, scene.room, []));
+  if (lastRoom && scene.room && lastRoom !== scene.room) {
+    playDoor();
+    doorSound();
+  }
+}
 
 /** Open a hotspot's menu of the ways through it, closing any other. */
 function toggleMenu(button: HTMLElement): void {

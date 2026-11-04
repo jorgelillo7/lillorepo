@@ -23,7 +23,12 @@ hotspot follows it; when it offers several at once — the three exits of one
 door, the answers given to one character — tapping it SHALL open a menu of
 those choices beside it, fitted inside the picture, so every choice tied to
 something visible is played from the image and none is left as a button only
-because two of them share an object. Links with no hotspot,
+because two of them share an object. A hotspot MAY instead name a `view`,
+another scene of the file: tapping it SHALL show that picture for the same
+passage — with the door when the room changes, the text left as read — and
+the passage's choices on what they lead to there, so leaving a room through
+its door is played in the corridor beyond. It SHALL appear only when that view
+holds a choice the passage offers. Links with no hotspot,
 and `(link:)` reveals, SHALL stay available as buttons in the text. Without
 this, an area drawn on the image would bypass the story's own conditions. A
 link the image shows is not repeated in the text, unless the reader sets
@@ -41,6 +46,13 @@ search the image.
 - **THEN** the hotspot carries them all, in its own order, and opens a menu of them
 - *Verifies:* `scenes.test.ts: a hotspot whose passage offers several of its targets carries them all, for a menu`
 
+#### Scenario: stepping through to a view
+- **WHEN** a hotspot names a view that holds some of the passage's choices
+- **THEN** it is shown carrying them, it is hidden when the view holds none, and in the view its own choices sit on its objects
+- *Verifies:* `scenes.test.ts: a door to a view appears when that view holds choices the passage offers, and carries them`,
+  `scenes.test.ts: a door to a view with nothing the passage offers is not shown`,
+  `scenes.test.ts: in the view, its own choices and the way back are shown`
+
 #### Scenario: links without an area
 - **WHEN** a passage offers actions no hotspot covers
 - **THEN** they remain as buttons
@@ -50,14 +62,16 @@ search the image.
 
 The build SHALL fail when a scene file names a passage that does not exist, a
 hotspot targets something that is not a passage, a passage uses an undefined
-scene, an image file is missing, or a hotspot has no area yet.
+scene, an image file is missing, a hotspot has no area yet, a hotspot's view
+is not a scene of the file, or a hotspot has neither targets nor a view.
 
 #### Scenario: a broken scene file
 - **WHEN** any of those is wrong
 - **THEN** the build reports each error and stops
 - *Verifies:* `scenes.test.ts: unknown passages, unknown targets and missing images are errors`,
   `scenes.test.ts: a clean scene file passes`,
-  `scenes.test.ts: a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced`
+  `scenes.test.ts: a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced`,
+  `scenes.test.ts: a view must be a scene of the file, and a hotspot needs a target or a view`
 
 ### Requirement: Planned images are generated from the bible, and every call is paid
 
