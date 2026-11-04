@@ -41,8 +41,10 @@ async function appears(c: Devtools, expression: string, ms = 8000): Promise<bool
 
 async function playChapter(c: Devtools, series: SeriesEntry, chapter: string, path: string[]): Promise<string | null> {
   await c.ev(`localStorage.removeItem('if:v1:${series.id}:${chapter}'); true`);
-  await c.send("Page.navigate", { url: `${BASE}#/${series.id}/${chapter}` });
-  await c.send("Page.reload");
+  // A fresh document at the chapter's own URL. Changing only the hash and then
+  // reloading raced: a reload that ran before the hash change committed
+  // reloaded the previous chapter.
+  await c.send("Page.navigate", { url: `${BASE}?play=${Date.now()}#/${series.id}/${chapter}` });
   for (const step of path) {
     await settle(c);
     const typed = /^«(.*)»$/.exec(step);
