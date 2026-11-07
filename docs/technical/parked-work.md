@@ -332,28 +332,30 @@ so the camera's freedom has to be bounded; characters are static; phone frame
 rate is unmeasured; Cloudflare Workers serve at most 25 MiB per file, so the
 500k or 100k-splat SPZ is the one to serve, not full resolution.
 
-**Unknowns one draft world settles** (`scenes/habitacion.jpg`, ≈ $0.18):
+**Measured on room 207** (two draft worlds, $0.18 each):
 
-1. Does the world's starting camera match the input image? If it does, the
-   hotspot rectangles in `01-scenes.json` can be projected into 3D
-   automatically; if not, every hotspot is placed by hand.
-2. Does generation include the collider mesh needed to click objects? The
-   pricing page does not say; the HQ mesh export ($2.80) is not needed.
-3. The real SPZ size, and the frame rate on a phone.
+- The picture's dark frame has to be trimmed first; with it, the world comes
+  back as the picture hung like a painting in an invented room.
+- The world's starting camera is the picture's camera (vertical field of view
+  46°, pitch −9° for room 207, fitted against renders), so the scene file's
+  hotspots are cast onto the world automatically — none placed by hand.
+- The collider mesh comes with the world at no extra cost.
+- Sizes: 1.1 MB (100k splats), 5.1 MB (500k), 23 MB (full), 1.2–4.7 MB
+  collider — all under the 25 MiB limit; ~60 fps on the Mac, phone not measured.
 
-**Before the full draft:** a separate preview Worker (never the public URL;
-check how wrangler does it first); the generated worlds derive from the
-author's art, so they live in his private repository or outside git, never in
-this public one — and he has to accept files of tens of MB; the feature goes
-through `openspec-propose` before any code.
+The draft is a spike, not the reader: [`experiments/draft3d`](../../packages/interactive_fiction/experiments/draft3d/README.md),
+outside the site's build and checks, on its own Worker. Chapter 1 plays to its
+end there with room 207 in 3D and the rest in 2D. The worlds stay out of git.
+Promoting 3D into the reader goes through `openspec-propose` first.
 
 **Alternatives looked at:** Google DeepMind's Genie 3 has no public API and no
 export (Google AI Ultra, US only), so it cannot feed our site. Tencent's
 open-source HY-World 2.0 exports mesh and splats but needs a rented GPU;
 it is the fallback if we ever want no vendor.
 
-**Trigger:** the owner creates the World Labs account (API key) and approves
-the test world.
+**Trigger:** the owner and the author try the draft and decide whether to
+continue — the bathroom and the Cheshire room as worlds, full-model quality,
+then a proposal to bring it into the reader.
 
 ## Ideas from other Biwenger projects
 
