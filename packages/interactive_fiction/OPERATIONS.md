@@ -92,13 +92,13 @@ package (opens the browser; wrangler keeps the login on this Mac). The first
 deploy registers the account's `workers.dev` subdomain.
 
 **Every deploy:** `npm run deploy` — builds (drafts left out) and uploads
-`dist/` to the project named in `wrangler.toml` (`historias`). The site is at
-`https://historias.interactive-fiction.workers.dev`.
+`dist/` to the project named in `wrangler.toml` (`interactive-fiction`). The site is
+at `https://interactive-fiction.jorgelillo.workers.dev`.
 
 `wrangler` lives in `deploy/` with its own lockfile, pinned, so the test job
 never installs its ~270 MB. To show the author a draft chapter, deploy
 `npm run build:drafts` output under another name
-(`deploy/node_modules/.bin/wrangler deploy --name historias-borrador`), never
+(`deploy/node_modules/.bin/wrangler deploy --name interactive-fiction-draft`), never
 to the public one.
 
 **From CI, later:** a Cloudflare API token scoped to Workers edit and the
