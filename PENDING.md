@@ -66,8 +66,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
-| 👤 | Decide the author's access to this package — recommendation: he contributes from a fork, no write access and no `CODEOWNERS` (write access would reach repo secrets through workflows) | You |
-| 🔨 | Publish on itch.io too (free, the genre's community, devlogs per chapter) — last, after the author's review | The author's OK |
+| 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
 
 ## be_water
 
