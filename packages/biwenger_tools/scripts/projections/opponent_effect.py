@@ -1,7 +1,11 @@
 """Does a fixture against Barcelona or Real Madrid sink a player's points, and
 does Jornada Perfecta's projection already account for it?
 
-    PYTHONPATH=. python3 packages/biwenger_tools/scripts/projections/opponent_effect.py
+    PYTHONPATH=. <venv>/bin/python \
+        packages/biwenger_tools/scripts/projections/opponent_effect.py
+
+`<venv>` is one built from `requirements_lock.txt` on Python 3.14, never the
+system `python3` (see `CLAUDE.md`).
 
 Read-only: it writes nothing, so there is no `--apply`.
 
