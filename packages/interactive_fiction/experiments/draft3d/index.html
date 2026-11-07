@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>Borrador 3D · Capítulo 1</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="game">
+      <section class="stage" id="stage">
+        <canvas id="world" aria-label="Escena"></canvas>
+        <img id="flat" alt="" hidden />
+        <div id="spots" class="spots"></div>
+        <p class="hint" id="hint">Arrastra para mirar alrededor</p>
+        <p class="loading" id="loading" hidden>Cargando la habitación…</p>
+        <span class="badge">Borrador 3D</span>
+      </section>
+      <section class="text" id="text" aria-live="polite"></section>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

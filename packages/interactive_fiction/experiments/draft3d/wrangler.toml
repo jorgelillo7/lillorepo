@@ -1,0 +1,6 @@
+# Preview Worker for the 3D draft; never the public reader's Worker.
+name = "interactive-fiction-draft3d"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "./dist"

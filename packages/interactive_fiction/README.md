@@ -41,6 +41,18 @@ package is only the reader. Both are cloned side by side
 5. Changes to `web/` go to the author as a PR in his repository.
 6. `npm run deploy`.
 
+**From text to a 3D room (experiment).** The same story, one layer further:
+
+1. **The author's repository** — the chapter text, in `fuente/`.
+2. **Google AI Studio (Gemini, paid key)** — `npm run art` turns the art
+   bible into each room's picture (about US$0.12 an image); the 2D reader uses
+   it as is.
+3. **World Labs (paid key)** — that picture becomes a 3D room:
+   [`experiments/draft3d`](experiments/draft3d/README.md) generates the world,
+   projects the scene file's hotspots onto it, and runs the chapter in a
+   preview Worker, never the public one (about US$0.18 a draft world,
+   US$1.26 a full one).
+
 ## How a story gets in
 
 Stories are **not in git** — the repo is public and the text belongs to its
@@ -237,6 +249,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 | `scripts/scene-draft.ts` | A chapter's first scene file from the art bible, hotspots still to place |
 | `scripts/parity.ts`, `scripts/chrome.ts` | Every page compared with real Harlowe in headless Chrome; the Chrome driver it shares with `play` |
 | `tests/` | Vitest, on `tests/fixtures/mini.twee` — a story written for the tests |
+| `experiments/draft3d/` | The 3D draft: generated worlds with the scene hotspots projected onto them, its own preview Worker; outside the site's build and checks |
 
 ## Commands
 

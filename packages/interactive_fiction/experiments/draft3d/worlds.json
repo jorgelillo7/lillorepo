@@ -1,0 +1,13 @@
+{
+  "habitacion": {
+    "world": "e5cba8e5-9e7c-470b-8a02-042ecdbb7252",
+    "splats": "worlds/habitacion-500k.spz",
+    "collider": "worlds/habitacion-collider.glb",
+    "crop": [
+      0.03494,
+      0.06259
+    ],
+    "fovY": 46,
+    "pitch": -9
+  }
+}
