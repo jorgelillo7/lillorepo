@@ -65,6 +65,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
+| 👤 | 3D draft of chapter 1 (World Labs worlds + three.js/Spark): create the World Labs account and approve the ≈ $0.18 test world | You · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
 
 ## be_water
