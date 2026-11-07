@@ -86,6 +86,37 @@ describe("state", () => {
   });
 });
 
+describe("datamaps", () => {
+  test("(dm:) builds a map read with 's, in macros and in prose", () => {
+    const src = '(set:$e to (datamap:"cuchillo", "aceptado", "n", 2))(if:$e\'s cuchillo is "aceptado")[yes] $e\'s n';
+    expect(show({ Start: src }).html).toBe("yes 2");
+  });
+
+  test("setting a key changes only that variable, as Harlowe copies maps on assignment", () => {
+    const { vars } = show({ Start: '(set:$e to (dm:"k", "a"))(set:$f to $e)(set:$e\'s k to "b")' });
+    expect(vars.e).toEqual({ kind: "datamap", entries: { k: "b" } });
+    expect(vars.f).toEqual({ kind: "datamap", entries: { k: "a" } });
+  });
+
+  test("a key can be computed, it is the key's current value, and nested maps update in place", () => {
+    const src = '(set:_k to "n")(set:$e to (dm:"n", 1, "in", (dm:"x", 0)))(set:$e\'s (_k) to it + 1)(set:$e\'s in\'s x to 5)';
+    expect(show({ Start: src }).vars.e).toEqual({ kind: "datamap", entries: { n: 2, in: { kind: "datamap", entries: { x: 5 } } } });
+  });
+
+  test("is in, contains and equality work on map values and keys", () => {
+    const src = '(set:$e to (dm:"k", "b"))(print: $e\'s k is in (a:"a", "b"))(print: $e contains "k")(print: $e is (dm:"k", "b"))';
+    expect(show({ Start: src }).html).toBe("truetruetrue");
+  });
+
+  test("a missing key fails loudly", () => {
+    expect(() => show({ Start: '(set:$e to (dm:"k", 1))(print: $e\'s nope)' })).toThrow(/no "nope"/);
+  });
+
+  test("a single-quoted string is still a string", () => {
+    expect(show({ Start: "(print: 's x')" }).html).toBe("s x");
+  });
+});
+
 describe("links and navigation", () => {
   test("print re-parses a string, so link arrays become clickable", () => {
     const r = show({ Start: "(set:$r to (a:'[[Go|B]]'))(for:each _o, ...$r)[(print:_o)]", B: "" });

@@ -27,6 +27,7 @@ const MACROS: Record<string, { kind: MacroKind; aliases?: string[] }> = {
   uppercase: { kind: "value" },
   cond: { kind: "value" },
   find: { kind: "value" },
+  dm: { kind: "value", aliases: ["datamap"] },
 };
 
 const BY_NAME = new Map<string, string>();

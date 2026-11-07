@@ -83,8 +83,10 @@ collapsed blocks — which collapse their own markup, not what a `(display:)` or
 `else`/`else-if` chained to the previous condition among
 siblings, `cond` returning its first true branch, `print` re-parsing strings as
 markup, `goto` keeping what was set before it, `(link:)` running its hook on
-click, `display` sharing state, and `(input: bind)` bound to its variable. An
-unset variable SHALL fail loudly rather than print nothing.
+click, `display` sharing state, `(input: bind)` bound to its variable, and
+datamaps read and set by key with `'s`, copied on assignment so that setting a
+key changes only that variable. An unset variable, or a key the datamap does
+not have, SHALL fail loudly rather than print nothing.
 
 `npm run parity` SHALL compare the reader with a real Harlowe build page by
 page: every distinct page the explorer reaches is rendered by both in headless
@@ -108,6 +110,17 @@ missed paragraphs run together in the author's chapter 2; this one finds them
   `runtime.test.ts: else and else-if follow the previous condition among siblings`,
   `runtime.test.ts: cond returns the first true branch, and a code hook renders as markup`,
   `runtime.test.ts: using an unset variable fails loudly instead of printing nothing`
+
+#### Scenario: datamaps
+- **WHEN** a passage builds a `(dm:)`, reads and sets its keys with `'s`, or compares and searches it
+- **THEN** it renders as Harlowe does, and a missing key fails loudly
+- *Verifies:* `runtime.test.ts: (dm:) builds a map read with 's, in macros and in prose`,
+  `runtime.test.ts: setting a key changes only that variable, as Harlowe copies maps on assignment`,
+  `runtime.test.ts: a key can be computed, it is the key's current value, and nested maps update in place`,
+  `runtime.test.ts: is in, contains and equality work on map values and keys`,
+  `runtime.test.ts: a missing key fails loudly`,
+  `runtime.test.ts: a single-quoted string is still a string`,
+  `validate.test.ts: a datamap key set with 's counts its variable as set`
 
 #### Scenario: links and navigation
 - **WHEN** a passage builds links in arrays, goes to another, reveals a hook, displays another, or binds an input

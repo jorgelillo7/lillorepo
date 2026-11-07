@@ -43,6 +43,9 @@ export function harloweLiteral(v: Value): string {
   }
   if (Array.isArray(v)) return `(a:${v.map(harloweLiteral).join(",")})`;
   if (v.kind === "hook") return `[${v.src}]`;
+  if (v.kind === "datamap") {
+    return `(dm:${Object.entries(v.entries).flatMap(([k, x]) => [harloweLiteral(k), harloweLiteral(x)]).join(",")})`;
+  }
   throw new Error(`Cannot write a ${v.kind} value as a literal.`);
 }
 
