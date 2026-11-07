@@ -65,12 +65,9 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Art from `npm run prompts -- <series>` in the Gemini app: the chapter 2 rooms, his concept art (`Concept Art/Personajes/` in his repo) attached for each character; the chapter 1 keychain fixes are optional (author: fine for a beta) | You · `packages/interactive_fiction/.claude/skills/scene-art` |
-| 🔨 | Chapter 2 in point-and-click once its images arrive: scene file, hotspots checked with the overlay, play-through | The art |
-| ⏳ | Back up our own series files (scene files, art bible, `game.json`, generated art) — his chapters are in his repo now; a private bucket (Terraform, ask before apply) or a folder in his repo, where we have write access | Your call |
-| 👤 | Make the author CODEOWNER of `packages/interactive_fiction/` (GitHub `AlbertoMercado`): `CODEOWNERS` only counts a user with write access, so it means inviting him as a collaborator — review not made mandatory | You · the invite |
+| ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
+| 👤 | Decide the author's access to this package — recommendation: he contributes from a fork, no write access and no `CODEOWNERS` (write access would reach repo secrets through workflows) | You |
 | 🔨 | Publish on itch.io too (free, the genre's community, devlogs per chapter) — last, after the author's review | The author's OK |
-| 🔨 | Merge PR #654 — the site is already live (`npm run deploy` by hand); merging deploys nothing | Your review |
 
 ## be_water
 
