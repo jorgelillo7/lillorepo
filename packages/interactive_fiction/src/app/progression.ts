@@ -44,6 +44,16 @@ export function advance(p: Progress, target: string, varsNow: Vars, choice?: str
   };
 }
 
+/**
+ * A saved game brought up to date with the chapter as it is now: variables the
+ * startup passages set and the save lacks (added since it was saved) take their
+ * starting value, in the current step and every undo step.
+ */
+export function withNewVariables(p: Progress, startVars: Vars): Progress {
+  const fill = (vars: Vars): Vars => ({ ...structuredClone(startVars), ...vars });
+  return { ...p, vars: fill(p.vars), undo: p.undo.map((u) => ({ ...u, vars: fill(u.vars) })) };
+}
+
 /** One step back, or null at the start. The step's choice is forgotten. */
 export function undo(p: Progress): Progress | null {
   const prev = p.undo[p.undo.length - 1];

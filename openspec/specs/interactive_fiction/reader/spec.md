@@ -180,7 +180,10 @@ record.
 ### Requirement: The reader keeps progress, and carries the end code
 
 Progress SHALL be saved per chapter in the browser as the state *before* the
-current passage rendered, so resuming never re-applies its assignments. An end
+current passage rendered, so resuming never re-applies its assignments. A game
+saved before the chapter changed SHALL resume with the variables added since
+at their starting value, in every undo step too, rather than failing on the
+first passage that reads one. An end
 code, once earned, SHALL be kept apart from progress so undo never loses it,
 and SHALL be written into the next chapter's code field while that field is
 empty. A link-less passage before the end code is set SHALL read as a path not
@@ -210,3 +213,8 @@ a browser.
 - **WHEN** a chapter opens after the previous one ended with a code
 - **THEN** the code fills its code field only while that field is empty
 - *Verifies:* `progression.test.ts: fills the code field while it is empty, and only then`
+
+#### Scenario: a save older than the chapter
+- **WHEN** a saved game is resumed after the chapter added variables to its startup passages
+- **THEN** the new variables take their starting value and the saved ones are kept
+- *Verifies:* `progression.test.ts: variables added since take their starting value, and saved ones are kept`

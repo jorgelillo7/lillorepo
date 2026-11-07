@@ -8,6 +8,7 @@ import {
   outcomeOf,
   undo,
   withCarriedCode,
+  withNewVariables,
 } from "../src/app/progression.ts";
 
 const link = (target: string) => ({ kind: "link" as const, label: target, target });
@@ -81,5 +82,16 @@ describe("the code from the previous chapter", () => {
     expect(withCarriedCode(typed, carry, "HOPE").vars.previous).toBe("MINE");
     expect(withCarriedCode(empty, null, "HOPE")).toBe(empty);
     expect(withCarriedCode(empty, carry, undefined)).toBe(empty);
+  });
+});
+
+describe("a game saved before the chapter changed", () => {
+  test("variables added since take their starting value, and saved ones are kept", () => {
+    const saved = advance(freshStart("A", { old: true }), "B", { old: false }, "to B");
+    const start = { old: true, estado: { kind: "datamap" as const, entries: { cuchillo: "sin_ofrecer" } } };
+    const p = withNewVariables(saved, start);
+    expect(p.vars).toEqual({ old: false, estado: start.estado });
+    expect(p.undo[0].vars).toEqual({ old: true, estado: start.estado });
+    expect(p.passage).toBe("B");
   });
 });

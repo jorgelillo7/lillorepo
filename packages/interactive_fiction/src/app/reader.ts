@@ -15,7 +15,7 @@ import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
 import { pace, type Pacing } from "./pacing.ts";
-import { advance, finish, freshStart, outcomeOf, undo, withCarriedCode, type Progress } from "./progression.ts";
+import { advance, finish, freshStart, outcomeOf, undo, withCarriedCode, withNewVariables, type Progress } from "./progression.ts";
 import { clear, load, loadCodes, loadFound, loadMode, recordFound, store, storeCode, storeLastPlayed, storeMode } from "./save.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { openSettings } from "./settings-ui.ts";
@@ -78,7 +78,7 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
     rt,
     scenes: data.scenes,
     discoveries: data.discoveries,
-    progress: saved ?? freshStart(rt.story.start, rt.start()),
+    progress: saved ? withNewVariables(saved, rt.start()) : freshStart(rt.story.start, rt.start()),
     vars: {},
     actions: [],
     arrived: !saved,
