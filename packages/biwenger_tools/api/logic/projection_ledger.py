@@ -317,3 +317,15 @@ def next_round_to_collect(documents: list, finished_ids: set) -> int | None:
         and "actual" not in document
     ]
     return min(pending) if pending else None
+
+
+def league_jp(rows: list) -> dict[str, int]:
+    """Jornada Perfecta's SF for every row it projects, keyed by the Biwenger
+    id as a string (Firestore map keys must be strings). A player it does not
+    project is left out: no projection is not a projection of zero."""
+    out = {}
+    for row in rows:
+        jp_sf = _jp_sf(row)
+        if jp_sf is not None and row.get("bw_id") is not None:
+            out[str(row["bw_id"])] = jp_sf
+    return out

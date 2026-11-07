@@ -83,6 +83,15 @@ def capture(ctx) -> dict:
             logger.exception(
                 "League projection not captured; ours is stored without it."
             )
+        # Every player Jornada Perfecta projects, so whether a fixture moves its
+        # number can be measured on the whole competition, not on our squad.
+        try:
+            everyone = [{"id": bw_id} for bw_id in ctx.biwenger_players or {}]
+            snapshot["league_jp"] = projection_ledger.league_jp(
+                build_squad_rows(everyone, ctx.biwenger_players, ctx.jp_index)
+            )
+        except Exception:
+            logger.exception("League JP not captured; ours is stored without it.")
         projection_ledger_store.write(snapshot)
         return {
             "written": True,
