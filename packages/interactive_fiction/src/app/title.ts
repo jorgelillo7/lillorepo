@@ -31,9 +31,14 @@ export function renderTitle(series: SeriesEntry): void {
         <a class="title-button" href="#/capitulos/${series.id}">Capítulos</a>
         <a class="title-button" href="#/logros/${series.id}">Finales y logros</a>
         <button class="title-button" data-settings>Ajustes</button>
-        ${series.about.length ? `<a class="title-button" href="#/acerca/${series.id}">Acerca de</a>` : ""}
+        ${series.about.length || series.credits.length ? `<a class="title-button" href="#/acerca/${series.id}">Acerca de</a>` : ""}
       </nav>
       ${title.warning ? `<p class="title-warning">${esc(title.warning)}</p>` : ""}
+      ${
+        series.credits.length
+          ? `<a class="title-credits" href="#/acerca/${series.id}">${series.credits.map((c) => `${esc(c.role)}: ${esc(c.name)}`).join(" · ")}</a>`
+          : ""
+      }
     </div></main>`);
   screen.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;

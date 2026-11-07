@@ -32,6 +32,14 @@ describe("markup", () => {
     expect(html).toBe("x b1<br>b2 p1<br>p2 y");
   });
 
+  test("a bare hook shows its text without the brackets, as Harlowe does", () => {
+    expect(show({ Start: "a [b ''c''] d" }).html).toBe("a b <b>c</b> d");
+  });
+
+  test("a lone bracket with no hook to close is plain text", () => {
+    expect(show({ Start: "a [b" }).html).toBe("a [b");
+  });
+
   test("bold, italic and raw HTML pass through", () => {
     expect(show({ Start: "''b'' //i// <span class=\"x\">s</span>" }).html).toBe(
       '<b>b</b> <i>i</i> <span class="x">s</span>',
@@ -75,6 +83,37 @@ describe("state", () => {
 
   test("using an unset variable fails loudly instead of printing nothing", () => {
     expect(() => show({ Start: "$missing" })).toThrow(/not set/);
+  });
+});
+
+describe("datamaps", () => {
+  test("(dm:) builds a map read with 's, in macros and in prose", () => {
+    const src = '(set:$e to (datamap:"cuchillo", "aceptado", "n", 2))(if:$e\'s cuchillo is "aceptado")[yes] $e\'s n';
+    expect(show({ Start: src }).html).toBe("yes 2");
+  });
+
+  test("setting a key changes only that variable, as Harlowe copies maps on assignment", () => {
+    const { vars } = show({ Start: '(set:$e to (dm:"k", "a"))(set:$f to $e)(set:$e\'s k to "b")' });
+    expect(vars.e).toEqual({ kind: "datamap", entries: { k: "b" } });
+    expect(vars.f).toEqual({ kind: "datamap", entries: { k: "a" } });
+  });
+
+  test("a key can be computed, it is the key's current value, and nested maps update in place", () => {
+    const src = '(set:_k to "n")(set:$e to (dm:"n", 1, "in", (dm:"x", 0)))(set:$e\'s (_k) to it + 1)(set:$e\'s in\'s x to 5)';
+    expect(show({ Start: src }).vars.e).toEqual({ kind: "datamap", entries: { n: 2, in: { kind: "datamap", entries: { x: 5 } } } });
+  });
+
+  test("is in, contains and equality work on map values and keys", () => {
+    const src = '(set:$e to (dm:"k", "b"))(print: $e\'s k is in (a:"a", "b"))(print: $e contains "k")(print: $e is (dm:"k", "b"))';
+    expect(show({ Start: src }).html).toBe("truetruetrue");
+  });
+
+  test("a missing key fails loudly", () => {
+    expect(() => show({ Start: '(set:$e to (dm:"k", 1))(print: $e\'s nope)' })).toThrow(/no "nope"/);
+  });
+
+  test("a single-quoted string is still a string", () => {
+    expect(show({ Start: "(print: 's x')" }).html).toBe("s x");
   });
 });
 

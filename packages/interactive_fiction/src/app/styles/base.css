@@ -6,6 +6,11 @@
   --panel: #0e0e0e;
   --accent: #4169e1;
 }
+/* No rubber-band at the edges: it pulls the sticky toolbar and scene apart on iOS. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
 body {
   font-family: Georgia, serif;
   -webkit-text-size-adjust: 100%;
@@ -97,8 +102,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 16px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(6px);
+  background: #000;
   border-bottom: 1px solid var(--line);
   font-size: 0.85rem;
 }
@@ -178,6 +182,33 @@ body {
 }
 .about p {
   line-height: 1.7;
+}
+.credits {
+  list-style: none;
+  padding: 0;
+  margin: 1.5rem 0 2rem;
+  display: grid;
+  gap: 1rem;
+}
+.credit {
+  display: grid;
+  gap: 0.2rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.credit-name {
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+.credit-role {
+  color: var(--muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+}
+.credit-links a {
+  color: var(--accent);
+  font-size: 0.9rem;
 }
 .tool.armed {
   color: #ffb3b3;

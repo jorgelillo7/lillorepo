@@ -19,7 +19,11 @@ end code of one chapter carried into the next.
 ### Requirement: Both Twine formats are read, and story JavaScript is refused
 
 The importer SHALL read a Twee 3 file and a published Twine 2 HTML build into
-the same story shape (title, start passage, tags, stylesheet). A story that
+the same story shape (title, start passage, tags, stylesheet), and — as Tweego
+takes them — a list of folders and files whose `.twee` passages, `.css`
+stylesheets and `.js` scripts make one chapter, so an author who splits a
+chapter by scene publishes his source as written, with no generated copy to
+keep in step. A story that
 carries JavaScript SHALL be refused, because the reader cannot run it and a
 story missing its script misbehaves silently.
 
@@ -28,6 +32,12 @@ story missing its script misbehaves silently.
 - **THEN** title, start, tags and stylesheet are read and the special passages dropped
 - *Verifies:* `source.test.ts: reads title, start, tags and the stylesheet, and drops the special passages`,
   `source.test.ts: parseStory tells the two formats apart`
+
+#### Scenario: Tweego sources
+- **WHEN** a chapter is a list of folders and files
+- **THEN** their passages and stylesheets make one story in the order given, and a script among them is refused
+- *Verifies:* `series.test.ts: passages, stylesheets and scripts from several files make one story, in the order given`,
+  `series.test.ts: a script among the sources is refused, as story JavaScript always is`
 
 #### Scenario: published HTML
 - **WHEN** a published HTML build is imported
@@ -68,18 +78,30 @@ validator and runtime all read that list.
 
 The runtime SHALL render the supported subset as Harlowe does: startup passages
 first, header passages above every passage, newlines as breaks except inside
-collapsed blocks, `else`/`else-if` chained to the previous condition among
+collapsed blocks — which collapse their own markup, not what a `(display:)` or
+`(print:)` inside them produces — bare hooks shown without their brackets,
+`else`/`else-if` chained to the previous condition among
 siblings, `cond` returning its first true branch, `print` re-parsing strings as
 markup, `goto` keeping what was set before it, `(link:)` running its hook on
-click, `display` sharing state, and `(input: bind)` bound to its variable. An
-unset variable SHALL fail loudly rather than print nothing. Its output was
-checked against the author's own Harlowe builds: every passage of one chapter
-word for word, and the end codes of five paths of another.
+click, `display` sharing state, `(input: bind)` bound to its variable, and
+datamaps read and set by key with `'s`, copied on assignment so that setting a
+key changes only that variable. An unset variable, or a key the datamap does
+not have, SHALL fail loudly rather than print nothing.
+
+`npm run parity` SHALL compare the reader with a real Harlowe build page by
+page: every distinct page the explorer reaches is rendered by both in headless
+Chrome, with the page's state set through a startup passage, and the visible
+text is compared line by line, line breaks included. A word-by-word check had
+missed paragraphs run together in the author's chapter 2; this one finds them
+(30 of its 69 pages) and passes once they are fixed.
 
 #### Scenario: markup and state
 - **WHEN** a passage uses breaks, collapsed blocks, styles, raw HTML, colours, variables and conditions
 - **THEN** it renders as Harlowe does
 - *Verifies:* `runtime.test.ts: a newline is a line break, but not inside a collapsed block`,
+  `runtime.test.ts: a collapsed block keeps the line breaks of what it displays or prints, as Harlowe does`,
+  `runtime.test.ts: a bare hook shows its text without the brackets, as Harlowe does`,
+  `runtime.test.ts: a lone bracket with no hook to close is plain text`,
   `runtime.test.ts: bold, italic and raw HTML pass through`,
   `runtime.test.ts: a bare variable prints escaped, inside raw HTML too`,
   `runtime.test.ts: text-colour wraps its hook in the Harlowe colour`,
@@ -88,6 +110,17 @@ word for word, and the end codes of five paths of another.
   `runtime.test.ts: else and else-if follow the previous condition among siblings`,
   `runtime.test.ts: cond returns the first true branch, and a code hook renders as markup`,
   `runtime.test.ts: using an unset variable fails loudly instead of printing nothing`
+
+#### Scenario: datamaps
+- **WHEN** a passage builds a `(dm:)`, reads and sets its keys with `'s`, or compares and searches it
+- **THEN** it renders as Harlowe does, and a missing key fails loudly
+- *Verifies:* `runtime.test.ts: (dm:) builds a map read with 's, in macros and in prose`,
+  `runtime.test.ts: setting a key changes only that variable, as Harlowe copies maps on assignment`,
+  `runtime.test.ts: a key can be computed, it is the key's current value, and nested maps update in place`,
+  `runtime.test.ts: is in, contains and equality work on map values and keys`,
+  `runtime.test.ts: a missing key fails loudly`,
+  `runtime.test.ts: a single-quoted string is still a string`,
+  `validate.test.ts: a datamap key set with 's counts its variable as set`
 
 #### Scenario: links and navigation
 - **WHEN** a passage builds links in arrays, goes to another, reveals a hook, displays another, or binds an input
@@ -98,6 +131,11 @@ word for word, and the end codes of five paths of another.
   `runtime.test.ts: display renders another passage inline with the same state`,
   `runtime.test.ts: a header passage is rendered above every passage`,
   `runtime.test.ts: an input is bound to its variable and shows its current value`
+
+#### Scenario: comparing with real Harlowe
+- **WHEN** a page's state is handed to Harlowe
+- **THEN** every value is written as the Harlowe literal that sets it back
+- *Verifies:* `parity.test.ts: every story value becomes the Harlowe literal that sets it back`
 
 ### Requirement: Every path is played before a chapter ships
 
@@ -142,7 +180,10 @@ record.
 ### Requirement: The reader keeps progress, and carries the end code
 
 Progress SHALL be saved per chapter in the browser as the state *before* the
-current passage rendered, so resuming never re-applies its assignments. An end
+current passage rendered, so resuming never re-applies its assignments. A game
+saved before the chapter changed SHALL resume with the variables added since
+at their starting value, in every undo step too, rather than failing on the
+first passage that reads one. An end
 code, once earned, SHALL be kept apart from progress so undo never loses it,
 and SHALL be written into the next chapter's code field while that field is
 empty. A link-less passage before the end code is set SHALL read as a path not
@@ -172,3 +213,8 @@ a browser.
 - **WHEN** a chapter opens after the previous one ended with a code
 - **THEN** the code fills its code field only while that field is empty
 - *Verifies:* `progression.test.ts: fills the code field while it is empty, and only then`
+
+#### Scenario: a save older than the chapter
+- **WHEN** a saved game is resumed after the chapter added variables to its startup passages
+- **THEN** the new variables take their starting value and the saved ones are kept
+- *Verifies:* `progression.test.ts: variables added since take their starting value, and saved ones are kept`

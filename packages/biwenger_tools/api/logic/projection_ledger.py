@@ -166,6 +166,80 @@ def extract_applied_lineup(round_league_data: dict, user_id: int) -> dict | None
     return None
 
 
+def outcome_totals(document: dict) -> tuple[int, int] | None:
+    """The real score of the blended eleven and of the Jornada-Perfecta-alone
+    eleven for a stored round, or `None` when it cannot be known.
+
+    `report.py --apply` stores the two totals; the morning digest stores
+    per-player points and no totals, so they are scored here from those.
+    Only when every player of both elevens has points, though: a player
+    whose reports could not be read has none stored, and counting him as 0
+    would invent a result.
+    """
+    actual = document.get("actual") or {}
+    if (
+        actual.get("blended_total") is not None
+        and actual.get("jp_only_total") is not None
+    ):
+        return actual["blended_total"], actual["jp_only_total"]
+    points = actual.get("player_points") or {}
+    elevens = [document.get("blended_xi") or {}, document.get("jp_only_xi") or {}]
+    ids = [pid for xi in elevens for pid in xi.get("player_ids") or []]
+    if not ids or any(pid not in points for pid in ids):
+        return None
+    blended, jp_only = (
+        xi_real_points(xi.get("player_ids") or [], xi.get("captain_id"), points)
+        for xi in elevens
+    )
+    return blended, jp_only
+
+
+def extract_league_points(round_league_data: dict) -> list[dict]:
+    """Every manager's score for the round, from `get_round_league()`'s
+    payload: `lineup.points`, the round's own score — the standing's `points`
+    is the season total. A member who fielded nothing has no round score and
+    is left out rather than counted as 0.
+    """
+    standings = (round_league_data.get("league") or {}).get("standings") or []
+    out = []
+    for entry in standings:
+        points = (entry.get("lineup") or {}).get("points")
+        if points is None:
+            continue
+        out.append({"id": entry.get("id"), "name": entry.get("name"), "points": points})
+    return out
+
+
+def league_ranking(document: dict) -> list[dict]:
+    """Every squad's projected eleven against what it scored, for one round:
+    `[{manager, projected, projected_rank, points, points_rank}]`, best
+    projection first, or `[]` until the round has both halves.
+
+    The check the ledger exists to allow beyond the blend: whether the
+    projection that ranks a squad near the top is the one that finishes it at
+    the bottom. Managers are matched by name, the key both reads share; equal
+    values keep their stored order.
+    """
+    projected = document.get("league_projection") or {}
+    scored = {
+        row["name"]: row["points"]
+        for row in (document.get("actual") or {}).get("league_points") or []
+    }
+    names = [name for name in projected if name in scored]
+    by_projection = sorted(names, key=lambda name: -projected[name])
+    by_points = sorted(names, key=lambda name: -scored[name])
+    return [
+        {
+            "manager": name,
+            "projected": projected[name],
+            "projected_rank": by_projection.index(name) + 1,
+            "points": scored[name],
+            "points_rank": by_points.index(name) + 1,
+        }
+        for name in by_projection
+    ]
+
+
 # How many rounds where the two elevens actually differed before the summary
 # will commit to a direction. A sign test over fewer than this cannot tell a
 # consistent blend from a run of luck, and a number printed early is a number
@@ -189,11 +263,10 @@ def grade(documents: list) -> dict:
             continue
         if not document.get("xi_differs"):
             continue
-        actual = document.get("actual") or {}
-        blended = actual.get("blended_total")
-        jp_only = actual.get("jp_only_total")
-        if blended is None or jp_only is None:
+        totals = outcome_totals(document)
+        if totals is None:
             continue
+        blended, jp_only = totals
         compared.append(
             {
                 "round_id": document.get("round_id"),

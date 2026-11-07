@@ -67,4 +67,15 @@
   color: #8f8a7a;
   line-height: 1.5;
 }
-
+.title-credits {
+  display: block;
+  margin-top: 1.2rem;
+  font-size: 0.75rem;
+  color: #8f8a7a;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+}
+.title-credits:hover,
+.title-credits:focus-visible {
+  color: #d8d2bf;
+}

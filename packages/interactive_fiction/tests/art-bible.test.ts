@@ -85,4 +85,23 @@ describe("bible validation", () => {
     expect(errors).toContain('image "cell-girl": unknown character "ghost".');
     expect(errors).toContain('image "cell-girl": edits unknown image "nowhere".');
   });
+
+  test("an image's passages must exist, and a passage is the scene of one image only", () => {
+    const b = bible();
+    b.images.cell.passages = { "01": ["Cell", "Attic"] };
+    b.images["cell-girl"].passages = { "01": ["Cell"] };
+    const errors = validateBible(b, { "01": chapter }, ["scenes/cell.jpg"], () => true);
+    expect(errors).toEqual([
+      'image "cell": passage "Attic" not found in chapter 01.',
+      'image "cell-girl": passage "Cell" (chapter 01) is already the scene of "cell".',
+    ]);
+  });
+
+  test("a style or concept-art reference that is not there is an error", () => {
+    const b = bible();
+    b.styleReference = "scenes/style.jpg";
+    b.characters.girl.reference = "../Concept Art/girl.png";
+    const errors = validateBible(b, { "01": chapter }, ["scenes/cell.jpg"], (p) => p === "scenes/cell.jpg");
+    expect(errors).toEqual(['style reference "scenes/style.jpg" not found.', 'character "girl": reference "../Concept Art/girl.png" not found.']);
+  });
 });

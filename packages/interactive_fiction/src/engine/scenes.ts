@@ -6,8 +6,16 @@ import type { Story } from "./source.ts";
 export interface Hotspot {
   /** Shown on hover/focus and read by screen readers. */
   label: string;
-  /** Passages this area leads to; the first one the passage currently offers wins. */
+  /**
+   * Passages this area leads to. One the passage offers is a straight click;
+   * several offered at once — the exits of one door — open a menu of them.
+   */
   targets: string[];
+  /**
+   * A scene id: tapping shows that scene for the same passage — stepping out
+   * through a door — where the passage's choices sit on what they lead to.
+   */
+  view?: string;
   /** `[x, y, width, height]` in percent of the image. */
   rect: [number, number, number, number];
 }
@@ -33,29 +41,47 @@ export interface SceneFile {
 
 export interface ShownHotspot {
   hotspot: Hotspot;
-  /** Index into the passage's actions. */
-  action: number;
+  /**
+   * Indexes into the passage's actions, in the hotspot's target order: one is
+   * a click, more open a menu. For a view, the choices that view holds.
+   */
+  actions: number[];
+  /** Set when tapping shows this scene instead of choosing. */
+  view?: string;
 }
 
 /**
  * Split a passage's actions into hotspots on the scene and the rest.
- * A hotspot appears only when one of its targets is a link the passage offers
- * right now, so the story's own conditions decide what can be clicked.
+ * A hotspot appears only when some of its targets are links the passage offers
+ * right now, so the story's own conditions decide what can be clicked. A view
+ * hotspot appears when the scene it shows (looked up in `scenes`, one level
+ * deep) holds some of those choices.
  */
-export function hotspotsFor(scene: Scene, actions: Action[]): { shown: ShownHotspot[]; rest: number[] } {
+export function hotspotsFor(
+  scene: Scene,
+  actions: Action[],
+  scenes: Record<string, Scene> = {},
+): { shown: ShownHotspot[]; rest: number[] } {
   const used = new Set<number>();
   const shown: ShownHotspot[] = [];
   for (const hotspot of scene.hotspots) {
+    if (hotspot.view) {
+      const there = scenes[hotspot.view];
+      const reached = there ? hotspotsFor(there, actions).shown.flatMap((h) => h.actions) : [];
+      if (reached.length) shown.push({ hotspot, actions: reached, view: hotspot.view });
+      continue;
+    }
+    const mine: number[] = [];
     for (const target of hotspot.targets) {
       const i = actions.findIndex((a, n) => !used.has(n) && a.kind === "link" && a.target === target);
-      if (i !== -1) {
-        used.add(i);
-        shown.push({ hotspot, action: i });
-        break;
-      }
+      if (i === -1) continue;
+      used.add(i);
+      mine.push(i);
     }
+    if (mine.length) shown.push({ hotspot, actions: mine });
   }
-  const rest = actions.map((_, i) => i).filter((i) => !used.has(i));
+  const onScreen = new Set(shown.flatMap((h) => h.actions));
+  const rest = actions.map((_, i) => i).filter((i) => !onScreen.has(i));
   return { shown, rest };
 }
 
@@ -66,6 +92,9 @@ export function validateScenes(story: Story, file: SceneFile, imageExists: (path
   for (const [id, scene] of Object.entries(file.scenes)) {
     if (!imageExists(scene.image)) errors.push(`Scene "${id}": image "${scene.image}" not found.`);
     for (const h of scene.hotspots) {
+      if (!(h.rect[2] > 0 && h.rect[3] > 0)) errors.push(`Scene "${id}": hotspot "${h.label}" has no area yet — place it on the image.`);
+      if (h.view && !file.scenes[h.view]) errors.push(`Scene "${id}": hotspot "${h.label}" shows scene "${h.view}", which is not defined.`);
+      if (!h.view && !h.targets.length) errors.push(`Scene "${id}": hotspot "${h.label}" leads nowhere: give it targets or a view.`);
       for (const t of h.targets) {
         if (!names.has(t)) errors.push(`Scene "${id}": hotspot "${h.label}" targets "${t}", which is not a passage.`);
       }

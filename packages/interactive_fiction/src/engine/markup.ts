@@ -1,6 +1,6 @@
 /** Passage text → syntax tree, for the Harlowe markup the supported subset uses. */
 
-import { parseArgs, type Expr } from "./expr.ts";
+import { isPossessive, parseArgs, type Expr } from "./expr.ts";
 import { canonical, kindOf } from "./macros.ts";
 import { StoryError } from "./values.ts";
 
@@ -13,7 +13,7 @@ export type Node =
   | { t: "collapsed"; body: Node[] }
   | { t: "style"; tag: "b" | "i"; body: Node[] }
   | { t: "html"; s: string }
-  | { t: "var"; name: string; temp: boolean };
+  | { t: "var"; name: string; temp: boolean; keys?: string[] };
 
 const MACRO_START = /^\(([A-Za-z][\w-]*):/;
 
@@ -23,7 +23,7 @@ function macroEnd(src: string, i: number): number {
   let brackets = 0;
   for (let j = i; j < src.length; j++) {
     const c = src[j];
-    if (brackets === 0 && (c === '"' || c === "'")) {
+    if (brackets === 0 && (c === '"' || c === "'") && !isPossessive(src, j)) {
       const close = src.indexOf(c, j + 1);
       if (close === -1) throw new StoryError(`Unclosed string in macro: ${src.slice(i, i + 60)}`);
       j = close;
@@ -46,6 +46,12 @@ export function parseLink(inner: string): { label: string; target: string } {
   const bar = inner.lastIndexOf("|");
   if (bar !== -1) return { label: inner.slice(0, bar), target: inner.slice(bar + 1) };
   return { label: inner, target: inner };
+}
+
+/** The keys of a `'s key's key` chain after a variable in prose, as Harlowe reads it. */
+function propertyKeys(chain: string): { keys?: string[] } {
+  const keys = [...chain.matchAll(/'s (\w+)/g)].map((m) => m[1]);
+  return keys.length ? { keys } : {};
 }
 
 class MarkupParser {
@@ -93,6 +99,19 @@ class MarkupParser {
         out.push({ t: "collapsed", body });
         continue;
       }
+      if (this.at("[")) {
+        const open = this.pos;
+        this.pos++;
+        const body = this.parse(["]", ...stops]);
+        if (this.at("]")) {
+          flush();
+          this.pos++;
+          out.push({ t: "hook", body });
+          continue;
+        }
+        // No `]` closes it: the bracket is plain text.
+        this.pos = open;
+      }
       if (this.at("''") || this.at("//")) {
         const mark = this.at("''") ? "''" : "//";
         flush();
@@ -115,18 +134,18 @@ class MarkupParser {
         this.pos += tag[0].length;
         continue;
       }
-      const variable = /^\$([A-Za-z_]\w*)/.exec(rest);
+      const variable = /^\$([A-Za-z_]\w*)((?:'s [A-Za-z_]\w*)*)/.exec(rest);
       if (variable) {
         flush();
-        out.push({ t: "var", name: variable[1], temp: false });
+        out.push({ t: "var", name: variable[1], temp: false, ...propertyKeys(variable[2]) });
         this.pos += variable[0].length;
         continue;
       }
       const prev = this.pos > 0 ? this.src[this.pos - 1] : " ";
-      const temp = /^_([A-Za-z]\w*)/.exec(rest);
+      const temp = /^_([A-Za-z]\w*)((?:'s [A-Za-z_]\w*)*)/.exec(rest);
       if (temp && !/\w/.test(prev)) {
         flush();
-        out.push({ t: "var", name: temp[1], temp: true });
+        out.push({ t: "var", name: temp[1], temp: true, ...propertyKeys(temp[2]) });
         this.pos += temp[0].length;
         continue;
       }

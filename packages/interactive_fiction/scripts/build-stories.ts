@@ -17,7 +17,7 @@ import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
 import type { Story } from "../src/engine/source.ts";
 import { validate, variablesSet } from "../src/engine/validate.ts";
 import { validateBible, type ArtBible } from "./art-bible.ts";
-import { loadSeries, seriesIds, type Series } from "./series.ts";
+import { loadSeries, seriesIds, validateCredits, type Series } from "./series.ts";
 
 const OUT = new URL("../public/stories/", import.meta.url).pathname;
 const WITH_DRAFTS = process.env.STORIES_DRAFTS === "1";
@@ -133,6 +133,7 @@ function buildSeries(id: string): SeriesEntry {
   });
 
   checkBible(series, scenes, chapters);
+  report(`${id} [credits]`, validateCredits(series.manifest.credits ?? []));
   const game = loadGame(series, chapters);
   if (game.title?.image) game.title.image = served + game.title.image;
   copyMedia(series, outDir);
@@ -142,6 +143,7 @@ function buildSeries(id: string): SeriesEntry {
     title: series.manifest.title,
     carry: series.manifest.carry ?? null,
     about: series.manifest.about ?? [],
+    credits: series.manifest.credits ?? [],
     game,
     chapters: published,
   };

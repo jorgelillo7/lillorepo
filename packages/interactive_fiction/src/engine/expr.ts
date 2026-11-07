@@ -12,6 +12,7 @@ export type Expr =
   | { k: "hook"; src: string }
   | { k: "call"; name: string; args: Expr[] }
   | { k: "bin"; op: string; l: Expr; r: Expr }
+  | { k: "prop"; obj: Expr; key: Expr }
   | { k: "not"; e: Expr }
   | { k: "neg"; e: Expr }
   | { k: "spread"; e: Expr }
@@ -25,11 +26,16 @@ type Tok =
   | { t: "num"; v: number }
   | { t: "var"; v: string }
   | { t: "temp"; v: string }
-  | { t: "word"; v: string }
+  | { t: "word"; v: string; raw: string }
   | { t: "hook"; v: string }
   | { t: "op"; v: string };
 
 const OPS = ["...", "<=", ">=", "(", ")", ",", ":", "<", ">", "+", "-", "*", "/"];
+
+/** Whether the `'` at `i` is the `'s` of `$map's key` (right after a value, then a space), not a string. */
+export function isPossessive(src: string, i: number): boolean {
+  return src[i] === "'" && src[i + 1] === "s" && /[\w)]/.test(src[i - 1] ?? "") && /\s/.test(src[i + 2] ?? "");
+}
 
 /** The end of a `[...]` code hook starting at `i` (the index of `[`), bracket-balanced. */
 export function hookEnd(src: string, i: number): number {
@@ -51,6 +57,11 @@ function tokenize(src: string): Tok[] {
     const c = src[i];
     if (/\s/.test(c)) {
       i++;
+      continue;
+    }
+    if (isPossessive(src, i)) {
+      toks.push({ t: "op", v: "'s" });
+      i += 2;
       continue;
     }
     if (c === '"' || c === "'") {
@@ -99,7 +110,7 @@ function tokenize(src: string): Tok[] {
     }
     m = /^[A-Za-z][\w-]*/.exec(src.slice(i));
     if (m) {
-      toks.push({ t: "word", v: m[0].toLowerCase() });
+      toks.push({ t: "word", v: m[0].toLowerCase(), raw: m[0] });
       i += m[0].length;
       continue;
     }
@@ -175,10 +186,14 @@ class Parser {
       return { k: "spread", e: this.or() };
     }
     const t = this.peek();
-    if ((t?.t === "var" || t?.t === "temp") && this.isWord("to", 1)) {
-      const target: Expr = t.t === "var" ? { k: "var", name: t.v } : { k: "temp", name: t.v };
-      this.i += 2;
-      return { k: "assign", target, e: this.or() };
+    if (t?.t === "var" || t?.t === "temp") {
+      const start = this.i;
+      const target = this.primary();
+      if (this.isWord("to")) {
+        this.i++;
+        return { k: "assign", target, e: this.or() };
+      }
+      this.i = start;
     }
     return this.or();
   }
@@ -255,7 +270,23 @@ class Parser {
     return this.primary();
   }
 
+  /** An atom followed by any `'s key` / `'s (expression)` accesses. */
   private primary(): Expr {
+    let e = this.atom();
+    while (this.isOp("'s")) {
+      this.i++;
+      const t = this.peek();
+      if (t?.t === "word") {
+        this.i++;
+        e = { k: "prop", obj: e, key: { k: "lit", v: t.raw } };
+      } else if (this.isOp("(")) {
+        e = { k: "prop", obj: e, key: this.atom() };
+      } else this.fail("Expected a name or (expression) after 's");
+    }
+    return e;
+  }
+
+  private atom(): Expr {
     const t = this.peek();
     if (!t) this.fail("Unexpected end");
     if (t.t === "op" && t.v === "(") {

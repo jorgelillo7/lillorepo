@@ -107,6 +107,18 @@ volume, sound on or off, pacing, text size, effects, images or text only —
 SHALL apply at once, be kept in one guarded browser key, and be reachable from
 the title screen and from the reader's toolbar.
 
+A series MAY credit the people who made it — name, role and links to their
+profiles — in its `series.json`. They SHALL be shown as cards at the top of
+Acerca de, with links opening in a new tab, and as one line under the title
+screen's menu leading there. The build SHALL refuse a credit without a name or
+a role, or a link that is not an https URL, so a typo never ships a broken or
+unsafe link under somebody's name.
+
+#### Scenario: a credit with a broken link
+- **WHEN** a credit has no name or role, or a link that is not https
+- **THEN** the build names the credit and the problem
+- *Verifies:* `series.test.ts: every credit needs a name and a role, and every link an https URL`
+
 ### Requirement: What there is to discover, and what the reader found, without spoilers
 
 The build SHALL explore every chapter (drafts too, in order, each tried with

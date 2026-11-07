@@ -1,4 +1,4 @@
-"""Icons of the repo's webs and bots: Be Water, Biwenger Tools, Chuck Norris Bot.
+"""Icons of the repo's webs and bots: Be Water, Biwenger Tools, Chuck Norris Bot, Interactive fiction.
 
 Same house style as the Android app icons (lillo-android-apps, scripts/icon_lib.py): flat shapes
 on a dark vertical gradient, drawn 4x supersampled with Pillow and scaled down with LANCZOS.
@@ -8,7 +8,7 @@ as the apps' Play Store icon), so shapes centred at 54 sit in the middle.
 The single source of these icons; jorgelillo7.github.io and the webs only hold its output.
 
   python3 scripts/generate_web_icons.py site <out_dir>
-      <out_dir>/{be-water,biwenger-tools,chucknorris-bot}{,-512}.png, 192 and 512 px.
+      <out_dir>/{be-water,biwenger-tools,chucknorris-bot,interactive-fiction}{,-512}.png, 192 and 512 px.
       The 192 px ones are the "Webs y bots" cards of jorgelillo7.github.io (assets/apps/);
       the 512 px Chuck is the bot's Telegram picture.
   python3 scripts/generate_web_icons.py biwenger-web | be-water-web | chucknorris-web
@@ -169,6 +169,27 @@ def chucknorris_bot(window=SITE):
     return img
 
 
+def interactive_fiction(window=SITE):
+    """An open book whose right page forks into two arrows: a story where the reader chooses."""
+    img, d, P, k = canvas("#3B4FB8", "#111A4A", window)
+    d.polygon([P(25, 41), P(54, 46), P(83, 41), P(83, 77), P(54, 82), P(25, 77)], fill="#F59E0B")   # cover
+    d.polygon([P(28, 38), P(52, 43), P(52, 78), P(28, 73)], fill=CREAM)                               # pages
+    d.polygon([P(56, 43), P(80, 38), P(80, 73), P(56, 78)], fill=CREAM)
+    for y in (50, 55.5, 61, 66.5):                                                                    # text
+        d.line([P(32, y), P(48, y + 3.3)], fill="#94A3B8", width=int(1.6 * k))
+    blue, w = "#3B4FB8", int(2.2 * k)
+    d.line([P(68, 72), P(68, 60)], fill=blue, width=w)                                                # the fork
+    for tip in ((61.5, 49), (74.5, 49)):
+        dx, dy = tip[0] - 68, tip[1] - 60
+        n = math.hypot(dx, dy)
+        ux, uy = dx / n, dy / n
+        base = (tip[0] - ux * 4.2, tip[1] - uy * 4.2)
+        d.line([P(68, 60.6), P(*base)], fill=blue, width=w)
+        d.polygon([P(*tip), P(base[0] - uy * 2.6, base[1] + ux * 2.6), P(base[0] + uy * 2.6, base[1] - ux * 2.6)], fill=blue)
+    circ(d, P, k, 68, 60.4, 1.1, blue)
+    return img
+
+
 def render(make, size, window=SITE):
     """Draw at SIZE, then reduce — the 192 px cards are downsampled from the 512 px icon."""
     icon = make(window).resize((SIZE, SIZE), Image.LANCZOS)
@@ -178,7 +199,8 @@ def render(make, size, window=SITE):
 def site(out):
     out.mkdir(parents=True, exist_ok=True)
     for name, make in (("be-water", be_water), ("biwenger-tools", biwenger_tools),
-                       ("chucknorris-bot", chucknorris_bot)):
+                       ("chucknorris-bot", chucknorris_bot),
+                       ("interactive-fiction", interactive_fiction)):
         render(make, SIZE).save(out / f"{name}-512.png", optimize=True)
         render(make, 192).save(out / f"{name}.png", optimize=True)
         print("wrote", out / name)

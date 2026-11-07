@@ -48,3 +48,7 @@ test("a macro written in a syntax the reader does not run is refused at build", 
 test("aliases are the same macro as their main name", () => {
   expect(errors("(set:$x to (array: 1))(if: $x contains 1)[ok](elseif: true)[no](text-color: red)[r]")).toEqual([]);
 });
+
+test("a datamap key set with 's counts its variable as set", () => {
+  expect(errors('(set:$m to (dm:"k", 1))(set:$m\'s k to 2)$m\'s k $x')).toEqual([]);
+});

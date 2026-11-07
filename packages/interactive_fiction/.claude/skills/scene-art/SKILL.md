@@ -49,31 +49,70 @@ ajar, someone on the bed) is a variant of a room, not a new room.
   `scene` (the shot: composition, the moment, every clickable object visible
   and separate), and `editOf` when it is the same room changed.
 
-# Step 3 — Prompts
+# Step 3 — Generate
+
+Every call is paid (the API has no free tier for images), so confirm the
+spend with the owner first, and dry-run:
 
 ```bash
-npm run prompts -- <series>            # every planned image
-npm run prompts -- <series> <id> ...   # specific ones
+npm run art -- <series> --dry-run      # the requests and their estimated cost
+npm run art -- <series>                # every planned image (--max N caps the run)
+npm run art -- <series> <id> --note "…"   # one image again, with a correction
 ```
 
-Hand them to the owner for the Gemini app (the API's free tier has no image
-quota; never use a paid key). One chat per batch so the style holds; an
-`editOf` image needs its base uploaded first.
+`GEMINI_API_KEY` must hold a paid key, exported for the shell only — see
+OPERATIONS, "Art for point-and-click". New images get the bible's
+`styleReference`, and each character's `reference` (the author's concept art);
+an edit gets the full-size original of the image it changes.
 
-# Step 4 — Take the images in
+Without a key: `npm run prompts -- <series>` prints the same prompts for the
+owner to paste in the Gemini app; an `editOf` image needs its base uploaded.
 
-1. Save originals to `art-originals/<id>.jpg`.
-2. Web copy: `sips -Z 1600 -s format jpeg -s formatOptions 78 <original> --out scenes/<id>.jpg`.
-3. **Review against the bible before using it.** Crop the details at the
+# Step 4 — Review the images
+
+`npm run art` has already saved the original, the web copy and the prompt.
+(Images made in the app by hand: original to `art-originals/<id>.jpg`, web copy
+with `sips -Z 1600 -s format jpeg -s formatOptions 78 <original> --out scenes/<id>.jpg`,
+then `status`, `file` and `prompt` in the bible.)
+
+1. **Review against the bible before using it.** Crop the details at the
    original's scale and check every fact the description fixes (counts,
    clothes, accessories, what is on the desk). A miss becomes a new planned
-   `editOf` image that fixes only that, not a regeneration.
-4. In the bible: `status: "generated"`, `file`, and `prompt` (what was pasted).
+   `editOf` image that fixes only that, not a regeneration of the room.
+2. Watch for additions nobody asked for: the model sometimes adds a close-up
+   or a second copy of a detail it was told to change. `--note` says what it
+   must not add.
 
 # Step 5 — Hotspots
 
+Start from a draft: list each image's passages in the bible
+(`"passages": { "02": ["Inicio", …] }`), then
+
+```bash
+npm run scenes:draft -- <series> <chapter>   # writes <chapter>-scenes.json
+```
+
+It has one scene per image and one hotspot per linked passage, labelled with
+the story's own link text, each with no area yet — the build refuses the file
+until every hotspot is placed. Wire it into `series.json` only once the
+images are in. A passage whose picture depends on the state (the same passage
+showing two moments) can have one scene only: pick the common one.
+
 - One rectangle per clickable object, `[x, y, w, h]` in percent of the image;
-  `targets` are the passages it leads to (first one offered wins).
+  `targets` are the passages it leads to.
+- **Several choices, one object — the standard.** Pick by where the choices
+  are seen:
+  - **Seen from somewhere else** (a room whose exits are on the corridor
+    beyond its door): give the door a hotspot with `"view": "<the corridor
+    scene>"` and `"targets": []`. Tapping it shows the corridor, and the
+    choices sit on its stairs and doors. The corridor's own scene must have
+    hotspots for those targets.
+  - **On the same thing in this picture** (the two corridors at the top of a
+    stair, the answers given to a character): give that object **one**
+    hotspot listing all their targets. One offered is a plain click; several
+    open a menu beside the object.
+  - Merge the draft's hotspots that way. Leave a choice as a text button only
+    when nothing in any picture stands for it.
 - Same `room` for every view of one room (no door transition between them).
 - Check with an overlay before shipping: render the image with the rectangles
   drawn on it (an HTML page with absolutely positioned outlined boxes,

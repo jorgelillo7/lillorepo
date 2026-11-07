@@ -43,10 +43,62 @@ describe("hotspots", () => {
     expect(rest.map((i) => page.actions[i].label)).toEqual(["Pick it up", "Look around"]);
   });
 
-  test("the first target that is a current action wins", () => {
-    const multi = { image: "x", aspect: [1, 1] as [number, number], hotspots: [{ label: "Door", targets: ["A", "B"], rect: [0, 0, 1, 1] as [number, number, number, number] }] };
-    const { shown } = hotspotsFor(multi, [{ kind: "link", label: "to B", target: "B" }]);
-    expect(shown[0].action).toBe(0);
+  const door = { image: "x", aspect: [1, 1] as [number, number], hotspots: [{ label: "Door", targets: ["A", "B", "C"], rect: [0, 0, 1, 1] as [number, number, number, number] }] };
+
+  test("a hotspot whose passage offers one of its targets leads straight there", () => {
+    const { shown } = hotspotsFor(door, [{ kind: "link", label: "to B", target: "B" }]);
+    expect(shown[0].actions).toEqual([0]);
+  });
+
+  test("a hotspot whose passage offers several of its targets carries them all, for a menu", () => {
+    const actions = [
+      { kind: "link" as const, label: "Talk", target: "X" },
+      { kind: "link" as const, label: "Downstairs", target: "C" },
+      { kind: "link" as const, label: "Upstairs", target: "A" },
+    ];
+    const { shown, rest } = hotspotsFor(door, actions);
+    expect(shown[0].actions).toEqual([2, 1]);
+    expect(rest).toEqual([0]);
+  });
+});
+
+describe("views: a hotspot that shows another scene for the same passage", () => {
+  type Rect = [number, number, number, number];
+  const r: Rect = [0, 0, 10, 10];
+  const scenes = {
+    room: { image: "room.jpg", aspect: [16, 9] as [number, number], hotspots: [{ label: "Door", targets: [], view: "hall", rect: r }] },
+    hall: {
+      image: "hall.jpg",
+      aspect: [16, 9] as [number, number],
+      hotspots: [
+        { label: "Stairs down", targets: ["Down"], rect: r },
+        { label: "Stairs up", targets: ["Up"], rect: r },
+        { label: "Back in", targets: [], view: "room", rect: r },
+      ],
+    },
+  };
+  const link = (target: string) => ({ kind: "link" as const, label: `to ${target}`, target });
+
+  test("a door to a view appears when that view holds choices the passage offers, and carries them", () => {
+    const { shown, rest } = hotspotsFor(scenes.room, [link("Up"), link("Talk"), link("Down")], scenes);
+    expect(shown).toEqual([{ hotspot: scenes.room.hotspots[0], actions: [2, 0], view: "hall" }]);
+    expect(rest).toEqual([1]);
+  });
+
+  test("a door to a view with nothing the passage offers is not shown", () => {
+    expect(hotspotsFor(scenes.room, [link("Talk")], scenes).shown).toEqual([]);
+  });
+
+  test("in the view, its own choices and the way back are shown", () => {
+    const { shown } = hotspotsFor(scenes.hall, [link("Up"), link("Down"), link("Talk")], {
+      ...scenes,
+      room: { ...scenes.room, hotspots: [...scenes.room.hotspots, { label: "Friend", targets: ["Talk"], rect: r }] },
+    });
+    expect(shown.map((h) => [h.hotspot.label, h.actions, h.view])).toEqual([
+      ["Stairs down", [1], undefined],
+      ["Stairs up", [0], undefined],
+      ["Back in", [2], "room"],
+    ]);
   });
 });
 
@@ -66,5 +118,24 @@ describe("scene validation", () => {
       'Passage "Ghost" in the scene map does not exist.',
       'Passage "Key" uses scene "cellar", which is not defined.',
     ]);
+  });
+
+  test("a view must be a scene of the file, and a hotspot needs a target or a view", () => {
+    const file: SceneFile = {
+      scenes: { hall: { ...scenes.scenes.hall, hotspots: [{ label: "Out", targets: [], view: "garden", rect: [0, 0, 5, 5] }, { label: "Nothing", targets: [], rect: [0, 0, 5, 5] }] } },
+      passages: {},
+    };
+    expect(validateScenes(mini, file, () => true)).toEqual([
+      'Scene "hall": hotspot "Out" shows scene "garden", which is not defined.',
+      'Scene "hall": hotspot "Nothing" leads nowhere: give it targets or a view.',
+    ]);
+  });
+
+  test("a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced", () => {
+    const draft: SceneFile = {
+      scenes: { hall: { ...scenes.scenes.hall, hotspots: [{ label: "Door", targets: ["Start"], rect: [0, 0, 0, 0] }] } },
+      passages: {},
+    };
+    expect(validateScenes(mini, draft, () => true)).toEqual(['Scene "hall": hotspot "Door" has no area yet — place it on the image.']);
   });
 });

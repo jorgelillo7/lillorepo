@@ -23,6 +23,8 @@ export interface Entry {
   sources: Quote[];
   /** Questions for the author about this entry, kept until answered. */
   open?: string[];
+  /** An image of it under the series folder (the author's concept art), attached when an image of it is generated. */
+  reference?: string;
 }
 
 export interface ImageEntry {
@@ -39,10 +41,14 @@ export interface ImageEntry {
   prompt?: string;
   /** Supplied by the story's author: no prompt of ours to record. */
   fromAuthor?: boolean;
+  /** Chapter id → the passages this image is the scene of; what `npm run scenes:draft` builds from. */
+  passages?: Record<string, string[]>;
 }
 
 export interface ArtBible {
   style: string;
+  /** An image under the series folder whose look new images match: attached to every image that is not an edit. */
+  styleReference?: string;
   characters: Record<string, Entry>;
   locations: Record<string, Entry>;
   images: Record<string, ImageEntry>;
@@ -101,7 +107,19 @@ export function validateBible(
       }
     }
   }
+  if (bible.styleReference && !fileExists(bible.styleReference)) {
+    errors.push(`style reference "${bible.styleReference}" not found.`);
+  }
+  for (const [kind, entries] of [
+    ["character", bible.characters],
+    ["location", bible.locations],
+  ] as const) {
+    for (const [id, entry] of Object.entries(entries)) {
+      if (entry.reference && !fileExists(entry.reference)) errors.push(`${kind} "${id}": reference "${entry.reference}" not found.`);
+    }
+  }
   const files = new Map<string, string>();
+  const claimed = new Map<string, string>();
   for (const [id, image] of Object.entries(bible.images)) {
     if (image.location && !bible.locations[image.location]) {
       errors.push(`image "${id}": unknown location "${image.location}".`);
@@ -117,6 +135,17 @@ export function validateBible(
       if (!image.prompt && !image.fromAuthor) errors.push(`image "${id}": generated but the prompt used is not recorded.`);
     }
     if (image.file) files.set(image.file, id);
+    for (const [chapter, names] of Object.entries(image.passages ?? {})) {
+      for (const name of names) {
+        if (!chapters[chapter]?.passages.some((p) => p.name === name)) {
+          errors.push(`image "${id}": passage "${name}" not found in chapter ${chapter}.`);
+        }
+        const key = `${chapter}\u0000${name}`;
+        const other = claimed.get(key);
+        if (other) errors.push(`image "${id}": passage "${name}" (chapter ${chapter}) is already the scene of "${other}".`);
+        claimed.set(key, id);
+      }
+    }
   }
   for (const file of new Set(sceneImages)) {
     if (!files.has(file)) errors.push(`scene image "${file}" is not in the art bible.`);

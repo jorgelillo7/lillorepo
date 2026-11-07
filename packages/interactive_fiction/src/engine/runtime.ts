@@ -8,12 +8,15 @@ import {
   StoryError,
   add,
   bool,
+  dataMap,
   equals,
   isHook,
   isIn,
   num,
+  property,
   toText,
   type Value,
+  withProperty,
 } from "./values.ts";
 
 export type Vars = Record<string, Value>;
@@ -184,8 +187,9 @@ export class Runtime {
       case "html":
         return node.s;
       case "var": {
-        const v = node.temp ? ctx.temps[node.name] : ctx.vars[node.name];
+        let v = node.temp ? ctx.temps[node.name] : ctx.vars[node.name];
         if (v === undefined) throw new StoryError(`${node.temp ? "_" : "$"}${node.name} is not set.`);
+        for (const key of node.keys ?? []) v = property(v, key);
         return escapeHtml(toText(v));
       }
       case "link":
@@ -287,9 +291,36 @@ export class Runtime {
 
   private assign(a: Expr, ctx: Ctx): void {
     if (a.k !== "assign") throw new StoryError("(set:) needs `$variable to value`.");
-    const scope = a.target.k === "var" ? ctx.vars : ctx.temps;
-    const name = (a.target as { name: string }).name;
-    scope[name] = this.eval(a.e, ctx, scope[name]);
+    const keys: Value[] = [];
+    let root = a.target;
+    while (root.k === "prop") {
+      keys.unshift(this.eval(root.key, ctx));
+      root = root.obj;
+    }
+    if (root.k !== "var" && root.k !== "temp") throw new StoryError("(set:) needs `$variable to value`.");
+    const scope = root.k === "var" ? ctx.vars : ctx.temps;
+    const current = scope[root.name];
+    if (keys.length === 0) {
+      scope[root.name] = this.eval(a.e, ctx, current);
+      return;
+    }
+    if (current === undefined) throw new StoryError(`${root.k === "var" ? "$" : "_"}${root.name} is not set.`);
+    scope[root.name] = this.setPath(current, keys, (old) => this.eval(a.e, ctx, old));
+  }
+
+  /** `container` with the value at `keys` replaced by `make(old value)`, copying each level on the way. */
+  private setPath(container: Value, keys: Value[], make: (old: Value | undefined) => Value): Value {
+    const [key, ...rest] = keys;
+    if (rest.length === 0) {
+      let old: Value | undefined;
+      try {
+        old = property(container, key);
+      } catch {
+        old = undefined;
+      }
+      return withProperty(container, key, make(old));
+    }
+    return withProperty(container, key, this.setPath(property(container, key), rest, make));
   }
 
   private evalArg(args: Expr[], i: number, ctx: Ctx): Value {
@@ -346,6 +377,8 @@ export class Runtime {
         return this.evalCall(e.name, e.args, ctx);
       case "bin":
         return this.binary(e, ctx, it);
+      case "prop":
+        return property(this.eval(e.obj, ctx, it), this.eval(e.key, ctx, it));
       default:
         throw new StoryError(`Unexpected ${e.k} in an expression.`);
     }
@@ -391,6 +424,8 @@ export class Runtime {
         return this.evalList(args, ctx);
       case "str":
         return this.evalList(args, ctx).map(toText).join("");
+      case "dm":
+        return dataMap(this.evalList(args, ctx));
       case "uppercase":
         return this.text(this.evalArg(args, 0, ctx), name).toUpperCase();
       case "cond": {

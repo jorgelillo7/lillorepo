@@ -44,10 +44,20 @@ function walkExpr(e: Expr, scan: Scan): void {
     case "spread":
       walkExpr(e.e, scan);
       return;
-    case "assign":
-      if (e.target.k === "var") scan.set.add(e.target.name);
+    case "prop":
+      walkExpr(e.obj, scan);
+      walkExpr(e.key, scan);
+      return;
+    case "assign": {
+      let root = e.target;
+      while (root.k === "prop") {
+        walkExpr(root.key, scan);
+        root = root.obj;
+      }
+      if (root.k === "var") scan.set.add(root.name);
       walkExpr(e.e, scan);
       return;
+    }
     case "where":
       walkExpr(e.cond, scan);
       return;
