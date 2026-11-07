@@ -205,7 +205,11 @@ the build with the passage name, so nothing renders silently wrong.
 
 - **Macros:** `set`, `if`, `unless`, `else`, `else-if`, `cond`, `display`,
   `goto`, `link`, `a`, `for: each _x, ...`, `print`, `str`, `uppercase`,
-  `find: _x where …, ...`, `input: bind $v`, `text-colour`.
+  `find: _x where …, ...`, `input: bind $v`, `text-colour`, `dm` (`datamap`).
+- **Datamaps:** read with `$map's key` or `$map's (expression)` (in macros and
+  in text), set with `(set: $map's key to …)`; `contains` asks about keys. As
+  in Harlowe, a map is copied on assignment, so changing a key changes only
+  that variable.
 - **Operators:** `is`, `is not`, `is in`, `contains`, `and`, `or`, `not`,
   `< > <= >=`, `+ - * /` (`+` joins strings and arrays).
 - **Markup:** `[[label|target]]` (and `->`, `<-`), hooks, `{collapsed}`,
