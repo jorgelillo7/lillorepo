@@ -70,6 +70,11 @@ locals {
     "price_snapshots.expires_at" = {
       project = local.biwenger, collection = "price_snapshots", field = "expires_at", ttl = true
     }
+    # The projection ledger's Jornada Perfecta SF for every player (~550 keys),
+    # read whole by a script, never queried.
+    "proyecciones.league_jp" = {
+      project = local.biwenger, collection = "proyecciones", field = "league_jp", ttl = false
+    }
   }
 }
 

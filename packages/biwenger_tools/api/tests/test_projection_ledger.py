@@ -477,3 +477,16 @@ def test_the_snapshot_keeps_the_oraculo_lists_each_player_was_on():
     snapshot = pl.build_snapshot(4901, "Jornada 6", "26-27", rows, NOW)
 
     assert snapshot["players"][0]["oraculo_lists"] == ["capitanes", "defensas"]
+
+
+def test_league_jp_keeps_every_projected_player_by_string_id():
+    """Jornada Perfecta's number for the whole competition, keyed for
+    Firestore: map keys must be strings."""
+    rows = [_row(7, 442, 400, DEF), _row(9, 350, 350, GK)]
+    assert pl.league_jp(rows) == {"7": 442, "9": 350}
+
+
+def test_league_jp_leaves_out_a_player_jp_does_not_project():
+    """No projection is not a projection of zero."""
+    rows = [_row(7, 442, 400, DEF), {**_row(8, 0, 0, DEF), "jp_player": None}]
+    assert pl.league_jp(rows) == {"7": 442}

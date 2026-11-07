@@ -140,6 +140,50 @@ projection and the shape of a squad, so it is not graded against a threshold
 here. Read it over several rounds, not one.
 
 
+**Jornada Perfecta for everyone.** Each projection also stores `league_jp`:
+Jornada Perfecta's SF for every player it projects in the competition, keyed
+by the Biwenger id as a string, from round 13 on. It costs no request — the
+morning already holds both the player list and the JP read — and about 8 KB a
+document, exempt from Firestore indexing (`infra/firestore.tf`). It is what
+the opponent effect below compares against.
+
+## The opponent effect
+
+`scripts/projections/opponent_effect.py` asks whether facing Barcelona or Real
+Madrid sinks a player's points, and whether Jornada Perfecta already prices it
+in. Read-only; one request per finished round to the public round endpoint,
+none from the account's player-detail budget.
+
+Each appearance is measured against **the same player's mean in his other
+games**, Barcelona and Madrid left out of that mean. A weak defender is
+therefore never mistaken for a bad fixture.
+
+Measured after round 11, in SofaScore points (the base Jornada Perfecta
+projects; a defender or keeper averages about 4 a game):
+
+| Against | Defenders | Keepers |
+|---|---|---|
+| Barcelona | −3.3, 45 of 56 below their own mean; 9 of 11 games negative | −3.6 (n = 9) |
+| Real Madrid | −2.4, 40 of 54 below; 10 of 11 games negative | −0.6 (n = 11) |
+| Next worst (Real Sociedad, Elche) | about −1 | — |
+
+How to read it:
+
+- **The per-game count comes first.** One heavy defeat sinks a whole back
+  line, so five defenders in one game are one observation, not five.
+- **Appearances include substitutes.** The round payload has no minutes.
+- **The league's own scoring would widen the gap.** It adds play, win and
+  clean-sheet bonuses, which rarely come against these two.
+- **Jornada Perfecta did not move for the fixture** in the five cases our
+  own squad holds (Tenaglia 442 against Barcelona, his highest; Juan
+  Iglesias, Rioja and Joan García flat against Madrid). Five cases are an
+  anecdote; `league_jp` turns them into a sample, printed in the script's
+  last block once graded rounds carry it.
+
+There is no threshold and no verdict here, as with the blend: a rule that
+benches a defender against these sides goes to `openspec/changes/` first,
+with this output as its evidence.
+
 ## When the numbers look wrong
 
 The script caches player reads on disk. A cached player that has no report

@@ -63,11 +63,11 @@ def _capture_ctx():
     return ctx
 
 
-def _capture(ctx, league):
+def _capture(ctx, league, rows=lambda *a, **k: []):
     written = []
     with (
         patch.object(cap.projection_ledger, "target_round", lambda data, now: 4910),
-        patch.object(cap, "build_squad_rows", lambda *a, **k: []),
+        patch.object(cap, "build_squad_rows", rows),
         patch.object(
             cap.projection_ledger,
             "build_snapshot",
@@ -102,3 +102,34 @@ def test_a_failed_league_read_still_writes_our_own_projection():
     result, written = _capture(_capture_ctx(), broken)
     assert result["written"] is True
     assert "league_projection" not in written[0]
+
+
+def _jp_row(bw_id, rate):
+    return {"bw_id": bw_id, "jp_player": {"predict": [{"type": 2, "rate": rate}]}}
+
+
+def test_the_snapshot_carries_jornada_perfectas_number_for_every_player():
+    """Whether a fixture moves the projection can only be measured on the
+    whole competition: our own squad meets Barcelona a few times a season."""
+    ctx = _capture_ctx()
+    ctx.biwenger_players = {7: {"id": 7}, 9: {"id": 9}}
+
+    def rows(squad, *a, **k):
+        return [_jp_row(p["id"], 400 + p["id"]) for p in squad]
+
+    _, written = _capture(ctx, lambda ctx: {}, rows)
+    assert written[0]["league_jp"] == {"7": 407, "9": 409}
+
+
+def test_a_failed_league_jp_read_still_writes_our_own_projection():
+    ctx = _capture_ctx()
+    ctx.biwenger_players = {7: {"id": 7}}
+
+    def rows(squad, *a, **k):
+        if squad:
+            raise RuntimeError("matching blew up")
+        return []
+
+    result, written = _capture(ctx, lambda ctx: {}, rows)
+    assert result["written"] is True
+    assert "league_jp" not in written[0]
