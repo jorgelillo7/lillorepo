@@ -611,7 +611,7 @@ def test_the_lineup_pick_also_collects_one_finished_round():
     base = "packages.biwenger_tools.api.logic.projection_ledger_capture"
     with (
         patch(f"{base}.projection_ledger_store.list_all", return_value=stored),
-        patch(f"{base}._outcome_for", return_value={"applied_total": 41}),
+        patch(f"{base}._outcome_for", return_value=({"applied_total": 41}, [])),
         patch(f"{base}.projection_ledger_store.write_actual") as write_actual,
     ):
         cap.collect(ctx)

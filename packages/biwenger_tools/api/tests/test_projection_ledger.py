@@ -490,3 +490,57 @@ def test_league_jp_leaves_out_a_player_jp_does_not_project():
     """No projection is not a projection of zero."""
     rows = [_row(7, 442, 400, DEF), {**_row(8, 0, 0, DEF), "jp_player": None}]
     assert pl.league_jp(rows) == {"7": 442}
+
+
+# --- a round that can never be collected stops being retried ----------------
+
+
+def _pending(captured_at: str) -> dict:
+    return {"round_id": 5176, "captured_at": captured_at}
+
+
+def test_a_refusal_is_final_once_the_capture_is_a_week_old():
+    """Round 5176 holds one postponed match; ten of the eleven fielded
+    played their matchday under another round id, so their reports are never
+    filed under this one. Retried every morning, it re-read ~20 players a
+    day from the window shared with the phone app, for weeks."""
+    old = _pending(datetime(2026, 9, 12, 9, 0, tzinfo=MADRID_TZ).isoformat())
+    assert pl.refusal_is_final(old, NOW) is True
+
+
+def test_a_recent_refusal_is_retried():
+    """A report Biwenger has not filed yet arrives a day or two late."""
+    recent = _pending(datetime(2026, 9, 17, 9, 0, tzinfo=MADRID_TZ).isoformat())
+    assert pl.refusal_is_final(recent, NOW) is False
+
+
+def test_a_round_with_no_capture_date_is_retried():
+    assert pl.refusal_is_final({"round_id": 1}, NOW) is False
+    assert pl.refusal_is_final({"round_id": 1, "captured_at": "nonsense"}, NOW) is False
+
+
+def test_a_refused_outcome_names_who_was_missing_and_scores_nobody():
+    """No points at all: storing the eleven as zeros is the exact lie the
+    refusal exists to prevent."""
+    outcome = pl.refused_outcome([9, 3], NOW)
+    assert outcome == {
+        "refused": "missing_reports",
+        "missing": [3, 9],
+        "fetched_at": NOW.isoformat(),
+    }
+
+
+def test_a_refused_round_is_not_collected_again():
+    docs = [{"round_id": 5176, "actual": pl.refused_outcome([1], NOW)}]
+    assert pl.next_round_to_collect(docs, {5176}) is None
+
+
+def test_a_refused_round_is_neither_graded_nor_ranked():
+    doc = {
+        **_captured(11, {}),
+        "league_projection": {"A": 5200},
+        "actual": pl.refused_outcome([1], NOW),
+    }
+    assert pl.outcome_totals(doc) is None
+    assert pl.grade([doc])["rounds_compared"] == 0
+    assert pl.league_ranking(doc) == []
