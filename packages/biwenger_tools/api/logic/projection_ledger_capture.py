@@ -19,7 +19,7 @@ from packages.biwenger_tools.api.logic import (
 from packages.biwenger_tools.api.logic.real_points import (
     missing_reports,
     personalizado,
-    reports_for_round,
+    reports_for_rounds,
 )
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
 
@@ -108,7 +108,9 @@ def capture(ctx) -> dict:
 _PLAYER_READ_DELAY = 1.0
 
 
-def _outcome_for(ctx, round_id: int, squad_ids=()) -> tuple[dict | None, list]:
+def _outcome_for(
+    ctx, round_id: int, squad_ids=(), matchday=None
+) -> tuple[dict | None, list]:
     """One finished round's real points — for the eleven fielded and for
     every other player in `squad_ids`, so the record shows what the bench
     scored too — or `None` if a fielded player's reports are missing.
@@ -118,6 +120,7 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> tuple[dict | None, list]:
     result and never questioned. Refusing the whole round leaves it pending
     for tomorrow instead, which costs a day and cannot lie.
     """
+    matchday = matchday or [round_id]
     round_league = ctx.biwenger.get_round_league(round_id)
     applied = projection_ledger.extract_applied_lineup(
         round_league, ctx.biwenger.user_id
@@ -132,7 +135,7 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> tuple[dict | None, list]:
         if not slug:
             continue
         detail = ctx.biwenger.get_player_reports(slug)
-        matches = reports_for_round(detail.get("reports") or [], round_id)
+        matches = reports_for_rounds(detail.get("reports") or [], matchday)
         points[bw_id] = personalizado(matches, detail.get("position"))["points"]
         counted[bw_id] = len(matches)
         time.sleep(_PLAYER_READ_DELAY)
@@ -164,11 +167,11 @@ def collect(ctx) -> dict:
     """
     try:
         round_data = ctx.biwenger.get_round()
-        finished = {
-            r.get("id")
-            for r in ((round_data.get("season") or {}).get("rounds") or [])
-            if r.get("status") == "finished"
-        }
+        season_rounds = (round_data.get("season") or {}).get("rounds") or []
+        finished = projection_ledger.finished_matchdays(
+            season_rounds,
+            {r.get("id") for r in season_rounds if r.get("status") == "finished"},
+        )
         documents = projection_ledger_store.list_all()
         round_id = projection_ledger.next_round_to_collect(documents, finished)
         if round_id is None:
@@ -177,9 +180,19 @@ def collect(ctx) -> dict:
         snapshot: dict = next(
             (d for d in documents if d.get("round_id") == round_id), {}
         )
-        squad_ids = [p["bw_id"] for p in snapshot.get("players") or []]
-        outcome, missing = _outcome_for(ctx, round_id, squad_ids)
         season = snapshot.get("season") or config.CURRENT_SEASON
+        matchday = projection_ledger.matchday_ids(round_id, season_rounds)
+        covering = projection_ledger.covering_round(round_id, matchday, documents)
+        if covering is not None:
+            projection_ledger_store.write_actual(
+                season,
+                round_id,
+                projection_ledger.covered_outcome(covering, datetime.now(MADRID_TZ)),
+            )
+            return {"covered": round_id, "by": covering}
+
+        squad_ids = [p["bw_id"] for p in snapshot.get("players") or []]
+        outcome, missing = _outcome_for(ctx, round_id, squad_ids, matchday=matchday)
         if outcome is None:
             now = datetime.now(MADRID_TZ)
             if missing and projection_ledger.refusal_is_final(snapshot, now):

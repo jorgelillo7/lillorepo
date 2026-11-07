@@ -54,11 +54,17 @@ def get_document(collection_path: str, doc_id: str) -> Optional[dict]:
 
 
 def set_document(
-    collection_path: str, doc_id: str, data: dict, merge: bool = False
+    collection_path: str, doc_id: str, data: dict, merge: bool | list[str] = False
 ) -> None:
     """Create or overwrite a document. With ``merge=True`` only the given
-    fields are updated, leaving the rest of the document untouched."""
-    get_client().collection(collection_path).document(doc_id).set(data, merge=merge)
+    fields are updated, nested maps merged key by key; with a list of field
+    paths, exactly those fields are replaced whole and the rest is untouched."""
+    # The client annotates `merge` as bool, but accepts a list of field paths
+    # (`_helpers.pbs_for_set_with_merge`: "merge only the named fields").
+    get_client().collection(collection_path).document(doc_id).set(
+        data,
+        merge=merge,  # type: ignore[arg-type]
+    )
 
 
 def delete_document(collection_path: str, doc_id: str) -> None:

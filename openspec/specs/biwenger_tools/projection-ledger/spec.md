@@ -14,7 +14,7 @@ How to read its output, and the ways it is easy to misread:
   `projection_ledger_capture.py`, `projection_ledger_store.py`,
   `real_points.py`, `opponent_effect.py` (pure);
   `packages/biwenger_tools/scripts/projections/report.py`,
-  `opponent_effect.py`
+  `opponent_effect.py`, `repair_matchday.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_projection_ledger.py`,
   `test_projection_ledger_capture.py`, `test_projection_ledger_store.py`,
   `test_real_points.py`, `test_opponent_effect.py`
@@ -137,6 +137,35 @@ afternoon.
   `test_a_keeper_s_goal_is_not_paid_twice`,
   `test_a_keeper_s_assist_is_still_worth_three`
 
+### Requirement: A matchday split across round ids is collected as one
+
+Every round id whose name, before " (", matches another's SHALL be one
+matchday (`matchday_ids`; a round the season does not list, or lists with no
+name, is its own). A round SHALL be collected only once every id of its
+matchday is finished. Each player SHALL be scored from his reports under any
+id of the matchday. When another round of the same matchday already holds a
+real outcome, the round SHALL be stored as `covered_by` it — no read, no
+points — so the matchday is never graded or ranked twice, and a projection
+captured for an id Biwenger never applied a lineup to is never graded.
+
+#### Scenario: J6, split three ways
+- **WHEN** a postponed round is named after J6 **THEN** it belongs to J6's
+  matchday, with every other id named alike
+- **WHEN** any part of a matchday is unfinished **THEN** none of it is
+  collected
+- **WHEN** a fielded player's game was filed under the sibling id **THEN**
+  he is scored from that report, not missing and not zero
+- **WHEN** the matchday already has an outcome under another id **THEN** the
+  round is stored as covered by it, with no player read
+- *Verifies:* `test_a_postponed_round_belongs_to_its_matchday`,
+  `test_a_round_the_season_does_not_list_is_its_own_matchday`,
+  `test_a_matchday_is_finished_only_when_every_part_is`,
+  `test_a_matchday_split_across_round_ids_reads_every_one`,
+  `test_a_player_whose_game_was_postponed_is_scored_from_the_sibling_round`,
+  `test_a_sibling_of_a_collected_matchday_is_covered_without_a_read`,
+  `test_a_matchday_with_a_game_still_to_play_is_not_collected`,
+  `test_a_collected_matchday_reads_every_part_of_it`
+
 ### Requirement: A refusal still standing a week after the capture is final
 
 A round refused for missing reports SHALL be retried on later mornings, since
@@ -148,9 +177,8 @@ player. Its presence keeps the round from being chosen again; grading and the
 league ranking ignore it. A snapshot with no readable capture date SHALL be
 retried, never given up on.
 
-Round 5176 is the case: one postponed match, with ten of the eleven fielded
-having played their matchday under another round id. Retried every morning, it
-re-read about twenty players a day from the window shared with the phone app.
+Retried for ever, such a round re-read about twenty players a day from the
+window shared with the phone app.
 
 Every run SHALL log what the capture and the collection did ("Projection
 ledger ran.", results in `extra`), so a round that never collects is visible.
@@ -208,9 +236,10 @@ points, side by side, and SHALL be empty unless a round holds both halves.
 ### Requirement: One document per season and round, outcomes merged in
 
 The store SHALL key documents by season and round, overwrite a projection for
-the same key, merge an outcome into an existing projection, mark a backfilled
-outcome as having no projection, and round-trip per-player points as integer
-keys.
+the same key, set an outcome on an existing projection **replacing any earlier
+outcome whole** (Firestore's `merge=True` merges nested maps, which once kept
+old points beside a new `covered_by`), mark a backfilled outcome as having no
+projection, and round-trip per-player points as integer keys.
 
 #### Scenario: the store
 - *Verifies:* `test_doc_id_keys_by_season_and_round`,
@@ -220,7 +249,8 @@ keys.
   `test_write_backfill_marks_the_record_as_having_no_projection`,
   `test_list_all_reads_every_round_in_the_collection`,
   `test_player_points_survive_the_round_trip_as_integers`,
-  `test_a_document_without_player_points_is_left_alone`
+  `test_a_document_without_player_points_is_left_alone`,
+  `test_a_rewritten_outcome_keeps_nothing_of_the_old_one`
 
 ### Requirement: The opponent effect compares each player with himself
 

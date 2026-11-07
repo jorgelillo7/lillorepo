@@ -53,14 +53,18 @@ def _from_firestore(actual: dict) -> dict:
 
 
 def write_actual(season: str, round_id: int, actual: dict) -> None:
-    """Merge a round's real outcome into whatever document already exists —
-    a projection snapshot gaining its comparison, or a `write_backfill`
-    record gaining the outcome it was seeded for."""
+    """Set a round's real outcome on whatever document already exists — a
+    projection snapshot gaining its comparison, or a `write_backfill` record
+    gaining the outcome it was seeded for — leaving its other fields alone.
+
+    The `actual` field is replaced whole: Firestore's `merge=True` merges
+    nested maps key by key, which kept an old outcome's points beside a new
+    `covered_by`."""
     fs.set_document(
         COLLECTION,
         doc_id(season, round_id),
         {"actual": _for_firestore(actual)},
-        merge=True,
+        merge=["actual"],
     )
 
 

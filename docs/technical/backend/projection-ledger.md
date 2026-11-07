@@ -84,13 +84,33 @@ rather than stored short. An absent report scores zero, which is the same
 number as a dreadful afternoon, so a partial read would become a result
 nobody ever questioned. Leaving it pending costs a day and cannot lie.
 
-A refusal is retried each morning for a week after the round's capture, long
-enough for a late report. After that it is stored as final — the reason and
-who had no report, no points — and the round is not read again. A split round
-needs this: Biwenger filed a postponed match under round 5176 while ten of the
-eleven fielded had played their matchday under 5125, so their reports never
-reach 5176 and every retry re-read twenty players for nothing. Each run logs
-what the capture and the collection did (`Projection ledger ran.`).
+**A matchday can span several round ids.** Biwenger files a postponed match
+under a new round named after its matchday ("Jornada 6 (aplazada)" — twice,
+for J6: 5125 and 5176). The ledger treats every id with the same matchday name
+as one matchday:
+
+- a round is collected only once **every** part of its matchday is finished,
+  so a game replayed weeks later neither shortens the round nor gets it
+  refused;
+- each player is scored from his reports under **any** of those ids — read
+  from one id alone, Iván Romero's postponed J6 game stored him as a zero;
+- the first id collected holds the matchday; a later one is stored as
+  `covered_by` it, with no read and no points, and is never graded. That
+  matters for 5176: its eleven was captured on 21/10 but never applied —
+  Biwenger kept J6's September lineup.
+
+J1 (4899 + 4937) and J6 (5125 + 5176), collected before this, were rewritten
+with `scripts/projections/repair_matchday.py`: J1 38 → 49 (Catena and Dani
+Olmo), J6 38 → 46 (Iván Romero). Biwenger's own figures are 55 and 48. The
+gap is not missing data: when a starter does not play, the league brings on a
+reserve, and the ledger scores the eleven as fielded (Yuri, captain in J1, did
+not play).
+
+A refusal that still stands is retried each morning for a week after the
+round's capture, long enough for a late report. After that it is stored as
+final — the reason and who had no report, no points — and the round is not
+read again. Each run logs what the capture and the collection did
+(`Projection ledger ran.`).
 
 ## Running the script
 

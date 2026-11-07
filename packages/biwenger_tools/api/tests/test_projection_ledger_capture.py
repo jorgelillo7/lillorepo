@@ -40,7 +40,7 @@ def test_a_finished_round_scores_the_whole_squad_not_only_the_eleven():
     eleven fielded, so it could never learn from who was left out."""
     ctx = _ctx({1: 5, 2: 21})
     with (
-        patch.object(cap, "reports_for_round", lambda reports, rid: reports),
+        patch.object(cap, "reports_for_rounds", lambda reports, ids: reports),
         patch.object(
             cap, "personalizado", lambda m, pos: {"points": m[0]["pts"] if m else 0}
         ),
@@ -145,7 +145,9 @@ def _collect(document, outcome, missing):
     written = []
     with (
         patch.object(cap.projection_ledger_store, "list_all", lambda: [document]),
-        patch.object(cap, "_outcome_for", lambda ctx, rid, ids: (outcome, missing)),
+        patch.object(
+            cap, "_outcome_for", lambda ctx, rid, ids, **k: (outcome, missing)
+        ),
         patch.object(
             cap.projection_ledger_store,
             "write_actual",
@@ -175,3 +177,92 @@ def test_a_fresh_refusal_writes_nothing_and_is_retried_tomorrow():
 
     assert result == {"skipped": "incomplete", "round_id": 5176}
     assert written == []
+
+
+def test_a_player_whose_game_was_postponed_is_scored_from_the_sibling_round():
+    """His report is filed under the postponed round's id. Read from the
+    matchday, not from one id, he scores what he scored, never zero."""
+    ctx = _ctx({})
+    ctx.biwenger_players = {1: {"slug": "p1"}}
+    ctx.biwenger.get_player_reports.side_effect = lambda slug: {
+        "position": 2,
+        "reports": [
+            {
+                "match": {"round": {"id": 5176}},
+                "rawStats": {"minutesPlayed": 72, "score2": 6},
+            }
+        ],
+    }
+    with patch.object(cap.time, "sleep", lambda s: None):
+        outcome, missing = cap._outcome_for(ctx, 5125, [], matchday=[5125, 5176])
+
+    assert missing == []
+    assert outcome["player_points"][1] > 0
+
+
+def _collect_matchday(documents, season_rounds):
+    ctx = MagicMock()
+    ctx.biwenger.get_round.return_value = {"season": {"rounds": season_rounds}}
+    written, outcome_calls = [], []
+    with (
+        patch.object(cap.projection_ledger_store, "list_all", lambda: documents),
+        patch.object(
+            cap,
+            "_outcome_for",
+            lambda *a, **k: outcome_calls.append((a, k)) or ({"applied_total": 1}, []),
+        ),
+        patch.object(
+            cap.projection_ledger_store,
+            "write_actual",
+            lambda season, rid, actual: written.append((rid, actual)),
+        ),
+    ):
+        result = cap.collect(ctx)
+    return result, written, outcome_calls
+
+
+def test_a_sibling_of_a_collected_matchday_is_covered_without_a_read():
+    """5176's eleven was captured on 21/10 but never applied — Biwenger kept
+    J6's September lineup. Its matchday already has an outcome under 5125,
+    so it is marked as covered by it, costs no read and is never graded."""
+    rounds = [
+        {"id": 5125, "name": "Jornada 6 (aplazada)", "status": "finished"},
+        {"id": 5176, "name": "Jornada 6 (aplazada)", "status": "finished"},
+    ]
+    docs = [
+        {"round_id": 5125, "season": "26-27", "actual": {"applied_total": 46}},
+        {"round_id": 5176, "season": "26-27", "captured_at": "2026-10-21T09:00"},
+    ]
+    result, written, outcome_calls = _collect_matchday(docs, rounds)
+
+    assert result["covered"] == 5176
+    assert outcome_calls == []
+    assert written[0][0] == 5176
+    assert written[0][1]["covered_by"] == 5125
+    assert "player_points" not in written[0][1]
+
+
+def test_a_matchday_with_a_game_still_to_play_is_not_collected():
+    rounds = [
+        {"id": 4920, "name": "Jornada 22", "status": "finished"},
+        {"id": 5300, "name": "Jornada 22 (aplazada)", "status": "pending"},
+    ]
+    docs = [{"round_id": 4920, "season": "26-27", "captured_at": "2026-01-01T09:00"}]
+    result, written, outcome_calls = _collect_matchday(docs, rounds)
+
+    assert result == {"skipped": "nothing_pending"}
+    assert written == [] and outcome_calls == []
+
+
+def test_a_collected_matchday_reads_every_part_of_it():
+    rounds = [
+        {"id": 4920, "name": "Jornada 22", "status": "finished"},
+        {"id": 5300, "name": "Jornada 22 (aplazada)", "status": "finished"},
+    ]
+    docs = [{"round_id": 4920, "season": "26-27", "captured_at": "2026-01-01T09:00"}]
+    result, written, outcome_calls = _collect_matchday(docs, rounds)
+
+    assert result["collected"] == 4920
+    args, kwargs = outcome_calls[0]
+    assert args[1] == 4920
+    assert kwargs["matchday"] == [4920, 5300]

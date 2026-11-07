@@ -248,6 +248,12 @@ def _run_grading(biwenger, fetcher: _PlayerFetcher, apply: bool) -> int:
                 f"siempre ({actual['refused']}, sin informe: {actual.get('missing')})."
             )
             continue
+        if actual is not None and actual.get("covered_by"):
+            print(
+                f"Jornada {doc.get('round_name') or round_id}: su jornada está "
+                f"guardada en {actual['covered_by']}."
+            )
+            continue
         if actual is None:
             actual = _fetch_actual_for_projection(biwenger, fetcher, slug_by_id, doc)
             if apply:

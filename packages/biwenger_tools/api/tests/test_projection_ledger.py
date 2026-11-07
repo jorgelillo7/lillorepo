@@ -544,3 +544,38 @@ def test_a_refused_round_is_neither_graded_nor_ranked():
     assert pl.outcome_totals(doc) is None
     assert pl.grade([doc])["rounds_compared"] == 0
     assert pl.league_ranking(doc) == []
+
+
+# --- a matchday and its postponed games are one matchday --------------------
+
+_SEASON_ROUNDS = [
+    {"id": 4903, "name": "Jornada 5"},
+    {"id": 4904, "name": "Jornada 6"},
+    {"id": 5125, "name": "Jornada 6 (aplazada)"},
+    {"id": 4905, "name": "Jornada 7"},
+    {"id": 5176, "name": "Jornada 6 (aplazada)"},
+]
+
+
+def test_a_postponed_round_belongs_to_its_matchday():
+    """Biwenger's real shape: J6 split three ways, two of them named alike."""
+    assert pl.matchday_ids(5176, _SEASON_ROUNDS) == [4904, 5125, 5176]
+    assert pl.matchday_ids(4905, _SEASON_ROUNDS) == [4905]
+
+
+def test_a_round_the_season_does_not_list_is_its_own_matchday():
+    assert pl.matchday_ids(9999, _SEASON_ROUNDS) == [9999]
+    assert pl.matchday_ids(4904, [{"id": 4904}]) == [4904]
+
+
+def test_a_matchday_is_finished_only_when_every_part_is():
+    """A postponed game replayed weeks later must not let the matchday be
+    read — or refused — before it is played."""
+    finished = {4904, 5125, 4905}
+    assert pl.finished_matchdays(_SEASON_ROUNDS, finished) == {4905}
+    assert pl.finished_matchdays(_SEASON_ROUNDS, finished | {5176}) == {
+        4904,
+        5125,
+        4905,
+        5176,
+    }

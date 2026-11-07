@@ -359,3 +359,54 @@ def refused_outcome(missing: list, now: datetime) -> dict:
         "missing": sorted(missing),
         "fetched_at": now.isoformat(),
     }
+
+
+def _matchday_name(name: str | None) -> str | None:
+    """ "Jornada 6 (aplazada)" → "Jornada 6"; `None` when there is no name."""
+    return name.split(" (")[0].strip() if name else None
+
+
+def matchday_ids(round_id: int, season_rounds: list) -> list[int]:
+    """Every round id of the matchday `round_id` belongs to, ascending.
+
+    Biwenger files a postponed match under a new round id named after its
+    matchday ("Jornada 6 (aplazada)", twice for J6). A round the season does
+    not list, or lists with no name, is its own matchday.
+    """
+    names = {r.get("id"): _matchday_name(r.get("name")) for r in season_rounds}
+    name = names.get(round_id)
+    if name is None:
+        return [round_id]
+    return sorted(rid for rid, n in names.items() if n == name)
+
+
+def finished_matchdays(season_rounds: list, finished: set) -> set:
+    """The ids in `finished` whose whole matchday is finished. A postponed
+    game still to play holds back every id of its matchday, so the matchday
+    is neither read nor refused before it is complete."""
+    return {
+        rid
+        for rid in finished
+        if all(i in finished for i in matchday_ids(rid, season_rounds))
+    }
+
+
+def covering_round(round_id: int, matchday: list, documents: list) -> int | None:
+    """Another round of the same matchday whose stored outcome already holds
+    it, or `None`. A refused or itself-covered outcome holds nothing."""
+    for document in documents or []:
+        other = document.get("round_id")
+        actual = document.get("actual")
+        if other == round_id or other not in matchday or not actual:
+            continue
+        if actual.get("refused") or actual.get("covered_by"):
+            continue
+        return other
+    return None
+
+
+def covered_outcome(covering: int, now: datetime) -> dict:
+    """The outcome stored for a round whose matchday another round holds. No
+    points, so it is never graded or ranked twice; a projection captured for
+    it was never the eleven Biwenger applied."""
+    return {"covered_by": covering, "fetched_at": now.isoformat()}
