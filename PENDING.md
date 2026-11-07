@@ -45,7 +45,6 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | Does the Oráculo blend beat Jornada Perfecta alone? (`ORACULO_W` stays, or goes to 0) | 10 rounds where the two elevens differ, graded by the projection ledger — 2 so far (J10 −9, J11 +3); it counted none until grading read the rounds the digest stores · read with `report.py`, [how](docs/technical/backend/projection-ledger.md) |
 | ⏳ | Value a squad's ceiling, not only its average (auto-bid prefers players who can win a round) | 8 rounds of `league_projection` + `league_points` in the projection ledger, read with `report.py` · proposal and its gate in [`openspec/changes/value-squad-ceiling/`](openspec/changes/value-squad-ceiling/proposal.md) |
 | ⏳ | Should a defender facing Barcelona or Real Madrid be benched whatever JP projects? | **Measured, the effect is real**: defenders score −3.3 (Barcelona) and −2.4 (Madrid) SofaScore points under their own mean, 9 and 10 of 11 games negative; keepers only against Barcelona. What decides a rule is whether JP already discounts it — 5 own-squad cases say no; `league_jp`, captured from round 13, gives the sample · `scripts/projections/opponent_effect.py`, [how to read it](docs/technical/backend/projection-ledger.md#the-opponent-effect) |
-| 🔨 | The projection ledger retries a round it can never collect | Round 5176 ("Jornada 6 (aplazada)") is refused every morning since 21/10 — its players' reports are filed under 5125 — re-reading ~20 players a day from the window shared with the phone app; nothing logs `collect()`'s result · fix in its own PR |
 
 ## my_photos
 

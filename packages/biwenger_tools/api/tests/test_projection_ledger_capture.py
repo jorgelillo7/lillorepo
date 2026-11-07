@@ -46,7 +46,9 @@ def test_a_finished_round_scores_the_whole_squad_not_only_the_eleven():
         ),
         patch.object(cap.time, "sleep", lambda s: None),
     ):
-        outcome = cap._outcome_for(ctx, 4910, squad_ids=[1, 2])
+        outcome, missing = cap._outcome_for(ctx, 4910, squad_ids=[1, 2])
+
+    assert missing == []
 
     assert outcome["player_points"] == {1: 5, 2: 21}
     assert outcome["applied_total"] == 10  # the eleven's score, captain doubled
@@ -133,3 +135,43 @@ def test_a_failed_league_jp_read_still_writes_our_own_projection():
     result, written = _capture(ctx, lambda ctx: {}, rows)
     assert result["written"] is True
     assert "league_jp" not in written[0]
+
+
+def _collect(document, outcome, missing):
+    ctx = MagicMock()
+    ctx.biwenger.get_round.return_value = {
+        "season": {"rounds": [{"id": 5176, "status": "finished"}]}
+    }
+    written = []
+    with (
+        patch.object(cap.projection_ledger_store, "list_all", lambda: [document]),
+        patch.object(cap, "_outcome_for", lambda ctx, rid, ids: (outcome, missing)),
+        patch.object(
+            cap.projection_ledger_store,
+            "write_actual",
+            lambda season, rid, actual: written.append((rid, actual)),
+        ),
+    ):
+        result = cap.collect(ctx)
+    return result, written
+
+
+def test_a_round_refused_for_a_week_is_marked_and_never_read_again():
+    """The refusal is right — no report must not become a zero — but retried
+    forever it spends the player budget every morning for nothing."""
+    document = {"round_id": 5176, "season": "26-27", "captured_at": "2026-10-21T09:00"}
+    result, written = _collect(document, None, [2600, 947])
+
+    assert result["refused"] == 5176
+    assert written[0][0] == 5176
+    assert written[0][1]["refused"] == "missing_reports"
+    assert written[0][1]["missing"] == [947, 2600]
+    assert "player_points" not in written[0][1]
+
+
+def test_a_fresh_refusal_writes_nothing_and_is_retried_tomorrow():
+    document = {"round_id": 5176, "season": "26-27", "captured_at": "2099-01-01T09:00"}
+    result, written = _collect(document, None, [947])
+
+    assert result == {"skipped": "incomplete", "round_id": 5176}
+    assert written == []

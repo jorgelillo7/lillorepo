@@ -19,10 +19,6 @@ How to read its output, and the ways it is easy to misread:
   `test_projection_ledger_capture.py`, `test_projection_ledger_store.py`,
   `test_real_points.py`, `test_opponent_effect.py`
 
-**Known gap.** A finished round whose players' reports Biwenger files under a
-different round id is refused every morning and never collected (round 5176,
-"Jornada 6 (aplazada)", since 21/10). Tracked in `PENDING.md`.
-
 ---
 
 ### Requirement: The projection is captured for the round the pick lands on, never after it kicks off
@@ -140,6 +136,41 @@ afternoon.
   `test_counted_reports_make_a_real_zero_legible`,
   `test_a_keeper_s_goal_is_not_paid_twice`,
   `test_a_keeper_s_assist_is_still_worth_three`
+
+### Requirement: A refusal still standing a week after the capture is final
+
+A round refused for missing reports SHALL be retried on later mornings, since
+Biwenger can file a report a day or two late. Once the snapshot's
+`captured_at` is at least `REFUSAL_FINAL_AFTER` (7 days) old, the refusal
+SHALL be stored as the round's outcome: the reason, the ids with no report and
+when — and **no points of any kind**, so no zero is ever stored for a fielded
+player. Its presence keeps the round from being chosen again; grading and the
+league ranking ignore it. A snapshot with no readable capture date SHALL be
+retried, never given up on.
+
+Round 5176 is the case: one postponed match, with ten of the eleven fielded
+having played their matchday under another round id. Retried every morning, it
+re-read about twenty players a day from the window shared with the phone app.
+
+Every run SHALL log what the capture and the collection did ("Projection
+ledger ran.", results in `extra`), so a round that never collects is visible.
+
+#### Scenario: given up after a week, retried before
+- **WHEN** a refusal's capture is a week old **THEN** the refusal is stored
+  with who was missing and no points, and the round is never read again
+- **WHEN** the capture is recent, or its date unreadable **THEN** nothing is
+  written and the round is retried the next morning
+- **WHEN** a round holds a refused outcome **THEN** it is neither collected,
+  graded nor ranked, and it survives the store's round trip unchanged
+- *Verifies:* `test_a_refusal_is_final_once_the_capture_is_a_week_old`,
+  `test_a_recent_refusal_is_retried`,
+  `test_a_round_with_no_capture_date_is_retried`,
+  `test_a_refused_outcome_names_who_was_missing_and_scores_nobody`,
+  `test_a_refused_round_is_not_collected_again`,
+  `test_a_refused_round_is_neither_graded_nor_ranked`,
+  `test_a_round_refused_for_a_week_is_marked_and_never_read_again`,
+  `test_a_fresh_refusal_writes_nothing_and_is_retried_tomorrow`,
+  `test_a_refused_outcome_round_trips_unchanged`
 
 ### Requirement: Only rounds where the elevens differed are evidence, and a verdict needs enough of them
 

@@ -84,6 +84,14 @@ rather than stored short. An absent report scores zero, which is the same
 number as a dreadful afternoon, so a partial read would become a result
 nobody ever questioned. Leaving it pending costs a day and cannot lie.
 
+A refusal is retried each morning for a week after the round's capture, long
+enough for a late report. After that it is stored as final — the reason and
+who had no report, no points — and the round is not read again. A split round
+needs this: Biwenger filed a postponed match under round 5176 while ten of the
+eleven fielded had played their matchday under 5125, so their reports never
+reach 5176 and every retry re-read twenty players for nothing. Each run logs
+what the capture and the collection did (`Projection ledger ran.`).
+
 ## Running the script
 
 The script remains for reading the comparison, and for backfilling rounds

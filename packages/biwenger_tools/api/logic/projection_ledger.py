@@ -11,7 +11,7 @@ Pure functions only; `projection_ledger_store.py` owns the one collection
 this needs, so a Firestore failure can never reach here.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.sdk.jp import get_predict_rate
 from packages.biwenger_tools.api.logic import round_context
@@ -329,3 +329,33 @@ def league_jp(rows: list) -> dict[str, int]:
         if jp_sf is not None and row.get("bw_id") is not None:
             out[str(row["bw_id"])] = jp_sf
     return out
+
+
+# A capture is the last projection before the round's first kick-off, and a
+# round is over within a few days of it. A refusal still standing a week on is
+# not a report Biwenger has yet to file; it is one it filed somewhere else.
+REFUSAL_FINAL_AFTER = timedelta(days=7)
+
+
+def refusal_is_final(document: dict, now: datetime) -> bool:
+    """Whether a round refused for missing reports should stop being retried:
+    its capture is at least `REFUSAL_FINAL_AFTER` old. A document with no
+    readable capture date is retried, never given up on."""
+    try:
+        captured = datetime.fromisoformat(document["captured_at"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    if captured.tzinfo is None:
+        captured = captured.replace(tzinfo=now.tzinfo)
+    return now - captured >= REFUSAL_FINAL_AFTER
+
+
+def refused_outcome(missing: list, now: datetime) -> dict:
+    """The outcome stored for a round given up on: why, and who had no report.
+    No points of any kind, so nothing grades or ranks it, and its presence
+    keeps `next_round_to_collect` from choosing it again."""
+    return {
+        "refused": "missing_reports",
+        "missing": sorted(missing),
+        "fetched_at": now.isoformat(),
+    }

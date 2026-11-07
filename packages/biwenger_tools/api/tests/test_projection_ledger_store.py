@@ -112,3 +112,8 @@ def test_player_points_survive_the_round_trip_as_integers():
 def test_a_document_without_player_points_is_left_alone():
     assert store._for_firestore({"applied_total": 3}) == {"applied_total": 3}
     assert store._from_firestore({"applied_total": 3}) == {"applied_total": 3}
+
+
+def test_a_refused_outcome_round_trips_unchanged():
+    refused = {"refused": "missing_reports", "missing": [3, 9], "fetched_at": "x"}
+    assert store._from_firestore(store._for_firestore(refused)) == refused

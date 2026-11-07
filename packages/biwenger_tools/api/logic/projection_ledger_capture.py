@@ -108,7 +108,7 @@ def capture(ctx) -> dict:
 _PLAYER_READ_DELAY = 1.0
 
 
-def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
+def _outcome_for(ctx, round_id: int, squad_ids=()) -> tuple[dict | None, list]:
     """One finished round's real points — for the eleven fielded and for
     every other player in `squad_ids`, so the record shows what the bench
     scored too — or `None` if a fielded player's reports are missing.
@@ -123,7 +123,7 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
         round_league, ctx.biwenger.user_id
     )
     if applied is None:
-        return None
+        return None, []
 
     points, counted = {}, {}
     for bw_id in sorted(set(applied["player_ids"]) | set(squad_ids)):
@@ -137,8 +137,9 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
         counted[bw_id] = len(matches)
         time.sleep(_PLAYER_READ_DELAY)
 
-    if missing_reports(applied["player_ids"], points, counted):
-        return None
+    missing = missing_reports(applied["player_ids"], points, counted)
+    if missing:
+        return None, missing
     return {
         "fetched_at": datetime.now(MADRID_TZ).isoformat(),
         "applied": applied,
@@ -147,7 +148,7 @@ def _outcome_for(ctx, round_id: int, squad_ids=()) -> dict | None:
         "applied_total": projection_ledger.xi_real_points(
             applied["player_ids"], applied["captain_id"], points
         ),
-    }
+    }, []
 
 
 def collect(ctx) -> dict:
@@ -177,14 +178,17 @@ def collect(ctx) -> dict:
             (d for d in documents if d.get("round_id") == round_id), {}
         )
         squad_ids = [p["bw_id"] for p in snapshot.get("players") or []]
-        outcome = _outcome_for(ctx, round_id, squad_ids)
+        outcome, missing = _outcome_for(ctx, round_id, squad_ids)
+        season = snapshot.get("season") or config.CURRENT_SEASON
         if outcome is None:
+            now = datetime.now(MADRID_TZ)
+            if missing and projection_ledger.refusal_is_final(snapshot, now):
+                projection_ledger_store.write_actual(
+                    season, round_id, projection_ledger.refused_outcome(missing, now)
+                )
+                return {"refused": round_id, "missing": len(missing)}
             return {"skipped": "incomplete", "round_id": round_id}
 
-        season = next(
-            (d.get("season") for d in documents if d.get("round_id") == round_id),
-            config.CURRENT_SEASON,
-        )
         projection_ledger_store.write_actual(season, round_id, outcome)
         return {"collected": round_id, "points": outcome["applied_total"]}
     except Exception as exc:

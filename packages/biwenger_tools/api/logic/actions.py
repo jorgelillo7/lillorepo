@@ -876,8 +876,11 @@ def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:
     ctx = ctx or build_context()
     # Before anything reaches Biwenger: a failure applying the lineup must not
     # cost the record of what was projected.
-    projection_ledger_capture.capture(ctx)
-    projection_ledger_capture.collect(ctx)
+    ledger = {
+        "capture": projection_ledger_capture.capture(ctx),
+        "collect": projection_ledger_capture.collect(ctx),
+    }
+    logger.info("Projection ledger ran.", extra=ledger)
     biwenger, biwenger_players, jp_index, oraculo_index, oraculo_scale = (
         ctx.biwenger,
         ctx.biwenger_players,
