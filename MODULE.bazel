@@ -5,7 +5,7 @@ module(
 )
 
 # Dependencias de reglas de Bazel
-bazel_dep(name = "rules_python", version = "2.3.4")
+bazel_dep(name = "rules_python", version = "2.4.6")
 bazel_dep(name = "rules_oci", version = "2.3.0")
 
 # Already resolved through rules_oci; declared to load platform_transition_filegroup.
@@ -39,7 +39,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
-    digest = "sha256:0bff35eaeb63d3a10639ada968af285b2a96c62f36fe7bfe077cd57982726fe2",
+    digest = "sha256:c42016eefbd491dcdd91bc405d0e025346d275d897a25a70dffa9cfcd89bfcb4",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",
