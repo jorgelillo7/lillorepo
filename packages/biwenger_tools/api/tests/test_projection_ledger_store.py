@@ -9,14 +9,29 @@ behave like the real thing.
 from packages.biwenger_tools.api.logic import projection_ledger_store as store
 
 
+def _deep_merge(base: dict, data: dict) -> dict:
+    out = dict(base)
+    for k, v in data.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
 class _FakeFirestore:
     def __init__(self):
         self.docs = {}
 
     def set_document(self, collection_path, doc_id, data, merge=False):
+        """Firestore's semantics: `merge=True` merges nested maps key by key,
+        `merge=[fields]` replaces exactly those fields."""
         key = (collection_path, doc_id)
-        if merge and key in self.docs:
-            self.docs[key] = {**self.docs[key], **data}
+        current = dict(self.docs.get(key) or {})
+        if merge is True:
+            self.docs[key] = _deep_merge(current, data)
+        elif merge:
+            self.docs[key] = {**current, **{f: data[f] for f in merge}}
         else:
             self.docs[key] = dict(data)
 
@@ -117,3 +132,18 @@ def test_a_document_without_player_points_is_left_alone():
 def test_a_refused_outcome_round_trips_unchanged():
     refused = {"refused": "missing_reports", "missing": [3, 9], "fetched_at": "x"}
     assert store._from_firestore(store._for_firestore(refused)) == refused
+
+
+def test_a_rewritten_outcome_keeps_nothing_of_the_old_one(monkeypatch):
+    """Firestore merges nested maps on `merge=True`: marking J1's 4937 as
+    covered kept its old `applied_total` and `player_points` beside the new
+    `covered_by`, and the round still looked scored."""
+    fake = _FakeFirestore()
+    monkeypatch.setattr(store, "fs", fake)
+    store.write_actual("26-27", 4937, {"applied_total": 15, "player_points": {1: 3}})
+    store.write_actual("26-27", 4937, {"covered_by": 4899, "fetched_at": "x"})
+
+    assert store.read("26-27", 4937)["actual"] == {
+        "covered_by": 4899,
+        "fetched_at": "x",
+    }

@@ -111,3 +111,15 @@ def missing_reports(fielded_ids: list, points: dict, counted: dict) -> list:
         for player_id in fielded_ids
         if player_id not in points or not (counted or {}).get(player_id)
     ]
+
+
+def reports_for_rounds(reports: list, round_ids) -> list:
+    """`reports_for_round` for a matchday Biwenger split across several round
+    ids: a postponed match is filed under its own id, so reading one id alone
+    stores the player whose game moved as a zero."""
+    wanted = set(round_ids)
+    return [
+        report
+        for report in reports or []
+        if ((report.get("match") or {}).get("round") or {}).get("id") in wanted
+    ]

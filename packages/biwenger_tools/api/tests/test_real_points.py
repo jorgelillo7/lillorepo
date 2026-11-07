@@ -133,3 +133,12 @@ def test_a_keeper_s_assist_is_still_worth_three():
     ]
     # 1 base + 2 additional + 1 for the minutes.
     assert real_points.personalizado(assisted, GK)["points"] == 4
+
+
+def test_a_matchday_split_across_round_ids_reads_every_one():
+    """A postponed match is filed under its own round id: Iván Romero's J6
+    game sits under 5176 while the rest of J6 sits under 5125. Reading only
+    one id stored him as a zero."""
+    reports = [_report(5125), _report(5176), _report(4909)]
+    kept = real_points.reports_for_rounds(reports, {5125, 5176})
+    assert [r["match"]["round"]["id"] for r in kept] == [5125, 5176]
