@@ -67,6 +67,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 |---|---|---|
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
+| ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
 
 ## be_water
