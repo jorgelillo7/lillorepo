@@ -2,13 +2,18 @@
  * 3D draft of a chapter: the reader's own engine runs the passages; a scene
  * with a generated world (worlds.json) is shown as a Gaussian-splat room whose
  * hotspots are projected from the 2D scene file onto the world's collider, and
- * any other scene falls back to its 2D picture.
+ * any other scene falls back to its 2D picture. The passage reads as
+ * subtitles, a paragraph at a time; touching something opens its choices and
+ * moves the camera towards it.
  */
 
 import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import type { ChapterData } from "../../src/contract.ts";
+import { door, setAmbience, unlock } from "../../src/app/audio.ts";
+import { segment } from "../../src/app/pacing.ts";
+import type { ChapterData, SeriesEntry } from "../../src/contract.ts";
+import type { Ambience } from "../../src/engine/game.ts";
 import { Runtime, type Action } from "../../src/engine/runtime.ts";
 import { hotspotsFor, type Hotspot, type Scene, type ShownHotspot } from "../../src/engine/scenes.ts";
 
@@ -23,19 +28,29 @@ interface World {
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const stage = $<HTMLElement>("stage");
 const canvas = $<HTMLCanvasElement>("world");
 const flat = $<HTMLImageElement>("flat");
 const spots = $<HTMLDivElement>("spots");
-const text = $<HTMLElement>("text");
-const stage = $<HTMLElement>("stage");
+const subs = $<HTMLElement>("subs");
+const subsText = $<HTMLElement>("subs-text");
+const subsNext = $<HTMLButtonElement>("subs-next");
+const subsClose = $<HTMLButtonElement>("subs-close");
+const reopen = $<HTMLButtonElement>("reopen");
+const prompt = $<HTMLElement>("prompt");
 
-const [data, worlds] = await Promise.all([
+const [data, library, worlds] = await Promise.all([
   fetch("/01.json").then((r) => r.json() as Promise<ChapterData>),
+  fetch("/library.json").then((r) => r.json() as Promise<SeriesEntry[]>),
   fetch("/worlds.json").then((r) => r.json() as Promise<Record<string, World>>),
 ]);
+const series = library[0];
 const scenes = data.scenes!;
 const rt = new Runtime(data);
-document.title = `Borrador 3D · ${data.title}`;
+document.title = `${data.title} · borrador 3D`;
+$("title-series").textContent = series.title;
+$("title-name").textContent = data.title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, "");
+$("title-warning").textContent = series.game.title?.warning ?? "";
 
 // --- 3D -------------------------------------------------------------------
 
@@ -43,7 +58,6 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const scene3d = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(46, 1, 0.01, 200);
-camera.rotation.order = "YXZ";
 scene3d.add(new SparkRenderer({ renderer }));
 /** Marble worlds use OpenCV axes (y down, z forward); three.js has y up, z back. */
 const OPENCV_TO_THREE = new THREE.Quaternion(1, 0, 0, 0);
@@ -52,7 +66,6 @@ interface Loaded {
   id: string;
   world: World;
   splat: SplatMesh;
-  collider: THREE.Object3D;
   anchors: Map<string, THREE.Vector3>;
 }
 const loaded = new Map<string, Promise<Loaded>>();
@@ -60,18 +73,19 @@ let current: Loaded | null = null;
 let yaw = 0;
 let pitch = 0;
 
-function loadWorld(id: string, world: World, scene: Scene): Promise<Loaded> {
+function loadWorld(id: string): Promise<Loaded> {
   let p = loaded.get(id);
   if (!p) {
+    const world = worlds[id];
+    const scene = scenes.scenes[id];
     p = (async () => {
       const splat = new SplatMesh({ url: "/" + world.splats });
       splat.quaternion.copy(OPENCV_TO_THREE);
-      const gltf = await new GLTFLoader().loadAsync("/" + world.collider);
-      const collider = gltf.scene;
+      const collider = (await new GLTFLoader().loadAsync("/" + world.collider)).scene;
       collider.quaternion.copy(OPENCV_TO_THREE);
       collider.updateMatrixWorld(true);
       await splat.initialized;
-      return { id, world, splat, collider, anchors: anchorsFor(world, scene, collider) };
+      return { id, world, splat, anchors: anchorsFor(world, scene, collider) };
     })();
     loaded.set(id, p);
   }
@@ -104,15 +118,6 @@ function anchorsFor(world: World, scene: Scene, collider: THREE.Object3D): Map<s
   return anchors;
 }
 
-function resize(): void {
-  const { clientWidth: w, clientHeight: h } = stage;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  camera.fov = current ? fovFor(current, camera.aspect) : 46;
-  camera.updateProjectionMatrix();
-}
-new ResizeObserver(resize).observe(stage);
-
 /**
  * The vertical field of view that keeps the picture's whole width in view on a
  * narrower stage (capped, so a phone in portrait looks around instead of warping).
@@ -124,21 +129,54 @@ function fovFor(l: Loaded, aspect: number): number {
   return Math.min(90, THREE.MathUtils.radToDeg(2 * Math.atan(halfTan / aspect)));
 }
 
+function resize(): void {
+  const { clientWidth: w, clientHeight: h } = stage;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = current ? fovFor(current, camera.aspect) : 46;
+  camera.updateProjectionMatrix();
+  layoutFlat();
+}
+new ResizeObserver(resize).observe(stage);
+
+/** The object being inspected: the camera moves part of the way towards it and turns to face it. */
+const DOLLY = 0.3;
+let focus: THREE.Vector3 | null = null;
+const lastFocus = new THREE.Vector3();
+let focusAmount = 0;
+const baseQ = new THREE.Quaternion();
+const lookQ = new THREE.Quaternion();
+const euler = new THREE.Euler(0, 0, 0, "YXZ");
+const look = new THREE.Matrix4();
+const eye = new THREE.Vector3();
+const up = new THREE.Vector3(0, 1, 0);
+
 let shown: { el: HTMLElement; at?: THREE.Vector3 }[] = [];
-const v = new THREE.Vector3();
-function frame(): void {
+const projected = new THREE.Vector3();
+let last = performance.now();
+function frame(now: number): void {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
   if (current) {
-    camera.rotation.y = yaw;
-    camera.rotation.x = THREE.MathUtils.degToRad(current.world.pitch) + pitch;
+    focusAmount = THREE.MathUtils.clamp(focusAmount + (focus ? dt : -dt) * 1.4, 0, 1);
+    if (focus) lastFocus.copy(focus);
+    const t = focusAmount * focusAmount * (3 - 2 * focusAmount);
+    euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch, yaw, 0);
+    baseQ.setFromEuler(euler);
+    eye.copy(lastFocus).multiplyScalar(DOLLY * t);
+    look.lookAt(eye, lastFocus, up);
+    lookQ.setFromRotationMatrix(look);
+    camera.position.copy(eye);
+    camera.quaternion.copy(baseQ).slerp(lookQ, t);
     renderer.render(scene3d, camera);
     const { clientWidth: w, clientHeight: h } = stage;
     for (const s of shown) {
       if (!s.at) continue;
-      v.copy(s.at).project(camera);
-      const visible = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
+      projected.copy(s.at).project(camera);
+      const visible = projected.z < 1 && Math.abs(projected.x) < 1.02 && Math.abs(projected.y) < 1.02;
       s.el.style.display = visible ? "" : "none";
-      s.el.style.left = `${((v.x + 1) / 2) * w}px`;
-      s.el.style.top = `${((1 - v.y) / 2) * h}px`;
+      s.el.style.left = `${((projected.x + 1) / 2) * w}px`;
+      s.el.style.top = `${((1 - projected.y) / 2) * h}px`;
     }
   }
   requestAnimationFrame(frame);
@@ -148,12 +186,11 @@ requestAnimationFrame(frame);
 // Drag to look around, within the part of the room the picture showed.
 let drag: { x: number; y: number; yaw: number; pitch: number } | null = null;
 stage.addEventListener("pointerdown", (e) => {
-  if ((e.target as HTMLElement).closest(".spot, .menu")) return;
-  closeMenu();
+  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title")) return;
   drag = { x: e.clientX, y: e.clientY, yaw, pitch };
 });
 addEventListener("pointermove", (e) => {
-  if (!drag || !current) return;
+  if (!drag || !current || focus) return;
   const k = THREE.MathUtils.degToRad(camera.fov) / stage.clientHeight;
   yaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * k, -0.9, 0.9);
   pitch = THREE.MathUtils.clamp(drag.pitch + (e.clientY - drag.y) * k, -0.35, 0.35);
@@ -161,51 +198,90 @@ addEventListener("pointermove", (e) => {
 });
 addEventListener("pointerup", () => (drag = null));
 
+// Film grain: a small noise tile, redrawn a few times a second.
+const grain = $<HTMLCanvasElement>("grain");
+grain.width = 160;
+grain.height = 160;
+const g = grain.getContext("2d")!;
+const noise = g.createImageData(160, 160);
+setInterval(() => {
+  for (let i = 0; i < noise.data.length; i += 4) {
+    const v = Math.random() * 255;
+    noise.data[i] = noise.data[i + 1] = noise.data[i + 2] = v;
+    noise.data[i + 3] = 255;
+  }
+  g.putImageData(noise, 0, 0);
+}, 90);
+
 // --- story ----------------------------------------------------------------
 
-let vars = rt.start();
+const vars = rt.start();
 let actions: Action[] = [];
-let menu: HTMLElement | null = null;
+let room: string | undefined;
+let flatScene: Scene | null = null;
+let flatSpots: { el: HTMLElement; hotspot: Hotspot }[] = [];
 
-function closeMenu(): void {
-  menu?.remove();
-  menu = null;
+function ambienceFor(scene: Scene | undefined): Ambience {
+  const audio = series.game.audio;
+  return (scene?.room && audio?.rooms?.[scene.room]) || audio?.default || "silence";
 }
 
-function spotButton(s: ShownHotspot): HTMLButtonElement {
+/** Touching something: its choices in the bar, the camera moving towards it. */
+function inspect(s: ShownHotspot, at?: THREE.Vector3): void {
+  focus = at ?? null;
+  spots.classList.add("quiet");
+  subs.hidden = true;
+  reopen.hidden = true;
+  $("hint").hidden = true;
+  $("prompt-label").textContent = s.hotspot.label;
+  const buttons = s.actions.map((i) => {
+    const b = document.createElement("button");
+    b.textContent = actions[i].label;
+    b.addEventListener("click", () => act(i));
+    return b;
+  });
+  $("prompt-actions").replaceChildren(...buttons);
+  prompt.hidden = false;
+}
+
+function leaveInspect(): void {
+  focus = null;
+  prompt.hidden = true;
+  spots.classList.remove("quiet");
+  reopen.hidden = false;
+}
+$("prompt-cancel").addEventListener("click", leaveInspect);
+
+function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
   const b = document.createElement("button");
   b.className = "spot";
-  b.textContent = s.hotspot.label;
+  b.setAttribute("aria-label", s.hotspot.label);
+  const name = document.createElement("span");
+  name.textContent = s.hotspot.label;
+  b.append(name);
   b.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (s.actions.length === 1) return act(s.actions[0]);
-    closeMenu();
-    menu = document.createElement("div");
-    menu.className = "menu";
-    menu.style.left = b.style.left || `${b.offsetLeft + b.offsetWidth / 2}px`;
-    menu.style.top = b.style.top || `${b.offsetTop + b.offsetHeight}px`;
-    for (const i of s.actions) {
-      const o = document.createElement("button");
-      o.textContent = actions[i].label;
-      o.addEventListener("click", () => act(i));
-      menu.append(o);
-    }
-    spots.append(menu);
+    inspect(s, at);
   });
   return b;
 }
 
-async function showScene(id: string | undefined): Promise<ShownHotspot[]> {
+async function showScene(id: string | undefined): Promise<void> {
   const scene = id ? scenes.scenes[id] : undefined;
-  const { shown: hot } = scene ? hotspotsFor(scene, actions, scenes.scenes) : { shown: [] };
+  const hot = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
   spots.replaceChildren();
   shown = [];
-  closeMenu();
-  const world = id ? worlds[id] : undefined;
-  if (scene && world) {
-    $("loading").hidden = false;
-    const next = await loadWorld(id!, world, scene);
-    $("loading").hidden = true;
+  flatSpots = [];
+  flatScene = null;
+  focus = null;
+  focusAmount = 0;
+  if (scene?.room !== room) {
+    if (room !== undefined) door();
+    room = scene?.room;
+  }
+  setAmbience(ambienceFor(scene));
+  if (scene && id && worlds[id]) {
+    const next = await loadWorld(id);
     if (current?.id !== next.id) {
       if (current) scene3d.remove(current.splat);
       scene3d.add(next.splat);
@@ -217,73 +293,106 @@ async function showScene(id: string | undefined): Promise<ShownHotspot[]> {
     canvas.hidden = false;
     flat.hidden = true;
     for (const s of hot) {
-      const el = spotButton(s);
+      const at = next.anchors.get(s.hotspot.label);
+      const el = spotButton(s, at);
       spots.append(el);
-      shown.push({ el, at: next.anchors.get(s.hotspot.label) });
+      shown.push({ el, at });
     }
-    $("hint").hidden = false;
-    return hot;
+    return;
   }
   current = null;
   canvas.hidden = true;
-  $("hint").hidden = true;
   if (!scene) {
     flat.hidden = true;
-    return hot;
+    return;
   }
   flat.src = "/" + scene.image;
   flat.hidden = false;
   await flat.decode().catch(() => undefined);
-  const box = fitted(scene, stage.clientWidth, stage.clientHeight);
+  flatScene = scene;
   for (const s of hot) {
     const el = spotButton(s);
     el.classList.add("rect");
-    place(el, s.hotspot, box);
     spots.append(el);
-    shown.push({ el });
+    flatSpots.push({ el, hotspot: s.hotspot });
   }
-  return hot;
+  layoutFlat();
 }
 
-/** The rectangle a `contain`-fitted picture occupies in the stage. */
-function fitted(scene: Scene, w: number, h: number) {
-  const [aw, ah] = scene.aspect;
-  const s = Math.min(w / aw, h / ah);
-  return { x: (w - aw * s) / 2, y: (h - ah * s) / 2, w: aw * s, h: ah * s };
+/** A `cover`-fitted picture's hotspots, laid out in pixels over the stage. */
+function layoutFlat(): void {
+  if (!flatScene) return;
+  const [aw, ah] = flatScene.aspect;
+  const { clientWidth: w, clientHeight: h } = stage;
+  const s = Math.max(w / aw, h / ah);
+  const box = { x: (w - aw * s) / 2, y: (h - ah * s) / 2, w: aw * s, h: ah * s };
+  for (const { el, hotspot } of flatSpots) {
+    const [x, y, rw, rh] = hotspot.rect;
+    Object.assign(el.style, {
+      left: `${box.x + (x / 100) * box.w}px`,
+      top: `${box.y + (y / 100) * box.h}px`,
+      width: `${(rw / 100) * box.w}px`,
+      height: `${(rh / 100) * box.h}px`,
+    });
+  }
 }
 
-function place(el: HTMLElement, h: Hotspot, box: { x: number; y: number; w: number; h: number }): void {
-  const [x, y, w, hh] = h.rect;
-  Object.assign(el.style, {
-    left: `${box.x + (x / 100) * box.w}px`,
-    top: `${box.y + (y / 100) * box.h}px`,
-    width: `${(w / 100) * box.w}px`,
-    height: `${(hh / 100) * box.h}px`,
-  });
+// Subtitles: one paragraph at a time; the last one offers to explore.
+let segments: HTMLElement[] = [];
+let shownSegment = 0;
+
+function showSegment(n: number): void {
+  shownSegment = n;
+  segments.forEach((s, i) => (s.hidden = i !== n));
+  const lastOne = n >= segments.length - 1;
+  subsNext.hidden = lastOne;
+  subsClose.hidden = !lastOne || spots.childElementCount === 0;
+  spots.classList.toggle("quiet", !lastOne);
+  subsText.scrollTop = 0;
 }
 
-/** The passage's text; its choices stay clickable there too, whether or not the room shows them. */
+function openSubs(): void {
+  subs.hidden = false;
+  reopen.hidden = true;
+  prompt.hidden = true;
+  focus = null;
+  showSegment(shownSegment);
+}
+
+subsNext.addEventListener("click", () => showSegment(shownSegment + 1));
+subsClose.addEventListener("click", () => {
+  subs.hidden = true;
+  reopen.hidden = false;
+  spots.classList.remove("quiet");
+  $("hint").hidden = !current;
+});
+reopen.addEventListener("click", openSubs);
+
 function renderText(html: string): void {
-  text.innerHTML = `<div class="passage">${html}</div>`;
-  text.querySelectorAll<HTMLElement>("tw-link[data-action]").forEach((l) => l.addEventListener("click", () => act(Number(l.dataset.action))));
-  text.scrollTop = 0;
+  const passage = document.createElement("div");
+  passage.innerHTML = html;
+  segments = segment(passage);
+  subsText.replaceChildren(passage);
+  passage.querySelectorAll<HTMLElement>("tw-link[data-action]").forEach((l) => l.addEventListener("click", () => act(Number(l.dataset.action))));
+  shownSegment = 0;
+  openSubs();
 }
 
 async function show(name: string): Promise<void> {
   try {
     const page = rt.visit(vars, name);
     actions = page.actions;
-    await showAndRemember(scenes.passages[page.passage]);
+    await showScene(scenes.passages[page.passage]);
     renderText(page.html);
   } catch (e) {
-    text.innerHTML = `<p class="error">${(e as Error).message}</p>`;
+    subsText.textContent = (e as Error).message;
   }
 }
 
 function act(i: number): void {
-  closeMenu();
   const a = actions[i];
   if (!a) return;
+  prompt.hidden = true;
   if (a.kind === "link") {
     void show(a.target);
     return;
@@ -295,24 +404,24 @@ function act(i: number): void {
   }
   const offset = actions.length;
   actions = [...actions, ...r.actions];
-  const html = r.html.replace(/data-action="(\d+)"/g, (_, n) => `data-action="${Number(n) + offset}"`);
-  const holder = document.createElement("div");
-  holder.innerHTML = html;
+  const holder = document.createElement("span");
+  holder.innerHTML = r.html.replace(/data-action="(\d+)"/g, (_, n) => `data-action="${Number(n) + offset}"`);
   holder.querySelectorAll<HTMLElement>("tw-link[data-action]").forEach((l) => l.addEventListener("click", () => act(Number(l.dataset.action))));
-  text.querySelectorAll(`tw-link[data-action="${i}"]`).forEach((l) => l.replaceWith(holder));
+  subsText.querySelectorAll(`tw-link[data-action="${i}"]`).forEach((l) => l.replaceWith(holder));
 }
 
-// A flat picture's hotspots are laid out in pixels: lay them out again when the stage changes size.
-let lastFlat: { id: string } | null = null;
-async function showAndRemember(id: string | undefined): Promise<ShownHotspot[]> {
-  lastFlat = id && !worlds[id] ? { id } : null;
-  return showScene(id);
+// Title screen: the first room loads behind it; starting is the gesture that unlocks sound.
+const start = $<HTMLButtonElement>("title-start");
+const firstScene = scenes.passages[data.start];
+if (firstScene && worlds[firstScene]) {
+  current = await loadWorld(firstScene);
+  scene3d.add(current.splat);
+  resize();
 }
-new ResizeObserver(() => {
-  if (!lastFlat || !scenes.scenes[lastFlat.id]) return;
-  const box = fitted(scenes.scenes[lastFlat.id], stage.clientWidth, stage.clientHeight);
-  const hot = hotspotsFor(scenes.scenes[lastFlat.id], actions, scenes.scenes).shown;
-  shown.forEach((s, n) => hot[n] && place(s.el, hot[n].hotspot, box));
-}).observe(stage);
-
-void show(data.start);
+start.disabled = false;
+start.textContent = "Empezar";
+start.addEventListener("click", () => {
+  unlock();
+  $("title").classList.add("gone");
+  void show(data.start);
+});

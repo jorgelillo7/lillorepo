@@ -14,6 +14,7 @@ if (!existsSync(join(stories, "01.json"))) throw new Error("No built chapter 1: 
 rmSync(pub, { recursive: true, force: true });
 mkdirSync(pub, { recursive: true });
 cpSync(join(stories, "01.json"), join(pub, "01.json"));
+cpSync(join(stories, "../library.json"), join(pub, "library.json"));
 cpSync(join(stories, "scenes"), join(pub, "scenes"), { recursive: true });
 cpSync(join(here, "worlds.json"), join(pub, "worlds.json"));
 const worlds = JSON.parse(readFileSync(join(here, "worlds.json"), "utf8")) as Record<string, { splats: string; collider: string }>;

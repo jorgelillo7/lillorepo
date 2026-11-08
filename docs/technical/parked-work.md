@@ -341,7 +341,8 @@ rate is unmeasured; Cloudflare Workers serve at most 25 MiB per file, so the
   hotspots are cast onto the world automatically — none placed by hand.
 - The collider mesh comes with the world at no extra cost.
 - Sizes: 1.1 MB (100k splats), 5.1 MB (500k), 23 MB (full), 1.2–4.7 MB
-  collider — all under the 25 MiB limit; ~60 fps on the Mac, phone not measured.
+  collider — all under the 25 MiB limit; ~60 fps on the Mac, smooth on an
+  iPhone 14.
 
 The draft is a spike, not the reader: [`experiments/draft3d`](../../packages/interactive_fiction/experiments/draft3d/README.md),
 outside the site's build and checks, on its own Worker. Chapter 1 plays to its
