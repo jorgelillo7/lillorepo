@@ -1,7 +1,8 @@
 """Cut a character out of a scene's picture, for the 3D draft's `figures`.
 
     python3 cutout.py <picture> <empty-room> <green-matte> <out.png>
-                      [--dark-box x0,y0,x1,y1]
+                      [--dark-box x0,y0,x1,y1] [--single]
+                      [--exclude x0,y0,x1,y1 ...]
 
 Needs numpy, scipy and pillow (a throwaway venv: `python3 -m venv /tmp/cut &&
 /tmp/cut/bin/pip3 install numpy scipy pillow`). The two other pictures come
@@ -13,7 +14,9 @@ Two masks, because each fails somewhere: the difference with the empty room
 says where the character is but misses dark parts against a dark background;
 the green matte has a clean outline but may keep furniture. Inside
 `--dark-box` (fractions of the picture: the boots, say) the matte alone
-decides.
+decides. `--single` keeps only the largest piece (a stray lamp or cable that
+changed between the two pictures). `--exclude` (repeatable, fractions of the
+picture) drops what is still attached to the character but not part of her.
 """
 
 import json
@@ -27,6 +30,14 @@ from scipy import ndimage
 def main() -> None:
     args = sys.argv[1:]
     box_frac = None
+    excludes = []
+    while "--exclude" in args:
+        i = args.index("--exclude")
+        excludes.append([float(v) for v in args[i + 1].split(",")])
+        del args[i : i + 2]
+    single = "--single" in args
+    if single:
+        args.remove("--single")
     if "--dark-box" in args:
         i = args.index("--dark-box")
         box_frac = [float(v) for v in args[i + 1].split(",")]
@@ -85,6 +96,15 @@ def main() -> None:
         lab, _ = ndimage.label(dark | keep)
         main_label = np.bincount(lab[keep].ravel()).argmax()
         keep = (keep | dark) & (lab == main_label)
+
+    for ex0, ey0, ex1, ey1 in excludes:
+        keep[
+            int(height * ey0) : int(height * ey1), int(width * ex0) : int(width * ex1)
+        ] = False
+
+    if single:
+        lab, _ = ndimage.label(keep)
+        keep = lab == np.bincount(lab[keep].ravel()).argmax()
 
     keep = ndimage.binary_erosion(keep, iterations=1)
     alpha = ndimage.gaussian_filter(keep.astype(float), 1.2)

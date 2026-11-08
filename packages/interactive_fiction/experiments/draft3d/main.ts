@@ -153,6 +153,47 @@ function loadAssets(world: World): Promise<{ splat: SplatMesh; collider: THREE.O
   return p;
 }
 
+/**
+ * Keep in memory only the room on screen and the rooms one choice away:
+ * download those ahead, free every other. A chapter's rooms all at once would
+ * be ~85 MB to download and a dozen worlds in a phone's memory.
+ */
+async function keepAround(c: Chapter, sceneId: string | undefined, page: Action[]): Promise<void> {
+  const near = new Set<string>();
+  if (sceneId && worlds[sceneId]) near.add(sceneId);
+  for (const a of page) {
+    const s = a.kind === "link" ? c.scenes.passages[a.target] : undefined;
+    if (s && worlds[s]) near.add(s);
+  }
+  const keepFiles = new Set([...near].map((s) => worlds[s].splats));
+  if (current) keepFiles.add(current.world.splats);
+  for (const [file, p] of assets) {
+    if (keepFiles.has(file)) continue;
+    assets.delete(file);
+    for (const [key, l] of loaded) {
+      if (worlds[key.split("/")[1]]?.splats !== file) continue;
+      loaded.delete(key);
+      settled.delete(key);
+      void l.then((w) => w.figures.forEach(disposeFigure)).catch(() => undefined);
+    }
+    void p.then(({ splat, collider }) => {
+      splat.dispose();
+      collider.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    }).catch(() => undefined);
+  }
+  for (const s of near) {
+    if (c !== chapter) return;
+    await loadWorld(c, s).catch(() => undefined);
+  }
+}
+
+function disposeFigure(f: THREE.Object3D): void {
+  const mesh = f as THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  mesh.geometry.dispose();
+  mesh.material.map?.dispose();
+  mesh.material.dispose();
+}
+
 function loadWorld(c: Chapter, id: string): Promise<Loaded> {
   const key = `${c.id}/${id}`;
   let p = loaded.get(key);
@@ -616,7 +657,9 @@ async function show(name: string): Promise<void> {
     const outcome = outcomeOf(page, vars, series.carry);
     if (outcome.code) storeCode(series.id, chapter.id, outcome.code);
     showEnd(outcome.ended ? outcome : null);
-    renderText(page.html, await showScene(chapter.scenes.passages[page.passage]));
+    const sceneId = chapter.scenes.passages[page.passage];
+    renderText(page.html, await showScene(sceneId));
+    void keepAround(chapter, sceneId, page.actions);
   } catch (e) {
     subsText.textContent = (e as Error).message;
   }
@@ -676,11 +719,6 @@ async function begin(id: string): Promise<void> {
   const previous = i > 0 ? loadCodes(series.id)[series.chapters[i - 1].id] : undefined;
   vars = withCarriedCode(freshStart(chapter.data.start, chapter.rt.start()), series.carry, previous).vars;
   await show(chapter.data.start);
-  // The chapter's other rooms download in the background, so stepping into one is usually instant.
-  const c = chapter;
-  for (const scene of Object.keys(c.scenes.scenes)) {
-    if (worlds[scene]) await loadWorld(c, scene).catch(() => undefined);
-  }
 }
 
 function hideTitle(): void {
