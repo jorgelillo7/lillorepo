@@ -19,9 +19,9 @@ cpSync(join(stories, "../library.json"), join(pub, "library.json"));
 // Scene images keep the path the built chapter gives them (stories/<series>/scenes/…).
 cpSync(join(stories, "scenes"), join(pub, "stories/samantha/scenes"), { recursive: true });
 cpSync(join(here, "worlds.json"), join(pub, "worlds.json"));
-const worlds = JSON.parse(readFileSync(join(here, "worlds.json"), "utf8")) as Record<string, { splats: string; collider: string }>;
+const worlds = JSON.parse(readFileSync(join(here, "worlds.json"), "utf8")) as Record<string, { splats: string; collider: string; figures?: { image: string }[] }>;
 for (const w of Object.values(worlds)) {
-  for (const f of [w.splats, w.collider]) {
+  for (const f of [w.splats, w.collider, ...(w.figures ?? []).map((g) => g.image)]) {
     if (!existsSync(join(here, f))) throw new Error(`Missing ${f}: download the world first.`);
     mkdirSync(dirname(join(pub, f)), { recursive: true });
     cpSync(join(here, f), join(pub, f));

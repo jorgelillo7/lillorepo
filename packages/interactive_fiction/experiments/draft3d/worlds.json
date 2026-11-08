@@ -1,6 +1,6 @@
 {
   "habitacion": {
-    "world": "5bfc14b2-8c19-43b3-80c0-6238b5f38269",
+    "world": "fb93c4d6-e3b9-449a-9942-a2f1234b7497",
     "splats": "worlds/habitacion-500k.spz",
     "collider": "worlds/habitacion-collider.glb",
     "crop": [
@@ -9,40 +9,42 @@
     ],
     "fovY": 47,
     "pitch": -9,
-    "views": {
-      "90": "worlds/207-right-clean.jpg",
-      "180": "worlds/207-back-clean.jpg",
-      "270": "worlds/207-left-bare.jpg"
-    },
     "model": "marble-1.1",
     "bounds": [
-      -180,
-      180
+      -58,
+      72
     ]
   },
   "habitacion-cheshire": {
-    "world": "a342d5ba-12a4-49c9-8535-743214ebaab8",
+    "world": "577d45c1-67a1-4b88-bcad-9f6ceba5c33f",
+    "model": "marble-1.1",
+    "picture": "worlds/cheshire-room-empty.jpg",
     "splats": "worlds/habitacion-cheshire-500k.spz",
     "collider": "worlds/habitacion-cheshire-collider.glb",
     "crop": [
-      0.03491,
-      0.06255
+      0.03488,
+      0.0625
     ],
-    "fovY": 47,
-    "pitch": -9,
-    "model": "marble-1.1",
-    "views": {
-      "90": "worlds/207-right-clean.jpg",
-      "180": "worlds/207-back-clean.jpg",
-      "270": "worlds/207-left-bare.jpg"
-    },
+    "fovY": 44,
+    "pitch": -10,
+    "figures": [
+      {
+        "image": "worlds/cheshire-cutout.png",
+        "rect": [
+          29.565,
+          41.776,
+          30.981,
+          42.563
+        ]
+      }
+    ],
     "bounds": [
-      -180,
-      180
+      -40,
+      70
     ]
   },
   "bano": {
-    "world": "7c77dd10-a07b-4db6-aa2e-5792ac2b0bcf",
+    "world": "232e0865-2c8a-4341-bb34-5fcde8c3823d",
     "picture": "worlds/bano-inside.jpg",
     "splats": "worlds/bano-500k.spz",
     "collider": "worlds/bano-collider.glb",
@@ -63,14 +65,9 @@
       ]
     },
     "model": "marble-1.1",
-    "views": {
-      "90": "worlds/bano-right-final.jpg",
-      "180": "worlds/bano-back-final.jpg",
-      "270": "worlds/bano-left-final.jpg"
-    },
     "bounds": [
-      -48,
-      125
+      -40,
+      62
     ]
   }
 }

@@ -346,7 +346,7 @@ rate is unmeasured; Cloudflare Workers serve at most 25 MiB per file, so the
 
 The draft is a spike, not the reader: [`experiments/draft3d`](../../packages/interactive_fiction/experiments/draft3d/README.md),
 outside the site's build and checks, on its own Worker. Chapter 1 plays to its
-end there with its three rooms in 3D (now full-model worlds from four walls each; about US$6.50 of World Labs credits and US$1.50 of Gemini pictures in all). The worlds stay out of git.
+end there with its three rooms in 3D (full-model worlds from one picture each, the character as a separate cut-out; about US$10.50 of World Labs credits and US$2 of Gemini pictures in all, a failed four-wall attempt included). The worlds stay out of git.
 Promoting 3D into the reader goes through `openspec-propose` first.
 
 **Alternatives looked at:** Google DeepMind's Genie 3 has no public API and no
