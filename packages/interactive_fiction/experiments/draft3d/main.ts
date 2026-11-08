@@ -38,6 +38,8 @@ interface World {
    * bakes a person in soft and breaks them up seen close.
    */
   figures?: { image: string; rect: [number, number, number, number] }[];
+  /** How far the camera moves towards what is inspected (default DOLLY); 0 where a cut-out must stay aligned with the room. */
+  dolly?: number;
   /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
   camera?: [number, number, number];
   /**
@@ -65,6 +67,10 @@ const [data, library, worlds] = await Promise.all([
   fetch("/worlds.json").then((r) => r.json() as Promise<Record<string, World>>),
 ]);
 const series = library[0];
+/** The build stamp prepare.ts adds, appended to world files so a cached older one is never used. */
+const BUILD = (worlds as unknown as Record<string, { build?: number }>)[""]?.build ?? 0;
+delete (worlds as Record<string, unknown>)[""];
+const fresh = (path: string) => `/${path}?v=${BUILD}`;
 const scenes = data.scenes!;
 const rt = new Runtime(data);
 document.title = `${data.title} · borrador 3D`;
@@ -108,9 +114,9 @@ function loadWorld(id: string): Promise<Loaded> {
     const world = worlds[id];
     const scene = scenes.scenes[id];
     p = (async () => {
-      const splat = new SplatMesh({ url: "/" + world.splats });
+      const splat = new SplatMesh({ url: fresh(world.splats) });
       splat.quaternion.copy(OPENCV_TO_THREE);
-      const collider = (await new GLTFLoader().loadAsync("/" + world.collider)).scene;
+      const collider = (await new GLTFLoader().loadAsync(fresh(world.collider))).scene;
       collider.quaternion.copy(OPENCV_TO_THREE);
       collider.updateMatrixWorld(true);
       await splat.initialized;
@@ -163,7 +169,7 @@ async function figure(world: World, scene: Scene, collider: THREE.Object3D, f: N
   geometry.setAttribute("position", new THREE.Float32BufferAttribute([...tl.toArray(), ...tr.toArray(), ...bl.toArray(), ...br.toArray()], 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
   geometry.setIndex([0, 2, 1, 1, 2, 3]);
-  const texture = await new THREE.TextureLoader().loadAsync("/" + f.image);
+  const texture = await new THREE.TextureLoader().loadAsync(fresh(f.image));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
@@ -263,7 +269,7 @@ function frame(now: number): void {
     euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch, yaw, 0);
     baseQ.setFromEuler(euler);
     origin.fromArray(current.world.camera ?? [0, 0, 0]);
-    eye.copy(lastFocus).sub(origin).multiplyScalar(DOLLY * t).add(origin);
+    eye.copy(lastFocus).sub(origin).multiplyScalar((current.world.dolly ?? DOLLY) * t).add(origin);
     look.lookAt(eye, lastFocus, up);
     lookQ.setFromRotationMatrix(look);
     camera.position.copy(eye);

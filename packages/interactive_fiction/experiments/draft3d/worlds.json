@@ -31,17 +31,18 @@
       {
         "image": "worlds/cheshire-cutout.png",
         "rect": [
-          29.565,
+          29.126,
           41.776,
-          30.981,
-          42.563
+          34.814,
+          48.906
         ]
       }
     ],
     "bounds": [
       -40,
       70
-    ]
+    ],
+    "dolly": 0
   },
   "bano": {
     "world": "232e0865-2c8a-4341-bb34-5fcde8c3823d",
