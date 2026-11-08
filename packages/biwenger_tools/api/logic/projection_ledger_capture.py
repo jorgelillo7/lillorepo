@@ -34,6 +34,15 @@ def _round_name_for(round_data: dict, round_id: int) -> str | None:
     return (round_data.get("next") or {}).get("name")
 
 
+def _oraculo_scales() -> dict:
+    """Both Oráculo scales for this matchday, from the hour's cached reads."""
+    picks = oraculo.fetch_picks()
+    page = oraculo.rows_for_dates(
+        oraculo.fetch_predictions(), oraculo.matchday_dates(picks)
+    )
+    return projection_ledger.oraculo_scales(page, picks.get("picks") or {})
+
+
 def capture(ctx) -> dict:
     """Snapshot the blend against Jornada Perfecta alone for the round the
     lineup pick actually lands on. Never raises, and never writes once that
@@ -105,6 +114,11 @@ def capture(ctx) -> dict:
             ]
         except Exception:
             logger.exception("Team outlook not captured; ours is stored without it.")
+        # Oráculo's points as its page and its API give them, which disagree.
+        try:
+            snapshot["oraculo_scales"] = _oraculo_scales()
+        except Exception:
+            logger.exception("Oráculo scales not captured; ours is stored without it.")
         projection_ledger_store.write(snapshot)
         return {
             "written": True,

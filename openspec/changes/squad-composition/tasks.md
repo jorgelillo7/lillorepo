@@ -9,7 +9,7 @@ Gated: nothing in auto-bid or the trader changes until the evidence in
       manager-round split into base, play, result, clean sheet and the rest,
       plus the top-two share
 - [x] Full run, 70 of 70 manager-rounds (in `proposal.md`)
-- [ ] Where our wealth fell behind: team value plus cash over the season
+- [x] Where our wealth fell behind: market flips (in `proposal.md`)
 - [ ] 8 rounds with `league_projection` and `league_points` in the ledger,
       read with `report.py`
 - [ ] Decision written here: which answer survives, or withdraw
