@@ -7,7 +7,7 @@
       0.03494,
       0.06259
     ],
-    "fovY": 46,
+    "fovY": 47,
     "pitch": -9
   },
   "habitacion-cheshire": {
@@ -19,7 +19,7 @@
       0.06255
     ],
     "fovY": 46,
-    "pitch": -10
+    "pitch": -9
   },
   "bano": {
     "world": "64493cbd-dee8-455f-8fa0-64c64189d165",
@@ -30,8 +30,8 @@
       0,
       0
     ],
-    "fovY": 52,
-    "pitch": -16,
+    "fovY": 53,
+    "pitch": -15,
     "anchors": {
       "Espejo": [
         0.515,
