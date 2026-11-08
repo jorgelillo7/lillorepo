@@ -144,5 +144,236 @@
       -42,
       44
     ]
+  },
+  "pasillo-derecho-p2": {
+    "world": "954f4926-26e2-4b1e-b057-4b28a3735146",
+    "model": "marble-1.1",
+    "splats": "worlds/pasillo-derecho-p2-500k.spz",
+    "collider": "worlds/pasillo-derecho-p2-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 37,
+    "pitch": -8,
+    "bounds": [
+      -55,
+      75
+    ]
+  },
+  "habitacion-amarilla": {
+    "world": "7d34d28d-a352-4617-a38a-ae3b0147efe8",
+    "model": "marble-1.1",
+    "splats": "worlds/habitacion-amarilla-500k.spz",
+    "collider": "worlds/habitacion-amarilla-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 46,
+    "pitch": -9,
+    "bounds": [
+      -55,
+      85
+    ]
+  },
+  "escalera": {
+    "world": "d9d02d38-f03f-45e0-8a9b-84fdf5327a80",
+    "model": "marble-1.1",
+    "splats": "worlds/escalera-500k.spz",
+    "collider": "worlds/escalera-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 57,
+    "pitch": -16,
+    "bounds": [
+      -55,
+      48
+    ]
+  },
+  "pasillo-p3": {
+    "world": "eb1ea2c4-2ac1-477a-bd60-aeb916da17b6",
+    "model": "marble-1.1",
+    "splats": "worlds/pasillo-p3-500k.spz",
+    "collider": "worlds/pasillo-p3-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 51,
+    "pitch": -20,
+    "bounds": [
+      -50,
+      70
+    ]
+  },
+  "pasillo-p3-enfermera": {
+    "world": "eb1ea2c4-2ac1-477a-bd60-aeb916da17b6",
+    "model": "marble-1.1",
+    "splats": "worlds/pasillo-p3-500k.spz",
+    "collider": "worlds/pasillo-p3-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 51,
+    "pitch": -20,
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/enfermera-cutout.png",
+        "rect": [
+          16.824,
+          16.732,
+          5.523,
+          21.029
+        ]
+      }
+    ],
+    "bounds": [
+      -50,
+      70
+    ]
+  },
+  "habitacion-ruido": {
+    "world": "838f7c1e-759e-447a-8fa1-abef74b44bc6",
+    "model": "marble-1.1",
+    "splats": "worlds/habitacion-ruido-500k.spz",
+    "collider": "worlds/habitacion-ruido-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 41,
+    "pitch": -10,
+    "picture": "worlds/ruido-empty.jpg",
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/ruido-cutout.png",
+        "rect": [
+          36.156,
+          47.005,
+          23.946,
+          40.104
+        ]
+      }
+    ],
+    "bounds": [
+      -38,
+      65
+    ]
+  },
+  "sala-blanca": {
+    "world": "ec22433c-175e-4be7-8a88-d58f748139d0",
+    "model": "marble-1.1",
+    "splats": "worlds/sala-blanca-500k.spz",
+    "collider": "worlds/sala-blanca-collider.glb",
+    "crop": [
+      0,
+      0
+    ],
+    "fovY": 46,
+    "pitch": -16,
+    "picture": "worlds/sala-blanca-empty.jpg",
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/sala-blanca-cutout.png",
+        "rect": [
+          36.737,
+          29.167,
+          22.384,
+          63.086
+        ]
+      }
+    ],
+    "bounds": [
+      -110,
+      110
+    ]
+  },
+  "bano-sucio": {
+    "world": "58cf89db-8258-4582-a106-55b89acd85e0",
+    "model": "marble-1.1",
+    "splats": "worlds/bano-sucio-500k.spz",
+    "collider": "worlds/bano-sucio-collider.glb",
+    "crop": [
+      0.02544,
+      0.04557
+    ],
+    "fovY": 53,
+    "pitch": -14,
+    "picture": "worlds/bano-sucio-inside.jpg",
+    "bounds": [
+      -42,
+      90
+    ],
+    "anchors": {
+      "Volver a la habitación": [
+        0.82,
+        0.5
+      ]
+    }
+  },
+  "habitacion-p3": {
+    "world": "b4c32a86-4be6-4b4c-a819-d7aa7deac7bb",
+    "model": "marble-1.1",
+    "picture": "../../stories/samantha/art-originals/habitacion-p3.jpg",
+    "splats": "worlds/habitacion-p3-500k.spz",
+    "collider": "worlds/habitacion-p3-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 47,
+    "pitch": -9,
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/p3-cheshire-cutout.png",
+        "rect": [
+          50.182,
+          21.615,
+          13.517,
+          77.93
+        ]
+      }
+    ],
+    "bounds": [
+      -50,
+      60
+    ]
+  },
+  "fin": {
+    "world": "4a4c6f52-e73f-490c-a2b3-2f4b597ee3fb",
+    "model": "marble-1.1",
+    "picture": "worlds/fin-empty.jpg",
+    "splats": "worlds/fin-500k.spz",
+    "collider": "worlds/fin-collider.glb",
+    "crop": [
+      0.03491,
+      0.06255
+    ],
+    "fovY": 63,
+    "pitch": -27,
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/fin-cutout.png",
+        "rect": [
+          43.677,
+          19.729,
+          13.818,
+          60.149
+        ]
+      }
+    ],
+    "bounds": [
+      -25,
+      25
+    ]
   }
 }
