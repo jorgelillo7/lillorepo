@@ -1,14 +1,15 @@
 /**
  * Generate a World Labs world from one scene image and download it into worlds/.
  *
- *   node generate.ts <scene-id> [--full] [--prompt "…"] [--trim X,Y] [--dry-run]
+ *   node generate.ts <scene-id> [--full] [--prompt "…"] [--trim X,Y] [--image path] [--dry-run]
  *
  * The image is the scene's original in the series' art-originals/, with its
  * dark frame trimmed by the same number of pixels on every edge (a framed
  * picture comes back as a painting hung in an invented room). Needs
  * WORLDLABS_API_KEY; prints the cost before spending. `--trim X,Y` sets the
  * pixels trimmed from each side and from top and bottom, for a picture whose
- * frame is not the usual one (letterbox bands, say).
+ * frame is not the usual one (letterbox bands, say). `--image` builds the world
+ * from another picture of the room than the scene's own (one from view.ts).
  */
 
 import { execFileSync } from "node:child_process";
@@ -34,7 +35,7 @@ const sceneFiles = ["01-scenes.json", "02-scenes.json"].map((f) => join(web, f))
 const scene = sceneFiles.map((f) => JSON.parse(readFileSync(f, "utf8")).scenes[sceneId]).find(Boolean);
 if (!scene) throw new Error(`No scene "${sceneId}" in ${sceneFiles.join(", ")}.`);
 const original = join(web, "art-originals", basename(scene.image));
-const source = existsSync(original) ? original : join(web, scene.image);
+const source = option("--image") ?? (existsSync(original) ? original : join(web, scene.image));
 
 const model = flag("--full") ? MODELS.full : MODELS.draft;
 const credits = model.credits + PANO_FROM_IMAGE;

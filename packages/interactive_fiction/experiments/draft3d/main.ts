@@ -58,6 +58,10 @@ document.title = `${data.title} · borrador 3D`;
 $("title-series").textContent = series.title;
 $("title-name").textContent = data.title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, "");
 $("title-warning").textContent = series.game.title?.warning ?? "";
+// The author's own components (a book page, the rules) keep his styling; rules that lay out his whole page do not apply here.
+const authorCss = document.createElement("style");
+authorCss.textContent = (data.stylesheet ?? "").replace(/[^{}]*(?:tw-story|tw-passage|\bbody\b|\bhtml\b)[^{}]*\{[^{}]*\}/g, "");
+document.head.append(authorCss);
 
 // --- 3D -------------------------------------------------------------------
 
@@ -362,6 +366,8 @@ let shownSegment = 0;
 function showSegment(n: number): void {
   shownSegment = n;
   segments.forEach((s, i) => (s.hidden = i !== n));
+  // A page of the author's own (the rules, a book) gets the whole height.
+  subs.classList.toggle("document", !!segments[n]?.querySelector(DOCUMENT));
   const lastOne = n >= segments.length - 1;
   subsNext.hidden = lastOne;
   subsClose.hidden = !lastOne || spots.childElementCount === 0;
@@ -386,16 +392,51 @@ subsClose.addEventListener("click", () => {
 });
 reopen.addEventListener("click", openSubs);
 
+const DOCUMENT = ".pagina-libro, .pared, .espejo-img";
+
+/** A page of the author's own (the rules, a book) gets a subtitle to itself, apart from the prose around it. */
+function isolateDocuments(segs: HTMLElement[]): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  for (const seg of segs) {
+    const nodes = [...seg.childNodes];
+    if (!nodes.some((n) => n instanceof HTMLElement && n.matches(DOCUMENT))) {
+      out.push(seg);
+      continue;
+    }
+    let part: Node[] = [];
+    const flush = () => {
+      if (part.some((n) => n.textContent?.trim() || (n instanceof HTMLElement && n.matches(DOCUMENT)))) {
+        const s = document.createElement("tw-seg");
+        s.append(...part);
+        seg.before(s);
+        out.push(s);
+      }
+      part = [];
+    };
+    for (const n of nodes) {
+      if (n instanceof HTMLElement && n.matches(DOCUMENT)) {
+        flush();
+        part = [n];
+        flush();
+      } else part.push(n);
+    }
+    flush();
+    seg.remove();
+  }
+  return out;
+}
+
 /** The passage as subtitles; a choice the scene holds is left out of the text, to be found in the room. */
 function renderText(html: string, onStage: Set<number>): void {
   const passage = document.createElement("div");
-  passage.innerHTML = html;
+  // A blank line between paragraphs becomes a single break: subtitles have no room for gaps.
+  passage.innerHTML = html.replace(/<br>(\s*<br>)+/g, "<br>");
   for (const l of passage.querySelectorAll<HTMLElement>("tw-link[data-action]")) {
     if (!onStage.has(Number(l.dataset.action))) continue;
     if (l.nextSibling?.nodeName === "BR") l.nextSibling.remove();
     l.remove();
   }
-  segments = segment(passage);
+  segments = isolateDocuments(segment(passage));
   subsText.replaceChildren(passage);
   passage.querySelectorAll<HTMLElement>("tw-link[data-action]").forEach((l) => l.addEventListener("click", () => act(Number(l.dataset.action))));
   shownSegment = 0;

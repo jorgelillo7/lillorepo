@@ -29,11 +29,18 @@ deploys to its own Worker:
    46° and −10°, found by comparing renders with the trimmed picture); the
    hotspots of the scene file are then cast from that camera onto the
    collider, so none is placed by hand. When the world did not grow from the
-   picture's viewpoint — the bathroom, seen from its doorway, came back with
-   the camera inside it — give it a `camera` position and place its hotspots
-   by hand in `anchors` (fractions of its own view); a hotspot with no place in
-   the room stays a text choice.
-5. **Preview** — `npm run deploy` (after `npm run stories` in the package).
+   picture's viewpoint, give it a `camera` position and place its hotspots by
+   hand in `anchors` (fractions of its own view); a hotspot with no place in
+   the room stays a text choice — the last resort, not the habit.
+5. **A better picture, when the scene's own one is wrong for 3D** — the
+   bathroom was painted from its doorway, which left nothing to turn to and no
+   door to leave by. `node view.ts <name> <prompt-file> <references…>` paints
+   another view of the same room with Gemini (about US$0.12) into `worlds/`,
+   and `generate.ts <scene> --image worlds/<name>.jpg` builds the world from
+   it; `worlds.json` records it under `picture`. The bathroom's new view, from
+   inside, holds the mirror and the open door back to room 207, so both are
+   places in the room.
+6. **Preview** — `npm run deploy` (after `npm run stories` in the package).
 
 | Model | Credits | ≈ US$ |
 |---|---|---|
@@ -51,7 +58,8 @@ deploys to its own Worker:
 
 Chapter 1's three rooms are 3D (room 207, the bathroom, room 207 with
 Cheshire, who is part of that world: static and a little soft); the ending is
-a picture. Saves, achievements and the end-code panel of the real reader are
+a picture. The author's own components (the rules as a book page) keep his
+stylesheet and get a subtitle to themselves. Saves, achievements and the end-code panel of the real reader are
 not wired in. A splat world carries the picture's own light,
 so the night look is a grade over it; real lights and close-ups of single
 objects would need those objects as meshes (the reference the owner liked,

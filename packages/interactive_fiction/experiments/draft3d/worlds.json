@@ -22,24 +22,24 @@
     "pitch": -10
   },
   "bano": {
-    "world": "1c256d9c-0942-4a49-b370-572b5288be87",
+    "world": "64493cbd-dee8-455f-8fa0-64c64189d165",
+    "picture": "worlds/bano-inside.jpg",
     "splats": "worlds/bano-500k.spz",
     "collider": "worlds/bano-collider.glb",
     "crop": [
-      0.01165,
-      0.05563
-    ],
-    "fovY": 66,
-    "pitch": -10,
-    "camera": [
       0,
-      0,
-      0.75
+      0
     ],
+    "fovY": 52,
+    "pitch": -16,
     "anchors": {
       "Espejo": [
-        0.54,
-        0.2
+        0.515,
+        0.33
+      ],
+      "Volver a la habitación": [
+        0.74,
+        0.55
       ]
     }
   }
