@@ -6,7 +6,9 @@
     "prepare-data": "node prepare.ts",
     "dev": "npm run prepare-data && vite",
     "build": "npm run prepare-data && vite build",
-    "deploy": "npm run build && ../../deploy/node_modules/.bin/wrangler deploy"
+    "deploy": "npm run build && ../../deploy/node_modules/.bin/wrangler deploy",
+    "fit": "node fit.ts",
+    "check": "npm run prepare-data && node check.ts"
   },
   "dependencies": {
     "@sparkjsdev/spark": "2.4.0",

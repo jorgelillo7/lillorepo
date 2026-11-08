@@ -25,8 +25,8 @@ deploys to its own Worker:
    room — and downloads the splats and the collider mesh into `worlds/`.
 4. **Fit** — the world's starting camera is usually the picture's camera. Add
    the scene to `worlds.json` with the vertical field of view and downward
-   pitch that reproduce the picture (room 207: 46° and −9°; the Cheshire room:
-   46° and −10°, found by comparing renders with the trimmed picture); the
+   pitch that reproduce the picture, as `npm run fit -- <scene>` finds them
+   (room 207: 47° and −9°; the Cheshire room: 46° and −9°); the
    hotspots of the scene file are then cast from that camera onto the
    collider, so none is placed by hand. When the world did not grow from the
    picture's viewpoint, give it a `camera` position and place its hotspots by
@@ -40,7 +40,14 @@ deploys to its own Worker:
    it; `worlds.json` records it under `picture`. The bathroom's new view, from
    inside, holds the mirror and the open door back to room 207, so both are
    places in the room.
-6. **Preview** — `npm run deploy` (after `npm run stories` in the package).
+6. **Check** — `npm run check` plays the chapter to an ending by exploring,
+   at a phone in landscape, and fails on a choice found nowhere or a console
+   error. `npm run fit -- <scene>` (step 4) finds the camera by rendering the
+   world and scoring it against the picture.
+7. **Preview** — `npm run deploy` (after `npm run stories` in the package).
+
+The whole procedure, with its traps, is the
+[`scene-3d`](../../.claude/skills/scene-3d/SKILL.md) skill.
 
 | Model | Credits | ≈ US$ |
 |---|---|---|
