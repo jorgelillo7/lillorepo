@@ -808,6 +808,11 @@ $("about-series").textContent = series.title;
 $("about-body").replaceChildren(
   ...(series.credits.length ? [creditCards()] : []),
   ...series.about.map((text) => Object.assign(document.createElement("p"), { textContent: text })),
+  // What only this 3D version adds; the series' own notes describe the pictures.
+  Object.assign(document.createElement("p"), {
+    textContent:
+      "En esta versión 3D, cada sala es un mundo generado con World Labs (Marble) a partir de su imagen, y los personajes se recortan de esas imágenes para que se vean nítidos. Se muestra en el navegador con three.js y Spark.",
+  }),
 );
 $("about-close").addEventListener("click", closeAbout);
 

@@ -4,7 +4,8 @@
  * choice made by touching its thing in the room when the room holds it, else
  * in the text. Fails on a title or "Acerca de" that does not fit a phone in
  * landscape, a choice found nowhere, a 3D hotspot with no place in the room, a
- * fade between rooms that never lifts, an ending without the next chapter's
+ * fade between rooms that never lifts, an image in the text that does not
+ * load, an ending without the next chapter's
  * way on, or a console error.
  *
  *   node check.ts [chapter] [--via <passage>] [--shots <dir>]   (after npm run prepare-data; default 01)
@@ -128,6 +129,11 @@ try {
       const unplaced = await c.ev<string[]>("[...document.querySelectorAll('.spot:not(.rect)')].filter((s) => !s.style.left).map((s) => s.getAttribute('aria-label'))");
       if (unplaced.length) {
         console.log(`✗ no place in the room for: ${unplaced.join(", ")}`);
+        failed = true;
+      }
+      const broken = await c.ev<string[]>("Promise.all([...document.querySelectorAll('#subs-text img')].map((i) => i.decode().then(() => '', () => i.getAttribute('src')))).then((r) => r.filter(Boolean))");
+      if (broken.length) {
+        console.log(`✗ images that do not load: ${broken.join(", ")}`);
         failed = true;
       }
       console.log(`${where ? "✓" : "✗"} ${step} — ${where || "found nowhere"} → ${scene}`);
