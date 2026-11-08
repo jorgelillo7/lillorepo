@@ -239,7 +239,7 @@ paths:
         a day behind the API. `/biwenger/predicciones/sofascore` redirects
         here; `?sistema=` and `?modo=` are ignored.
       x-verified-at: "2026-11-09"
-      x-used-by: "core/sdk/oraculo.py: fetch_predictions (the blend's projection)"
+      x-used-by: "core/sdk/oraculo.py: fetch_predictions — identity and chance only; its points are replaced by in_sofascore"
       responses:
         "200":
           description: HTML; rows are objects opening with `playerId`.
