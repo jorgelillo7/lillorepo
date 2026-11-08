@@ -80,8 +80,12 @@ button { font: inherit; color: inherit; }
 .title-warning, .title-tip { margin: 26px 0 0; max-width: 520px; font: 12px/1.6 var(--mono); color: var(--muted); }
 .title-tip { margin-top: 8px; }
 
+/* Phones play in landscape only: in portrait, a screen asking to turn it covers the game. */
 .rotate { display: none; }
 @media (orientation: portrait) and (max-width: 600px) {
-  .rotate { display: block; position: absolute; top: 12px; right: 14px; margin: 0; max-width: 55%; text-align: right; font: 11px/1.4 var(--mono); color: var(--muted); }
+  .rotate { display: flex; position: absolute; inset: 0; z-index: 10; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); text-align: center; }
+  .rotate p { margin: 0; font: 15px/1.4 var(--mono); letter-spacing: 0.04em; }
+  .rotate-phone { width: 34px; height: 58px; margin-bottom: 18px; border: 2px solid var(--accent); border-radius: 7px; animation: turn 2.2s ease-in-out infinite; }
 }
+@keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
 @media (prefers-reduced-motion: reduce) { #world { animation: none; } .spot::before { animation: none; } }

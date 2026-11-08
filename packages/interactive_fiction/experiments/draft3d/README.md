@@ -5,7 +5,7 @@ engine runs the passages; a scene listed in `worlds.json` is shown as a
 Gaussian-splat room (three.js + [Spark](https://sparkjs.dev)), and any other
 scene keeps its 2D picture.
 
-It plays full screen, best in landscape: a title screen while the first room
+It plays full screen, in landscape (a phone held upright gets a screen asking to turn it): a title screen while the first room
 loads; the passage as subtitles, a paragraph at a time (the reader's own
 `segment`); things to interact with as soft glows, and touching one moves the
 camera towards it and lists its choices; the room graded down to night, with
