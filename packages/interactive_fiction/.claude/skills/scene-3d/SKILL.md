@@ -34,6 +34,13 @@ author's text  →  picture (Gemini, scene-art)  →  world (World Labs)  →  f
 | Preview | `npm run deploy` | free |
 
 Every paid call needs the owner's OK first; `--dry-run` prints the cost.
+
+**Spend pictures to save worlds.** Gemini has far more budget than World Labs
+(it draws on the Google Cloud account's credits; World Labs is a small
+prepaid balance), and a world is ten times a picture. So be generous and
+purist with pictures — several takes, the strictest check of each against
+the text, the frame, red, alignment — and only send World Labs a picture
+that is right, so each world lands at the first try.
 Keys: `WORLDLABS_API_KEY` (in `~/.zprofile`) and `GEMINI_API_KEY` (command in
 `OPERATIONS.md` § "Art for point-and-click").
 
