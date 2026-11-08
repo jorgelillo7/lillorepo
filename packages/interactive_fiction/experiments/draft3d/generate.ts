@@ -1,12 +1,14 @@
 /**
  * Generate a World Labs world from one scene image and download it into worlds/.
  *
- *   node generate.ts <scene-id> [--full] [--prompt "…"] [--dry-run]
+ *   node generate.ts <scene-id> [--full] [--prompt "…"] [--trim X,Y] [--dry-run]
  *
  * The image is the scene's original in the series' art-originals/, with its
  * dark frame trimmed by the same number of pixels on every edge (a framed
  * picture comes back as a painting hung in an invented room). Needs
- * WORLDLABS_API_KEY; prints the cost before spending.
+ * WORLDLABS_API_KEY; prints the cost before spending. `--trim X,Y` sets the
+ * pixels trimmed from each side and from top and bottom, for a picture whose
+ * frame is not the usual one (letterbox bands, say).
  */
 
 import { execFileSync } from "node:child_process";
@@ -45,9 +47,9 @@ if (!key) throw new Error("Set WORLDLABS_API_KEY.");
 // The scene's `aspect` is a ratio; the crop needs the picture's real pixels.
 const sizes = execFileSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", source], { encoding: "utf8" });
 const [w, h] = ["pixelWidth", "pixelHeight"].map((k) => Number(new RegExp(`${k}: (\\d+)`).exec(sizes)![1]));
-const m = Math.round(w * CROP);
+const [mx, my] = option("--trim")?.split(",").map(Number) ?? [Math.round(w * CROP), Math.round(w * CROP)];
 const cropped = join(tmpdir(), `${sceneId}-crop.jpg`);
-execFileSync("sips", ["-c", String(h - 2 * m), String(w - 2 * m), source, "--out", cropped], { stdio: "ignore" });
+execFileSync("sips", ["-c", String(h - 2 * my), String(w - 2 * mx), source, "--out", cropped], { stdio: "ignore" });
 
 const call = async (path: string, init?: RequestInit) => {
   const r = await fetch(API + path, { ...init, headers: { "Content-Type": "application/json", "WLT-Api-Key": key } });
@@ -87,5 +89,5 @@ for (const [file, url] of [
   writeFileSync(join(here, "worlds", file), Buffer.from(await (await fetch(url)).arrayBuffer()));
   console.log(`  worlds/${file}`);
 }
-const crop = [m / w, m / h].map((f) => Number(f.toFixed(5)));
+const crop = [mx / w, my / h].map((f) => Number(f.toFixed(5)));
 console.log(`Add "${sceneId}" to worlds.json (world ${world.world_id}, crop ${JSON.stringify(crop)}); fit fovY and pitch against the image.`);

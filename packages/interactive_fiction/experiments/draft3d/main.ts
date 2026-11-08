@@ -25,6 +25,13 @@ interface World {
   /** Vertical field of view and downward pitch, in degrees, that reproduce the scene image. */
   fovY: number;
   pitch: number;
+  /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
+  camera?: [number, number, number];
+  /**
+   * Hotspots placed by hand, as fractions of this world's own view; when set,
+   * a hotspot not listed has no place in the room and stays a text choice.
+   */
+  anchors?: Record<string, [number, number]>;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -104,13 +111,16 @@ function anchorsFor(world: World, scene: Scene, collider: THREE.Object3D): Map<s
   const cam = new THREE.PerspectiveCamera(world.fovY, pictureAspect(scene, world), 0.01, 200);
   cam.rotation.order = "YXZ";
   cam.rotation.x = THREE.MathUtils.degToRad(world.pitch);
+  cam.position.fromArray(world.camera ?? [0, 0, 0]);
   cam.updateMatrixWorld(true);
   const ray = new THREE.Raycaster();
   const anchors = new Map<string, THREE.Vector3>();
   for (const spot of scene.hotspots) {
     const [x, y, rw, rh] = spot.rect;
-    const u = ((x + rw / 2) / 100 - cx) / (1 - 2 * cx);
-    const v = ((y + rh / 2) / 100 - cy) / (1 - 2 * cy);
+    const placed = world.anchors?.[spot.label];
+    if (world.anchors && !placed) continue;
+    const u = placed ? placed[0] : ((x + rw / 2) / 100 - cx) / (1 - 2 * cx);
+    const v = placed ? placed[1] : ((y + rh / 2) / 100 - cy) / (1 - 2 * cy);
     ray.setFromCamera(new THREE.Vector2(u * 2 - 1, 1 - v * 2), cam);
     const hit = ray.intersectObject(collider, true)[0];
     anchors.set(spot.label, hit ? hit.point.clone() : ray.ray.at(2, new THREE.Vector3()));
@@ -149,6 +159,7 @@ const lookQ = new THREE.Quaternion();
 const euler = new THREE.Euler(0, 0, 0, "YXZ");
 const look = new THREE.Matrix4();
 const eye = new THREE.Vector3();
+const origin = new THREE.Vector3();
 const up = new THREE.Vector3(0, 1, 0);
 
 let shown: { el: HTMLElement; at?: THREE.Vector3 }[] = [];
@@ -163,7 +174,8 @@ function frame(now: number): void {
     const t = focusAmount * focusAmount * (3 - 2 * focusAmount);
     euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch, yaw, 0);
     baseQ.setFromEuler(euler);
-    eye.copy(lastFocus).multiplyScalar(DOLLY * t);
+    origin.fromArray(current.world.camera ?? [0, 0, 0]);
+    eye.copy(lastFocus).sub(origin).multiplyScalar(DOLLY * t).add(origin);
     look.lookAt(eye, lastFocus, up);
     lookQ.setFromRotationMatrix(look);
     camera.position.copy(eye);
@@ -269,7 +281,10 @@ function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
 /** Show the passage's scene; returns the choices it holds, which are found by exploring rather than read in the text. */
 async function showScene(id: string | undefined): Promise<Set<number>> {
   const scene = id ? scenes.scenes[id] : undefined;
-  const hot = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
+  const all = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
+  // A world with hand-placed hotspots shows only those; the rest stay text choices.
+  const placed = id && worlds[id]?.anchors;
+  const hot = placed ? all.filter((h) => h.hotspot.label in placed) : all;
   const onStage = new Set(hot.flatMap((h) => h.actions));
   spots.replaceChildren();
   shown = [];
