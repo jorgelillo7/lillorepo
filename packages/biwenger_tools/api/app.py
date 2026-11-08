@@ -672,7 +672,7 @@ def public_members_edit_route():
 
 @app.route("/market/auto-bid", methods=["POST"])
 def market_auto_bid():
-    """Cron-triggered (09:00 Madrid): tiered auto-bid on the daily market.
+    """Cron-triggered (07:15 Madrid): tiered auto-bid on the daily market.
 
     Idempotent across same-day retries — bids are logged to Firestore
     under `auto_bid_log/{date}/bids` and skipped on replay.

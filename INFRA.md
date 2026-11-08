@@ -26,7 +26,7 @@ The Biwenger league platform (packages `biwenger_tools` + `chucknorris_bot`).
 | Cloud Storage | `lillorepo-tfstate` — **`us-central1`** | private, versioned Terraform state for both projects ([`infra/`](infra/README.md)); created by hand, not by Terraform |
 | Artifact Registry | `biwenger-docker` | service images + shared `python-base` (linux/amd64 only, bytecode compiled in) |
 | Secret Manager | 2 secrets ×1 active version | `biwenger-secrets`, `chucknorris-secrets` — one regional JSON secret per package; no key files |
-| Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 09:00 + weekly scraper (Scheduler is not offered in Madrid) |
+| Cloud Scheduler | 2 jobs — **`europe-west1`** | daily digest 07:15 + weekly scraper (Scheduler is not offered in Madrid) |
 | Workload Identity Federation | pool `github` / provider `github-oidc` | keyless deploys for the whole repo, restricted to `jorgelillo7/lillorepo` **on `master`** |
 | Workload Identity Federation | pool `github-plan` / provider `github-plan` | read-only `terraform plan` from `infra.yml` on any ref, as `terraform-plan` |
 | Service accounts | `run-biwenger-api` · `-bot` · `-web` · `-scraper` · `run-chucknorris-bot` · `scheduler-invoker` · `biwenger-tools-sa` (CI) · `terraform-plan` (CI, read-only) | one per service, minimal grants — what each may do: `README.md` → "Service accounts"; the default compute account holds **no role** |

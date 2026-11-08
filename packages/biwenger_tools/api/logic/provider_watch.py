@@ -26,7 +26,7 @@ OBSERVED_JP_STATUS = frozenset(
     {"ok", "ok-available", "injured", "doubt", "sanctioned", "other"}
 )
 # `pending` was all the pre-season payload carried. `finished` arrived with the
-# season — the daily 09:00 run meets it from Saturday on, because a matchday
+# season — the daily 07:15 run meets it from Saturday on, because a matchday
 # runs Friday to Monday — and it is listed here as *seen and understood*, not
 # as acted upon.
 #

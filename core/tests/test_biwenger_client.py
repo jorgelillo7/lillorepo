@@ -719,7 +719,7 @@ def test_set_lineup_sends_zero_when_no_starter_can_wear_the_armband(
 
 
 def test_set_lineup_retries_a_transient_failure(biwenger_client_authenticated):
-    """A Biwenger 5xx at 09:00 must not cost the matchday. The retry is the
+    """A Biwenger 5xx at 07:15 must not cost the matchday. The retry is the
     difference between a lineup applied and a squad left as it was."""
     client = biwenger_client_authenticated
     with requests_mock.Mocker() as m, _no_backoff():

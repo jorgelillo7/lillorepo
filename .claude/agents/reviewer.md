@@ -41,7 +41,7 @@ Generic review advice is a waste here. These are the failures that have shipped:
    does, `openspec/specs/` should move with it. Run `python3 scripts/check_specs.py`.
 
 7. **Anything writing to production without a switch or a dry run.** Especially
-   the lineup and auto-bid paths, which run unattended at 09:00.
+   the lineup and auto-bid paths, which run unattended at 07:15.
 
 ## Severity, honestly
 

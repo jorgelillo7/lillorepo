@@ -25,7 +25,7 @@ def target_round(round_data: dict, now: datetime) -> int | None:
     Biwenger registers the lineup for whichever round has not kicked off yet
     (`openspec/project.md`, "the lineup is registered before the matchday
     begins"). Under *jornada única* the current round is usually already
-    under way by 09:00, so the target is normally `round_data["next"]`, not
+    under way by 07:15, so the target is normally `round_data["next"]`, not
     `round_data["id"]` — the column a naive read would grab.
 
     Returns `None` rather than guessing when neither kickoff can be

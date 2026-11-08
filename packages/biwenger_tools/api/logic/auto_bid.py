@@ -1,6 +1,6 @@
 """Daily aggressive auto-bidding on the Biwenger daily market.
 
-`POST /market/auto-bid` (Cloud Scheduler 09:00 Madrid) drives this. We
+`POST /market/auto-bid` (Cloud Scheduler 07:15 Madrid) drives this. We
 look at the rotating computer-owned free agents Biwenger exposes every
 morning, attach SofaScore (Automanager) ratings from JP, and place a
 bid on each player according to the tier below — best score first,

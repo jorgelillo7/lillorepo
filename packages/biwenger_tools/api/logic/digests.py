@@ -9,7 +9,7 @@ Every step is wrapped in a swallow-on-failure helper so one failing step
 doesn't lose the rest of the digest.
 
 The lineup step exists so a player who arrives overnight is fielded without
-anyone opening the app. It runs at 09:00 like everything else, which is early:
+anyone opening the app. It runs at 07:15 like everything else, which is early:
 Biwenger locks each player at *his* kickoff, and a matchday can span days, so
 this is a floor and not the best possible lineup.
 

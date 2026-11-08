@@ -81,7 +81,7 @@ def _read_oraculo(
     The catch is deliberately broad. Oráculo is read out of a page we do not
     control, so the likely failure is a shape change surfacing as `KeyError`
     or `TypeError`, not the `OraculoError` the SDK raises for the network.
-    A narrow catch would take the 09:00 digest down for a provider we chose
+    A narrow catch would take the 07:15 digest down for a provider we chose
     to treat as optional.
     """
     try:

@@ -1,7 +1,7 @@
 # Capability: auto-bid
 
 Daily aggressive auto-bidding on the Biwenger daily market. Cloud Scheduler
-posts `POST /market/auto-bid` at 09:00 Madrid. The system reads the rotating
+posts `POST /market/auto-bid` at 07:15 Madrid. The system reads the rotating
 computer-owned free agents Biwenger exposes each morning, attaches SofaScore
 (SF) ratings from JP blended with Oráculo, and bids on each — best first —
 until cash runs out, then reports the run to Telegram.

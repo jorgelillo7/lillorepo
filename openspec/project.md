@@ -59,7 +59,7 @@ is read from our own screen.
 | **Jornada única** — *"entregar puntos y abonos tras disputarse todos los partidos"* (reglamento 2.5.8) | A matchday is not final until every match in it is played. 2026/27 opened with a round spanning **twelve days**, so standings, prizes and points are provisional until it closes — and no lineup set on day one is right for the whole round |
 | **Per-matchday prize money** (2.5.7): 75k per point, 500k per Once Ideal player, 100k for the MVP, paid automatically by Biwenger | Cash grows every matchday without anyone selling, which is the budget auto-bid and the clausulazo recommender read |
 | **Captain must cost < 3M** (Biwenger hard cap) | Enforced in `lineup.py`; the draft ranks the best sub-3M starter accordingly |
-| **The lineup is registered before the matchday begins** — *"antes del comienzo de cada jornada, el sistema registrará la alineación y estrategia de equipo"*. Every later edit lands on the following matchday, or on a postponed fixture | The daily 09:00 run is building **next** round's eleven from Saturday on. A fixture already played is stale input, not a slot to reclaim — `auto-pick-lineup` leaves those players alone, and says so |
+| **The lineup is registered before the matchday begins** — *"antes del comienzo de cada jornada, el sistema registrará la alineación y estrategia de equipo"*. Every later edit lands on the following matchday, or on a postponed fixture | The daily 07:15 run is building **next** round's eleven from Saturday on. A fixture already played is stale input, not a slot to reclaim — `auto-pick-lineup` leaves those players alone, and says so |
 | **−4 points per unoccupied position**, except a completely empty lineup, which scores 0 | `lineup.py`'s ladder of last resorts is not tidiness: an empty slot has a price, so a player projecting zero is still worth fielding |
 | **A negative balance at the matchday's start scores nothing** — no points and no payout for that round, even if it returns to positive during it | The ceiling every bidding path runs under. Auto-bid never offers more than the cash it has read; the market trader may end a day up to `TRADER_NEGATIVE_LIMIT` (1M) below zero, but never on a round's eve, the one day its bids settle before a kickoff |
 | **15 players: some legal XI plus a bench of one keeper, one defender, one midfielder and one forward**; snake draft; prices frozen to the export day; after the draft the bench may be sold or reshaped freely | The draft capability, `specs/biwenger_tools/draft/spec.md` |
@@ -72,7 +72,7 @@ bites.
 
 ## Service-level objective
 
-One SLO covers the user-facing surface — the 09:00 Madrid daily digest,
+One SLO covers the user-facing surface — the 07:15 Madrid daily digest,
 end-to-end ≤ 5 min. It is stated as a requirement in
 `specs/biwenger_tools/daily-digest/spec.md`; the rationale and accepted gaps
 stay in `CLAUDE.md` / `STATUS.md`.

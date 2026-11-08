@@ -259,9 +259,9 @@ Two of the three scheduler jobs free per billing account. No retries on
 purpose: a retried digest sends every message twice.
 
 ```bash
-# 09:00 Madrid digest: squad, market, lineup, bids, clause warnings, offers.
+# 07:15 Madrid digest: squad, market, lineup, bids, clause warnings, offers.
 gcloud scheduler jobs create http biwenger-daily-digest-trigger --location=$SCHED_REGION \
-  --schedule="0 9 * * *" --time-zone=Europe/Madrid --http-method=POST \
+  --schedule="15 7 * * *" --time-zone=Europe/Madrid --http-method=POST \
   --uri="$API_URL/digests/daily" --attempt-deadline=180s \
   --oidc-service-account-email=scheduler-invoker@$PROJECT_ID.iam.gserviceaccount.com \
   --oidc-token-audience="$API_URL"
@@ -328,7 +328,7 @@ gcloud billing budgets create --billing-account=<BILLING_ACCOUNT_ID> \
 **Cold starts without paying for them.** With `min-instances=0` the first
 request after an idle spell starts a container. The pre-built base image
 (step 4) keeps that to roughly 5–10 s, the bot answers "procesando…" at once
-and does the work in the background, and the 09:00 digest has five minutes of
+and does the work in the background, and the 07:15 digest has five minutes of
 budget. `--min-instances=1` would remove the wait, but it keeps an instance
 running all month and leaves the free tier — not worth it for a league.
 

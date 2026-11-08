@@ -219,7 +219,7 @@ deleted; lines get pruned as items ship. For "what has shipped" read
 
 Single SLO covers the user-facing surface of the project:
 
-- **Daily 09:00 Madrid digest end-to-end ≤ 5 min.** The Cloud Scheduler tick
+- **Daily 07:15 Madrid digest end-to-end ≤ 5 min.** The Cloud Scheduler tick
   fires `/digests/daily`, which chains: JP fetch + Biwenger session + market
   read + N bids + Firestore log writes + 2 Telegram photos + 1 Telegram
   summary. Each component has its own timeouts; the SLO is the wall-clock

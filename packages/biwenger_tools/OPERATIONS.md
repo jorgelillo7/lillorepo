@@ -354,7 +354,7 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
 
   * **Provider watch — reading it, and what silence means:**
 
-    Every lineup pick (the 09:00 digest, `/alinear`, `/preview`) runs
+    Every lineup pick (the 07:15 digest, `/alinear`, `/preview`) runs
     `logic/provider_watch.py` over the squad first. It **decides nothing**: it
     writes a log line when Biwenger or Jornada Perfecta send something this
     code does not model, and swallows its own errors so it can never break a
@@ -459,7 +459,7 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     scored ACEPTAR, plus a warning when a player's clause protection is about
     to end.
 
-    09:00 is deliberately early and deliberately not optimal: Biwenger locks
+    07:15 is deliberately early and deliberately not optimal: Biwenger locks
     each player at *his* kickoff and a matchday can span twelve days, so this
     is a floor. `/alinear` stays the way to re-align closer to a match that
     matters.

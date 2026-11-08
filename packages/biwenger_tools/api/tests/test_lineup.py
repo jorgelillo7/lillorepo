@@ -1032,7 +1032,7 @@ def _current(result, formation=None, captain=None, drop=None, add=None, bench=No
 
 
 def test_an_identical_eleven_reports_nothing_to_add():
-    """The 09:00 digest applies the optimum daily, so this is the answer most
+    """The 07:15 digest applies the optimum daily, so this is the answer most
     days. It has to be a clean "no", not an empty diff the reader interprets."""
     squad = _squad_for_diff()
     result = pick_lineup(squad)

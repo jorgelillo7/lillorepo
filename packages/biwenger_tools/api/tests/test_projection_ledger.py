@@ -42,7 +42,7 @@ def test_target_round_is_the_current_one_before_its_kickoff():
 
 def test_target_round_is_next_once_the_current_one_has_kicked_off():
     """Under *jornada única* the current round is usually already under way
-    by 09:00 (`openspec/project.md`, row 61): the lineup this morning sets
+    by 07:15 (`openspec/project.md`, row 61): the lineup this morning sets
     lands on `next`, not on the round `get_round()` calls current."""
     round_data = {
         "id": 4901,
