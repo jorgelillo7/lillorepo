@@ -8,7 +8,11 @@
       0.06259
     ],
     "fovY": 47,
-    "pitch": -9
+    "pitch": -9,
+    "bounds": [
+      -58,
+      70
+    ]
   },
   "habitacion-cheshire": {
     "world": "1dd9479d-3ad4-4f25-9d55-9532387b558d",
@@ -19,7 +23,11 @@
       0.06255
     ],
     "fovY": 46,
-    "pitch": -9
+    "pitch": -9,
+    "bounds": [
+      -41,
+      70
+    ]
   },
   "bano": {
     "world": "64493cbd-dee8-455f-8fa0-64c64189d165",
