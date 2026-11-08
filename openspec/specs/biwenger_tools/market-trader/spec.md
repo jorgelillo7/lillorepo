@@ -250,13 +250,18 @@ the games it has left. An unreadable calendar counts as an eve.
 
 The step SHALL read the owner's waiting bids — auto-bid's of the same morning,
 or a retried run's — count their amounts as spent and never bid again on a
-player who has one, in both modes.
+player who has one, in both modes. A riser it leaves alone for that reason
+SHALL still be named in the summary, with why: on 8/11 auto-bid had bid on two
+of the trader's four risers, and a summary naming only the other two read as
+wanting different players.
 
 #### Scenario: a retried morning
 - **WHEN** a bid is already waiting on a riser **THEN** he is not bid again,
-  and the waiting amount comes off the wallet
+  the waiting amount comes off the wallet, and the summary names him as
+  already bid on
 - *Verifies:* `test_pending_bids_are_spent_already_and_never_bid_twice`,
-  `test_a_retried_run_does_not_bid_again_on_a_player_it_already_bid_on`
+  `test_a_retried_run_does_not_bid_again_on_a_player_it_already_bid_on`,
+  `test_a_riser_with_a_bid_already_waiting_is_named_not_dropped`
 
 ### Requirement: Live sells first, and bids only with money received
 

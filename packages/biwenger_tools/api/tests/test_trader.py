@@ -805,3 +805,25 @@ def test_a_suspended_player_is_not_sold_for_a_falling_price_either():
     assert result.sells == []
     ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 40]
     assert "no puede jugar" in why
+
+
+def test_a_riser_with_a_bid_already_waiting_is_named_not_dropped():
+    """8/11: auto-bid had bid on Chust and Amatucci, both risers; the trader
+    left them alone and said nothing, so its "por nadie" read as wanting two
+    other players instead of the same four."""
+    market = [_player(50, 500, MID, price=3_000_000), _player(51, 400, MID)]
+    result = plan(
+        _eleven(),
+        market,
+        _history(p50=100_000, p51=100_000),
+        cash=5_000_000,
+        round_eve=True,
+        negative_limit=0,
+        rules=RULES,
+        committed=2_000_000,
+        already_bid={50},
+    )
+    assert [m.row["bw_id"] for m in result.buys] == [51]
+    assert [(row["bw_id"], why) for row, why in result.skipped] == [
+        (50, "ya tiene puja tuya esperando (auto-bid o manual)")
+    ]
