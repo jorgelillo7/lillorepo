@@ -100,13 +100,11 @@ button { font: inherit; color: inherit; }
 .title-start::before { content: "> "; color: var(--accent); }
 .title-start:hover, .title-start:focus-visible { color: #fff; }
 .title-chapter { color: var(--muted); font-style: italic; }
-.title-warning, .title-tip, .title-keys { margin: 26px 0 0; max-width: 520px; font: 12px/1.6 var(--mono); color: var(--muted); }
+.title-warning, .title-tip { margin: 26px 0 0; max-width: 520px; font: 12px/1.6 var(--mono); color: var(--muted); }
 .title-credits { align-self: flex-start; margin: 10px 0 0; padding: 0; background: none; border: 0; text-align: left; cursor: pointer;
   font: 12px/1.6 var(--mono); letter-spacing: 0.05em; color: #8f8a7a; }
 .title-credits:hover, .title-credits:focus-visible { color: var(--ink); }
-.title-tip, .title-keys { margin-top: 8px; }
-/* Keys only mean something with a keyboard. */
-@media not ((hover: hover) and (pointer: fine)) { .title-keys { display: none; } }
+.title-tip { margin-top: 8px; }
 
 /* "Acerca de": the series' credits and notes, as the reader's page has them. */
 .about { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: safe center; overflow-y: auto;
@@ -131,7 +129,7 @@ button { font: inherit; color: inherit; }
   .title-start { font-size: 17px; }
   .title-warning { margin-top: 10px; font-size: 10px; max-width: 64ch; }
   .title-credits { margin-top: 4px; font-size: 10px; }
-  .title-tip, .title-keys { margin-top: 4px; font-size: 10px; }
+  .title-tip { margin-top: 4px; font-size: 10px; }
   .about { padding: 12px 6vw; }
   .about-title { margin: 0 0 8px; font-size: 20px; }
   .about-body p { margin: 0 0 6px; font-size: 13px; line-height: 1.4; }
