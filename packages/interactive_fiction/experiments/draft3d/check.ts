@@ -7,13 +7,14 @@
  * fade between rooms that never lifts, an ending without the next chapter's
  * way on, or a console error.
  *
- *   node check.ts [chapter] [--via <passage>]   (after npm run prepare-data; default 01)
+ *   node check.ts [chapter] [--via <passage>] [--shots <dir>]   (after npm run prepare-data; default 01)
  *
  * `--via` takes the shortest path that passes through a passage, to play a
- * room the shortest path skips.
+ * room the shortest path skips. `--shots` saves a screenshot of the room after
+ * each step, with the text put away, to look at what a player sees.
  */
 
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createServer } from "vite";
 import { outcomeOf } from "../../src/app/progression.ts";
@@ -26,7 +27,8 @@ const CDP_PORT = 9452;
 const here = dirname(new URL(import.meta.url).pathname);
 const args = process.argv.slice(2);
 const via = args.includes("--via") ? args[args.indexOf("--via") + 1] : undefined;
-const chapter = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--via") ?? "01";
+const shots = args.includes("--shots") ? args[args.indexOf("--shots") + 1] : undefined;
+const chapter = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--via" && args[i - 1] !== "--shots") ?? "01";
 const data = JSON.parse(readFileSync(join(here, `public/${chapter}.json`), "utf8"));
 const series = (JSON.parse(readFileSync(join(here, "public/library.json"), "utf8")) as SeriesEntry[])[0];
 const nextChapter = series.chapters[series.chapters.findIndex((c) => c.id === chapter) + 1];
@@ -130,6 +132,15 @@ try {
       }
       console.log(`${where ? "✓" : "✗"} ${step} — ${where || "found nowhere"} → ${scene}`);
       if (!where) failed = true;
+      if (shots) {
+        await readAll();
+        await c.ev("document.getElementById('subs-close')?.hidden === false && document.getElementById('subs-close').click()");
+        await sleep(600);
+        mkdirSync(shots, { recursive: true });
+        const shot = await c.send("Page.captureScreenshot", { format: "png" });
+        writeFileSync(join(shots, `${chapter}-${String(steps.indexOf(step) + 1).padStart(2, "0")}.png`), Buffer.from(shot.result!.data!, "base64"));
+        await c.ev("document.getElementById('reopen')?.hidden === false && document.getElementById('reopen').click()");
+      }
     }
     await readAll();
     const end = await c.ev<string>("document.getElementById('subs-text').innerText.trim().split('\\n').pop()");

@@ -70,5 +70,79 @@
       -40,
       62
     ]
+  },
+  "pasillo-p2": {
+    "world": "bf998cec-439d-4d01-923b-0b21cb6dd48c",
+    "model": "marble-1.1",
+    "splats": "worlds/pasillo-p2-500k.spz",
+    "collider": "worlds/pasillo-p2-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 64,
+    "pitch": -7,
+    "bounds": [
+      -55,
+      60
+    ]
+  },
+  "planta1": {
+    "world": "b4a90c7a-905e-4e1d-9bcd-479996322a03",
+    "model": "marble-1.1",
+    "picture": "worlds/planta1-empty.jpg",
+    "splats": "worlds/planta1-500k.spz",
+    "collider": "worlds/planta1-collider.glb",
+    "crop": [
+      0.03488,
+      0.0625
+    ],
+    "fovY": 43,
+    "pitch": -10,
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/planta1-cutout.png",
+        "rect": [
+          14.826,
+          35.742,
+          11.337,
+          28.19
+        ]
+      }
+    ],
+    "bounds": [
+      -65,
+      65
+    ]
+  },
+  "consulta": {
+    "world": "3398bfc7-6bf1-4ea7-861d-8357e502def9",
+    "model": "marble-1.1",
+    "picture": "worlds/consulta-empty.jpg",
+    "splats": "worlds/consulta-500k.spz",
+    "collider": "worlds/consulta-collider.glb",
+    "crop": [
+      0,
+      0
+    ],
+    "fovY": 45,
+    "pitch": -19,
+    "dolly": 0,
+    "figures": [
+      {
+        "image": "worlds/consulta-cutout.png",
+        "rect": [
+          57.013,
+          20.898,
+          10.901,
+          48.047
+        ]
+      }
+    ],
+    "bounds": [
+      -42,
+      44
+    ]
   }
 }

@@ -2,7 +2,7 @@
 
     python3 cutout.py <picture> <empty-room> <green-matte> <out.png>
                       [--dark-box x0,y0,x1,y1] [--single]
-                      [--exclude x0,y0,x1,y1 ...]
+                      [--exclude x0,y0,x1,y1 ...] [--bw] [--diff-box x0,y0,x1,y1]
 
 Needs numpy, scipy and pillow (a throwaway venv: `python3 -m venv /tmp/cut &&
 /tmp/cut/bin/pip3 install numpy scipy pillow`). The two other pictures come
@@ -17,6 +17,10 @@ the green matte has a clean outline but may keep furniture. Inside
 decides. `--single` keeps only the largest piece (a stray lamp or cable that
 changed between the two pictures). `--exclude` (repeatable, fractions of the
 picture) drops what is still attached to the character but not part of her.
+`--bw` reads the matte as a black-and-white mask (character white) instead of
+a green screen: Gemini paints such a mask faithfully where it leaves a green
+screen half done. Inside `--diff-box` the difference alone decides (dark
+trousers the mask missed).
 """
 
 import json
@@ -30,6 +34,14 @@ from scipy import ndimage
 def main() -> None:
     args = sys.argv[1:]
     box_frac = None
+    bw = "--bw" in args
+    if bw:
+        args.remove("--bw")
+    diff_box = None
+    if "--diff-box" in args:
+        i = args.index("--diff-box")
+        diff_box = [float(v) for v in args[i + 1].split(",")]
+        del args[i : i + 2]
     excludes = []
     while "--exclude" in args:
         i = args.index("--exclude")
@@ -75,16 +87,25 @@ def main() -> None:
         ):
             near |= lab == i + 1
     near = ndimage.binary_closing(near, iterations=25)
-    near = ndimage.binary_dilation(ndimage.binary_fill_holes(near), iterations=30)
+    # A black-and-white mask is trusted for the outline: the difference only
+    # bounds where to look, so far-off specks of the mask drop out.
+    near = ndimage.binary_dilation(
+        ndimage.binary_fill_holes(near), iterations=90 if bw else 30
+    )
 
     # Her outline: the green matte.
-    r, gg, b = g[..., 0], g[..., 1], g[..., 2]
-    fg = ~((gg > 150) & (gg > r * 1.6) & (gg > b * 1.6))
+    if bw:
+        fg = g.mean(-1) > 128
+    else:
+        r, gg, b = g[..., 0], g[..., 1], g[..., 2]
+        fg = ~((gg > 150) & (gg > r * 1.6) & (gg > b * 1.6))
     keep = ndimage.binary_opening(fg & near, iterations=2)
     lab, _ = ndimage.label(keep)
     sizes = np.bincount(lab.ravel())[1:]
     keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if s > 3000])
-    keep = ndimage.binary_fill_holes(keep) & fg
+    keep = (
+        ndimage.binary_fill_holes(keep) if bw else ndimage.binary_fill_holes(keep) & fg
+    )
 
     if box_frac:
         bx0, by0, bx1, by1 = box_frac
@@ -96,6 +117,14 @@ def main() -> None:
         lab, _ = ndimage.label(dark | keep)
         main_label = np.bincount(lab[keep].ravel()).argmax()
         keep = (keep | dark) & (lab == main_label)
+
+    if diff_box:
+        dx0, dy0, dx1, dy1 = diff_box
+        region = np.zeros_like(keep)
+        region[
+            int(height * dy0) : int(height * dy1), int(width * dx0) : int(width * dx1)
+        ] = True
+        keep |= region & ndimage.binary_opening(d > 30, iterations=2)
 
     for ex0, ey0, ex1, ey1 in excludes:
         keep[
