@@ -8,6 +8,8 @@
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 * { box-sizing: border-box; }
+/* Safari on iPhone enlarges text blocks in landscape, each by its own amount: keep the sizes set here. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body { margin: 0; height: 100%; background: #000; color: var(--ink); font: 17px/1.55 var(--serif); overflow: hidden; }
 button { font: inherit; color: inherit; }
 
@@ -86,11 +88,11 @@ button { font: inherit; color: inherit; }
 /* A phone in landscape, with the browser's bars, leaves about 330 px of height. */
 @media (max-height: 500px) {
   .title { padding: 14px 6vw; }
-  .title-series { font-size: 15px; }
-  .title-name { margin: 2px 0 14px; font-size: clamp(26px, 12dvh, 48px); }
-  .title-start { font-size: 18px; }
-  .title-warning { margin-top: 14px; font-size: 11px; max-width: 70ch; }
-  .title-tip { font-size: 11px; }
+  .title-series { font-size: 14px; }
+  .title-name { margin: 0 0 12px; font-size: clamp(24px, 9dvh, 36px); }
+  .title-start { font-size: 17px; }
+  .title-warning { margin-top: 12px; font-size: 10px; max-width: 64ch; }
+  .title-tip { font-size: 10px; }
   .subs { bottom: 8px; max-height: 76%; padding: 12px 16px 6px; }
   .subs-text { font-size: 15px; line-height: 1.45; }
   .subs-bar { margin-top: 6px; }
