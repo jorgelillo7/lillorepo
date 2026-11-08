@@ -301,6 +301,7 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     | `GET`  | `/pact` · `POST` `/pact/toggle` | Read / flip the non-aggression pact — bot's `/pacto` |
     | `GET`  | `/market` | Transfer market — bot's `/mercado` |
     | `POST` | `/lineups/auto-pick` | Pick the lineup; applies it unless previewing — bot's `/alinear`, `/preview` |
+    | `POST` | `/lineups/kickoff` | Scheduler, every quarter hour: the same pick, only when the round's first kick-off is 30 min away |
     | `GET`  | `/budget/recommendations` | Top affordable clausulazo targets per position — bot's `/recomendar` |
     | `POST` | `/scraper/trigger` | Queue a scraper job execution — bot's `/scrapper` |
     | `POST` | `/emergency/clausulazo/preview` · `/execute` | Emergency clausulazo: plan, then buy on confirmation |

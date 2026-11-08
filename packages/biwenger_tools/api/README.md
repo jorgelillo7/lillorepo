@@ -20,6 +20,7 @@ OIDC ID token; the bot's and the Scheduler's service accounts both have
 | `GET`  | `/managers` | League managers list (powers the bot's `/analizar` picker) |
 | `GET`  | `/market` | Transfer market (was `/mercado`) |
 | `POST` | `/lineups/auto-pick` | Pick + apply lineup (was `/alinear`) |
+| `POST` | `/lineups/kickoff` | Scheduler tick: the same pick 30 min before the round's first kick-off, nothing otherwise |
 | `GET`  | `/budget/recommendations[?top=N]` | Top-N affordable clausulazo targets per position |
 | `POST` | `/digests/daily` | Cron only — squad, market, lineup, auto-bid, trader, offers |
 | `POST` | `/league/compare` | `/comparar`: value and best-eleven SF of every squad |

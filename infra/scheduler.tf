@@ -1,4 +1,4 @@
-# Two of the billing account's three free Scheduler jobs.
+# The billing account's three free Scheduler jobs; a fourth costs $0.10 a month.
 resource "google_cloud_scheduler_job" "daily_digest" {
   project          = local.biwenger
   region           = local.scheduler_region
@@ -18,6 +18,42 @@ resource "google_cloud_scheduler_job" "daily_digest" {
   http_target {
     http_method = "POST"
     uri         = "https://biwenger-api-pjpqofuevq-no.a.run.app/digests/daily"
+    body        = base64encode("{}")
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    oidc_token {
+      service_account_email = local.sa.scheduler
+      audience              = "https://biwenger-api-pjpqofuevq-no.a.run.app"
+    }
+  }
+}
+
+# Biwenger freezes the eleven at the round's first kick-off. Every quarter hour
+# the API asks whether that kick-off is half an hour away and sets the lineup
+# only then; every other tick reads the fixtures and returns. LaLiga kicks off
+# from 12:00, so the ticks start at 10:00.
+resource "google_cloud_scheduler_job" "kickoff_lineup" {
+  project          = local.biwenger
+  region           = local.scheduler_region
+  name             = "biwenger-kickoff-lineup-trigger"
+  description      = "Triggers biwenger-api /lineups/kickoff — sets the lineup 30 min before the round's first match"
+  schedule         = "*/15 10-23 * * *"
+  time_zone        = "Europe/Madrid"
+  attempt_deadline = "180s"
+
+  retry_config {
+    retry_count          = 1
+    max_backoff_duration = "60s"
+    max_doublings        = 1
+    max_retry_duration   = "0s"
+    min_backoff_duration = "30s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://biwenger-api-pjpqofuevq-no.a.run.app/lineups/kickoff"
     body        = base64encode("{}")
     headers = {
       "Content-Type" = "application/json"

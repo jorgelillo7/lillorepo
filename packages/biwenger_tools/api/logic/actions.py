@@ -13,7 +13,7 @@ from datetime import datetime
 import requests
 
 from core.constants import MADRID_TZ
-from core.sdk.biwenger import BiwengerClient
+from core.sdk.biwenger import BiwengerClient, fetch_round
 from core.sdk.telegram import (
     send_telegram_message,
     send_telegram_message_or_raise,
@@ -25,6 +25,7 @@ from packages.biwenger_tools.api.logic import (
     board_archive_store,
     draft,
     fixture_run,
+    kickoff_lineup,
     league_cash,
     league_compare,
     pact_store,
@@ -861,6 +862,21 @@ def _diff_against_saved_lineup(biwenger, result: dict, my_team: list) -> dict:
             "No se ha podido leer tu alineación actual para compararla."
         )
     return lineup_logic.diff_against_current(result, my_team, current)
+
+
+def run_kickoff_lineup(now: datetime | None = None) -> dict:
+    """Set the lineup if the round's first kick-off is half an hour away.
+
+    Called every quarter of an hour; all but one tick a round only read the
+    fixtures, with no Biwenger login. The due one runs the same pick as
+    `/lineups/auto-pick`, Telegram confirmation included.
+    """
+    now = now or datetime.now(MADRID_TZ)
+    round_id = kickoff_lineup.due(fetch_round(), now)
+    if round_id is None:
+        return {"due": False}
+    logger.info("Kick-off lineup due.", extra={"round_id": round_id})
+    return {"due": True, "round_id": round_id, **run_auto_pick_lineup()}
 
 
 def run_auto_pick_lineup(dry_run: bool = False, ctx=None) -> dict:

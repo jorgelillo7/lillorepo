@@ -16,6 +16,7 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 | Cloud Run (Services) | `chucknorris-bot` | Chuck Norris jokes Telegram bot |
 | Cloud Run (Jobs) | `biwenger-scraper-data` | Scrapes the league board → Firestore (`comunicados`, `participacion`, `clausulazos`, `tabla_justicia`, `board_archive`) |
 | Cloud Scheduler | `biwenger-scraper-data-scheduler-trigger` (`europe-west1`) | Triggers scraper job (cron weekly Sun 22:00) |
+| Cloud Scheduler | `biwenger-kickoff-lineup-trigger` (`europe-west1`) | Every quarter hour 10:00–23:45 Madrid → `biwenger-api/lineups/kickoff`; sets the lineup 30 min before the round's first match, does nothing at every other tick |
 | Cloud Scheduler | `biwenger-daily-digest-trigger` (`europe-west1`) | Triggers `biwenger-api/digests/daily` (daily 07:15 Madrid) — sends squad + market images and chains the auto-bid summary at the end |
 | Secret Manager | 3 secrets, one per package (see below) | Credentials and bot tokens |
 | Artifact Registry | `biwenger-docker` | Docker images for all Cloud Run services/jobs |

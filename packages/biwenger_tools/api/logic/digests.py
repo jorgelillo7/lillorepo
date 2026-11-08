@@ -9,15 +9,9 @@ Every step is wrapped in a swallow-on-failure helper so one failing step
 doesn't lose the rest of the digest.
 
 The lineup step exists so a player who arrives overnight is fielded without
-anyone opening the app. It runs at 07:15 like everything else, which is early:
-Biwenger locks each player at *his* kickoff, and a matchday can span days, so
-this is a floor and not the best possible lineup.
-
-One fixed hour is chosen over waking near each kickoff on purpose. The precise
-version needs a tick that reads the fixture list and self-gates, and the gain
-over "a decent lineup every morning, forced by hand before a match that
-matters" does not pay for it. What the floor buys is that forgetting costs a
-stale lineup instead of an empty one.
+anyone opening the app. It is a floor: Biwenger freezes the whole eleven at the
+round's first kick-off, and `/lineups/kickoff` sets it again half an hour
+before that.
 
 The auto-bid step honours `config.AUTO_BID_PAUSED_UNTIL`: while today
 (Madrid) is before that date the digest skips it and posts a short pause
