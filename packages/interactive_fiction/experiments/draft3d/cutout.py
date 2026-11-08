@@ -3,6 +3,7 @@
     python3 cutout.py <picture> <empty-room> <green-matte> <out.png>
                       [--dark-box x0,y0,x1,y1] [--single]
                       [--exclude x0,y0,x1,y1 ...] [--bw] [--diff-box x0,y0,x1,y1]
+                      [--mask-only]
 
 Needs numpy, scipy and pillow (a throwaway venv: `python3 -m venv /tmp/cut &&
 /tmp/cut/bin/pip3 install numpy scipy pillow`). The two other pictures come
@@ -20,7 +21,8 @@ picture) drops what is still attached to the character but not part of her.
 `--bw` reads the matte as a black-and-white mask (character white) instead of
 a green screen: Gemini paints such a mask faithfully where it leaves a green
 screen half done. Inside `--diff-box` the difference alone decides (dark
-trousers the mask missed).
+trousers the mask missed). `--mask-only` ignores the difference: for an edit
+that also relit the room, where the two pictures differ everywhere.
 """
 
 import json
@@ -34,8 +36,11 @@ from scipy import ndimage
 def main() -> None:
     args = sys.argv[1:]
     box_frac = None
-    bw = "--bw" in args
-    if bw:
+    mask_only = "--mask-only" in args
+    if mask_only:
+        args.remove("--mask-only")
+    bw = "--bw" in args or mask_only
+    if "--bw" in args:
         args.remove("--bw")
     diff_box = None
     if "--diff-box" in args:
@@ -99,7 +104,7 @@ def main() -> None:
     else:
         r, gg, b = g[..., 0], g[..., 1], g[..., 2]
         fg = ~((gg > 150) & (gg > r * 1.6) & (gg > b * 1.6))
-    keep = ndimage.binary_opening(fg & near, iterations=2)
+    keep = ndimage.binary_opening(fg if mask_only else fg & near, iterations=2)
     lab, _ = ndimage.label(keep)
     sizes = np.bincount(lab.ravel())[1:]
     keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if s > 3000])
