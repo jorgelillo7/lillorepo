@@ -107,7 +107,11 @@ npm run deploy           # the draft's own Worker, never the public reader
 ```
 
 Open it on a phone in landscape too — headless Chrome does not apply Safari's
-text inflation or its bars. Then the author: what changed, the link, and what
+text inflation or its bars. Added to the home screen it opens full screen,
+without Safari's bars: that is the way to play it on an iPhone, and the title
+screen says so. The icon is `worlds/icon-1024.png` (Cheshire's keychain,
+painted with `view.ts … --aspect 1:1`, its frame trimmed: the phone rounds the
+corners); `prepare.ts` makes every size and the manifest from it. Then the author: what changed, the link, and what
 is still a draft (quality, characters).
 
 # What went wrong once, and why the rule exists

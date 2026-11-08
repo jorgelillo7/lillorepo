@@ -58,6 +58,10 @@ document.title = `${data.title} · borrador 3D`;
 $("title-series").textContent = series.title;
 $("title-name").textContent = data.title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, "");
 $("title-warning").textContent = series.game.title?.warning ?? "";
+// Opened from the home screen already: the tip has done its job.
+if ((navigator as Navigator & { standalone?: boolean }).standalone || matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches) {
+  $("title-tip").hidden = true;
+}
 // The author's own components (a book page, the rules) keep his styling; rules that lay out his whole page do not apply here.
 const authorCss = document.createElement("style");
 authorCss.textContent = (data.stylesheet ?? "").replace(/[^{}]*(?:tw-story|tw-passage|\bbody\b|\bhtml\b)[^{}]*\{[^{}]*\}/g, "");
