@@ -126,3 +126,5 @@ is still a draft (quality, characters).
 | Images keep the chapter's path (`stories/<series>/scenes/…`) | Serving them elsewhere showed a broken image on the iPhone |
 | `text-size-adjust: 100%` | Safari enlarged each subtitle by a different amount in landscape |
 | Phones play in landscape only | In portrait the room's sides fall off screen |
+| No page zoom (`touch-action`, viewport, Safari's gesture events) | A double tap zoomed the page, threw the buttons off screen, and nothing in the game could undo it |
+| Rooms change behind a fade, and the next rooms preload | Entering the bathroom while its world downloaded looked like a freeze |

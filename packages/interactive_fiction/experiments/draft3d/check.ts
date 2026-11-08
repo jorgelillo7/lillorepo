@@ -2,7 +2,8 @@
  * Play the draft's chapter to an ending as a player would, in headless Chrome
  * at a phone held in landscape: the shortest path to an ending, each choice
  * made by touching its thing in the room when the room holds it, else in the
- * text. Fails on a choice found nowhere, a missing ending or a console error.
+ * text. Fails on a choice found nowhere, a fade between rooms that never
+ * lifts, or a console error.
  *
  *   node check.ts        (after npm run prepare-data)
  */
@@ -75,6 +76,12 @@ try {
       return '';
     })()`);
     await sleep(1200);
+    // A fade between rooms that never lifted would leave a black screen a real tap cannot get through.
+    for (let i = 0; i < 40 && (await c.ev("document.getElementById('veil').classList.contains('on')")); i++) await sleep(250);
+    if (await c.ev("document.getElementById('veil').classList.contains('on')")) {
+      console.log(`✗ ${step} — the fade to the next room never lifted`);
+      failed = true;
+    }
     const scene = await c.ev<string>("document.getElementById('world').hidden ? (document.getElementById('flat').hidden ? 'text only' : '2D') : '3D'");
     console.log(`${where ? "✓" : "✗"} ${step} — ${where || "found nowhere"} → ${scene}`);
     if (!where) failed = true;

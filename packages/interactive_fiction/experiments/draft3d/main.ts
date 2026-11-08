@@ -287,7 +287,36 @@ function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
 }
 
 /** Show the passage's scene; returns the choices it holds, which are found by exploring rather than read in the text. */
+/**
+ * Change scene behind a short fade to black, so moving between rooms reads as
+ * a step and never as a freeze; a loading line appears only if the next
+ * room's world is still downloading.
+ */
+let shownScene: string | undefined;
+const veil = $<HTMLElement>("veil");
 async function showScene(id: string | undefined): Promise<Set<number>> {
+  const scene = id ? scenes.scenes[id] : undefined;
+  if (scene?.room !== room) {
+    if (room !== undefined) door();
+    room = scene?.room;
+  }
+  const changing = shownScene !== undefined && id !== shownScene;
+  shownScene = id;
+  if (changing) {
+    veil.classList.add("on");
+    await new Promise((r) => setTimeout(r, 380));
+  }
+  const waiting = setTimeout(() => veil.classList.add("waiting"), 250);
+  try {
+    return await setScene(id);
+  } finally {
+    clearTimeout(waiting);
+    veil.classList.remove("waiting");
+    if (changing) requestAnimationFrame(() => veil.classList.remove("on"));
+  }
+}
+
+async function setScene(id: string | undefined): Promise<Set<number>> {
   const scene = id ? scenes.scenes[id] : undefined;
   const all = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
   // A world with hand-placed hotspots shows only those; the rest stay text choices.
@@ -300,10 +329,6 @@ async function showScene(id: string | undefined): Promise<Set<number>> {
   flatScene = null;
   focus = null;
   focusAmount = 0;
-  if (scene?.room !== room) {
-    if (room !== undefined) door();
-    room = scene?.room;
-  }
   setAmbience(ambienceFor(scene));
   if (scene && id && worlds[id]) {
     const next = await loadWorld(id);
@@ -492,4 +517,13 @@ start.addEventListener("click", () => {
   unlock();
   $("title").classList.add("gone");
   void show(data.start);
+  // The other rooms download in the background, so stepping into one is usually instant.
+  void (async () => {
+    for (const id of Object.keys(worlds)) await loadWorld(id).catch(() => undefined);
+  })();
 });
+
+// Safari's own gestures still zoom past touch-action in places: stop them outright.
+for (const type of ["gesturestart", "gesturechange", "dblclick"]) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
