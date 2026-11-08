@@ -18,6 +18,7 @@ from core.sdk.jp import check_api_health, fetch_all_players
 from core.sdk.oraculo import (
     fetch_picks,
     fetch_predictions,
+    in_sofascore,
     matchday_dates,
     rows_for_dates,
 )
@@ -87,8 +88,9 @@ def _read_oraculo(
     try:
         picks_result = fetch_picks()
         dates = matchday_dates(picks_result)
-        predictions = rows_for_dates(fetch_predictions(), dates)
         picks = picks_result.get("picks") or {}
+        # The page is Diario AS; only the SofaScore lists lend it points.
+        predictions = in_sofascore(rows_for_dates(fetch_predictions(), dates), picks)
         lists = {
             name: [entry.get("slug") for entry in entries or []]
             for name, entries in picks.items()

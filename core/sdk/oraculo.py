@@ -204,6 +204,32 @@ def fetch_predictions() -> list[dict]:
     return _cached("predictions", produce)
 
 
+def in_sofascore(page_rows: list[dict], picks: dict) -> list[dict]:
+    """The predictions page's rows with their points in SofaScore, or none.
+
+    The page is fixed to Diario AS (`docs/external/analitica-fantasy-api.yaml`)
+    and no public route gives SofaScore for every player. A row whose player
+    and fixture are on the API's SofaScore lists takes that number; every
+    other row keeps its identity and `chance`, which no scoring system
+    changes, with `predictedPoints` set to `None` so nothing reads a Diario
+    AS number as SofaScore.
+    """
+    sofascore = {
+        (entry.get("playerId"), entry.get("fixtureId")): entry.get("predictedPoints")
+        for entries in (picks or {}).values()
+        for entry in entries or []
+    }
+    return [
+        {
+            **row,
+            "predictedPoints": sofascore.get(
+                (row.get("playerId"), row.get("fixtureId"))
+            ),
+        }
+        for row in page_rows
+    ]
+
+
 def team_outlook(payload: str) -> list[dict]:
     """Each team's fixtures still to play, from the calendar predictor's flight
     payload: win/draw/loss, the goals each side is expected to score, and the

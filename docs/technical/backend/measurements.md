@@ -52,7 +52,7 @@ Rounds 1–11 of 2026/27, seven managers.
 | Was lowering the trader's sale hold from 14 to 7 days right? | `TRADER_HOLD_DAYS` back to 14, or kept | Lowered on 9/11 on a first read of 148 league flips: sold within 7 days, 70–74 % were up (median +2–3 %); held 10–21 days, 38–60 %. Sellers chose when to sell, so the read suggests rather than proves. Check: simulate both holds on `price_snapshots`, late November, and the trader's own sales between day 7 and 14. The keeper cover still follows the 14-day clause lock | `board_archive`, `price_snapshots` |
 | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar to start a projected substitute? | The threshold | Promotions against real points; one in twelve months, so seasons | the ledger |
 | Should the draft penalise players who rarely start? | `--starts-penalty` on by default | Next pre-season | the draft skill |
-| How much does it matter that the blend reads Oráculo in Diario AS points? | `ORACULO_W` kept or 0 | The predictions page is always Diario AS and no public route gives SofaScore for every player. `oraculo_scales` (from round 13) keeps both for the ~40 listed players | the ledger; [the routes](../../external/analitica-fantasy-api.yaml) |
+| Does the blend, now SofaScore-only, beat Jornada Perfecta alone? | `ORACULO_W` kept or 0 | Until 9/11 it read Oráculo in Diario AS (the predictions page's only scale). Since then it reads SofaScore points for the ~40 players on Oráculo's lists and JP alone for the rest. Graded with the blend question above, from round 13 | `report.py`; [the routes](../../external/analitica-fantasy-api.yaml) |
 
 Two sightings wait on events rather than rounds: Jornada Perfecta and Biwenger
 disagreeing on whether a player is available (one case so far), and a

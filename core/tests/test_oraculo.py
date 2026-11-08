@@ -240,3 +240,35 @@ def test_team_outlook_is_fetched_once_an_hour(calendar_html):
 
     assert first == second and len(first) == 3
     assert m.call_count == 1
+
+
+# --- in_sofascore ----------------------------------------------------------
+
+
+def test_page_points_are_replaced_by_the_sofascore_lists_or_dropped():
+    """The predictions page is fixed to Diario AS. A player on the API's
+    SofaScore lists takes that number; any other keeps his row — his `chance`
+    and his identity are scale-free — but loses the Diario AS points."""
+    page = [
+        {"playerId": 1, "fixtureId": 9, "predictedPoints": 5.74, "chance": 80},
+        {"playerId": 2, "fixtureId": 9, "predictedPoints": 4.10, "chance": 90},
+    ]
+    picks = {
+        "centrocampistas": [{"playerId": 1, "fixtureId": 9, "predictedPoints": 8.41}],
+        "capitanes": [{"playerId": 1, "fixtureId": 9, "predictedPoints": 8.41}],
+    }
+
+    rows = oraculo.in_sofascore(page, picks)
+
+    assert rows == [
+        {"playerId": 1, "fixtureId": 9, "predictedPoints": 8.41, "chance": 80},
+        {"playerId": 2, "fixtureId": 9, "predictedPoints": None, "chance": 90},
+    ]
+    assert page[0]["predictedPoints"] == 5.74  # the input is not mutated
+
+
+def test_a_pick_for_another_fixture_does_not_lend_its_points():
+    page = [{"playerId": 1, "fixtureId": 9, "predictedPoints": 5.0}]
+    picks = {"porteros": [{"playerId": 1, "fixtureId": 8, "predictedPoints": 7.0}]}
+
+    assert oraculo.in_sofascore(page, picks)[0]["predictedPoints"] is None

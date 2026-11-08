@@ -5,7 +5,8 @@ Perfecta: its recommendation lists and its per-player projections. It reports
 what Oráculo says and decides nothing itself.
 
 - **Source:** `core/sdk/oraculo.py`
-- **Verified by:** `core/tests/test_oraculo.py` (fixtures in `core/tests/data/`)
+- **Verified by:** `core/tests/test_oraculo.py` (fixtures in `core/tests/data/`),
+  `packages/biwenger_tools/api/tests/test_orchestration.py`
 
 ---
 
@@ -59,6 +60,24 @@ path, query or cookie selects another; no public route gives SofaScore points
 for the whole matchday (`docs/external/analitica-fantasy-api.yaml`). The
 blend's percentile map aligns the magnitudes, not the order the two scoring
 systems put players in.
+
+So the page's points SHALL NOT reach the blend. `in_sofascore` SHALL give each
+page row the `predictedPoints` of the same player and fixture on the API's
+SofaScore lists, and `None` to every other row, keeping the row — its identity
+and `chance` are scale-free. The blend then reads Oráculo for the ~40 listed
+players and Jornada Perfecta alone for the rest (`orchestration._read_oraculo`,
+the draft's ranking included). Coverage is unchanged: it counts matched rows,
+not rows with points.
+
+#### Scenario: only SofaScore points reach the blend
+- **WHEN** a page row's player and fixture are on the SofaScore lists **THEN**
+  he takes that number
+- **WHEN** they are not, or the list has him for another fixture **THEN** his
+  row stays, with `chance`, and `predictedPoints` is `None`
+- **WHEN** the context is built **THEN** the index carries those rows
+- *Verifies:* `test_page_points_are_replaced_by_the_sofascore_lists_or_dropped`,
+  `test_a_pick_for_another_fixture_does_not_lend_its_points`,
+  `test_the_blend_reads_sofascore_points_never_the_pages_diario_as`
 
 The API's recommendation lists only cover highlights. The page is the only
 source for the rest of the squad, and it carries its data inside the HTML

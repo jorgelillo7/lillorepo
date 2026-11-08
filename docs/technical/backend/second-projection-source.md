@@ -174,7 +174,10 @@ SofaScore. The site fixes this page's provider to `biwenger-diario-as`; the
 same players read 5.74 here, 5.86 from the API under `biwenger-diario-as` and
 8.41 under `biwenger-sofascore` (Arda Güler). The screenshot check below
 matched because the screenshot was of the same default view. Every route, and
-what scale it serves: `docs/external/analitica-fantasy-api.yaml`. Checked against a screenshot of the site taken independently:
+what scale it serves: `docs/external/analitica-fantasy-api.yaml`. Since 9/11
+the blend takes points only from the API's SofaScore lists (~40 players a
+matchday, `oraculo.in_sofascore`) and reads the page for identity and
+`chance`; the rest of the squad is Jornada Perfecta alone. Checked against a screenshot of the site taken independently:
 Marcos Alonso 4.89 against 4.99, Carl Starfelt 4.20 against 4.29 — within the
 hourly retrain. Per player it carries:
 

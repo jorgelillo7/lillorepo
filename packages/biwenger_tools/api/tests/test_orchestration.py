@@ -88,6 +88,31 @@ def test_a_successful_read_builds_an_index_scoped_to_the_upcoming_matchday():
     assert find_player_match("Otra Jornada", ctx.oraculo_index) is None
 
 
+def test_the_blend_reads_sofascore_points_never_the_pages_diario_as():
+    """The predictions page is Diario AS. Only players on the SofaScore lists
+    keep points; the rest stay matched, with their chance, and no points."""
+    page = PREDICTIONS + [
+        {
+            "playerId": 4,
+            "playerName": "Medio",
+            "slug": "medio-4",
+            "predictedPoints": 4.0,
+            "chance": 90,
+            "fixtureDate": "2026-09-18T18:00:00+00:00",
+        }
+    ]
+    with ExitStack() as stack:
+        _base_patches(stack)
+        stack.enter_context(patch(_patch("fetch_picks"), return_value=PICKS_RESULT))
+        stack.enter_context(patch(_patch("fetch_predictions"), return_value=page))
+        ctx = orchestration.build_context()
+
+    medio = find_player_match("Medio", ctx.oraculo_index)["_oraculo"]
+    assert (medio["predictedPoints"], medio["chance"]) == (None, 90)
+    punta = find_player_match("Punta", ctx.oraculo_index)["_oraculo"]
+    assert punta["predictedPoints"] == 7.4
+
+
 def test_a_failing_global_scale_degrades_to_jp_alone_without_raising():
     """`oraculo_scale` shares the same broad fallback as `oraculo_index`: a
     provider we treat as optional must never take the whole context down,
