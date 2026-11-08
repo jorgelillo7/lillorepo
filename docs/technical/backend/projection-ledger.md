@@ -178,6 +178,24 @@ morning already holds both the player list and the JP read — and about 8 KB a
 document, exempt from Firestore indexing (`infra/firestore.tf`). It is what
 the opponent effect below compares against.
 
+**Each team's outlook.** Each projection also stores `team_outlook`: for every
+fixture of the round, each side's win, draw and loss chances, expected goals
+for and against, and clean-sheet chance, from Analítica Fantasy's calendar
+predictor (one page read an hour, cached; a Poisson model,
+`poisson-team-strength-v2`). The page gives a clean-sheet factor only where it
+stands out, so it is derived for every row as `exp(-goals_against)`, which
+matches it where given (Real Madrid against Celta: 0.458 against the page's
+0.4605). Team names are the site's ("Celta de Vigo"), not Biwenger's. It is
+there to grade one question before anything acts on it: whether picking the
+captain, or a defender, by his team's chance to win or keep a clean sheet
+would have scored more than the projection alone. The league's bonuses are
+worth about 2 points a round, so expect a small answer.
+
+The site's other pages were looked at and left out: the power ranking has no
+starter information (it ranked Espanyol's benched keeper first), and the
+saves and rating leaderboards are season averages the projections already
+contain.
+
 ## The opponent effect
 
 `scripts/projections/opponent_effect.py` asks whether facing Barcelona or Real

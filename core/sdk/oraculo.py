@@ -21,6 +21,7 @@ and must not look alike.
 """
 
 import json
+import math
 import re
 import time
 from typing import Iterable, Optional
@@ -36,6 +37,7 @@ SISTEMA_BIWENGER = "biwenger-sofascore"
 
 _API_HOST = "https://server.analiticafantasy.com"
 PREDICTIONS_URL = "https://www.analiticafantasy.com/biwenger/predicciones"
+CALENDAR_URL = "https://www.analiticafantasy.com/la-liga/calendario-predictor"
 
 # Identifies itself on purpose. The site keeps the ability to see, rate-limit
 # or block this reader, which is what separates reading from hiding — and there
@@ -197,6 +199,58 @@ def fetch_predictions() -> list[dict]:
         return list(rows.values())
 
     return _cached("predictions", produce)
+
+
+def team_outlook(payload: str) -> list[dict]:
+    """Each team's fixtures still to play, from the calendar predictor's flight
+    payload: win/draw/loss, the goals each side is expected to score, and the
+    clean sheet those imply.
+
+    The page lists a clean-sheet factor only where it stands out, so it is
+    derived for every row the way its Poisson model does: the chance the rival
+    scores none, `exp(-goals_against)`. Team names are the site's, not
+    Biwenger's ("Celta de Vigo", "Atlético de Madrid").
+    """
+    rows = []
+    for entry in _objects(payload, "matchday"):
+        fixture = entry.get("matchday")
+        if not isinstance(fixture, dict) or fixture.get("isFinal"):
+            continue
+        if not fixture.get("hasPrediction"):
+            continue
+        explanation = fixture.get("explanation") or {}
+        against = explanation.get("opponentLambda")
+        round_name = str(fixture.get("round") or "")
+        number = round_name.rsplit(" ", 1)[-1]
+        rows.append(
+            {
+                "team": entry.get("teamName"),
+                "opponent": fixture.get("opponentName"),
+                "home": bool(fixture.get("isHome")),
+                "matchday": int(number) if number.isdigit() else None,
+                "kickoff": fixture.get("fixtureDate"),
+                "win": fixture.get("winProb"),
+                "draw": fixture.get("drawProb"),
+                "loss": fixture.get("lossProb"),
+                "goals_for": explanation.get("teamLambda"),
+                "goals_against": against,
+                "clean_sheet": math.exp(-against) if against is not None else None,
+            }
+        )
+    return rows
+
+
+def fetch_team_outlook() -> list[dict]:
+    """`team_outlook` of the live calendar predictor page, cached like the rest."""
+
+    def produce() -> list[dict]:
+        rows = team_outlook(_flight_payload(_get(CALENDAR_URL).text))
+        if not rows:
+            raise OraculoError("Calendar predictor carried no upcoming fixtures")
+        logger.info("Oráculo team outlook read.", extra={"rows": len(rows)})
+        return rows
+
+    return _cached("team_outlook", produce)
 
 
 def rows_for_dates(rows: Iterable[dict], dates: set[str]) -> list[dict]:

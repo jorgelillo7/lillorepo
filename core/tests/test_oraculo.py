@@ -184,3 +184,59 @@ def test_the_cache_expires_after_its_ttl(picks_body, monkeypatch):
         now[0] += 2
         oraculo.fetch_picks()
         assert m.call_count == 2
+
+
+# --- fetch_team_outlook ----------------------------------------------------
+
+
+@pytest.fixture
+def calendar_html():
+    return _data("oraculo_calendar.html")
+
+
+def test_team_outlook_reads_each_upcoming_fixture_per_team(calendar_html):
+    """One row per team and fixture still to play: win/draw/loss, the goals
+    each side is expected to score, and the clean sheet those imply."""
+    rows = oraculo.team_outlook(oraculo._flight_payload(calendar_html))
+
+    madrid = [r for r in rows if r["team"] == "Real Madrid" and r["matchday"] == 13]
+    assert madrid == [
+        {
+            "team": "Real Madrid",
+            "opponent": "Celta Vigo",
+            "home": True,
+            "matchday": 13,
+            "kickoff": "2026-11-22T16:00:00+00:00",
+            "win": 0.7142,
+            "draw": 0.1749,
+            "loss": 0.1109,
+            "goals_for": 2.28,
+            "goals_against": 0.78,
+            "clean_sheet": pytest.approx(0.4584, abs=1e-4),
+        }
+    ]
+
+
+def test_a_played_fixture_is_not_an_outlook(calendar_html):
+    rows = oraculo.team_outlook(oraculo._flight_payload(calendar_html))
+
+    assert {r["matchday"] for r in rows} == {13, 14}
+
+
+def test_the_clean_sheet_is_derived_where_the_page_omits_it(calendar_html):
+    """The page lists a clean-sheet factor only where it is notable (Madrid's
+    0.4605); the rival's expected goals give it for every row, the same way."""
+    rows = oraculo.team_outlook(oraculo._flight_payload(calendar_html))
+
+    celta = next(r for r in rows if r["team"] == "Celta de Vigo")
+    assert celta["clean_sheet"] == pytest.approx(0.1023, abs=1e-4)
+
+
+def test_team_outlook_is_fetched_once_an_hour(calendar_html):
+    with requests_mock.Mocker() as m:
+        m.get(oraculo.CALENDAR_URL, text=calendar_html)
+        first = oraculo.fetch_team_outlook()
+        second = oraculo.fetch_team_outlook()
+
+    assert first == second and len(first) == 3
+    assert m.call_count == 1
