@@ -142,7 +142,7 @@ def test_a_shape_change_at_the_provider_is_caught_too():
     """The likely failure: the page still answers, in a shape we cannot read.
 
     `OraculoError` covers the network. A `KeyError` or `TypeError` out of the
-    parsing would otherwise escape `build_context` and take the whole 09:00
+    parsing would otherwise escape `build_context` and take the whole 07:15
     digest with it, for a provider that is meant to be optional.
     """
     with ExitStack() as stack:

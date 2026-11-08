@@ -233,7 +233,7 @@ def test_run_daily_continues_to_auto_bid_when_first_photo_fails():
 
 
 def test_run_daily_writes_the_projection_ledger_for_the_round_it_targets():
-    """The current round has already kicked off (the usual 09:00 state
+    """The current round has already kicked off (the usual 07:15 state
     under *jornada única*), so the snapshot is written for `next`, the
     round the lineup pick actually lands on — not `get_round()`'s own `id`."""
     now = datetime.now(MADRID_TZ)

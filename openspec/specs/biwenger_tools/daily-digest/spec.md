@@ -1,10 +1,20 @@
 # Capability: daily-digest
 
-The 09:00 Madrid cron orchestration (`POST /digests/daily`): send the squad +
+The 07:15 Madrid cron orchestration (`POST /digests/daily`): send the squad +
 market images to Telegram, then chain the lineup, auto-bid, a warning when a
 clause protection is about to end (`league-cash` spec) and any offer worth
 accepting. This is
 the capability the project SLO covers.
+
+**Why 07:15.** Biwenger's market turns over at 07:00: auctions close at 07:00
+sharp (each listing's `until`) and the day's free agents are listed between
+07:02 and 07:05 (read on 7 and 8 November 2026). 07:15 is the earliest tick
+that sees the new market with a margin for a late batch. Bids are secret and
+the highest wins, so the hour does not win auctions; it breaks ties ("a tie goes
+to the bid placed first") and puts the morning's market, cash and clause
+reach in front of the owner nearly two hours sooner. Jornada Perfecta
+republishes overnight (23:00–03:30 in the same week's runs), so the earlier
+hour reads the same projection.
 
 - **Source:** `packages/biwenger_tools/api/logic/digests.py`,
   `orchestration.py`
@@ -179,7 +189,7 @@ rendered.
 The catch there is deliberately broad rather than typed to `OraculoError`.
 Oráculo is read out of a page we do not control, so the likely failure is a
 shape change surfacing as `KeyError` or `TypeError`, not the network error the
-SDK raises. Catching only the typed one would take the 09:00 digest down for a
+SDK raises. Catching only the typed one would take the 07:15 digest down for a
 source the design calls optional.
 
 A step that produces a **message of its own** SHALL also say in the chat that
@@ -228,7 +238,7 @@ never shipped.
 
 ### Requirement: The morning lineup is a floor, not the best one
 
-Setting the lineup at 09:00 exists so a player who arrives overnight is fielded
+Setting the lineup at 07:15 exists so a player who arrives overnight is fielded
 without anyone opening the app. **One fixed hour is the deliberate choice**: the
 alternative — waking near each kickoff — needs a tick that self-gates on the
 fixture list, and the value of that over a floor plus a manual override does not

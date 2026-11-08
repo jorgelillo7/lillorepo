@@ -90,7 +90,7 @@ Distroless answers a Kubernetes-shaped problem: shared node surface, `kubectl
 exec` as a real attack path, a platform team maintaining a base image. None of
 those describe a single-user Cloud Run side project.
 
-**What would reopen this:** cold start starting to eat the 09:00 digest SLO (it
+**What would reopen this:** cold start starting to eat the 07:15 digest SLO (it
 sits at ~5–10 s against a 5 min budget), or free-tier pressure in Artifact
 Registry.
 

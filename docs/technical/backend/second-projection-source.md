@@ -76,7 +76,7 @@ That answers, with our own data rather than one bad afternoon: which predicts
 better, whether disagreement anticipates a blow-up, and whether probability of
 an event picks a better captain than `SCORE_SF` does.
 
-It is also read-only, cannot break the 09:00 digest, and makes the first real
+It is also read-only, cannot break the 07:15 digest, and makes the first real
 change of behaviour an evidence-based one. Adding a source and trusting it
 immediately would repeat the mistake this document exists to fix — being sold
 out to one number, only now to two of them.
@@ -115,7 +115,7 @@ did not match, never zero it in silence.
 
 ## Operational constraints
 
-- **The SLO.** The 09:00 digest has a five-minute end-to-end budget. A second
+- **The SLO.** The 07:15 digest has a five-minute end-to-end budget. A second
   provider adds latency and a new failure mode: it must degrade to JP alone,
   loudly, and never block the digest.
 - **Staleness.** JP stamps `updated_at` and we check it. Whatever we read from
@@ -199,7 +199,7 @@ it**; a Saturday-morning read is a different dataset from a Tuesday one.
   redistributing them, and the distinction is the owner's to make before any of
   this ships.
 - **Staleness.** The model retrains hourly and the numbers visibly move. Read
-  as late as the 09:00 SLO allows, and stamp what was read.
+  as late as the 07:15 SLO allows, and stamp what was read.
 - **Scraping is fragile by nature.** The flight payload is a framework
   implementation detail, not a contract. It will break without notice, and the
   SLO says it must degrade to JP alone, loudly.

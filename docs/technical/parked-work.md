@@ -54,7 +54,7 @@ modest (cold start is already 3.3–3.7 s, and the CI cost that mattered — a
 ship an `ImportError` at cold start with no revision rollback; every
 dependency bump would rebuild up to three bases by hand; and more images push
 Artifact Registry towards the 0.5 GB account-wide free tier (0.242 GB today).
-*Trigger:* a cold start that hurts the 09:00 SLO or a bot's reply time, or a
+*Trigger:* a cold start that hurts the 07:15 SLO or a bot's reply time, or a
 package whose dependencies outgrow the shared base enough to matter.
 
 Related: every package now passes `core_deps` and links only the slices of

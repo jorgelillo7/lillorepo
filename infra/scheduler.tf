@@ -4,7 +4,7 @@ resource "google_cloud_scheduler_job" "daily_digest" {
   region           = local.scheduler_region
   name             = "biwenger-daily-digest-trigger"
   description      = "Triggers biwenger-api /digests/daily — sends my squad + market PNGs to Telegram"
-  schedule         = "0 9 * * *"
+  schedule         = "15 7 * * *"
   time_zone        = "Europe/Madrid"
   attempt_deadline = "180s"
 

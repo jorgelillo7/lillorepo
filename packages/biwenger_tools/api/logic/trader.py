@@ -229,8 +229,9 @@ def plan_buys(
     stays at or above `floor` — the thinnest line first, then the best
     projection; a versatile player counts on every line he can play. Bids
     already waiting count towards `max_squad`. Never a goalkeeper: a manager's
-    only keeper cannot be claused, a second one can. A player with a bid
-    already waiting is left alone, and so is one the squad held in the last
+    only keeper cannot be claused, a second one can. A riser with a bid
+    already waiting is left alone and listed in `skipped`, and so is one the
+    squad held in the last
     `REBUY_DAYS` (`recently_owned`): buying back the player just sold is the
     same player for more.
     `max_per_club` counts the best eleven's starters, the bids waiting and the
@@ -240,7 +241,6 @@ def plan_buys(
         (row, s)
         for row in market
         if row["bw_id"] not in owned
-        and row["bw_id"] not in already_bid
         and row.get("position_id") != lineup.GK
         and (s := streak(history, row["bw_id"])) >= rules.buy_after_rises
         and lineup.projected_sf(row) >= rules.buy_min_sf
@@ -254,7 +254,16 @@ def plan_buys(
         if r.get("team_id") is not None
     )
     buys: list[Move] = []
+    # Named rather than dropped: a riser auto-bid already bid on is one the
+    # trader wanted too, and leaving him out made its summary read as wanting
+    # other players.
     skipped: list[tuple[dict, str]] = [
+        (row, "ya tiene puja tuya esperando (auto-bid o manual)")
+        for row, _ in risers
+        if row["bw_id"] in already_bid
+    ]
+    risers = [(row, s) for row, s in risers if row["bw_id"] not in already_bid]
+    skipped += [
         (row, f"lo tuviste hace menos de {REBUY_DAYS} días")
         for row, _ in risers
         if row["bw_id"] in recently_owned

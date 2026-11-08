@@ -242,7 +242,7 @@ def test_every_menu_action_is_reachable_by_typing(bot_client):
 
 def test_preview_fills_the_bench_instead_of_leaving_holes(bot_client):
     """`/preview` is `/alinear` with `dry_run=1`, so this exercises the same
-    optimizer that writes to Biwenger at 09:00 without writing anything.
+    optimizer that writes to Biwenger at 07:15 without writing anything.
 
     The regression it guards: injured and unlisted players were excluded
     outright, so the bench came back half empty. An empty slot scores worse
