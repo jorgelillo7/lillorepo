@@ -65,9 +65,40 @@ The whole procedure, with its traps, is the
 ## Where things live
 
 - The worlds derive from the author's art: `worlds/` and `public/` are
-  gitignored, never committed to this public repository.
-- `worlds/<scene>-500k.spz` (~5 MB) is what the page loads; Cloudflare serves
-  at most 25 MiB per file.
+  gitignored, never committed to this public repository. Their only copies
+  are this Mac's `worlds/` and World Labs itself: `node fetch.ts <scene>
+  <world id>` downloads one again, and every world's id is in `worlds.json`.
+  The cut-out PNGs and the Gemini pictures (`view.ts` outputs) exist only in
+  `worlds/`; back them up with the author's `web/` art if they matter.
+- A full-model world's `worlds/<scene>-500k.spz` (~7.5 MiB) is what the page
+  loads; its full resolution (~27 MiB) is over Cloudflare's 25 MiB per file.
+- Every build stamps `worlds.json`, and the page asks for each world file
+  with that stamp: an app on an iPhone's home screen otherwise keeps an older
+  file after a deploy.
+
+## Operating notes
+
+- **Keys.** `WORLDLABS_API_KEY` is in `~/.zprofile` (key
+  `lillorepo-interactive-fiction`; credits and billing at
+  <https://platform.worldlabs.ai/billing>, auto-refill off). Tools that need
+  it run in a login shell (`zsh -lc '…'`). `GEMINI_API_KEY` is be-water's
+  paid key, command in the package's `OPERATIONS.md`; on this account Gemini
+  spend has been covered by Google Cloud promo credits.
+- **What a call really costs** (World Labs reports it): one picture, draft
+  230 credits, full 1,580; with three extra views (`--views`), 250 / 1,600.
+  US$1 = 1,250 credits. A Gemini picture or edit ≈ US$0.12.
+- **Moderation.** World Labs refuses some requests with `403 … Violence`
+  before charging; rust or red streaks read as blood. Rejections are free:
+  bisect the pictures, then desaturate the red or repaint without it.
+- **Gemini edits stay aligned to the pixel** (a removed character, a green
+  matte), which is what makes `cutout.py` work; new views it paints from
+  another angle do not agree with each other, which is why worlds are grown
+  from one picture.
+- **`fit.ts` needs a GPU-backed Chrome** (the default headless one on this
+  Mac); with SwiftShader the splats do not draw.
+- **Chapter 1 cost**, all attempts included: ≈ US$10 of World Labs credits
+  and ≈ US$2 of Gemini pictures. With the method settled, a similar chapter
+  is about three full worlds (≈ US$3.80) plus a few pictures.
 
 ## Not there yet
 
