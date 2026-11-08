@@ -18,7 +18,8 @@ cpSync(join(stories, "01.json"), join(pub, "01.json"));
 cpSync(join(stories, "../library.json"), join(pub, "library.json"));
 // Scene images keep the path the built chapter gives them (stories/<series>/scenes/…).
 cpSync(join(stories, "scenes"), join(pub, "stories/samantha/scenes"), { recursive: true });
-cpSync(join(here, "worlds.json"), join(pub, "worlds.json"));
+// Every build stamps worlds.json, and the page asks for each world file with that stamp: a phone that cached an older file (an app on the home screen does) gets the new one.
+writeFileSync(join(pub, "worlds.json"), JSON.stringify({ ...JSON.parse(readFileSync(join(here, "worlds.json"), "utf8")), "": { build: Date.now() } }, null, 2));
 const worlds = JSON.parse(readFileSync(join(here, "worlds.json"), "utf8")) as Record<string, { splats: string; collider: string; figures?: { image: string }[] }>;
 for (const w of Object.values(worlds)) {
   for (const f of [w.splats, w.collider, ...(w.figures ?? []).map((g) => g.image)]) {
