@@ -62,6 +62,9 @@ button { font: inherit; color: inherit; }
 .subs-btn:hover { background: rgba(201, 162, 74, 0.15); }
 .subs-btn.ghost { border-color: #444; color: var(--muted); }
 .subs[hidden], .prompt[hidden] { display: none; }
+.subs.document { top: 42px; bottom: auto; max-height: calc(100% - 50px); background: var(--shade); }
+.subs-text .pagina-libro { margin: 0.6rem auto; text-shadow: none; font-size: 0.92em; }
+.subs-text .pagina-libro br { display: none; }
 
 /* The bar that appears when you touch something. */
 .prompt { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -99,7 +102,8 @@ button { font: inherit; color: inherit; }
   .subs-text { font-size: 15px; line-height: 1.45; }
   .subs-bar { margin-top: 6px; }
   .subs-btn { padding: 5px 16px; font-size: 14px; }
-  .subs-text br + br { display: none; }
+  .subs-text .pagina-libro { padding: 0.9rem 1.2rem; font-size: 0.85em; margin: 0.2rem auto; }
+  .subs-text .pagina-libro h3 { margin: 0 0 0.4em; }
 }
 
 /* Phones play in landscape only: in portrait, a screen asking to turn it covers the game. */
