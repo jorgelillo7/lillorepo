@@ -169,7 +169,12 @@ left column is not.
 ### The route that answers
 
 **`/biwenger/predicciones`** is server-rendered, Biwenger-scored, and needs no
-parameter. Checked against a screenshot of the site taken independently:
+parameter. **Correction, 9/11:** Biwenger-scored means *Diario AS*, not
+SofaScore. The site fixes this page's provider to `biwenger-diario-as`; the
+same players read 5.74 here, 5.86 from the API under `biwenger-diario-as` and
+8.41 under `biwenger-sofascore` (Arda Güler). The screenshot check below
+matched because the screenshot was of the same default view. Every route, and
+what scale it serves: `docs/external/analitica-fantasy-api.yaml`. Checked against a screenshot of the site taken independently:
 Marcos Alonso 4.89 against 4.99, Carl Starfelt 4.20 against 4.29 — within the
 hourly retrain. Per player it carries:
 

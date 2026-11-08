@@ -1,0 +1,351 @@
+openapi: 3.1.0
+info:
+  title: Analítica Fantasy API (unofficial)
+  version: "0.1.0"
+  summary: Reverse-engineered map of the Analítica Fantasy ("Oráculo") routes this monorepo reads or has evaluated.
+  description: |
+    **⚠️ UNOFFICIAL — this is NOT documented by Analítica Fantasy.**
+
+    Discovered by reading the site's Next.js bundles and sending real requests
+    on 8–9 November 2026. It can change without notice. Public, no
+    authentication; be gentle — sequential reads, cached for an hour
+    (`core/sdk/oraculo.py`).
+
+    Source of truth in this repo: `core/sdk/oraculo.py`. Where a response
+    disagrees with this file, the SDK wins — update the file.
+
+    **The trap that matters: the scoring system.** The same player has a
+    different number under each system (Ángel Fortuño, round 13: SofaScore
+    7.48, Diario AS 5.22, LaLiga Fantasy 6.96). Only one route can be *asked*
+    for a system, `GET /oraculo/{leagueId}?sistema=…`, and it covers just the
+    ~40 players on its recommendation lists. The page that covers every
+    player, `/biwenger/predicciones`, is always **Diario AS**: the site's
+    configuration fixes `biwenger: {apiProvider: "biwenger-diario-as"}`, it is
+    prerendered (ISR), and no path, query or cookie changes it. No public
+    route returns SofaScore-scale predictions for the whole matchday.
+
+    Ids are API-Football's, not Biwenger's: player `playerId` (Mbappé 278),
+    team `teamId` (Barcelona 529), league 140 (LaLiga). Team names are the
+    site's ("Celta de Vigo", "Atlético de Madrid"). Match by name or slug
+    (`player_matching.py`).
+
+  contact:
+    name: Internal owner
+    url: https://github.com/jorgelillo7/lillorepo
+
+servers:
+  - url: https://server.analiticafantasy.com/api/v1
+    description: "JSON API. Every response is wrapped as `{data: {...}}`."
+  - url: https://www.analiticafantasy.com
+    description: "Server-rendered pages. Their data is in the RSC flight payload (`self.__next_f.push`), read with `oraculo._flight_payload` and `oraculo._objects`."
+
+tags:
+  - name: oraculo
+    description: Oráculo's projections and recommendation lists.
+  - name: predictions
+    description: Per-player predicted points.
+  - name: statistics
+    description: Season leaderboards (backward-looking).
+  - name: pages
+    description: Server-rendered pages with data in the flight payload.
+
+paths:
+  /oraculo/{leagueId}:
+    get:
+      tags: [oraculo]
+      summary: Recommendation lists, fixture odds and rounds for one scoring system
+      description: |
+        The only route that honours a scoring system. Echoes it back in
+        `data.sistema`; `fetch_picks` verifies the echo and raises on a
+        mismatch. Unknown query parameters (`limit`, `top`, `all`, `size`,
+        `teamId`, `fixtureId`) are ignored: the lists stay 5–10 players each.
+        Each system carries its own `generatedAt` (SofaScore and Diario AS
+        were an hour apart on 8/11), so compare reads taken together.
+      x-verified-at: "2026-11-09"
+      x-used-by: "core/sdk/oraculo.py: fetch_picks"
+      parameters:
+        - name: leagueId
+          in: path
+          required: true
+          schema: {type: integer, example: 140}
+        - name: sistema
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - biwenger-sofascore
+              - biwenger-diario-as
+              - biwenger-media-as-sofascore
+              - biwenger-estadisticas
+              - biwenger-social
+              - la-liga-fantasy
+              - fantasy-marca
+              - mister-fantasy
+          description: |
+            Verified: `biwenger-sofascore`, `biwenger-diario-as`,
+            `biwenger-media-as-sofascore`, `la-liga-fantasy`. The others come
+            from the site's bundle, unverified. `biwenger-media` returns no
+            data (the name is `biwenger-media-as-sofascore`).
+        - name: jornada
+          in: query
+          required: false
+          schema: {type: integer}
+          description: A matchday other than the current one (from the bundle).
+      responses:
+        "200":
+          description: The lists for the upcoming matchday.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      leagueId: {type: integer}
+                      sistema: {type: string, description: "Echo of the system served"}
+                      season: {type: integer}
+                      round: {type: string, example: "Regular Season - 13"}
+                      roundLabel: {type: string}
+                      matchday: {type: integer}
+                      modelTag: {type: string}
+                      generatedAt: {type: string, format: date-time}
+                      rounds:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            matchday: {type: integer}
+                            isCurrent: {type: boolean}
+                            isFinished: {type: boolean}
+                      fixtures:
+                        type: array
+                        description: |
+                          One per match: `homeWinPct`, `drawPct`,
+                          `awayWinPct`, `predictedScore`, `predictedHome`,
+                          `predictedAway`, `fixtureDate`, `home/awayTopPlayers`.
+                          Read today only for `fixtureDate`
+                          (`matchday_dates`).
+                        items: {type: object}
+                      picks:
+                        type: object
+                        description: |
+                          Eight lists: `capitanes`, `chollos`, `goleadores`,
+                          `asistentes` (10 each), `porteros`, `defensas`,
+                          `centrocampistas`, `delanteros` (5 each); ~40 unique
+                          players. Every `capitanes` player cost over 3 M on
+                          8/11, above this league's captain cap.
+                        additionalProperties:
+                          type: array
+                          items: {$ref: "#/components/schemas/Pick"}
+
+  /predictions/fantasy-points:
+    get:
+      tags: [predictions]
+      summary: Predicted points for every player of a round, LaLiga Fantasy scale only
+      description: |
+        ~464 players, with `ceilingPoints` beside `predictedPoints`, but always
+        in **LaLiga Fantasy** points (Fortuño 6.96 against 7.48 SofaScore).
+        No parameter selects another system: `sistema`, `system`, `scoring`,
+        `provider`, `apiProvider`, `fantasy`, `game` and others are ignored
+        and the body is byte-identical. Not read by this repo.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: leagueId, in: query, schema: {type: integer, example: 140}}
+        - {name: season, in: query, schema: {type: integer, example: 2026}}
+        - {name: round, in: query, schema: {type: string, example: "Regular Season - 13"}}
+        - {name: fixtureId, in: query, schema: {type: integer}}
+        - {name: teamId, in: query, schema: {type: integer}}
+      responses:
+        "200":
+          description: Players of the round.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      round: {type: string}
+                      season: {type: integer}
+                      updatedAt: {type: string, format: date-time}
+                      availableRounds: {type: array, items: {type: string}}
+                      players:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: "#/components/schemas/PredictedPlayer"
+                            - type: object
+                              properties:
+                                ceilingPoints: {type: number}
+                                homeTeamId: {type: integer}
+                                awayTeamId: {type: integer}
+
+  /player-statistics/leaders:
+    get:
+      tags: [statistics]
+      summary: Season leaderboard for one statistic
+      description: |
+        Backs `/lideres/liga_la-liga/temporada_{season}/estadistica_{stat}`.
+        Season totals and per-match averages, so backward-looking; evaluated
+        and left out (`docs/technical/backend/measurements.md`).
+      x-verified-at: "2026-11-08"
+      parameters:
+        - {name: leagueId, in: query, required: true, schema: {type: integer, example: 140}}
+        - {name: season, in: query, required: true, schema: {type: integer, example: 2026}}
+        - name: statistic
+          in: query
+          required: true
+          schema: {type: string, example: rating}
+          description: Spanish slug as in the page URL (`paradas`, `rating`). `saves` returns an error body.
+        - {name: limit, in: query, schema: {type: integer, example: 100}}
+      responses:
+        "200":
+          description: Leaders.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            playerId: {type: integer}
+                            playerName: {type: string}
+                            appearances: {type: integer}
+                            minutes: {type: integer}
+                            statTotal: {type: number}
+                            statAverage: {type: number}
+
+  /biwenger/predicciones:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: every player's predicted points, Diario AS scale"
+      description: |
+        ~411 player rows in the flight payload, both the matchday being
+        played and the next one (filter by `fixtureDate`). **Diario AS, not
+        SofaScore**: Güler 5.74 here, 5.86 from `/oraculo/140?sistema=
+        biwenger-diario-as`, 8.41 with `biwenger-sofascore`. Prerendered
+        with `s-maxage=120, stale-while-revalidate=86280`, so it can be up to
+        a day behind the API. `/biwenger/predicciones/sofascore` redirects
+        here; `?sistema=` and `?modo=` are ignored.
+      x-verified-at: "2026-11-09"
+      x-used-by: "core/sdk/oraculo.py: fetch_predictions (the blend's projection)"
+      responses:
+        "200":
+          description: HTML; rows are objects opening with `playerId`.
+          content:
+            text/html:
+              schema: {$ref: "#/components/schemas/PredictedPlayer"}
+
+  /la-liga/calendario-predictor:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: each team's next five fixtures with win, draw, loss and expected goals"
+      description: |
+        No JSON route behind it. Objects open with `matchday`: `{matchday:
+        {round, fixtureId, fixtureDate, opponentName, isHome, predictedScore,
+        winProb, drawProb, lossProb, isFinal, hasPrediction, explanation:
+        {teamLambda, opponentLambda, modelTag, factors[]}}, teamId, teamName}`.
+        A `clean_sheet` factor appears only where notable; derive it as
+        `exp(-opponentLambda)` (0.458 against the page's 0.4605). Played
+        fixtures carry `isFinal: true`.
+      x-verified-at: "2026-11-08"
+      x-used-by: "core/sdk/oraculo.py: fetch_team_outlook (projection ledger, team_outlook)"
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+  /partido/{fixtureSlug}:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: one match's probable lineups"
+      description: |
+        Probable elevens per editor (`chance`, `esTitular`, `isCapitan`,
+        `isChollo`, `comentario`, `alternativesJson`, `consensus`) and
+        `predictedFantasyPoints` in LaLiga Fantasy scale. Shows the previous
+        confirmed eleven (`dataMode: "last"`) until editors publish. Not read.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: fixtureSlug, in: path, required: true, schema: {type: string, example: "100012051-barcelona-villarreal"}}
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+  /jugadores/{slug}/fantasy/biwenger:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: a player's past Biwenger scores under every system"
+      description: |
+        Past scores only (`pt_sofascore`, `pt_diario_as`, `pt_estadisticas`,
+        `pt_media_as_sofascore`, `pt_biwenger_social`); no predictions.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string, example: "kylian-mbappe-278"}}
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+  /la-liga/power-ranking:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: a tiered player ranking, with no starter information"
+      description: |
+        `tier`, `sortOrder`, `status` (ok, injured, doubt) per player, ~56
+        players. No starter or minutes field: it ranked Espanyol's benched
+        keeper first on 8/11. Not read.
+      x-verified-at: "2026-11-08"
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+components:
+  schemas:
+    PredictedPlayer:
+      type: object
+      properties:
+        playerId: {type: integer, description: "API-Football id"}
+        playerName: {type: string}
+        slug: {type: string, example: "angel-fortuno-182735"}
+        position: {type: string, example: Portero}
+        positionId: {type: integer, description: "0/1 keeper … 4 forward, site's numbering"}
+        playerTeamId: {type: integer}
+        predictedPoints: {type: number}
+        chance: {type: integer, description: "Starting probability, %"}
+        isEstimate: {type: boolean}
+        fixtureId: {type: integer}
+        fixtureDate: {type: string, format: date-time}
+        homeTeamName: {type: string}
+        awayTeamName: {type: string}
+    Pick:
+      allOf:
+        - $ref: "#/components/schemas/PredictedPlayer"
+        - type: object
+          properties:
+            teamId: {type: integer}
+            teamName: {type: string}
+            opponentTeamId: {type: integer}
+            opponentTeamName: {type: string}
+            isHome: {type: boolean}
+            expectedPoints: {type: number, description: "predictedPoints × chance / 100"}
+            goalProbability: {type: number}
+            assistProbability: {type: number}
+            marketValue: {type: integer, description: "Biwenger market value, €"}
+            pointsPerMillion: {type: number}
