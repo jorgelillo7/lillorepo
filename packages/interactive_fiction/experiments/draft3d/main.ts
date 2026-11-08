@@ -38,6 +38,8 @@ interface World {
    * bakes a person in soft and breaks them up seen close.
    */
   figures?: { image: string; rect: [number, number, number, number] }[];
+  /** How far the camera moves towards what is inspected (default DOLLY); 0 where a cut-out must stay aligned with the room. */
+  dolly?: number;
   /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
   camera?: [number, number, number];
   /**
@@ -263,7 +265,7 @@ function frame(now: number): void {
     euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch, yaw, 0);
     baseQ.setFromEuler(euler);
     origin.fromArray(current.world.camera ?? [0, 0, 0]);
-    eye.copy(lastFocus).sub(origin).multiplyScalar(DOLLY * t).add(origin);
+    eye.copy(lastFocus).sub(origin).multiplyScalar((current.world.dolly ?? DOLLY) * t).add(origin);
     look.lookAt(eye, lastFocus, up);
     lookQ.setFromRotationMatrix(look);
     camera.position.copy(eye);

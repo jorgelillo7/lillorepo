@@ -73,12 +73,15 @@ them up close. For a scene with a character (the Cheshire room):
    in flat green.
 3. Cut the character out of the **original** picture with both masks: the
    difference between original and empty room says where she is, the green
-   matte gives the clean outline (and leaves the bed rail in front of her legs
-   transparent). Save `worlds/<name>-cutout.png` with its `rect` (percent of
+   matte gives the clean outline. Dark parts (her boots) differ little from
+   the dark shadow under the empty bed, so the difference alone cuts them:
+   there trust the matte, minus what is light and unchanged (the bed). Save `worlds/<name>-cutout.png` with its `rect` (percent of
    the picture).
 4. List it under the world's `figures`: the draft lays it into the room at the
    depth of what is under it, sized so it covers exactly its rectangle from
-   the picture's camera — sharp at any distance the draft allows.
+   the picture's camera — sharp at any distance the draft allows. Set the
+   world's `dolly` to 0: moving the camera shifts the room against the flat
+   cut-out (a rail crossing her legs).
 
 # Step 2 — Generate the world
 
