@@ -55,6 +55,31 @@ A world grows from one picture, and the picture decides whether it works:
 - **A person** comes out soft and static: the world bakes them in. Fine for a
   draft; for a sharp one, make the character a separate element.
 
+# Step 1b — Give it every wall, so it invents nothing
+
+A world grown from one picture paints the rest of the room itself, and what
+it paints can contradict the story: room 207's single-picture world had three
+doors and two windows the text does not have. The cure is to leave it nothing
+to invent: paint the other three walls with `view.ts` (right 90°, behind 180°,
+left 270°, from the picture's own camera), then build the world from all four
+with `--views`.
+
+- **Write each view from the text**: what that wall holds and what it must
+  not ("exactly two doors in the room; NO door in this view"). Ask the author
+  about walls the text never mentions (room 207's: bare walls).
+- **Nothing that is in the picture may appear in a view, even at an edge.** A
+  door or a toilet half in frame becomes a second one when the views are
+  stitched. Crop the view instead of repainting (free): room 207's left wall
+  lost the strip where the bathroom door peeked in.
+- **Trim each view's dark corners** (Gemini adds them however you ask): left
+  on, they come back as black frames hung on the walls. Measure, trim just
+  past them.
+- **Moderation**: World Labs refuses some requests as "violence"; rust or red
+  streaks read as blood. Rejections are free — bisect by pairs of views to
+  find the culprit, then repaint it without red, or desaturate the red.
+- Validate with a draft (250 credits) and `npm run fit -- <scene> --around`
+  before the full model (1,600 credits).
+
 # Step 2 — Generate the world
 
 ```bash
@@ -62,8 +87,12 @@ node generate.ts <scene> --dry-run
 node generate.ts <scene> [--trim X,Y] [--image worlds/<view>.jpg] --prompt "Interior of …"
 ```
 
-It downloads the 500k and 100k splats and the collider into `worlds/` (never
-committed: they derive from the author's art) and prints the `crop` to record.
+It downloads the full, 500k and 100k splats and the collider into `worlds/`
+(never committed: they derive from the author's art) and prints the `crop` to
+record. A full-model world's full resolution is ~27 MiB, over Cloudflare's
+25 MiB per file: serve the 500k (~7 MiB, already sharp at full quality).
+`node fetch.ts <scene> <operation-or-world-id>` downloads a world started some
+other way.
 Open the world's thumbnail before going further; a painting-in-a-room or a
 camera in the wrong place is cheaper to catch now.
 
@@ -129,6 +158,7 @@ is still a draft (quality, characters).
 | Paint a view from inside for rooms painted from outside | The bathroom's world put the camera by the sink and nothing behind it |
 | Fit, do not eyeball | The fit finds the camera to a degree; by eye the hotspots drift |
 | Choices the room holds leave the text | Choosing from the text skips the exploring, which is the point |
+| Every wall is painted, and nothing from the picture repeats in a view | One picture left the world to invent doors and windows the story does not have |
 | `[hidden]` wins over layout rules | A hidden 3D canvas kept drawing under a broken 2D picture |
 | Images keep the chapter's path (`stories/<series>/scenes/…`) | Serving them elsewhere showed a broken image on the iPhone |
 | `text-size-adjust: 100%` | Safari enlarged each subtitle by a different amount in landscape |

@@ -71,6 +71,12 @@ The whole procedure, with its traps, is the
 
 ## Not there yet
 
+Chapter 1's three rooms are full-model World Labs worlds built from all four
+walls (the picture plus three views painted to the text), so they invent no
+doors or windows; room 207 and the Cheshire room turn all the way round, the
+bathroom within bounds (its world still adds a bulb and a vent out of the way).
+Each serves its 500k splats (~7 MiB): full resolution is over 25 MiB.
+
 Chapter 1's three rooms are 3D (room 207, the bathroom, room 207 with
 Cheshire, who is part of that world: static and a little soft); the ending is
 a picture. The author's own components (the rules as a book page) keep his

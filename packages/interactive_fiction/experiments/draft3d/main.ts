@@ -158,6 +158,8 @@ function yawRange(l: Loaded): [number, number] {
   const half = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
   const picture = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(scenes.scenes[l.id], l.world)));
   const [right, left] = l.world.bounds ?? [-(picture + 10), picture + 10];
+  // A world clean all the way round turns freely.
+  if (left - right >= 360) return [-Infinity, Infinity];
   const lo = right + half;
   const hi = left - half;
   const deg = lo <= hi ? [lo, hi] : [(lo + hi) / 2, (lo + hi) / 2];

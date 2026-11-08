@@ -71,4 +71,26 @@ const frames = (n: number) => new Promise<void>((done) => {
   for (let i = 0; i < frame.length; i++) s += frame[i] * target[i];
   return s / frame.length;
 };
+/** Twelve views around the room, 30° apart (left to right, top to bottom: 0° ahead, then turning right), as a PNG data URL. */
+(window as unknown as { around: unknown }).around = async (fov: number, pitch: number, x = 0, y = 0, z = 0) => {
+  const sheet = document.createElement("canvas");
+  sheet.width = W * 4;
+  sheet.height = H * 3;
+  const g = sheet.getContext("2d")!;
+  g.font = "14px monospace";
+  g.fillStyle = "#ff0";
+  camera.fov = fov;
+  camera.position.set(x, y, z);
+  camera.updateProjectionMatrix();
+  for (let i = 0; i < 12; i++) {
+    camera.rotation.set(THREE.MathUtils.degToRad(pitch), THREE.MathUtils.degToRad(-30 * i), 0, "YXZ");
+    for (let f = 0; f < 12; f++) {
+      renderer.render(scene, camera);
+      await frames(1);
+    }
+    g.drawImage(canvas, (i % 4) * W, Math.floor(i / 4) * H);
+    g.fillText(`${30 * i}° right`, (i % 4) * W + 6, Math.floor(i / 4) * H + 18);
+  }
+  return sheet.toDataURL("image/png");
+};
 (window as unknown as { ready: boolean }).ready = true;

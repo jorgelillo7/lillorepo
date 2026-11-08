@@ -1,6 +1,6 @@
 {
   "habitacion": {
-    "world": "e5cba8e5-9e7c-470b-8a02-042ecdbb7252",
+    "world": "5bfc14b2-8c19-43b3-80c0-6238b5f38269",
     "splats": "worlds/habitacion-500k.spz",
     "collider": "worlds/habitacion-collider.glb",
     "crop": [
@@ -9,28 +9,40 @@
     ],
     "fovY": 47,
     "pitch": -9,
+    "views": {
+      "90": "worlds/207-right-clean.jpg",
+      "180": "worlds/207-back-clean.jpg",
+      "270": "worlds/207-left-bare.jpg"
+    },
+    "model": "marble-1.1",
     "bounds": [
-      -58,
-      70
+      -180,
+      180
     ]
   },
   "habitacion-cheshire": {
-    "world": "1dd9479d-3ad4-4f25-9d55-9532387b558d",
+    "world": "a342d5ba-12a4-49c9-8535-743214ebaab8",
     "splats": "worlds/habitacion-cheshire-500k.spz",
     "collider": "worlds/habitacion-cheshire-collider.glb",
     "crop": [
       0.03491,
       0.06255
     ],
-    "fovY": 46,
+    "fovY": 47,
     "pitch": -9,
+    "model": "marble-1.1",
+    "views": {
+      "90": "worlds/207-right-clean.jpg",
+      "180": "worlds/207-back-clean.jpg",
+      "270": "worlds/207-left-bare.jpg"
+    },
     "bounds": [
-      -41,
-      70
+      -180,
+      180
     ]
   },
   "bano": {
-    "world": "64493cbd-dee8-455f-8fa0-64c64189d165",
+    "world": "7c77dd10-a07b-4db6-aa2e-5792ac2b0bcf",
     "picture": "worlds/bano-inside.jpg",
     "splats": "worlds/bano-500k.spz",
     "collider": "worlds/bano-collider.glb",
@@ -49,6 +61,16 @@
         0.74,
         0.55
       ]
-    }
+    },
+    "model": "marble-1.1",
+    "views": {
+      "90": "worlds/bano-right-final.jpg",
+      "180": "worlds/bano-back-final.jpg",
+      "270": "worlds/bano-left-final.jpg"
+    },
+    "bounds": [
+      -48,
+      125
+    ]
   }
 }
