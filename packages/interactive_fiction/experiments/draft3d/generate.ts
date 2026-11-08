@@ -1,7 +1,8 @@
 /**
  * Generate a World Labs world from one scene image and download it into worlds/.
  *
- *   node generate.ts <scene-id> [--full] [--prompt "…"] [--trim X,Y] [--image path] [--dry-run]
+ *   node generate.ts <scene-id> [--full] [--prompt "…"] [--trim X,Y] [--image path]
+ *                    [--views 90:right.jpg,180:back.jpg,270:left.jpg] [--dry-run]
  *
  * The image is the scene's original in the series' art-originals/, with its
  * dark frame trimmed by the same number of pixels on every edge (a framed
@@ -10,6 +11,10 @@
  * pixels trimmed from each side and from top and bottom, for a picture whose
  * frame is not the usual one (letterbox bands, say). `--image` builds the world
  * from another picture of the room than the scene's own (one from view.ts).
+ * `--views` adds the room's other walls (painted with view.ts) at their
+ * azimuths — 90 right, 180 behind, 270 left — so the world invents nothing
+ * past the picture's edges. Views go as painted (view.ts asks for no frame):
+ * trimming them made World Labs' moderation refuse the request.
  */
 
 import { execFileSync } from "node:child_process";
@@ -22,6 +27,7 @@ const CROP = 0.035;
 const CREDITS_PER_USD = 1250;
 const PANO_FROM_IMAGE = 80;
 const MODELS = { draft: { id: "marble-1.0-draft", credits: 150 }, full: { id: "marble-1.1", credits: 1500 } };
+const PANO_FROM_VIEWS = 100;
 
 const here = dirname(new URL(import.meta.url).pathname);
 const args = process.argv.slice(2);
@@ -38,19 +44,32 @@ const original = join(web, "art-originals", basename(scene.image));
 const source = option("--image") ?? (existsSync(original) ? original : join(web, scene.image));
 
 const model = flag("--full") ? MODELS.full : MODELS.draft;
-const credits = model.credits + PANO_FROM_IMAGE;
-console.log(`${sceneId}: ${source} → ${model.id}, ${credits} credits ≈ $${(credits / CREDITS_PER_USD).toFixed(2)}`);
+const views = (option("--views") ?? "").split(",").filter(Boolean).map((v) => {
+  const [azimuth, path] = v.split(":");
+  return { azimuth: Number(azimuth), path: join(here, path) };
+});
+const credits = model.credits + (views.length ? PANO_FROM_VIEWS : PANO_FROM_IMAGE);
+console.log(`${sceneId}: ${source}${views.map((v) => ` + ${v.azimuth}°`).join("")} → ${model.id}, ${credits} credits ≈ $${(credits / CREDITS_PER_USD).toFixed(2)}`);
 if (flag("--dry-run")) process.exit(0);
 
 const key = process.env.WORLDLABS_API_KEY;
 if (!key) throw new Error("Set WORLDLABS_API_KEY.");
 
 // The scene's `aspect` is a ratio; the crop needs the picture's real pixels.
-const sizes = execFileSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", source], { encoding: "utf8" });
-const [w, h] = ["pixelWidth", "pixelHeight"].map((k) => Number(new RegExp(`${k}: (\\d+)`).exec(sizes)![1]));
+const size = (path: string) => {
+  const out = execFileSync("sips", ["-g", "pixelWidth", "-g", "pixelHeight", path], { encoding: "utf8" });
+  return ["pixelWidth", "pixelHeight"].map((k) => Number(new RegExp(`${k}: (\\d+)`).exec(out)![1]));
+};
+const trim = (path: string, mx: number, my: number, name: string) => {
+  const [pw, ph] = size(path);
+  const out = join(tmpdir(), `${sceneId}-${name}.jpg`);
+  execFileSync("sips", ["-c", String(ph - 2 * my), String(pw - 2 * mx), path, "--out", out], { stdio: "ignore" });
+  return out;
+};
+const [w, h] = size(source);
 const [mx, my] = option("--trim")?.split(",").map(Number) ?? [Math.round(w * CROP), Math.round(w * CROP)];
-const cropped = join(tmpdir(), `${sceneId}-crop.jpg`);
-execFileSync("sips", ["-c", String(h - 2 * my), String(w - 2 * mx), source, "--out", cropped], { stdio: "ignore" });
+const cropped = trim(source, mx, my, "front");
+const base64 = (path: string) => ({ source: "data_base64", data_base64: readFileSync(path).toString("base64"), extension: "jpg" });
 
 const call = async (path: string, init?: RequestInit) => {
   const r = await fetch(API + path, { ...init, headers: { "Content-Type": "application/json", "WLT-Api-Key": key } });
@@ -64,11 +83,20 @@ const op = await call("/worlds:generate", {
   body: JSON.stringify({
     display_name: `lillorepo-if ${sceneId}`,
     model: model.id,
-    world_prompt: {
-      type: "image",
-      image_prompt: { source: "data_base64", data_base64: readFileSync(cropped).toString("base64"), extension: "jpg" },
-      text_prompt: option("--prompt") ?? "Interior of a run-down hospital, seen from inside the room.",
-    },
+    world_prompt: views.length
+      ? {
+          type: "multi-image",
+          multi_image_prompt: [
+            { azimuth: 0, content: base64(cropped) },
+            ...views.map((v) => ({ azimuth: v.azimuth, content: base64(v.path) })),
+          ],
+          text_prompt: option("--prompt") ?? "Interior of a run-down hospital room.",
+        }
+      : {
+          type: "image",
+          image_prompt: base64(cropped),
+          text_prompt: option("--prompt") ?? "Interior of a run-down hospital, seen from inside the room.",
+        },
   }),
 });
 let done = op;
@@ -83,12 +111,15 @@ console.log(`✓ world ${world.world_id} (${done.cost?.total_credits} credits) $
 mkdirSync(join(here, "worlds"), { recursive: true });
 const assets = world.assets;
 for (const [file, url] of [
+  [`${sceneId}-full.spz`, assets.splats.spz_urls.full_res],
   [`${sceneId}-500k.spz`, assets.splats.spz_urls["500k"]],
   [`${sceneId}-100k.spz`, assets.splats.spz_urls["100k"]],
   [`${sceneId}-collider.glb`, assets.mesh.collider_mesh_url],
 ] as const) {
-  writeFileSync(join(here, "worlds", file), Buffer.from(await (await fetch(url)).arrayBuffer()));
-  console.log(`  worlds/${file}`);
+  if (!url) continue;
+  const bytes = Buffer.from(await (await fetch(url)).arrayBuffer());
+  writeFileSync(join(here, "worlds", file), bytes);
+  console.log(`  worlds/${file} ${(bytes.length / 2 ** 20).toFixed(1)} MiB`);
 }
 const crop = [mx / w, my / h].map((f) => Number(f.toFixed(5)));
 console.log(`Add "${sceneId}" to worlds.json (world ${world.world_id}, crop ${JSON.stringify(crop)}); fit fovY and pitch against the image.`);

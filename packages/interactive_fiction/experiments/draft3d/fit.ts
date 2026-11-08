@@ -5,14 +5,17 @@
  * the GPU) and scores each frame against the trimmed picture.
  *
  *   node fit.ts <scene-id> [--camera x,y,z]
+ *   node fit.ts <scene-id> --around      (a contact sheet of 12 views, 30° apart)
  *
  * A best score near 0.8 or above means the world grew from the picture's own
  * viewpoint; well below (0.3) means it did not, and the hotspots have to be
- * placed by hand (see the scene-3d skill).
+ * placed by hand (see the scene-3d skill). `--around` writes
+ * worlds/<scene>-around.png from the camera in worlds.json: look there for
+ * anything the world invented that the story does not have.
  */
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createServer } from "vite";
@@ -45,7 +48,15 @@ try {
   await c.send("Page.navigate", { url: `http://localhost:${PORT}/fit.html?${q}` });
   for (let i = 0; i < 240 && !(await c.ev("window.ready === true")); i++) await sleep(250);
   if (c.errors.length) throw new Error(c.errors.join("\n"));
-  const [x, y, z] = cameraArg.split(",").map(Number);
+  const [x, y, z] = (world.camera ? world.camera.join(",") : cameraArg).split(",").map(Number);
+  if (process.argv.includes("--around")) {
+    const url = await c.ev<string>(`around(${world.fovY ?? 46}, ${world.pitch ?? 0}, ${x}, ${y}, ${z})`);
+    const out = join(here, "worlds", `${sceneId}-around.png`);
+    writeFileSync(out, Buffer.from(url.split(",")[1], "base64"));
+    console.log(`✓ ${out}`);
+    c.close();
+    process.exit(0);
+  }
   const score = (fov: number, pitch: number) => c.ev<number>(`score(${fov}, ${pitch}, ${x}, ${y}, ${z})`);
   let best = { s: -1, fov: 0, pitch: 0 };
   const consider = async (fov: number, pitch: number) => {
