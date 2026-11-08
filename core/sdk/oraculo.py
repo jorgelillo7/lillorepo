@@ -9,7 +9,10 @@ Two sources, because neither covers the other's half:
   verifies rather than trusts.
 - **`/biwenger/predicciones`** is a page, not an endpoint: its numbers live in
   the Next.js RSC flight payload embedded in the HTML. It covers the whole
-  squad, which the API's highlights do not.
+  squad, which the API's highlights do not — but always in **Diario AS**
+  points, never SofaScore: the site fixes that page's provider to
+  `biwenger-diario-as`, and nothing in the request changes it. Map of every
+  route: `docs/external/analitica-fantasy-api.yaml`.
 
 The scoring system is the trap this module exists to avoid. The same player
 reads 7.38 under LaLiga Fantasy and 3.60 under Biwenger, so a source read

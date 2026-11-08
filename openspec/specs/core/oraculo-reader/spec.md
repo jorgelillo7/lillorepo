@@ -52,6 +52,14 @@ responses. An empty list would make them look the same.
 `/biwenger/predicciones` page's Next.js flight payload, de-duplicated by
 `playerId`. A row with `predictedPoints == 0` SHALL be kept.
 
+Those points are **Diario AS**, not SofaScore. The site fixes the page's
+provider to `biwenger-diario-as` (Güler 5.74 on the page, 5.86 from the API
+with `biwenger-diario-as`, 8.41 with `biwenger-sofascore`, 9/11), and no
+path, query or cookie selects another; no public route gives SofaScore points
+for the whole matchday (`docs/external/analitica-fantasy-api.yaml`). The
+blend's percentile map aligns the magnitudes, not the order the two scoring
+systems put players in.
+
 The API's recommendation lists only cover highlights. The page is the only
 source for the rest of the squad, and it carries its data inside the HTML
 rather than behind an endpoint. Parsing that payload is the fragile part of
