@@ -23,11 +23,16 @@ deploys to its own Worker:
    Labs Marble, a paid key (`WORLDLABS_API_KEY`). It trims the picture's dark
    frame first — a framed picture comes back as a painting hung in an invented
    room — and downloads the splats and the collider mesh into `worlds/`.
-4. **Fit** — the world's starting camera is the picture's camera. Add the scene
-   to `worlds.json` with the vertical field of view and downward pitch that
-   reproduce the picture (room 207: 46° and −9°, found by comparing renders
-   with the trimmed picture); the hotspots of the scene file are then cast
-   from that camera onto the collider, so none is placed by hand.
+4. **Fit** — the world's starting camera is usually the picture's camera. Add
+   the scene to `worlds.json` with the vertical field of view and downward
+   pitch that reproduce the picture (room 207: 46° and −9°; the Cheshire room:
+   46° and −10°, found by comparing renders with the trimmed picture); the
+   hotspots of the scene file are then cast from that camera onto the
+   collider, so none is placed by hand. When the world did not grow from the
+   picture's viewpoint — the bathroom, seen from its doorway, came back with
+   the camera inside it — give it a `camera` position and place its hotspots
+   by hand in `anchors` (fractions of its own view); a hotspot with no place in
+   the room stays a text choice.
 5. **Preview** — `npm run deploy` (after `npm run stories` in the package).
 
 | Model | Credits | ≈ US$ |
@@ -44,9 +49,10 @@ deploys to its own Worker:
 
 ## Not there yet
 
-Only room 207 is 3D; its Cheshire variant, the bathroom and the ending are
-still pictures. Characters, saves, achievements and the end-code panel of the
-real reader are not wired in. A splat world carries the picture's own light,
+Chapter 1's three rooms are 3D (room 207, the bathroom, room 207 with
+Cheshire, who is part of that world: static and a little soft); the ending is
+a picture. Saves, achievements and the end-code panel of the real reader are
+not wired in. A splat world carries the picture's own light,
 so the night look is a grade over it; real lights and close-ups of single
 objects would need those objects as meshes (the reference the owner liked,
 halloween.dev, is built from per-object GLB models).

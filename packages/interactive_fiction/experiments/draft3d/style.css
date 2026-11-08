@@ -10,6 +10,8 @@
 * { box-sizing: border-box; }
 /* Safari on iPhone enlarges text blocks in landscape, each by its own amount: keep the sizes set here. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* `hidden` must win over the display the layout rules set. */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: #000; color: var(--ink); font: 17px/1.55 var(--serif); overflow: hidden; }
 button { font: inherit; color: inherit; }
 
@@ -69,7 +71,7 @@ button { font: inherit; color: inherit; }
 .prompt-actions button { background: rgba(201, 162, 74, 0.12); border: 1px solid var(--accent); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
 
 .reopen { position: absolute; right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); background: var(--shade); border: 1px solid #444; border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 14px; }
-.hint { position: absolute; top: 44px; left: 50%; transform: translateX(-50%); margin: 0; font: 12px/1 var(--mono); color: var(--muted); background: var(--shade); padding: 6px 10px; border-radius: 999px; }
+.hint { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); margin: 0; font: 12px/1 var(--mono); color: var(--muted); background: var(--shade); padding: 6px 10px; border-radius: 999px; }
 .badge { position: absolute; top: 12px; left: 14px; font: 10px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(201, 162, 74, 0.6); padding: 4px 6px; border-radius: 3px; }
 
 /* Title screen over the room, which loads behind it. */
