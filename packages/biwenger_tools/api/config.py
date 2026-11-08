@@ -83,8 +83,11 @@ TRADER_MIN_SQUAD = 14
 # whatever his price does: he will not do much, and his money buys a riser.
 TRADER_DEAD_SF = 300
 # Days a signing is kept through a falling price: auto-bid signs on projection,
-# and selling him on the first dip buys high and sells low.
-TRADER_HOLD_DAYS = 14
+# and selling him on the first dip buys high and sells low. A week: across the
+# league's flips, the ones sold within seven days were up most often.
+TRADER_HOLD_DAYS = 7
+# Biwenger locks a signing's clause for two weeks.
+CLAUSE_LOCK_DAYS = 14
 # Signings stop at this many players from one club: a bad day for a club costs
 # every player you own from it. Auto-bid and the trader both read it.
 MAX_PLAYERS_PER_CLUB = 3

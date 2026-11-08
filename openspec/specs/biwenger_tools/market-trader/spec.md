@@ -88,14 +88,22 @@ while the starting keeper is inside his own signing hold the old one SHALL be
 kept, falling price or not: the new one cannot be claused for those two weeks,
 so the old one is free cover, and a clause on him pays above his value.
 
-A player signed less than `TRADER_HOLD_DAYS` (14, the two weeks Biwenger locks
-a clause after a signing) ago SHALL NOT be sold, for falling or for projecting
+A player signed less than `TRADER_HOLD_DAYS` (7) ago SHALL NOT be sold, for falling or for projecting
 below `TRADER_DEAD_SF`: auto-bid signs on projection at the same 300 floor, so
 selling him on the first dip — of price, or of a blend that moves a few points a
 day — buys high and sells low. On 22/10 the plan would have sold Yuri five days
 after signing him at T4, his blended projection just under 300. The hold reads
 the signing date Biwenger returns with the squad; a player with no signing date
 is not held.
+
+The hold was 14 days, Biwenger's clause lock, until a read of the league's 148
+market flips (`board_archive`, 9/11) found the ones sold within a week up 70–74 %
+of the time against 38–60 % for those held 10–21 days, and the most profitable
+manager holding about ten. The read is selection-biased — sellers chose when —
+so it is checked again on `price_snapshots` (`docs/technical/backend/
+measurements.md`). The keeper cover keeps reading the clause lock itself,
+`CLAUSE_LOCK_DAYS` (14): a new keeper cannot be claused for two weeks however
+soon a signing may be sold.
 
 A player who cannot be fielded — injured or suspended — SHALL NOT be sold
 at all while he cannot play, for projecting below the floor or for a falling
@@ -137,12 +145,14 @@ most days, so it sold players still gaining value.
 - **WHEN** the squad holds two keepers **THEN** the one out of the eleven is
   sold on a flat price, never the one who starts, and never below the minimum
   squad; a new keeper who drops out of the eleven is held while the signing
-  hold lasts
+  hold lasts; the old keeper covers a new one for the clause lock, not the
+  shorter sale hold
 - *Verifies:*
   `test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price`,
   `test_the_keeper_who_starts_is_never_the_one_sold`,
   `test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing`,
   `test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected`,
+  `test_the_keeper_cover_follows_the_clause_lock_not_the_sale_hold`,
   `test_the_covering_keeper_is_kept_even_while_his_price_falls`,
   `test_a_second_keeper_still_stops_at_the_minimum_squad`,
   `test_a_player_falling_two_days_is_sold_when_the_rest_still_fields_an_eleven`,

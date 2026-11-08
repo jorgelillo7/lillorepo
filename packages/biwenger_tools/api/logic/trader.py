@@ -31,9 +31,11 @@ class Rules:
     min_squad: int
     # A bench player projected below this is sold whatever his price does.
     dead_sf: int
-    # A signing is not sold for this long, on price or projection — the same
-    # two weeks Biwenger locks a clause after one.
+    # A signing is not sold for this long, on price or projection.
     hold_days: int = 0
+    # Biwenger locks a signing's clause this long: a new keeper cannot be
+    # claused, so the old one is kept as free cover until it ends.
+    clause_lock_days: int = 0
     # No buy from a club the squad already holds this many of; 0 is no cap.
     max_per_club: int = 0
 
@@ -154,7 +156,8 @@ def plan_sells(
     # While the starter is new he cannot be claused anyway, so the old keeper
     # costs nothing as cover — and a clause on him pays above his value.
     covering = any(
-        (d := _days_held(r, now)) is not None and d < rules.hold_days for r in starting
+        (d := _days_held(r, now)) is not None and d < rules.clause_lock_days
+        for r in starting
     )
     spare_keepers = (
         {r["bw_id"] for r in keepers if r["bw_id"] not in starters}
