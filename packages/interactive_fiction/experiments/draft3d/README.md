@@ -94,7 +94,9 @@ The whole procedure, with its traps, is the
   <https://platform.worldlabs.ai/billing>, auto-refill off). Tools that need
   it run in a login shell (`zsh -lc '…'`). `GEMINI_API_KEY` is be-water's
   paid key, command in the package's `OPERATIONS.md`; on this account Gemini
-  spend has been covered by Google Cloud promo credits.
+  spend has been covered by Google Cloud promo credits, so it has far more
+  room than World Labs' prepaid balance: spend pictures freely to make each
+  world right first time.
 - **What a call really costs** (World Labs reports it): one picture, draft
   230 credits, full 1,580; with three extra views (`--views`), 250 / 1,600.
   US$1 = 1,250 credits. A Gemini picture or edit ≈ US$0.12.
