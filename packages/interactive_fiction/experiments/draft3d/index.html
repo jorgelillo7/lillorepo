@@ -28,6 +28,11 @@
         <div class="subs-bar">
           <button class="subs-btn" id="subs-next">Continuar <span aria-hidden="true">›</span></button>
           <button class="subs-btn" id="subs-close" hidden>Explorar</button>
+          <span class="subs-end" id="subs-end" hidden>
+            <span class="subs-code" id="subs-code"></span>
+            <button class="subs-btn" id="subs-next-chapter" hidden></button>
+            <button class="subs-btn ghost" id="subs-menu">Menú</button>
+          </span>
         </div>
       </section>
 
@@ -48,11 +53,19 @@
       <div class="veil" id="veil" aria-hidden="true"><span class="veil-bar"></span></div>
 
       <section class="title" id="title">
-        <p class="title-series" id="title-series"></p>
         <h1 class="title-name" id="title-name"></h1>
-        <button class="title-start" id="title-start" disabled>Cargando la habitación…</button>
+        <nav class="title-menu" id="title-menu"></nav>
         <p class="title-warning" id="title-warning"></p>
+        <button class="title-credits" id="title-credits" hidden></button>
+        <p class="title-keys">Espacio o Intro: seguir leyendo · Esc: volver</p>
         <p class="title-tip" id="title-tip">Para jugar a pantalla completa en iPhone: Compartir → Añadir a pantalla de inicio, y ábrelo desde el icono.</p>
+      </section>
+
+      <section class="about" id="about" hidden>
+        <p class="title-series" id="about-series"></p>
+        <h2 class="about-title">Acerca de</h2>
+        <div class="about-body" id="about-body"></div>
+        <button class="subs-btn ghost" id="about-close">← Volver</button>
       </section>
     </main>
     <script type="module" src="/main.ts"></script>

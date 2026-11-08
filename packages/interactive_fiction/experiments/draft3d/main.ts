@@ -12,10 +12,12 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { door, setAmbience, unlock } from "../../src/app/audio.ts";
 import { segment } from "../../src/app/pacing.ts";
-import type { ChapterData, SeriesEntry } from "../../src/contract.ts";
+import { freshStart, outcomeOf, withCarriedCode, type Outcome } from "../../src/app/progression.ts";
+import { loadCodes, storeCode } from "../../src/app/save.ts";
+import type { ChapterData, ChapterSummary, SeriesEntry } from "../../src/contract.ts";
 import type { Ambience } from "../../src/engine/game.ts";
 import { Runtime, type Action } from "../../src/engine/runtime.ts";
-import { hotspotsFor, type Hotspot, type Scene, type ShownHotspot } from "../../src/engine/scenes.ts";
+import { hotspotsFor, type Hotspot, type Scene, type SceneFile, type ShownHotspot } from "../../src/engine/scenes.ts";
 
 interface World {
   splats: string;
@@ -61,8 +63,7 @@ const subsClose = $<HTMLButtonElement>("subs-close");
 const reopen = $<HTMLButtonElement>("reopen");
 const prompt = $<HTMLElement>("prompt");
 
-const [data, library, worlds] = await Promise.all([
-  fetch("/01.json").then((r) => r.json() as Promise<ChapterData>),
+const [library, worlds] = await Promise.all([
   fetch("/library.json").then((r) => r.json() as Promise<SeriesEntry[]>),
   fetch("/worlds.json").then((r) => r.json() as Promise<Record<string, World>>),
 ]);
@@ -71,11 +72,31 @@ const series = library[0];
 const BUILD = (worlds as unknown as Record<string, { build?: number }>)[""]?.build ?? 0;
 delete (worlds as Record<string, unknown>)[""];
 const fresh = (path: string) => `/${path}?v=${BUILD}`;
-const scenes = data.scenes!;
-const rt = new Runtime(data);
-document.title = `${data.title} · borrador 3D`;
-$("title-series").textContent = series.title;
-$("title-name").textContent = data.title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, "");
+
+interface Chapter {
+  id: string;
+  data: ChapterData;
+  rt: Runtime;
+  scenes: SceneFile;
+}
+const chapterData = new Map<string, Promise<Chapter>>();
+/** A chapter's built data (prepare.ts copies every chapter of the series), fetched once. */
+function loadChapter(id: string): Promise<Chapter> {
+  let p = chapterData.get(id);
+  if (!p) {
+    p = fetch(`/${id}.json`).then(async (r) => {
+      if (!r.ok) throw new Error(`No chapter ${id}`);
+      const data = (await r.json()) as ChapterData;
+      return { id, data, rt: new Runtime(data), scenes: data.scenes ?? { scenes: {}, passages: {} } };
+    });
+    chapterData.set(id, p);
+  }
+  return p;
+}
+let chapter = await loadChapter(series.chapters[0].id);
+const shortName = (title: string) => title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, "");
+
+$("title-name").textContent = series.title;
 $("title-warning").textContent = series.game.title?.warning ?? "";
 // Opened from the home screen already: the tip has done its job.
 if ((navigator as Navigator & { standalone?: boolean }).standalone || matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches) {
@@ -83,8 +104,9 @@ if ((navigator as Navigator & { standalone?: boolean }).standalone || matchMedia
 }
 // The author's own components (a book page, the rules) keep his styling; rules that lay out his whole page do not apply here.
 const authorCss = document.createElement("style");
-authorCss.textContent = (data.stylesheet ?? "").replace(/[^{}]*(?:tw-story|tw-passage|\bbody\b|\bhtml\b)[^{}]*\{[^{}]*\}/g, "");
 document.head.append(authorCss);
+const setAuthorCss = (c: Chapter) =>
+  (authorCss.textContent = (c.data.stylesheet ?? "").replace(/[^{}]*(?:tw-story|tw-passage|\bbody\b|\bhtml\b)[^{}]*\{[^{}]*\}/g, ""));
 
 // --- 3D -------------------------------------------------------------------
 
@@ -98,21 +120,25 @@ const OPENCV_TO_THREE = new THREE.Quaternion(1, 0, 0, 0);
 
 interface Loaded {
   id: string;
+  /** The world's scene as the playing chapter has it: its hotspots, and so its anchors, differ between chapters. */
+  scene: Scene;
   world: World;
   splat: SplatMesh;
   figures: THREE.Object3D[];
   anchors: Map<string, THREE.Vector3>;
 }
+/** A world's downloads by splat file, shared by every chapter and every scene that shows its room. */
+const assets = new Map<string, Promise<{ splat: SplatMesh; collider: THREE.Object3D }>>();
+/** A world as one chapter shows it, by "chapter/scene"; `settled` holds those ready to show at once. */
 const loaded = new Map<string, Promise<Loaded>>();
+const settled = new Set<string>();
 let current: Loaded | null = null;
 let yaw = 0;
 let pitch = 0;
 
-function loadWorld(id: string): Promise<Loaded> {
-  let p = loaded.get(id);
+function loadAssets(world: World): Promise<{ splat: SplatMesh; collider: THREE.Object3D }> {
+  let p = assets.get(world.splats);
   if (!p) {
-    const world = worlds[id];
-    const scene = scenes.scenes[id];
     p = (async () => {
       const splat = new SplatMesh({ url: fresh(world.splats) });
       splat.quaternion.copy(OPENCV_TO_THREE);
@@ -120,10 +146,26 @@ function loadWorld(id: string): Promise<Loaded> {
       collider.quaternion.copy(OPENCV_TO_THREE);
       collider.updateMatrixWorld(true);
       await splat.initialized;
-      const figures = await Promise.all((world.figures ?? []).map((f) => figure(world, scene, collider, f)));
-      return { id, world, splat, figures, anchors: anchorsFor(world, scene, collider) };
+      return { splat, collider };
     })();
-    loaded.set(id, p);
+    assets.set(world.splats, p);
+  }
+  return p;
+}
+
+function loadWorld(c: Chapter, id: string): Promise<Loaded> {
+  const key = `${c.id}/${id}`;
+  let p = loaded.get(key);
+  if (!p) {
+    const world = worlds[id];
+    const scene = c.scenes.scenes[id];
+    p = (async () => {
+      const { splat, collider } = await loadAssets(world);
+      const figures = await Promise.all((world.figures ?? []).map((f) => figure(world, scene, collider, f)));
+      settled.add(key);
+      return { id, scene, world, splat, figures, anchors: anchorsFor(world, scene, collider) };
+    })();
+    loaded.set(key, p);
   }
   return p;
 }
@@ -212,14 +254,14 @@ function anchorsFor(world: World, scene: Scene, collider: THREE.Object3D): Map<s
  */
 function fovFor(l: Loaded, aspect: number): number {
   // The picture's width is what the world knows: a wider screen trims top and bottom rather than show more sideways.
-  const halfTan = Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(scenes.scenes[l.id], l.world);
+  const halfTan = Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(l.scene, l.world);
   return Math.min(90, THREE.MathUtils.radToDeg(2 * Math.atan(halfTan / aspect)));
 }
 
 /** The turn allowed now, in radians: the view's edges stay inside the world's bounds. */
 function yawRange(l: Loaded): [number, number] {
   const half = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
-  const picture = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(scenes.scenes[l.id], l.world)));
+  const picture = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(l.scene, l.world)));
   const [right, left] = l.world.bounds ?? [-(picture + 10), picture + 10];
   // A world clean all the way round turns freely.
   if (left - right >= 360) return [-Infinity, Infinity];
@@ -292,7 +334,7 @@ requestAnimationFrame(frame);
 // Drag to look around, within the part of the room the picture showed.
 let drag: { x: number; y: number; yaw: number; pitch: number } | null = null;
 stage.addEventListener("pointerdown", (e) => {
-  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title")) return;
+  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title, .about")) return;
   drag = { x: e.clientX, y: e.clientY, yaw, pitch };
 });
 addEventListener("pointermove", (e) => {
@@ -322,7 +364,7 @@ setInterval(() => {
 
 // --- story ----------------------------------------------------------------
 
-const vars = rt.start();
+let vars = chapter.rt.start();
 let actions: Action[] = [];
 let room: string | undefined;
 let flatScene: Scene | null = null;
@@ -373,21 +415,22 @@ function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
   return b;
 }
 
-/** Show the passage's scene; returns the choices it holds, which are found by exploring rather than read in the text. */
 /**
- * Change scene behind a short fade to black, so moving between rooms reads as
- * a step and never as a freeze; a loading line appears only if the next
- * room's world is still downloading.
+ * Show the passage's scene, behind a short fade to black so moving between
+ * rooms reads as a step and never as a freeze; a loading line appears only if
+ * the next room's world is still downloading. Returns the choices the scene
+ * holds, which are found by exploring rather than read in the text.
  */
 let shownScene: string | undefined;
 const veil = $<HTMLElement>("veil");
 async function showScene(id: string | undefined): Promise<Set<number>> {
-  const scene = id ? scenes.scenes[id] : undefined;
+  const scene = id ? chapter.scenes.scenes[id] : undefined;
   if (scene?.room !== room) {
     if (room !== undefined) door();
     room = scene?.room;
   }
-  const changing = shownScene !== undefined && id !== shownScene;
+  // The first room fades in too when its world is not downloaded yet.
+  const changing = shownScene !== undefined ? id !== shownScene : !!(id && worlds[id] && !settled.has(`${chapter.id}/${id}`));
   shownScene = id;
   if (changing) {
     veil.classList.add("on");
@@ -403,9 +446,20 @@ async function showScene(id: string | undefined): Promise<Set<number>> {
   }
 }
 
+/** Put a world in the room, taking out the one there before. */
+function place(next: Loaded | null): void {
+  if (current === next) return;
+  if (current) scene3d.remove(current.splat, ...current.figures);
+  if (next) scene3d.add(next.splat, ...next.figures);
+  current = next;
+  yaw = 0;
+  pitch = 0;
+  if (next) resize();
+}
+
 async function setScene(id: string | undefined): Promise<Set<number>> {
-  const scene = id ? scenes.scenes[id] : undefined;
-  const all = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
+  const scene = id ? chapter.scenes.scenes[id] : undefined;
+  const all = scene ? hotspotsFor(scene, actions, chapter.scenes.scenes).shown : [];
   // A world with hand-placed hotspots shows only those; the rest stay text choices.
   const placed = id && worlds[id]?.anchors;
   const hot = placed ? all.filter((h) => h.hotspot.label in placed) : all;
@@ -418,15 +472,8 @@ async function setScene(id: string | undefined): Promise<Set<number>> {
   focusAmount = 0;
   setAmbience(ambienceFor(scene));
   if (scene && id && worlds[id]) {
-    const next = await loadWorld(id);
-    if (current?.id !== next.id) {
-      if (current) scene3d.remove(current.splat, ...current.figures);
-      scene3d.add(next.splat, ...next.figures);
-      current = next;
-      yaw = 0;
-      pitch = 0;
-      resize();
-    }
+    const next = await loadWorld(chapter, id);
+    place(next);
     canvas.hidden = false;
     flat.hidden = true;
     for (const s of hot) {
@@ -437,7 +484,7 @@ async function setScene(id: string | undefined): Promise<Set<number>> {
     }
     return onStage;
   }
-  current = null;
+  place(null);
   canvas.hidden = true;
   if (!scene) {
     flat.hidden = true;
@@ -478,6 +525,8 @@ function layoutFlat(): void {
 // Subtitles: one paragraph at a time; the last one offers to explore.
 let segments: HTMLElement[] = [];
 let shownSegment = 0;
+/** The chapter is over: its last subtitle offers the next chapter. */
+let ended = false;
 
 function showSegment(n: number): void {
   shownSegment = n;
@@ -487,6 +536,7 @@ function showSegment(n: number): void {
   const lastOne = n >= segments.length - 1;
   subsNext.hidden = lastOne;
   subsClose.hidden = !lastOne || spots.childElementCount === 0;
+  subsEnd.hidden = !lastOne || !ended;
   spots.classList.toggle("quiet", !lastOne);
   subsText.scrollTop = 0;
 }
@@ -561,9 +611,12 @@ function renderText(html: string, onStage: Set<number>): void {
 
 async function show(name: string): Promise<void> {
   try {
-    const page = rt.visit(vars, name);
+    const page = chapter.rt.visit(vars, name);
     actions = page.actions;
-    renderText(page.html, await showScene(scenes.passages[page.passage]));
+    const outcome = outcomeOf(page, vars, series.carry);
+    if (outcome.code) storeCode(series.id, chapter.id, outcome.code);
+    showEnd(outcome.ended ? outcome : null);
+    renderText(page.html, await showScene(chapter.scenes.passages[page.passage]));
   } catch (e) {
     subsText.textContent = (e as Error).message;
   }
@@ -577,7 +630,7 @@ function act(i: number): void {
     void show(a.target);
     return;
   }
-  const r = rt.reveal(vars, a);
+  const r = chapter.rt.reveal(vars, a);
   if (r.goto) {
     void show(r.goto);
     return;
@@ -590,24 +643,161 @@ function act(i: number): void {
   subsText.querySelectorAll(`tw-link[data-action="${i}"]`).forEach((l) => l.replaceWith(holder));
 }
 
-// Title screen: the first room loads behind it; starting is the gesture that unlocks sound.
-const start = $<HTMLButtonElement>("title-start");
-const firstScene = scenes.passages[data.start];
-if (firstScene && worlds[firstScene]) {
-  current = await loadWorld(firstScene);
-  scene3d.add(current.splat, ...current.figures);
-  resize();
+/** The end of a chapter, under its last subtitle: the code it ended on, and the way on. */
+const subsEnd = $<HTMLElement>("subs-end");
+const nextChapter = $<HTMLButtonElement>("subs-next-chapter");
+function showEnd(outcome: Outcome | null): void {
+  ended = !!outcome;
+  $("subs-code").textContent = outcome?.code ? `Tu código: ${outcome.code}` : "";
+  const i = series.chapters.findIndex((c) => c.id === chapter.id);
+  const next = series.chapters[i + 1];
+  nextChapter.hidden = !next;
+  if (next) {
+    nextChapter.textContent = `${chapterLabel(next)} ›`;
+    nextChapter.onclick = () => void begin(next.id);
+  }
 }
-start.disabled = false;
-start.textContent = "Empezar";
-start.addEventListener("click", () => {
+$("subs-menu").addEventListener("click", showTitle);
+
+// --- title -----------------------------------------------------------------
+
+const title = $<HTMLElement>("title");
+const about = $<HTMLElement>("about");
+const chapterLabel = (c: ChapterSummary) => `Capítulo ${Number(c.id)}`;
+
+/** Start a chapter from its beginning, with the previous chapter's end code carried in as the reader does. */
+async function begin(id: string): Promise<void> {
   unlock();
-  $("title").classList.add("gone");
-  void show(data.start);
-  // The other rooms download in the background, so stepping into one is usually instant.
-  void (async () => {
-    for (const id of Object.keys(worlds)) await loadWorld(id).catch(() => undefined);
-  })();
+  hideTitle();
+  chapter = await loadChapter(id);
+  setAuthorCss(chapter);
+  document.title = `${shortName(chapter.data.title)} · borrador 3D`;
+  const i = series.chapters.findIndex((c) => c.id === id);
+  const previous = i > 0 ? loadCodes(series.id)[series.chapters[i - 1].id] : undefined;
+  vars = withCarriedCode(freshStart(chapter.data.start, chapter.rt.start()), series.carry, previous).vars;
+  await show(chapter.data.start);
+  // The chapter's other rooms download in the background, so stepping into one is usually instant.
+  for (const scene of Object.keys(chapter.scenes.scenes)) {
+    if (worlds[scene]) await loadWorld(chapter, scene).catch(() => undefined);
+  }
+}
+
+function hideTitle(): void {
+  title.classList.add("gone");
+  // Faded out, its buttons must not take a key press meant for the subtitles.
+  title.inert = true;
+  (document.activeElement as HTMLElement | null)?.blur();
+}
+
+function showTitle(): void {
+  subs.hidden = true;
+  prompt.hidden = true;
+  reopen.hidden = true;
+  $("hint").hidden = true;
+  focus = null;
+  title.inert = false;
+  title.classList.remove("gone");
+}
+
+function openAbout(): void {
+  about.hidden = false;
+  title.inert = true;
+  $<HTMLButtonElement>("about-close").focus();
+}
+
+function closeAbout(): void {
+  about.hidden = true;
+  title.inert = false;
+}
+
+/** The series' credits as the reader's "Acerca de" page lists them: name, role and profile links. */
+function creditCards(): HTMLElement {
+  const list = document.createElement("ul");
+  list.className = "credits";
+  for (const c of series.credits) {
+    const item = document.createElement("li");
+    item.className = "credit";
+    const name = document.createElement("span");
+    name.className = "credit-name";
+    name.textContent = c.name;
+    const role = document.createElement("span");
+    role.className = "credit-role";
+    role.textContent = c.role;
+    item.append(name, role);
+    const links = Object.entries(c.links);
+    if (links.length) {
+      const span = document.createElement("span");
+      span.className = "credit-links";
+      links.forEach(([label, url], n) => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = label;
+        span.append(...(n ? [" · ", a] : [a]));
+      });
+      item.append(span);
+    }
+    list.append(item);
+  }
+  return list;
+}
+
+// The title's menu: each chapter, then "Acerca de"; the credits line under the warning opens it too.
+const menu = $<HTMLElement>("title-menu");
+for (const c of series.chapters) {
+  const b = document.createElement("button");
+  b.className = "title-start";
+  b.dataset.chapter = c.id;
+  b.innerHTML = `${chapterLabel(c)} <span class="title-chapter"></span>`;
+  b.querySelector("span")!.textContent = `· ${shortName(c.title)}`;
+  b.addEventListener("click", () => void begin(c.id));
+  menu.append(b);
+}
+if (series.credits.length || series.about.length) {
+  const b = document.createElement("button");
+  b.className = "title-start";
+  b.textContent = "Acerca de";
+  b.addEventListener("click", openAbout);
+  menu.append(b);
+}
+const credits = $<HTMLButtonElement>("title-credits");
+credits.textContent = series.credits.map((c) => `${c.role}: ${c.name}`).join(" · ");
+credits.hidden = !series.credits.length;
+credits.addEventListener("click", openAbout);
+$("about-series").textContent = series.title;
+$("about-body").replaceChildren(
+  ...(series.credits.length ? [creditCards()] : []),
+  ...series.about.map((text) => Object.assign(document.createElement("p"), { textContent: text })),
+);
+$("about-close").addEventListener("click", closeAbout);
+
+// The first chapter's first room loads behind the title; starting is the gesture that unlocks sound.
+const firstScene = chapter.scenes.passages[chapter.data.start];
+if (firstScene && worlds[firstScene]) {
+  void loadWorld(chapter, firstScene).then((l) => {
+    if (shownScene === undefined) place(l);
+  });
+}
+
+// The reader's keys: Space or Enter reads on (and, after the last paragraph, explores); Escape steps back.
+addEventListener("keydown", (ev) => {
+  const t = ev.target as HTMLElement;
+  if (ev.key === "Escape") {
+    if (!about.hidden) closeAbout();
+    else if (!prompt.hidden) leaveInspect();
+    return;
+  }
+  if ((ev.key !== " " && ev.key !== "Enter") || t.closest?.("tw-link, input, button, a")) return;
+  if (!title.inert) {
+    ev.preventDefault();
+    void begin(series.chapters[0].id);
+    return;
+  }
+  if (!about.hidden) return;
+  ev.preventDefault();
+  if (!subs.hidden) [subsNext, subsClose].find((b) => !b.hidden)?.click();
+  else if (!reopen.hidden) openSubs();
 });
 
 // Safari's own gestures still zoom past touch-action in places: stop them outright.
