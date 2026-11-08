@@ -466,7 +466,9 @@ def test_a_goalkeeper_is_never_bought():
 
 NOW = 1_792_000_000.0
 DAY = 86_400
-HOLD = Rules(**{**RULES.__dict__, "hold_days": 14, "dead_sf": 300})
+HOLD = Rules(
+    **{**RULES.__dict__, "hold_days": 14, "clause_lock_days": 14, "dead_sf": 300}
+)
 
 
 def _signed(player, days_ago):
@@ -730,6 +732,30 @@ def test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected():
         now=later,
     )
     assert [m.row["bw_id"] for m in result.sells] == [1]
+
+
+def test_the_keeper_cover_follows_the_clause_lock_not_the_sale_hold():
+    """Selling a signing may wait a week, but Biwenger still locks a new
+    keeper's clause for two: the old one stays as free cover until day 14."""
+    rules = Rules(
+        **{**RULES.__dict__, "hold_days": 7, "clause_lock_days": 14, "dead_sf": 300}
+    )
+    new = dict(_player(2, 900, GK), acq_date=int(NOW - 10 * DAY))
+    old = dict(_player(1, 400, GK), acq_date=int(NOW - 100 * DAY))
+    squad = [old] + _eleven()[1:] + [new]
+    result = plan(
+        squad,
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=rules,
+        now=NOW,
+    )
+    assert result.sells == []
+    ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 1]
+    assert "portero nuevo" in why
 
 
 def test_the_covering_keeper_is_kept_even_while_his_price_falls():
