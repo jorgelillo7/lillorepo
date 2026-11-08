@@ -71,7 +71,18 @@ them up close. For a scene with a character (the Cheshire room):
    else (Gemini keeps it aligned to the pixel). Build the world from that.
 2. `view.ts` again for a matte: the picture with everything but the character
    in flat green.
-3. Cut the character out of the **original** picture with both masks: the
+   The two prompts that worked for Cheshire (adapt the names):
+   - *Empty room:* "Edit the attached picture: remove the girl lying on the
+     bed (and the book and the plush keychain she holds). Where she was, show
+     the empty bed exactly as it would look… Change NOTHING else: same camera,
+     same framing… pixel for pixel wherever the girl was not. Keep the dark
+     rounded frame of the picture as it is."
+   - *Matte:* "Edit the attached picture into a matte for compositing: keep
+     the girl… EXACTLY as she is… pixel for pixel. Replace EVERYTHING else…
+     with a single flat pure green colour, #00FF00, with no shading."
+3. `python3 cutout.py <picture> <empty> <matte> worlds/<name>-cutout.png
+   --dark-box x0,y0,x1,y1` (numpy/scipy/pillow in a throwaway venv) cuts the
+   character out of the **original** picture with both masks: the
    difference between original and empty room says where she is, the green
    matte gives the clean outline. Dark parts (her boots) differ little from
    the dark shadow under the empty bed, so the difference alone cuts them:
