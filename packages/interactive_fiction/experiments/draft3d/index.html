@@ -4,20 +4,43 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
-    <title>Borrador 3D · Capítulo 1</title>
+    <meta name="theme-color" content="#000000" />
+    <title>Borrador 3D</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main class="game">
-      <section class="stage" id="stage">
-        <canvas id="world" aria-label="Escena"></canvas>
-        <img id="flat" alt="" hidden />
-        <div id="spots" class="spots"></div>
-        <p class="hint" id="hint">Arrastra para mirar alrededor</p>
-        <p class="loading" id="loading" hidden>Cargando la habitación…</p>
-        <span class="badge">Borrador 3D</span>
+    <main class="stage" id="stage">
+      <canvas id="world" aria-label="Escena"></canvas>
+      <img id="flat" alt="" hidden />
+      <div class="mood" aria-hidden="true"><canvas id="grain"></canvas></div>
+      <div id="spots" class="spots"></div>
+
+      <section class="subs" id="subs" aria-live="polite" hidden>
+        <div class="subs-text" id="subs-text"></div>
+        <div class="subs-bar">
+          <button class="subs-btn" id="subs-next">Continuar <span aria-hidden="true">›</span></button>
+          <button class="subs-btn" id="subs-close" hidden>Explorar</button>
+        </div>
       </section>
-      <section class="text" id="text" aria-live="polite"></section>
+
+      <section class="prompt" id="prompt" hidden>
+        <span class="prompt-label" id="prompt-label"></span>
+        <div class="prompt-actions" id="prompt-actions"></div>
+        <button class="subs-btn ghost" id="prompt-cancel">Volver</button>
+      </section>
+
+      <button class="reopen" id="reopen" hidden aria-label="Leer el texto">Texto</button>
+      <p class="hint" id="hint" hidden>Arrastra para mirar · toca lo que brilla</p>
+      <span class="badge">Borrador 3D</span>
+      <p class="rotate" aria-hidden="true">Gira el móvil para ver toda la habitación ⟳</p>
+
+      <section class="title" id="title">
+        <p class="title-series" id="title-series"></p>
+        <h1 class="title-name" id="title-name"></h1>
+        <button class="title-start" id="title-start" disabled>Cargando la habitación…</button>
+        <p class="title-warning" id="title-warning"></p>
+        <p class="title-tip">Mejor con el móvil en horizontal. En iPhone, pantalla completa: Compartir → Añadir a pantalla de inicio.</p>
+      </section>
     </main>
     <script type="module" src="/main.ts"></script>
   </body>
