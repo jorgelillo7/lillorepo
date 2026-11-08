@@ -266,9 +266,11 @@ function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
   return b;
 }
 
-async function showScene(id: string | undefined): Promise<void> {
+/** Show the passage's scene; returns the choices it holds, which are found by exploring rather than read in the text. */
+async function showScene(id: string | undefined): Promise<Set<number>> {
   const scene = id ? scenes.scenes[id] : undefined;
   const hot = scene ? hotspotsFor(scene, actions, scenes.scenes).shown : [];
+  const onStage = new Set(hot.flatMap((h) => h.actions));
   spots.replaceChildren();
   shown = [];
   flatSpots = [];
@@ -298,13 +300,13 @@ async function showScene(id: string | undefined): Promise<void> {
       spots.append(el);
       shown.push({ el, at });
     }
-    return;
+    return onStage;
   }
   current = null;
   canvas.hidden = true;
   if (!scene) {
     flat.hidden = true;
-    return;
+    return onStage;
   }
   flat.src = "/" + scene.image;
   flat.hidden = false;
@@ -317,6 +319,7 @@ async function showScene(id: string | undefined): Promise<void> {
     flatSpots.push({ el, hotspot: s.hotspot });
   }
   layoutFlat();
+  return onStage;
 }
 
 /** A `cover`-fitted picture's hotspots, laid out in pixels over the stage. */
@@ -368,9 +371,15 @@ subsClose.addEventListener("click", () => {
 });
 reopen.addEventListener("click", openSubs);
 
-function renderText(html: string): void {
+/** The passage as subtitles; a choice the scene holds is left out of the text, to be found in the room. */
+function renderText(html: string, onStage: Set<number>): void {
   const passage = document.createElement("div");
   passage.innerHTML = html;
+  for (const l of passage.querySelectorAll<HTMLElement>("tw-link[data-action]")) {
+    if (!onStage.has(Number(l.dataset.action))) continue;
+    if (l.nextSibling?.nodeName === "BR") l.nextSibling.remove();
+    l.remove();
+  }
   segments = segment(passage);
   subsText.replaceChildren(passage);
   passage.querySelectorAll<HTMLElement>("tw-link[data-action]").forEach((l) => l.addEventListener("click", () => act(Number(l.dataset.action))));
@@ -382,8 +391,7 @@ async function show(name: string): Promise<void> {
   try {
     const page = rt.visit(vars, name);
     actions = page.actions;
-    await showScene(scenes.passages[page.passage]);
-    renderText(page.html);
+    renderText(page.html, await showScene(scenes.passages[page.passage]));
   } catch (e) {
     subsText.textContent = (e as Error).message;
   }
