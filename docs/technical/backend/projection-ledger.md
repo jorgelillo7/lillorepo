@@ -4,6 +4,9 @@
 the Oráculo blend picked against the eleven Jornada Perfecta alone would have
 picked, using what the players really scored.
 
+Every open measurement, this one among them, is mapped in
+[`measurements.md`](measurements.md).
+
 **Read this before acting on its output.** The numbers are easy to produce and
 easy to misread, and every way of misreading them ends the same way: changing
 a dial for a reason that was not there.
