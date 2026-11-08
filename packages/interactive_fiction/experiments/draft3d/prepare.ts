@@ -1,7 +1,7 @@
 /**
- * Copy what the draft serves into public/: chapter 1's built data and images
- * (run `npm run stories` in the package first) and the generated worlds
- * listed in worlds.json (kept in worlds/, outside git).
+ * Copy what the draft serves into public/: every built chapter of the series
+ * and its images (run `npm run stories` in the package first) and the
+ * generated worlds listed in worlds.json (kept in worlds/, outside git).
  */
 
 import { execFileSync } from "node:child_process";
@@ -11,10 +11,13 @@ import { dirname, join } from "node:path";
 const here = dirname(new URL(import.meta.url).pathname);
 const stories = join(here, "../../public/stories/samantha");
 const pub = join(here, "public");
-if (!existsSync(join(stories, "01.json"))) throw new Error("No built chapter 1: run `npm run stories` in packages/interactive_fiction.");
+if (!existsSync(join(stories, "../library.json"))) throw new Error("No built chapters: run `npm run stories` in packages/interactive_fiction.");
 rmSync(pub, { recursive: true, force: true });
 mkdirSync(pub, { recursive: true });
-cpSync(join(stories, "01.json"), join(pub, "01.json"));
+const library = JSON.parse(readFileSync(join(stories, "../library.json"), "utf8")) as { id: string; chapters: { id: string }[] }[];
+const series = library.find((s) => s.id === "samantha");
+if (!series) throw new Error("No samantha series in the built library.");
+for (const { id } of series.chapters) cpSync(join(stories, `${id}.json`), join(pub, `${id}.json`));
 cpSync(join(stories, "../library.json"), join(pub, "library.json"));
 // Scene images keep the path the built chapter gives them (stories/<series>/scenes/…).
 cpSync(join(stories, "scenes"), join(pub, "stories/samantha/scenes"), { recursive: true });

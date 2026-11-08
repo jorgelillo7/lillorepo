@@ -141,7 +141,8 @@ inside them on any screen.
 
 ```bash
 npm run stories          # in the package: the chapter data the draft reads
-npm run check            # in experiments/draft3d
+npm run check            # in experiments/draft3d; chapter 1
+npm run check -- 02      # another chapter; add --via <passage> for a room the shortest path skips
 ```
 
 The shortest path to an ending, every choice made by touching its thing in

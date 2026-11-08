@@ -1,12 +1,16 @@
 # 3D draft
 
-An experiment: chapter 1 of the series with its rooms in 3D. The reader's own
+An experiment: the series' chapters with their rooms in 3D. The reader's own
 engine runs the passages; a scene listed in `worlds.json` is shown as a
 Gaussian-splat room (three.js + [Spark](https://sparkjs.dev)), and any other
-scene keeps its 2D picture.
+scene keeps its 2D picture — chapter 1's rooms are all 3D, chapter 2 plays
+with its 2D pictures except room 207.
 
 It plays full screen, in landscape (a phone held upright gets a screen asking to turn it): a title screen while the first room
-loads; the passage as subtitles, a paragraph at a time (the reader's own
+loads, with the reader's credits line, a menu of words (each chapter, "Acerca
+de" with the credit cards) and its keys (Space or Enter reads on, Escape steps
+back); the end of a chapter shows its code and the way to the next one, which
+starts with that code carried in (`series.carry`, as the reader does); the passage as subtitles, a paragraph at a time (the reader's own
 `segment`); things to interact with as soft glows, and touching one moves the
 camera towards it and lists its choices; the room graded down to night, with
 vignette, grain, a flickering bulb and the reader's synthesized ambience and
@@ -43,9 +47,12 @@ deploys to its own Worker:
    it; `worlds.json` records it under `picture`. The bathroom's new view, from
    inside, holds the mirror and the open door back to room 207, so both are
    places in the room.
-6. **Check** — `npm run check` plays the chapter to an ending by exploring,
+6. **Check** — `npm run check` plays chapter 1 to an ending by exploring,
    at a phone in landscape, and fails on a choice found nowhere or a console
-   error. `npm run fit -- <scene>` (step 4) finds the camera by rendering the
+   error; `npm run check -- 02` plays chapter 2, and `-- 02 --via 207` takes
+   the shortest path through a given passage, for a room the shortest path
+   skips. It also fails when the title or "Acerca de" overflows a 750×330
+   phone. `npm run fit -- <scene>` (step 4) finds the camera by rendering the
    world and scoring it against the picture.
 7. **Preview** — `npm run deploy` (after `npm run stories` in the package).
 
@@ -70,6 +77,10 @@ The whole procedure, with its traps, is the
   <world id>` downloads one again, and every world's id is in `worlds.json`.
   The cut-out PNGs and the Gemini pictures (`view.ts` outputs) exist only in
   `worlds/`; back them up with the author's `web/` art if they matter.
+- A scene is in 3D when `worlds.json` has an entry under its id, in any
+  chapter. Two entries may point at the same files (one room, two pictures
+  of it from the same camera, say with and without a character): the page
+  downloads them once, and each entry keeps its own `figures`.
 - A full-model world's `worlds/<scene>-500k.spz` (~7.5 MiB) is what the page
   loads; its full resolution (~27 MiB) is over Cloudflare's 25 MiB per file.
 - Every build stamps `worlds.json`, and the page asks for each world file
@@ -111,8 +122,10 @@ room serves its 500k splats (~7 MiB): full resolution is over 25 MiB.
 
 The ending is a picture. The author's own components (the rules as a book
 page) keep his stylesheet and get a subtitle to themselves. Cheshire is still
-(a cut-out does not move). Saves, achievements and the end-code panel of the
-real reader are not wired in. A splat world carries the picture's own light,
+(a cut-out does not move). Chapter 2's rooms other than 207 are still their
+2D pictures. Saves, achievements, settings and the full end panel of the real
+reader are not wired in: the draft keeps only each chapter's end code, to
+carry it into the next. A splat world carries the picture's own light,
 so the night look is a grade over it; real lights and close-ups of single
 objects would need those objects as meshes (the reference the owner liked,
 halloween.dev, is built from per-object GLB models).
