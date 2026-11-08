@@ -50,9 +50,19 @@ function shortestPath(): string[] {
     const key = page.passage + passed + JSON.stringify(v);
     if (seen.has(key)) continue;
     seen.add(key);
-    for (const a of page.actions) if (a.kind === "link") queue.push({ passage: a.target, vars: v, path: [...path, a.label], passed });
+    for (const a of page.actions) {
+      if (a.kind === "link") {
+        queue.push({ passage: a.target, vars: v, path: [...path, a.label], passed });
+        continue;
+      }
+      // A choice that reveals text: it either moves on by itself, or offers the links it revealed.
+      const after = structuredClone(v);
+      const r = rt.reveal(after, a);
+      if (r.goto) queue.push({ passage: r.goto, vars: after, path: [...path, a.label], passed });
+      else for (const b of r.actions) if (b.kind === "link") queue.push({ passage: b.target, vars: after, path: [...path, a.label, b.label], passed });
+    }
   }
-  throw new Error(`No ending reachable through links${via ? ` via "${via}"` : ""}.`);
+  throw new Error(`No ending reachable${via ? ` via "${via}"` : ""}.`);
 }
 
 const steps = shortestPath();

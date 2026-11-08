@@ -677,8 +677,9 @@ async function begin(id: string): Promise<void> {
   vars = withCarriedCode(freshStart(chapter.data.start, chapter.rt.start()), series.carry, previous).vars;
   await show(chapter.data.start);
   // The chapter's other rooms download in the background, so stepping into one is usually instant.
-  for (const scene of Object.keys(chapter.scenes.scenes)) {
-    if (worlds[scene]) await loadWorld(chapter, scene).catch(() => undefined);
+  const c = chapter;
+  for (const scene of Object.keys(c.scenes.scenes)) {
+    if (worlds[scene]) await loadWorld(c, scene).catch(() => undefined);
   }
 }
 
