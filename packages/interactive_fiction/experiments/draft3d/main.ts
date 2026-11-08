@@ -32,6 +32,12 @@ interface World {
    * the picture's own edges.
    */
   bounds?: [number, number];
+  /**
+   * Characters kept out of the world and laid back in as sharp cut-outs from
+   * the picture (`rect` in percent of the picture, like a hotspot): a world
+   * bakes a person in soft and breaks them up seen close.
+   */
+  figures?: { image: string; rect: [number, number, number, number] }[];
   /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
   camera?: [number, number, number];
   /**
@@ -88,6 +94,7 @@ interface Loaded {
   id: string;
   world: World;
   splat: SplatMesh;
+  figures: THREE.Object3D[];
   anchors: Map<string, THREE.Vector3>;
 }
 const loaded = new Map<string, Promise<Loaded>>();
@@ -107,11 +114,61 @@ function loadWorld(id: string): Promise<Loaded> {
       collider.quaternion.copy(OPENCV_TO_THREE);
       collider.updateMatrixWorld(true);
       await splat.initialized;
-      return { id, world, splat, anchors: anchorsFor(world, scene, collider) };
+      const figures = await Promise.all((world.figures ?? []).map((f) => figure(world, scene, collider, f)));
+      return { id, world, splat, figures, anchors: anchorsFor(world, scene, collider) };
     })();
     loaded.set(id, p);
   }
   return p;
+}
+
+/** The picture's camera, as the world's starting view reproduces it. */
+function pictureCamera(world: World, scene: Scene): THREE.PerspectiveCamera {
+  const cam = new THREE.PerspectiveCamera(world.fovY, pictureAspect(scene, world), 0.01, 200);
+  cam.rotation.order = "YXZ";
+  cam.rotation.x = THREE.MathUtils.degToRad(world.pitch);
+  cam.position.fromArray(world.camera ?? [0, 0, 0]);
+  cam.updateMatrixWorld(true);
+  return cam;
+}
+
+/** A point of the picture (fractions of the trimmed view) as normalised device coordinates. */
+function ndc(world: World, xPct: number, yPct: number): THREE.Vector2 {
+  const [cx, cy] = world.crop;
+  const u = (xPct / 100 - cx) / (1 - 2 * cx);
+  const v = (yPct / 100 - cy) / (1 - 2 * cy);
+  return new THREE.Vector2(u * 2 - 1, 1 - v * 2);
+}
+
+/**
+ * A cut-out laid into the room: a quad facing the picture's camera at the
+ * depth of what lies under its centre (the bed, for someone lying on it), sized
+ * so that from that camera it covers exactly its rectangle of the picture.
+ */
+async function figure(world: World, scene: Scene, collider: THREE.Object3D, f: NonNullable<World["figures"]>[number]): Promise<THREE.Object3D> {
+  const cam = pictureCamera(world, scene);
+  const [x, y, w, h] = f.rect;
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc(world, x + w / 2, y + h / 2), cam);
+  const hit = ray.intersectObject(collider, true)[0];
+  const at = hit ? hit.point : ray.ray.at(2, new THREE.Vector3());
+  const depth = at.clone().applyMatrix4(cam.matrixWorldInverse).z;
+  const corner = (px: number, py: number) => {
+    const p = ndc(world, px, py);
+    const v = new THREE.Vector3(p.x, p.y, 0.5).unproject(cam).applyMatrix4(cam.matrixWorldInverse);
+    return v.multiplyScalar(depth / v.z).applyMatrix4(cam.matrixWorld);
+  };
+  const [tl, tr, bl, br] = [corner(x, y), corner(x + w, y), corner(x, y + h), corner(x + w, y + h)];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute([...tl.toArray(), ...tr.toArray(), ...bl.toArray(), ...br.toArray()], 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
+  geometry.setIndex([0, 2, 1, 1, 2, 3]);
+  const texture = await new THREE.TextureLoader().loadAsync("/" + f.image);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  mesh.renderOrder = 10;
+  return mesh;
 }
 
 /** Width over height of the trimmed picture the world was generated from. */
@@ -181,7 +238,7 @@ function resize(): void {
 new ResizeObserver(resize).observe(stage);
 
 /** The object being inspected: the camera moves part of the way towards it and turns to face it. */
-const DOLLY = 0.3;
+const DOLLY = 0.12;
 let focus: THREE.Vector3 | null = null;
 const lastFocus = new THREE.Vector3();
 let focusAmount = 0;
@@ -357,8 +414,8 @@ async function setScene(id: string | undefined): Promise<Set<number>> {
   if (scene && id && worlds[id]) {
     const next = await loadWorld(id);
     if (current?.id !== next.id) {
-      if (current) scene3d.remove(current.splat);
-      scene3d.add(next.splat);
+      if (current) scene3d.remove(current.splat, ...current.figures);
+      scene3d.add(next.splat, ...next.figures);
       current = next;
       yaw = 0;
       pitch = 0;
@@ -532,7 +589,7 @@ const start = $<HTMLButtonElement>("title-start");
 const firstScene = scenes.passages[data.start];
 if (firstScene && worlds[firstScene]) {
   current = await loadWorld(firstScene);
-  scene3d.add(current.splat);
+  scene3d.add(current.splat, ...current.figures);
   resize();
 }
 start.disabled = false;

@@ -55,30 +55,30 @@ A world grows from one picture, and the picture decides whether it works:
 - **A person** comes out soft and static: the world bakes them in. Fine for a
   draft; for a sharp one, make the character a separate element.
 
-# Step 1b — Give it every wall, so it invents nothing
+# Step 1b — One picture per world; characters apart
 
-A world grown from one picture paints the rest of the room itself, and what
-it paints can contradict the story: room 207's single-picture world had three
-doors and two windows the text does not have. The cure is to leave it nothing
-to invent: paint the other three walls with `view.ts` (right 90°, behind 180°,
-left 270°, from the picture's own camera), then build the world from all four
-with `--views`.
+**A world grows from ONE picture.** Its geometry is coherent inside that
+picture's view, and past its edges it invents (room 207 grew a door and a
+window). Hide the invented part with `bounds` (step 3), never by feeding the
+world more pictures: building a room from four separately painted walls was
+tried and failed — the walls do not agree, so the stitched world had two desks,
+columns and seams where the views met, worse than the door it fixed.
 
-- **Write each view from the text**: what that wall holds and what it must
-  not ("exactly two doors in the room; NO door in this view"). Ask the author
-  about walls the text never mentions (room 207's: bare walls).
-- **Nothing that is in the picture may appear in a view, even at an edge.** A
-  door or a toilet half in frame becomes a second one when the views are
-  stitched. Crop the view instead of repainting (free): room 207's left wall
-  lost the strip where the bathroom door peeked in.
-- **Trim each view's dark corners** (Gemini adds them however you ask): left
-  on, they come back as black frames hung on the walls. Measure, trim just
-  past them.
-- **Moderation**: World Labs refuses some requests as "violence"; rust or red
-  streaks read as blood. Rejections are free — bisect by pairs of views to
-  find the culprit, then repaint it without red, or desaturate the red.
-- Validate with a draft (250 credits) and `npm run fit -- <scene> --around`
-  before the full model (1,600 credits).
+**People go apart, as cut-outs.** A world bakes a person in soft and breaks
+them up close. For a scene with a character (the Cheshire room):
+
+1. `view.ts` edits the picture with the character removed — same everything
+   else (Gemini keeps it aligned to the pixel). Build the world from that.
+2. `view.ts` again for a matte: the picture with everything but the character
+   in flat green.
+3. Cut the character out of the **original** picture with both masks: the
+   difference between original and empty room says where she is, the green
+   matte gives the clean outline (and leaves the bed rail in front of her legs
+   transparent). Save `worlds/<name>-cutout.png` with its `rect` (percent of
+   the picture).
+4. List it under the world's `figures`: the draft lays it into the room at the
+   depth of what is under it, sized so it covers exactly its rectangle from
+   the picture's camera — sharp at any distance the draft allows.
 
 # Step 2 — Generate the world
 
@@ -158,7 +158,8 @@ is still a draft (quality, characters).
 | Paint a view from inside for rooms painted from outside | The bathroom's world put the camera by the sink and nothing behind it |
 | Fit, do not eyeball | The fit finds the camera to a degree; by eye the hotspots drift |
 | Choices the room holds leave the text | Choosing from the text skips the exploring, which is the point |
-| Every wall is painted, and nothing from the picture repeats in a view | One picture left the world to invent doors and windows the story does not have |
+| One picture per world, inventions hidden with bounds | Four painted walls stitched into two desks, columns and seams |
+| Characters are cut-outs (`figures`), not part of the world | Cheshire's face broke up when the camera came close |
 | `[hidden]` wins over layout rules | A hidden 3D canvas kept drawing under a broken 2D picture |
 | Images keep the chapter's path (`stories/<series>/scenes/…`) | Serving them elsewhere showed a broken image on the iPhone |
 | `text-size-adjust: 100%` | Safari enlarged each subtitle by a different amount in landscape |

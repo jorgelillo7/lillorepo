@@ -71,17 +71,17 @@ The whole procedure, with its traps, is the
 
 ## Not there yet
 
-Chapter 1's three rooms are full-model World Labs worlds built from all four
-walls (the picture plus three views painted to the text), so they invent no
-doors or windows; room 207 and the Cheshire room turn all the way round, the
-bathroom within bounds (its world still adds a bulb and a vent out of the way).
-Each serves its 500k splats (~7 MiB): full resolution is over 25 MiB.
+Chapter 1's three rooms are full-model World Labs worlds, each grown from one
+picture (coherent inside it), turning within bounds that stop short of what
+the world invented past the picture's edges. Cheshire is not part of her
+room's world: the world grew from the room painted without her, and she is a
+sharp cut-out from the original picture laid onto the bed (`figures`). Each
+room serves its 500k splats (~7 MiB): full resolution is over 25 MiB.
 
-Chapter 1's three rooms are 3D (room 207, the bathroom, room 207 with
-Cheshire, who is part of that world: static and a little soft); the ending is
-a picture. The author's own components (the rules as a book page) keep his
-stylesheet and get a subtitle to themselves. Saves, achievements and the end-code panel of the real reader are
-not wired in. A splat world carries the picture's own light,
+The ending is a picture. The author's own components (the rules as a book
+page) keep his stylesheet and get a subtitle to themselves. Cheshire is still
+(a cut-out does not move). Saves, achievements and the end-code panel of the
+real reader are not wired in. A splat world carries the picture's own light,
 so the night look is a grade over it; real lights and close-ups of single
 objects would need those objects as meshes (the reference the owner liked,
 halloween.dev, is built from per-object GLB models).
