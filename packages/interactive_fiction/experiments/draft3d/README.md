@@ -10,7 +10,10 @@ loads; the passage as subtitles, a paragraph at a time (the reader's own
 `segment`); things to interact with as soft glows, and touching one moves the
 camera towards it and lists its choices; the room graded down to night, with
 vignette, grain, a flickering bulb and the reader's synthesized ambience and
-door sound. It is outside the site's build and checks, and
+door sound. Moving between rooms fades to black (a thin loading line only if
+the next room is still downloading); after the first room, the others
+download in the background. Page zoom is off: a double tap used to throw the
+view off screen. It is outside the site's build and checks, and
 deploys to its own Worker:
 <https://interactive-fiction-draft3d.jorgelillo.workers.dev>.
 
