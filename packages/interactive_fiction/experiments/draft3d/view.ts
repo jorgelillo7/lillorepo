@@ -2,7 +2,7 @@
  * Paint a new view of a room for a world, when the scene's own picture does
  * not show what the room needs (a door to leave by), into worlds/ (outside git).
  *
- *   node view.ts <out-name> <prompt-file> <reference.jpg> [...] [--dry-run]
+ *   node view.ts <out-name> <prompt-file> <reference.jpg> [...] [--aspect 1:1] [--dry-run]
  *
  * The references are attached in order; the series' art-bible style is added
  * to the prompt. Needs GEMINI_API_KEY (paid; about US$0.12 an image).
@@ -15,7 +15,9 @@ import { dirname, join } from "node:path";
 
 const MODEL = "gemini-3.1-flash-image";
 const here = dirname(new URL(import.meta.url).pathname);
-const args = process.argv.slice(2).filter((a) => a !== "--dry-run");
+const aspectAt = process.argv.indexOf("--aspect");
+const aspect = aspectAt === -1 ? "16:9" : process.argv[aspectAt + 1];
+const args = process.argv.slice(2).filter((a, i, all) => a !== "--dry-run" && a !== "--aspect" && all[i - 1] !== "--aspect");
 const [name, promptFile, ...refs] = args;
 if (!name || !promptFile || !refs.length) throw new Error("Usage: node view.ts <out-name> <prompt-file> <reference.jpg> [...] [--dry-run]");
 const bible = JSON.parse(readFileSync(join(here, "../../stories/samantha/art-bible.json"), "utf8"));
@@ -36,7 +38,7 @@ const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models
   headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
   body: JSON.stringify({
     contents: [{ parts: [...refs.map(attach), { text: prompt }] }],
-    generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9", imageSize: "2K" } },
+    generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: aspect, imageSize: "2K" } },
   }),
 });
 const data = (await res.json()) as { error?: { message?: string }; candidates?: { content?: { parts?: { inlineData?: { data: string } }[] } }[] };

@@ -4,7 +4,8 @@
  * listed in worlds.json (kept in worlds/, outside git).
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const here = dirname(new URL(import.meta.url).pathname);
@@ -26,4 +27,21 @@ for (const w of Object.values(worlds)) {
     cpSync(join(here, f), join(pub, f));
   }
 }
+// Home-screen icon (Cheshire's keychain, painted with view.ts) and the manifest that opens the draft full screen.
+const icon = join(here, "worlds/icon-1024.png");
+if (existsSync(icon)) {
+  for (const [name, size] of [["apple-touch-icon.png", 180], ["icon-192.png", 192], ["icon-512.png", 512], ["favicon.png", 64]] as const) {
+    execFileSync("sips", ["-z", String(size), String(size), icon, "--out", join(pub, name)], { stdio: "ignore" });
+  }
+  writeFileSync(join(pub, "manifest.webmanifest"), JSON.stringify({
+    name: "Samantha · borrador 3D",
+    short_name: "Samantha",
+    display: "fullscreen",
+    orientation: "landscape",
+    background_color: "#000000",
+    theme_color: "#000000",
+    start_url: "/",
+    icons: [192, 512].map((s) => ({ src: `/icon-${s}.png`, sizes: `${s}x${s}`, type: "image/png" })),
+  }, null, 2));
+} else console.log("· no worlds/icon-1024.png: the draft ships without a home-screen icon");
 console.log(`✓ draft data in ${pub}`);

@@ -46,6 +46,11 @@ deploys to its own Worker:
    world and scoring it against the picture.
 7. **Preview** — `npm run deploy` (after `npm run stories` in the package).
 
+Added to an iPhone's home screen, the draft opens full screen with its own
+icon — Cheshire's keychain, painted with `view.ts --aspect 1:1` into
+`worlds/icon-1024.png`, from which `prepare.ts` makes every size and the
+manifest.
+
 The whole procedure, with its traps, is the
 [`scene-3d`](../../.claude/skills/scene-3d/SKILL.md) skill.
 
