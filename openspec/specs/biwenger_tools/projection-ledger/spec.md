@@ -73,7 +73,11 @@ projection stored:
 - `team_outlook`: each team's win, draw and loss chances, expected goals for
   and against, and clean-sheet chance (`exp(-goals_against)`) for the round
   the projection lands on, from Analítica Fantasy's calendar predictor
-  (`core/sdk/oraculo.py`, `fetch_team_outlook`). Team names are the site's.
+  (`core/sdk/oraculo.py`, `fetch_team_outlook`). Team names are the site's;
+- `oraculo_scales`: for every player Oráculo projects both on its predictions
+  page and in its API lists for the same fixture, both numbers and his
+  `chance`, keyed by Oráculo's slug. The two disagree by more than a constant
+  and the blend reads the page.
 
 `league_jp` exists because whether a fixture moves the projection can only be
 measured on the whole competition; our own squad meets Barcelona a few times
@@ -90,6 +94,8 @@ uses it (`PENDING.md`).
   absent from `league_jp`
 - **WHEN** the calendar predictor is read **THEN** only the target round's
   fixtures are kept, played ones never, and every row has a clean-sheet chance
+- **WHEN** Oráculo's page and API both carry a player for the same fixture
+  **THEN** both numbers are kept; a pick for another fixture is not paired
 - *Verifies:* `test_the_snapshot_carries_every_squads_projected_eleven`,
   `test_a_failed_league_read_still_writes_our_own_projection`,
   `test_the_snapshot_carries_jornada_perfectas_number_for_every_player`,
@@ -101,7 +107,11 @@ uses it (`PENDING.md`).
   `test_team_outlook_reads_each_upcoming_fixture_per_team`,
   `test_a_played_fixture_is_not_an_outlook`,
   `test_the_clean_sheet_is_derived_where_the_page_omits_it`,
-  `test_team_outlook_is_fetched_once_an_hour`
+  `test_team_outlook_is_fetched_once_an_hour`,
+  `test_the_snapshot_carries_both_oraculo_scales`,
+  `test_a_failed_oraculo_scales_read_still_writes_our_own_projection`,
+  `test_oraculo_scales_pairs_the_page_and_the_api_for_one_fixture`,
+  `test_oraculo_scales_ignores_a_pick_for_another_fixture`
 
 ### Requirement: One finished round is collected per run, oldest first, and never early
 

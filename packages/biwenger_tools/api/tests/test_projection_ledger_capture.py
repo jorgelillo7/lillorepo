@@ -65,10 +65,11 @@ def _capture_ctx():
     return ctx
 
 
-def _capture(ctx, league, rows=lambda *a, **k: [], outlook=lambda: []):
+def _capture(ctx, league, rows=lambda *a, **k: [], outlook=lambda: [], scales=None):
     written = []
     with (
         patch.object(cap.oraculo, "fetch_team_outlook", outlook),
+        patch.object(cap, "_oraculo_scales", scales or (lambda: {})),
         patch.object(cap.projection_ledger, "target_round", lambda data, now: 4910),
         patch.object(cap, "build_squad_rows", rows),
         patch.object(
@@ -165,6 +166,24 @@ def test_a_failed_outlook_read_still_writes_our_own_projection():
 
     assert result["written"] is True
     assert "team_outlook" not in written[0]
+
+
+def test_the_snapshot_carries_both_oraculo_scales():
+    scales = {"fortuno-1": {"page": 4.91, "api": 8.21, "chance": 80}}
+
+    _, written = _capture(_capture_ctx(), lambda ctx: {}, scales=lambda: scales)
+
+    assert written[0]["oraculo_scales"] == scales
+
+
+def test_a_failed_oraculo_scales_read_still_writes_our_own_projection():
+    def broken():
+        raise RuntimeError("page changed")
+
+    result, written = _capture(_capture_ctx(), lambda ctx: {}, scales=broken)
+
+    assert result["written"] is True
+    assert "oraculo_scales" not in written[0]
 
 
 def _collect(document, outcome, missing):

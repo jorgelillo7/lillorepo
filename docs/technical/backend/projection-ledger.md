@@ -194,6 +194,14 @@ captain, or a defender, by his team's chance to win or keep a clean sheet
 would have scored more than the projection alone. The league's bonuses are
 worth about 2 points a round, so expect a small answer.
 
+**Both Oráculo scales.** Each projection also stores `oraculo_scales`: for the
+~40 players Oráculo carries both on its predictions page and in its API lists
+for the same fixture, both numbers. They disagree by more than a constant
+(Arda Güler 5.39 on the page against 8.41 in the API on 8/11), and the blend
+reads the page. Graded against real points over a few rounds, they say which
+one tracks Biwenger's scale. No request is added: both reads are the hour's
+cached ones.
+
 The site's other pages were looked at and left out: the power ranking has no
 starter information (it ranked Espanyol's benched keeper first), and the
 saves and rating leaderboards are season averages the projections already

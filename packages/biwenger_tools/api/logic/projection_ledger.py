@@ -319,6 +319,32 @@ def next_round_to_collect(documents: list, finished_ids: set) -> int | None:
     return min(pending) if pending else None
 
 
+def oraculo_scales(page_rows: list, picks: dict) -> dict:
+    """`{slug: {"page", "api", "chance"}}` for every player Oráculo projects
+    both on its predictions page and in its API lists, for the same fixture.
+
+    The two disagree by more than a constant; keeping both on the same morning
+    is what lets graded rounds say which one tracks Biwenger's points. The API
+    lists carry only the ~60 players Oráculo recommends.
+    """
+    api = {
+        (entry.get("playerId"), entry.get("fixtureId")): entry
+        for entries in (picks or {}).values()
+        for entry in entries or []
+    }
+    out = {}
+    for row in page_rows or []:
+        pick = api.get((row.get("playerId"), row.get("fixtureId")))
+        if pick is None or row.get("slug") is None:
+            continue
+        out[row["slug"]] = {
+            "page": row.get("predictedPoints"),
+            "api": pick.get("predictedPoints"),
+            "chance": row.get("chance"),
+        }
+    return out
+
+
 def league_jp(rows: list) -> dict[str, int]:
     """Jornada Perfecta's SF for every row it projects, keyed by the Biwenger
     id as a string (Firestore map keys must be strings). A player it does not

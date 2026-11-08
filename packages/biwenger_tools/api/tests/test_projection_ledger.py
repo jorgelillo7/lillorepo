@@ -579,3 +579,66 @@ def test_a_matchday_is_finished_only_when_every_part_is():
         4905,
         5176,
     }
+
+
+# ---------------------------------------------------------------------------
+# oraculo_scales
+# ---------------------------------------------------------------------------
+
+
+def test_oraculo_scales_pairs_the_page_and_the_api_for_one_fixture():
+    """Oráculo publishes a player's points twice, on the predictions page and
+    in its API, and they disagree by more than a constant. Both are kept for
+    every player carried by both, so the one that tracks Biwenger's points
+    can be found once rounds are graded."""
+    page = [
+        {
+            "playerId": 1,
+            "slug": "fortuno-1",
+            "fixtureId": 9,
+            "predictedPoints": 4.91,
+            "chance": 80,
+        },
+        {
+            "playerId": 2,
+            "slug": "solo-page-2",
+            "fixtureId": 9,
+            "predictedPoints": 3.0,
+            "chance": 90,
+        },
+    ]
+    picks = {
+        "porteros": [
+            {
+                "playerId": 1,
+                "slug": "fortuno-1",
+                "fixtureId": 9,
+                "predictedPoints": 8.21,
+                "chance": 80,
+            }
+        ],
+        "capitanes": [
+            {
+                "playerId": 1,
+                "slug": "fortuno-1",
+                "fixtureId": 9,
+                "predictedPoints": 8.21,
+                "chance": 80,
+            }
+        ],
+    }
+
+    assert pl.oraculo_scales(page, picks) == {
+        "fortuno-1": {"page": 4.91, "api": 8.21, "chance": 80}
+    }
+
+
+def test_oraculo_scales_ignores_a_pick_for_another_fixture():
+    page = [{"playerId": 1, "slug": "a-1", "fixtureId": 9, "predictedPoints": 4.0}]
+    picks = {
+        "porteros": [
+            {"playerId": 1, "slug": "a-1", "fixtureId": 8, "predictedPoints": 7.0}
+        ]
+    }
+
+    assert pl.oraculo_scales(page, picks) == {}

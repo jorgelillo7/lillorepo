@@ -61,8 +61,16 @@ points), all 70 manager-rounds, per round:
   tooling turns money into points as well as the others; it has less money.
 
 So the squad is weaker because it is cheaper, not because auto-bid buys the
-wrong kind of player for the money. Where the wealth went (the draft, trading,
-clauses taken from us) is not measured yet.
+wrong kind of player for the money.
+
+**Where the wealth went** (`board_archive`, rebuilt cash matching `/saldos` to
+the euro). With the 50 M start, round prizes and bonuses taken out and clause
+raises added back, the market made +45.0 M for the second, +36.6 M for the
+leader and −38.5 M for us; we collected the most in prizes. Clause signings
+cost everyone about the same. The difference is market flips: −17.5 M for us,
+−15.7 M of it six August–September signings bought dear and sold weeks later,
+against +38 to +40 M for the two leaders, who buy cheaper players in volume
+and sell within about ten days. The trader's own flips since 22/10 are all up.
 
 ## Gate: evidence before code
 
@@ -71,7 +79,7 @@ Nothing in auto-bid or the trader changes until these are read:
 1. `squad_gap.py` over every finished matchday with no manager-round left out
    (done, above).
 2. Where our wealth fell behind: team value plus cash over the season,
-   against each rival.
+   against each rival (done, above: market flips).
 3. 8 rounds of `league_projection` and `league_points` in the projection
    ledger, read with `report.py`: whether the squads projected highest are the
    ones that score highest, and where ours falls.
