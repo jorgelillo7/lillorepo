@@ -7,6 +7,9 @@ that, the reasoning lives where it belongs and this file links to it:
 - technical evaluations and parked work → `docs/technical/parked-work.md`
 - anything else → the PR that closed it, and `git log`
 
+What each `biwenger_tools` measurement asks, what it has found and what would
+change the code: [`docs/technical/backend/measurements.md`](docs/technical/backend/measurements.md).
+
 Never deleted; lines are pruned as items ship. Grouped by area, `infra` being
 the cross-cutting GCP/CI/policy one. What has **shipped** lives in
 `packages/biwenger_tools/release-notes.md`, and the current state of the repo
