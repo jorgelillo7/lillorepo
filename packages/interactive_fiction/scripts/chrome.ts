@@ -5,7 +5,7 @@
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -79,14 +79,33 @@ export async function devtools(port: number) {
 
 export type Devtools = Awaited<ReturnType<typeof devtools>>;
 
-/** Run `work` against a fresh headless Chrome, which is closed and cleaned up afterwards. */
-export async function withChrome<T>(port: number, work: (c: Devtools) => Promise<T>): Promise<T> {
-  const profile = mkdtempSync(join(tmpdir(), "if-chrome-"));
+/**
+ * Run `work` against a fresh headless Chrome, closed and its profile removed
+ * afterwards — also when the script is interrupted. One fixed profile folder
+ * per port, emptied before each run, so a run killed outright leaves at most
+ * one behind instead of one more each time. `gpu` keeps hardware rendering
+ * (the 3D draft's splats do not draw without it).
+ */
+export async function withChrome<T>(port: number, work: (c: Devtools) => Promise<T>, opts: { gpu?: boolean } = {}): Promise<T> {
+  const profile = join(tmpdir(), `if-chrome-${port}`);
+  rmSync(profile, { recursive: true, force: true });
+  mkdirSync(profile, { recursive: true });
   const chrome: ChildProcess = spawn(
     chromePath(),
-    ["--headless=new", "--disable-gpu", "--window-size=1400,900", `--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1", `--user-data-dir=${profile}`, "about:blank"],
+    ["--headless=new", ...(opts.gpu ? [] : ["--disable-gpu"]), "--window-size=1400,900", `--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1", `--user-data-dir=${profile}`, "about:blank"],
     { stdio: "ignore" },
   );
+  const stop = () => {
+    chrome.kill();
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  };
+  const onSignal = (signal: NodeJS.Signals) => {
+    stop();
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  };
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+  process.once("exit", () => chrome.kill());
   try {
     await waitFor(`http://127.0.0.1:${port}/json/version`, "Chrome");
     const c = await devtools(port);
@@ -96,6 +115,8 @@ export async function withChrome<T>(port: number, work: (c: Devtools) => Promise
       c.close();
     }
   } finally {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
     const exited = new Promise((r) => chrome.once("exit", r));
     chrome.kill();
     await exited;
