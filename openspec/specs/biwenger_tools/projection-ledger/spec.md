@@ -17,7 +17,8 @@ How to read its output, and the ways it is easy to misread:
   `opponent_effect.py`, `repair_matchday.py`, `squad_gap.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_projection_ledger.py`,
   `test_projection_ledger_capture.py`, `test_projection_ledger_store.py`,
-  `test_real_points.py`, `test_opponent_effect.py`, `test_squad_gap.py`
+  `test_real_points.py`, `test_opponent_effect.py`, `test_squad_gap.py`;
+  `core/tests/test_oraculo.py`
 
 ---
 
@@ -68,25 +69,39 @@ projection stored:
   same morning;
 - `league_jp`: Jornada Perfecta's SF for **every player it projects** in the
   competition, keyed by the Biwenger id as a string. A player it does not
-  project is left out, never stored as zero.
+  project is left out, never stored as zero;
+- `team_outlook`: each team's win, draw and loss chances, expected goals for
+  and against, and clean-sheet chance (`exp(-goals_against)`) for the round
+  the projection lands on, from Analítica Fantasy's calendar predictor
+  (`core/sdk/oraculo.py`, `fetch_team_outlook`). Team names are the site's.
 
 `league_jp` exists because whether a fixture moves the projection can only be
 measured on the whole competition; our own squad meets Barcelona a few times
-a season.
+a season. `team_outlook` exists so a captain or a defender chosen on the
+chance his team wins or keeps a clean sheet can be graded before any rule
+uses it (`PENDING.md`).
 
-#### Scenario: both extras, and a failure in either
+#### Scenario: the extras, and a failure in any
 - **WHEN** the league reads work **THEN** the snapshot carries every squad's
   eleven and every projected player's SF
 - **WHEN** either read raises **THEN** our own projection is still written,
   without that extra
 - **WHEN** Jornada Perfecta has no projection for a player **THEN** he is
   absent from `league_jp`
+- **WHEN** the calendar predictor is read **THEN** only the target round's
+  fixtures are kept, played ones never, and every row has a clean-sheet chance
 - *Verifies:* `test_the_snapshot_carries_every_squads_projected_eleven`,
   `test_a_failed_league_read_still_writes_our_own_projection`,
   `test_the_snapshot_carries_jornada_perfectas_number_for_every_player`,
   `test_a_failed_league_jp_read_still_writes_our_own_projection`,
   `test_league_jp_keeps_every_projected_player_by_string_id`,
-  `test_league_jp_leaves_out_a_player_jp_does_not_project`
+  `test_league_jp_leaves_out_a_player_jp_does_not_project`,
+  `test_the_snapshot_carries_each_teams_outlook_for_its_round`,
+  `test_a_failed_outlook_read_still_writes_our_own_projection`,
+  `test_team_outlook_reads_each_upcoming_fixture_per_team`,
+  `test_a_played_fixture_is_not_an_outlook`,
+  `test_the_clean_sheet_is_derived_where_the_page_omits_it`,
+  `test_team_outlook_is_fetched_once_an_hour`
 
 ### Requirement: One finished round is collected per run, oldest first, and never early
 

@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 
 from core.constants import MADRID_TZ
+from core.sdk import oraculo
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import (
@@ -65,9 +66,10 @@ def capture(ctx) -> dict:
             ctx.oraculo_index,
             oraculo_scale=ctx.oraculo_scale,
         )
+        round_name = _round_name_for(round_data, round_id)
         snapshot = projection_ledger.build_snapshot(
             round_id,
-            _round_name_for(round_data, round_id),
+            round_name,
             config.CURRENT_SEASON,
             rows,
             now,
@@ -92,6 +94,17 @@ def capture(ctx) -> dict:
             )
         except Exception:
             logger.exception("League JP not captured; ours is stored without it.")
+        # Each team's win and clean-sheet chances for the round, so a captain
+        # or a defender chosen on them can be graded once rounds accumulate.
+        try:
+            number = (round_name or "").rsplit(" ", 1)[-1]
+            snapshot["team_outlook"] = [
+                row
+                for row in oraculo.fetch_team_outlook()
+                if number.isdigit() and row.get("matchday") == int(number)
+            ]
+        except Exception:
+            logger.exception("Team outlook not captured; ours is stored without it.")
         projection_ledger_store.write(snapshot)
         return {
             "written": True,

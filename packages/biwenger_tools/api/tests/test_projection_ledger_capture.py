@@ -65,9 +65,10 @@ def _capture_ctx():
     return ctx
 
 
-def _capture(ctx, league, rows=lambda *a, **k: []):
+def _capture(ctx, league, rows=lambda *a, **k: [], outlook=lambda: []):
     written = []
     with (
+        patch.object(cap.oraculo, "fetch_team_outlook", outlook),
         patch.object(cap.projection_ledger, "target_round", lambda data, now: 4910),
         patch.object(cap, "build_squad_rows", rows),
         patch.object(
@@ -135,6 +136,35 @@ def test_a_failed_league_jp_read_still_writes_our_own_projection():
     result, written = _capture(ctx, lambda ctx: {}, rows)
     assert result["written"] is True
     assert "league_jp" not in written[0]
+
+
+def _outlook(matchday, team="Real Madrid"):
+    return {"team": team, "matchday": matchday, "win": 0.7, "clean_sheet": 0.46}
+
+
+def test_the_snapshot_carries_each_teams_outlook_for_its_round():
+    """Win and clean-sheet chances from the morning of the projection, kept for
+    the round it lands on, so a captain chosen on them can be graded later."""
+    ctx = _capture_ctx()
+    ctx.biwenger.get_round.return_value = {"id": 4910, "name": "Jornada 13"}
+    rows = [_outlook(13), _outlook(14), _outlook(13, "Celta de Vigo")]
+
+    _, written = _capture(ctx, lambda ctx: {}, outlook=lambda: rows)
+
+    assert written[0]["team_outlook"] == [rows[0], rows[2]]
+
+
+def test_a_failed_outlook_read_still_writes_our_own_projection():
+    ctx = _capture_ctx()
+    ctx.biwenger.get_round.return_value = {"id": 4910, "name": "Jornada 13"}
+
+    def broken():
+        raise RuntimeError("page changed")
+
+    result, written = _capture(ctx, lambda ctx: {}, outlook=broken)
+
+    assert result["written"] is True
+    assert "team_outlook" not in written[0]
 
 
 def _collect(document, outcome, missing):
