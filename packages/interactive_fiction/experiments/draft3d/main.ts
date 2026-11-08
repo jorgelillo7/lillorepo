@@ -25,6 +25,13 @@ interface World {
   /** Vertical field of view and downward pitch, in degrees, that reproduce the scene image. */
   fovY: number;
   pitch: number;
+  /**
+   * How far the view's edges may turn, in degrees from straight ahead (right
+   * negative, left positive): past them the world shows what it invented
+   * beyond the picture — a door that is not there, say. Default: 10° past
+   * the picture's own edges.
+   */
+  bounds?: [number, number];
   /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
   camera?: [number, number, number];
   /**
@@ -141,10 +148,20 @@ function anchorsFor(world: World, scene: Scene, collider: THREE.Object3D): Map<s
  * narrower stage (capped, so a phone in portrait looks around instead of warping).
  */
 function fovFor(l: Loaded, aspect: number): number {
-  const picture = pictureAspect(scenes.scenes[l.id], l.world);
-  if (aspect >= picture) return l.world.fovY;
-  const halfTan = Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * picture;
+  // The picture's width is what the world knows: a wider screen trims top and bottom rather than show more sideways.
+  const halfTan = Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(scenes.scenes[l.id], l.world);
   return Math.min(90, THREE.MathUtils.radToDeg(2 * Math.atan(halfTan / aspect)));
+}
+
+/** The turn allowed now, in radians: the view's edges stay inside the world's bounds. */
+function yawRange(l: Loaded): [number, number] {
+  const half = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
+  const picture = THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(l.world.fovY / 2)) * pictureAspect(scenes.scenes[l.id], l.world)));
+  const [right, left] = l.world.bounds ?? [-(picture + 10), picture + 10];
+  const lo = right + half;
+  const hi = left - half;
+  const deg = lo <= hi ? [lo, hi] : [(lo + hi) / 2, (lo + hi) / 2];
+  return [THREE.MathUtils.degToRad(deg[0]), THREE.MathUtils.degToRad(deg[1])];
 }
 
 function resize(): void {
@@ -153,6 +170,10 @@ function resize(): void {
   camera.aspect = w / h;
   camera.fov = current ? fovFor(current, camera.aspect) : 46;
   camera.updateProjectionMatrix();
+  if (current) {
+    const [lo, hi] = yawRange(current);
+    yaw = THREE.MathUtils.clamp(yaw, lo, hi);
+  }
   layoutFlat();
 }
 new ResizeObserver(resize).observe(stage);
@@ -212,7 +233,8 @@ stage.addEventListener("pointerdown", (e) => {
 addEventListener("pointermove", (e) => {
   if (!drag || !current || focus) return;
   const k = THREE.MathUtils.degToRad(camera.fov) / stage.clientHeight;
-  yaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * k, -0.9, 0.9);
+  const [lo, hi] = yawRange(current);
+  yaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * k, lo, hi);
   pitch = THREE.MathUtils.clamp(drag.pitch + (e.clientY - drag.y) * k, -0.35, 0.35);
   $("hint").hidden = true;
 });

@@ -87,6 +87,13 @@ the hotspots by hand in `anchors` (fractions of the world's own view).
 A world whose picture is not the scene's own (`--image`) needs `anchors` for
 its hotspots, since the scene file's rectangles belong to the old picture.
 
+Then **walk its edges**: turn as far as the draft lets you, both ways. Past
+the picture's edges the world invents, and what it invents can contradict
+the story — room 207 grew a third door beyond the desk, the author spotted
+it. Set `bounds` (degrees from straight ahead, right negative) just short of
+anything invented that should not be there; the draft keeps the view's edges
+inside them on any screen.
+
 # Step 4 — Play it through
 
 ```bash
@@ -128,3 +135,4 @@ is still a draft (quality, characters).
 | Phones play in landscape only | In portrait the room's sides fall off screen |
 | No page zoom (`touch-action`, viewport, Safari's gesture events) | A double tap zoomed the page, threw the buttons off screen, and nothing in the game could undo it |
 | Rooms change behind a fade, and the next rooms preload | Entering the bathroom while its world downloaded looked like a freeze |
+| Turning stops at `bounds`, and a wide screen never shows wider than the picture | Room 207 and the Cheshire room grew a door past the desk that the story does not have |
