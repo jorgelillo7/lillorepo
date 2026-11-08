@@ -120,7 +120,10 @@ writes nothing until `--apply`.
 
 Per-player points come from Biwenger's public player-detail endpoint, read
 **sequentially with a delay** and cached on disk. Parallel reads return 429,
-and the budget is shared with the phone app. This is why it is a script run by
+and the budget is shared with the phone app. It is smaller than it looks: one
+sequential run of about 200 reads, 1.2 s apart, was answered 429, and from
+then on the whole public host refused that machine, the competition data
+included. This is why it is a script run by
 hand rather than anything scheduled.
 
 Needs ADC for Firestore (`gcloud auth application-default login`) and Biwenger
@@ -186,8 +189,10 @@ Each appearance is measured against **the same player's mean in his other
 games**, Barcelona and Madrid left out of that mean. A weak defender is
 therefore never mistaken for a bad fixture.
 
-Measured after round 11, in SofaScore points (the base Jornada Perfecta
-projects; a defender or keeper averages about 4 a game):
+Measured after round 11, in the round endpoint's SofaScore points (`score=2`;
+a defender or keeper averages about 4 a game). These are close to, not equal
+to, the `rawStats.score2` the league's scoring builds on (see "Where the gap
+comes from"); a comparison of a player with himself is unaffected.
 
 | Against | Defenders | Keepers |
 |---|---|---|
@@ -211,6 +216,49 @@ How to read it:
 There is no threshold and no verdict here, as with the blend: a rule that
 benches a defender against these sides goes to `openspec/changes/` first,
 with this output as its evidence.
+
+## Where the gap comes from
+
+`scripts/projections/squad_gap.py` splits every manager's round into the
+SofaScore base (`rawStats.score2`) and each of the league's bonuses: playing
+past 65 minutes, win minus loss, the clean sheet, and the rest (cards,
+penalties, assists). It also gives the share of the round its two best players
+carried. Read-only. It is the evidence for
+`openspec/changes/squad-composition/`, whose three candidate answers (ceiling,
+team strength, the rest of the eleven) it tells apart.
+
+Each manager's round is rebuilt from his applied lineup: a starter who did not
+play is replaced by the reserve of his line, the captain counts twice. The
+rebuild is close, not exact: 24 of 70 manager-rounds match the league to the
+point, with a mean error of 1.8. `personalizado` is verified on two players'
+seasons, not on every rule of the annex. Read the per-round averages, never
+one round.
+
+Rounds 1–11, all 70 manager-rounds, per round:
+
+| | Points | Base | Play | Win − loss | Clean sheet | Top two |
+|---|---|---|---|---|---|---|
+| Leader | 74.8 | 64.0 | 9.6 | +1.3 | 1.9 | 31 (41 %) |
+| Us | 52.6 | 44.7 | 8.6 | −0.7 | 2.0 | 25 (47 %) |
+
+How to read it:
+
+- **Base against bonuses.** The gap to the leader is 22 points a round; the
+  base explains 19 of them.
+- **Top two in points, not only as a share.** A high share can mean strong
+  stars or a weak rest. Here the leader's best two outscore ours by 6 a round,
+  the other nine by 16.
+- **Set it against money.** Points a round per million of team value put the
+  squad in the league's middle; the gap is the size of the budget.
+- **A left-out round is not random.** A manager-round is dropped when any of
+  its players is unread, and the unread ones are the most recent signings.
+  The player endpoint on the authenticated host (`biwenger.as.com`) answered
+  while the public one refused, and carries the same `rawStats`.
+- **Two scales called SofaScore.** The public round endpoint with `score=2`
+  returns a number that differs from the player-detail `rawStats.score2` by up
+  to 3 points a match. Only the second is the base of the league's scoring;
+  the first gave a decomposition that put most of the gap in the bonuses, and
+  it was wrong.
 
 ## When the numbers look wrong
 

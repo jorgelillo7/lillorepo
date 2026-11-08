@@ -5,19 +5,19 @@ the Oráculo blend picked beside the eleven Jornada Perfecta alone would have
 picked, both captured before the round kicks off, then the real points once
 Biwenger calls the round finished. It answers whether the blend beats Jornada
 Perfecta alone, and holds the league-wide data for the open measurements in
-`PENDING.md` (the squad's ceiling, the opponent effect).
+`PENDING.md` (what the squad is made of, the opponent effect).
 
 How to read its output, and the ways it is easy to misread:
 `docs/technical/backend/projection-ledger.md`.
 
 - **Source:** `packages/biwenger_tools/api/logic/projection_ledger.py` (pure),
   `projection_ledger_capture.py`, `projection_ledger_store.py`,
-  `real_points.py`, `opponent_effect.py` (pure);
+  `real_points.py`, `opponent_effect.py`, `squad_gap.py` (pure);
   `packages/biwenger_tools/scripts/projections/report.py`,
-  `opponent_effect.py`, `repair_matchday.py`
+  `opponent_effect.py`, `repair_matchday.py`, `squad_gap.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_projection_ledger.py`,
   `test_projection_ledger_capture.py`, `test_projection_ledger_store.py`,
-  `test_real_points.py`, `test_opponent_effect.py`
+  `test_real_points.py`, `test_opponent_effect.py`, `test_squad_gap.py`
 
 ---
 
@@ -135,7 +135,8 @@ afternoon.
   `test_a_player_whose_round_has_no_reports_is_missing_not_zero`,
   `test_counted_reports_make_a_real_zero_legible`,
   `test_a_keeper_s_goal_is_not_paid_twice`,
-  `test_a_keeper_s_assist_is_still_worth_three`
+  `test_a_keeper_s_assist_is_still_worth_three`,
+  `test_the_bonuses_are_counted_apart_from_the_base`
 
 ### Requirement: A matchday split across round ids is collected as one
 
@@ -288,3 +289,34 @@ No threshold or verdict: it is read, not acted on, until a rule is proposed in
   `test_by_match_groups_one_teams_defence_in_one_game`,
   `test_jp_and_real_deltas_are_measured_on_the_same_rounds`,
   `test_a_round_without_a_league_jp_capture_is_not_used`
+
+### Requirement: The squad gap splits a round into base and bonuses
+
+`squad_gap` SHALL rebuild a manager's round from his applied lineup, each
+starter who did not play replaced by the reserve of his line (`RESERVE_LINES`:
+keeper, defender, midfielder, forward) when that reserve played, and the
+captain counted twice, bonuses included. It SHALL split the round's points
+into the SofaScore base, the play bonus, win minus loss, the clean-sheet bonus
+by position, and the rest, which sum back to the points. It SHALL count wins
+and losses per player, never the captain twice, and give the points of the
+round's two best contributions. Summaries SHALL rank managers per round, since
+a manager-round with an unread player is left out rather than scored.
+
+No threshold or verdict: it is the evidence `openspec/changes/squad-composition/`
+reads.
+
+#### Scenario: the rebuild
+- **WHEN** a starter did not play **THEN** the reserve of his line counts, if
+  he played; an empty slot counts nobody
+- **WHEN** the captain did not play **THEN** nothing is doubled
+- **WHEN** a round is split **THEN** base, play, result, clean sheet and the
+  rest add up to its points, and wins and losses count each player once
+- **WHEN** managers are summarised **THEN** they rank by points per round
+- *Verifies:* `test_a_starter_who_did_not_play_is_replaced_by_the_reserve_of_his_line`,
+  `test_a_reserve_who_did_not_play_replaces_nobody`,
+  `test_an_empty_slot_in_the_eleven_counts_nobody`,
+  `test_the_total_splits_into_base_play_result_clean_sheet_and_the_rest`,
+  `test_wins_and_losses_count_players_not_the_captain_twice`,
+  `test_a_captain_who_did_not_play_doubles_nothing`,
+  `test_top_two_is_the_share_of_the_round_from_its_two_best_players`,
+  `test_summary_adds_each_managers_rounds_and_ranks_by_points_per_round`

@@ -142,3 +142,19 @@ def test_a_matchday_split_across_round_ids_reads_every_one():
     reports = [_report(5125), _report(5176), _report(4909)]
     kept = real_points.reports_for_rounds(reports, {5125, 5176})
     assert [r["match"]["round"]["id"] for r in kept] == [5125, 5176]
+
+
+def test_the_bonuses_are_counted_apart_from_the_base():
+    """Where a total came from: the play bonus, the result bonus and the clean
+    sheet each need their own count, or the league's bonuses cannot be told
+    from the SofaScore base they sit on."""
+    reports = [
+        _report(1, score2=6, win=1, cleanSheet=1),
+        _report(2, score2=4, lost=1),
+        {"match": {}, "rawStats": {"minutesPlayed": 60, "score2": 2, "lost": 1}},
+    ]
+
+    result = personalizado(reports, DEF)
+
+    assert (result["long_games"], result["wins"], result["losses"]) == (2, 1, 1)
+    assert result["points"] == 6 + 1 + 1 + 1 + 4 + 1 - 1 + 2
