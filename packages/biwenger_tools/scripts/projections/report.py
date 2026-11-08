@@ -26,9 +26,9 @@ Two independent modes, one script:
   of the comparison that does exist. `--apply` writes; without it, dry-run.
 
 Per-player real points come from Biwenger's public player-detail endpoint,
-read sequentially with a delay and cached on disk — the same rate limit
-`fetch_real_points.py` documents: roughly 500 requests per 8h window, shared
-with the phone app.
+read sequentially with a delay and cached on disk. The window is shared with
+the phone app and smaller than the ~500 per 8 h `fetch_real_points.py`
+documents: a run of about 200 reads was answered 429.
 
 ADC (`gcloud auth application-default login`) for Firestore. Biwenger
 credentials from `.env`, like every other script here.

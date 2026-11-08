@@ -1,6 +1,6 @@
-# Design notes: value-squad-ceiling
+# Design notes: squad-composition
 
-## Measuring a ceiling
+## Measuring a ceiling (answer 1)
 
 | Option | Source | Cost | Weakness |
 |---|---|---|---|
@@ -11,6 +11,17 @@
 
 The likely first cut is the first option, with the Oráculo lists as a
 tie-breaker. It is free, and it is the same data the morning already reads.
+
+## Measuring team strength (answer 2)
+
+| Option | Source | Cost | Weakness |
+|---|---|---|---|
+| League table position, or goal difference | The round payload already read | None | Lags a change of form |
+| Betting odds for the next fixture | A new provider | A new integration and its key | One more dependency for a few points a round |
+
+If answer 2 survives, the first option is the first cut: the bonuses it would
+price are worth about 5 points a round in the first evidence, which does not
+pay for a new provider.
 
 ## Where it weighs
 

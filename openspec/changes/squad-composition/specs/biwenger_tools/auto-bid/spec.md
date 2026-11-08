@@ -1,5 +1,9 @@
 # Delta: auto-bid
 
+Drafted for answer 1 (ceiling) of `proposal.md`. The first evidence points
+elsewhere; if another answer survives the gate, this delta is rewritten before
+any code.
+
 ## ADDED Requirements
 
 ### Requirement: Between similar projections, the candidate who can win a round ranks first

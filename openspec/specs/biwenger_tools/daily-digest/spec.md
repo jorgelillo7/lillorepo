@@ -239,16 +239,17 @@ never shipped.
 ### Requirement: The morning lineup is a floor, not the best one
 
 Setting the lineup at 07:15 exists so a player who arrives overnight is fielded
-without anyone opening the app. **One fixed hour is the deliberate choice**: the
-alternative — waking near each kickoff — needs a tick that self-gates on the
-fixture list, and the value of that over a floor plus a manual override does not
-pay for the complexity. It SHALL NOT be treated as the optimal moment:
-Biwenger locks each player at *his* own kickoff, and under the league's
-"jornada única" configuration a matchday is not final until every match in it
-has been played — 2026/27 opened with a round spanning twelve days. The manual
-`/lineups/auto-pick` remains the way to re-align closer to a specific match —
-and the point of the floor is that forgetting to do so costs a stale lineup
-rather than an empty one.
+without anyone opening the app. It SHALL NOT be treated as the optimal moment:
+Biwenger freezes **the whole eleven at the round's first kick-off**
+(`settings.lineupRoundChanges = 0`, `biwenger-official-rules.md`), and Jornada
+Perfecta keeps moving its projection until then. The last word is the
+kick-off lineup (`auto-pick-lineup`, "The lineup is set half an hour before the
+round's first kick-off"); the morning one is what stands if that tick fails.
+
+An earlier version of this requirement chose one fixed hour over waking near
+each kick-off, on the premise that Biwenger locks each player at his own
+match. Under that premise a tick near every kick-off was needed; with one
+deadline a round, a single self-gating tick is enough.
 
 #### Scenario: lineup step
 - **WHEN** the digest runs and `DAILY_LINEUP_ENABLED` is on

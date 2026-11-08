@@ -137,6 +137,13 @@ def lineups_auto_pick():
     )
 
 
+@app.route("/lineups/kickoff", methods=["POST"])
+def lineups_kickoff():
+    """Cron-triggered every quarter hour: set the lineup half an hour before
+    the round's first kick-off, and do nothing at every other tick."""
+    return _run_action("lineups.kickoff", actions.run_kickoff_lineup)
+
+
 @app.route("/budget/recommendations", methods=["GET"])
 def budget_recommendations():
     """Top-N affordable clausulazo targets per position.

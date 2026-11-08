@@ -1164,6 +1164,21 @@ def test_get_round_asks_the_cf_host_without_the_api_session(
     assert "Authorization" not in request.headers
 
 
+def test_fetch_round_needs_no_login():
+    """A tick that only asks when the next match starts must not log in to
+    Biwenger every quarter of an hour: the round read is unauthenticated, so
+    it is callable without a client."""
+    from core.sdk.biwenger import fetch_round
+
+    url = "https://cf.biwenger.com/api/v2/rounds/la-liga"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"status": 200, "data": {"id": 4911}}, status_code=200)
+        data = fetch_round()
+
+    assert data["id"] == 4911
+    assert len(m.request_history) == 1
+
+
 def test_get_round_league_reports_standings_and_lineups(biwenger_client_authenticated):
     """Unlike `get_round` (cf host, unauthenticated), `/rounds/league` sits on
     the authenticated api host and is the only read that carries what each

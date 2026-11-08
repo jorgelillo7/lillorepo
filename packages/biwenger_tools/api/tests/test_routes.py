@@ -820,3 +820,14 @@ def test_public_members_edit_passes_an_optional_name(client):
             json={"user_id": 5, "action": "add", "name": "  Manu  "},
         )
     mock_edit.assert_called_once_with(5, "add", "Manu")
+
+
+def test_lineups_kickoff_calls_run_kickoff_lineup(client):
+    with patch(
+        "packages.biwenger_tools.api.app.actions.run_kickoff_lineup",
+        return_value={"due": False},
+    ) as mock_run:
+        resp = client.post("/lineups/kickoff")
+    mock_run.assert_called_once_with()
+    assert resp.status_code == 200
+    assert resp.get_json()["due"] is False

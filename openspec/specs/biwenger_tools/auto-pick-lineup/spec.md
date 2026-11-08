@@ -3,8 +3,52 @@
 Pick the captain for the starting XI and render the lineup message, using
 cf-base player values.
 
-- **Source:** `packages/biwenger_tools/api/logic/lineup.py`
-- **Verified by:** `packages/biwenger_tools/api/tests/test_lineup.py`
+- **Source:** `packages/biwenger_tools/api/logic/lineup.py`,
+  `kickoff_lineup.py` (pure), `actions.py` (`run_kickoff_lineup`),
+  `core/sdk/biwenger.py` (`fetch_round`); `infra/scheduler.tf`
+  (`kickoff_lineup`)
+- **Verified by:** `packages/biwenger_tools/api/tests/test_lineup.py`,
+  `test_kickoff_lineup.py`, `test_routes.py`; `core/tests/test_biwenger_client.py`
+
+---
+
+### Requirement: The lineup is set half an hour before the round's first kick-off
+
+Biwenger freezes the whole eleven at the first kick-off of the round the
+lineup lands on (`settings.lineupRoundChanges = 0`). `POST /lineups/kickoff`,
+ticked every quarter hour from 10:00 to 23:45 Madrid, SHALL run the same pick
+as `/lineups/auto-pick` when that kick-off is within (`LEAD` − `TICK`, `LEAD`]
+= (15, 30] minutes, so exactly one tick a round sets it, and SHALL otherwise
+return `due: false` having only read the fixtures — no Biwenger login. The
+round is `projection_ledger.target_round`'s: the current one before it starts,
+the next once it is under way. The kick-off is read live at every tick, so a
+match moved earlier or later moves the tick with it, and a postponed round
+("Jornada 6 (aplazada)"), which lists every game of its matchday, is never the
+target.
+
+The 07:15 digest still sets a lineup every morning (`daily-digest`, "The
+morning lineup is a floor"); it is what stands if this tick fails.
+
+#### Scenario: one tick a round
+- **WHEN** the first kick-off is 30 minutes away **THEN** the lineup is set
+- **WHEN** ticks run every quarter hour **THEN** exactly one is due, also for a
+  kick-off off the quarter hour
+- **WHEN** the current round is under way **THEN** the tick aims at the next
+  round's first kick-off
+- **WHEN** a match is moved **THEN** the due tick moves with it
+- **WHEN** no kick-off is near, or the round cannot be read **THEN** nothing is
+  set and no session is opened
+- *Verifies:* `test_the_tick_half_an_hour_before_the_first_kickoff_is_due`,
+  `test_exactly_one_quarter_hour_tick_falls_in_the_window`,
+  `test_a_kickoff_off_the_quarter_hour_still_gets_exactly_one_tick`,
+  `test_a_round_under_way_points_at_the_next_one`,
+  `test_a_moved_match_moves_the_tick`,
+  `test_far_from_any_kickoff_nothing_is_due`,
+  `test_an_unreadable_round_is_never_due`,
+  `test_a_tick_that_is_not_due_logs_in_to_nothing`,
+  `test_the_due_tick_sets_the_lineup`,
+  `test_lineups_kickoff_calls_run_kickoff_lineup`,
+  `test_fetch_round_needs_no_login`
 
 ---
 

@@ -175,6 +175,31 @@ def league_round_points_report_url(
     return f"{league_url(league_id)}/report/roundPoints?mode={mode}"
 
 
+def fetch_round(round_id: Optional[int] = None) -> dict:
+    """`BiwengerClient.get_round` without a client: the round read needs no
+    login, so a caller that only wants the fixtures does not pay for one."""
+    url = ROUND_URL if round_id is None else f"{ROUND_URL}/{int(round_id)}"
+    response = retry_http_request(
+        lambda: requests.get(
+            url,
+            params={"lang": "es"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=30,
+        ),
+        label="biwenger round fetch",
+    )
+    data = (response.json() or {}).get("data") or {}
+    logger.info(
+        "Round fetched.",
+        extra={
+            "round_id": data.get("id"),
+            "status": data.get("status"),
+            "games": len(data.get("games") or []),
+        },
+    )
+    return data
+
+
 class BiwengerClient:
     """
     Client for the Biwenger API.
@@ -876,26 +901,7 @@ class BiwengerClient:
         and rejects the API session, but answers a plain request carrying a
         browser User-Agent.
         """
-        url = ROUND_URL if round_id is None else f"{ROUND_URL}/{int(round_id)}"
-        response = retry_http_request(
-            lambda: requests.get(
-                url,
-                params={"lang": "es"},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=30,
-            ),
-            label="biwenger round fetch",
-        )
-        data = (response.json() or {}).get("data") or {}
-        logger.info(
-            "Round fetched.",
-            extra={
-                "round_id": data.get("id"),
-                "status": data.get("status"),
-                "games": len(data.get("games") or []),
-            },
-        )
-        return data
+        return fetch_round(round_id)
 
     def get_player_reports(self, slug: str) -> dict:
         """One player's per-match reports, with the raw stats behind them.

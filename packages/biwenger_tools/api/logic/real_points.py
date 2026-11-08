@@ -23,7 +23,7 @@ def personalizado(reports: list, position: int) -> dict:
     Biwenger's `star` flag is deliberately ignored — including it as the
     config's MVP bonus overshoots both controls (345 and 277).
     """
-    total = base = games = minutes = wins = clean = started = 0
+    total = base = games = minutes = wins = losses = long_games = clean = started = 0
     for report in reports:
         stats = report.get("rawStats") or {}
         played = stats.get("minutesPlayed") or 0
@@ -40,11 +40,13 @@ def personalizado(reports: list, position: int) -> dict:
         # wins — the single biggest reason a starter beats a better substitute.
         if played > 65:
             points += 1
+            long_games += 1
             if stats.get("win"):
                 points += 1
                 wins += 1
             if stats.get("lost"):
                 points -= 1
+                losses += 1
         if stats.get("cleanSheet"):
             clean += 1
             points += 2 if position == GK else (1 if position == DEF else 0)
@@ -67,7 +69,9 @@ def personalizado(reports: list, position: int) -> dict:
         "games": games,
         "starts": started,
         "minutes": minutes,
+        "long_games": long_games,
         "wins": wins,
+        "losses": losses,
         "clean_sheets": clean,
     }
 
