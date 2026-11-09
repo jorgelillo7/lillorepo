@@ -1446,3 +1446,28 @@ def test_an_old_app_version_is_upgraded_from_biwengers_own_answer(load_json_fixt
         )
         assert client.session.headers["X-Version"] == "632"
         assert m.request_history[-1].headers["X-Version"] == "632"
+
+
+def test_raise_market_bid_puts_the_new_amount_on_the_same_offer(
+    biwenger_client_authenticated,
+):
+    """Raising a waiting bid is a PUT of `{amount}` on its offer id — the
+    same call the app makes; the offer keeps its id and stays waiting. A
+    second POST would open a separate offer for the same player."""
+    client = biwenger_client_authenticated
+    with requests_mock.Mocker() as m:
+        m.put(
+            f"{TEST_OFFERS_URL}/204972115",
+            json={
+                "status": 200,
+                "data": {"id": 204972115, "amount": 10_700_061, "status": "waiting"},
+            },
+        )
+        data = client.raise_market_bid(
+            offer_id=204972115, amount=10_700_061.0, offers_url=TEST_OFFERS_URL
+        )
+        request = m.request_history[-1]
+
+    assert request.method == "PUT"
+    assert request.json() == {"amount": 10_700_061}
+    assert data == {"id": 204972115, "amount": 10_700_061, "status": "waiting"}

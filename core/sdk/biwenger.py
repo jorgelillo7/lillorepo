@@ -579,6 +579,27 @@ class BiwengerClient:
         )
         return data
 
+    def raise_market_bid(
+        self, *, offer_id: int, amount: int, offers_url: str = OFFERS_URL
+    ) -> dict:
+        """Change the amount of a bid of ours still waiting: PUT
+        `{"amount": <eur>}` on its offer, as the app does. The offer keeps
+        its id and stays `waiting`; a second POST would open a separate offer
+        for the same player. Returns Biwenger's `data`. Raises on 4xx/5xx.
+        """
+        url = f"{offers_url}/{int(offer_id)}"
+        logger.info(
+            "Raising market bid.", extra={"offer_id": offer_id, "amount": amount}
+        )
+        response = self.session.put(url, json={"amount": int(amount)}, timeout=30)
+        response.raise_for_status()
+        data = (response.json() or {}).get("data") or {}
+        logger.info(
+            "Market bid raised.",
+            extra={"offer_id": data.get("id"), "amount": data.get("amount")},
+        )
+        return data
+
     def place_clausulazo(
         self,
         *,

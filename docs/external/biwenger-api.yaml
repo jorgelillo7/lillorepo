@@ -267,12 +267,18 @@ paths:
   /offers/{id}:
     put:
       tags: [offers]
-      summary: Accept or reject a received offer.
+      summary: Accept or reject a received offer, or change the amount of a bid of ours.
       description: |
         Discovered live 24/06/2026 via Biwenger web DevTools. On accept the
         server flips `status` to `processed` (the transaction is executed
         and the player changes hands). On reject the status stays
         `rejected`.
+
+        **Raising a waiting bid** (verified 09/11/2026): the same PUT on one
+        of our own `purchase` offers with `{"amount": <eur>}` changes its
+        amount; the offer keeps its `id`, `status` stays `waiting`, `created`
+        moves to the time of the change. SDK: `raise_market_bid`. A second
+        POST to `/offers` would open a separate offer for the same player.
       parameters:
         - name: id
           in: path
@@ -283,12 +289,17 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [status]
-              properties:
-                status:
-                  type: string
-                  enum: [accepted, rejected]
+              oneOf:
+                - type: object
+                  required: [status]
+                  properties:
+                    status:
+                      type: string
+                      enum: [accepted, rejected]
+                - type: object
+                  required: [amount]
+                  properties:
+                    amount: {type: integer, description: "New amount of a bid of ours, in euros"}
       responses:
         "200":
           description: Decision applied.
@@ -305,8 +316,8 @@ paths:
                         properties:
                           status:
                             type: string
-                            enum: [processed, rejected]
-      x-verified-at: "2026-06-24"
+                            enum: [processed, rejected, waiting]
+      x-verified-at: "2026-11-09"
 
   /user:
     get:

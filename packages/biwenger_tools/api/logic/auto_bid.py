@@ -54,6 +54,7 @@ from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic import (
     league_cash,
+    lineup,
     price_history,
     price_history_store,
     rows,
@@ -172,6 +173,7 @@ def tier_bid(
     remaining_cash: int,
     label_sf: Optional[int] = None,
     falls: int = 0,
+    captain: bool = False,
 ) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
@@ -187,20 +189,30 @@ def tier_bid(
     `falls` is how many days running his price has fallen; from
     `FALLING_DAYS` on, the tier decides only whether he is bid, and the bid
     is his price plus `FALLING_OVERBID`.
+
+    `captain` marks a player under Biwenger's 3M captain cap who would
+    captain better than anyone in the squad (`captain_upgrade`): he is bid
+    the share of the tier above his own. A falling price still wins.
     """
     jitter = _jitter()
     sf_shown = sf if label_sf is None else label_sf
-    for floor, share, tier in (
+    ladder = (
         (TIER_ALL_IN_MIN, TIER_T1_OVERBID, "T1"),
         (TIER_T2_MIN, TIER_T2_OVERBID, "T2"),
         (TIER_T3_MIN, TIER_T3_OVERBID, "T3"),
         (TIER_T4_MIN, TIER_T4_OVERBID, "T4"),
-    ):
+    )
+    for step, (floor, share, tier) in enumerate(ladder):
         if sf < floor:
             continue
         if falls >= FALLING_DAYS:
             return round(price * (1 + FALLING_OVERBID)) + jitter, (
                 f"{tier} +{FALLING_OVERBID:.0%} cae {falls} días (SF {sf_shown})"
+            )
+        if captain:
+            share = ladder[max(0, step - 1)][1]
+            return round(price * (1 + share)) + jitter, (
+                f"{tier} +{share:.0%} mejor capitán posible <3M (SF {sf_shown})"
             )
         return round(
             price * (1 + share)
@@ -247,6 +259,27 @@ def _pending_prize(biwenger) -> int:
     except Exception:
         logger.warning("Round prize unknown — bidding on cash alone.", exc_info=True)
         return 0
+
+
+def best_captain_sf(squad_rows: list) -> int:
+    """The projection of the best captain the squad can field today: the
+    highest among players under the 3M cap whom JP has in its eleven."""
+    return max(
+        (lineup.projected_sf(r) for r in squad_rows if lineup.captain_eligible(r)),
+        default=0,
+    )
+
+
+def captain_upgrade(candidate: dict, squad_rows: list | None) -> bool:
+    """Whether a market player under the 3M captain cap, JP having him in its
+    eleven, would captain better than anyone the squad has. Without the squad
+    there is nothing to compare with, so no."""
+    if not squad_rows:
+        return False
+    price = candidate.get("price") or 0
+    if not 0 < price < lineup.CAPTAIN_MAX_PRICE or candidate.get("uncalled"):
+        return False
+    return candidate["sf"] > best_captain_sf(squad_rows)
 
 
 def bid_sf(candidate: dict, would_be_bench: bool) -> tuple[int, Optional[str]]:
@@ -763,6 +796,7 @@ def run_auto_bid(ctx=None) -> dict:
             remaining_cash,
             label_sf=candidate["sf"],
             falls=max(0, -price_history.streak(history, candidate["player_id"])),
+            captain=captain_upgrade(candidate, squad_rows),
         )
         if cap_reason:
             label = f"{label} · rebajado: {cap_reason}"

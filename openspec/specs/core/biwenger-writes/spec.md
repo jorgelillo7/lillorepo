@@ -8,7 +8,7 @@ This is the money path. Nothing here is undone by a second attempt, and most of
 it is undocumented — the payload shapes were reverse-engineered from live
 traffic and confirmed against real transactions.
 
-- **Source:** `core/sdk/biwenger.py` (`place_market_bid`, `place_clausulazo`,
+- **Source:** `core/sdk/biwenger.py` (`place_market_bid`, `raise_market_bid`, `place_clausulazo`,
   `decide_offer`, `set_lineup`, `list_squad_for_sale`, `withdraw_all_sales`,
   `_post_admin_operation`, `transfer_player`, `release_player`,
   `revert_transfer`, `apply_bonus`)
@@ -131,6 +131,19 @@ arrives without one, so a caller can read `.get("id")` unconditionally.
 - *Verifies:* `test_place_market_bid_posts_offer_with_expected_body`,
   `test_place_clausulazo_posts_offer_with_expected_body`,
   `test_place_market_bid_returns_empty_dict_when_data_missing`
+
+### Requirement: A waiting bid is raised on its own offer
+
+`raise_market_bid` SHALL change the amount of a bid of ours still waiting by
+a PUT of `{"amount": <eur>}` on its offer id, as the app does, sending the
+amount as a plain integer. The offer keeps its id and stays `waiting`; a
+second POST would open a separate offer for the same player. Verified live on
+9/11 (Aubameyang 9.61 M → 10.70 M).
+
+#### Scenario: raising Aubameyang's bid
+- **WHEN** a waiting bid is raised **THEN** one PUT carries `{"amount": n}`
+  to `/offers/{id}` and the echoed offer is returned
+- *Verifies:* `test_raise_market_bid_puts_the_new_amount_on_the_same_offer`
 
 ### Requirement: Every numeric field is sent as a plain integer
 
