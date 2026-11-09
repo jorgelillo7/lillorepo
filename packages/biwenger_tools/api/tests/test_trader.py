@@ -853,3 +853,127 @@ def test_a_riser_with_a_bid_already_waiting_is_named_not_dropped():
     assert [(row["bw_id"], why) for row, why in result.skipped] == [
         (50, "ya tiene puja tuya esperando (auto-bid o manual)")
     ]
+
+
+# --- absences: short ones are held, long ones are sold --------------------
+
+from datetime import datetime as _dt  # noqa: E402
+
+from core.constants import MADRID_TZ  # noqa: E402
+from packages.biwenger_tools.api.logic.trader import absence_days  # noqa: E402
+
+NOV_9 = _dt(2026, 11, 9, 7, 15, tzinfo=MADRID_TZ).timestamp()
+
+
+def _absent(pid, sf, status, back):
+    p = _player(pid, sf, MID)
+    p["jp_player"] = {**p["jp_player"], "status": status, "estimatedReturn": back}
+    return p
+
+
+def _plan_with(player, kickoffs=(), **rules):
+    return plan(
+        _eleven() + [player],
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=Rules(**{**RULES.__dict__, "dead_sf": 300, **rules}),
+        now=NOV_9,
+        kickoffs=kickoffs,
+    )
+
+
+J13 = _dt(2026, 11, 20, 21, 0, tzinfo=MADRID_TZ).timestamp()
+J14 = _dt(2026, 11, 27, 21, 0, tzinfo=MADRID_TZ).timestamp()
+J15 = _dt(2026, 12, 5, 16, 0, tzinfo=MADRID_TZ).timestamp()
+
+
+def test_absence_days_reads_jornada_perfectas_return_estimates():
+    assert (
+        absence_days(
+            {"status": "doubt", "estimatedReturn": "Finales de noviembre"}, NOV_9
+        )
+        == 16
+    )
+    assert (
+        absence_days(
+            {"status": "injured", "estimatedReturn": "Principios de enero"}, NOV_9
+        )
+        == 57
+    )
+    assert absence_days(
+        {"status": "injured", "estimatedReturn": "Vuelta indefinida"}, NOV_9
+    ) == float("inf")
+    assert (
+        absence_days(
+            {"status": "injured", "estimatedReturn": "Vuelta inminente"}, NOV_9
+        )
+        == 0
+    )
+    assert (
+        absence_days(
+            {"status": "injured", "estimatedReturn": "Finales de octubre"}, NOV_9
+        )
+        == 0
+    )
+    assert (
+        absence_days({"status": "ok", "estimatedReturn": "Mediados de agosto"}, NOV_9)
+        is None
+    )
+    assert absence_days({"status": "sanctioned"}, NOV_9) is None
+
+
+def test_a_long_absence_is_sold_off_the_bench():
+    """9/11: Lemar, a fibre tear, "Finales de noviembre" — two rounds without
+    points while his price keeps falling. The hold is for a match or two."""
+    result = _plan_with(_absent(40, 0, "doubt", "Finales de noviembre"))
+
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+    assert result.sells[0].reason == "baja larga: vuelve finales de noviembre"
+
+
+def test_an_indefinite_absence_is_sold():
+    result = _plan_with(_absent(40, 0, "injured", "Vuelta indefinida"))
+
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_a_short_absence_is_held_whatever_his_projection():
+    result = _plan_with(_absent(40, 0, "injured", "Mediados de noviembre"))
+
+    assert result.sells == []
+
+
+def test_a_doubt_coming_back_soon_is_not_deadwood():
+    result = _plan_with(_absent(40, 0, "doubt", "Mediados de noviembre"))
+
+    assert result.sells == []
+
+
+def test_an_absence_is_counted_in_rounds_missed_not_days():
+    """Lemar is back around 25/11: 16 days, but the international break leaves
+    only round 13 (20/11) before then — round 14 starts 27/11. One round is a
+    short absence; the eleven freezes at each round's first kick-off, so the
+    rounds are what he misses."""
+    lemar = _absent(40, 0, "doubt", "Finales de noviembre")
+
+    assert _plan_with(lemar, kickoffs=(J13, J14, J15)).sells == []
+
+
+def test_two_rounds_missed_is_a_long_absence():
+    out = _absent(40, 0, "injured", "Principios de diciembre")
+
+    result = _plan_with(out, kickoffs=(J13, J14, J15))
+
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_a_star_is_not_sold_for_a_long_absence():
+    """A long injury sinks a cheap player's price for good; a star's comes
+    back with him, and he is not bought again at the same price."""
+    star = _absent(40, 0, "injured", "Vuelta indefinida")
+    star["price"] = 9_000_000
+
+    assert _plan_with(star, star_price=6_400_000).sells == []
