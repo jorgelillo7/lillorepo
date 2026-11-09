@@ -5,6 +5,11 @@ Bazel monorepo with Python projects targeting Google Cloud — `biwenger_tools`,
 one shared `core`. One package is not Python: `interactive_fiction` is a Node
 static site outside Bazel, with its own `npm` workflow (see its README).
 
+A package that is not Python stays outside Bazel: its own toolchain and
+lockfile, its own job in `ci.yml` registered as a required check, and its own
+runbook. It shares nothing with `core`, so Bazel would add a second dependency
+graph and no caching worth having.
+
 ## Ground rules
 
 Three habits that cost real time when they were missing. Each one is here
@@ -130,11 +135,11 @@ This repo deploys to production on every push to `master` (see `.github/workflow
 **No exceptions.** Every change — docs, comments, CLAUDE.md edits, README
 typos, urgent hotfixes — goes through branch + PR + green checks + merge.
 There is no "commit directly to master" authorisation, from anyone, ever.
-If it's urgent, the fast path is the same path: branch, PR, wait for `Lint`
-and `Test`, merge.
+If it's urgent, the fast path is the same path: branch, PR, wait for the
+required checks, merge.
 
 This is enforced, not just policy: `master` has branch protection (required
-status checks `Lint` + `Test` from `ci.yml`, branches up to date with
+status checks `Lint`, `Test` and `Interactive fiction` from `ci.yml`, branches up to date with
 `master` before merging, `enforce_admins` on, no force-pushes). A direct push is rejected by GitHub regardless of intent.
 
 ```bash
