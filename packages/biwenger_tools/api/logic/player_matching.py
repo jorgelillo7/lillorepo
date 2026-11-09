@@ -35,6 +35,8 @@ def build_jp_index(
     """Build lookup indexes over a JP player list to speed up matching.
 
     Returns a dict with:
+      - 'by_id': JP `id` → JP player. JP's id is Biwenger's player id
+        (551 of 551 on 9/11), so `find_jp_player` tries it first.
       - 'by_name': normalised name → JP player
       - 'by_slug': normalised slug → JP player (fallback)
       - 'ambiguous_loose_targets': `id()` of JP players that the loose
@@ -45,9 +47,12 @@ def build_jp_index(
         which disables the cross-roster check but leaves per-call matching
         (including the token-subset uniqueness gate) unaffected.
     """
+    by_id: dict[int, dict] = {}
     by_name: dict[str, dict] = {}
     by_slug: dict[str, dict] = {}
     for p in jp_players:
+        if isinstance(p.get("id"), int):
+            by_id[p["id"]] = p
         name = p.get("name") or ""
         slug = p.get("slug") or ""
         if name:
@@ -55,6 +60,7 @@ def build_jp_index(
         if slug:
             by_slug[normalize_name(slug)] = p
     return {
+        "by_id": by_id,
         "by_name": by_name,
         "by_slug": by_slug,
         "ambiguous_loose_targets": _find_ambiguous_loose_targets(
@@ -177,3 +183,14 @@ def find_player_match(biwenger_name: str, jp_index: dict) -> dict | None:
     if id(candidate) in jp_index.get("ambiguous_loose_targets", ()):
         return None
     return candidate
+
+
+def find_jp_player(biwenger_player: dict, jp_index: dict) -> dict | None:
+    """The JP player for a Biwenger player: by his Biwenger id, which JP's
+    `id` is, and by name (`find_player_match`) only when the id finds nobody.
+    The name ladder stays for sources without Biwenger ids (Oráculo)."""
+    by_id = jp_index.get("by_id") or {}
+    match = by_id.get(biwenger_player.get("id"))
+    if match is not None:
+        return match
+    return find_player_match(biwenger_player.get("name", ""), jp_index)

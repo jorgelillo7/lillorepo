@@ -33,9 +33,8 @@ info:
        are Biwenger ids (551 of 551 `/mercado/` rows match
        `cf.biwenger.com/.../competitions/la-liga/data` by id, name, price and
        `priceIncrement`). JP's own ids (`playerId`, `teamID`) are different.
-       For the API this is inferred from one captured payload (Roony,
-       `id: 38216` = Biwenger 38216) plus the web mapping; confirm with the
-       token before relying on it.
+       Confirmed for the API on 9/11 with the token: 551 of 551 ids are
+       Biwenger's, 47 under another name; `find_jp_player` matches by it.
     3. *Scoring ids are Biwenger's score ids.* 1 Picas Diario AS, 2 SofaScore,
        16 Media AS + SofaScore, 19 LaLiga Fantasy. JP's past SofaScore points
        for a player equal Biwenger's `score=2` points exactly (Raphinha
@@ -92,9 +91,9 @@ paths:
         Without `auth` (or with a rotated one) the answer is HTTP 200
         `{"error": "auth"}` — verified 9/11 with no token.
 
-        Not verified: whether a `round` (or similar) parameter returns past
-        projections. Worth one request from whoever holds the token: it
-        would let JP be graded on rounds already played.
+        No parameter returns past projections: `round`, `jornada`,
+        `matchday`, `date` and `fecha` were tried on 9/11 with the token and
+        changed nothing. JP is graded from the ledger's own `league_jp`.
       x-status: verified-by-repo
       x-verified-at: "2026-11-09"
       x-used-by: "core/sdk/jp.py: fetch_all_players, _peek_fingerprint, check_api_health, get_predict_rate"

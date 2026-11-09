@@ -122,3 +122,36 @@ def test_a_short_jp_name_is_reached_through_its_hyphenated_slug():
     assert find_player_match("Rubén Sánchez", jp_index)["slug"] == "ruben-sanchez"
     assert find_player_match("Rubén García", jp_index)["slug"] == "ruben-garcia"
     assert find_player_match("Robert Navarro", jp_index)["slug"] == "robert-navarro"
+
+
+# ---------------------------------------------------------------------------
+# find_jp_player — by Biwenger id first
+# ---------------------------------------------------------------------------
+
+
+def test_jp_is_matched_by_the_biwenger_id_before_any_name():
+    """JP's `id` is Biwenger's (551 of 551 on 9/11); 47 of those carry a
+    different short name («Dela», «Simón», «Vini Jr»), which the name ladder
+    needs overrides for or gets wrong."""
+    from packages.biwenger_tools.api.logic.player_matching import (
+        build_jp_index,
+        find_jp_player,
+    )
+
+    dela = {"id": 37739, "name": "Dela", "slug": "dela"}
+    other = {"id": 1, "name": "De la Fuente", "slug": "de-la-fuente"}
+    index = build_jp_index([dela, other])
+
+    assert find_jp_player({"id": 37739, "name": "De la Fuente"}, index) is dela
+
+
+def test_a_player_without_an_id_match_falls_back_to_his_name():
+    from packages.biwenger_tools.api.logic.player_matching import (
+        build_jp_index,
+        find_jp_player,
+    )
+
+    pedri = {"name": "Pedri", "slug": "pedri"}
+    index = build_jp_index([pedri])
+
+    assert find_jp_player({"id": 99, "name": "Pedri"}, index) is pedri
