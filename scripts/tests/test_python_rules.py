@@ -65,7 +65,7 @@ def test_scripts_and_tests_may_bootstrap_sys_path():
     for allowed in (
         "packages/biwenger_tools/scripts/draft/reset.py",
         "packages/biwenger_tools/.claude/skills/draft/scripts/board.py",
-        ".claude/skills/audit-apple-contacts/scripts/apply.py",
+        "system/skills/audit-apple-contacts/scripts/apply.py",
         "scripts/tests/test_affected_tests.py",
         "packages/be_water/web/tests/test_routes.py",
     ):

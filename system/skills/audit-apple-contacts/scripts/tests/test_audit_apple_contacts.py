@@ -5,7 +5,7 @@ import sys
 # reports; with plain pytest, the source tree. `.claude` cannot be a package
 # name, so these scripts cannot be imported by module path.
 _SCRIPTS = (
-    os.path.join(os.environ["TEST_SRCDIR"], os.environ["TEST_WORKSPACE"], ".claude/skills/audit-apple-contacts/scripts")
+    os.path.join(os.environ["TEST_SRCDIR"], os.environ["TEST_WORKSPACE"], "system/skills/audit-apple-contacts/scripts")
     if "TEST_SRCDIR" in os.environ
     else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )

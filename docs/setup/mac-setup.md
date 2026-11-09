@@ -155,6 +155,9 @@ Two skills audit versions, and they answer different questions:
 | `check-deps` | what the **repo** pins — Bazel, Python, modules, Actions |
 | `audit-mac-tools` | what the **machine** has installed |
 
+`audit-mac-tools` is a machine skill in `system/skills/`: install it with
+`scripts/install-system-skills.sh` (see `.claude/CLAUDE.md`).
+
 ## AI tools
 
 - Surviving long agent runs: [`long-running-sessions.md`](long-running-sessions.md)

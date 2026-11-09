@@ -30,7 +30,7 @@ bazel-*
 .claude/plans/
 # Machine audit reports: an inventory of installed software and its versions
 # is reconnaissance, and this repo is public. Owner's eyes only.
-.claude/skills/audit-mac-tools/reports/
+system/skills/audit-mac-tools/reports/
 # Draft skill Phase-B output — the skill's own .gitignore only covers its
 # directory, but the generator writes to the repo root by default.
 mi-*.md
@@ -46,12 +46,12 @@ draft-ranked*.csv
 # Address-book audit output: real contact data, and this repository is public.
 # The skill's --out should point outside the tree; this is the second line of
 # defence for anything that lands inside it anyway.
-.claude/skills/audit-apple-contacts/reports/
-.claude/skills/audit-apple-contacts/**/*.vcf
-.claude/skills/audit-apple-contacts/**/records.json
-.claude/skills/audit-apple-contacts/**/actions.json
-.claude/skills/audit-apple-contacts/**/decisions.json
-.claude/skills/audit-apple-contacts/scripts/config.json
+system/skills/audit-apple-contacts/reports/
+system/skills/audit-apple-contacts/**/*.vcf
+system/skills/audit-apple-contacts/**/records.json
+system/skills/audit-apple-contacts/**/actions.json
+system/skills/audit-apple-contacts/**/decisions.json
+system/skills/audit-apple-contacts/scripts/config.json
 
 # Personal working notes, kept out of a public repository. The pattern is
 # `NOTES.local.md` anywhere, so any package can keep a private notebook beside
