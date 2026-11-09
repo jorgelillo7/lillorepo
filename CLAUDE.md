@@ -47,6 +47,7 @@ because it went wrong, not because it sounds sensible.
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
 /scripts        Utility scripts (GCP cleanup, costs)
+/system         Machine-level skills, installed into ~/.claude/skills/ (see .claude/CLAUDE.md)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
 ```
@@ -219,27 +220,6 @@ stopped being scannable, which is the only job it has. The file is never
 deleted; lines get pruned as items ship. For "what has shipped" read
 `packages/biwenger_tools/release-notes.md`, and for the state of the repo
 `STATUS.md` — neither belongs in `PENDING.md`.
-
-## Service-level objectives
-
-Single SLO covers the user-facing surface of the project:
-
-- **Daily 07:15 Madrid digest end-to-end ≤ 5 min.** The Cloud Scheduler tick
-  fires `/digests/daily`, which chains: JP fetch + Biwenger session + market
-  read + N bids + Firestore log writes + 2 Telegram photos + 1 Telegram
-  summary. Each component has its own timeouts; the SLO is the wall-clock
-  total observed end-to-end. Burns: any run that exceeds 5 min, or any
-  morning where the summary fails to arrive, counts against the budget.
-
-What this implies in practice:
-- Cloud Run min-instances=0 cold start is part of the budget — currently
-  ~5-10 s thanks to the pre-compiled `python-base` image. Drift here is
-  worth investigating.
-- Biwenger flake / JP cache miss budget is ~30 s combined; the rest of the
-  5 min is comfort headroom.
-- There is no automated alerting (deliberate, see `STATUS.md` "Accepted
-  gaps"). The SLO is enforced by the user checking whether the morning
-  message arrived; missed mornings get diagnosed manually in Cloud Logging.
 
 ## Memory
 

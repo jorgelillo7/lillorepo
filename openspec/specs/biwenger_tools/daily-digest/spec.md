@@ -26,8 +26,16 @@ hour reads the same projection.
 
 The daily digest SHALL complete end-to-end in ≤ 5 minutes wall-clock (the
 project SLO). It chains: JP fetch + Biwenger session + market read + N bids +
-Firestore log writes + 2 Telegram photos + 1 summary. Rationale, budget
-breakdown and accepted gaps live in `CLAUDE.md` / `STATUS.md`.
+Firestore log writes + 2 Telegram photos + 1 summary. Each step has its own
+timeout; the SLO is the total observed end-to-end. A run over 5 minutes, or a
+morning whose summary never arrives, burns the budget.
+
+The budget, in practice: the Cloud Run cold start (min-instances 0) is part
+of it, about 5–10 s thanks to the pre-compiled `python-base` image, and drift
+there is worth investigating; Biwenger flakes and JP cache misses take about
+30 s combined; the rest is headroom. There is no automated alerting (an
+accepted gap, see `STATUS.md`): the owner notices a missing morning message,
+and the run is diagnosed in Cloud Logging.
 
 ### Requirement: One digest per Madrid day
 

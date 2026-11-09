@@ -1,6 +1,6 @@
 # Tasks
 
-Outcomes, not a plan (the plan comes from `rpi-plan` against this proposal).
+Outcomes, not a plan (the plan is written in `.claude/plans/` against this proposal).
 
 - [ ] Worlds, `worlds.json` and cut-outs read from the author's `web/3d/` (his PR #9) and validated at build
 - [ ] The reader shows scenes as worlds by default, 2D as fallback

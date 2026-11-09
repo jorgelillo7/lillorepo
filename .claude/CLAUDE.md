@@ -28,6 +28,7 @@ working inside that package.
 
 | Scope | Location | Index |
 |---|---|---|
+| The machine, any project | [`system/skills/`](../system/skills/), installed into `~/.claude/skills/` by `scripts/install-system-skills.sh` | the table below |
 | Repo-wide | `.claude/skills/` | this file |
 | `biwenger_tools` | [`packages/biwenger_tools/.claude/`](../packages/biwenger_tools/.claude/CLAUDE.md) | its own `CLAUDE.md` |
 | `interactive_fiction` | [`packages/interactive_fiction/.claude/`](../packages/interactive_fiction/.claude/CLAUDE.md) | its own `CLAUDE.md` |
@@ -41,16 +42,26 @@ unindexed skill is one nobody remembers exists.
 | Skill | When |
 |---|---|
 | `add-python-dep` | Adding a PyPI dependency — keeps the five dependency layers in sync. |
-| `audit-mac-tools` | Audit the machine's toolchain — what is stale, what is abandoned, what only looks stale. |
-| `audit-apple-contacts` | Audit the Apple address book and merge a Google export into it — one-by-one approval, nothing written until the owner says so. |
 | `check-deps` | Snapshot the pinned versions (Bazel, Python, modules, Actions). |
 | `docs-audit` | Hunt broken links and drifted cross-references across every doc. |
 | `openspec-backfill` | Write the `openspec/` spec for code that already ships without one. |
 | `openspec-propose` | Agree the behaviour of a feature that does not exist yet, before writing it. |
 | `release-notes` | Write a package's release-notes entry from recent commits. |
 | `ship` | Merge a PR and prove it reached production — head check, no stacking, deploy watch, revisions serving. |
-| `rpi-research` · `rpi-plan` · `rpi-implement` · `rpi-common` | The research → plan → implement workflow. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
+
+### Machine skills (`system/skills/`)
+
+Kept here so they are versioned with everything else, but about the Mac, not
+any repo: `scripts/install-system-skills.sh` copies them into
+`~/.claude/skills/` so they load in every project. Edit them here and run it
+again; the installed copy is overwritten.
+
+| Skill | When |
+|---|---|
+| `audit-mac-tools` | Audit the machine's toolchain — what is stale, what is abandoned, what only looks stale. |
+| `audit-apple-contacts` | Audit the Apple address book and merge a Google export into it — one-by-one approval, nothing written until the owner says so. |
+| `mac-cleanup` | Measure the disk and recover space — nothing deleted without the owner's yes in that round. |
 
 ## Agents vs skills
 

@@ -51,6 +51,7 @@ Never reach for one when you mean the other.
 ## Where the rest lives
 
 - **Behaviour** — `/openspec/specs/biwenger_tools/{capability}/spec.md`
+- **The SLO** (the 07:15 digest within 5 minutes, and its budget) — `/openspec/specs/biwenger_tools/daily-digest/spec.md`
 - **Runbook** — [`../OPERATIONS.md`](../OPERATIONS.md)
 - **Web design system** — [`../web/DESIGN.md`](../web/DESIGN.md)
 - **Shipped changes** — [`../release-notes.md`](../release-notes.md)

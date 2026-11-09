@@ -1,6 +1,6 @@
 ---
 name: openspec-propose
-description: Spec-first authoring for a feature that does not exist yet — interviews the user for the behaviour, drafts openspec/changes/{name}/ (proposal, design, tasks, spec deltas), and folds the deltas into openspec/specs/ once the code and its tests land. Use before writing the feature, not after. Hands the implementation plan to rpi-plan.
+description: Spec-first authoring for a feature that does not exist yet — interviews the user for the behaviour, drafts openspec/changes/{name}/ (proposal, design, tasks, spec deltas), and folds the deltas into openspec/specs/ once the code and its tests land. Use before writing the feature, not after. The implementation plan comes after, in `.claude/plans/`.
 model-invocable: false
 allowed-tools:
   - Read
@@ -18,7 +18,7 @@ Agree on **what** a not-yet-existing feature must do, in writing, before anyone
 writes it. The output is `openspec/changes/{name}/`; the endpoint, much later,
 is a requirement folded into `openspec/specs/` with real tests behind it.
 
-The `how` is not yours. See § "Handoff to rpi-plan" — duplicating the
+The `how` is not yours. See § "Handoff to the plan" — duplicating the
 implementation plan here is the failure mode this skill exists to avoid.
 
 # Step 0 — Read before you ask
@@ -97,7 +97,7 @@ Show the user the proposal and the delta and get an explicit yes. The whole
 value of spec-first is that disagreement surfaces here, where it costs a
 paragraph instead of a branch.
 
-Only after approval does implementation begin — via `rpi-plan`, not here.
+Only after approval does implementation begin — from a plan, not here.
 
 # Naming tests that do not exist yet
 
@@ -139,9 +139,9 @@ Gate: the feature is merged **and** the named tests exist and pass. Not before
    It must pass. If it does not, the tests are not named what the spec claims —
    fix that now, while it is one file.
 
-# Handoff to rpi-plan
+# Handoff to the plan
 
-**This skill states the WHAT. `rpi-plan` states the HOW.**
+**This skill states the WHAT. The plan states the HOW.**
 
 `design.md` may record the approach and the trade-offs the *behaviour* depends
 on: which data source is authoritative, where the boundary sits, what is
@@ -149,13 +149,13 @@ deliberately not handled, what the alternatives cost. That is context a reader
 needs to judge whether the requirement is right.
 
 The handoff point is concrete: **the moment you would write a function
-signature, a code snippet, or a file-by-file change list, stop.** That is
-`rpi-plan`'s output, and it wants an annotated review loop this skill does not
-have. `tasks.md` here is a checklist of outcomes and test names, not a plan.
+signature, a code snippet, or a file-by-file change list, stop.** That belongs
+in the implementation plan (`.claude/plans/`, see `CLAUDE.md` § "Plans"), which
+the user reviews on its own. `tasks.md` here is a checklist of outcomes and test names, not a plan.
 
-After Step 3's approval, say so explicitly and invoke `rpi-plan`, giving it the
-approved proposal as its input. A plan written against an approved spec is the
-best case that workflow gets.
+After Step 3's approval, say so explicitly and write the plan in
+`.claude/plans/{name}.md` against the approved proposal. A plan written against
+an approved spec is the best case a plan gets.
 
 # Rules
 
