@@ -26,6 +26,48 @@
       "title": "Whirly Derby",
       "detail": "Juego de carreras de canicas · Big Potato · 8+ · 2 a 6 jugadores",
       "photo": "whirly-derby.jpg"
+    },
+    {
+      "id": "shark-pirate-ship",
+      "title": "Barco pirata tiburón",
+      "detail": "Teamsterz Beast Machines · incluye un coche de metal · 3+",
+      "note": "Visto en Juguettos a 49,99 €.",
+      "photo": "shark-pirate-ship.jpg"
+    },
+    {
+      "id": "superthings-titan-fury",
+      "title": "SuperThings Titan Fury",
+      "detail": "Robot Kazoom Power con Kid Fury exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 54,99 €.",
+      "photo": "superthings-titan-fury.jpg"
+    },
+    {
+      "id": "piratix-skull-fortress",
+      "title": "Piratix: Skull Fortress",
+      "detail": "Fortaleza calavera con Piratix exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 34,99 € (oferta).",
+      "photo": "piratix-skull-fortress.jpg"
+    },
+    {
+      "id": "piratix-kraken-ship",
+      "title": "Piratix: Kraken Ship",
+      "detail": "Barco con cañón, catapulta y 2 Piratix exclusivos · Magic Box",
+      "note": "Visto en Juguettos a 39,99 € (oferta; PVP 44,99 €).",
+      "photo": "piratix-kraken-ship.jpg"
+    },
+    {
+      "id": "hot-wheels-cobra-attack",
+      "title": "Hot Wheels City: ataque de la serpiente",
+      "detail": "Pizza Slam Cobra Attack · Mattel · 4+",
+      "note": "Visto en Juguettos a 34,99 €.",
+      "photo": "hot-wheels-cobra-attack.jpg"
+    },
+    {
+      "id": "klein-checkout",
+      "title": "Caja registradora de autoservicio",
+      "detail": "Klein · 41 piezas, con luz y sonido · 3+",
+      "note": "Visto en Juguettos a 39,99 € (oferta; PVP 44,99 €).",
+      "photo": "klein-checkout.jpg"
     }
   ]
 }
