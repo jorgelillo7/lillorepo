@@ -374,3 +374,36 @@ def render_movements(items: list[dict]) -> str:
 
     lines = [f"{when(m)} · {m['line']}" for m in items]
     return "📋 <b>Movimientos · últimas 24 h</b>\n\n" + "\n".join(lines)
+
+
+def round_prize(round_league_data: dict, manager_id: int) -> int:
+    """What a round pays a manager: `bonusPoint` (75 k) times the points of the
+    manager in the mirror position — the last is paid the winner's points, the
+    second-last the runner-up's. From `get_round_league()`; a manager who
+    fielded nothing is not ranked. On a tie the lower mirror counts, and
+    bonuses on top (the ideal eleven) are left out, so it never overstates.
+    Checked against round 11 to the euro."""
+    league = round_league_data.get("league") or {}
+    bonus = int((league.get("settings") or {}).get("bonusPoint") or 0)
+    scores = {
+        int(s["id"]): s["lineup"]["points"]
+        for s in league.get("standings") or []
+        if (s.get("lineup") or {}).get("points") is not None
+    }
+    mine = scores.get(int(manager_id))
+    if mine is None or not bonus:
+        return 0
+    ranked = sorted(scores.values(), reverse=True)
+    positions = [i for i, pts in enumerate(ranked) if pts == mine]
+    mirror = min(ranked[len(ranked) - 1 - i] for i in positions)
+    return bonus * mirror
+
+
+def round_paid(entries: list[dict], round_id: int) -> bool:
+    """Whether the board already carries the round's `roundFinished` entry,
+    the one that pays it."""
+    return any(
+        e.get("type") == "roundFinished"
+        and ((e.get("content") or {}).get("round") or {}).get("id") == round_id
+        for e in entries
+    )

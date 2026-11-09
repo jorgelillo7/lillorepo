@@ -352,6 +352,9 @@ def run_env():
         oraculo_index=None,
         pending_bids=None,
         price_history=None,
+        round_data=None,
+        board=None,
+        round_league=None,
     ):
         stack = ExitStack()
         stack.enter_context(
@@ -404,6 +407,10 @@ def run_env():
         biwenger.get_manager_squad.return_value = squad or []
         biwenger.get_account_state.return_value = {"cash": cash, "max_bid": cash}
         biwenger.get_my_pending_bids.return_value = pending_bids or []
+        biwenger.get_round.return_value = round_data or {}
+        biwenger.get_board_messages.return_value = {"data": board or []}
+        biwenger.get_round_league.return_value = round_league or {}
+        biwenger.user_id = 7
         if bid_side_effect is not None:
             biwenger.place_market_bid.side_effect = bid_side_effect
         else:
@@ -531,6 +538,78 @@ def test_tier_bid_names_the_fall():
         amount, label = auto_bid.tier_bid(910, 10_000_000, 50_000_000, falls=3)
     assert amount == 10_100_000
     assert "cae 3 días" in label
+
+
+_CLOSED_ROUND = {"id": 4910, "games": [{"status": "finished"}, {"status": "finished"}]}
+_ROUND_12 = {
+    "league": {
+        "settings": {"bonusPoint": 75_000},
+        "standings": [
+            {"id": 1, "lineup": {"points": 90}},
+            {"id": 7, "lineup": {"points": 43}},
+        ],
+    }
+}
+
+
+def test_a_closed_round_not_yet_paid_counts_its_prize_as_cash(run_env):
+    """The round's prize lands hours after the last match, before tomorrow's
+    07:00 settles any bid placed now: 9/11, Aubameyang skipped at 9.6 M with
+    4.25 M free and ~6.6 M due that afternoon."""
+    market = [_sale(1)]
+    biwenger, mock_send = run_env(
+        market_players=market,
+        biwenger_players={1: _bw(1, "Vinicius", 12_000_000)},
+        jp_players=[_jp_with_sf("Vinicius", 910)],
+        cash=10_000_000,
+        round_data=_CLOSED_ROUND,
+        round_league=_ROUND_12,
+    )
+    result = auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=13_800_000)
+    assert result["pending_prize_eur"] == 90 * 75_000
+    assert "premio" in mock_send.call_args.kwargs["text"]
+
+
+def test_a_paid_round_or_one_still_playing_adds_nothing(run_env):
+    for round_data, board in (
+        (
+            _CLOSED_ROUND,
+            [{"type": "roundFinished", "content": {"round": {"id": 4910}}}],
+        ),
+        ({"id": 4910, "games": [{"status": "finished"}, {"status": "pending"}]}, []),
+    ):
+        biwenger, _ = run_env(
+            market_players=[_sale(1)],
+            biwenger_players={1: _bw(1, "Vinicius", 12_000_000)},
+            jp_players=[_jp_with_sf("Vinicius", 910)],
+            cash=10_000_000,
+            round_data=round_data,
+            board=board,
+            round_league=_ROUND_12,
+        )
+        result = auto_bid.run_auto_bid()
+
+        biwenger.place_market_bid.assert_not_called()
+        assert result["pending_prize_eur"] == 0
+
+
+def test_a_player_with_a_bid_already_waiting_is_not_bid_again(run_env):
+    """After the trader's sales, auto-bid runs a second time; the trader's
+    own bids that morning are not in auto-bid's log, and bidding again would
+    replace the trader's price with a tier's."""
+    biwenger, _ = run_env(
+        market_players=[_sale(3)],
+        biwenger_players={3: _bw(3, "Pedri", 3_000_000)},
+        jp_players=[_jp_with_sf("Pedri", 500)],
+        cash=10_000_000,
+        pending_bids=[{"amount": 3_090_000, "requestedPlayers": [3]}],
+    )
+    result = auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_not_called()
+    assert result["skipped_count"] == 1
 
 
 def test_cash_already_promised_to_waiting_bids_is_not_bid_again(run_env):

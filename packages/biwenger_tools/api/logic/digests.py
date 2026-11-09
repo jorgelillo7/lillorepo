@@ -352,6 +352,11 @@ def _run_daily_inner() -> dict:
         auto_bid_result = _safe_run_auto_bid(ctx)
     protection_result = _safe_run_protection_watch(ctx)
     trader_result = _safe_run_trader(ctx, built, rounds, token, chat_id)
+    # A sale raises cash after auto-bid has spent the morning's; a second pass
+    # bids with it. The first pass's bids are in its log and are not repeated.
+    second_bid = None
+    if trader_result.get("sold") and not _auto_bid_pause_active():
+        second_bid = _safe_run_auto_bid(ctx)
     offers_result = _safe_run_offers_inbox(ctx, set(trader_result.get("selling") or []))
 
     sent_count = int(team_sent) + int(market_sent)
@@ -378,4 +383,5 @@ def _run_daily_inner() -> dict:
         "protection": protection_result,
         "offers": offers_result,
         "trader": trader_result,
+        **({"auto_bid_after_sales": second_bid} if second_bid is not None else {}),
     }

@@ -90,6 +90,44 @@ first.
   `test_no_price_history_bids_the_tier_as_before`,
   `test_tier_bid_names_the_fall`
 
+### Requirement: A closed round's unpaid prize counts as cash
+
+When every game of the current round is played and the board does not yet
+carry its `roundFinished` entry, auto-bid SHALL add the round's prize to the
+cash it bids with: `bonusPoint` (75 k) times the points of the manager in the
+mirror position — the last is paid the winner's points
+(`league_cash.round_prize`, to the euro on round 11). A tie counts the lower
+mirror and bonuses on top are left out, so it never overstates. Any read
+failing adds nothing. The summary names the prize.
+
+The prize lands hours after the last match, before tomorrow's 07:00 settles a
+bid placed now, and a negative balance only matters at a round's first
+kick-off. On 9/11 Aubameyang was skipped at 9.6 M with 4.25 M free and
+~6.6 M due that afternoon.
+
+#### Scenario: closed and unpaid, paid, still playing
+- **WHEN** the round is closed and unpaid **THEN** its prize is bid with, and
+  the summary says so
+- **WHEN** the board has paid it, or a game is still to play **THEN** nothing
+  is added
+- **WHEN** two managers tie **THEN** the lower mirror's points count
+- *Verifies:* `test_a_closed_round_not_yet_paid_counts_its_prize_as_cash`,
+  `test_a_paid_round_or_one_still_playing_adds_nothing`,
+  `test_the_round_prize_is_the_mirror_positions_points`,
+  `test_a_tie_takes_the_lower_of_the_mirror_points`,
+  `test_a_round_is_paid_once_its_round_finished_entry_is_on_the_board`
+
+### Requirement: A player with a bid of ours waiting is not bid again
+
+A player auto-bid logged today, or one any bid of ours is already waiting on
+— the trader's included — SHALL be skipped. Bidding again would replace the
+earlier price with a tier's.
+
+#### Scenario: the trader bid first
+- **WHEN** a bid of ours is waiting on a market player **THEN** auto-bid
+  skips him
+- *Verifies:* `test_a_player_with_a_bid_already_waiting_is_not_bid_again`
+
 ### Requirement: Inclusive lower boundaries
 
 Tier thresholds SHALL be inclusive on the lower end: a player at exactly a

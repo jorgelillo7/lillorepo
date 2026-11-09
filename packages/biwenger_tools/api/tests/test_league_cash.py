@@ -539,3 +539,45 @@ def test_movements_older_than_a_day_are_not_listed():
 
 def test_movements_say_so_when_nothing_moved():
     assert "Sin movimientos" in league_cash.render_movements([])
+
+
+# --- the round prize still to be paid --------------------------------------
+
+
+def _round_league(points: dict, bonus_point: int = 75_000) -> dict:
+    return {
+        "league": {
+            "settings": {"bonusPoint": bonus_point},
+            "standings": [
+                {"id": uid, "lineup": {"points": pts}} for uid, pts in points.items()
+            ],
+        }
+    }
+
+
+def test_the_round_prize_is_the_mirror_positions_points():
+    """Round 11: last on 63 points, paid 7.725 M — the winner's 103 × 75 k.
+    Fifth on 89 was paid the third's 99. A manager who fielded nothing is not
+    in the ranking."""
+    data = _round_league({1: 103, 2: 99, 3: 99, 4: 94, 5: 89, 6: 81, 7: 63, 8: None})
+
+    assert league_cash.round_prize(data, 7) == 7_725_000
+    assert league_cash.round_prize(data, 5) == 7_425_000
+
+
+def test_a_tie_takes_the_lower_of_the_mirror_points():
+    """Round 12: we and Kairat both on 43 — fifth or sixth, so the prize is
+    the third's or the second's points; count the smaller."""
+    data = _round_league({1: 91, 2: 90, 3: 87, 4: 52, 5: 43, 6: 43, 7: 42})
+
+    assert league_cash.round_prize(data, 6) == 87 * 75_000
+
+
+def test_a_round_is_paid_once_its_round_finished_entry_is_on_the_board():
+    entries = [
+        {"type": "market", "content": []},
+        {"type": "roundFinished", "content": {"round": {"id": 4909}}},
+    ]
+
+    assert league_cash.round_paid(entries, 4909) is True
+    assert league_cash.round_paid(entries, 4910) is False
