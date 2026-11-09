@@ -52,7 +52,12 @@ from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import price_history, price_history_store, rows
+from packages.biwenger_tools.api.logic import (
+    league_cash,
+    price_history,
+    price_history_store,
+    rows,
+)
 from packages.biwenger_tools.api.logic.lineup import GK
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
@@ -219,6 +224,29 @@ def _price_history(players: dict) -> list[dict[int, int]]:
     if not history or history[-1] != today:
         history.append(today)
     return history
+
+
+def _pending_prize(biwenger) -> int:
+    """The current round's prize when every game is played and the board has
+    not paid it yet, else 0. It lands hours after the last match, before
+    tomorrow's 07:00 settles a bid placed now. Never raises."""
+    try:
+        current = biwenger.get_round() or {}
+        round_id = current.get("id")
+        games = current.get("games") or []
+        if round_id is None or not games:
+            return 0
+        if any(g.get("status") != "finished" for g in games):
+            return 0
+        board = biwenger.get_board_messages(f"{config.LEAGUE_BOARD_ALL_URL}&limit=50")
+        if league_cash.round_paid((board or {}).get("data") or [], int(round_id)):
+            return 0
+        return league_cash.round_prize(
+            biwenger.get_round_league(int(round_id)), biwenger.user_id
+        )
+    except Exception:
+        logger.warning("Round prize unknown — bidding on cash alone.", exc_info=True)
+        return 0
 
 
 def bid_sf(candidate: dict, would_be_bench: bool) -> tuple[int, Optional[str]]:
@@ -518,6 +546,7 @@ def _format_telegram_text(
     skipped: list[dict],
     total_bid: int,
     remaining_cash: int,
+    prize: int = 0,
 ) -> str:
     """Render the per-run summary message the Telegram chat receives.
 
@@ -549,6 +578,11 @@ def _format_telegram_text(
         f"Total pujado: <b>{esc(format_euros(total_bid))}</b> · "
         f"Cash restante: <b>{esc(format_euros(remaining_cash))}</b>"
     )
+    if prize:
+        lines.append(
+            f"<i>Incluye el premio de la jornada, aún sin cobrar: "
+            f"{esc(format_euros(prize))}</i>"
+        )
     if not placed:
         lines.append(f"<i>Log: auto_bid_log/{esc(day)}</i>")
     return "\n".join(lines)
@@ -623,9 +657,15 @@ def run_auto_bid(ctx=None) -> dict:
     pending = biwenger.get_my_pending_bids(config.MARKET_URL)
     committed = sum(int(b.get("amount") or 0) for b in pending)
     remaining_cash = int(biwenger.get_account_state().get("cash") or 0) - committed
+    prize = _pending_prize(biwenger)
+    remaining_cash += prize
 
     day = _today_madrid()
-    already_bid = _already_bid_ids(day)
+    # Today's log, plus any bid of ours still waiting — the trader's included,
+    # on the second pass after its sales.
+    already_bid = _already_bid_ids(day) | {
+        p for b in pending for p in b.get("requestedPlayers") or []
+    }
     history = _price_history(ctx.biwenger_players)
 
     # Held back before the ladder starts. Candidates arrive best-first, so a
@@ -821,7 +861,7 @@ def run_auto_bid(ctx=None) -> dict:
             clubs[club] += _would_start(candidate, squad_by_pos)
 
     total_bid = sum(entry["bid"] for entry in placed)
-    text = _format_telegram_text(day, placed, skipped, total_bid, remaining_cash)
+    text = _format_telegram_text(day, placed, skipped, total_bid, remaining_cash, prize)
     sent = _maybe_notify(text)
 
     logger.info(
@@ -843,5 +883,6 @@ def run_auto_bid(ctx=None) -> dict:
         "skipped_count": len(skipped),
         "total_bid_eur": total_bid,
         "remaining_cash_eur": remaining_cash,
+        "pending_prize_eur": prize,
         "bids": placed,
     }

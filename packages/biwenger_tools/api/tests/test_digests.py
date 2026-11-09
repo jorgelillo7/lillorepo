@@ -709,6 +709,38 @@ def test_the_trader_runs_before_the_offers_and_hands_them_its_sells():
     assert mock_offers.call_args.kwargs["trader_sells"] == {7, 8}
 
 
+def test_auto_bid_runs_again_with_the_money_the_trader_raised():
+    """9/11: Aubameyang was skipped for cash at 07:15, then the trader sold
+    Lemar for 4.17 M a moment later and the money sat unused until the next
+    morning. A sale is followed by a second auto-bid pass; the first pass's
+    bids are in its log, so it does not repeat them."""
+    stack, _, mock_auto_bid, _ = _digest_env()
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(_patches("trader_run.run"), return_value={"sold": [11196]}):
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    assert mock_auto_bid.call_count == 2
+    assert "auto_bid_after_sales" in result
+
+
+def test_no_sale_means_no_second_auto_bid_pass():
+    stack, _, mock_auto_bid, _ = _digest_env()
+    try:
+        from packages.biwenger_tools.api.logic import digests
+
+        with patch(_patches("trader_run.run"), return_value={"sold": []}):
+            result = digests.run_daily()
+    finally:
+        stack.close()
+
+    assert mock_auto_bid.call_count == 1
+    assert "auto_bid_after_sales" not in result
+
+
 def test_run_daily_reads_each_round_and_the_squad_once_and_shares_its_session():
     """The calendar used to be read by the fixture column, the ledger, the
     lineup and the offers step, and auto-bid logged in again on its own: some

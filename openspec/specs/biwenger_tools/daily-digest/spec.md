@@ -111,6 +111,13 @@ and a step that writes needs a switch that does not require a release. Missing T
 short-circuit the whole run with `reason = telegram_credentials_missing` and no
 sends.
 
+When the trader sells, `run_daily` SHALL run auto-bid a second time after it,
+with the cash the sales raised, and report it as `auto_bid_after_sales`. On
+9/11 Lemar's 4.17 M sat unused until the next morning while Aubameyang had
+been skipped for cash minutes before. The first pass's bids are in its log
+and every waiting bid is skipped, so nothing is bid twice; while auto-bid is
+paused there is no second pass either.
+
 #### Scenario: happy path ordering
 - **WHEN** credentials are present and both images send
 - **THEN** 2 images go out, then `run_auto_bid` is called once, then the
@@ -118,7 +125,9 @@ sends.
   each step's result
 - *Verifies:* `test_run_daily_chains_auto_bid_after_sending_images`,
   `test_run_daily_chains_offers_inbox_after_auto_bid`,
-  `test_the_trader_runs_before_the_offers_and_hands_them_its_sells`
+  `test_the_trader_runs_before_the_offers_and_hands_them_its_sells`,
+  `test_auto_bid_runs_again_with_the_money_the_trader_raised`,
+  `test_no_sale_means_no_second_auto_bid_pass`
 
 #### Scenario: no credentials
 - **WHEN** Telegram credentials are missing
