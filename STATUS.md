@@ -69,7 +69,8 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   most 1M below zero and never below it in the two days before a round. It runs before the offers inbox, which treats its sells as
   gone.
 - **Lineup optimizer** — memoised backtracking over 14 formations, captain MV
-  cap, full bench, applied every morning at 07:15.
+  cap, full bench, applied every morning at 07:15 and again half an hour
+  before each round's first kick-off, when the eleven freezes.
 - **Draft** — 105-pick snake draft arbitrated from Telegram, per-pick budget
   and composition validation, plus an offline squad-shape search.
 - **Recommender** — clausulazo targets under `clause ≤ cash + dynamic margin`.

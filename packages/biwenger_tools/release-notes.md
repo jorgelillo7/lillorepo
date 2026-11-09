@@ -2,6 +2,19 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v12.0 - Where the Money Went (9 November 2026)**
+
+Sixth of seven, and the question was why. The answer was measured, not guessed: picking the eleven is league-average, the bonuses are worth two points a round, and the gap is a squad bought dear and sold cheap. This release stops the bleeding and lets the platform run without anyone opening the app.
+
+* **📊 The diagnosis (the headline)**: `squad_gap.py` splits every manager's round into SofaScore base and the league's bonuses — the base explains 19 of the 22 points a round to the leader. The board then answered where the wealth went: with prizes taken out, the market made −38.5 M for us against +45 M and +37 M for the top two, almost all of it six August–September signings bought dear and sold weeks later. `docs/technical/backend/measurements.md` maps every open measurement on one page.
+* **💸 Auto-bid stops buying on the way down**: a player whose price fell two days running is bid his price plus 1 % (never the bare value, which is every rival's bid), whatever his tier. It counts a closed round's unpaid prize as cash — 75 k × the mirror position's points, to the euro on round 11 — and runs a second time after the trader sells, so money raised at 07:15 is spent that morning. A player any bid of ours is already waiting on is skipped.
+* **🤖 The trader sells sooner, and sells long absences**: a signing may be sold after a week instead of two (the keeper cover keeps the 14-day clause lock). A bench player out for two rounds or more — counted on each round's first kick-off, so an international break costs nothing — is sold; a shorter absence is held, and a star (6.4 M and up) never is. Jornada Perfecta's expected-return dates are read for the first time.
+* **⏰ The lineup at the deadline**: Biwenger freezes the whole eleven at the round's first kick-off, not at each player's. A new Scheduler job asks every quarter hour and sets the lineup half an hour before; the 07:15 one stays as the floor. The daily digest itself moved from 09:00 to 07:15, right after the market turns over.
+* **🔮 Oráculo, read in the right scale**: its predictions page serves Diario AS points, not SofaScore, and no public route gives SofaScore for every player. The blend now takes Oráculo only for the ~40 listed players it can price in SofaScore, Jornada Perfecta alone for the rest. Jornada Perfecta players are matched by Biwenger id (551 of 551) instead of by name.
+* **📒 The ledger records what the next decisions need**: Jornada Perfecta for every player, each team's win and clean-sheet chances, both Oráculo scales, and every squad's eleven — so the captain question, the opponent effect (defenders lose 2–3 points against Barcelona and Madrid) and the blend can be graded on later rounds. Postponed rounds count as one matchday, and a round that can never be closed stops being retried.
+* **📚 Two more API maps**: `docs/external/analitica-fantasy-api.yaml` and `jornada-perfecta-api.yaml`, beside Biwenger's.
+* **🐛 Smaller fixes**: the trader names a riser it skipped because a bid is already waiting; Python 3.14.10 across Bazel and the base image.
+
 ### **v11.0 - The League Gets a Window (29 October 2026)**
 
 Eleven clausulazos in five days. The owner's squad lost four starters on the way and still came out stronger, and from today a league mate reads the league's money from the same bot without seeing the owner's hand.

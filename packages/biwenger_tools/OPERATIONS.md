@@ -439,7 +439,8 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
 
     Last, the digest stores the day's prices (`price_snapshots`, kept 60 days)
     and runs the **market trader** (spec `market-trader`): sell bench players
-    whose price keeps falling, bid on market players whose price keeps rising.
+    whose price keeps falling or who are out for two rounds or more, bid on
+    market players whose price keeps rising.
     `TRADER_MODE` decides how far it goes — `live` (the default) lists the
     squad, accepts the planned sells' offers and places the bids, ending at
     most `TRADER_NEGATIVE_LIMIT` (1M) below zero away from a round's eve;
@@ -460,10 +461,14 @@ ID token whose service account has `roles/run.invoker` on `biwenger-api`.
     scored ACEPTAR, plus a warning when a player's clause protection is about
     to end.
 
-    07:15 is deliberately early and deliberately not optimal: Biwenger locks
-    each player at *his* kickoff and a matchday can span twelve days, so this
-    is a floor. `/alinear` stays the way to re-align closer to a match that
-    matters.
+    07:15 is a floor, not the last word: Biwenger freezes the whole eleven at
+    the round's first kick-off, and `biwenger-kickoff-lineup-trigger` sets it
+    again half an hour before (`/lineups/kickoff`, every quarter hour, a no-op
+    at every other tick). `/alinear` still forces one by hand.
+
+    When the trader sells, auto-bid runs a second time with the money raised;
+    and while a closed round's prize is still unpaid, auto-bid counts it as
+    cash (spec `auto-bid`).
 
   * **Smoke test:**
 
