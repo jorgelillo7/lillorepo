@@ -15,6 +15,7 @@ Claude-specific notes for this repository.
 - Skills: `.claude/skills/` — **generic only** (see below)
 - Agents: `.claude/agents/` — the four subagent roles, documented in
   [`../AGENTS.md`](../AGENTS.md)
+- Rules: `.claude/rules/` — `python.md`, loaded only when a Python, `BUILD.bazel` or requirements file is opened
 - Hooks: `.claude/hooks/`
 - Runtime config: `.claude/settings.local.json` — per machine and gitignored; the repo ships no shared `settings.json`
 
@@ -28,7 +29,7 @@ working inside that package.
 
 | Scope | Location | Index |
 |---|---|---|
-| The machine, any project | [`system/skills/`](../system/skills/), installed into `~/.claude/skills/` by `scripts/install-system-skills.sh` | the table below |
+| The machine, any project | [`system/skills/`](../system/skills/), installed into `~/.claude/skills/` by `scripts/install-system.sh` | the table below |
 | Repo-wide | `.claude/skills/` | this file |
 | `biwenger_tools` | [`packages/biwenger_tools/.claude/`](../packages/biwenger_tools/.claude/CLAUDE.md) | its own `CLAUDE.md` |
 | `interactive_fiction` | [`packages/interactive_fiction/.claude/`](../packages/interactive_fiction/.claude/CLAUDE.md) | its own `CLAUDE.md` |
@@ -50,12 +51,18 @@ unindexed skill is one nobody remembers exists.
 | `ship` | Merge a PR and prove it reached production — head check, no stacking, deploy watch, revisions serving. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 
-### Machine skills (`system/skills/`)
+### Personal skills and rules (`system/`)
 
-Kept here so they are versioned with everything else, but about the Mac, not
-any repo: `scripts/install-system-skills.sh` copies them into
-`~/.claude/skills/` so they load in every project. Edit them here and run it
-again; the installed copy is overwritten.
+Kept here so they are versioned with everything else, but about the Mac and
+the owner's habits, not this repo: `scripts/install-system.sh` copies
+`system/skills/` into `~/.claude/skills/` and `system/rules/` into
+`~/.claude/rules/`, so they load in every project. Edit them here and run it
+again; the installed copies are overwritten.
+
+Rules (`system/rules/`), loaded at the start of every session: `language`,
+`verify`, `lists`, `comments`, `git`, `working-style`, `machine`.
+
+Skills (`system/skills/`):
 
 | Skill | When |
 |---|---|
@@ -82,38 +89,3 @@ here.
 - `CLAUDE.md` (project root)
 - `docs/setup/ai/claude-code-setup.md`
 - `docs/technical/ai/claude-code-roadmap.md`
-
-## Code comments — no testaments
-
-Comments and docstrings must explain *what the reader needs to know to use the
-code*, not the history of how it got written. Narrative comments are the kind
-that turn false after the next refactor, and they have had to be swept out of
-the codebase before.
-
-**Allowed:**
-- One-line docstring stating the contract (inputs, outputs, side effects).
-- A short comment when the *why* is non-obvious — a hidden constraint, a
-  subtle invariant, a workaround for a specific upstream bug.
-- New names that make the intent self-evident (prefer renaming over commenting).
-
-**Forbidden:**
-- Dates in comments (`# 2026-05-24`, `Until 2026-05-…`, `Empíricamente
-  (2026-05-23)`, `captured 2026-05-23`, etc.). Provenance belongs in
-  `git blame`, not in the source.
-- Narrative about who asked for the change or when (`# by the user's call`,
-  `# regression spotted 2026-05-24, fixed in this commit`, `# user asked to…`).
-- Commit-scope references (`# added in this PR`, `# see commit abc123`).
-- Restating what well-named code already says (`# read the cash` above
-  `cash = ctx.biwenger.cash()`).
-- Multi-paragraph docstrings that recap history or list every caller.
-
-If the comment would not survive the next refactor without becoming a lie,
-it does not belong in the source. Put it in the PR description.
-
-## Working style
-
-When the user green-lights a task, implement it end-to-end without asking for
-confirmation at each step — they prefer reviewing a finished diff over
-approving increments. The checkpoint is git: do not commit or push until the
-user has seen the result or explicitly asked for the full branch → PR → merge
-flow in the current conversation.

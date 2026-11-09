@@ -282,7 +282,7 @@ f-string is only searchable as free text.
 
 The docstring states the contract; a comment exists only when the *why* is
 not obvious. No dates, no history, no pull-request references in either (full
-policy in `.claude/CLAUDE.md`, "no testaments"). Every public signature has
+policy in `system/rules/comments.md`, "no testaments"). Every public signature has
 type hints, with an explicit `X | None` when the default is `None` and no
 gratuitous `Any`.
 

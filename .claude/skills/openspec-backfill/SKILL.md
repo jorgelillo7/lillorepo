@@ -80,7 +80,7 @@ git blame -L <start>,<end> <path>
 
 The commit body usually carries the incident. Put the *reason* in the spec —
 and no dates, no commit hashes, no "added in this PR". Same rule as
-`.claude/CLAUDE.md` § "Code comments — no testaments": provenance belongs in
+the "no testaments" rule (`system/rules/comments.md`): provenance belongs in
 `git blame`, and a spec dated today reads as expired in a year.
 
 If the dig turns up nothing and the behaviour looks arbitrary, say so in the
