@@ -15,6 +15,9 @@
 # `--image` update is issued without re-passing the flag — happened on
 # 2026-05-16 with both bots after a python-base rebuild.
 
+# Decimal point, not the Mac's Spanish comma: the sizes below go through awk.
+export LC_NUMERIC=C
+
 ALL_PROJECTS="biwenger-tools be-water-app"
 REGION="${REGION:-europe-southwest1}"
 # Cloud Scheduler is not offered in europe-southwest1 (Madrid); jobs live in
