@@ -17,6 +17,7 @@ from core.sdk.jp import get_predict_rate
 from packages.biwenger_tools.api import config
 from packages.biwenger_tools.api.logic.player_matching import (
     build_jp_index,
+    find_jp_player,
     find_player_match,
 )
 from packages.biwenger_tools.api.player_formatting import SCORE_SF
@@ -127,7 +128,7 @@ def build_row(
         "team_id": biwenger_player.get("teamID"),
         "alt_positions": biwenger_player.get("altPositions") or [],
         "price": biwenger_player.get("price", 0),
-        "jp_player": find_player_match(name, jp_index),
+        "jp_player": find_jp_player(biwenger_player, jp_index),
         # Oráculo, under its own keys and raw. `matched` is False rather than
         # a zero projection: "not carried" and "expected to score nothing" are
         # different states, and only the second should ever move a number. A

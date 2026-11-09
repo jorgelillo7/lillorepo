@@ -447,7 +447,13 @@ Five averaged games pull toward the middle: at 40/60 no club in LaLiga read
 
 ### Requirement: A Biwenger name reaches its JP player, or none
 
-Each Biwenger player SHALL be matched to JP by the safe tiers first — exact
+Each Biwenger player SHALL be matched to JP **by his Biwenger id first**
+(`find_jp_player`): JP's player `id` is Biwenger's, 551 of 551 on 9/11, 47 of
+them under a different short name («Dela», «Simón», «Vini Jr»). Only a player
+the id does not find falls back to his name. The name ladder below stays for
+that fallback and for sources without Biwenger ids (Oráculo).
+
+By name, each Biwenger player SHALL be matched to JP by the safe tiers first — exact
 name, the hand-kept overrides, then JP's slug, tried as is, hyphenated and
 without spaces — and only then by surname, first name or token subset, which
 SHALL resolve only when exactly one Biwenger player claims the JP record. JP
@@ -462,8 +468,12 @@ wrong player; it renders as "sin datos".
   Robert Navarro each reach their own record
 - **WHEN** only the loose ladder could match and several Biwenger players would
   land on the same JP record **THEN** none of them matches
+- **WHEN** JP carries his Biwenger id **THEN** he is matched by it, whatever
+  his name; without it, by name
 - *Verifies:* `test_a_short_jp_name_is_reached_through_its_hyphenated_slug`,
-  `test_first_name_collision_ruben_returns_none_for_all_claimants`
+  `test_first_name_collision_ruben_returns_none_for_all_claimants`,
+  `test_jp_is_matched_by_the_biwenger_id_before_any_name`,
+  `test_a_player_without_an_id_match_falls_back_to_his_name`
 
 ---
 
