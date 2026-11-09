@@ -2,8 +2,9 @@
 
 Bazel monorepo with Python projects targeting Google Cloud — `biwenger_tools`,
 `be_water`, `chucknorris_bot`, `group_polls` and `my_photos` (plan only) — over
-one shared `core`. One package is not Python: `interactive_fiction` is a Node
-static site outside Bazel, with its own `npm` workflow (see its README).
+one shared `core`. Two packages are not Python: `interactive_fiction` (a static
+site) and `wishlist` (a Worker with D1) are Node, outside Bazel, each with its
+own `npm` workflow (see their READMEs).
 
 A package that is not Python stays outside Bazel: its own toolchain and
 lockfile, its own job in `ci.yml` registered as a required check, and its own

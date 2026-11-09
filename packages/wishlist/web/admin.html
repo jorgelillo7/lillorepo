@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex">
+<title>Regalos: quién</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="hero left">
+    <h1>Quién regala qué</h1>
+    <p class="how left-text">Solo tú ves esta página. Los nombres son los que cada uno escribió al reservar.</p>
+    <p class="counts" id="counts"></p>
+  </header>
+  <p class="error" id="error" role="alert" hidden></p>
+  <div class="table-wrap">
+    <table class="admin">
+      <thead><tr><th>Regalo</th><th>Estado</th><th>Quién</th><th>Reservado</th><th>Comprado</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+<script src="/admin.js" type="module"></script>
+</body>
+</html>

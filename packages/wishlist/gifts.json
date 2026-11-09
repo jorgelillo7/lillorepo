@@ -1,0 +1,31 @@
+{
+  "title": "Regalos de Navidad 2026",
+  "subtitle": "Papá Noel y Reyes Magos",
+  "gifts": [
+    {
+      "id": "duplo-spidey-webquarters",
+      "title": "LEGO Duplo: cuartel arácnido de Spidey",
+      "detail": "LEGO Duplo 10464 · 65 piezas · 2+",
+      "photo": "duplo-spidey-webquarters.jpg"
+    },
+    {
+      "id": "lobito-book",
+      "title": "Lobito, mi primer libro cinemágico",
+      "detail": "Libro con imágenes que se mueven (Scanimation) · Rufus Butler Seder",
+      "photo": "lobito-book.jpg"
+    },
+    {
+      "id": "alien-lamp",
+      "title": "Lámpara del Alien de Toy Story",
+      "detail": "Paladone",
+      "note": "Hay tres modelos: con pinza, Icon Light y Squishy Glo.",
+      "photo": "alien-lamp.jpg"
+    },
+    {
+      "id": "whirly-derby",
+      "title": "Whirly Derby",
+      "detail": "Juego de carreras de canicas · Big Potato · 8+ · 2 a 6 jugadores",
+      "photo": "whirly-derby.jpg"
+    }
+  ]
+}

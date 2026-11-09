@@ -1,0 +1,19 @@
+# The gift list: a Worker that serves web/ and the photos, and keeps who claimed what
+# in D1. `npm run deploy` builds dist/, applies the migrations and uploads both.
+name = "wishlist"
+main = "src/worker.ts"
+compatibility_date = "2026-10-30"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+# The worker answers first, so /admin asks for credentials and stray .html paths 404.
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wishlist"
+database_id = "7ad8226a-32e1-4eae-b43d-a2ecd545487b"
+migrations_dir = "migrations"

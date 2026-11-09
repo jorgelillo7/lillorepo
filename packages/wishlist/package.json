@@ -1,0 +1,22 @@
+{
+  "name": "wishlist",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.ts",
+    "photo": "node scripts/photo.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "dev": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler d1 migrations apply wishlist --local && deploy/node_modules/.bin/wrangler dev --local",
+    "deploy": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler d1 migrations apply wishlist --remote && deploy/node_modules/.bin/wrangler deploy",
+    "set-admin": "npm --prefix deploy ci --no-audit --no-fund && sh scripts/set-admin.sh"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

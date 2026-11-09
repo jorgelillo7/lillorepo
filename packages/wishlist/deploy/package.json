@@ -1,0 +1,8 @@
+{
+  "name": "wishlist-deploy",
+  "private": true,
+  "description": "Cloudflare's wrangler, kept apart so the test job never installs it.",
+  "devDependencies": {
+    "wrangler": "4.156.0"
+  }
+}
