@@ -23,6 +23,16 @@ describe("gift list", () => {
     expect(found.join("\n")).toMatch(/nope\.jpg does not exist/);
   });
 
+  test("a gift for someone not among the recipients is reported", () => {
+    const recipients = [{ id: "older", label: "Hermano mayor" }];
+    const ok: GiftList = { title: "Navidad", recipients, gifts: [{ ...gift, for: "older" }] };
+    expect(problems(ok, ["whirly-derby.jpg"])).toEqual([]);
+    const wrong: GiftList = { title: "Navidad", recipients, gifts: [{ ...gift, for: "cousin" }] };
+    expect(problems(wrong, ["whirly-derby.jpg"])).toEqual([
+      'gift 1 (whirly-derby): "cousin" is not one of the recipients',
+    ]);
+  });
+
   test("an empty list is refused", () => {
     expect(problems({ title: "", gifts: [] }, [])).toEqual(["the list has no title", "the list has no gifts"]);
   });

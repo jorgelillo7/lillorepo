@@ -89,8 +89,9 @@ be served only by their clean paths, so `admin.html` cannot be fetched around th
 ### Requirement: The list and its photos are safe to publish
 
 The build SHALL refuse a list with a missing title, no gifts, a malformed or repeated
-id, a gift without a title or a photo that does not exist, and report every problem at
-once. A photo SHALL enter the repo upright, at most 1280 px, and without EXIF, XMP,
+id, a gift without a title, a gift for someone not among the list's recipients, or a
+photo that does not exist, and report every problem at once. Recipients are labels
+such as "Hermano mayor", never names, because the site is public. A photo SHALL enter the repo upright, at most 1280 px, and without EXIF, XMP,
 IPTC or comments, because phone photos carry where they were taken.
 
 #### Scenario: the list in the repo
@@ -103,6 +104,11 @@ IPTC or comments, because phone photos carry where they were taken.
 - **THEN** each problem is reported
 - *Verifies:* `build.test.ts: repeated ids, bad ids, missing titles and missing photos are all reported`,
   `build.test.ts: an empty list is refused`
+
+#### Scenario: recipients
+- **WHEN** a gift is for an id that is not among the recipients
+- **THEN** the build reports it
+- *Verifies:* `build.test.ts: a gift for someone not among the recipients is reported`
 
 #### Scenario: photo metadata
 - **WHEN** a photo is taken in

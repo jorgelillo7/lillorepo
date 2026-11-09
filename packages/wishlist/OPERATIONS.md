@@ -5,8 +5,9 @@
 1. Take each photo in, with an id made of lowercase words joined by dashes:
    `npm run photo -- <image> <gift-id>`. It refuses to save a photo that still has
    metadata.
-2. Add the gift to `gifts.json`: `id`, `title`, the photo file name and, if useful,
-   `detail` (brand, age, players) and `note` (which model, where to buy it).
+2. Add the gift to `gifts.json`: `id`, `for` (a recipient id: `older` or
+   `younger`), `title`, the photo file name and, if useful, `detail` (brand, age,
+   players) and `note` (which model, where and at what price it was seen).
 3. `npm test && npm run build`. The build lists every problem in `gifts.json` at once.
 4. Open a PR. After the merge, `npm run deploy` from `master`.
 

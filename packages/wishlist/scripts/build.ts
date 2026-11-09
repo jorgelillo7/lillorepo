@@ -9,15 +9,23 @@ import { fileURLToPath } from "node:url";
 
 export interface Gift {
   id: string;
+  /** The recipient's id, from `recipients`; never a name, the site is public. */
+  for?: string;
   title: string;
   detail?: string;
   note?: string;
   photo: string;
 }
 
+export interface Recipient {
+  id: string;
+  label: string;
+}
+
 export interface GiftList {
   title: string;
   subtitle?: string;
+  recipients?: Recipient[];
   gifts: Gift[];
 }
 
@@ -28,6 +36,7 @@ export function problems(list: GiftList, photos: string[]): string[] {
   const found: string[] = [];
   if (!list.title) found.push("the list has no title");
   if (!Array.isArray(list.gifts) || list.gifts.length === 0) return [...found, "the list has no gifts"];
+  const recipients = new Set((list.recipients ?? []).map((recipient) => recipient.id));
   const seen = new Set<string>();
   for (const [index, gift] of list.gifts.entries()) {
     const where = `gift ${index + 1} (${gift.id ?? "no id"})`;
@@ -35,6 +44,9 @@ export function problems(list: GiftList, photos: string[]): string[] {
     if (seen.has(gift.id)) found.push(`${where}: the id is repeated`);
     seen.add(gift.id);
     if (!gift.title) found.push(`${where}: no title`);
+    if (gift.for !== undefined && !recipients.has(gift.for)) {
+      found.push(`${where}: "${gift.for}" is not one of the recipients`);
+    }
     if (!photos.includes(gift.photo)) found.push(`${where}: photos/${gift.photo} does not exist`);
   }
   return found;

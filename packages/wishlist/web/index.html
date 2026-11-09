@@ -19,10 +19,14 @@
     <h1 id="title">Regalos</h1>
     <p class="subtitle" id="subtitle"></p>
     <p class="how">Elige un regalo y pulsa <strong>Lo regalo yo</strong> para que nadie más lo compre. Cuando lo tengas, márcalo como comprado.</p>
-    <p class="counts" id="counts" aria-live="polite"></p>
   </header>
+  <nav class="filters" aria-label="Filtros">
+    <div class="chips" id="whoFilter" role="group" aria-label="Para quién"></div>
+    <div class="chips" id="statusFilter" role="group" aria-label="Estado"></div>
+  </nav>
   <p class="error" id="error" role="alert" hidden></p>
-  <section class="grid" id="gifts" aria-label="Regalos"></section>
+  <section class="grid" id="gifts" aria-label="Regalos" aria-live="polite"></section>
+  <p class="empty" id="empty" hidden>No hay regalos con estos filtros.</p>
 </main>
 
 <dialog id="reserveDialog" class="sheet">

@@ -34,7 +34,8 @@ function render(state) {
       return el(
         "tr",
         {},
-        el("td", {}, el("img", { class: "thumb", src: `/photos/${gift.photo}`, alt: "" }), gift.title),
+        el("td", {}, el("img", { class: "thumb", src: `/photos/${gift.photo}`, alt: "" }), gift.title,
+          gift.for && el("span", { class: "when" }, ` · ${list.recipients?.find((r) => r.id === gift.for)?.label ?? gift.for}`)),
         el("td", {}, status),
         el("td", {}, claim ? (claim.name ?? "Sin nombre") : ""),
         el("td", {}, when(claim?.reservedAt)),

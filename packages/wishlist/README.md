@@ -12,7 +12,11 @@ SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spa
 ## How it works
 
 - **The list (`/`)** is public. Each gift is free, reserved or bought, with the time.
-  Reserving asks for an optional name, up to 40 characters.
+  Reserving asks for an optional name, up to 40 characters. Filters by recipient and
+  by state sit above the gifts and live in the address (`?para=older&estado=libres`),
+  so a link can open one child's list.
+- **Recipients are labels, not names** ("Hermano mayor", "Hermano pequeño"), declared
+  once in `gifts.json` and referenced by each gift's `for`.
 - **Only the browser that reserved a gift can change it.** It gets a random token in
   an HttpOnly cookie that lasts 400 days. D1 keeps only the token's SHA-256. From
   another phone, the gift shows as reserved by someone else.

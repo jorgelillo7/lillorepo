@@ -1,11 +1,23 @@
-import { el, when, getJSON, post, plural, showError } from "/common.js";
+import { el, when, getJSON, post, showError } from "/common.js";
 
 const grid = document.getElementById("gifts");
 const dialog = document.getElementById("reserveDialog");
 const form = document.getElementById("reserveForm");
 const nameInput = document.getElementById("reserveName");
 let list = null;
+let claims = new Map();
 let pending = null;
+
+// The filters live in the address (?para=older&estado=libres), so a link can open
+// one brother's list straight away.
+const STATUSES = [
+  { id: "", label: "Todos" },
+  { id: "libres", label: "Libres", test: (claim) => !claim },
+  { id: "reservados", label: "Reservados", test: (claim) => claim && !claim.boughtAt },
+  { id: "comprados", label: "Comprados", test: (claim) => claim?.boughtAt },
+];
+const params = new URLSearchParams(location.search);
+const filter = { who: params.get("para") ?? "", status: params.get("estado") ?? "" };
 
 const FAILED = {
   taken: "Alguien acaba de reservarlo. La lista ya está al día.",
@@ -69,44 +81,92 @@ function stateBlock(gift, claim) {
   return parts;
 }
 
-function render(state) {
-  const claims = new Map(state.map((claim) => [claim.id, claim]));
-  const cards = list.gifts.map((gift) => {
-    const claim = claims.get(gift.id);
-    const photo = `/photos/${gift.photo}`;
-    return el(
-      "article",
-      { class: claim?.boughtAt ? "gift done" : "gift" },
-      el(
-        "a",
-        { class: "photo", href: photo, target: "_blank", rel: "noopener" },
-        el("img", { src: photo, alt: gift.title, loading: "lazy" }),
-      ),
-      el(
-        "div",
-        { class: "body" },
-        el("h3", {}, gift.title),
-        gift.detail && el("p", { class: "detail" }, gift.detail),
-        gift.note && el("p", { class: "note" }, gift.note),
-        el("div", { class: "state" }, stateBlock(gift, claim)),
-      ),
-    );
-  });
-  grid.replaceChildren(...cards);
-  const bought = state.filter((claim) => claim.boughtAt).length;
-  const reserved = state.length - bought;
-  const free = list.gifts.length - state.length;
-  document.getElementById("counts").textContent = [
-    plural(list.gifts.length, "regalo", "regalos"),
-    plural(free, "libre", "libres"),
-    plural(reserved, "reservado", "reservados"),
-    plural(bought, "comprado", "comprados"),
-  ].join(" · ");
+const recipientLabel = (id) => list.recipients?.find((recipient) => recipient.id === id)?.label;
+const forWho = (gift) => !filter.who || gift.for === filter.who;
+const inStatus = (gift, status) => !status.test || Boolean(status.test(claims.get(gift.id)));
+
+function chips(container, options, selected, count, choose) {
+  container.replaceChildren(
+    ...options.map((option) => {
+      const chip = el(
+        "button",
+        { class: "chip", type: "button", "aria-pressed": String(option.id === selected) },
+        option.label,
+        el("span", { class: "n" }, count(option)),
+      );
+      chip.addEventListener("click", () => choose(option.id));
+      return chip;
+    }),
+  );
+}
+
+function renderFilters() {
+  const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
+  const who = document.getElementById("whoFilter");
+  const recipients = list.recipients ?? [];
+  who.hidden = recipients.length < 2;
+  chips(
+    who,
+    [{ id: "", label: "Ambos" }, ...recipients],
+    filter.who,
+    (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && inStatus(g, status)).length,
+    (id) => setFilter({ who: id }),
+  );
+  chips(
+    document.getElementById("statusFilter"),
+    STATUSES,
+    status.id,
+    (option) => list.gifts.filter((g) => forWho(g) && inStatus(g, option)).length,
+    (id) => setFilter({ status: id }),
+  );
+}
+
+function setFilter(change) {
+  Object.assign(filter, change);
+  const query = new URLSearchParams();
+  if (filter.who) query.set("para", filter.who);
+  if (filter.status) query.set("estado", filter.status);
+  history.replaceState(null, "", query.size ? `?${query}` : location.pathname);
+  render();
+}
+
+function card(gift) {
+  const claim = claims.get(gift.id);
+  const photo = `/photos/${gift.photo}`;
+  const label = recipientLabel(gift.for);
+  return el(
+    "article",
+    { class: claim?.boughtAt ? "gift done" : "gift" },
+    el(
+      "a",
+      { class: "photo", href: photo, target: "_blank", rel: "noopener" },
+      el("img", { src: photo, alt: gift.title, loading: "lazy" }),
+    ),
+    el(
+      "div",
+      { class: "body" },
+      label && el("span", { class: "tag" }, label),
+      el("h3", {}, gift.title),
+      gift.detail && el("p", { class: "detail" }, gift.detail),
+      gift.note && el("p", { class: "note" }, gift.note),
+      el("div", { class: "state" }, stateBlock(gift, claim)),
+    ),
+  );
+}
+
+function render() {
+  const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
+  const shown = list.gifts.filter((gift) => forWho(gift) && inStatus(gift, status));
+  grid.replaceChildren(...shown.map(card));
+  document.getElementById("empty").hidden = shown.length > 0;
+  renderFilters();
 }
 
 async function refresh() {
   try {
-    render(await getJSON("/api/state"));
+    const state = await getJSON("/api/state");
+    claims = new Map(state.map((claim) => [claim.id, claim]));
+    render();
   } catch {
     showError("No se ha podido cargar quién regala qué. Recarga la página en un momento.");
   }
