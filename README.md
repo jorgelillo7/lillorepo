@@ -56,7 +56,7 @@ graph TD
 /tools          Custom Bazel macros (python_service, python_job)
 /platforms      Platform definition (linux/amd64, what every image targets)
 /scripts        CI guards (dependency-layer sync, test selection), GCP cost and cleanup
-/system         Claude Code skills about the Mac, not the repo; installed with scripts/install-system-skills.sh
+/system         Claude Code skills and rules about the Mac and the owner's habits, not the repo; installed with scripts/install-system.sh
 /docs           Operations runbook, setup guides, technical audit notes
 ```
 

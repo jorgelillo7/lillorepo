@@ -156,7 +156,7 @@ Two skills audit versions, and they answer different questions:
 | `audit-mac-tools` | what the **machine** has installed |
 
 `audit-mac-tools` is a machine skill in `system/skills/`: install it with
-`scripts/install-system-skills.sh` (see `.claude/CLAUDE.md`).
+`scripts/install-system.sh` (see `.claude/CLAUDE.md`).
 
 ## AI tools
 

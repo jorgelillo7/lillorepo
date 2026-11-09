@@ -10,28 +10,13 @@ lockfile, its own job in `ci.yml` registered as a required check, and its own
 runbook. It shares nothing with `core`, so Bazel would add a second dependency
 graph and no caching worth having.
 
-## Ground rules
-
-Three habits that cost real time when they were missing. Each one is here
-because it went wrong, not because it sounds sensible.
-
-- **Never say something does not exist from memory.** Versions, model names,
-  package releases, API capabilities — check first (`WebSearch`, `npm view`,
-  `brew info`, `gcloud components list`). Two separate sessions were spent
-  insisting "Opus 5" was not a real model until a screenshot forced a search;
-  the actual cause was a Homebrew cask lagging behind npm. The user's
-  information about a moving target is newer than the model's, always.
-
-- **Restate a list before working it, and account for every line at the end.**
-  Given a review, a set of `PENDING.md` items or any backlog, echo it as a
-  checklist first and close with the status of each item. Stopping after the
-  first few and reporting done has happened more than once, and it is invisible
-  to whoever asked.
-
-- **Everything written down is in English** — READMEs, runbooks, release notes,
-  specs, code comments, commit messages, PR descriptions — regardless of the
-  language of the conversation. A README once shipped in Spanish against this
-  rule and had to be rewritten.
+Personal habits that hold in every repo — Spanish in the conversation and
+English in everything written, checking before saying something does not
+exist, working a list whole, comments without history, the git and PR
+habits — are rules in `~/.claude/rules/`, versioned in
+[`system/rules/`](system/rules/) and installed by `scripts/install-system.sh`.
+A session that cannot read `~/.claude/` (a cloud session) reads them there.
+Python rules load from `.claude/rules/python.md` when a Python file is opened.
 
 ## Structure
 
@@ -47,7 +32,7 @@ because it went wrong, not because it sounds sensible.
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
 /scripts        Utility scripts (GCP cleanup, costs)
-/system         Machine-level skills, installed into ~/.claude/skills/ (see .claude/CLAUDE.md)
+/system         Personal skills and rules, installed into ~/.claude/ (see .claude/CLAUDE.md)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
 ```
@@ -73,28 +58,6 @@ bazel test //<package path>:<suite> --test_output=errors
 python3 scripts/affected_tests.py origin/master       # what CI would run here
 ```
 
-**Scripts run on the lock, never on the Mac's Python.** The system `python3`
-carries stale packages (requests 2.28 / urllib3 1.26) that some providers
-reject: use a `bazel run` target, or a venv built from `requirements_lock.txt`
-on Python 3.14 for one-off scripts. What that breaks in `biwenger_tools` is in
-its `.claude/CLAUDE.md`.
-
-## Python Dependency Management
-
-Three-level system: `[module]/requirements.txt` → `requirements.in` (auto-generated) → `requirements_lock.txt` (Bazel lock file).
-
-Never edit `requirements.in` or `requirements_lock.txt` by hand. Workflow:
-1. Edit `[module]/requirements.txt`
-2. Regenerate `requirements.in` with the concatenation script
-3. `venv/bin/pip-compile requirements.in -o requirements_lock.txt` on Python 3.14 with `pip-tools==7.6.1` and `CUSTOM_COMPILE_COMMAND` — exact command in `docs/operations.md`
-4. Add the dep in the module's `BUILD.bazel` (`@pypi//library_name`)
-
-**Never bundle dependency bumps with a feature PR.** Dep upgrades change the runtime
-behaviour of the whole image; mixing them with feature code makes regressions
-harder to bisect. Ship dep bumps in their own short-lived PR (one bump per PR if
-practical) so the deploy that introduces them is reversible without losing the
-feature.
-
 ## Secrets
 
 - **Local:** `.env` files in each module (do not commit)
@@ -102,18 +65,10 @@ feature.
 
 ## Conventions
 
-- **Python conventions of this repo:** `docs/technical/backend/python-conventions.md`
-  — layer rules (pure logic / service / thin route / zero-logic bot), the
-  loud-failure and no-retry policies, the test-first loop (LP-18: for `logic/` and
-  `core/`, the test is written and observed failing before the code), testing
-  patterns and stack traps. Rules are numbered `LP-1` … `LP-24`, each with its
-  motive and how it is checked (CI or review).
-  Read it before writing new Python.
-- Format, lint and import order: Ruff (`ruff.toml`, 88 columns); types: mypy
-  over the trees in `mypy.ini` (gradual). Both from the lock through
-  `scripts/lint.sh`; format on save in VS Code
-- Bazel targets follow the pattern `//packages/{package}/{module}:{target}`
-- Hyphens in PyPI library names become underscores in Bazel (`@pypi//library_name`)
+- **Python:** conventions LP-1 … LP-24 in
+  `docs/technical/backend/python-conventions.md`; dependencies, the lock and
+  the toolchain in `.claude/rules/python.md`, which loads with any Python
+  file.
 - **Commit scopes use the exact package directory name** — with multiple
   packages, a bare `feat(web):` is ambiguous, and abbreviations drift.
   The scope is the directory under `/packages/`: `feat(be_water):`,
@@ -121,9 +76,7 @@ feature.
   `fix(biwenger_tools/api):`), `feat(chucknorris_bot):`. Cross-cutting
   scopes stay as-is: `(core)`, `(ci)`, `(deps)`, plain `docs:`/`chore:`
   for repo-wide changes.
-- **PRs merge via squash only** (enforced in repo settings): one commit
-  per PR, commit title = PR title, body = the branch's commit messages.
-  Keeps `git log --oneline` reading as the project history.
+- **PRs merge via squash only**, enforced in the repo settings.
 
 ## Branch and PR Workflow
 
@@ -218,20 +171,11 @@ deleted; lines get pruned as items ship. For "what has shipped" read
 `packages/biwenger_tools/release-notes.md`, and for the state of the repo
 `STATUS.md` — neither belongs in `PENDING.md`.
 
-## Memory
-
-Claude Code persistent memory for this project lives at:
-`~/.claude/projects/-Users-jorge-Projects-lillorepo/memory/`
-
-Index file: `MEMORY.md`. Each memory is a separate `.md` file in the same directory.
-
 ## Notes for Claude
 
 - This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
 - **Skills are scoped.** `/.claude/skills/` holds only what would make sense in a repo that had never heard of Biwenger; anything domain-specific lives in its package (`packages/biwenger_tools/.claude/skills/`), and Claude Code prefers the scoped one when you work inside that package. Each `.claude/CLAUDE.md` indexes its own.
-- `BUILD.bazel` files are the source of truth for Bazel dependencies.
 - **Subagent roles** live in `.claude/agents/` (`dev`, `qa`, `reviewer`,
   `spec`) — what each is for, and what delegating to one does and does not
   buy, is in `AGENTS.md`.
-- **Commits and PRs:** always write commit messages and PR titles/descriptions in English. Do not add a `Co-Authored-By` line.
 - **Web UI design system:** see `packages/biwenger_tools/web/DESIGN.md` before touching templates — it defines the canonical color tokens, typography, and component rules.
