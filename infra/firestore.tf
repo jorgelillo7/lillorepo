@@ -22,6 +22,21 @@ resource "google_firestore_database" "default" {
   }
 }
 
+# A weekly backup of each database, kept four weeks. Point-in-time recovery
+# stays off; a week's loss is acceptable, the season's record is not. Both
+# databases are a few MB, so this costs well under a cent a month.
+resource "google_firestore_backup_schedule" "weekly" {
+  for_each = local.firestore_projects
+
+  project   = each.key
+  database  = google_firestore_database.default[each.key].name
+  retention = "2419200s" # 28 days
+
+  weekly_recurrence {
+    day = "SUNDAY"
+  }
+}
+
 # messages by category, newest first and oldest first (cursor pagination).
 locals {
   messages_indexes = {

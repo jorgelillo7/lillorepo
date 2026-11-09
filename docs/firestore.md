@@ -18,7 +18,9 @@ Reference for the `biwenger-tools` Firestore database.
   (free tier, co-located with Cloud Run). **Delete protection on**: the
   database itself cannot be deleted until it is switched off
   (`gcloud firestore databases update --no-delete-protection`). It does not
-  protect single documents, and there are no backups.
+  protect single documents. A **weekly backup** (Sundays, kept 28 days,
+  `infra/firestore.tf`) does: restore one with `gcloud firestore databases
+  restore`, into a new database.
 - **Auth:** Application Default Credentials (ADC).
   - In Cloud Run, each service's own service account (`docs/gcp.md`,
     "Runtime identities") is picked up automatically.
@@ -385,7 +387,7 @@ guides. What we follow, and the one place we knowingly do not:
 | Transactions where writes race | Draft picks |
 | No sensitive data in ids or field names | Names of league teams and public nicknames only |
 | Access | Server-side only, through each service's account; an unauthenticated REST call gets 403 on both databases |
-| Deletion safety | Delete protection on both databases. **No backups** — a deliberate choice for now: an accidental document delete is not recoverable |
+| Deletion safety | Delete protection on both databases, and a weekly backup of each (Sundays, kept 28 days; `google_firestore_backup_schedule` in `infra/firestore.tf`). A delete is recoverable to the last Sunday; point-in-time recovery stays off. Both databases are a few MB (3.9 and 0.5 on 9/11), so the backups cost well under a cent a month |
 
 **Layout criteria.** Data that belongs to a season lives under
 `{kind}/{season}/{subcollection}` so a season is self-contained and one
@@ -402,7 +404,7 @@ Reference for the Be Water Firestore database.
 
 - **GCP project:** `be-water-app`
 - **Database:** `(default)`, Native mode, regional **`europe-southwest1`**.
-  **Delete protection on**, no backups.
+  **Delete protection on**, weekly backup (Sundays, kept 28 days).
 - **Auth:** Application Default Credentials (ADC) — `run-be-water@be-water-app`
   in prod; `gcloud auth application-default login` locally.
 
