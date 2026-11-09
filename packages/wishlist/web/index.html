@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="robots" content="noindex">
+<title>Regalos</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <svg class="star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z"/></svg>
+    <h1 id="title">Regalos</h1>
+    <p class="subtitle" id="subtitle"></p>
+    <p class="how">Elige un regalo y pulsa <strong>Lo regalo yo</strong> para que nadie más lo compre. Cuando lo tengas, márcalo como comprado.</p>
+  </header>
+  <nav class="filters" aria-label="Filtros">
+    <div class="chips" id="whoFilter" role="group" aria-label="Para quién"></div>
+    <div class="chips" id="statusFilter" role="group" aria-label="Estado"></div>
+  </nav>
+  <p class="error" id="error" role="alert" hidden></p>
+  <section class="grid" id="gifts" aria-label="Regalos" aria-live="polite"></section>
+  <p class="empty" id="empty" hidden>No hay regalos con estos filtros.</p>
+</main>
+
+<dialog id="reserveDialog" class="sheet">
+  <form method="dialog" id="reserveForm">
+    <h2>Lo regalo yo</h2>
+    <p class="dialog-gift" id="reserveGift"></p>
+    <label for="reserveName">Tu nombre <span class="optional">(opcional)</span></label>
+    <input id="reserveName" name="name" maxlength="40" autocomplete="nickname" placeholder="Por ejemplo, tía Ana">
+    <p class="hint">Solo lo ve quien organiza la lista; los demás ven «Reservado».</p>
+    <div class="actions">
+      <button value="cancel" class="button ghost" formnovalidate>Cancelar</button>
+      <button value="confirm" class="button primary">Reservar</button>
+    </div>
+  </form>
+</dialog>
+<script src="/list.js" type="module"></script>
+</body>
+</html>

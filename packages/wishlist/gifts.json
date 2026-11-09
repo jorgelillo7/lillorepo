@@ -1,0 +1,92 @@
+{
+  "title": "Regalos de Navidad 2026",
+  "subtitle": "Papá Noel y Reyes Magos",
+  "recipients": [
+    {
+      "id": "older",
+      "label": "Hermano mayor"
+    },
+    {
+      "id": "younger",
+      "label": "Hermano pequeño"
+    }
+  ],
+  "gifts": [
+    {
+      "id": "duplo-spidey-webquarters",
+      "for": "older",
+      "title": "LEGO Duplo: cuartel arácnido de Spidey",
+      "detail": "LEGO Duplo 10464 · 65 piezas · 2+",
+      "photo": "duplo-spidey-webquarters.jpg"
+    },
+    {
+      "id": "lobito-book",
+      "for": "older",
+      "title": "Lobito, mi primer libro cinemágico",
+      "detail": "Libro con imágenes que se mueven (Scanimation) · Rufus Butler Seder",
+      "photo": "lobito-book.jpg"
+    },
+    {
+      "id": "alien-lamp",
+      "for": "older",
+      "title": "Lámpara Squishy Glo del Alien de Toy Story",
+      "detail": "Paladone · silicona blanda, luz regulable y temporizador · 3+",
+      "photo": "alien-lamp.jpg"
+    },
+    {
+      "id": "whirly-derby",
+      "for": "older",
+      "title": "Whirly Derby",
+      "detail": "Juego de carreras de canicas · Big Potato · 8+ · 2 a 6 jugadores",
+      "photo": "whirly-derby.jpg"
+    },
+    {
+      "id": "shark-pirate-ship",
+      "for": "older",
+      "title": "Barco pirata tiburón",
+      "detail": "Teamsterz Beast Machines · incluye un coche de metal · 3+",
+      "note": "Visto en Juguettos a 49,99 €.",
+      "photo": "shark-pirate-ship.jpg"
+    },
+    {
+      "id": "superthings-titan-fury",
+      "for": "older",
+      "title": "SuperThings Titan Fury",
+      "detail": "Robot Kazoom Power con Kid Fury exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 54,99 €.",
+      "photo": "superthings-titan-fury.jpg"
+    },
+    {
+      "id": "piratix-skull-fortress",
+      "for": "older",
+      "title": "Piratix: Skull Fortress",
+      "detail": "Fortaleza calavera con Piratix exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 34,99 € (oferta).",
+      "photo": "piratix-skull-fortress.jpg"
+    },
+    {
+      "id": "piratix-kraken-ship",
+      "for": "older",
+      "title": "Piratix: Kraken Ship",
+      "detail": "Barco con cañón, catapulta y 2 Piratix exclusivos · Magic Box",
+      "note": "Visto en Juguettos a 39,99 € (oferta; PVP 44,99 €).",
+      "photo": "piratix-kraken-ship.jpg"
+    },
+    {
+      "id": "hot-wheels-cobra-attack",
+      "for": "older",
+      "title": "Hot Wheels City: ataque de la serpiente",
+      "detail": "Pizza Slam Cobra Attack · Mattel · 4+",
+      "note": "Visto en Juguettos a 34,99 €.",
+      "photo": "hot-wheels-cobra-attack.jpg"
+    },
+    {
+      "id": "klein-checkout",
+      "for": "older",
+      "title": "Caja registradora de autoservicio",
+      "detail": "Klein · 41 piezas, con luz y sonido · 3+",
+      "note": "Visto en Juguettos a 39,99 € (oferta; PVP 44,99 €).",
+      "photo": "klein-checkout.jpg"
+    }
+  ]
+}

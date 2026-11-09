@@ -1,6 +1,6 @@
 # lillorepo
 
-Monorepo of personal projects: Python services under Bazel, targeting Google Cloud Platform, plus one Node package outside Bazel. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project), **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra) and **Interactive Fiction** (a web reader for Twine stories, served from Cloudflare).
+Monorepo of personal projects: Python services under Bazel, targeting Google Cloud Platform, plus two Node packages outside Bazel. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project), **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra), **Interactive Fiction** (a web reader for Twine stories, served from Cloudflare) and **Wishlist** (a shared gift list for Christmas and birthdays, also on Cloudflare).
 
 > See [`STATUS.md`](STATUS.md) for the living maturity score, the full capability inventory and the multi-product state of the repo.
 
@@ -44,6 +44,7 @@ graph TD
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 | `group_polls` | Backend of the Android app "¿Qué votáis?": Firestore security rules (tested against the emulator), moderation CLI. No server: the app talks to Firestore | Own GCP/Firebase project (not created yet; `infra/group_polls.tf` is off until then) |
 | `interactive_fiction` | Web reader for Twine/Harlowe interactive stories: one site per series, autosave, the end code carried between chapters, a validator and a path explorer that test a chapter before it ships. Node + Vite, outside Bazel; story text is not in the repo | Static site on Cloudflare (Workers static assets): `interactive-fiction.jorgelillo.workers.dev` |
+| `wishlist` | Shared gift list: a shop photo per gift, anyone with the link reserves one and marks it bought, no accounts; names only the owner sees. Node, outside Bazel | Cloudflare Worker with D1: `wishlist.jorgelillo.workers.dev` |
 
 ## Repository Structure
 
@@ -66,9 +67,10 @@ Python is built with [Bazel](https://bazel.build/) (bzlmod). All Python dependen
 
 A package that is not Python lives outside Bazel with its own toolchain, its
 own CI job and its own runbook; Bazel would only add a second dependency graph
-for code that shares nothing with `core`. Today that is `interactive_fiction`:
-npm, a lockfile, the `Interactive fiction` job in `ci.yml` (a required check),
-and [its README](packages/interactive_fiction/README.md) for the commands.
+for code that shares nothing with `core`. Today that is `interactive_fiction`
+and `wishlist`: npm, a lockfile, a job each in `ci.yml` (`Interactive fiction`
+and `Wishlist`), and their READMEs ([interactive_fiction](packages/interactive_fiction/README.md),
+[wishlist](packages/wishlist/README.md)) for the commands.
 
 ```bash
 # Build everything
