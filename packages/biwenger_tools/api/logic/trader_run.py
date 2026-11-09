@@ -41,6 +41,8 @@ def _rules() -> trader.Rules:
         dead_sf=config.TRADER_DEAD_SF,
         hold_days=config.TRADER_HOLD_DAYS,
         clause_lock_days=config.CLAUSE_LOCK_DAYS,
+        absence_rounds=config.TRADER_ABSENCE_ROUNDS,
+        star_price=config.TRADER_STAR_PRICE,
         max_per_club=config.MAX_PLAYERS_PER_CLUB,
     )
 
@@ -77,6 +79,7 @@ def run(
     committed = sum(int(b.get("amount") or 0) for b in pending)
     already_bid = {p for b in pending for p in b.get("requestedPlayers") or []}
     eve = trader.round_eve(rounds, now)
+    kickoffs = trader.round_starts(rounds, now)
     live = mode == "live"
     if live:
         result = _act(
@@ -90,6 +93,7 @@ def run(
             eve,
             now,
             owned_before,
+            kickoffs,
         )
     else:
         result = trader.plan(
@@ -104,6 +108,7 @@ def run(
             already_bid=already_bid,
             now=now,
             recently_owned=owned_before,
+            kickoffs=kickoffs,
         )
     text = trader.report(result, live=live)
     if len(history) < _HISTORY_DAYS:
@@ -143,11 +148,12 @@ def _act(
     eve,
     now,
     owned_before=frozenset(),
+    kickoffs=(),
 ) -> trader.Plan:
     """Sell, list, then bid with what was received. Returns what happened."""
     rules = _rules()
     biwenger = ctx.biwenger
-    planned, held, _ = trader.plan_sells(squad_rows, history, rules, now)
+    planned, held, _ = trader.plan_sells(squad_rows, history, rules, now, kickoffs)
 
     sold: list[trader.Move] = []
     skipped: list[tuple[dict, str]] = []

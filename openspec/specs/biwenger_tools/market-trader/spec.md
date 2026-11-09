@@ -112,6 +112,44 @@ not his worth, and selling then is selling at the bottom. He is weighed again
 once he can play. On 25/10 Pape Gueye, sent off the round before,
 read as deadwood and only the minimum squad kept him.
 
+**Unless the absence is long.** A bench player Jornada Perfecta marks
+injured, suspended or doubtful with an expected return (`estimatedReturn`:
+"Principios / Mediados / Finales de \<mes\>", "Vuelta indefinida", "Vuelta
+inminente") SHALL be sold, falling or not, once that return misses
+`TRADER_ABSENCE_ROUNDS` (2) rounds or more, counted on each pending round's
+first kick-off — the moment the eleven freezes — so an international break
+costs nothing. An indefinite return is long; without a calendar, 14 days
+stand in for two rounds. A shorter absence, or one with no estimate, is held
+as above, and a doubtful player coming back soon is not deadwood for his
+zero projection. A player priced at `TRADER_STAR_PRICE` (6.4 M, the 40th most
+expensive in LaLiga on 9/11) or more is never sold for an absence: a star's
+price comes back with him, and he is not bought again at the same price.
+The plan names it: "baja larga: vuelve \<estimate\>".
+
+On 9/11 Lemar (fibre tear, "Finales de noviembre", 4.1 M) was sold as
+deadwood at SF 1. Counted in rounds he misses only round 13 (20/11) — round 14
+starts 27/11 — so under this rule he would have been held.
+
+#### Scenario: short and long absences
+- **WHEN** the return misses two rounds, or is indefinite **THEN** he is sold,
+  naming the absence
+- **WHEN** it misses one round, as across an international break **THEN** he
+  is held
+- **WHEN** a doubtful player is back within the rounds **THEN** his zero
+  projection does not make him deadwood
+- **WHEN** he is priced at the star line or above **THEN** no absence sells him
+- **WHEN** Jornada Perfecta's estimate is read **THEN** "Finales de
+  noviembre" is the 25th, a month before today's is next year's, a past date
+  is 0, indefinite is infinite
+- *Verifies:* `test_absence_days_reads_jornada_perfectas_return_estimates`,
+  `test_a_long_absence_is_sold_off_the_bench`,
+  `test_an_indefinite_absence_is_sold`,
+  `test_a_short_absence_is_held_whatever_his_projection`,
+  `test_a_doubt_coming_back_soon_is_not_deadwood`,
+  `test_an_absence_is_counted_in_rounds_missed_not_days`,
+  `test_two_rounds_missed_is_a_long_absence`,
+  `test_a_star_is_not_sold_for_a_long_absence`
+
 When a sale is decided by the projection floor, the plan SHALL name it —
 "proyección baja (SF n)", plus the falling days when both apply — not only the
 falling price.

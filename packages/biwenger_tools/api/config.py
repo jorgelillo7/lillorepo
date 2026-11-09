@@ -88,6 +88,11 @@ TRADER_DEAD_SF = 300
 TRADER_HOLD_DAYS = 7
 # Biwenger locks a signing's clause for two weeks.
 CLAUSE_LOCK_DAYS = 14
+# An injured or doubtful bench player is sold once his expected return misses
+# this many rounds, unless his price reaches the star line (the 40th most
+# expensive player in LaLiga, 9/11): a star's price comes back with him.
+TRADER_ABSENCE_ROUNDS = 2
+TRADER_STAR_PRICE = 6_400_000
 # Signings stop at this many players from one club: a bad day for a club costs
 # every player you own from it. Auto-bid and the trader both read it.
 MAX_PLAYERS_PER_CLUB = 3
