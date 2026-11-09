@@ -1,0 +1,477 @@
+openapi: 3.1.0
+info:
+  title: Jornada Perfecta API (unofficial)
+  version: "0.1.0"
+  summary: Reverse-engineered map of the Jornada Perfecta routes this monorepo reads or has evaluated.
+  description: |
+    **⚠️ UNOFFICIAL — this is NOT documented by Jornada Perfecta.**
+
+    Discovered by intercepting the Android app (Frida, see
+    `docs/technical/reverse-engineering/frida-android-intercept.md`), reading
+    the website's HTML and inline scripts, and sending real requests on
+    9 November 2026. It can change without notice. Be gentle: sequential
+    reads, one full fetch per JP refresh (`core/sdk/jp.py` caches on
+    `max(updated_at)`).
+
+    Source of truth in this repo: `core/sdk/jp.py`. Where a response
+    disagrees with this file, the SDK wins — update the file.
+
+    Every route carries `x-status`:
+    - `verified` — a real response was read on `x-verified-at`.
+    - `verified-by-repo` — production reads it every day, but this map was
+      drawn without the token, so only the unauthenticated error was seen.
+    - `existence-only` — the route answers differently from an unknown path,
+      but its payload needs credentials that were not used.
+    - `seen-in-bundle` / `sitemap-only` — named by the site, never called.
+
+    **The traps that matter.**
+    1. *Projections are API-only.* No public page shows the `predict.rate`
+       numbers; the web shows only "Pronóstico: Titular / Suplente / Duda".
+       Everything with a projection needs the app token.
+    2. *Ids are Biwenger's.* The API's player `id` and `teamRemote`, and the
+       web's `remote_player` / `remote_team` / `cdn.biwenger.com/i/p/{id}.png`,
+       are Biwenger ids (551 of 551 `/mercado/` rows match
+       `cf.biwenger.com/.../competitions/la-liga/data` by id, name, price and
+       `priceIncrement`). JP's own ids (`playerId`, `teamID`) are different.
+       For the API this is inferred from one captured payload (Roony,
+       `id: 38216` = Biwenger 38216) plus the web mapping; confirm with the
+       token before relying on it.
+    3. *Scoring ids are Biwenger's score ids.* 1 Picas Diario AS, 2 SofaScore,
+       16 Media AS + SofaScore, 19 LaLiga Fantasy. JP's past SofaScore points
+       for a player equal Biwenger's `score=2` points exactly (Raphinha
+       2026/27: 146 total, 81 home, 65 away; rounds 12–9: 0, 15, 11, 4).
+    4. *Status is spelled two ways.* The API (and Biwenger) say `ok`,
+       `doubt`, `injured`, `sanctioned`, `warned`; the web says `check`,
+       `doubt`, `injured`, `penalized`, `warned`, `available`.
+    5. *Unknown API paths are a 404 HTML page; known ones answer 200 JSON
+       with an error.* `{"error": "auth"}` on 200 is a bad or missing token
+       (`jp._raise_if_unhealthy`).
+    6. *Pages are server-cached.* Each page logs its expiry in an inline
+       script (`console.log('Page cache hit until => <unix>')`), so two reads
+       minutes apart can be the same snapshot.
+    7. *robots.txt disallows `ClaudeBot`, `Claude-SearchBot` and `GPTBot` on
+       the whole site*, and the API is undocumented. Any HTML scraping is at
+       the site's tolerance.
+
+  contact:
+    name: Internal owner
+    url: https://github.com/jorgelillo7/lillorepo
+
+servers:
+  - url: https://www.jornadaperfecta.com
+    description: "Same host for the app's JSON API and the server-rendered (PHP/WordPress) website."
+
+tags:
+  - name: api
+    description: JSON routes used by the mobile app. All need a credential.
+  - name: pages
+    description: Server-rendered pages; data is in HTML or in an inline `const` JSON literal.
+  - name: meta
+    description: Sitemap and site plumbing.
+
+paths:
+  /api/fitness-daily:
+    get:
+      tags: [api]
+      summary: Every player of a competition, with next-match projections under four scoring systems
+      description: |
+        The one route production reads. Biwenger's competition data
+        (`price`, `fantasyPrice`, `priceIncrement`, `fitness`, `points`,
+        `playedHome`…) enriched with JP's own fields: `predict`, `nextMatch`,
+        `statusInfo`, `estimatedReturn`, `streak`, `priceIncrementLF`,
+        `lfm_price`. The `score` parameter selects which system `points` and
+        `fitness` are in; `predict` always lists all four systems.
+
+        `predict[type=2].rate` is the "SF" the lineup, auto-bid and trader
+        read, an integer on a SofaScore-like scale (Vini Jr 910; that it is
+        points × 100 is a guess — `custom_prediction.build_scale` calibrates
+        it against Oráculo rather than assuming). A player with no fixture
+        (`nextMatch.status = "break"`) has an empty `predict`. Each entry has
+        its own `updated_at`; JP rewrites the league as a batch over ~4.5 min.
+
+        Without `auth` (or with a rotated one) the answer is HTTP 200
+        `{"error": "auth"}` — verified 9/11 with no token.
+
+        Not verified: whether a `round` (or similar) parameter returns past
+        projections. Worth one request from whoever holds the token: it
+        would let JP be graded on rounds already played.
+      x-status: verified-by-repo
+      x-verified-at: "2026-11-09"
+      x-used-by: "core/sdk/jp.py: fetch_all_players, _peek_fingerprint, check_api_health, get_predict_rate"
+      parameters:
+        - name: auth
+          in: query
+          required: true
+          schema: {type: string}
+          description: "Fixed token from the app's JS bundle; stored as `jp_auth_token` in the `biwenger-secrets` secret."
+        - name: competition
+          in: query
+          required: true
+          schema: {type: integer, enum: [1, 4, 6]}
+          description: "1 LaLiga, 4 Premier League, 6 Segunda (historic capture)."
+        - name: score
+          in: query
+          required: true
+          schema: {type: integer, enum: [1, 2, 16, 19]}
+          description: "Biwenger score id: 1 Picas AS, 2 SofaScore, 16 Media AS + SofaScore, 19 LaLiga Fantasy."
+        - {name: offset, in: query, schema: {type: integer, example: 0}}
+        - {name: limit, in: query, schema: {type: integer, example: 600}}
+        - {name: playerStatus, in: query, schema: {type: string, example: all}}
+        - {name: order, in: query, schema: {type: string, example: priceIncrement}}
+        - {name: orderBy, in: query, schema: {type: string, enum: [asc, desc]}}
+        - name: showPredict
+          in: query
+          schema: {type: boolean}
+          description: Without `true` the `predict` array is absent.
+      responses:
+        "200":
+          description: "The player list, or `{\"error\": \"auth\"}` on a bad token (still 200)."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      meta:
+                        type: object
+                        properties:
+                          total: {type: integer, example: 546}
+                          competition: {type: integer}
+                          score: {type: integer}
+                      players:
+                        type: array
+                        items: {$ref: "#/components/schemas/JpPlayer"}
+                  - $ref: "#/components/schemas/AuthError"
+
+  /active-competitions:
+    get:
+      tags: [api]
+      summary: Active competitions with current and total matchday
+      description: |
+        Seen in the Frida capture (`?auth=<token>`). Without a token it
+        answers 200 with an empty body, unlike an unknown path (404 HTML).
+        Payload not read since the capture. Not used.
+      x-status: existence-only
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: auth, in: query, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: "Empty body without a token."
+
+  /tracking:
+    get:
+      tags: [api]
+      summary: Unknown app feed, paginated per competition
+      description: |
+        Seen in the Frida capture as `?secure=<token>&limit=10&offset=0&competition=1`
+        (note `secure`, not `auth`). Without it: 200 `{"error": "Error"}`.
+        Payload never analysed. Not used.
+      x-status: existence-only
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: secure, in: query, required: true, schema: {type: string}}
+        - {name: competition, in: query, schema: {type: integer, example: 1}}
+        - {name: limit, in: query, schema: {type: integer, example: 10}}
+        - {name: offset, in: query, schema: {type: integer, example: 0}}
+      responses:
+        "200":
+          description: "`{\"error\": \"Error\"}` without credentials."
+
+  /api/players:
+    get:
+      tags: [api]
+      summary: Player route behind a per-user token
+      description: |
+        Found by probing. Without `token`: 200 `{"token": "empty"}`; with a
+        made-up one: `{"token": "error"}`. Probably the app's logged-in
+        user token rather than the fixed `auth`. Payload unknown. Not used.
+      x-status: existence-only
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: token, in: query, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: "`{\"token\": \"empty\" | \"error\"}` without a valid token."
+
+  /mercado/:
+    get:
+      tags: [pages]
+      summary: "Page: every player's Biwenger price and its change over 1–30 days"
+      description: |
+        Data is the inline literal `const marketCaching=[…]` (551 rows),
+        read with `json.JSONDecoder().raw_decode`. **A mirror of Biwenger's
+        own public data**: id, name, `price` and `lastMarkets["1"]` equal
+        `cf.biwenger.com/api/v2/competitions/la-liga/data` `price` and
+        `priceIncrement` for 551 of 551 players. No price prediction. `tip`
+        is editorial and barely discriminates (474 of 551
+        `muyRecomendable`). Adds nothing over `price_snapshots`. Not used.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      responses:
+        "200":
+          description: HTML with `const marketCaching`.
+          content:
+            text/html:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/MarketRow"}
+
+  /onces-posibles/:
+    get:
+      tags: [pages]
+      summary: "Page: the matchday's fixtures with links to each probable-lineup page"
+      description: |
+        Index of the ten `/partido/{id}/{slug}` pages of a round, plus the
+        freshness stamp `Onces actualizados <time datetime="…">` (moved from
+        20:26 to 23:15 on 8/11 between two reads). `?round=N` picks another
+        matchday; for a finished round the match pages show actual points,
+        not the old probable eleven, so **past projections are not
+        recoverable from the web**. Not used.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: round, in: query, schema: {type: integer, example: 13}}
+      responses:
+        "200":
+          description: HTML.
+
+  /partido/{matchId}/{slug}:
+    get:
+      tags: [pages]
+      summary: "Page: one match's probable elevens with starter percentages, or its actual points once played"
+      description: |
+        Before kick-off, per team (`.campo-futbol`): eleven
+        `<a class='player' href='/jugador/{slug}'>` with
+        `cdn.biwenger.com/i/p/{biwengerId}.png`, the last three appearances
+        (`status-1` started, `status-2` came on, `status-3` did not play)
+        and a form icon. Contested slots carry `class='player alternative-border'`,
+        `<div class='percent-budget'>60</div>` and
+        `<div class='alternative'><span>Gordon 40%</span></div>`.
+        Round 13 (all 10 matches, 9/11): 59 of 220 slots contested; the
+        starter shows 50, 60 or 70 only; alternatives 20–50 %, **named by
+        short name with no id or slug**. Uncontested starters carry no number.
+
+        Also: `no disponibles` (injured/doubtful with expected return),
+        `picks jornada perfecta` (`.picks-jp`, empty on 9/11 — content
+        unknown, possibly the app's picks) and `convocatoria`
+        (`#convocados`, "Datos no disponibles" on 9/11 — the called-up
+        squad, presumably filled near kick-off; unverified).
+
+        After the match: each player's points with a selector for the four
+        systems; no projection. Not used.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: matchId, in: path, required: true, schema: {type: integer, example: 13435}}
+        - {name: slug, in: path, required: true, schema: {type: string, example: barcelona-villarreal}}
+      responses:
+        "200":
+          description: HTML.
+
+  /jugador/{slug}:
+    get:
+      tags: [pages]
+      summary: "Page: a player's forecast label, status, next fixtures, per-round points and price history"
+      description: |
+        "Pronóstico: Titular | Suplente" (+ "Duda"/injury text), next four
+        fixtures, points per round, and 8-point price charts for Biwenger and
+        LaLiga Fantasy. No projected points.
+
+        The scoring system and season are chosen by **POST**ing the hidden
+        `optionForm`: `scoreId={score},{season}` (e.g. `2,3003`) or
+        `seasonId={season},{score}`. A plain GET shows score 1 (Picas AS).
+        Seasons: 3003 = 2026/27, 2998 = 2025/26, 2994 = 2024/25. Verified:
+        `scoreId=2,3003` for Raphinha gives exactly Biwenger's `score=2`
+        totals and rounds. Not used.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string, example: raphinha}}
+      responses:
+        "200":
+          description: HTML.
+    post:
+      tags: [pages]
+      summary: "Page: the same, under another scoring system or season"
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string, example: raphinha}}
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                scoreId: {type: string, example: "2,3003", description: "{score},{season}"}
+                seasonId: {type: string, example: "2998,2", description: "{season},{score}"}
+      responses:
+        "200":
+          description: HTML.
+
+  /jugador-min/{slug}:
+    get:
+      tags: [pages]
+      summary: "Page: compact player card, the iframe /mercado/ opens"
+      description: Same forecast label as `/jugador/{slug}`. Use `?hideHeader=true`.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string, example: raphinha}}
+        - {name: hideHeader, in: query, schema: {type: boolean}}
+      responses:
+        "200":
+          description: HTML.
+
+  /lesionados/:
+    get:
+      tags: [pages]
+      summary: "Page: injured players by team with diagnosis and expected return"
+      description: |
+        Tabs Lesionados / Sancionados / Apercibidos / Otros. Per player:
+        position, name, diagnosis, "Vuelta estimada" (e.g. "Finales de
+        noviembre", "Vuelta inminente", "Vuelta indefinida"). The API already
+        carries the same as `status`, `statusInfo`, `estimatedReturn`.
+        Not used.
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      responses:
+        "200":
+          description: HTML.
+
+  /sancionados/:
+    get:
+      tags: [pages]
+      summary: "Page: suspended players"
+      x-status: sitemap-only
+      responses:
+        "200":
+          description: HTML.
+
+  /apercibidos/:
+    get:
+      tags: [pages]
+      summary: "Page: players one booking from a ban"
+      x-status: sitemap-only
+      responses:
+        "200":
+          description: HTML.
+
+  /otros/:
+    get:
+      tags: [pages]
+      summary: "Page: other absences"
+      x-status: sitemap-only
+      responses:
+        "200":
+          description: HTML.
+
+  /wp-admin/admin-ajax.php:
+    get:
+      tags: [pages]
+      summary: News list filter (WordPress)
+      description: "Called by `/assets/js/bundle.min.js` as `?action=filter_news&category=…&search=…&post_type=noticia`; returns an HTML fragment. Editorial only."
+      x-status: seen-in-bundle
+      parameters:
+        - {name: action, in: query, required: true, schema: {type: string, const: filter_news}}
+        - {name: category, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string}}
+        - {name: post_type, in: query, schema: {type: string, example: noticia}}
+      responses:
+        "200":
+          description: HTML fragment.
+
+  /xml/sitemap.php:
+    get:
+      tags: [meta]
+      summary: Sitemap of every page
+      description: "~4 180 `/partido/` pages (several seasons and competitions), 551 `/jugador/`, 20 `/equipo/`, and the section pages above."
+      x-status: verified
+      x-verified-at: "2026-11-09"
+      responses:
+        "200":
+          description: XML.
+
+components:
+  schemas:
+    AuthError:
+      type: object
+      properties:
+        error: {type: string, example: auth}
+
+    Predict:
+      type: object
+      properties:
+        type: {type: integer, enum: [1, 2, 16, 19], description: "Biwenger score id; 2 = SofaScore (SF)"}
+        rate: {type: integer, description: "Projected score for the next match, SofaScore-like integer scale", example: 910}
+        updated_at: {type: integer, description: "Unix seconds; the freshness fingerprint"}
+
+    NextMatch:
+      type: object
+      properties:
+        id: {type: integer, description: "JP match id (as in /partido/{id})"}
+        isLocal: {type: boolean}
+        rivalTeamId: {type: integer, description: JP team id}
+        rivalTeamIdRemote: {type: integer, description: Biwenger team id}
+        playerInLineup: {type: boolean, description: "In JP's projected eleven — not 'called up'"}
+        status: {type: string, enum: [pending, break], description: "`break` = no fixture"}
+
+    JpPlayer:
+      type: object
+      description: "Fields from the historic capture (May 2026) and what the repo reads; not re-read this season."
+      properties:
+        id: {type: integer, description: "Biwenger player id (inferred, see trap 2)"}
+        name: {type: string, example: Roony}
+        slug: {type: string, description: "JP slug, as in /jugador/{slug}"}
+        teamID: {type: integer, description: JP team id}
+        teamRemote: {type: integer, description: Biwenger team id}
+        position: {type: integer, description: "1 GK … 4 FW"}
+        price: {type: integer, description: Biwenger price}
+        fantasyPrice: {type: integer}
+        lfm_price: {type: integer}
+        status:
+          type: string
+          description: "Seen: ok, ok-available, injured, doubt, sanctioned, other (measured 2026-08-08, before any booking). Biwenger also uses `warned`."
+        statusInfo: {type: string, description: "Free-text news (not read by the repo)"}
+        estimatedReturn: {type: string, description: "Expected return (not read by the repo)"}
+        priceIncrement: {type: integer, description: "Biwenger price change today"}
+        priceIncrementLF: {type: integer}
+        fitness: {type: string, description: "Last five rounds' points under `score`"}
+        fitnessAvg: {type: string}
+        points: {type: integer}
+        pointsHome: {type: integer}
+        pointsAway: {type: integer}
+        pointsLastSeason: {type: integer}
+        playedHome: {type: integer}
+        playedAway: {type: integer}
+        streak: {type: integer}
+        predict:
+          type: array
+          items: {$ref: "#/components/schemas/Predict"}
+        nextMatch: {$ref: "#/components/schemas/NextMatch"}
+
+    MarketRow:
+      type: object
+      properties:
+        playerId: {type: string, description: JP player id}
+        playerUrl: {type: string, description: JP slug}
+        name: {type: string}
+        position: {type: string, enum: [portero, defensa, mediocentro, delantero]}
+        altPositions: {type: array, items: {type: string}}
+        remote_player: {type: string, description: Biwenger player id}
+        remote_team: {type: string, description: Biwenger team id}
+        teamId: {type: string, description: JP team id}
+        price: {type: string, description: "Biwenger price, €"}
+        max_price: {type: string}
+        min_price: {type: string}
+        lastMarkets:
+          type: object
+          description: "Price change over 1, 2, 3, 5, 10, 14 and 30 days; key 1 = Biwenger priceIncrement"
+          additionalProperties: {type: integer}
+        status: {type: string, enum: [check, doubt, injured, warned, penalized, available]}
+        icon: {type: string}
+        desc: {type: string, description: "Status text or diagnosis"}
+        tip: {type: string, enum: [muyRecomendable, recomendable, apuesta, parche, fondoDeArmario, noRecomendable]}
+        tip_desc: {type: string}
+        racha: {type: string, description: "Form streak, 0–9"}

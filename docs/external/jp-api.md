@@ -1,7 +1,8 @@
 # Jornada Perfecta — private API
 
 Unofficial API consumed by `core/sdk/jp.py` for Automanager (SofaScore) player
-ratings. Discovered by intercepting the Android app — see
+ratings. The full map of routes — the API and the website — is
+`jornada-perfecta-api.yaml`; this page keeps the request recipe. Discovered by intercepting the Android app — see
 `docs/technical/reverse-engineering/frida-android-intercept.md` for the method
 and `scripts/extract_token.sh` there for token recovery.
 

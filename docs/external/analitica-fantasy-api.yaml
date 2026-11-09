@@ -316,6 +316,97 @@ paths:
         "200":
           description: HTML with the flight payload.
 
+  /mercado-fantasy/biwenger:
+    get:
+      tags: [predictions]
+      summary: Every Biwenger player's price change over the last N days
+      description: |
+        551 players: accumulated `subida` over `last` days, `frenada` (today's
+        change minus yesterday's), `trend`, `lastMarketUpdateAt` (once a day,
+        after Biwenger's market). A mirror of Biwenger's prices; no forecast.
+        A 10-day cut on 9/11: 79 % of the players rising on days 6–10 kept
+        rising on days 1–5, at 0.70 of the pace; 86 % of the fallers kept
+        falling. Not read.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: last, in: query, schema: {type: integer, enum: [1, 5, 10]}}
+      responses:
+        "200":
+          description: Players with their price trend.
+
+  /fantasy/la-liga/prediccion-mercado:
+    get:
+      tags: [predictions]
+      summary: Price-change forecast, LaLiga Fantasy only
+      description: "26 players free; `?full=true` answers 403 (premium). No Biwenger version: `/biwenger/prediccion-de-mercado` is a 404."
+      x-verified-at: "2026-11-09"
+      responses:
+        "200":
+          description: Forecast rows.
+        "403":
+          description: The full list without a premium account.
+
+  /players/{slug}/projection:
+    get:
+      tags: [predictions]
+      summary: A player's projected price, LaLiga Fantasy scale
+      description: Linear extrapolation of the daily change; LaLiga Fantasy prices. Not read.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: slug, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: Projection.
+
+  /biwenger/puja-ideal:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: an ideal and a maximum bid for every Biwenger player"
+      description: |
+        551 rows (`initialPlayers`): `marketValue`, `subida` (both equal to
+        Biwenger's `price` and `priceIncrement`), `pujaIdeal`, `pujaMaxima`,
+        `mercadosProximoPartido`, `chance`, `nextFixture`; `expectedPoints`
+        is filled client-side and null in the HTML. The rule, per the site's
+        own text and checked on all rows: the ideal bid is the price projected
+        halfway to the next match (about markets-to-match ÷ 2 × daily rise,
+        damped), the maximum is the projection to match day, and **a falling
+        player's ideal bid is his market value** (220 of 226). Not read; the
+        rule is the interesting part, and it needs only Biwenger's data.
+      x-verified-at: "2026-11-09"
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+  /partido/{fixtureSlug}/alineaciones-confirmadas:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: one match's confirmed elevens"
+      description: "`dataMode: \"confirmed\"`, `esTitular`, and every system's points once played. Whether it fills before kick-off is unverified (first chance: 21/11). Not read."
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: fixtureSlug, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
+  /jugadores-apercibidos/liga_la-liga/temporada_{season}:
+    servers:
+      - url: https://www.analiticafantasy.com
+    get:
+      tags: [pages]
+      summary: "Page: players one booking from a ban, with each card"
+      description: 20 players on 9/11. Biwenger does not expose bookings. Not read.
+      x-verified-at: "2026-11-09"
+      parameters:
+        - {name: season, in: path, required: true, schema: {type: integer, example: 2026}}
+      responses:
+        "200":
+          description: HTML with the flight payload.
+
 components:
   schemas:
     PredictedPlayer:

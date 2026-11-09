@@ -10,6 +10,7 @@ in the wild.
 | File | What |
 |---|---|
 | `analitica-fantasy-api.yaml` | Analítica Fantasy ("Oráculo") routes read by `core/sdk/oraculo.py` or evaluated: the lists API and its `sistema` values, the LaLiga-Fantasy-only `fantasy-points` API, the leaderboards, and the pages read out of their flight payload (predictions, which are always Diario AS; the calendar predictor; match, player and power-ranking pages). OpenAPI 3.1. |
+| `jornada-perfecta-api.yaml` | Jornada Perfecta routes read by `core/sdk/jp.py` or evaluated: the app's `fitness-daily` API (the only source of projections, behind the app token) and its score ids, which are Biwenger's; the other app routes; and the website's pages (market mirror, probable lineups with starter percentages, player cards, injuries). The site's `robots.txt` disallows AI crawlers, so its pages are documented, not scraped. OpenAPI 3.1. |
 | `biwenger-api.yaml` | Biwenger backend used by `core/sdk/biwenger.py`. Covers auth, account, market (incl. your pending bids), offers (inbox + decisions), squad, lineup, league settings and reports, the board's money movements (enough to rebuild hidden balances), per-player price history, fixture difficulty and the cf-base player DB. OpenAPI 3.1. |
 
 ## How to view
