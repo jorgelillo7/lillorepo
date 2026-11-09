@@ -19,6 +19,17 @@ Both run **once a year and days apart**, so neither is in your muscle memory
 when you need it. Read its `SKILL.md` in full before starting — that is the
 point of them existing.
 
+## Providers run on the lock
+
+**Anything that calls a provider runs on the lock, never on the Mac's Python.**
+The system `python3` carries stale packages (requests 2.28 / urllib3 1.26):
+Oráculo answers it 403, and the code silently falls back to JP alone, so a
+ranking looks right and is not. Use a `bazel run` target (the draft skill's
+scripts have one each), or a venv built from `requirements_lock.txt` on
+Python 3.14 for one-off scripts. And read `oraculo_coverage` before blaming
+the read: under `ORACULO_MIN_COVERAGE` (60 %, e.g. mid-round, when Oráculo
+only covers the next matchday) the blend is off by design, in production too.
+
 ## Two directories called `draft`, opposite powers
 
 | Path | Reads | Writes |
