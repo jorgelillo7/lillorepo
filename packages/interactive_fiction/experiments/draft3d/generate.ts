@@ -122,4 +122,4 @@ for (const [file, url] of [
   console.log(`  worlds/${file} ${(bytes.length / 2 ** 20).toFixed(1)} MiB`);
 }
 const crop = [mx / w, my / h].map((f) => Number(f.toFixed(5)));
-console.log(`Add "${sceneId}" to worlds.json (world ${world.world_id}, crop ${JSON.stringify(crop)}); fit fovY and pitch against the image.`);
+console.log(`Add "${sceneId}" to the author's web/3d/worlds.json (world ${world.world_id}, crop ${JSON.stringify(crop)}); fit fovY and pitch against the image.`);

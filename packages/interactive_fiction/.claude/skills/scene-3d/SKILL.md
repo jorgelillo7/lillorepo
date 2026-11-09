@@ -108,8 +108,9 @@ node generate.ts <scene> --dry-run
 node generate.ts <scene> [--trim X,Y] [--image worlds/<view>.jpg] --prompt "Interior of …"
 ```
 
-It downloads the full, 500k and 100k splats and the collider into `worlds/`
-(never committed: they derive from the author's art) and prints the `crop` to
+It downloads the full, 500k and 100k splats and the collider into the
+draft's `worlds/`, the workbench (never committed: they derive from the
+author's art) and prints the `crop` to
 record. A full-model world's full resolution is ~27 MiB, over Cloudflare's
 25 MiB per file: serve the 500k (~7 MiB, already sharp at full quality).
 `node fetch.ts <scene> <operation-or-world-id>` downloads a world started some
@@ -119,7 +120,7 @@ camera in the wrong place is cheaper to catch now.
 
 # Step 3 — Fit the camera
 
-Add the scene to `worlds.json` (`world`, `splats`, `collider`, `crop`, and
+Add the scene to `web/3d/worlds.json` in the author's clone (`world`, `splats`, `collider`, `crop`, and
 `picture` when it came from `--image`), then:
 
 ```bash
@@ -160,6 +161,12 @@ text offers means a hotspot without a place: fix the world, not the rule.
 
 # Step 5 — Preview and the author
 
+The draft reads its 3D art from the author's `web/3d/` (`art.ts`), falling
+back to the draft's `worlds/` for a world not handed over yet. Once a world is
+right, copy what the page serves (the 500k splats, the collider, the
+cut-outs, the picture it grew from) and its Gemini prompts into his
+`web/3d/`, and open a PR to his repo: that is where the art lives.
+
 ```bash
 npm run deploy           # the draft's own Worker, never the public reader
 ```
@@ -167,7 +174,7 @@ npm run deploy           # the draft's own Worker, never the public reader
 Open it on a phone in landscape too — headless Chrome does not apply Safari's
 text inflation or its bars. Added to the home screen it opens full screen,
 without Safari's bars: that is the way to play it on an iPhone, and the title
-screen says so. The icon is `worlds/icon-1024.png` (Cheshire's keychain,
+screen says so. The icon is `web/3d/worlds/icon-1024.png` (Cheshire's keychain,
 painted with `view.ts … --aspect 1:1`, its frame trimmed: the phone rounds the
 corners); `prepare.ts` makes every size and the manifest from it. Then the author: what changed, the link, and what
 is still a draft (quality, characters).

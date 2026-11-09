@@ -1,7 +1,7 @@
 # 3D draft
 
 An experiment: the series' chapters with their rooms in 3D. The reader's own
-engine runs the passages; a scene listed in `worlds.json` is shown as a
+engine runs the passages; a scene listed in the author's `web/3d/worlds.json` is shown as a
 Gaussian-splat room (three.js + [Spark](https://sparkjs.dev)), and any other
 scene keeps its 2D picture — chapter 1's rooms are all 3D, chapter 2 plays
 with its 2D pictures except room 207.
@@ -31,7 +31,7 @@ deploys to its own Worker:
    frame first — a framed picture comes back as a painting hung in an invented
    room — and downloads the splats and the collider mesh into `worlds/`.
 4. **Fit** — the world's starting camera is usually the picture's camera. Add
-   the scene to `worlds.json` with the vertical field of view and downward
+   the scene to `web/3d/worlds.json` in the author's clone with the vertical field of view and downward
    pitch that reproduce the picture, as `npm run fit -- <scene>` finds them
    (room 207: 47° and −9°; the Cheshire room: 46° and −9°); the
    hotspots of the scene file are then cast from that camera onto the
@@ -58,7 +58,7 @@ deploys to its own Worker:
 
 Added to an iPhone's home screen, the draft opens full screen with its own
 icon — Cheshire's keychain, painted with `view.ts --aspect 1:1` into
-`worlds/icon-1024.png`, from which `prepare.ts` makes every size and the
+`web/3d/worlds/icon-1024.png`, from which `prepare.ts` makes every size and the
 manifest.
 
 The whole procedure, with its traps, is the
@@ -71,17 +71,23 @@ The whole procedure, with its traps, is the
 
 ## Where things live
 
-- The worlds derive from the author's art: `worlds/` and `public/` are
-  gitignored, never committed to this public repository. Their only copies
-  are this Mac's `worlds/` and World Labs itself: `node fetch.ts <scene>
-  <world id>` downloads one again, and every world's id is in `worlds.json`.
-  The cut-out PNGs and the Gemini pictures (`view.ts` outputs) exist only in
-  `worlds/`; back them up with the author's `web/` art if they matter.
-- A scene is in 3D when `worlds.json` has an entry under its id, in any
+- **The 3D art lives in the author's repository**, `web/3d/` (read through
+  the package's `stories/samantha` link, by `art.ts`): `worlds.json`, the
+  served splats and colliders, the pictures worlds grow from, the cut-outs and
+  their masks, the icon, and `prompts/`. It derives from his art, so it is
+  never committed to this public repository.
+- **`worlds/` here is the workbench** (gitignored): `generate.ts`, `fetch.ts`,
+  `view.ts` and `fit.ts --around` write there. A world being tried can be
+  listed in his `worlds.json` while its files are still only here — the
+  draft reads a file from `web/3d/` first and falls back to `worlds/`. Once
+  it is right, copy what the page serves into his `web/3d/worlds/` and open a
+  PR to his repo, as for any art. World Labs keeps every world: `node fetch.ts
+  <scene> <world id>` downloads one again (the ids are in `worlds.json`).
+- A scene is in 3D when `web/3d/worlds.json` has an entry under its id, in any
   chapter. Two entries may point at the same files (one room, two pictures
   of it from the same camera, say with and without a character): the page
   downloads them once, and each entry keeps its own `figures`.
-- A full-model world's `worlds/<scene>-500k.spz` (~7.5 MiB) is what the page
+- A full-model world's `<scene>-500k.spz` (~7.5 MiB) is what the page
   loads; its full resolution (~27 MiB) is over Cloudflare's 25 MiB per file.
 - Every build stamps `worlds.json`, and the page asks for each world file
   with that stamp: an app on an iPhone's home screen otherwise keeps an older
