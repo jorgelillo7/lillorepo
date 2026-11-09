@@ -1,7 +1,7 @@
 # Capability: market-trader
 
-The daily digest's trading step: sell the squad's price fallers and bid on the
-market's risers, inside the owner's limits — the best eleven's starters are
+The daily digest's trading step: sell the squad's price fallers and its long
+absences, and bid on the market's risers, inside the owner's limits — the best eleven's starters are
 never sold, an eleven that plays is always left, and in the two days before a
 round the wallet may not end below zero. It rests on
 one measured fact: Biwenger prices move in runs (after three days up, the next

@@ -9,7 +9,8 @@ POSITION_SHORT = {1: "POR", 2: "DEF", 3: "MED", 4: "DEL"}
 # Used wherever we read predictions from JP.
 # The statuses that mean "cannot be fielded at all", as Jornada Perfecta
 # spells them. Measured against the live `fitness-daily` payload (533 players
-# on 2026-08-08): ok, ok-available, injured, doubt, sanctioned, other. The code
+# on 2026-08-08): ok, ok-available, injured, doubt, sanctioned, other; `warned`
+# (one booking from a ban) appears once cards have been shown. The code
 # used to test for "suspended", which JP never sends — the word is `sanctioned`,
 # so the branch was dead. It went unnoticed because JP also drops those players
 # from its projected XI, and `playerInLineup` caught them one rung lower.
