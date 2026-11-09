@@ -57,6 +57,39 @@ handful of genuine stars and T2 the next nine.
 - **THEN** the bid is 29.9M / 15.444M / 10.6M / 1.05M (+ jitter)
 - *Verifies:* `test_each_tier_bids_its_share_over_the_price`
 
+### Requirement: A falling player is bid his price and a crumb
+
+When a player's price has fallen `FALLING_DAYS` (2) days running, the tier
+SHALL decide only whether he is bid, and the bid SHALL be his price plus
+`FALLING_OVERBID` (1 %), plus jitter — never the bare price. The days are read
+from the trader's daily snapshots (`price_snapshots`) with today's price from
+the morning read appended, unless a retried run finds today already stored.
+Without history every bid is priced on its tier, as before, and a failed read
+SHALL NOT stop the bidding.
+
+The tiers price what a player is worth to the squad, not where his price is
+going, and a falling price keeps falling: 86 % of the fallers in a 10-day cut
+of the market fell again, and of 40 league purchases with two days of prices
+before them only 2 were of fallers. Ours were 8 of 18 bids, and two of the
+three won (Joan García, Koski) lost ~20 % within days. Analítica Fantasy's
+ideal bid (`docs/external/analitica-fantasy-api.yaml`, `/biwenger/puja-ideal`)
+is the bare value for a falling player; the crumb on top is the owner's rule,
+because the bare value is the bid every rival places and a tie goes to the
+first.
+
+#### Scenario: falling, not falling, retried, no history
+- **WHEN** a T1 player priced 12M has fallen two days **THEN** the bid is
+  12.12M, and the label names the fall
+- **WHEN** he has fallen one day **THEN** his tier's share applies
+- **WHEN** a retried run finds today's prices already stored **THEN** today is
+  not counted twice and the fall still reads
+- **WHEN** the history cannot be read **THEN** the tier's share applies
+- *Verifies:* `test_a_player_falling_two_days_is_bid_his_price_and_a_crumb`,
+  `test_one_day_down_is_not_a_fall`,
+  `test_a_retry_does_not_count_today_twice`,
+  `test_no_price_history_bids_the_tier_as_before`,
+  `test_tier_bid_names_the_fall`
+
 ### Requirement: Inclusive lower boundaries
 
 Tier thresholds SHALL be inclusive on the lower end: a player at exactly a
