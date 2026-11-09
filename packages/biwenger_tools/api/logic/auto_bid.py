@@ -18,6 +18,8 @@ not T4). Each tier bids a flat share over the price, plus a random
     SF < 300             → skip
 
 The shares come from the season's resolved market (see `TIER_T*_OVERBID`).
+A player whose price fell `FALLING_DAYS` running is bid his price plus
+`FALLING_OVERBID` instead, whatever his tier.
 
 Cash is never exceeded — we never go negative. A bid that does not fit is
 skipped, whatever the tier: no single auction is worth the whole wallet.
@@ -50,7 +52,7 @@ from core.sdk import firestore
 from core.sdk.telegram import send_telegram_message_or_raise
 from core.utils import format_euros, get_logger
 from packages.biwenger_tools.api import config
-from packages.biwenger_tools.api.logic import rows
+from packages.biwenger_tools.api.logic import price_history, price_history_store, rows
 from packages.biwenger_tools.api.logic.lineup import GK
 from packages.biwenger_tools.api.logic.orchestration import build_context
 from packages.biwenger_tools.api.logic.rows import build_squad_rows
@@ -114,6 +116,14 @@ BENCH_PRICED_SF = TIER_T2_MIN - 1
 CHOLLO_MARGIN = int(os.getenv("CHOLLO_MARGIN", "150000"))
 CHOLLO_MAX_BIDS = int(os.getenv("CHOLLO_MAX_BIDS", "3"))
 
+# A player whose price fell this many days running is bid his price plus
+# `FALLING_OVERBID` instead of his tier's share: 86 % of fallers kept falling
+# in a 10-day cut of the market, and the share bought Joan García and Koski on
+# the way down (~20 % lost each). Never the bare price — a bid at exactly the
+# value is the one every rival places, and ties go to whoever bid first.
+FALLING_DAYS = 2
+FALLING_OVERBID = 0.01
+
 # Per-bid anti-pattern jitter. A bot that always bids in round euros
 # (10.000.000, 10.500.000, …) is a tell — humans dragging the slider
 # in the Biwenger UI never land on exact round numbers. Every bid gets
@@ -152,7 +162,11 @@ def _jitter() -> int:
 
 
 def tier_bid(
-    sf: int, price: int, remaining_cash: int, label_sf: Optional[int] = None
+    sf: int,
+    price: int,
+    remaining_cash: int,
+    label_sf: Optional[int] = None,
+    falls: int = 0,
 ) -> tuple[Optional[int], str]:
     """Return `(target_bid, label)` for a player, or `(None, reason)` to skip.
 
@@ -164,6 +178,10 @@ def tier_bid(
     priced on — `bid_sf` clamps a substitute's SF to hold him below the
     expensive tiers, and the summary must still report what JP actually
     said about him rather than the clamp.
+
+    `falls` is how many days running his price has fallen; from
+    `FALLING_DAYS` on, the tier decides only whether he is bid, and the bid
+    is his price plus `FALLING_OVERBID`.
     """
     jitter = _jitter()
     sf_shown = sf if label_sf is None else label_sf
@@ -175,10 +193,32 @@ def tier_bid(
     ):
         if sf < floor:
             continue
+        if falls >= FALLING_DAYS:
+            return round(price * (1 + FALLING_OVERBID)) + jitter, (
+                f"{tier} +{FALLING_OVERBID:.0%} cae {falls} días (SF {sf_shown})"
+            )
         return round(
             price * (1 + share)
         ) + jitter, f"{tier} +{share:.0%} (SF {sf_shown})"
     return None, f"SF {sf_shown} < {TIER_T4_MIN}"
+
+
+def _price_history(players: dict) -> list[dict[int, int]]:
+    """Recent daily prices ending today, oldest first, or `[]`. Never raises:
+    without history every bid is priced on its tier, as before.
+
+    The trader stores today's prices after this runs, so today is added here
+    from the morning's read — unless a retried run finds it already stored.
+    """
+    try:
+        today = price_history.prices_of(players or {})
+        history = price_history_store.recent(FALLING_DAYS + 1)
+    except Exception:
+        logger.warning("Price history unavailable — bidding on tiers alone.")
+        return []
+    if not history or history[-1] != today:
+        history.append(today)
+    return history
 
 
 def bid_sf(candidate: dict, would_be_bench: bool) -> tuple[int, Optional[str]]:
@@ -586,6 +626,7 @@ def run_auto_bid(ctx=None) -> dict:
 
     day = _today_madrid()
     already_bid = _already_bid_ids(day)
+    history = _price_history(ctx.biwenger_players)
 
     # Held back before the ladder starts. Candidates arrive best-first, so a
     # signing that needs the reserve is met before any chollo and takes what
@@ -677,7 +718,11 @@ def run_auto_bid(ctx=None) -> dict:
         spendable = remaining_cash - reserve
         # The reserve below gives way to a real signing that fits the wallet.
         target_bid, label = tier_bid(
-            priced_sf, candidate["price"], remaining_cash, label_sf=candidate["sf"]
+            priced_sf,
+            candidate["price"],
+            remaining_cash,
+            label_sf=candidate["sf"],
+            falls=max(0, -price_history.streak(history, candidate["player_id"])),
         )
         if cap_reason:
             label = f"{label} · rebajado: {cap_reason}"

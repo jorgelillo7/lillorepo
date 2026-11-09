@@ -351,8 +351,15 @@ def run_env():
         squad=None,
         oraculo_index=None,
         pending_bids=None,
+        price_history=None,
     ):
         stack = ExitStack()
+        stack.enter_context(
+            patch(
+                _patches("price_history_store.recent"),
+                return_value=list(price_history or []),
+            )
+        )
         mock_cfg = stack.enter_context(patch(_patches("config")))
         # `build_context()` returns the full orchestration context — patch
         # it once and feed a mock-Biwenger through. Beats patching the four
@@ -448,6 +455,82 @@ def test_run_auto_bid_places_tiered_bids_and_stops_when_cash_runs_out(run_env):
     assert result["skipped_count"] == 2  # Lewa + Pedri don't fit
     assert result["sent"] == 1
     mock_send.assert_called_once()
+
+
+def test_a_player_falling_two_days_is_bid_his_price_and_a_crumb(run_env):
+    """A falling player keeps falling (86 % of a 10-day cut), and the tier's
+    share bought Joan García and Koski on the way down, ~20 % lost each. He
+    is bid his price plus `FALLING_OVERBID`, never the bare price: a bid at
+    exactly the value is what everyone else bids."""
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Vinicius", 12_000_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Vinicius", 910)],
+        cash=20_000_000,
+        price_history=[{1: 12_400_000}, {1: 12_200_000}],
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=12_120_000)
+
+
+def test_one_day_down_is_not_a_fall(run_env):
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Vinicius", 12_000_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Vinicius", 910)],
+        cash=20_000_000,
+        price_history=[{1: 11_900_000}, {1: 12_200_000}],
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=13_800_000)
+
+
+def test_a_retry_does_not_count_today_twice(run_env):
+    """The trader stores today's prices after auto-bid runs; on a retried
+    digest they are already there, and adding them again would read as a flat
+    day and hide the fall."""
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Vinicius", 12_000_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Vinicius", 910)],
+        cash=20_000_000,
+        price_history=[{1: 12_400_000}, {1: 12_200_000}, {1: 12_000_000}],
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=12_120_000)
+
+
+def test_no_price_history_bids_the_tier_as_before(run_env):
+    market = [_sale(1)]
+    biwenger_players = {1: _bw(1, "Vinicius", 12_000_000)}
+    biwenger, _ = run_env(
+        market_players=market,
+        biwenger_players=biwenger_players,
+        jp_players=[_jp_with_sf("Vinicius", 910)],
+        cash=20_000_000,
+    )
+    with patch(
+        _patches("price_history_store.recent"), side_effect=RuntimeError("down")
+    ):
+        auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(player_id=1, amount=13_800_000)
+
+
+def test_tier_bid_names_the_fall():
+    with patch.object(auto_bid, "_jitter", return_value=0):
+        amount, label = auto_bid.tier_bid(910, 10_000_000, 50_000_000, falls=3)
+    assert amount == 10_100_000
+    assert "cae 3 días" in label
 
 
 def test_cash_already_promised_to_waiting_bids_is_not_bid_again(run_env):
