@@ -18,7 +18,7 @@ from html import escape
 from core.constants import MADRID_TZ
 from packages.biwenger_tools.api.logic import lineup
 from packages.biwenger_tools.api.logic.price_history import streak
-from packages.biwenger_tools.api.player_formatting import availability
+from packages.biwenger_tools.api.player_formatting import CANNOT_PLAY, availability
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,11 @@ class Rules:
     # Biwenger locks a signing's clause this long: a new keeper cannot be
     # claused, so the old one is kept as free cover until it ends.
     clause_lock_days: int = 0
+    # An absence that misses this many rounds is a sale; a shorter one is held.
+    absence_rounds: int = 2
+    # A player priced at or above this is never sold for an absence: a star's
+    # price comes back with him. 0 protects nobody.
+    star_price: int = 0
     # No buy from a club the squad already holds this many of; 0 is no cap.
     max_per_club: int = 0
 
@@ -74,6 +79,18 @@ def round_eve(rounds: list[dict] | None, now: float) -> bool:
     so only games not yet played count. An unreadable calendar answers True,
     the careful side.
     """
+    starts = round_starts(rounds, now)
+    if not starts:
+        return True
+    today = datetime.fromtimestamp(now, MADRID_TZ).date()
+    near = {today + timedelta(days=1), today + timedelta(days=2)}
+    return any(datetime.fromtimestamp(s, MADRID_TZ).date() in near for s in starts)
+
+
+def round_starts(rounds: list[dict] | None, now: float) -> tuple[float, ...]:
+    """When each pending round starts, soonest first: the first of its games
+    not yet played. The eleven freezes there, so these are the rounds a
+    player out until a given day misses."""
     starts = [
         min(unplayed)
         for r in rounds or []
@@ -86,11 +103,7 @@ def round_eve(rounds: list[dict] | None, now: float) -> bool:
             ]
         )
     ]
-    if not starts:
-        return True
-    today = datetime.fromtimestamp(now, MADRID_TZ).date()
-    near = {today + timedelta(days=1), today + timedelta(days=2)}
-    return any(datetime.fromtimestamp(s, MADRID_TZ).date() in near for s in starts)
+    return tuple(sorted(starts))
 
 
 def best_eleven_ids(rows: list[dict]) -> set:
@@ -120,12 +133,74 @@ def _days_held(row: dict, now: float) -> int | None:
 REBUY_DAYS = 14
 
 
-def _deadwood(row: dict, rules: Rules) -> bool:
-    """A bench player who would play and still projects under `dead_sf`. A
-    suspension or an injury zeroes the projection for a match or a month; it
-    says nothing about the player — Pape Gueye, sent off on 24/10, read as
-    deadwood until this."""
+# Without a calendar, an absence this long stands in for `absence_rounds`.
+LONG_ABSENCE_DAYS = 14
+
+_RETURN_DAY = {"principios": 5, "mediados": 15, "finales": 25}
+_MONTHS = (
+    "enero febrero marzo abril mayo junio julio agosto septiembre octubre "
+    "noviembre diciembre"
+).split()
+# Jornada Perfecta's statuses for a player who is out or may be.
+_ABSENT = CANNOT_PLAY | {"doubt"}
+
+
+def absence_days(jp_player: dict | None, now: float) -> float | None:
+    """Days until an absent player is expected back, from Jornada Perfecta's
+    `estimatedReturn` ("Finales de noviembre", "Vuelta indefinida", "Vuelta
+    inminente"): `inf` for indefinite, 0 for imminent or a date already past,
+    `None` when he is not absent or no estimate is given.
+
+    A month earlier than today's is next year's.
+    """
+    jp = jp_player or {}
+    if jp.get("status") not in _ABSENT:
+        return None
+    text = (jp.get("estimatedReturn") or "").strip().lower()
+    if not text:
+        return None
+    if "indefinida" in text:
+        return float("inf")
+    if "inminente" in text:
+        return 0
+    words = text.replace(" de ", " ").split()
+    if len(words) != 2 or words[0] not in _RETURN_DAY or words[1] not in _MONTHS:
+        return None
+    today = datetime.fromtimestamp(now, MADRID_TZ).date()
+    month = _MONTHS.index(words[1]) + 1
+    year = today.year + (1 if month < today.month - 1 else 0)
+    back = today.replace(year=year, month=month, day=_RETURN_DAY[words[0]])
+    return max(0, (back - today).days)
+
+
+def _long_absence(row: dict, now: float, rules: Rules, kickoffs=()) -> bool:
+    """Out for `rules.absence_rounds` rounds or more, counted on the rounds'
+    first kick-offs so an international break costs nothing — or, without a
+    calendar, for `LONG_ABSENCE_DAYS`. Never a player priced at
+    `rules.star_price` or more."""
+    days = absence_days(row.get("jp_player"), now)
+    if days is None:
+        return False
+    if rules.star_price and int(row.get("price") or 0) >= rules.star_price:
+        return False
+    if days == float("inf"):
+        return True
+    if not kickoffs:
+        return days >= LONG_ABSENCE_DAYS
+    back = now + days * 86_400
+    return sum(1 for k in kickoffs if now < k < back) >= rules.absence_rounds
+
+
+def _deadwood(row: dict, rules: Rules, now: float = 0.0, kickoffs=()) -> bool:
+    """A bench player who would play and still projects under `dead_sf`, or
+    one out for `LONG_ABSENCE_DAYS` or more. A suspension or a short injury
+    zeroes the projection for a match or two; it says nothing about the
+    player — Pape Gueye, sent off on 24/10, read as deadwood until this."""
+    if _long_absence(row, now, rules, kickoffs):
+        return True
     if availability(row.get("jp_player")) == "out":
+        return False
+    if absence_days(row.get("jp_player"), now) is not None:
         return False
     return lineup.projected_sf(row) < rules.dead_sf
 
@@ -140,6 +215,7 @@ def plan_sells(
     history: list[dict[int, int]],
     rules: Rules,
     now: float = 0.0,
+    kickoffs: tuple = (),
 ) -> tuple[list[Move], list[tuple[dict, str]], list[dict]]:
     """`(sells, held, keep)`: the players to sell at today's price — the
     fallers, and the bench projected below `dead_sf` whatever his price —
@@ -170,7 +246,7 @@ def plan_sells(
             (row, s)
             for row in squad
             if (s := streak(history, row["bw_id"])) <= -rules.sell_after_falls
-            or _deadwood(row, rules)
+            or _deadwood(row, rules, now, kickoffs)
             or row["bw_id"] in spare_keepers
         ),
         key=lambda rs: (lineup.projected_sf(rs[0]), rs[1]),
@@ -182,9 +258,11 @@ def plan_sells(
         if row["bw_id"] in starters:
             held.append((row, "titular del mejor once"))
             continue
-        if availability(row.get("jp_player")) == "out":
-            # Suspended or injured: out of the eleven and falling in price for
-            # a reason that ends. Selling then is selling at the bottom.
+        long_absence = _long_absence(row, now, rules, kickoffs)
+        if availability(row.get("jp_player")) == "out" and not long_absence:
+            # Suspended or briefly injured: out of the eleven and falling in
+            # price for a reason that ends soon. Selling then is selling at
+            # the bottom.
             held.append((row, "no puede jugar ahora; se valora cuando vuelva"))
             continue
         if row["bw_id"] in keeper_cover:
@@ -192,7 +270,7 @@ def plan_sells(
             continue
         days = _days_held(row, now)
         spare = row["bw_id"] in spare_keepers
-        dead = _deadwood(row, rules)
+        dead = _deadwood(row, rules, now, kickoffs)
         if days is not None and days < rules.hold_days:
             held.append((row, f"fichado hace {days} días, protegido {rules.hold_days}"))
             continue
@@ -207,6 +285,9 @@ def plan_sells(
         falling = s <= -rules.sell_after_falls
         if spare:
             why = "segundo portero: con dos, los dos se pueden clausular"
+        elif long_absence:
+            back = (row.get("jp_player") or {}).get("estimatedReturn")
+            why = f"baja larga: vuelve {str(back).lower()}"
         elif dead:
             why = f"proyección baja (SF {lineup.projected_sf(row)})" + (
                 f", {-s} días bajando" if falling else ""
@@ -318,11 +399,12 @@ def plan(
     already_bid: frozenset | set = frozenset(),
     now: float = 0.0,
     recently_owned: frozenset | set = frozenset(),
+    kickoffs: tuple = (),
 ) -> Plan:
     """The day's sells and bids, the sells assumed sold at today's price. Bids
     already waiting (`committed`) are spent; `floor` is the lowest the wallet
     may end at."""
-    sells, held, keep = plan_sells(squad, history, rules, now)
+    sells, held, keep = plan_sells(squad, history, rules, now, kickoffs)
     floor = 0 if round_eve else -negative_limit
     buys, skipped, wallet = plan_buys(
         keep,
