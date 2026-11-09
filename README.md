@@ -1,6 +1,6 @@
 # lillorepo
 
-Python monorepo targeting Google Cloud Platform. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project) and **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra).
+Monorepo of personal projects: Python services under Bazel, targeting Google Cloud Platform, plus one Node package outside Bazel. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project), **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra) and **Interactive Fiction** (a web reader for Twine stories, served from Cloudflare).
 
 > See [`STATUS.md`](STATUS.md) for the living maturity score, the full capability inventory and the multi-product state of the repo.
 
@@ -28,6 +28,8 @@ graph TD
     EUL[EU recognised-waters list] -->|refreshed by hand, reviewed as a PR| BW
     GS[Google Sheets] -->|competiciones| WEB
     USR -->|browse| WEB
+    STO[Author's story repo] -->|npm run deploy| IF[interactive_fiction<br/>Cloudflare static site]
+    USR -->|read + play| IF
 ```
 
 ## Packages
@@ -41,7 +43,7 @@ graph TD
 | `chucknorris_bot` | Webhook handler that fetches jokes from chucknorris.io | Cloud Run Service |
 | `be_water/web` | Open catalog of Spanish bottled waters: composition, provenance, similarity recommender, photo adds with Gemini label OCR, community ranking + achievements | Cloud Run Service (own GCP project `be-water-app`) |
 | `group_polls` | Backend of the Android app "¿Qué votáis?": Firestore security rules (tested against the emulator), moderation CLI. No server: the app talks to Firestore | Own GCP/Firebase project (not created yet; `infra/group_polls.tf` is off until then) |
-| `interactive_fiction` | Web reader for Twine/Harlowe interactive stories: one site per series, autosave, the end code carried between chapters, a validator and a path explorer that test a chapter before it ships. Node + Vite, outside Bazel; story text is not in the repo | Static site on Cloudflare (Workers static assets): `historias.interactive-fiction.workers.dev` |
+| `interactive_fiction` | Web reader for Twine/Harlowe interactive stories: one site per series, autosave, the end code carried between chapters, a validator and a path explorer that test a chapter before it ships. Node + Vite, outside Bazel; story text is not in the repo | Static site on Cloudflare (Workers static assets): `interactive-fiction.jorgelillo.workers.dev` |
 
 ## Repository Structure
 
@@ -59,7 +61,13 @@ graph TD
 
 ## Build System
 
-Built with [Bazel](https://bazel.build/) (bzlmod). All Python dependencies are pinned with hashes in `requirements_lock.txt`.
+Python is built with [Bazel](https://bazel.build/) (bzlmod). All Python dependencies are pinned with hashes in `requirements_lock.txt`.
+
+A package that is not Python lives outside Bazel with its own toolchain, its
+own CI job and its own runbook; Bazel would only add a second dependency graph
+for code that shares nothing with `core`. Today that is `interactive_fiction`:
+npm, a lockfile, the `Interactive fiction` job in `ci.yml` (a required check),
+and [its README](packages/interactive_fiction/README.md) for the commands.
 
 ```bash
 # Build everything
@@ -85,11 +93,11 @@ for its build/test/deploy commands.
 | Layer | Technology |
 |-------|-----------|
 | Build | Bazel 9.1 (bzlmod), rules_python, rules_oci, rules_pkg |
-| Language | Python 3.14 |
+| Language | Python 3.14; TypeScript on Node for `interactive_fiction` |
 | Web | Flask + Gunicorn |
 | Cloud | GCP — Cloud Run Services, Cloud Run Jobs, Secret Manager, Artifact Registry, Cloud Scheduler |
 | Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (competiciones) |
-| CI/CD | GitHub Actions |
+| CI/CD | GitHub Actions; `interactive_fiction` deploys by hand with Wrangler |
 
 ## Core Library
 

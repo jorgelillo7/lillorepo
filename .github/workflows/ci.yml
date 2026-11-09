@@ -1,7 +1,7 @@
 # CI gate for pull requests: lint + full test suite, no deploys.
 # Deploys stay exclusively in deploy.yml (push to master). Branch
-# protection on master requires the "Lint" and "Test" checks below, so a
-# red PR cannot be merged.
+# protection on master requires the "Lint", "Test" and "Interactive fiction"
+# checks below, so a red PR cannot be merged.
 name: CI
 
 on:
@@ -174,9 +174,10 @@ jobs:
           echo "${{ steps.affected.outputs.targets }}" | xargs \
             python3 scripts/coverage_report.py "$REPORT" >> "$GITHUB_STEP_SUMMARY"
 
-  # The interactive-fiction reader is a Node package outside Bazel. Not a
-  # required check: it only runs when the PR touches that package. The story
-  # text is not in the repo, so CI tests the engine on its own fixture story.
+  # The interactive-fiction reader is a Node package outside Bazel. A required
+  # check, so the job always runs and succeeds; its steps run only when the PR
+  # touches the package. The story text is not in the repo, so CI tests the
+  # engine on its own fixture story.
   interactive-fiction:
     name: Interactive fiction
     runs-on: ubuntu-latest
