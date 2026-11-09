@@ -1639,3 +1639,91 @@ def test_run_auto_bid_uses_the_context_it_is_handed(run_env):
 
     fresh.assert_not_called()
     handed.biwenger.get_market_players.assert_called_once()
+
+
+# --- a better captain under the 3M cap is worth the next tier's share --------
+
+
+def _row(sf, price, uncalled=False):
+    jp = {"predict": [{"type": 2, "rate": sf}], "status": "ok"}
+    if uncalled:
+        jp["nextMatch"] = {"playerInLineup": False}
+    return {"bw_id": sf, "price": price, "jp_player": jp}
+
+
+def test_a_captain_upgrade_is_bid_the_next_tiers_share():
+    """9/11: only Rioja (1.62 M, SF 383) and Koski (2.37 M, SF 315) were under
+    the league's 3 M captain cap, so the eleven's captain was a 383. A T3
+    under the cap who would captain better is worth T2's share."""
+    with patch.object(auto_bid, "_jitter", return_value=0):
+        amount, label = auto_bid.tier_bid(412, 2_690_000, 50_000_000, captain=True)
+    assert amount == round(2_690_000 * (1 + auto_bid.TIER_T2_OVERBID))
+    assert "capitán" in label
+
+
+def test_a_falling_price_still_wins_over_the_captain_upgrade():
+    with patch.object(auto_bid, "_jitter", return_value=0):
+        amount, _ = auto_bid.tier_bid(412, 2_690_000, 50_000_000, falls=2, captain=True)
+    assert amount == round(2_690_000 * (1 + auto_bid.FALLING_OVERBID))
+
+
+def test_the_best_captain_is_the_highest_eligible_projection_in_the_squad():
+    squad = [_row(539, 3_840_000), _row(383, 1_620_000), _row(315, 2_370_000)]
+
+    assert auto_bid.best_captain_sf(squad) == 383
+
+
+def test_only_a_better_captain_under_the_cap_gets_the_upgrade():
+    squad = [_row(383, 1_620_000)]
+
+    better = {"sf": 412, "price": 2_690_000, "uncalled": False}
+    worse = {"sf": 370, "price": 2_000_000, "uncalled": False}
+    dear = {"sf": 600, "price": 3_010_000, "uncalled": False}
+    benched = {"sf": 450, "price": 2_000_000, "uncalled": True}
+
+    assert auto_bid.captain_upgrade(better, squad) is True
+    assert auto_bid.captain_upgrade(worse, squad) is False
+    assert auto_bid.captain_upgrade(dear, squad) is False
+    assert auto_bid.captain_upgrade(benched, squad) is False
+    assert auto_bid.captain_upgrade(better, None) is False
+
+
+def test_a_better_captain_on_the_market_is_bid_the_tier_above(run_env):
+    """End to end: the squad's only captain under the cap is Rioja at 383;
+    Pedrosa at 2.69 M and SF 412, who walks into a weak back line, is bid
+    T2's share, not T3's."""
+    squad = {
+        10: ("Portero", 1, 500, 5_000_000),
+        11: ("Def A", 2, 300, 4_000_000),
+        12: ("Def B", 2, 300, 4_000_000),
+        13: ("Def C", 2, 300, 4_000_000),
+        14: ("Med A", 3, 500, 5_000_000),
+        15: ("Med B", 3, 500, 5_000_000),
+        16: ("Med C", 3, 500, 5_000_000),
+        5: ("Rioja", 3, 383, 1_620_000),
+        17: ("Del A", 4, 500, 5_000_000),
+        18: ("Del B", 4, 500, 5_000_000),
+        19: ("Del C", 4, 500, 5_000_000),
+    }
+    biwenger_players = {
+        1: {**_bw(1, "Pedrosa", 2_690_000), "position": 2},
+        **{
+            pid: {**_bw(pid, name, price), "position": pos}
+            for pid, (name, pos, _, price) in squad.items()
+        },
+    }
+    jp_players = [_jp_with_sf("Pedrosa", 412)] + [
+        _jp_with_sf(name, sf) for name, _, sf, _ in squad.values()
+    ]
+    biwenger, _ = run_env(
+        market_players=[_sale(1)],
+        biwenger_players=biwenger_players,
+        jp_players=jp_players,
+        cash=20_000_000,
+        squad=[{"id": pid} for pid in squad],
+    )
+    auto_bid.run_auto_bid()
+
+    biwenger.place_market_bid.assert_called_once_with(
+        player_id=1, amount=round(2_690_000 * (1 + auto_bid.TIER_T2_OVERBID))
+    )

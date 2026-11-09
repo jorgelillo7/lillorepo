@@ -52,6 +52,7 @@ _POSITION_LABELS = {GK: "POR", DEF: "DEF", MID: "MED", FWD: "DEL"}
 # owner.price 1.6M, cf-base 3.16M; server rejected when we picked him).
 # `row["price"]` is the cf-base value, so the cap applies exactly.
 _CAPTAIN_MAX_PRICE = 3_000_000
+CAPTAIN_MAX_PRICE = _CAPTAIN_MAX_PRICE
 
 # Score we attribute to a player JP has explicitly marked as not in the lineup.
 # What a player scores when JP leaves him out of its projected XI *and* his
@@ -854,14 +855,17 @@ def _pick_captain(starters: list) -> dict | None:
     none. Returning `None` is the better outcome when the only candidates are
     players the provider says are starting on the bench.
     """
-    eligible = [
-        r
-        for r in starters
-        if 0 < r.get("price", 0) < _CAPTAIN_MAX_PRICE and not _is_uncalled(r)
-    ]
+    eligible = [r for r in starters if captain_eligible(r)]
     if not eligible:
         return None
     return max(eligible, key=_sf)
+
+
+def captain_eligible(row: dict) -> bool:
+    """Whether Biwenger lets him captain — a known cf-base price under the 3M
+    cap — and JP has him in its eleven. Shared with auto-bid, which values a
+    signing who would captain better than anyone the squad has."""
+    return 0 < row.get("price", 0) < _CAPTAIN_MAX_PRICE and not _is_uncalled(row)
 
 
 # ---------------------------------------------------------------------------

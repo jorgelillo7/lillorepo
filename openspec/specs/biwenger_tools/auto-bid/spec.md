@@ -7,6 +7,7 @@ computer-owned free agents Biwenger exposes each morning, attaches SofaScore
 until cash runs out, then reports the run to Telegram.
 
 - **Source:** `packages/biwenger_tools/api/logic/auto_bid.py`,
+  `lineup.py` (`captain_eligible`),
   `packages/biwenger_tools/api/logic/auction_calibration.py`,
   `packages/biwenger_tools/scripts/auto_bid/calibrate.py`
 - **Verified by:** `packages/biwenger_tools/api/tests/test_auto_bid.py`,
@@ -89,6 +90,33 @@ first.
   `test_a_retry_does_not_count_today_twice`,
   `test_no_price_history_bids_the_tier_as_before`,
   `test_tier_bid_names_the_fall`
+
+### Requirement: A better captain under the cap is bid the tier above
+
+Biwenger only lets a player under 3M captain (`lineup.CAPTAIN_MAX_PRICE`). A
+market player under that cap whom JP has in its eleven, and whose SF beats
+the best captain the squad can field today (`best_captain_sf`, the same
+eligibility as the lineup's, `lineup.captain_eligible`), SHALL be bid the
+share of the tier above his own (T3 → T2's +8 %), and the summary SHALL say
+"mejor capitán posible <3M". A falling price still wins (price plus
+`FALLING_OVERBID`), and the T3/T4 rule that he must make the eleven still
+decides whether he is bid at all.
+
+On 9/11 the squad had two players under the cap, Rioja (SF 383) and Koski
+(315), so the eleven's captain was a 383 in a league where the captain is
+the decision that loses most points against hindsight (~8 a round).
+
+#### Scenario: who gets the upgrade
+- **WHEN** a player under the cap beats the squad's best eligible captain
+  **THEN** he is bid the tier above
+- **WHEN** he does not beat it, costs 3M or more, is out of JP's eleven, or
+  the squad cannot be read **THEN** his tier is unchanged
+- **WHEN** he is also falling **THEN** the falling rule wins
+- *Verifies:* `test_a_captain_upgrade_is_bid_the_next_tiers_share`,
+  `test_a_falling_price_still_wins_over_the_captain_upgrade`,
+  `test_the_best_captain_is_the_highest_eligible_projection_in_the_squad`,
+  `test_only_a_better_captain_under_the_cap_gets_the_upgrade`,
+  `test_a_better_captain_on_the_market_is_bid_the_tier_above`
 
 ### Requirement: A closed round's unpaid prize counts as cash
 
