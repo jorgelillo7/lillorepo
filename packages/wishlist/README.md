@@ -24,6 +24,11 @@ SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spa
 - **Names are private.** The public state never carries them. `/admin`, behind Basic
   auth, shows who reserved what and can release or mark any gift, for the guest who
   changed phone or forgot.
+- **`/admin` on the home screen.** It has its own manifest (`/admin.webmanifest`),
+  so "Add to Home Screen" from `/admin` opens `/admin`. Turn off "Open as Web App":
+  in Safari the saved password fills in, and a web app never offers it. The admin
+  user is `regalos`, not `jorge`. Safari treats every `*.jorgelillo.workers.dev`
+  site as one for autofill, so the user name is what tells the logins apart.
 - **Photos are public**, so `npm run photo` turns them upright and removes their
   metadata, GPS included, before they enter the repo.
 
@@ -57,7 +62,7 @@ npm run photo -- ~/Downloads/IMG_1234.jpg lego-fire-station   # add a photo
 npm run build                            # check gifts.json, write dist/
 npm run dev                              # local site with a local D1 at http://localhost:8787
 npm run deploy                           # migrations + upload
-npm run set-admin                        # once: /admin credentials, password left on the clipboard
+npm run set-admin                        # once: /admin credentials (user "regalos"), password left on the clipboard
 ```
 
 Day-to-day steps (adding gifts, a new occasion, fixing a claim) are in

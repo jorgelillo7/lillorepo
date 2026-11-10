@@ -83,8 +83,8 @@ be served only by their clean paths, so `admin.html` cannot be fetched around th
 
 #### Scenario: pages
 - **WHEN** a page is requested by its `.html` path or an unknown API path is requested
-- **THEN** the answer is 404
-- *Verifies:* `worker.test.ts: serves the list and its files, and no page by its .html path`
+- **THEN** the answer is 404, while `/admin.webmanifest` is served without credentials so a home-screen shortcut to `/admin` keeps its name, icon and start page
+- *Verifies:* `worker.test.ts: serves the list and its files, the admin manifest without credentials, and no page by its .html path`
 
 ### Requirement: The list and its photos are safe to publish
 

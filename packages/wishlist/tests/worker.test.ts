@@ -177,13 +177,14 @@ describe("admin", () => {
 });
 
 describe("pages", () => {
-  test("serves the list and its files, and no page by its .html path", async () => {
+  test("serves the list and its files, the admin manifest without credentials, and no page by its .html path", async () => {
     const guest = visitor();
     expect((await guest("/")).status).toBe(200);
     expect((await guest("/gifts.json")).status).toBe(200);
+    expect((await guest("/admin.webmanifest")).status).toBe(200);
     expect((await guest("/admin.html")).status).toBe(404);
     expect((await guest("/index.html")).status).toBe(404);
     expect((await guest("/api/nothing")).status).toBe(404);
-    expect(served).toEqual(["/", "/gifts.json"]);
+    expect(served).toEqual(["/", "/gifts.json", "/admin.webmanifest"]);
   });
 });
