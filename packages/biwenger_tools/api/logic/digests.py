@@ -152,10 +152,12 @@ def _safe_send_section(
         return False, 0
 
 
-def _safe_run_auto_bid(ctx) -> dict:
+def _safe_run_auto_bid(ctx, quiet_if_idle: bool = False) -> dict:
     """Run auto-bid on the digest's session but never raise — the digest
     above already shipped."""
     try:
+        if quiet_if_idle:
+            return auto_bid.run_auto_bid(ctx, quiet_if_idle=True)
         return auto_bid.run_auto_bid(ctx)
     except Exception as exc:
         logger.exception("Auto-bid step failed inside daily digest.")
@@ -356,7 +358,7 @@ def _run_daily_inner() -> dict:
     # bids with it. The first pass's bids are in its log and are not repeated.
     second_bid = None
     if trader_result.get("sold") and not _auto_bid_pause_active():
-        second_bid = _safe_run_auto_bid(ctx)
+        second_bid = _safe_run_auto_bid(ctx, quiet_if_idle=True)
     offers_result = _safe_run_offers_inbox(ctx, set(trader_result.get("selling") or []))
 
     sent_count = int(team_sent) + int(market_sent)

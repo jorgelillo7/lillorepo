@@ -724,6 +724,7 @@ def test_auto_bid_runs_again_with_the_money_the_trader_raised():
         stack.close()
 
     assert mock_auto_bid.call_count == 2
+    assert mock_auto_bid.call_args.kwargs == {"quiet_if_idle": True}
     assert "auto_bid_after_sales" in result
 
 

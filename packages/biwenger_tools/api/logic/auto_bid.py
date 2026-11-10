@@ -641,13 +641,15 @@ def _maybe_notify(text: str) -> int:
     return 1
 
 
-def run_auto_bid(ctx=None) -> dict:
+def run_auto_bid(ctx=None, *, quiet_if_idle: bool = False) -> dict:
     """Walk the daily market, place tiered bids, log + notify.
 
     `ctx` lets the daily digest hand over its session, so chaining this step
     costs no second login. Returns a summary dict consumed by the route
     handler. Side effects: N `POST /api/v2/offers`, Firestore writes per
-    successful bid, one Telegram message.
+    successful bid, one Telegram message — none with `quiet_if_idle` when
+    nothing was bid, as on the digest's second pass, whose skips would only
+    repeat the first summary.
     """
     ctx = ctx or build_context()
     biwenger = ctx.biwenger
@@ -896,7 +898,7 @@ def run_auto_bid(ctx=None) -> dict:
 
     total_bid = sum(entry["bid"] for entry in placed)
     text = _format_telegram_text(day, placed, skipped, total_bid, remaining_cash, prize)
-    sent = _maybe_notify(text)
+    sent = 0 if quiet_if_idle and not placed else _maybe_notify(text)
 
     logger.info(
         "Auto-bid run finished.",
