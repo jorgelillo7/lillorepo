@@ -68,7 +68,7 @@ Python is built with [Bazel](https://bazel.build/) (bzlmod). All Python dependen
 A package that is not Python lives outside Bazel with its own toolchain, its
 own CI job and its own runbook; Bazel would only add a second dependency graph
 for code that shares nothing with `core`. Today that is `interactive_fiction`
-and `wishlist`: npm, a lockfile, a job each in `ci.yml` (`Interactive fiction`
+and `wishlist`: npm, a lockfile, a required job each in `ci.yml` (`Interactive fiction`
 and `Wishlist`), and their READMEs ([interactive_fiction](packages/interactive_fiction/README.md),
 [wishlist](packages/wishlist/README.md)) for the commands.
 

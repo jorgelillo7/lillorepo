@@ -91,7 +91,7 @@ If it's urgent, the fast path is the same path: branch, PR, wait for the
 required checks, merge.
 
 This is enforced, not just policy: `master` has branch protection (required
-status checks `Lint`, `Test` and `Interactive fiction` from `ci.yml`, branches up to date with
+status checks `Lint`, `Test`, `Interactive fiction` and `Wishlist` from `ci.yml`, branches up to date with
 `master` before merging, `enforce_admins` on, no force-pushes). A direct push is rejected by GitHub regardless of intent.
 
 ```bash
