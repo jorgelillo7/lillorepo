@@ -7,6 +7,10 @@
 <meta name="robots" content="noindex">
 <title>Regalos</title>
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Regalos">
+<meta name="theme-color" content="#b3261e">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
@@ -21,8 +25,14 @@
     <p class="how">Elige un regalo y pulsa <strong>Lo regalo yo</strong> para que nadie más lo compre. Cuando lo tengas, márcalo como comprado.</p>
   </header>
   <nav class="filters" aria-label="Filtros">
-    <div class="chips" id="whoFilter" role="group" aria-label="Para quién"></div>
-    <div class="chips" id="statusFilter" role="group" aria-label="Estado"></div>
+    <div class="filter-level" id="whoLevel">
+      <span class="filter-label">Para</span>
+      <div class="segmented" id="whoFilter" role="group" aria-label="Para quién"></div>
+    </div>
+    <div class="filter-level">
+      <span class="filter-label">Estado</span>
+      <div class="chips" id="statusFilter" role="group" aria-label="Estado"></div>
+    </div>
   </nav>
   <p class="error" id="error" role="alert" hidden></p>
   <section class="grid" id="gifts" aria-label="Regalos" aria-live="polite"></section>

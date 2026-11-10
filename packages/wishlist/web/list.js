@@ -85,35 +85,42 @@ const recipientLabel = (id) => list.recipients?.find((recipient) => recipient.id
 const forWho = (gift) => !filter.who || gift.for === filter.who;
 const inStatus = (gift, status) => !status.test || Boolean(status.test(claims.get(gift.id)));
 
-function chips(container, options, selected, count, choose) {
+function buttons(container, kind, options, selected, count, choose) {
   container.replaceChildren(
     ...options.map((option) => {
-      const chip = el(
+      const button = el(
         "button",
-        { class: "chip", type: "button", "aria-pressed": String(option.id === selected) },
+        {
+          class: kind,
+          type: "button",
+          "aria-pressed": String(option.id === selected),
+          "data-state": kind === "chip" ? option.id || "todos" : null,
+        },
+        kind === "chip" && option.id ? el("span", { class: "dot", "aria-hidden": "true" }) : null,
         option.label,
         el("span", { class: "n" }, count(option)),
       );
-      chip.addEventListener("click", () => choose(option.id));
-      return chip;
+      button.addEventListener("click", () => choose(option.id));
+      return button;
     }),
   );
 }
 
 function renderFilters() {
   const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
-  const who = document.getElementById("whoFilter");
   const recipients = list.recipients ?? [];
-  who.hidden = recipients.length < 2;
-  chips(
-    who,
+  document.getElementById("whoLevel").hidden = recipients.length < 2;
+  buttons(
+    document.getElementById("whoFilter"),
+    "segment",
     [{ id: "", label: "Ambos" }, ...recipients],
     filter.who,
     (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && inStatus(g, status)).length,
     (id) => setFilter({ who: id }),
   );
-  chips(
+  buttons(
     document.getElementById("statusFilter"),
+    "chip",
     STATUSES,
     status.id,
     (option) => list.gifts.filter((g) => forWho(g) && inStatus(g, option)).length,
