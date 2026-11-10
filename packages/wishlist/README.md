@@ -42,6 +42,7 @@ wishlist/
 ├── photos/               # 1280 px JPEGs without metadata, named after the gift id
 ├── web/                  # The list page, the admin page, styles and scripts
 ├── assets/icon.svg       # Home-screen icon; web/ holds it as SVG and 180, 192, 512 px PNGs
+├── assets/admin-icon.svg # The same gift in green with a tick, for the /admin shortcut
 ├── src/app.ts            # Routes, claims, Basic auth; src/worker.ts only exports it
 ├── migrations/           # D1 schema
 ├── scripts/build.ts      # Checks gifts.json and writes dist/ for the Worker
@@ -72,6 +73,7 @@ Day-to-day steps (adding gifts, a new occasion, fixing a claim) are in
 
 `assets/icon.svg` is the source. After changing it, render the PNGs with headless
 Chrome at 180 (`web/apple-touch-icon.png`, iOS), 192 and 512 (`web/icon-*.png`, the
-manifest for Android), and copy the SVG to `web/icon.svg`. Use a throwaway
+manifest for Android), and copy the SVG to `web/icon.svg`. `assets/admin-icon.svg` goes the same way to
+`web/admin-touch-icon.png`, `web/admin-icon-*.png` and `web/admin-icon.svg`. Use a throwaway
 `--user-data-dir` and a new file name each time, because Chrome caches a `file://`
 image. A phone keeps the icon it saved, so the shortcut has to be added again.
