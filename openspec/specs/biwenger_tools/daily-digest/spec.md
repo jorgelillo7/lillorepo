@@ -124,7 +124,8 @@ with the cash the sales raised, and report it as `auto_bid_after_sales`. On
 9/11 Lemar's 4.17 M sat unused until the next morning while Aubameyang had
 been skipped for cash minutes before. The first pass's bids are in its log
 and every waiting bid is skipped, so nothing is bid twice; while auto-bid is
-paused there is no second pass either.
+paused there is no second pass either. A second pass that bids nothing SHALL
+send nothing: its skips are the first summary's, word for word (10/11).
 
 #### Scenario: happy path ordering
 - **WHEN** credentials are present and both images send
@@ -135,7 +136,9 @@ paused there is no second pass either.
   `test_run_daily_chains_offers_inbox_after_auto_bid`,
   `test_the_trader_runs_before_the_offers_and_hands_them_its_sells`,
   `test_auto_bid_runs_again_with_the_money_the_trader_raised`,
-  `test_no_sale_means_no_second_auto_bid_pass`
+  `test_no_sale_means_no_second_auto_bid_pass`,
+  `test_a_quiet_run_that_bids_nothing_sends_nothing`,
+  `test_a_quiet_run_that_bids_still_reports`
 
 #### Scenario: no credentials
 - **WHEN** Telegram credentials are missing

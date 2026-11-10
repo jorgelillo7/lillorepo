@@ -1727,3 +1727,30 @@ def test_a_better_captain_on_the_market_is_bid_the_tier_above(run_env):
     biwenger.place_market_bid.assert_called_once_with(
         player_id=1, amount=round(2_690_000 * (1 + auto_bid.TIER_T2_OVERBID))
     )
+
+
+def test_a_quiet_run_that_bids_nothing_sends_nothing(run_env):
+    """The second pass after the trader's sales repeats the first summary
+    when it bids nothing — the same skips, word for word (10/11)."""
+    biwenger, mock_send = run_env(
+        market_players=[_sale(3)],
+        biwenger_players={3: _bw(3, "Pedri", 3_000_000)},
+        jp_players=[_jp_with_sf("Pedri", 200)],
+        cash=10_000_000,
+    )
+    result = auto_bid.run_auto_bid(quiet_if_idle=True)
+
+    mock_send.assert_not_called()
+    assert result["sent"] == 0
+
+
+def test_a_quiet_run_that_bids_still_reports(run_env):
+    biwenger, mock_send = run_env(
+        market_players=[_sale(3)],
+        biwenger_players={3: _bw(3, "Pedri", 3_000_000)},
+        jp_players=[_jp_with_sf("Pedri", 500)],
+        cash=10_000_000,
+    )
+    auto_bid.run_auto_bid(quiet_if_idle=True)
+
+    mock_send.assert_called_once()
