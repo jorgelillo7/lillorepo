@@ -48,7 +48,7 @@ master`) **before** merging this one.
 gh pr checks <pr>
 ```
 
-`Lint`, `Test` and `Interactive fiction` passing. If a check never appeared, `ci.yml` may not have
+`Lint`, `Test`, `Interactive fiction` and `Wishlist` passing. If a check never appeared, `ci.yml` may not have
 fired — re-push or use `gh workflow run`.
 
 `master` requires the branch to be up to date before merging. If another PR
