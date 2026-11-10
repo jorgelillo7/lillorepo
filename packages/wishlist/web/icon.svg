@@ -1,1 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#b3261e"/><rect x="12" y="28" width="40" height="26" rx="3" fill="#fff"/><rect x="9" y="20" width="46" height="10" rx="3" fill="#fff"/><rect x="29" y="20" width="6" height="34" fill="#2f6b4f"/><path d="M32 20c-4-9-14-9-12-3 1 3 7 3 12 3zm0 0c4-9 14-9 12-3-1 3-7 3-12 3z" fill="none" stroke="#fff" stroke-width="3"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="0.3" cy="0.2" r="1">
+      <stop offset="0" stop-color="#d93a2f"/>
+      <stop offset="1" stop-color="#7f1611"/>
+    </radialGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffaf2"/>
+      <stop offset="1" stop-color="#efe4d2"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f4ead9"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd76a"/>
+      <stop offset="1" stop-color="#e0a21b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- snow dots -->
+  <g fill="#ffffff" opacity=".35">
+    <circle cx="70" cy="90" r="7"/><circle cx="430" cy="70" r="5"/><circle cx="455" cy="190" r="8"/>
+    <circle cx="55" cy="250" r="5"/><circle cx="120" cy="40" r="4"/><circle cx="395" cy="140" r="4"/>
+  </g>
+  <!-- sparkle -->
+  <path d="M418 88 l11 27 27 11 -27 11 -11 27 -11 -27 -27 -11 27 -11z" fill="#ffd76a"/>
+  <path d="M88 150 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6z" fill="#ffd76a" opacity=".8"/>
+  <!-- shadow -->
+  <ellipse cx="256" cy="440" rx="150" ry="18" fill="#000" opacity=".22"/>
+  <!-- box -->
+  <rect x="116" y="232" width="280" height="200" rx="18" fill="url(#box)"/>
+  <rect x="226" y="232" width="60" height="200" fill="#2f7a55"/>
+  <!-- lid -->
+  <rect x="96" y="186" width="320" height="64" rx="16" fill="url(#lid)"/>
+  <rect x="222" y="186" width="68" height="64" fill="#38915f"/>
+  <!-- bow -->
+  <path d="M256 186 C 214 120, 140 118, 150 160 C 158 192, 222 190, 256 186 Z" fill="url(#gold)"/>
+  <path d="M256 186 C 298 120, 372 118, 362 160 C 354 192, 290 190, 256 186 Z" fill="url(#gold)"/>
+  <path d="M256 186 C 230 150, 186 146, 184 162 C 183 176, 226 184, 256 186 Z" fill="#c98a12" opacity=".45"/>
+  <path d="M256 186 C 282 150, 326 146, 328 162 C 329 176, 286 184, 256 186 Z" fill="#c98a12" opacity=".45"/>
+  <circle cx="256" cy="184" r="20" fill="#f2b631"/>
+</svg>
