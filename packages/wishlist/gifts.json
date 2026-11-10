@@ -87,6 +87,70 @@
       "detail": "Klein · 41 piezas, con luz y sonido · 3+",
       "note": "Visto en Juguettos a 39,99 € (oferta; PVP 44,99 €).",
       "photo": "klein-checkout.jpg"
+    },
+    {
+      "id": "dulce-hogar-blender",
+      "for": "older",
+      "title": "Batidora de juguete",
+      "detail": "DulceHogar · con frutas, luz y sonido · 3+",
+      "note": "Visto en Juguettos a 14,99 € (Precio Club 13,49 €).",
+      "photo": "dulce-hogar-blender.jpg"
+    },
+    {
+      "id": "spidey-bubble-pirate-ship",
+      "for": "older",
+      "title": "Barco pirata de Spidey con burbujas",
+      "detail": "Spidey y sus Amigos Water-Webs · Hasbro · 2 figuras · 3+",
+      "note": "Visto en Juguettos a 39,99 €.",
+      "photo": "spidey-bubble-pirate-ship.jpg"
+    },
+    {
+      "id": "paw-patrol-dino-hq",
+      "for": "older",
+      "title": "Cuartel móvil Dino de la Patrulla Canina",
+      "detail": "Paw Patrol Dino Mobile Headquarters · 55 cm, luz y sonido · 3+",
+      "note": "Visto en Juguettos a 89,99 €.",
+      "photo": "paw-patrol-dino-hq.jpg"
+    },
+    {
+      "id": "superthings-bite-attack",
+      "for": "older",
+      "title": "SuperThings Bite Attack",
+      "detail": "Vehículo Kazoom Power con Doc Vroom exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 24,99 €.",
+      "photo": "superthings-bite-attack.jpg"
+    },
+    {
+      "id": "piratix-beast-fortress",
+      "for": "older",
+      "title": "Piratix: Beast Fortress Kraken",
+      "detail": "Fortaleza con Captain Squid Lord exclusivo · Magic Box",
+      "note": "Visto en Juguettos a 14,99 €.",
+      "photo": "piratix-beast-fortress.jpg"
+    },
+    {
+      "id": "hexbots-wall-gecko",
+      "for": "older",
+      "title": "Hex Bots: lagarto que trepa por las paredes",
+      "detail": "Teledirigido, brilla en la oscuridad · 4+",
+      "note": "Visto en Juguettos a 29,99 €.",
+      "photo": "hexbots-wall-gecko.jpg"
+    },
+    {
+      "id": "rc-lightning-mcqueen",
+      "for": "older",
+      "title": "Rayo McQueen teledirigido",
+      "detail": "Cars RC Turbo Racer · Jada · 1:24, carga por USB · 4+",
+      "note": "Visto en Juguettos a 34,99 € (oferta; PVP 39,99 €).",
+      "photo": "rc-lightning-mcqueen.jpg"
+    },
+    {
+      "id": "nenittos-learning-tablet",
+      "for": "older",
+      "title": "Mi tablet de aprendizaje",
+      "detail": "Nenittos · bilingüe español e inglés, luces y sonidos · 24 meses+",
+      "note": "Visto en Juguettos a 29,99 € (Precio Club 26,99 €).",
+      "photo": "nenittos-learning-tablet.jpg"
     }
   ]
 }
