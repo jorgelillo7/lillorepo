@@ -31,11 +31,13 @@ Lloros Awards incident on 2026-08-27 made it 9.35.
 2. **Keyless deploys.** Workload Identity Federation end to end, including the
    cross-project be_water deploy. No key is involved in building or deploying;
    the one key left is runtime, the Sheets reader in `biwenger_tools/web`.
-3. **One source of truth, and it holds.** The 2026-09-30 docs audit found
-   **zero broken links across 56 documents**. Facts had drifted; structure had
-   not.
-4. **Behaviour specs wired to tests.** 40 specs, 364 scenarios, 1,072 test
-   names cited and every one of them exists — checked, not assumed.
+3. **One source of truth, and it holds.** The `docs-audit` skill hunts broken
+   relative links across every Markdown file; it finds none. Facts drift;
+   structure does not.
+4. **Behaviour specs wired to tests.** Every scenario names its test, and
+   `python3 scripts/check_specs.py` (part of `scripts/lint.sh`, so of every CI
+   run) fails when a named test does not exist; it prints the spec and scenario
+   counts. Checked, not assumed.
 5. **CI that reasons about the graph.** Pull requests run only the suites a
    change can break, derived from `rdeps` rather than a list that would rot;
    `master` always runs everything. A docs PR's test job: 89s → 21s. Lint is
@@ -60,6 +62,11 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   `biwenger-bot` (Telegram webhook), `biwenger-summary` (analytics web),
   `chucknorris-bot`, `be-water` (own GCP project).
 - **Jobs** — weekly league-board scraper, monthly be_water catalog sync.
+- **Outside GCP** — `interactive_fiction`, a story reader served from
+  Cloudflare, and `wishlist`, a shared gift list on a Cloudflare Worker with
+  D1; both Node, outside Bazel, tested by their own required CI jobs and
+  deployed by hand with Wrangler. `group_polls` holds the Firestore rules and
+  moderation CLI for an Android app; its Firebase project is not created yet.
 - **Auto-bid engine** — a flat share over the price per tier (+15 / +8 / +6 /
   +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
   start, at most three starters per club, jitter and Firestore idempotency.
@@ -90,7 +97,7 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   default compute account holds no role), keyless deploys from `master` only
   with every action pinned to a commit, webhook HMAC, service-to-service OIDC,
   nonce-based CSP on both webs, CSRF, rate limits keyed on the real client IP,
-  daily caps on Gemini, HTML sanitisation. No key files anywhere.
+  daily caps on Gemini (quota overrides on the paid project, plus a per-day counter of paid calls kept in Firestore), HTML sanitisation. No key files anywhere.
 
 ## What we know vs what we assume
 

@@ -18,6 +18,10 @@ on:
   # outage the only way to re-fire CI was pushing an empty commit.
   workflow_dispatch:
 
+# Read-only token: CI only checks out code and restores caches.
+permissions:
+  contents: read
+
 # A new push to the PR obsoletes the previous run — cancel it.
 #
 # Note when re-running by hand: a manual re-run shares this group, so if it
@@ -151,7 +155,7 @@ jobs:
         if: steps.affected.outputs.targets != ''
         run: |
           # `--build_tests_only` keeps this to the tests and their deps; without
-          # it `//...` would also build all 40 image and tar targets.
+          # it `//...` would also build every image and tar target.
           #
           # The target list comes from `rdeps` over the real build graph, never
           # from a per-module list in this file: the two workflows used to keep

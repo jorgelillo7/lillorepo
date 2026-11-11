@@ -186,6 +186,35 @@ page reads.
 - *Verifies:* `test_add_with_photo_tmp_promotes_both_and_stores_urls`,
   `test_add_water_saves_and_redirects`
 
+### Requirement: A submission may only carry photo names the upload step made
+
+`photo_tmp` and `label_tmp` SHALL each be empty or exactly a name the upload step
+produced (`uploads/<32 hex>.jpg`, or `uploads/<32 hex>-label.jpg`). Any other
+value SHALL answer 400 before anything is copied, deleted or saved, and the form
+SHALL never echo such a value back. A `merge_into` SHALL be an id (what `slugify`
+returns for itself), and a name whose id is empty SHALL answer 400 before any
+read.
+
+The save moves each temporary photo and then removes it, so the name decides which
+stored object is touched; the form is the only place a client can influence it.
+The name is built and checked by the same code (`photos.upload_name`,
+`photos.is_upload_name`), so the two cannot drift apart.
+
+#### Scenario: names, merge targets and empty ids
+- **WHEN** a name points outside `uploads/`, uses `..`, an encoded slash, a leading
+  slash, a URL, another extension, or another water's permanent photo
+  **THEN** 400 and nothing is promoted, deleted or saved
+- **WHEN** both are empty **THEN** the water saves without photos
+- **WHEN** the photo flow mints its names **THEN** both pass the check
+- **WHEN** the origin form is rendered with a foreign name **THEN** it is not echoed
+- **WHEN** `merge_into` is not an id, or the name slugs to nothing **THEN** 400 and no read
+- *Verifies:* `test_a_photo_name_the_upload_step_did_not_make_is_refused`,
+  `test_a_submission_without_photos_is_still_accepted`,
+  `test_the_names_the_photo_flow_mints_are_names_the_save_accepts`,
+  `test_a_foreign_photo_name_is_never_echoed_back_into_the_form`,
+  `test_a_merge_target_must_be_an_id`,
+  `test_a_name_that_slugs_to_nothing_is_refused_before_any_read`
+
 ### Requirement: The country decides whether Spanish geography applies
 
 `Water.country` SHALL be written on save from a closed vocabulary

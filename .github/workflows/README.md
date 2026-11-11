@@ -9,6 +9,9 @@ Four workflows. The two that test deliberately do **not** run the same tests.
 | [`deploy-watchdog.yml`](#deploy-watchdogyml) | daily | — (dispatches `deploy.yml` if a push event was lost) |
 | [`infra.yml`](#infrayml--terraform-plan) | pull requests touching `infra/` · Mondays | — (`terraform plan`, read-only) |
 
+No workflow deploys to Cloudflare: the `interactive_fiction` and `wishlist`
+Workers are deployed by hand with Wrangler (see each package's `OPERATIONS.md`).
+
 Scoping is a pull-request optimisation. The branch that deploys keeps verifying
 everything, so nothing reaches production having been tested selectively.
 
@@ -16,7 +19,10 @@ everything, so nothing reaches production having been tested selectively.
 
 ## `ci.yml` — the pull-request gate
 
-Two parallel jobs, `Lint` and `Test`, both required by branch protection.
+Four parallel jobs, all required by branch protection: `Lint`, `Test`, and one
+per Node package outside Bazel, `Interactive fiction` and `Wishlist`. The Node
+jobs always run and succeed; their steps (`npm ci`, typecheck, `npm test`) run
+only when the pull request touches the package.
 
 **Lint** runs `scripts/lint.sh`: Ruff's format check and lint (import order
 included) and mypy over the trees `mypy.ini` lists, at the lock's versions

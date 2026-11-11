@@ -242,6 +242,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 | `src/engine/` | Pure TypeScript, no DOM: `source` (Twee/HTML), `macros` (the supported list), `markup` and `expr` (parsers), `runtime`, `validate`, `explore`, `scenes`, `game`, `discoveries`, `text` |
 | `src/app/` | The site: `main` (routes), `title`, `library`, `achievements`, `reader` (session and events), `views` (its HTML), `progression` (pure: moving, undo, endings), `pacing`, `hud`, `audio`, `settings`/`settings-ui`, `door`, `save`/`storage` (localStorage) |
 | `src/app/styles/` | One sheet per component, imported in order from `main.ts`; `harlowe.css` approximates Harlowe's default look |
+| `public/_headers` | The response headers every file is served with: a CSP that allows only this origin, no framing, nosniff, a referrer and permissions policy, HSTS. Cloudflare reads it from `dist/` |
 | `src/contract.ts` | The shapes of `public/stories/`, shared by the build and the app |
 | `scripts/build-stories.ts` | Validates every series and writes `public/stories/` |
 | `scripts/explore.ts` | Plays every path; the report for the author |

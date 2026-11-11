@@ -101,6 +101,20 @@ something else, `STORIES_ALLOW_UNPUBLISHED=1 npm run deploy` publishes anyway
 and lists the reasons. The site is
 at `https://interactive-fiction.jorgelillo.workers.dev`.
 
+**Response headers.** `public/_headers` is copied into `dist/` and Cloudflare
+applies it to every file: a CSP that allows only this origin (one module script,
+one stylesheet, fetches to the origin, the favicon as a `data:` URL), no framing,
+`nosniff`, `Referrer-Policy`, a `Permissions-Policy` denying what the reader never
+uses, and HSTS. The chapter's own stylesheet is injected as a `<style>` element
+and story markup writes inline `style` attributes, so `style-src` allows inline
+styles; scripts stay `'self'` only. A chapter stylesheet that loads a remote font
+or image needs that origin added to `font-src` or `img-src` in `public/_headers`.
+`tests/headers.test.ts` fails when the source starts loading something the policy
+forbids. Check a deploy with `curl -sI https://interactive-fiction.jorgelillo.workers.dev/`.
+To try it locally: `npm run build`, then
+`deploy/node_modules/.bin/wrangler dev --local --compatibility-date 2026-10-30`
+(the installed local runtime is older than the date in `wrangler.toml`).
+
 `wrangler` lives in `deploy/` with its own lockfile, pinned, so the test job
 never installs its ~270 MB. To show the author a draft chapter, deploy
 `npm run build:drafts` output under another name

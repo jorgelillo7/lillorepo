@@ -9,7 +9,8 @@ end code of one chapter carried into the next.
 - **Source:** `packages/interactive_fiction/src/engine/` (`source`, `markup`,
   `expr`, `runtime`, `validate`, `explore`), `packages/interactive_fiction/src/app/`,
   `packages/interactive_fiction/scripts/build-stories.ts`,
-  `packages/interactive_fiction/scripts/explore.ts`
+  `packages/interactive_fiction/scripts/explore.ts`,
+  `packages/interactive_fiction/public/_headers`
 - **Verified by:** `packages/interactive_fiction/tests/*.test.ts` (Vitest, on a
   fixture story written for the tests — the stories themselves are not in the
   repo)
@@ -267,3 +268,27 @@ start on the new text rather than on a control of the previous page.
   `arrive.test.ts: a polite live region reads the passage's opening`,
   `arrive.test.ts: a long passage is announced by its opening only`,
   `arrive.test.ts: the live region is one, and survives redrawing the page`
+
+### Requirement: The site is served with restrictive headers
+
+Every file SHALL be served with a Content-Security-Policy that denies by default and
+allows only this origin (plus a `data:` favicon and inline styles, which the chapter
+stylesheet and story markup need), forbids framing, and adds `nosniff`, a referrer
+policy, a permissions policy denying camera, microphone, geolocation, payment and
+USB, and HSTS. The source SHALL NOT load an inline script, a remote host or code
+built from strings, because the policy would block it at runtime and the reader
+would fail only in production.
+
+#### Scenario: the headers
+- **WHEN** the headers file is read
+- **THEN** framing, sniffing and referrer leaks are forbidden, HTTPS is enforced and `frame-ancestors` is `'none'`
+- **THEN** the policy denies by default, allows scripts and connections from this origin only, and allows images from it and `data:`
+- **THEN** camera, microphone, geolocation, payment and USB are denied
+- *Verifies:* `headers.test.ts: every response forbids framing, sniffing and referrer leaks, and uses HTTPS`,
+  `headers.test.ts: the policy denies by default and allows only this origin and the favicon's data: URL`,
+  `headers.test.ts: the powerful browser features the reader never uses are denied`
+
+#### Scenario: the source matches the policy
+- **WHEN** the page, the scripts and the stylesheets are scanned
+- **THEN** there is no inline script, no remote host and no dynamic code evaluation
+- *Verifies:* `headers.test.ts: the source loads nothing the policy forbids: no inline script, no remote host, no eval`
