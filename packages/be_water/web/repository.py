@@ -17,6 +17,8 @@ a `delete_revision`. Merging them would make erasing a typo and erasing a year
 the same operation.
 """
 
+import threading
+import time
 from datetime import datetime, timezone
 
 from core.sdk import firestore
@@ -27,6 +29,7 @@ logger = get_logger(__name__)
 
 WATERS = "waters"
 USERS = "users"
+USAGE = "usage"
 ANALYSES = "water_analyses"
 REVISIONS = "water_revisions"
 
@@ -35,11 +38,40 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# The catalogue and the analyses are read by almost every page and change a few
+# times a day, so a read is reused for this long. A write on this instance drops
+# it at once; another instance's write shows here after at most this long.
+CACHE_SECONDS = 60
+_cache: dict[str, tuple[float, list]] = {}
+_cache_lock = threading.Lock()
+
+
+def _cached(key: str, load):
+    """`load()` at most once per `CACHE_SECONDS`; callers get their own list."""
+    with _cache_lock:
+        hit = _cache.get(key)
+        if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+            return list(hit[1])
+    value = load()
+    with _cache_lock:
+        _cache[key] = (time.monotonic(), value)
+    return list(value)
+
+
+def clear_cache() -> None:
+    """Forget what was read, so the next read goes to Firestore."""
+    with _cache_lock:
+        _cache.clear()
+
+
 def get_all_waters() -> list[Water]:
-    return [
-        Water.from_firestore(doc_id, data)
-        for doc_id, data in firestore.list_documents(WATERS)
-    ]
+    return _cached(
+        WATERS,
+        lambda: [
+            Water.from_firestore(doc_id, data)
+            for doc_id, data in firestore.list_documents(WATERS)
+        ],
+    )
 
 
 def get_water(water_id: str) -> Water | None:
@@ -49,6 +81,7 @@ def get_water(water_id: str) -> Water | None:
 
 def save_water(water: Water) -> None:
     firestore.set_document(WATERS, water.id, water.to_firestore())
+    clear_cache()
     logger.info("Water saved.", extra={"water_id": water.id})
 
 
@@ -111,6 +144,7 @@ def save_analysis(water: Water) -> str:
             "added_at": _now_iso(),
         },
     )
+    clear_cache()
     logger.info(
         "Water analysis stored.",
         extra={"water_id": water.id, "analysis_date": water.analysis_date},
@@ -130,7 +164,9 @@ def all_analyses() -> list[dict]:
     once per page rather than once per water. The ficha's per-water read is
     the one that had to stop scanning.
     """
-    return [data for _, data in firestore.list_documents(ANALYSES)]
+    return _cached(
+        ANALYSES, lambda: [data for _, data in firestore.list_documents(ANALYSES)]
+    )
 
 
 def list_analyses(water_id: str) -> list[dict]:
@@ -171,11 +207,13 @@ def delete_revision(revision_id: str) -> None:
 def set_water_sources(water_id: str, sources: dict) -> None:
     """Update only the provenance map, leaving the rest of the doc untouched."""
     firestore.set_document(WATERS, water_id, {"sources": sources}, merge=True)
+    clear_cache()
 
 
 def set_water_community(water_id: str, community: str) -> None:
     """Update only the community, leaving the rest of the doc untouched."""
     firestore.set_document(WATERS, water_id, {"community": community}, merge=True)
+    clear_cache()
 
 
 def delete_water(water_id: str) -> None:
@@ -185,6 +223,7 @@ def delete_water(water_id: str) -> None:
         entry_id = analysis_id(water_id, entry["analysis_date"])
         firestore.delete_document(ANALYSES, entry_id)
     firestore.delete_document(WATERS, water_id)
+    clear_cache()
     logger.info("Water deleted.", extra={"water_id": water_id})
 
 
@@ -240,3 +279,35 @@ def get_favorites(nickname: str, catalog: list[Water]) -> list[Water]:
         return []
     fav_ids = set(user.get("favorites", []))
     return [w for w in catalog if w.id in fav_ids]
+
+
+def claim_paid_call(kind: str, cap: int) -> bool:
+    """Count one paid call of `kind` against today's cap; False when spent.
+
+    One document per kind and UTC day, incremented in a transaction so two
+    instances cannot both take the last slot. A call is counted when it is
+    allowed, whether or not it then succeeds. If the count cannot be read or
+    written the answer is no: spend is refused rather than left uncounted.
+    """
+    if cap <= 0:
+        return False
+    doc_id = f"{kind}__{datetime.now(timezone.utc):%Y-%m-%d}"
+
+    def claim(transaction) -> bool:
+        reference = firestore.get_client().collection(USAGE).document(doc_id)
+        count = int(
+            (reference.get(transaction=transaction).to_dict() or {}).get("count", 0)
+        )
+        if count >= cap:
+            return False
+        transaction.set(reference, {"kind": kind, "count": count + 1})
+        return True
+
+    try:
+        allowed = bool(firestore.run_transaction(claim))
+    except Exception:  # any failure means "do not spend"
+        logger.error("Paid-call counter unavailable; refusing.", extra={"kind": kind})
+        return False
+    if not allowed:
+        logger.warning("Daily paid-call cap reached.", extra={"kind": kind, "cap": cap})
+    return allowed

@@ -14,7 +14,6 @@ from core.web.csrf import verify_csrf_token
 from core.web.ratelimit import client_ip
 from packages.be_water.web import (
     aesan,
-    config,
     geo,
     helpers,
     label_ocr,
@@ -28,6 +27,13 @@ from packages.be_water.web.domain import MINERAL_FIELDS
 _NOT_AN_IMAGE = "Ese archivo no parece una foto — prueba con un JPG o PNG."
 
 logger = get_logger(__name__)
+
+
+def _tmp(key: str) -> Optional[str]:
+    """An upload name the form carried back, or None when it is absent or not a
+    name the upload step produced."""
+    value = (request.form.get(key) or "").strip()
+    return value if photos.is_upload_name(value) else None
 
 
 def _render_add_form(
@@ -76,8 +82,8 @@ def _promote_photos(
     for weeks and then not.
     """
     photo_url = label_photo_url = None
-    photo_tmp = (request.form.get("photo_tmp") or "").strip()
-    label_tmp = (request.form.get("label_tmp") or "").strip()
+    photo_tmp = _tmp("photo_tmp") or ""
+    label_tmp = _tmp("label_tmp") or ""
     suffix = f"__{analysis_date}" if analysis_date else ""
     stranded = False
     if photo_tmp:
@@ -114,8 +120,8 @@ def _resolve_add_target(name, water_id, existing, merge_into):
     def _form_with(**extra):
         return _render_add_form(
             prefill=dict(form),
-            photo_tmp=form.get("photo_tmp") or None,
-            label_tmp=form.get("label_tmp") or None,
+            photo_tmp=_tmp("photo_tmp"),
+            label_tmp=_tmp("label_tmp"),
             ocr_fields=form.get("ocr_fields") or None,
             **extra,
         )
@@ -166,8 +172,8 @@ def _refuses_overwriting_verified(name: str, existing, outcome: str):
         return None
     return _render_add_form(
         prefill=dict(request.form),
-        photo_tmp=request.form.get("photo_tmp") or None,
-        label_tmp=request.form.get("label_tmp") or None,
+        photo_tmp=_tmp("photo_tmp"),
+        label_tmp=_tmp("label_tmp"),
         ocr_fields=request.form.get("ocr_fields") or None,
         error=(
             f"«{name}» ya está en el catálogo y verificada — no se puede "
@@ -195,12 +201,19 @@ def add_water():
             error="Demasiadas aguas en poco tiempo — espera un rato.",
         )
 
+    # A name the upload step did not produce is not a photo of ours: refuse the
+    # whole submission before anything is copied or removed.
+    for key in ("photo_tmp", "label_tmp"):
+        if (request.form.get(key) or "").strip() and not _tmp(key):
+            abort(400)
     name = submission.form_field(request.form, "name")
-    if not name:
-        abort(400)
     water_id = submission.slugify(name)
-    existing = repository.get_water(water_id)
+    if not water_id:
+        abort(400)
     merge_into = (request.form.get("merge_into") or "").strip()
+    if merge_into and submission.slugify(merge_into) != merge_into:
+        abort(400)
+    existing = repository.get_water(water_id)
 
     # Resolve which doc (if any) this submission targets, or bounce back to the
     # form for the user to disambiguate.
@@ -233,8 +246,8 @@ def add_water():
     if stale and not request.form.get("confirm_stale"):
         return _render_add_form(
             prefill=dict(request.form),
-            photo_tmp=(request.form.get("photo_tmp") or "").strip() or None,
-            label_tmp=(request.form.get("label_tmp") or "").strip() or None,
+            photo_tmp=_tmp("photo_tmp"),
+            label_tmp=_tmp("label_tmp"),
             ocr_fields=request.form.get("ocr_fields"),
             stale_warning=stale,
             merge_into=merge_into or None,
@@ -425,8 +438,8 @@ def add_water_origin():
         )
 
     prefill = _prefill_from_form(request.form)
-    photo_tmp = request.form.get("photo_tmp") or None
-    label_tmp = request.form.get("label_tmp") or None
+    photo_tmp = _tmp("photo_tmp")
+    label_tmp = _tmp("label_tmp")
     ocr_fields = request.form.get("ocr_fields") or ""
 
     upload = request.files.get("origin")
@@ -459,7 +472,9 @@ def add_water_origin():
             error=_NOT_AN_IMAGE,
         )
     except (GeminiError, requests.RequestException) as exc:
-        logger.warning("Origin-face read failed.", extra={"error": str(exc)[:300]})
+        logger.warning(
+            "Origin-face read failed.", extra={"error": helpers.safe_error(exc)}
+        )
         return _render_add_form(
             prefill=prefill,
             photo_tmp=photo_tmp,
@@ -524,7 +539,7 @@ def add_water_photo():
     # rule deletes that prefix after 30 days, which is why a save that cannot
     # promote a photo flags the water instead of leaving it there quietly. On
     # save the label shot is promoted to originals/ as the permanent proof.
-    label_tmp = f"uploads/{uid}-label.jpg"
+    label_tmp = photos.upload_name(uid, label=True)
     photos.upload_photo(label_tmp, processed)
 
     # The display photo prefers the optional front shot — a composition
@@ -535,14 +550,12 @@ def add_water_photo():
     # alone can take ninety seconds, and the OCR that the user is actually
     # waiting for started only after it finished.
     #
-    # Studio is admin-only: image generation is the one paid call in the
-    # project, so it fires only for trusted nicknames. Everyone else keeps the
-    # (free) OCR prefill and their raw photo.
-    is_admin = session["nickname"] in config.ADMIN_NICKNAMES
+    # Studio is for Google-verified admins only: image generation is the one
+    # paid call in the project. Everyone else keeps the (free) OCR prefill and
+    # their raw photo.
+    studio = helpers.studio_enabled()
     with ThreadPoolExecutor(max_workers=3) as pool:
-        studio_task = (
-            pool.submit(photos.studio_photo, display_src) if is_admin else None
-        )
+        studio_task = pool.submit(photos.studio_photo, display_src) if studio else None
         ocr_task = pool.submit(label_ocr.extract_label, processed)
         # The front shot was already uploaded and paid for, and it is a second
         # face of the same bottle. The composition shot frames the mineral
@@ -563,7 +576,8 @@ def add_water_photo():
                 studio_note = " La foto ha pasado por el estudio 📸"
             except (GeminiError, requests.RequestException) as exc:
                 logger.warning(
-                    "Studio photo failed — using raw.", extra={"error": str(exc)[:300]}
+                    "Studio photo failed — using raw.",
+                    extra={"error": helpers.safe_error(exc)},
                 )
                 studio_note = (
                     " El estudio no pudo retocar la foto; se guarda la original."
@@ -584,15 +598,15 @@ def add_water_photo():
                 # composition shot already paid for.
                 logger.info(
                     "Second-face read failed — ignoring.",
-                    extra={"error": str(exc)[:300]},
+                    extra={"error": helpers.safe_error(exc)},
                 )
 
-    photo_tmp = f"uploads/{uid}.jpg"
+    photo_tmp = photos.upload_name(uid)
     photos.upload_photo(photo_tmp, display)
 
     if ocr_error is not None:
         error = ocr_error
-        logger.warning("Label OCR failed.", extra={"error": str(error)[:300]})
+        logger.warning("Label OCR failed.", extra={"error": helpers.safe_error(error)})
         # OCR down ≠ photo lost: open the empty form with the photo attached.
         #
         # A read that times out counts as overloaded. Only a *reply* carries a

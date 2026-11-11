@@ -69,7 +69,9 @@ def looks_like_studio(image_bytes: bytes) -> bool:
     """True when the image matches the studio output: a square STUDIO_SIZE
     canvas with white corners. Heuristic, but reliable — no other pipeline
     produces this exact shape."""
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = Image.open(io.BytesIO(image_bytes), formats=photos.ACCEPTED_FORMATS).convert(
+        "RGB"
+    )
     if img.width != _STUDIO_SIDE or img.height != _STUDIO_SIDE:
         return False
     w, h = img.width, img.height

@@ -544,6 +544,6 @@ user field either — it's an allow-list of emails in `BEWATER_ADMIN_EMAILS`
 ### Reference data (not in Firestore)
 
 The AESAN registry of recognised natural mineral waters lives **in the repo**
-(`aesan_snapshot.py`, refreshed by `scripts/refresh_aesan_snapshot.py`), not in
+(`aesan_snapshot.py`, refreshed by `packages/be_water/scripts/refresh_aesan_snapshot.py`), not in
 Firestore. It drives coverage numbers and provenance autofill but carries
 identity only — compositions always come from labels.
