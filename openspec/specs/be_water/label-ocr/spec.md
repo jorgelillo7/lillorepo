@@ -49,9 +49,9 @@ the numbers, so it is kept either way.
 ### Requirement: The OCR and the studio photo run at the same time
 
 The label read and the studio-photo generation SHALL be dispatched
-concurrently, not in sequence. The studio call SHALL fire only for an admin
-nickname; every other contributor SHALL still get the OCR prefill and keep
-their raw photo.
+concurrently, not in sequence. The studio call SHALL fire only for a
+Google-verified admin (`identity-and-moderation`); every other contributor SHALL
+still get the OCR prefill and keep their raw photo.
 
 Sequentially the wait was their sum, and the studio call alone can take ninety
 seconds — the user was waiting on the one thing they did not ask for before the
@@ -59,7 +59,7 @@ one they did. Image generation is also the only paid call in the project, which
 is why it is restricted while the OCR is not.
 
 #### Scenario: concurrency and the admin gate
-- **WHEN** an admin uploads a photo **THEN** both calls are in flight together
+- **WHEN** a Google-verified admin uploads a photo **THEN** both calls are in flight together
 - **WHEN** a non-admin uploads **THEN** no studio call is made and the OCR
   prefill still arrives
 - *Verifies:* `test_the_studio_photo_and_the_ocr_run_at_the_same_time`,
@@ -102,6 +102,17 @@ it was experiencing high demand.
   the reader
 - *Verifies:* `test_photo_flow_gemini_overload_gets_honest_copy`,
   `test_an_unreadable_label_does_not_blame_the_photo_alone`
+
+### Requirement: A failed call logs its kind, not its text
+
+A failed outbound call SHALL log the exception's type and HTTP status; a
+`GeminiError`, whose message the client builds from the response body, keeps it.
+No other exception text is logged, because it can repeat the request URL.
+
+#### Scenario: a connection failure
+- **WHEN** a label read fails with an exception whose text carries a URL query
+  **THEN** that text is absent from the log and the type is present
+- *Verifies:* `test_a_failed_label_read_logs_no_exception_text`
 
 ### Requirement: A slow read is waited for, not discarded
 
