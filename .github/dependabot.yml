@@ -1,4 +1,4 @@
-# GitHub Actions only. Python deps are deliberately excluded: the
+# GitHub Actions, the Node packages and Terraform. Python deps are deliberately excluded: the
 # three-level lock flow (requirements.txt → requirements.in → pip-compile
 # lock) plus the Bazel wiring and the python-base image rebuild cannot be
 # driven by a bot — use the add-python-dep skill instead (and, for bumps,
@@ -16,3 +16,27 @@ updates:
       # deploy.yml triggers a full redeploy, so batching beats five PRs.
       actions:
         patterns: ["*"]
+
+  # The two Node packages sit outside Bazel, each with its own lockfile and a
+  # separate deploy/ toolchain (Wrangler). Minor and patch bumps arrive as one
+  # PR per directory; majors stay individual so they get read.
+  - package-ecosystem: "npm"
+    directories:
+      - "/packages/interactive_fiction"
+      - "/packages/interactive_fiction/deploy"
+      - "/packages/wishlist"
+      - "/packages/wishlist/deploy"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Provider bumps for infra/ (the lock file is updated with them).
+  - package-ecosystem: "terraform"
+    directory: "/infra"
+    schedule:
+      interval: "weekly"
+    groups:
+      terraform-minor-patch:
+        update-types: ["minor", "patch"]

@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 from flask import request, session
 
+from core.sdk.gemini import GeminiError
 from core.web.csrf import get_csrf_token
 from core.web.ratelimit import RateLimiter
 from packages.be_water.web import config, geo, repository
@@ -29,6 +30,28 @@ PHOTO_LIMITER = RateLimiter(15, 3600)
 
 def is_admin() -> bool:
     return (session.get("google_email") or "") in config.ADMIN_EMAILS
+
+
+def studio_enabled() -> bool:
+    """Whether this session may use the paid studio photo.
+
+    Only a Google-verified admin may. Without a configured Sign-In nobody can
+    be one, so the studio is off for everyone until it is.
+    """
+    return bool(config.GOOGLE_CLIENT_ID) and is_admin()
+
+
+def safe_error(exc: BaseException) -> str:
+    """What to log about a failed outbound call: its type and HTTP status, never
+    the exception's own text, which can echo the request URL. `GeminiError`
+    messages are built by the client from the response body and carry no URL, so
+    those are kept."""
+    if isinstance(exc, GeminiError):
+        return f"GeminiError: {str(exc)[:200]}"
+    status = getattr(exc, "status_code", None)
+    if status is None:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"{type(exc).__name__}" + (f" (HTTP {status})" if status else "")
 
 
 def nickname_blocked() -> bool:
