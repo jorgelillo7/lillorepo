@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { publishProblems, unpublishedReasons } from "../scripts/source-guard.ts";
 
 const git = (dir: string, ...args: string[]) =>
@@ -34,17 +34,17 @@ describe("what a public deploy may publish", () => {
     ({ clone } = authorClone());
   });
 
-  it("publishes the default branch, clean and equal to its origin", () => {
+  test("publishes the default branch, clean and equal to its origin", () => {
     expect(unpublishedReasons(clone)).toEqual([]);
     expect(publishProblems([{ id: "s", dir: join(clone, "web"), sourceDir: clone }])).toEqual([]);
   });
 
-  it("refuses another branch", () => {
+  test("refuses another branch", () => {
     git(clone, "checkout", "--quiet", "-b", "web-3d");
     expect(unpublishedReasons(clone).join()).toContain("is on 'web-3d', not 'master'");
   });
 
-  it("refuses local changes and untracked files", () => {
+  test("refuses local changes and untracked files", () => {
     writeFileSync(join(clone, "web", "series.json"), '{"draft": true}');
     writeFileSync(join(clone, "web", "new-scene.json"), "{}");
     const reasons = unpublishedReasons(clone).join();
@@ -52,13 +52,13 @@ describe("what a public deploy may publish", () => {
     expect(reasons).toContain("new-scene.json");
   });
 
-  it("refuses a local commit its origin does not have", () => {
+  test("refuses a local commit its origin does not have", () => {
     writeFileSync(join(clone, "web", "series.json"), '{"v": 2}');
     git(clone, "commit", "--quiet", "-am", "not pushed");
     expect(unpublishedReasons(clone).join()).toContain("differs from origin/master");
   });
 
-  it("refuses a clone behind its origin, which the fetch reveals", () => {
+  test("refuses a clone behind its origin, which the fetch reveals", () => {
     const other = join(clone, "..", "other");
     execFileSync("git", ["clone", "--quiet", join(clone, "..", "origin.git"), other], { stdio: "ignore" });
     writeFileSync(join(other, "web", "series.json"), '{"v": 3}');
@@ -67,12 +67,12 @@ describe("what a public deploy may publish", () => {
     expect(unpublishedReasons(clone).join()).toContain("differs from origin/master");
   });
 
-  it("refuses a series folder outside any repository", () => {
+  test("refuses a series folder outside any repository", () => {
     const loose = realpathSync(mkdtempSync(join(tmpdir(), "if-loose-")));
     expect(publishProblems([{ id: "s", dir: loose, sourceDir: loose }]).join()).toContain("not in a git repository");
   });
 
-  it("checks a repository once when the series and its sources share it", () => {
+  test("checks a repository once when the series and its sources share it", () => {
     git(clone, "checkout", "--quiet", "-b", "web-3d");
     const problems = publishProblems([{ id: "s", dir: join(clone, "web"), sourceDir: clone }]);
     expect(problems).toHaveLength(1);
