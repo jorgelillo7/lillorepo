@@ -10,12 +10,12 @@ import { ambienceFor, conditionFor, documentFor, inventoryOf, isSting, type Cond
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { applyVolume, door as doorSound, heartbeat, setAmbience, step, sting } from "./audio.ts";
-import { app, el, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { app, arriveAt, el, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
 import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
 import { pace, type Pacing } from "./pacing.ts";
-import { advance, finish, freshStart, outcomeOf, undo, withCarriedCode, withNewVariables, type Progress } from "./progression.ts";
+import { advance, finish, freshStart, isStale, outcomeOf, undo, withCarriedCode, withNewVariables, type Progress } from "./progression.ts";
 import { clear, load, loadCodes, loadFound, loadMode, recordFound, store, storeCode, storeLastPlayed, storeMode } from "./save.ts";
 import { settings, updateSettings } from "./settings.ts";
 import { openSettings } from "./settings-ui.ts";
@@ -27,6 +27,8 @@ interface Session {
   rt: Runtime;
   scenes: SceneFile | null;
   discoveries: ChapterDiscoveries | null;
+  /** The chapter's version, recorded in every save. */
+  version: string;
   progress: Progress;
   /** The live state of the passage on screen (after it rendered, plus inputs and reveals). */
   vars: Vars;
@@ -72,19 +74,40 @@ export async function openChapter(seriesId: string, chapterId: string): Promise<
   setStoryCss(rt.story.stylesheet + (hideHud ? `\n${hideHud}{display:none !important}` : ""));
   document.title = shortTitle(rt.story.title);
   const saved = load(series.id, chapter.id);
+  if (saved && isStale(saved, new Set(rt.story.passages.map((p) => p.name)), data.version)) {
+    showChapterChanged(series.id, chapter.id);
+    return;
+  }
   session = {
     series,
     chapter,
     rt,
     scenes: data.scenes,
     discoveries: data.discoveries,
-    progress: saved ? withNewVariables(saved, rt.start()) : freshStart(rt.story.start, rt.start()),
+    version: data.version,
+    progress: saved
+      ? { ...withNewVariables(saved, rt.start()), story: data.version }
+      : freshStart(rt.story.start, rt.start(), data.version),
     vars: {},
     actions: [],
     arrived: !saved,
   };
   storeLastPlayed(series.id, chapter.id);
   show();
+}
+
+/**
+ * The chapter was rewritten and the save points at a passage that no longer exists: offer to start
+ * it again. Only this chapter's save goes; its end code, the other chapters and the discoveries stay.
+ */
+function showChapterChanged(seriesId: string, chapterId: string): void {
+  const page = el(view.chapterChangedPage());
+  app.replaceChildren(page);
+  page.querySelector<HTMLElement>("h1")?.focus();
+  page.querySelector<HTMLButtonElement>("[data-restart-changed]")?.addEventListener("click", () => {
+    clear(seriesId, chapterId);
+    void openChapter(seriesId, chapterId);
+  });
 }
 
 function previousCode(s: Session): string | undefined {
@@ -201,6 +224,7 @@ function mount(s: Session, html: string): HTMLElement {
   heartbeat(state ? HEART_BPM[state.level] : null);
   trackToolbarHeight(root.querySelector<HTMLElement>(".toolbar"));
   window.scrollTo({ top: 0 });
+  arriveAt(root);
   return root;
 }
 
@@ -307,7 +331,7 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
   restart: (s, tool) => {
     if (!armed(tool, "¿Seguro? Toca otra vez", "⟲ Reiniciar")) return;
     clear(s.series.id, s.chapter.id);
-    s.progress = freshStart(s.rt.story.start, s.rt.start());
+    s.progress = freshStart(s.rt.story.start, s.rt.start(), s.version);
     s.lastScene = undefined;
     s.arrived = true;
     show();

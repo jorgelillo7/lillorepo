@@ -92,7 +92,13 @@ package (opens the browser; wrangler keeps the login on this Mac). The first
 deploy registers the account's `workers.dev` subdomain.
 
 **Every deploy:** `npm run deploy` — builds (drafts left out) and uploads
-`dist/` to the project named in `wrangler.toml` (`interactive-fiction`). The site is
+`dist/` to the project named in `wrangler.toml` (`interactive-fiction`). The
+build fetches each story's repository and stops unless it is on its default
+branch, with no local changes or untracked files, and equal to its origin: the
+site is the author's published chapters, never a branch or an edit sitting in
+his clone. `git -C ~/Projects/<his repo> pull` first; for a deliberate preview of
+something else, `STORIES_ALLOW_UNPUBLISHED=1 npm run deploy` publishes anyway
+and lists the reasons. The site is
 at `https://interactive-fiction.jorgelillo.workers.dev`.
 
 **Response headers.** `public/_headers` is copied into `dist/` and Cloudflare

@@ -39,7 +39,10 @@ package is only the reader. Both are cloned side by side
    bible; `npm run scenes:draft`, then place the hotspots and check them with
    an overlay ([`scene-art`](.claude/skills/scene-art/SKILL.md)); `npm run play`.
 5. Changes to `web/` go to the author as a PR in his repository.
-6. `npm run deploy`.
+6. `npm run deploy`. It publishes only what the author's repository
+   publishes: the build refuses a clone that is not on its default branch,
+   clean and equal to its origin after a fetch (`STORIES_ALLOW_UNPUBLISHED=1`
+   overrides it, for a deliberate preview, and lists why).
 
 **From text to a 3D room (experiment).** The same story, one layer further:
 
@@ -262,7 +265,7 @@ npm run build          # stories (no drafts) + typecheck + dist/
 npm run build:drafts   # the same, drafts included — never upload this one publicly
 npm run preview        # serve dist/ on localhost:4173
 npm run deploy:login   # once: log wrangler in to Cloudflare
-npm run deploy         # build (no drafts) and upload to Cloudflare (Workers static assets)
+npm run deploy         # build (no drafts, sources must be the author's published branch) and upload to Cloudflare
 npm run explore        # path report for every series (or: npm run explore -- <series>)
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
