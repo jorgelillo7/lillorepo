@@ -182,7 +182,7 @@ first render.
 The save SHALL:
 - snapshot the previous document via `repository.save_revision` **before**
   overwriting — an admin edit is the one write with no contributor behind it to
-  ask what the label said, so it must be undoable by `scripts/revert_water.py`;
+  ask what the label said, so it must be undoable by `packages/be_water/scripts/revert_water.py`;
 - run `submission.resolve_place` with the submitted country, so an admin
   cannot hand-type a province/community mismatch the curation engine would then
   flag;
