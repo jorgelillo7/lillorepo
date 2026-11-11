@@ -83,6 +83,24 @@ next morning — Rioja, the only forward on the bench, the day Adrián Niño was
 bid for — and one injury would have left a line without cover. Two spare
 players cost the price falls of two bench players; that is the trade.
 
+Nor SHALL a sale leave an outfield line without a reserve: a player outside
+the best eleven whom the projection expects to play, in any line he can play,
+is the line's cover, and the only one is held ("único suplente de su línea"),
+whatever his price or projection. One injury in that line would otherwise
+field the eleven a man short. A reserve who cannot play covers nothing, so a
+long absence still sells. The keeper's line is left out: a second keeper is a
+sale of its own. On in production (`Rules.keep_line_reserves`).
+
+#### Scenario: the line's last reserve
+- **WHEN** a falling reserve is the only cover for his line **THEN** he is held
+- **WHEN** the line has another reserve **THEN** he can be sold
+- **WHEN** the only reserve cannot play **THEN** he covers nothing and a long
+  absence still sells him
+- *Verifies:* `test_the_only_reserve_of_a_line_is_not_sold`,
+  `test_a_second_reserve_of_the_same_line_can_be_sold`,
+  `test_an_injured_reserve_covers_nothing_and_can_go`,
+  `test_production_rules_keep_line_reserves`
+
 With two keepers in the squad, the one the best eleven leaves out SHALL be sold
 whatever his price does: a manager's only keeper cannot be claused, a second one
 exposes both. Auto-bid only signs a keeper who would start (`auto-bid`), so this

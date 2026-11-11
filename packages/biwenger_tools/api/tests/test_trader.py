@@ -977,3 +977,68 @@ def test_a_star_is_not_sold_for_a_long_absence():
     star["price"] = 9_000_000
 
     assert _plan_with(star, star_price=6_400_000).sells == []
+
+
+# --- the only reserve of a line stays ---------------------------------------
+
+RESERVES = Rules(**{**RULES.__dict__, "keep_line_reserves": True})
+
+
+def test_the_only_reserve_of_a_line_is_not_sold():
+    """11/11: the trader sold Rioja, the only forward on the bench; one injury
+    up front and the eleven would have played a man short. A reserve who is
+    the only cover for his line is held, whatever his price or projection."""
+    squad = _eleven() + [_player(40, 300, FWD)]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=RESERVES,
+    )
+    assert result.sells == []
+    ((_, why),) = [(r, w) for r, w in result.held if r["bw_id"] == 40]
+    assert "único suplente" in why
+
+
+def test_a_second_reserve_of_the_same_line_can_be_sold():
+    squad = _eleven() + [_player(40, 300, FWD), _player(41, 350, FWD)]
+    result = plan(
+        squad,
+        [],
+        _history(p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=RESERVES,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_an_injured_reserve_covers_nothing_and_can_go():
+    """A reserve who cannot play is no cover: a long absence still sells."""
+    out = _player(40, 0, FWD)
+    out["jp_player"] = {
+        **out["jp_player"],
+        "status": "injured",
+        "estimatedReturn": "Vuelta indefinida",
+    }
+    result = plan(
+        _eleven() + [out],
+        [],
+        _flat(),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=Rules(**{**RESERVES.__dict__, "dead_sf": 300}),
+        now=NOV_9,
+    )
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_production_rules_keep_line_reserves():
+    from packages.biwenger_tools.api.logic import trader_run
+
+    assert trader_run._rules().keep_line_reserves is True
