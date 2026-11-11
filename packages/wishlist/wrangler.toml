@@ -1,5 +1,6 @@
-# The gift list: a Worker that serves web/ and the photos, and keeps who claimed what
-# in D1. `npm run deploy` builds dist/, applies the migrations and uploads both.
+# The gift list: a Worker that serves web/ and the seed photos, and keeps the gifts, their
+# uploaded photos and who claimed what in D1. `npm run deploy` builds dist/, applies the
+# migrations and uploads both.
 name = "wishlist"
 main = "src/worker.ts"
 compatibility_date = "2026-10-30"

@@ -3,9 +3,9 @@
 A public gift list where each gift is claimed by one person at most, changed only from
 the browser that claimed it, and whose claimers' names only the owner sees.
 
-- **Source:** `packages/wishlist/src/app.ts`, `packages/wishlist/web/`,
-  `packages/wishlist/scripts/build.ts`, `packages/wishlist/scripts/photo.ts`,
-  `packages/wishlist/scripts/jpeg.ts`
+- **Source:** `packages/wishlist/src/app.ts`, `packages/wishlist/src/http.ts`,
+  `packages/wishlist/web/`, `packages/wishlist/scripts/build.ts`,
+  `packages/wishlist/scripts/photo.ts`, `packages/wishlist/src/jpeg.ts`
 - **Verified by:** `packages/wishlist/tests/*.test.ts` (Vitest; the Worker runs
   against Node's SQLite with the real migration)
 
@@ -14,8 +14,8 @@ the browser that claimed it, and whose claimers' names only the owner sees.
 ### Requirement: A gift is claimed once
 
 Reserving SHALL insert the claim only if the gift has none, in one statement, so two
-people pressing at the same time cannot both get it. Only gifts on the list SHALL be
-accepted, so the address cannot be used to fill the database.
+people pressing at the same time cannot both get it. Only visible gifts on the list
+SHALL be accepted, so the address cannot be used to fill the database.
 
 #### Scenario: second claim
 - **WHEN** a gift is already reserved and someone else reserves it
@@ -70,6 +70,10 @@ public state SHALL carry no names, only whether each claim is the viewer's own.
 constant time, and stay closed while those are unset. There the owner SHALL see names
 and SHALL be able to release any claim or mark any reserved gift bought. Pages SHALL
 be served only by their clean paths, so `admin.html` cannot be fetched around the check.
+Because the browser sends Basic credentials without being asked, every write under
+`/admin` SHALL be refused unless it names this site as its `Origin` and does not
+declare itself cross-site in `Sec-Fetch-Site`. Every response SHALL forbid framing,
+and the admin page SHALL NOT be cached.
 
 #### Scenario: no credentials
 - **WHEN** `/admin` or its API is requested without the right credentials, or with the secrets unset
@@ -81,6 +85,16 @@ be served only by their clean paths, so `admin.html` cannot be fetched around th
 - **THEN** names are shown, and any claim can be marked bought or released
 - *Verifies:* `worker.test.ts: shows the names and can release or mark any claim`
 
+#### Scenario: forged writes
+- **WHEN** an admin write arrives with the right credentials but no `Origin`, a foreign one, or a cross-site `Sec-Fetch-Site`
+- **THEN** it gets 403 and nothing changes
+- *Verifies:* `worker.test.ts: an admin write must come from this site's own page, whatever credentials the browser sends`
+
+#### Scenario: framing and caching
+- **WHEN** any page or API answers
+- **THEN** it carries `frame-ancestors 'none'`, `X-Frame-Options: DENY` and `nosniff`, and the admin page is `no-store`
+- *Verifies:* `worker.test.ts: every response forbids framing, and the admin page is never cached`
+
 #### Scenario: pages
 - **WHEN** a page is requested by its `.html` path or an unknown API path is requested
 - **THEN** the answer is 404, while `/admin.webmanifest` is served without credentials so a home-screen shortcut to `/admin` keeps its name, icon and start page
@@ -90,7 +104,9 @@ be served only by their clean paths, so `admin.html` cannot be fetched around th
 
 The build SHALL refuse a list with a missing title, no gifts, a malformed or repeated
 id, a gift without a title, a gift for someone not among the list's recipients, or a
-photo that does not exist, and report every problem at once. Recipients are labels
+photo that does not exist, and report every problem at once. That list is only the
+seed of the first event: its import into D1 is the committed migration
+`0003_seed_gifts.sql`, which SHALL equal what `npm run seed` generates from it. Recipients are labels
 such as "Hermano mayor", never names, because the site is public. A photo SHALL enter the repo upright, at most 1280 px, and without EXIF, XMP,
 IPTC or comments, because phone photos carry where they were taken.
 
@@ -109,6 +125,12 @@ IPTC or comments, because phone photos carry where they were taken.
 - **WHEN** a gift is for an id that is not among the recipients
 - **THEN** the build reports it
 - *Verifies:* `build.test.ts: a gift for someone not among the recipients is reported`
+
+#### Scenario: the seed
+- **WHEN** `gifts.json` changes without `npm run seed`
+- **THEN** the tests fail, and quotes in titles are escaped in the generated SQL
+- *Verifies:* `seed.test.ts: the committed seed migration is exactly what gifts.json generates`,
+  `seed.test.ts: quotes in a title are escaped in the seed`
 
 #### Scenario: photo metadata
 - **WHEN** a photo is taken in

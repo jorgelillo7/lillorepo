@@ -139,7 +139,7 @@ function setFilter(change) {
 
 function card(gift) {
   const claim = claims.get(gift.id);
-  const photo = `/photos/${gift.photo}`;
+  const photo = gift.photo;
   const label = recipientLabel(gift.for);
   return el(
     "article",
@@ -191,7 +191,7 @@ form.addEventListener("submit", (event) => {
   pending = null;
 });
 
-list = await getJSON("/gifts.json");
+list = await getJSON("/api/list");
 document.getElementById("title").textContent = list.title;
 document.getElementById("subtitle").textContent = list.subtitle ?? "";
 document.title = list.title;

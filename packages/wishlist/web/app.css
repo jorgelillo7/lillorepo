@@ -120,3 +120,13 @@ table.admin th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-
 table.admin tr:last-child td { border-bottom: 0; }
 table.admin .thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; vertical-align: middle; margin-right: 10px; }
 table.admin .button { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+
+/* Admin: add and edit a gift */
+.sheet select, .sheet textarea { font: inherit; font-size: 17px; color: var(--ink); background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.sheet textarea { resize: vertical; min-height: 64px; }
+.sheet select:focus-visible, .sheet textarea:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.sheet.wide { width: min(480px, calc(100% - 24px)); max-height: calc(100% - 24px); }
+.preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; background: var(--page); }
+.pick { display: flex; gap: 8px; }
+.pick .button { flex: 1; display: inline-flex; align-items: center; justify-content: center; text-align: center; }
+.toolbar { margin: 0 0 14px; }
