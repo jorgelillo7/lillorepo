@@ -177,6 +177,31 @@ record.
   the series folder
 - *Verifies:* `series.test.ts: a sourceRoot may be relative to the series folder, absolute, or under the home folder`
 
+### Requirement: A public deploy publishes only what the author's repository publishes
+
+`npm run deploy` SHALL build with `STORIES_PUBLISH=1`, and that build SHALL
+refuse any series whose folder or sources are not in a git repository, or whose
+repository is not on its origin's default branch, has local changes or
+untracked files, or differs from that branch after a fetch. The site reads the
+author's clone in place, so without this check whatever branch or edit sits in
+the clone would go public. `STORIES_ALLOW_UNPUBLISHED=1` SHALL publish anyway,
+naming every reason, for a deliberate preview.
+
+#### Scenario: The author's published branch
+- **WHEN** the clone is on its default branch, clean and equal to its origin
+- **THEN** the deploy goes ahead
+- *Verifies:* `source-guard.test.ts: publishes the default branch, clean and equal to its origin`
+
+#### Scenario: Anything else
+- **WHEN** the clone is on another branch, has changes or untracked files, holds a commit its origin lacks, is behind its origin, or the series is in no repository
+- **THEN** the build stops and names the reason, once per repository
+- *Verifies:* `source-guard.test.ts: refuses another branch`,
+  `source-guard.test.ts: refuses local changes and untracked files`,
+  `source-guard.test.ts: refuses a local commit its origin does not have`,
+  `source-guard.test.ts: refuses a clone behind its origin, which the fetch reveals`,
+  `source-guard.test.ts: refuses a series folder outside any repository`,
+  `source-guard.test.ts: checks a repository once when the series and its sources share it`
+
 ### Requirement: The reader keeps progress, and carries the end code
 
 Progress SHALL be saved per chapter in the browser as the state *before* the
@@ -218,3 +243,27 @@ a browser.
 - **WHEN** a saved game is resumed after the chapter added variables to its startup passages
 - **THEN** the new variables take their starting value and the saved ones are kept
 - *Verifies:* `progression.test.ts: variables added since take their starting value, and saved ones are kept`
+
+#### Scenario: a save the rewritten chapter can no longer resume
+- **WHEN** a save made on another version of the chapter (or before versions were recorded) points at a passage, or an undo step, that no longer exists
+- **THEN** the reader says the chapter changed and offers to start it again, clearing only that chapter's save; codes, other chapters and discoveries stay. A save on the current version always resumes, and every new save records the version
+- *Verifies:* `progression.test.ts: resumes when it was made on this version, whatever it points at`,
+  `progression.test.ts: resumes after a rewrite that kept its passages`,
+  `progression.test.ts: cannot resume when its passage was removed or renamed`,
+  `progression.test.ts: cannot resume when a step it could go back to is gone`,
+  `progression.test.ts: a save from before versions existed is checked by its passages`,
+  `progression.test.ts: a new save records the chapter's version`
+
+### Requirement: Every new passage is announced
+
+When a passage is shown, focus SHALL move to it and a polite live region SHALL
+read its opening (at most 280 characters), so keyboard and screen-reader users
+start on the new text rather than on a control of the previous page.
+
+#### Scenario: a new passage
+- **WHEN** a passage is put on screen
+- **THEN** it takes the focus, the one live region (kept outside the redrawn page) holds its opening, and a long passage is cut to its opening
+- *Verifies:* `arrive.test.ts: a new passage takes the focus`,
+  `arrive.test.ts: a polite live region reads the passage's opening`,
+  `arrive.test.ts: a long passage is announced by its opening only`,
+  `arrive.test.ts: the live region is one, and survives redrawing the page`

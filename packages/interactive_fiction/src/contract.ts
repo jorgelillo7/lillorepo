@@ -41,6 +41,8 @@ export interface SeriesEntry {
 
 /** `<series>/<chapter>.json`: the story, its scenes and what it holds to discover. */
 export type ChapterData = Story & {
+  /** Changes whenever the chapter's passages change; a save records the version it was made on. */
+  version: string;
   scenes: SceneFile | null;
   discoveries: ChapterDiscoveries | null;
 };

@@ -214,3 +214,17 @@ body {
   color: #ffb3b3;
 }
 
+
+/* Read by screen readers, never seen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+tw-passage:focus {
+  outline: none;
+}
