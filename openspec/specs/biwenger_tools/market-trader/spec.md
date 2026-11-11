@@ -72,11 +72,16 @@ player projected below `TRADER_DEAD_SF` (300, auto-bid's signing floor),
 whatever his price does — SHALL be sold at today's price, weakest projection
 first, so the bench that will not do much pays for the risers; unless he starts in the best
 eleven the lineup search picks today, the sale would take the squad below
-`TRADER_MIN_SQUAD` (14: an eleven and three reserves — the league's fifteen
-binds only the draft), or
+`TRADER_MIN_SQUAD` (16: an eleven, three reserves and two spare — the
+league's fifteen binds only the draft), or
 the rest would no longer field a full eleven of players the projection expects
 to play. Either way he is held, and the plan says why. Good players are kept
 for their points; price rotation is for the bench, and the bench is kept.
+
+The floor was 14 until 11/11. At 14 every signing was matched by a sale the
+next morning — Rioja, the only forward on the bench, the day Adrián Niño was
+bid for — and one injury would have left a line without cover. Two spare
+players cost the price falls of two bench players; that is the trade.
 
 With two keepers in the squad, the one the best eleven leaves out SHALL be sold
 whatever his price does: a manager's only keeper cannot be claused, a second one
