@@ -27,12 +27,15 @@ Python rules load from `.claude/rules/python.md` when a Python file is opened.
   biwenger_tools/   Fantasy-league platform: api, bot, scraper_job, web
   be_water/         Bottled-water catalog (own GCP project be-water-app): web, scripts
   chucknorris_bot/  Telegram joke bot
+  group_polls/      Backend of the "¿Qué votáis?" app: Firestore rules and a moderation CLI
+  interactive_fiction/  Twine story reader (Node + Vite, outside Bazel; Cloudflare static site)
+  wishlist/         Shared gift list (Node, outside Bazel; Cloudflare Worker + D1)
   my_photos/        Plan only, no code
 /docker         Docker configurations
 /infra          Terraform for the static GCP layer of both projects (see infra/README.md)
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
-/scripts        Utility scripts (GCP cleanup, costs)
+/scripts        CI guards and lint (lint.sh, check_*.py, affected_tests.py, coverage_report.py), GCP cost and cleanup, system install and skill sync
 /system         Personal skills and rules, installed into ~/.claude/ (see .claude/CLAUDE.md)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
@@ -81,7 +84,7 @@ python3 scripts/affected_tests.py origin/master       # what CI would run here
 
 ## Branch and PR Workflow
 
-This repo deploys to production on every push to `master` (see `.github/workflows/deploy.yml`).
+The GCP services deploy to production on every push to `master` (see `.github/workflows/deploy.yml`). The two Cloudflare Workers, `interactive_fiction` and `wishlist`, are deployed by hand with Wrangler.
 **Always work on a feature branch and open a PR** — never commit directly to master.
 
 **No exceptions.** Every change — docs, comments, CLAUDE.md edits, README
