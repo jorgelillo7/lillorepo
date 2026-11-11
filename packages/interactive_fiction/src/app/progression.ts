@@ -18,6 +18,8 @@ export interface Snapshot {
 
 export interface Progress extends Snapshot {
   undo: Snapshot[];
+  /** The chapter version (`ChapterData.version`) this progress was made on; absent in older saves. */
+  story?: string;
   finished: boolean;
   /** The chapter's end code, once finished. */
   code?: string;
@@ -26,8 +28,17 @@ export interface Progress extends Snapshot {
 /** Undo steps kept; older ones are dropped. */
 export const MAX_UNDO = 50;
 
-export function freshStart(start: string, vars: Vars): Progress {
-  return { passage: start, vars, undo: [], finished: false };
+export function freshStart(start: string, vars: Vars, story?: string): Progress {
+  return { passage: start, vars, undo: [], finished: false, story };
+}
+
+/**
+ * A save the chapter can no longer resume: it was made on another version and the passage it is
+ * on, or one it can step back to, is gone. A save on the same version always resumes.
+ */
+export function isStale(p: Progress, passages: ReadonlySet<string>, story: string): boolean {
+  if (p.story === story) return false;
+  return [p.passage, ...p.undo.map((u) => u.passage)].some((name) => !passages.has(name));
 }
 
 /**

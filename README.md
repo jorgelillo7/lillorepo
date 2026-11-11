@@ -1,5 +1,9 @@
 # lillorepo
 
+[![CI](https://github.com/jorgelillo7/lillorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/jorgelillo7/lillorepo/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/jorgelillo7/lillorepo)](LICENSE)
+![Python 3.14](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
+
 Monorepo of personal projects: Python services under Bazel, targeting Google Cloud Platform, plus two Node packages outside Bazel. Hosts **Biwenger Tools** (fantasy-football league analytics), **Be Water** (open catalog of Spanish bottled waters, on its own GCP project), **Chuck Norris Bot** (resurrected 2015 side project, now in the same infra), **Interactive Fiction** (a web reader for Twine stories, served from Cloudflare) and **Wishlist** (a shared gift list for Christmas and birthdays, also on Cloudflare).
 
 > See [`STATUS.md`](STATUS.md) for the living maturity score, the full capability inventory and the multi-product state of the repo.
@@ -30,6 +34,7 @@ graph TD
     USR -->|browse| WEB
     STO[Author's story repo] -->|npm run deploy| IF[interactive_fiction<br/>Cloudflare static site]
     USR -->|read + play| IF
+    USR -->|reserve a gift| WL[wishlist<br/>Cloudflare Worker + D1]
 ```
 
 ## Packages
@@ -95,12 +100,12 @@ for its build/test/deploy commands.
 
 | Layer | Technology |
 |-------|-----------|
-| Build | Bazel 9.1 (bzlmod), rules_python, rules_oci, rules_pkg |
-| Language | Python 3.14; TypeScript on Node for `interactive_fiction` |
+| Build | Bazel (bzlmod; the version is in `.bazelversion`), rules_python, rules_oci, rules_pkg |
+| Language | Python 3.14; TypeScript on Node for `interactive_fiction` and `wishlist` |
 | Web | Flask + Gunicorn |
 | Cloud | GCP — Cloud Run Services, Cloud Run Jobs, Secret Manager, Artifact Registry, Cloud Scheduler |
 | Storage | Firestore (native, regional `europe-southwest1`), Google Sheets (competiciones) |
-| CI/CD | GitHub Actions; `interactive_fiction` deploys by hand with Wrangler |
+| CI/CD | GitHub Actions deploys the GCP services; `interactive_fiction` and `wishlist` deploy by hand with Wrangler |
 
 ## Core Library
 
@@ -110,7 +115,7 @@ for its build/test/deploy commands.
 service(main = "app.py", core_deps = ["//core:serving", "//core:telegram"])
 ```
 
-The macro still defaults to the `//core` umbrella when `core_deps` is omitted, so a new package builds without it — but do not leave it out. While nothing passed it, every file in `core/` reached every package: a one-line edit to Biwenger's API client ran 10 of the 13 test suites, including a bot that has never heard of Biwenger. Omitting a slice a package needs fails in the Bazel sandbox, loudly, which is the cheap direction to be wrong in.
+The macro still defaults to the `//core` umbrella when `core_deps` is omitted, so a new package builds without it — but do not leave it out. While nothing passed it, every file in `core/` reached every package: a one-line edit to Biwenger's API client ran most of the test suites, including a bot that has never heard of Biwenger. Omitting a slice a package needs fails in the Bazel sandbox, loudly, which is the cheap direction to be wrong in.
 
 This scopes the **build graph**, not the image: `docker/Dockerfile.base` pip-installs every dependency regardless, so narrowing `core_deps` does not make a container smaller. Nor does it shrink `core_srcs.tar`, which ships all of `core/` unconditionally. A size win needs two more things that do not exist yet — that base image generated from the lock (see `PENDING.md`) **and** a per-service base, since today all six images share one.
 
@@ -163,7 +168,7 @@ step 7). The rationale is in [`docs/gcp.md`](docs/gcp.md).
 
 ## Deployment
 
-CI/CD runs on every push to `master`. Per-service `paths-filter` only deploys what changed (`core/`, `tools/`, `docker/`, `MODULE.bazel` or the package itself triggers that service):
+The GCP services deploy from CI on every push to `master`. The two Cloudflare Workers, `interactive_fiction` and `wishlist`, are deployed by hand with Wrangler (`npm run deploy` in the package; see its `OPERATIONS.md`). Per-service `paths-filter` only deploys what changed (`core/`, `tools/`, `docker/`, `MODULE.bazel` or the package itself triggers that service):
 
 1. **Lint** — Ruff (format check, lint and import order) on `core/` and `packages/` (see [`docs/setup/linter.md`](docs/setup/linter.md))
 2. **Test** — runs all test suites in parallel (gated on lint passing)

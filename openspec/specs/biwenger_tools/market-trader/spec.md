@@ -14,7 +14,7 @@ in `docs/external/biwenger-api.yaml`), accepts the planned sells' offers and
 places the planned bids. Listing sells nothing by itself: a player leaves only
 when an offer for him is accepted. The dialog's "Venta inmediata" — 50 % of the
 value in this league — is never used, and `{type: "remove"}` takes the whole
-squad off the market at once. Plan: `.claude/plans/market-trader.md`.
+squad off the market at once.
 
 - **Source:** `packages/biwenger_tools/api/logic/trader.py`,
   `price_history.py` (pure), `price_history_store.py`, `trader_run.py`

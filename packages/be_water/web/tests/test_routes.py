@@ -34,6 +34,8 @@ def _catalog():
     ]
 
 
+from packages.be_water.web import photos as photos_module  # noqa: E402
+
 _CSRF = "test-csrf-token"
 
 
@@ -46,6 +48,7 @@ def client(monkeypatch):
     # need real values patch repository themselves (their patch wins).
     monkeypatch.setattr(app_module.repository, "get_all_waters", lambda: [])
     monkeypatch.setattr(app_module.repository, "get_user", lambda nickname: None)
+    app_module.repository.clear_cache()
     for limiter in (
         app_module.helpers.LOGIN_LIMITER,
         app_module.helpers.SAVE_LIMITER,
@@ -850,7 +853,7 @@ def test_slug_strips_accents_so_dedup_catches_lanjaron(client):
 def test_photo_flow_prefills_form_and_runs_studio(client):
     _login(client)
     with (
-        patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}),
+        patch(f"{_APP}.helpers.studio_enabled", return_value=True),
         patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
         patch(f"{_APP}.photos.studio_photo", return_value=b"studio"),
         patch(f"{_APP}.photos.upload_photo") as mock_upload,
@@ -993,7 +996,7 @@ def test_photo_flow_studio_failure_falls_back_to_raw(client):
 
     _login(client)
     with (
-        patch(f"{_APP}.config.ADMIN_NICKNAMES", {"jorge"}),
+        patch(f"{_APP}.helpers.studio_enabled", return_value=True),
         patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
         patch(f"{_APP}.photos.studio_photo", side_effect=GeminiError("img boom")),
         patch(f"{_APP}.photos.upload_photo") as mock_upload,
@@ -1075,14 +1078,17 @@ def test_add_with_photo_tmp_promotes_both_and_stores_urls(client):
             "/anadir",
             data={
                 "name": "Font Nova",
-                "photo_tmp": "uploads/abc.jpg",
-                "label_tmp": "originals/abc.jpg",
+                "photo_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+                "label_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
             },
         )
     assert resp.status_code == 302
     calls = [c.args for c in mock_promote.call_args_list]
-    assert ("uploads/abc.jpg", "font-nova.jpg") in calls
-    assert ("originals/abc.jpg", "originals/font-nova.jpg") in calls
+    assert ("uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg", "font-nova.jpg") in calls
+    assert (
+        "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
+        "originals/font-nova.jpg",
+    ) in calls
     water = mock_save.call_args.args[0]
     assert water.photo_url.endswith("font-nova.jpg")
     assert water.label_photo_url.endswith("originals/font-nova.jpg")
@@ -1107,8 +1113,8 @@ def test_full_label_coverage_auto_promotes_to_verified(client):
                 "tds": "180",
                 "calcium": "40",
                 "ocr_fields": "tds,calcium",
-                "photo_tmp": "uploads/abc.jpg",
-                "label_tmp": "uploads/abc-label.jpg",
+                "photo_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+                "label_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
             },
         )
     water = mock_save.call_args.args[0]
@@ -1135,8 +1141,8 @@ def test_hand_typed_extra_mineral_blocks_auto_promotion(client):
                 "tds": "180",
                 "silica": "12",  # typed by hand, not in ocr_fields
                 "ocr_fields": "tds",
-                "photo_tmp": "uploads/abc.jpg",
-                "label_tmp": "uploads/abc-label.jpg",
+                "photo_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+                "label_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
             },
         )
     water = mock_save.call_args.args[0]
@@ -1468,8 +1474,6 @@ def test_the_studio_photo_and_the_ocr_run_at_the_same_time(client, monkeypatch):
     import io
     import threading
 
-    from packages.be_water.web import config as bw_config
-
     started = threading.Barrier(2, timeout=5)
 
     def _slow_studio(_src):
@@ -1481,7 +1485,7 @@ def test_the_studio_photo_and_the_ocr_run_at_the_same_time(client, monkeypatch):
         return {"name": "Agua"}
 
     _login(client)
-    monkeypatch.setattr(bw_config, "ADMIN_NICKNAMES", {"tester"})
+    monkeypatch.setattr("packages.be_water.web.helpers.studio_enabled", lambda: True)
     with client.session_transaction() as session:
         session["nickname"] = "tester"
 
@@ -1509,10 +1513,8 @@ def test_a_failed_ocr_still_saves_the_studio_photo(client, monkeypatch):
 
     from requests import RequestException
 
-    from packages.be_water.web import config as bw_config
-
     _login(client)
-    monkeypatch.setattr(bw_config, "ADMIN_NICKNAMES", {"tester"})
+    monkeypatch.setattr("packages.be_water.web.helpers.studio_enabled", lambda: True)
     with client.session_transaction() as session:
         session["nickname"] = "tester"
 
@@ -1673,7 +1675,7 @@ def test_each_dated_analysis_keeps_its_own_label_photo(client):
             data={
                 "name": "Bezoya",
                 "tds": "26.5",
-                "label_tmp": "uploads/abc-label.jpg",
+                "label_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
                 "analysis_date": "2024-01",
             },
         )
@@ -1710,8 +1712,8 @@ def test_an_older_submission_never_overwrites_the_current_bottle_photo(client):
             data={
                 "name": "Bezoya",
                 "tds": "26.5",
-                "photo_tmp": "uploads/abc.jpg",
-                "label_tmp": "uploads/abc-label.jpg",
+                "photo_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg",
+                "label_tmp": "uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-label.jpg",
                 "analysis_date": "2024-01",
             },
         )
@@ -2538,8 +2540,8 @@ def test_the_origin_photo_fills_the_gaps_and_keeps_what_was_typed(client):
                 "name": "Fuente Dehesa",
                 "tds": "48",
                 "ocr_fields": "tds",
-                "photo_tmp": "uploads/x.jpg",
-                "label_tmp": "uploads/x-label.jpg",
+                "photo_tmp": "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
+                "label_tmp": "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-label.jpg",
             },
             content_type="multipart/form-data",
         )
@@ -2549,7 +2551,7 @@ def test_the_origin_photo_fills_the_gaps_and_keeps_what_was_typed(client):
     assert 'value="48"' in body and "999" not in body  # typed value wins
     # The proof photo is still the composition shot, so the ✓ set is unchanged.
     assert re.search(r'name="ocr_fields" value="tds"', body)
-    assert 'value="uploads/x-label.jpg"' in body
+    assert 'value="uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-label.jpg"' in body
 
 
 def test_the_origin_photo_never_becomes_the_stored_proof(client):
@@ -2568,7 +2570,7 @@ def test_the_origin_photo_never_becomes_the_stored_proof(client):
                 "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
                 "origin": (io.BytesIO(b"origin-face"), "o.jpg"),
                 "name": "X",
-                "label_tmp": "uploads/x-label.jpg",
+                "label_tmp": "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-label.jpg",
             },
             content_type="multipart/form-data",
         )
@@ -2701,8 +2703,8 @@ def test_a_non_image_origin_photo_keeps_the_form(client):
                 "csrf_token": _csrf_from(client.get("/anadir").get_data(as_text=True)),
                 "origin": (io.BytesIO(_NOT_AN_IMAGE), "origen.pdf"),
                 "name": "Fuente Dehesa",
-                "photo_tmp": "uploads/x.jpg",
-                "label_tmp": "uploads/x-label.jpg",
+                "photo_tmp": "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
+                "label_tmp": "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-label.jpg",
             },
             content_type="multipart/form-data",
         )
@@ -2710,7 +2712,7 @@ def test_a_non_image_origin_photo_keeps_the_form(client):
     assert resp.status_code == 200
     assert "no parece una foto" in body
     assert 'value="Fuente Dehesa"' in body
-    assert "uploads/x-label.jpg" in body
+    assert "uploads/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-label.jpg" in body
     mock_read.assert_not_called()
 
 
@@ -2872,3 +2874,220 @@ def test_pages_link_the_manifest_and_register_the_worker(client):
     assert '<link rel="manifest" href="/manifest.webmanifest">' in body
     assert 'navigator.serviceWorker.register("/sw.js")' in body
     assert 'rel="apple-touch-icon"' in body
+
+
+# --- Which photo names a submission may carry --------------------------------
+
+_HEX = "c" * 32
+_GOOD_TMP = f"uploads/{_HEX}.jpg"
+_GOOD_LABEL = f"uploads/{_HEX}-label.jpg"
+_NOT_UPLOADS = [
+    "originals/font-nova.jpg",  # another water's permanent photo
+    "font-nova.jpg",
+    "uploads/abc.jpg",  # right folder, not a name the upload step makes
+    f"uploads/{_HEX}.png",
+    f"uploads/{_HEX}.jpg/../../originals/x.jpg",
+    f"../uploads/{_HEX}.jpg",
+    f"uploads/../originals/{_HEX}.jpg",
+    f"uploads%2F{_HEX}.jpg",
+    "uploads/..%2Foriginals%2Fx.jpg",
+    f"/uploads/{_HEX}.jpg",
+    f"uploads//{_HEX}.jpg",
+    "https://example.com/uploads/x.jpg",
+]
+
+
+@pytest.mark.parametrize("field", ["photo_tmp", "label_tmp"])
+@pytest.mark.parametrize("value", _NOT_UPLOADS)
+def test_a_photo_name_the_upload_step_did_not_make_is_refused(client, field, value):
+    _login(client)
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_APP}.photos.promote_photo") as mock_promote,
+        patch(f"{_APP}.photos.delete_object") as mock_delete,
+        patch(f"{_REPO}.touch_user"),
+    ):
+        resp = client.post("/anadir", data={"name": "Font Nova", field: value})
+    assert resp.status_code == 400
+    mock_promote.assert_not_called()
+    mock_delete.assert_not_called()
+    mock_save.assert_not_called()
+
+
+def test_a_submission_without_photos_is_still_accepted(client):
+    _login(client)
+    with (
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.get_water", return_value=None),
+        patch(f"{_APP}.photos.promote_photo") as mock_promote,
+        patch(f"{_REPO}.touch_user"),
+    ):
+        resp = client.post(
+            "/anadir", data={"name": "Font Nova", "photo_tmp": "", "label_tmp": ""}
+        )
+    assert resp.status_code == 302
+    mock_promote.assert_not_called()
+    mock_save.assert_called_once()
+
+
+def test_the_names_the_photo_flow_mints_are_names_the_save_accepts(client):
+    _login(client)
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo") as mock_upload,
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Agua"}),
+    ):
+        resp = client.post(
+            "/anadir/foto",
+            data={"photo": (__import__("io").BytesIO(b"raw"), "a.jpg")},
+            content_type="multipart/form-data",
+        )
+    assert resp.status_code == 200
+    names = [call.args[0] for call in mock_upload.call_args_list]
+    assert len(names) == 2
+    assert all(photos_module.is_upload_name(name) for name in names)
+    assert sum(name.endswith("-label.jpg") for name in names) == 1
+
+
+def test_a_foreign_photo_name_is_never_echoed_back_into_the_form(client):
+    _login(client)
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Agua"}),
+    ):
+        resp = client.post(
+            "/anadir/origen",
+            data={
+                "photo_tmp": "originals/font-nova.jpg",
+                "label_tmp": _GOOD_LABEL,
+                "origin": (__import__("io").BytesIO(b"raw"), "o.jpg"),
+            },
+            content_type="multipart/form-data",
+        )
+    body = resp.get_data(as_text=True)
+    assert "originals/font-nova.jpg" not in body
+    assert _GOOD_LABEL in body
+
+
+@pytest.mark.parametrize("merge_into", ["../waters/x", "a/b", "A B", "x?y"])
+def test_a_merge_target_must_be_an_id(client, merge_into):
+    _login(client)
+    with (
+        patch(f"{_REPO}.get_water") as mock_get,
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.touch_user"),
+    ):
+        resp = client.post(
+            "/anadir", data={"name": "Font Nova", "merge_into": merge_into}
+        )
+    assert resp.status_code == 400
+    mock_get.assert_not_called()
+    mock_save.assert_not_called()
+
+
+def test_a_name_that_slugs_to_nothing_is_refused_before_any_read(client):
+    from packages.be_water.web import submission
+
+    assert submission.slugify("¡¡") == ""
+    _login(client)
+    with (
+        patch(f"{_REPO}.get_water") as mock_get,
+        patch(f"{_REPO}.save_water") as mock_save,
+        patch(f"{_REPO}.touch_user"),
+    ):
+        resp = client.post("/anadir", data={"name": "¡¡ !!"})
+    assert resp.status_code == 400
+    mock_get.assert_not_called()
+    mock_save.assert_not_called()
+
+
+# --- Who may use the paid studio ---------------------------------------------
+
+
+def _as_google_admin(client, email="owner@example.com", nickname="jorgelillo"):
+    with client.session_transaction() as sess:
+        sess["nickname"] = nickname
+        sess["google_email"] = email
+
+
+def _post_photo(client):
+    return client.post(
+        "/anadir/foto",
+        data={"photo": (__import__("io").BytesIO(b"raw"), "label.jpg")},
+        content_type="multipart/form-data",
+    )
+
+
+def test_a_typed_nickname_never_reaches_the_studio(client, monkeypatch):
+    """Whatever the nickname says, nobody is an admin without a verified Google
+    identity, and with no Sign-In configured the studio is off for everyone."""
+    monkeypatch.setattr("packages.be_water.web.config.GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(
+        "packages.be_water.web.config.ADMIN_EMAILS", {"owner@example.com"}
+    )
+    with client.session_transaction() as sess:
+        sess["nickname"] = "jorgelillo"
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo") as mock_studio,
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Agua"}),
+    ):
+        resp = _post_photo(client)
+    assert resp.status_code == 200
+    mock_studio.assert_not_called()
+
+
+def test_a_google_admin_gets_the_studio_once_sign_in_exists(client, monkeypatch):
+    monkeypatch.setattr("packages.be_water.web.config.GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setattr(
+        "packages.be_water.web.config.ADMIN_EMAILS", {"owner@example.com"}
+    )
+    _as_google_admin(client)
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo", return_value=b"studio") as mock_studio,
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Agua"}),
+    ):
+        resp = _post_photo(client)
+    assert resp.status_code == 200
+    mock_studio.assert_called_once()
+
+
+def test_a_google_account_that_is_not_an_admin_does_not(client, monkeypatch):
+    monkeypatch.setattr("packages.be_water.web.config.GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setattr(
+        "packages.be_water.web.config.ADMIN_EMAILS", {"owner@example.com"}
+    )
+    _as_google_admin(client, email="someone@example.com")
+    with (
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.studio_photo") as mock_studio,
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", return_value={"name": "Agua"}),
+    ):
+        _post_photo(client)
+    mock_studio.assert_not_called()
+
+
+# --- What reaches the logs when a call fails ---------------------------------
+
+
+def test_a_failed_label_read_logs_no_exception_text(client, caplog):
+    from requests import ConnectionError as RequestsConnectionError
+
+    leaky = RequestsConnectionError(
+        "HTTPSConnectionPool: Max retries exceeded with url: /x?token=SECRET-TOKEN"
+    )
+    _login(client)
+    with (
+        caplog.at_level("INFO"),
+        patch(f"{_APP}.photos.process_image", return_value=b"jpg"),
+        patch(f"{_APP}.photos.upload_photo"),
+        patch(f"{_APP}.label_ocr.extract_label", side_effect=leaky),
+    ):
+        _post_photo(client)
+    assert "SECRET-TOKEN" not in caplog.text
+    assert any(getattr(r, "error", "") == "ConnectionError" for r in caplog.records)
