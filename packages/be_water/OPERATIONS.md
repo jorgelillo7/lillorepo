@@ -290,6 +290,17 @@ through Service Usage (`consumerQuotaMetrics` → the limit →
 in `core/sdk/gemini.py` needs a cap for the new model too, or it runs on the
 default.
 
+The service also counts its own paid calls: one Firestore document per kind and
+UTC day in the `usage` collection (`image__2026-11-11`, `ocr__…`), incremented in
+a transaction. When a kind reaches its cap the paid key is not sent and the call
+fails as a 429 would. Caps are `BEWATER_PAID_IMAGE_DAILY_CAP` (default 20) and
+`BEWATER_PAID_OCR_DAILY_CAP` (default 100), kept below the project quotas above;
+a cap of 0 turns the paid key off. If the counter cannot be read, paid calls are
+refused. Read today's count in the Firestore console under `usage`.
+
+The studio photo (the image call) is available only to a Google-verified admin:
+it is off until Sign-In is configured, and is never granted by a nickname.
+
 A key in a billing-less project is why a 429 can arrive while the billing
 account still shows its credit untouched. Check which project a key belongs to
 before concluding the quota is a billing problem:

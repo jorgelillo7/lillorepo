@@ -97,7 +97,7 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   default compute account holds no role), keyless deploys from `master` only
   with every action pinned to a commit, webhook HMAC, service-to-service OIDC,
   nonce-based CSP on both webs, CSRF, rate limits keyed on the real client IP,
-  daily caps on Gemini, HTML sanitisation. No key files anywhere.
+  daily caps on Gemini (quota overrides on the paid project, plus a per-day counter of paid calls kept in Firestore), HTML sanitisation. No key files anywhere.
 
 ## What we know vs what we assume
 

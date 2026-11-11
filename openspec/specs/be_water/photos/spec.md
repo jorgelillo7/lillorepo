@@ -79,6 +79,58 @@ watermark, producing the bytes uploaded to storage.
   `test_process_image_refuses_bytes_that_are_not_an_image`,
   `test_a_truncated_jpeg_is_not_an_image_either`
 
+### Requirement: Only the accepted formats are decoded
+
+Uploads SHALL be opened only as JPEG, PNG or WebP, and refused as `NotAnImage`
+before any pixel is decoded when they are anything else; an image whose header
+declares more than `MAX_PIXELS` SHALL be refused unread. The studio's returned
+image follows the same list.
+
+Pillow ships a decoder for dozens of formats and each is more code reading
+untrusted bytes; the product only needs three, so the rest are never reached.
+
+#### Scenario: formats and size
+- **WHEN** a GIF, TIFF or BMP is uploaded **THEN** `NotAnImage`, with no decode attempted
+- **WHEN** a JPEG, PNG or WebP is uploaded **THEN** it is processed as before
+- **WHEN** the header declares too many pixels **THEN** `NotAnImage`
+- *Verifies:* `test_a_format_the_product_does_not_accept_is_refused_before_decoding`,
+  `test_the_accepted_formats_still_go_through`,
+  `test_an_image_declaring_too_many_pixels_is_refused_unread`
+
+### Requirement: Only an upload is promoted
+
+`promote_photo` SHALL accept as its source only a name `upload_name` can produce,
+and as its destination only a permanent photo name (`<id>.jpg` or
+`originals/<id>.jpg`, optionally dated); anything else SHALL raise `ValueError`
+before any request is sent. The source is removed after the copy, so no caller
+may name an arbitrary object.
+
+#### Scenario: sources and destinations
+- **WHEN** the source is not an upload name, or the destination is not a permanent name
+  **THEN** `ValueError` and no request is sent
+- **WHEN** both are valid **THEN** the object is copied, the temporary removed, and the permanent URL returned
+- *Verifies:* `test_only_an_upload_can_be_promoted`,
+  `test_a_promotion_cannot_land_outside_the_permanent_names`,
+  `test_an_upload_is_promoted_to_a_permanent_name`,
+  `test_upload_names_round_trip_through_the_check`
+
+### Requirement: Paid Gemini calls have a daily cap
+
+When the free allowance is spent, a call SHALL use the paid key only if a counter
+persisted in Firestore, one per kind (`image`, `ocr`) and UTC day, still has room
+under its configured cap; the counter is incremented in a transaction, so
+instances share it. A cap of zero, or a counter that cannot be read or written,
+SHALL refuse the paid call and leave the 429 as it is.
+
+#### Scenario: the counter and the studio
+- **WHEN** paid calls are claimed **THEN** each kind counts separately and the call past the cap is refused
+- **WHEN** the cap is zero, or the counter fails **THEN** the call is refused
+- **WHEN** the studio falls back **THEN** it asks the image cap first
+- *Verifies:* `test_paid_calls_are_counted_per_kind_and_stop_at_the_cap`,
+  `test_a_cap_of_zero_never_allows_a_paid_call`,
+  `test_when_the_counter_cannot_be_used_the_call_is_refused`,
+  `test_the_studio_asks_the_daily_cap_before_the_paid_key`
+
 ### Requirement: A file that is not a photo gets a sentence, not a 500
 
 Each of the three upload points on the add form (the label shot, the optional
