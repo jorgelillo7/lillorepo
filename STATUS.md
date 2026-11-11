@@ -64,8 +64,8 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
   start, at most three starters per club, jitter and Firestore idempotency.
 - **Market trader** — live: every morning it lists the squad, sells bench
-  fallers and a spare keeper (never a signing under 14 days, never below 14
-  players — the league's 15 binds only the draft) and bids on risers, ending at
+  fallers, long absences and a spare keeper (never a signing under 7 days,
+  never below 16 players — an eleven, three reserves and two spare) and bids on risers, ending at
   most 1M below zero and never below it in the two days before a round. It runs before the offers inbox, which treats its sells as
   gone.
 - **Lineup optimizer** — memoised backtracking over 14 formations, captain MV

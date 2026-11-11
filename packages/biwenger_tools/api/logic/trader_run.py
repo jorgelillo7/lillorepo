@@ -43,6 +43,7 @@ def _rules() -> trader.Rules:
         clause_lock_days=config.CLAUSE_LOCK_DAYS,
         absence_rounds=config.TRADER_ABSENCE_ROUNDS,
         star_price=config.TRADER_STAR_PRICE,
+        keep_line_reserves=True,
         max_per_club=config.MAX_PLAYERS_PER_CLUB,
     )
 

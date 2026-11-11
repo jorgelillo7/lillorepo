@@ -72,11 +72,34 @@ player projected below `TRADER_DEAD_SF` (300, auto-bid's signing floor),
 whatever his price does — SHALL be sold at today's price, weakest projection
 first, so the bench that will not do much pays for the risers; unless he starts in the best
 eleven the lineup search picks today, the sale would take the squad below
-`TRADER_MIN_SQUAD` (14: an eleven and three reserves — the league's fifteen
-binds only the draft), or
+`TRADER_MIN_SQUAD` (16: an eleven, three reserves and two spare — the
+league's fifteen binds only the draft), or
 the rest would no longer field a full eleven of players the projection expects
 to play. Either way he is held, and the plan says why. Good players are kept
 for their points; price rotation is for the bench, and the bench is kept.
+
+The floor was 14 until 11/11. At 14 every signing was matched by a sale the
+next morning — Rioja, the only forward on the bench, the day Adrián Niño was
+bid for — and one injury would have left a line without cover. Two spare
+players cost the price falls of two bench players; that is the trade.
+
+Nor SHALL a sale leave an outfield line without a reserve: a player outside
+the best eleven whom the projection expects to play, in any line he can play,
+is the line's cover, and the only one is held ("único suplente de su línea"),
+whatever his price or projection. One injury in that line would otherwise
+field the eleven a man short. A reserve who cannot play covers nothing, so a
+long absence still sells. The keeper's line is left out: a second keeper is a
+sale of its own. On in production (`Rules.keep_line_reserves`).
+
+#### Scenario: the line's last reserve
+- **WHEN** a falling reserve is the only cover for his line **THEN** he is held
+- **WHEN** the line has another reserve **THEN** he can be sold
+- **WHEN** the only reserve cannot play **THEN** he covers nothing and a long
+  absence still sells him
+- *Verifies:* `test_the_only_reserve_of_a_line_is_not_sold`,
+  `test_a_second_reserve_of_the_same_line_can_be_sold`,
+  `test_an_injured_reserve_covers_nothing_and_can_go`,
+  `test_production_rules_keep_line_reserves`
 
 With two keepers in the squad, the one the best eleven leaves out SHALL be sold
 whatever his price does: a manager's only keeper cannot be claused, a second one

@@ -91,13 +91,14 @@ def _player(bw_id, sf, position, price=2_000_000):
 
 
 def _squad():
-    """A 4-4-2 eleven plus a benched defender, P40."""
+    """A 4-4-2 eleven plus two benched defenders: P40, who falls, and P41,
+    who stays as the line's only reserve once P40 is sold."""
     return (
         [_player(1, 400, GK)]
         + [_player(10 + i, 400, DEF) for i in range(4)]
         + [_player(20 + i, 400, MID) for i in range(4)]
         + [_player(30 + i, 400, FWD) for i in range(2)]
-        + [_player(40, 100, DEF)]
+        + [_player(40, 100, DEF), _player(41, 350, DEF)]
     )
 
 

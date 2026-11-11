@@ -41,6 +41,8 @@ class Rules:
     # A player priced at or above this is never sold for an absence: a star's
     # price comes back with him. 0 protects nobody.
     star_price: int = 0
+    # Never sell the only reserve of an outfield line.
+    keep_line_reserves: bool = False
     # No buy from a club the squad already holds this many of; 0 is no cap.
     max_per_club: int = 0
 
@@ -205,6 +207,19 @@ def _deadwood(row: dict, rules: Rules, now: float = 0.0, kickoffs=()) -> bool:
     return lineup.projected_sf(row) < rules.dead_sf
 
 
+def _bench_lines(rows: list[dict]) -> set:
+    """The outfield lines the squad has a reserve for: a player outside the
+    best eleven whom the projection expects to play, in any line he can play.
+    The keeper's line is left out — a second keeper is a sale of its own."""
+    starters = best_eleven_ids(rows)
+    return {
+        line
+        for r in rows
+        if r["bw_id"] not in starters and lineup.plays(r)
+        for line in _lines(r)
+    } & {lineup.DEF, lineup.MID, lineup.FWD}
+
+
 def _lines(row: dict) -> set:
     """Every line a player can be fielded in: his position and `alt_positions`."""
     return {row.get("position_id"), *(row.get("alt_positions") or [])} - {None}
@@ -280,6 +295,14 @@ def plan_sells(
         rest = [r for r in keep if r["bw_id"] != row["bw_id"]]
         if not has_eleven(rest):
             held.append((row, "sin él no queda un once que juegue"))
+            continue
+        if (
+            rules.keep_line_reserves
+            and not spare
+            and _bench_lines(keep) - _bench_lines(rest)
+        ):
+            # One injury in his line and the eleven would play a man short.
+            held.append((row, "único suplente de su línea"))
             continue
         keep = rest
         falling = s <= -rules.sell_after_falls
