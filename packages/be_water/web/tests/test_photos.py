@@ -173,3 +173,103 @@ def test_a_truncated_jpeg_is_not_an_image_either():
     whole = _img_bytes((200, 200))
     with pytest.raises(photos.NotAnImage):
         photos.process_image(whole[: len(whole) // 2])
+
+
+# --- What may be read, and what may be promoted -------------------------------
+
+
+def _gif() -> bytes:
+    return _img_bytes((8, 8), fmt="GIF")
+
+
+@pytest.mark.parametrize("fmt", ["GIF", "TIFF", "BMP"])
+def test_a_format_the_product_does_not_accept_is_refused_before_decoding(
+    fmt, monkeypatch
+):
+    from PIL import ImageFile
+
+    def _no_decode(self, *args, **kwargs):
+        raise AssertionError("pixels were decoded")
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", _no_decode)
+    with pytest.raises(photos.NotAnImage):
+        photos.process_image(_img_bytes((8, 8), fmt=fmt))
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG", "WEBP"])
+def test_the_accepted_formats_still_go_through(fmt):
+    out = photos.process_image(_img_bytes((40, 30), fmt=fmt))
+    assert Image.open(io.BytesIO(out)).format == "JPEG"
+
+
+def test_an_image_declaring_too_many_pixels_is_refused_unread(monkeypatch):
+    monkeypatch.setattr(photos, "MAX_PIXELS", 1000)
+    with pytest.raises(photos.NotAnImage, match="too large"):
+        photos.process_image(_img_bytes((100, 100)))
+
+
+@pytest.mark.parametrize(
+    "tmp",
+    [
+        "originals/lanjaron.jpg",
+        "uploads/../originals/lanjaron.jpg",
+        "uploads/lanjaron.jpg",
+        "",
+        "/uploads/" + "a" * 32 + ".jpg",
+    ],
+)
+def test_only_an_upload_can_be_promoted(tmp):
+    with (
+        patch(f"{_MOD}.requests.post") as post,
+        patch(f"{_MOD}.requests.delete") as delete,
+        patch(f"{_MOD}._auth_header", return_value={}),
+    ):
+        with pytest.raises(ValueError):
+            photos.promote_photo(tmp, "lanjaron.jpg")
+    post.assert_not_called()
+    delete.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "final", ["uploads/" + "a" * 32 + ".jpg", "../x.jpg", "a/b.jpg"]
+)
+def test_a_promotion_cannot_land_outside_the_permanent_names(final):
+    with patch(f"{_MOD}.requests.post") as post:
+        with pytest.raises(ValueError):
+            photos.promote_photo("uploads/" + "a" * 32 + ".jpg", final)
+    post.assert_not_called()
+
+
+def test_an_upload_is_promoted_to_a_permanent_name():
+    tmp = photos.upload_name("a" * 32)
+    with (
+        patch(f"{_MOD}.requests.post") as post,
+        patch(f"{_MOD}.requests.delete") as delete,
+        patch(f"{_MOD}._auth_header", return_value={}),
+    ):
+        url = photos.promote_photo(tmp, "originals/lanjaron__2024-01.jpg")
+    post.assert_called_once()
+    delete.assert_called_once()
+    assert url.endswith("originals/lanjaron__2024-01.jpg")
+
+
+def test_upload_names_round_trip_through_the_check():
+    uid = "0123456789abcdef" * 2
+    assert photos.is_upload_name(photos.upload_name(uid))
+    assert photos.is_upload_name(photos.upload_name(uid, label=True))
+    assert not photos.is_upload_name(photos.upload_name(uid.upper()))
+
+
+def test_the_studio_asks_the_daily_cap_before_the_paid_key():
+    calls = []
+    with (
+        patch(f"{_MOD}.repository.claim_paid_call", return_value=False) as claim,
+        patch(f"{_MOD}.gemini.generate_image") as generate,
+    ):
+        generate.side_effect = GeminiError("429", status_code=429)
+        with pytest.raises(GeminiError):
+            photos.studio_photo(_img_bytes((10, 10)))
+        allow = generate.call_args.kwargs["allow_fallback"]
+        assert allow() is False
+    claim.assert_called_once_with("image", photos.config.PAID_IMAGE_DAILY_CAP)
+    assert calls == []

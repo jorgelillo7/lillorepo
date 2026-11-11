@@ -9,6 +9,7 @@ parseable JSON back.
 import base64
 import json
 import time
+from collections.abc import Callable
 
 import requests
 
@@ -50,6 +51,14 @@ class GeminiError(Exception):
         self.status_code = status_code
 
 
+def _post(url: str, api_key: str, payload: dict, timeout: int) -> requests.Response:
+    """POST with the key in a header, so no URL, log line or exception message
+    ever carries it."""
+    return requests.post(
+        url, headers={"x-goog-api-key": api_key}, json=payload, timeout=timeout
+    )
+
+
 def _post_with_retry(
     url: str,
     api_key: str,
@@ -57,6 +66,7 @@ def _post_with_retry(
     timeout: int,
     retries: int,
     fallback_api_key: str = "",
+    allow_fallback: Callable[[], bool] | None = None,
 ) -> requests.Response:
     """POST, resending on a 429/503 (transient overload) up to `retries` times.
 
@@ -65,24 +75,25 @@ def _post_with_retry(
     is a property of the key's project, so a key whose project has billing
     answers where the free one is out of allowance. Free first, paid only when
     free has nothing left — nothing is charged while the free quota holds.
+
+    `allow_fallback`, when given, is asked right before the paid attempt and
+    must say yes: it is where a caller meters spend (a daily cap). When it says
+    no the 429 is returned as it is. Without it the fallback is unconditional.
     """
-    response = requests.post(
-        url, params={"key": api_key}, json=payload, timeout=timeout
-    )
+    response = _post(url, api_key, payload, timeout)
     for _ in range(retries):
         if response.status_code not in _RETRYABLE_STATUS:
             break
         time.sleep(_RETRY_BACKOFF_SECONDS)
-        response = requests.post(
-            url, params={"key": api_key}, json=payload, timeout=timeout
-        )
+        response = _post(url, api_key, payload, timeout)
     if response.status_code == 429 and fallback_api_key:
+        if allow_fallback is not None and not allow_fallback():
+            logger.warning("Free-tier quota exhausted — paid key not allowed.")
+            return response
         # Logged loudly: this line is the only warning that the project just
         # started spending money.
         logger.warning("Free-tier quota exhausted — retrying on the paid key.")
-        response = requests.post(
-            url, params={"key": fallback_api_key}, json=payload, timeout=timeout
-        )
+        response = _post(url, fallback_api_key, payload, timeout)
     return response
 
 
@@ -96,6 +107,7 @@ def generate_json(
     timeout: int = 45,
     retries: int = 0,
     fallback_api_key: str = "",
+    allow_fallback: Callable[[], bool] | None = None,
 ) -> dict:
     """One-shot structured generation: prompt (+ optional image) → dict.
 
@@ -128,6 +140,7 @@ def generate_json(
         timeout,
         retries,
         fallback_api_key,
+        allow_fallback,
     )
     if response.status_code != 200:
         raise GeminiError(
@@ -150,6 +163,7 @@ def generate_image(
     timeout: int = 90,
     retries: int = 0,
     fallback_api_key: str = "",
+    allow_fallback: Callable[[], bool] | None = None,
 ) -> bytes:
     """Image-editing call: prompt + source image → edited image bytes.
 
@@ -178,6 +192,7 @@ def generate_image(
         timeout,
         retries,
         fallback_api_key,
+        allow_fallback,
     )
     if response.status_code != 200:
         raise GeminiError(

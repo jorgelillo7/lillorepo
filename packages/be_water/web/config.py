@@ -55,15 +55,12 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 # this one returned first time.
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
 
-# Nicknames whose uploads go through the paid studio treatment (image
-# generation has no free tier). Everyone else keeps the free OCR prefill
-# and their raw photo. Comma-separated env so admins can be added without
-# a code change.
-ADMIN_NICKNAMES = {
-    n.strip().lower()
-    for n in os.getenv("BEWATER_ADMINS", "jorgelillo").split(",")
-    if n.strip()
-}
+# Paid calls a day, across the whole service, once the free allowance is spent.
+# Counted in Firestore (`repository.claim_paid_call`), so the limit holds across
+# instances and restarts. Image generation costs far more per call than the
+# label reader, hence the separate, smaller number.
+PAID_IMAGE_DAILY_CAP = int(os.getenv("BEWATER_PAID_IMAGE_DAILY_CAP", "20"))
+PAID_OCR_DAILY_CAP = int(os.getenv("BEWATER_PAID_OCR_DAILY_CAP", "100"))
 
 # --- Google Sign-In (admin + future public login) ---
 # Empty until the OAuth client exists (see docs/operations.md runbook):

@@ -91,13 +91,23 @@ mismatch with 403.
 signed-out visitor and to a signed-in non-admin.
 
 A nickname is self-asserted, so nickname-based admin would be admin by typing.
-`ADMIN_NICKNAMES` is a separate, weaker thing — it only gates who spends the
-paid studio-photo call, never moderation.
+The paid studio photo follows the same rule: only a session with a verified
+Google admin identity may use it, and while Sign-In is unconfigured nobody can,
+so the studio is off for everyone.
 
 #### Scenario: the admin gate
 - **WHEN** signed out, or signed in with a non-admin email **THEN** 403
 - **WHEN** signed in with an admin email **THEN** the users table renders
 - *Verifies:* `test_admin_page_requires_admin_email`
+
+#### Scenario: the studio gate
+- **WHEN** Sign-In is unconfigured, whatever the nickname **THEN** the studio is not called
+- **WHEN** Sign-In is configured and the session has an admin Google email
+  **THEN** the studio is called
+- **WHEN** the Google email is not an admin's **THEN** it is not
+- *Verifies:* `test_a_typed_nickname_never_reaches_the_studio`,
+  `test_a_google_admin_gets_the_studio_once_sign_in_exists`,
+  `test_a_google_account_that_is_not_an_admin_does_not`
 
 ### Requirement: Blocking stops contributing, retroactively
 

@@ -68,6 +68,11 @@ configured retries, and only then, it SHALL be sent once more with that key,
 and the fallback SHALL be logged. A 4xx other than 429, a 503, and an absent
 fallback key SHALL never reach it.
 
+The key SHALL travel in the `x-goog-api-key` header and never in the URL, so no
+logged URL or exception message can carry it. An optional `allow_fallback`
+callable SHALL be asked right before the paid attempt: when it answers no, the
+429 is raised as it is and the paid key is not sent.
+
 Motive: the Gemini tier is a property of the key's **project**, not of the
 call — a key whose project has a billing account answers where a free one is
 out of allowance. Free first keeps the bill at zero while the free quota
@@ -82,7 +87,14 @@ spends.
   request is retried on it, after every configured retry has been spent
 - **WHEN** the failure is a 400 or a 503 **THEN** the fallback is not used
 - **WHEN** no fallback key is set **THEN** the 429 raises as before
-- *Verifies:* `test_a_spent_free_quota_falls_back_to_the_paid_key`,
+- **WHEN** a request is sent **THEN** the key is in the header and not in the URL
+- **WHEN** `allow_fallback` says no **THEN** the paid key is never sent; when yes,
+  it is asked once and only after the free key hits a 429
+- *Verifies:* `test_the_key_travels_in_a_header_and_never_in_the_url`,
+  `test_a_refused_fallback_leaves_the_429_as_it_is`,
+  `test_an_allowed_fallback_is_asked_once_and_then_spends`,
+  `test_the_allowance_is_not_asked_while_the_free_key_answers`,
+  `test_a_spent_free_quota_falls_back_to_the_paid_key`,
   `test_the_paid_key_is_tried_once_and_only_after_the_retries`,
   `test_nothing_is_spent_on_a_failure_the_paid_key_cannot_fix`,
   `test_without_a_paid_key_a_spent_quota_still_fails`,

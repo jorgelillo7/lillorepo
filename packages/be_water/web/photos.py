@@ -7,6 +7,7 @@ phone photos carry GPS and this bucket is public.
 """
 
 import io
+import re
 from collections import Counter
 
 import google.auth
@@ -17,13 +18,38 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 from core.sdk import gemini
 from core.sdk.gcp import upload_object
 from core.utils import get_logger
-from packages.be_water.web import config
+from packages.be_water.web import config, repository
 
 logger = get_logger(__name__)
 
 _STORAGE_API = "https://storage.googleapis.com"
 MAX_SIDE = 1200
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # refuse absurd uploads before Pillow
+# The only formats the product takes. Pillow opens many more (TIFF, GIF, PDF,
+# EPS...), each with its own decoder; naming the accepted ones keeps the rest
+# from ever being parsed.
+ACCEPTED_FORMATS = ("JPEG", "PNG", "WEBP")
+# Header-declared size past which a file is refused before any pixel is
+# decoded. A 48 MP phone photo is under it.
+MAX_PIXELS = 64_000_000
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+
+# Where a contributor's photos wait between the upload step and the save: the
+# one place the app writes under a name it chose itself. Both names are built
+# and checked here, so what the form hands back can only ever be one of them.
+_UPLOAD_NAME = re.compile(r"^uploads/[0-9a-f]{32}(-label)?\.jpg$")
+_FINAL_NAME = re.compile(r"^(originals/)?[a-z0-9][a-z0-9-]*(__\d{4}(-\d{2})?)?\.jpg$")
+
+
+def upload_name(uid: str, *, label: bool = False) -> str:
+    """The temporary object name for upload `uid` (a `uuid4().hex`)."""
+    return f"uploads/{uid}{'-label' if label else ''}.jpg"
+
+
+def is_upload_name(name: str) -> bool:
+    """True only for a name `upload_name` can produce."""
+    return bool(_UPLOAD_NAME.fullmatch(name or ""))
+
 
 STUDIO_SIZE = 1080  # square, timeline-friendly
 # No emoji here: PIL's default font has no emoji glyphs (the 💧 silently
@@ -83,10 +109,15 @@ def process_image(data: bytes) -> bytes:
     """Upright, ≤1200px, JPEG, EXIF-free. Raises `NotAnImage` on anything
     Pillow cannot decode, including a file truncated mid-upload."""
     try:
-        img: Image.Image = Image.open(io.BytesIO(data))
+        img: Image.Image = Image.open(io.BytesIO(data), formats=ACCEPTED_FORMATS)
+        if img.width * img.height > MAX_PIXELS:
+            raise NotAnImage("image too large")
+        # JPEG only: decode at a reduced scale, so a large photo never has to
+        # exist in full in memory.
+        img.draft("RGB", (MAX_SIDE * 2, MAX_SIDE * 2))
         img = ImageOps.exif_transpose(img)
         img = img.convert("RGB")
-    except (OSError, Image.DecompressionBombError) as exc:
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
         raise NotAnImage(str(exc)) from exc
     img.thumbnail((MAX_SIDE, MAX_SIDE))
     out = io.BytesIO()
@@ -108,6 +139,9 @@ def studio_photo(raw_photo: bytes) -> bytes:
         image_bytes=raw_photo,
         model=config.GEMINI_IMAGE_MODEL,
         fallback_api_key=config.GEMINI_API_KEY_PAID,
+        allow_fallback=lambda: repository.claim_paid_call(
+            "image", config.PAID_IMAGE_DAILY_CAP
+        ),
         # 90 s (the default) is not enough once the free allowance is gone: the
         # request is then made twice, and the paid attempt starts after the
         # first has already burned its round trip. The add flow allows the
@@ -119,7 +153,9 @@ def studio_photo(raw_photo: bytes) -> bytes:
         # again is latency the add flow already budgets for.
         retries=2,
     )
-    img = _flatten_backdrop(Image.open(io.BytesIO(cutout)).convert("RGB"))
+    img = _flatten_backdrop(
+        Image.open(io.BytesIO(cutout), formats=ACCEPTED_FORMATS).convert("RGB")
+    )
     img.thumbnail((int(STUDIO_SIZE * 0.86), int(STUDIO_SIZE * 0.86)))
 
     canvas = Image.new("RGB", (STUDIO_SIZE, STUDIO_SIZE), "white")
@@ -208,7 +244,13 @@ def promote_photo(tmp_name: str, final_name: str) -> str:
 
     The copy carries the source object's metadata, so the promoted photo
     inherits `PHOTO_CACHE_CONTROL` from the upload that wrote the temporary.
+    Only an upload name may be the source, because the source is deleted
+    afterwards; `ValueError` otherwise, before anything is sent.
     """
+    if not is_upload_name(tmp_name):
+        raise ValueError("Only an upload can be promoted.")
+    if not _FINAL_NAME.fullmatch(final_name):
+        raise ValueError("Not a permanent photo name.")
     response = requests.post(
         f"{_STORAGE_API}/storage/v1/b/{config.PHOTOS_BUCKET}/o/"
         f"{requests.utils.quote(tmp_name, safe='')}/copyTo/b/"
