@@ -331,7 +331,8 @@ def _format_parked(parked: list[dict], squad_size: int) -> str:
     n = len(parked)
     lines = [
         f"📥 <b>{n} oferta{'s' if n > 1 else ''} aparcada{'s' if n > 1 else ''}"
-        f"</b> · tienes {squad_size} jugadores; vender te deja sin suplentes de reserva",
+        f"</b> · tienes {squad_size} jugadores; "
+        "vender te deja sin suplentes de reserva",
     ]
     for s in sorted(parked, key=lambda m: -(m.get("offer_amount") or 0)):
         lines.append(
