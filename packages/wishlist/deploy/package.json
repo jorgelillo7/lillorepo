@@ -3,6 +3,6 @@
   "private": true,
   "description": "Cloudflare's wrangler, kept apart so the test job never installs it.",
   "devDependencies": {
-    "wrangler": "4.156.0"
+    "wrangler": "4.158.0"
   }
 }
