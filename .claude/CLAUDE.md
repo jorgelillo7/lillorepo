@@ -50,6 +50,7 @@ unindexed skill is one nobody remembers exists.
 | `openspec-backfill` | Write the `openspec/` spec for code that already ships without one. |
 | `openspec-propose` | Agree the behaviour of a feature that does not exist yet, before writing it. |
 | `release-notes` | Write a package's release-notes entry from recent commits. |
+| `security-sweep` | Sweep one or more repos for leaked secrets, key files, advisories and risky GitHub or workflow settings. |
 | `ship` | Merge a PR and prove it reached production — head check, no stacking, deploy watch, revisions serving. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 

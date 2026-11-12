@@ -37,7 +37,7 @@ Python rules load from `.claude/rules/python.md` when a Python file is opened.
 /infra          Terraform for the static GCP layer of both projects (see infra/README.md)
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
-/scripts        CI guards and lint (lint.sh, check_*.py, affected_tests.py, coverage_report.py), GCP cost and cleanup, system install and skill sync
+/scripts        CI guards and lint (lint.sh, check_*.py, affected_tests.py, coverage_report.py), the security sweep, GCP cost and cleanup, system install and skill sync
 /system         Personal skills, rules and subagent roles, installed into ~/.claude/ (see .claude/CLAUDE.md)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
