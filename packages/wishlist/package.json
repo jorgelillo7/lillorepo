@@ -8,6 +8,7 @@
   "scripts": {
     "build": "node scripts/build.ts",
     "photo": "node scripts/photo.ts",
+    "seed": "node scripts/seed.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler d1 migrations apply wishlist --local && deploy/node_modules/.bin/wrangler dev --local",
