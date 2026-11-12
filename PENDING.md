@@ -73,6 +73,7 @@ in `STATUS.md` — neither belongs here.
 |---|---|---|
 | 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
 | ⏳ | App Check enforcement for Firestore and Identity Toolkit declared in Terraform, and a per-user limit on creating polls | The Firebase project existing · today enforcement is a console click, and anonymous sign-in makes votes and polls free to mint |
+| ⏳ | Restrict the Firebase API key: to the Android app (package `com.jorgelillo.grouppolls` and both SHA-1 fingerprints, the upload key's and Play app signing's) and to the Firebase APIs the app calls. It is in neither `infra/group_polls.tf` nor the runbook today | The Firebase project existing · add it to `packages/group_polls/OPERATIONS.md` → "Create the project" and, where the provider allows, to Terraform; try it with a build installed from Play's internal track, since a wrong restriction breaks sign-in |
 
 ## interactive_fiction
 
