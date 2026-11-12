@@ -333,6 +333,45 @@ Two things it cannot see, both falling back to `//...`:
   * **CI itself** — editing the workflow or the selector re-runs everything,
     or the decision goes unverified.
 
+## 🔍 Security sweep
+
+`scripts/security_sweep.py` reads one or more repositories and reports what
+an attacker would look for first. It calls the network (OSV, `npm audit`,
+`gh api`), so CI does not run it; run it by hand before a release or after a
+dependency wave, and read it with the `security-sweep` skill.
+
+```bash
+python3 scripts/security_sweep.py                      # this repo
+python3 scripts/security_sweep.py ../lillo-android-apps ../jorgelillo7.github.io
+python3 scripts/security_sweep.py ../personal-finance \
+  --exclude inbox --exclude planned.toml --exclude report.html --exclude deploy/public
+python3 scripts/security_sweep.py --offline            # git-only steps
+python3 scripts/security_sweep.py --json > sweep.json  # for a script
+```
+
+Five steps per repository:
+
+* **secrets** — the working tree and every commit (`git log --all -p`) for
+  credential shapes (private keys, Google, GitHub, Slack, Telegram and AWS
+  keys, bearer tokens, JWTs, service-account JSON, literal keystore
+  passwords, credentials in URLs), and every key, keystore or env file name
+  ever committed. Values are masked to four characters plus a fingerprint.
+* **ignored** — key files git ignores but the working tree holds (path only).
+* **deps** — Python pins and the Gradle catalog through OSV, `npm audit
+  --package-lock-only` beside each `package-lock.json`.
+* **github** — branch protection or rulesets, secret scanning and push
+  protection, open Dependabot alerts, the default Actions token, environments
+  without a deployment-branch policy. Read only: every call is a GET.
+* **workflows** — `pull_request_target`, actions not pinned to a SHA,
+  `${{ github.event.* }}` or `github.head_ref` inside `run:`, write
+  permissions on pull-request workflows.
+
+`--exclude` keeps a path out of every step, diff text included: the private
+files of a repo are never read. Known false positives go in
+`.security-sweep-allowlist` at the repo root, one fingerprint or
+`path:<glob>` per line with a `#` comment saying why. Exit status is 1 on a
+secret or a critical advisory that is not allowlisted.
+
 ## 🧹 GCP Cleanup and Cost Control
 
 ### Artifact Registry

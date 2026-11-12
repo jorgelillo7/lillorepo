@@ -95,6 +95,17 @@ export function scenePage(
     </div></div>`;
 }
 
+/** A save the chapter can no longer resume: what happened, and the way on. */
+export function chapterChangedPage(): string {
+  return `<main class="library chapter-changed">
+    <h1 tabindex="-1">El capítulo ha cambiado</h1>
+    <p class="note">El autor ha reescrito este capítulo desde tu última partida y el punto donde la dejaste ya no existe.
+      Empiézalo de nuevo: tus códigos, los demás capítulos y lo que has descubierto se conservan.</p>
+    <button class="button" data-restart-changed>Empezar el capítulo de nuevo</button>
+    <a class="button secondary" href="#/">← Volver</a>
+  </main>`;
+}
+
 export function errorPage(bar: string, passage: string, message: string): string {
   return `<div class="reader">${bar}<tw-story><tw-passage>
     <div class="story-error"><b>Error en el pasaje «${esc(passage)}»</b><br>${esc(message)}</div>

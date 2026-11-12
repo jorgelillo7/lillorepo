@@ -10,7 +10,7 @@
     "build": "npm run stories && tsc --noEmit && vite build",
     "build:drafts": "STORIES_DRAFTS=1 npm run build",
     "preview": "vite preview",
-    "deploy": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler deploy",
+    "deploy": "npm --prefix deploy ci --no-audit --no-fund && STORIES_PUBLISH=1 npm run build && deploy/node_modules/.bin/wrangler deploy",
     "deploy:login": "npm --prefix deploy ci --no-audit --no-fund && deploy/node_modules/.bin/wrangler login",
     "stories": "node scripts/build-stories.ts",
     "explore": "node scripts/explore.ts",
@@ -26,7 +26,7 @@
     "@types/node": "26.6.6",
     "happy-dom": "21.0.4",
     "typescript": "7.0.2",
-    "vite": "8.3.5",
-    "vitest": "5.0.5"
+    "vite": "8.3.6",
+    "vitest": "5.1.0"
   }
 }

@@ -5,9 +5,14 @@
  *
  * Chapters marked `draft` are left out unless STORIES_DRAFTS=1: a draft the
  * author has not published must not reach a public upload by accident.
+ *
+ * With STORIES_PUBLISH=1 (what `npm run deploy` sets) it also refuses sources that are not their
+ * repository's default branch as its origin holds it (scripts/source-guard.ts), unless
+ * STORIES_ALLOW_UNPUBLISHED=1 asks for a deliberate preview.
  */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type SeriesEntry } from "../src/contract.ts";
 import { discoveriesOf } from "../src/engine/discoveries.ts";
@@ -18,6 +23,7 @@ import type { Story } from "../src/engine/source.ts";
 import { validate, variablesSet } from "../src/engine/validate.ts";
 import { validateBible, type ArtBible } from "./art-bible.ts";
 import { loadSeries, seriesIds, validateCredits, type Series } from "./series.ts";
+import { publishProblems } from "./source-guard.ts";
 
 const OUT = new URL("../public/stories/", import.meta.url).pathname;
 const WITH_DRAFTS = process.env.STORIES_DRAFTS === "1";
@@ -48,6 +54,13 @@ function rebaseStory(story: Story, prefix: string): Story {
     stylesheet: rebase(story.stylesheet, prefix),
     passages: story.passages.map((p) => ({ ...p, text: rebase(p.text, prefix) })),
   };
+}
+
+/** A short digest of the passages: equal versions mean a save made on one fits the other. */
+function storyVersion(story: Story): string {
+  const hash = createHash("sha256");
+  for (const p of story.passages) hash.update(`${p.name}\u0000${p.text}\u0000`);
+  return hash.digest("hex").slice(0, 12);
 }
 
 /** Every chapter's scene file, parsed once; null for chapters without one. */
@@ -123,8 +136,10 @@ function buildSeries(id: string): SeriesEntry {
       ...own,
       scenes: Object.fromEntries(Object.entries(own.scenes).map(([k, s]) => [k, { ...s, image: served + s.image }])),
     };
+    const story = rebaseStory(series.stories[i], served);
     const data: ChapterData = {
-      ...rebaseStory(series.stories[i], served),
+      ...story,
+      version: storyVersion(story),
       scenes: sceneFile,
       discoveries: discoveriesOf(reports[i]),
     };
@@ -147,6 +162,20 @@ function buildSeries(id: string): SeriesEntry {
     game,
     chapters: published,
   };
+}
+
+if (process.env.STORIES_PUBLISH === "1") {
+  const problems = publishProblems(seriesIds().map(loadSeries));
+  if (problems.length && process.env.STORIES_ALLOW_UNPUBLISHED === "1") {
+    for (const p of problems) console.log(`⚠ publishing anyway (STORIES_ALLOW_UNPUBLISHED=1): ${p}`);
+  } else if (problems.length) {
+    for (const p of problems) console.log(`✗ ${p}`);
+    console.error(
+      "Refusing to publish: a public deploy takes each story from its repository's default branch, clean and equal to its origin.\n" +
+        "Pull or check out that branch, or set STORIES_ALLOW_UNPUBLISHED=1 for a deliberate preview.",
+    );
+    process.exit(1);
+  }
 }
 
 rmSync(OUT, { recursive: true, force: true });

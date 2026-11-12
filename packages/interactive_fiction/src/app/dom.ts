@@ -38,3 +38,32 @@ export function setStoryCss(css: string): void {
 export function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
+
+/** Longest announcement: the opening of a passage, not all of it — the reader goes on from the focus. */
+const ANNOUNCE_CHARS = 280;
+
+/**
+ * A new passage is on screen: focus moves to it (so keyboard and screen-reader users start there,
+ * not on a control of the previous page) and a polite live region reads its opening.
+ */
+export function arriveAt(root: ParentNode): void {
+  const passage = root.querySelector<HTMLElement>("tw-passage");
+  if (!passage) return;
+  passage.tabIndex = -1;
+  passage.focus({ preventScroll: true });
+  const opening = (passage.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, ANNOUNCE_CHARS);
+  announcer().textContent = opening;
+}
+
+/** The page's one polite live region, outside #app so redrawing a page never removes it. */
+function announcer(): HTMLElement {
+  let region = document.getElementById("announcer");
+  if (!region) {
+    region = document.createElement("div");
+    region.id = "announcer";
+    region.className = "sr-only";
+    region.setAttribute("aria-live", "polite");
+    document.body.appendChild(region);
+  }
+  return region;
+}

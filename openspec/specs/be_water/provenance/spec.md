@@ -109,7 +109,7 @@ Checked against the photographed labels, none of the unbacked values that
 survived on photographed fichas appeared on the bottle, so the seed's numbers
 were removed wherever no label backed them: 28 fichas were emptied and seven
 lost the values their label does not print. The empty ones fill themselves as
-bottles are photographed. `scripts/purge_unbacked_minerals.py` enforces the
+bottles are photographed. `packages/be_water/scripts/purge_unbacked_minerals.py` enforces the
 invariant on existing data, dry-run by default.
 
 #### Scenario: an empty ficha, and pages that cope with it
@@ -216,7 +216,7 @@ the warning, the confirmation and the snapshot.
 Any save that changes an existing ficha's minerals SHALL first snapshot the
 whole previous document to `water_revisions`, tagged `older_analysis` or
 `composition_changed`, so a bad edit is reversible from
-`scripts/revert_water.py`. That trail stays a trail: it is deletable, and the
+`packages/be_water/scripts/revert_water.py`. That trail stays a trail: it is deletable, and the
 series is not.
 
 #### Scenario: where a submitted composition goes

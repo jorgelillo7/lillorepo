@@ -6,7 +6,7 @@ claim about the project.
 For the feature-by-feature story read `packages/*/release-notes.md`; for the
 GCP inventory read `INFRA.md`; for open follow-ups read `PENDING.md`.
 
-**Score: 9.35 / 10.** Cap under current constraints: **~9.5**.
+**Score: 9.1 / 10.** Cap under current constraints: **~9.5**.
 
 The score is a reference point, not a target: the cap minus what is priced in
 "What lowers the score", so it moves when a cost is found, paid or re-priced —
@@ -21,6 +21,19 @@ providers — the league settings and the live JP payload answered nearly every
 open question in two calls, and one dead branch was fixed: 9.3. Closing the
 Lloros Awards incident on 2026-08-27 made it 9.35.
 
+Dropped to 9.1 on 2026-11-11, when a review from outside priced a second
+defect class: **boundaries assumed rather than enforced.** A form's object
+name trusted as the app's own, a typed nickname standing in for an admin
+credential, a key carried in a URL. Those are closed in `be_water`; the class
+stays priced because nothing checks for it yet.
+
+This score measures the engineering against this repo's own constraints. It
+does not measure whether the products are finished or used: the same review
+graded the whole estate — this repo, the Android apps, the site and the
+finance report — **7.5**, with engineering near 9, security near 7.5 after its
+fixes, and product and interface near 6. Two packages here wait on about ten
+minutes of the owner's console clicks each.
+
 ---
 
 ## The top — what is genuinely good
@@ -31,11 +44,13 @@ Lloros Awards incident on 2026-08-27 made it 9.35.
 2. **Keyless deploys.** Workload Identity Federation end to end, including the
    cross-project be_water deploy. No key is involved in building or deploying;
    the one key left is runtime, the Sheets reader in `biwenger_tools/web`.
-3. **One source of truth, and it holds.** The 2026-09-30 docs audit found
-   **zero broken links across 56 documents**. Facts had drifted; structure had
-   not.
-4. **Behaviour specs wired to tests.** 40 specs, 364 scenarios, 1,072 test
-   names cited and every one of them exists — checked, not assumed.
+3. **One source of truth, and it holds.** The `docs-audit` skill hunts broken
+   relative links across every Markdown file; it finds none. Facts drift;
+   structure does not.
+4. **Behaviour specs wired to tests.** Every scenario names its test, and
+   `python3 scripts/check_specs.py` (part of `scripts/lint.sh`, so of every CI
+   run) fails when a named test does not exist; it prints the spec and scenario
+   counts. Checked, not assumed.
 5. **CI that reasons about the graph.** Pull requests run only the suites a
    change can break, derived from `rdeps` rather than a list that would rot;
    `master` always runs everything. A docs PR's test job: 89s → 21s. Lint is
@@ -60,6 +75,11 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
   `biwenger-bot` (Telegram webhook), `biwenger-summary` (analytics web),
   `chucknorris-bot`, `be-water` (own GCP project).
 - **Jobs** — weekly league-board scraper, monthly be_water catalog sync.
+- **Outside GCP** — `interactive_fiction`, a story reader served from
+  Cloudflare, and `wishlist`, a shared gift list on a Cloudflare Worker with
+  D1; both Node, outside Bazel, tested by their own required CI jobs and
+  deployed by hand with Wrangler. `group_polls` holds the Firestore rules and
+  moderation CLI for an Android app; its Firebase project is not created yet.
 - **Auto-bid engine** — a flat share over the price per tier (+15 / +8 / +6 /
   +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
   start, at most three starters per club, jitter and Firestore idempotency.
@@ -126,6 +146,8 @@ and facts merely believed. The second table is the useful one.
 |---|---|
 | **Unverified provider facts** (table above). Three shipped defects: a legal pick rejected mid-draft, a legal XI declared impossible, and a status branch that never fired because JP spells it `sanctioned`, not `suspended`. All three were the code holding a rule the game does not have. The 2026-08-09 audit closed most of the class by reading the league settings and the live JP payload, and Biwenger's statuses are now read and compared; what remains is the two assumptions above. | **−0.05** |
 | **No revision rollback.** `clean-images-artifact.sh` keeps one digest per service, so the images older Cloud Run revisions point at are gone (verified: 96 `biwenger-api` revisions, 1 surviving image). Deliberate — free-tier headroom was preferred. Recovery from a bad deploy is revert + wait for CI, ~10 min. | **−0.10** |
+| **Boundaries assumed, not enforced.** Input from outside taken as the app's own: `be_water` promoted any object name the add form handed back, gated its paid studio on a typed nickname and sent the Gemini key in the query string — one of them with a test asserting the behaviour as correct. Closed in #728 (names accepted only in the shape the app mints, the studio behind Google Sign-In, a counted daily cap). What remains is that no review step or check looks for the class, and that one secret per package (below) still hands public services credentials they never use. | **−0.15** |
+| **Runtime dependencies wait on a hand-built image.** The lock and the base image move together and by hand, so a security release reaches production when someone rebuilds `python-base`. In November 2026 the lock was four packages behind their fixes. | **−0.10** |
 | **Bus factor 1.** Every service, SDK and runbook has one author and one operator. Not fixable with engineering. | caps the rest |
 
 ### Accepted gaps — skipped on purpose, not oversights
@@ -150,10 +172,14 @@ and facts merely believed. The second table is the useful one.
 | Domain-constants audit (2026-08-08) | 9.2 |
 | Providers asked directly — league settings, live JP (2026-08-09) | 9.3 |
 | Lloros Awards incident closed (2026-08-27) | 9.35 |
-| **Security audit, board archive; costs re-priced so the table adds up (2026-09-30)** | **9.35** |
+| Security audit, board archive; costs re-priced so the table adds up (2026-09-30) | 9.35 |
+| **Outside review: boundaries priced, be_water closed; dependencies priced (2026-11-11)** | **9.1** |
 | Theoretical max under current constraints | ~9.5 |
 
-The way back up is not more infrastructure — that part is done. It is
+The way back up is not more infrastructure — that part is done. It is two
+habits: **treating every value that arrives from outside as hostile until a
+function this repo owns has checked its shape**, and **finishing what is ten
+minutes from working** before measuring anything new. And, as before,
 **verifying the domain model against the provider**: reading the statuses both
 APIs already send, confirming the league rules held as constants, and putting a
 check on the handful of facts a season can change underneath us.

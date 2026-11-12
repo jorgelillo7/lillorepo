@@ -5,6 +5,7 @@ import {
   choicesOf,
   finish,
   freshStart,
+  isStale,
   outcomeOf,
   undo,
   withCarriedCode,
@@ -93,5 +94,38 @@ describe("a game saved before the chapter changed", () => {
     expect(p.vars).toEqual({ old: false, estado: start.estado });
     expect(p.undo[0].vars).toEqual({ old: true, estado: start.estado });
     expect(p.passage).toBe("B");
+  });
+});
+
+describe("a save made before the chapter was rewritten", () => {
+  const passages = new Set(["Start", "Hall", "End"]);
+  const save = (passage: string, back: string[], story?: string) => ({
+    ...freshStart(passage, {}, story),
+    undo: back.map((p) => ({ passage: p, vars: {} })),
+  });
+
+  test("resumes when it was made on this version, whatever it points at", () => {
+    expect(isStale(save("Gone", [], "v2"), passages, "v2")).toBe(false);
+  });
+
+  test("resumes after a rewrite that kept its passages", () => {
+    expect(isStale(save("Hall", ["Start"], "v1"), passages, "v2")).toBe(false);
+  });
+
+  test("cannot resume when its passage was removed or renamed", () => {
+    expect(isStale(save("Old hall", ["Start"], "v1"), passages, "v2")).toBe(true);
+  });
+
+  test("cannot resume when a step it could go back to is gone", () => {
+    expect(isStale(save("Hall", ["Old start"], "v1"), passages, "v2")).toBe(true);
+  });
+
+  test("a save from before versions existed is checked by its passages", () => {
+    expect(isStale(save("Hall", []), passages, "v2")).toBe(false);
+    expect(isStale(save("Old hall", []), passages, "v2")).toBe(true);
+  });
+
+  test("a new save records the chapter's version", () => {
+    expect(freshStart("Start", {}, "v2").story).toBe("v2");
   });
 });

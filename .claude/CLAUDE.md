@@ -6,15 +6,17 @@ Claude-specific notes for this repository.
 
 1. Read `CLAUDE.md` as the canonical repository-wide guide.
 2. Read `.claude/skills/<skill>/SKILL.md` when a task maps to a skill.
-   Read `.claude/agents/<role>.md` before delegating to that role — it says
+   Read `system/agents/<role>.md` before delegating to that role — it says
    what the role is for and, more usefully, what it must not do.
 3. Use `.claude/` only for Claude-specific commands, hooks, and runtime config.
 
 ## Claude-Specific Surface
 
 - Skills: `.claude/skills/` — **generic only** (see below)
-- Agents: `.claude/agents/` — the four subagent roles, documented in
-  [`../AGENTS.md`](../AGENTS.md)
+- Agents: none at repo level — the five subagent roles are shared from
+  [`system/agents/`](../system/agents/), documented in
+  [`../AGENTS.md`](../AGENTS.md). A role in `.claude/agents/` would replace
+  the shared one of the same name, not extend it.
 - Rules: `.claude/rules/` — `python.md`, loaded only when a Python, `BUILD.bazel` or requirements file is opened
 - Hooks: `.claude/hooks/`
 - Runtime config: `.claude/settings.local.json` — per machine and gitignored; the repo ships no shared `settings.json`
@@ -48,19 +50,24 @@ unindexed skill is one nobody remembers exists.
 | `openspec-backfill` | Write the `openspec/` spec for code that already ships without one. |
 | `openspec-propose` | Agree the behaviour of a feature that does not exist yet, before writing it. |
 | `release-notes` | Write a package's release-notes entry from recent commits. |
+| `security-sweep` | Sweep one or more repos for leaked secrets, key files, advisories and risky GitHub or workflow settings. |
 | `ship` | Merge a PR and prove it reached production — head check, no stacking, deploy watch, revisions serving. |
 | `google-cloud-*` · `google-firebase-basics` | Vendored from `google/skills` by `scripts/sync-google-skills.sh`. **Do not edit** — the sync overwrites them. |
 
-### Personal skills and rules (`system/`)
+### Personal skills, rules and agents (`system/`)
 
 Kept here so they are versioned with everything else, but about the Mac and
 the owner's habits, not this repo: `scripts/install-system.sh` copies
-`system/skills/` into `~/.claude/skills/` and `system/rules/` into
-`~/.claude/rules/`, so they load in every project. Edit them here and run it
-again; the installed copies are overwritten.
+`system/skills/` into `~/.claude/skills/`, `system/rules/` into
+`~/.claude/rules/` and `system/agents/` into `~/.claude/agents/`, so they load
+in every project. Edit them here and run it again; the installed copies are
+overwritten.
 
 Rules (`system/rules/`), loaded at the start of every session: `language`,
 `verify`, `lists`, `comments`, `git`, `working-style`, `machine`.
+
+Subagent roles (`system/agents/`): `dev`, `qa`, `reviewer`, `security`,
+`spec` — table and this repo's notes for each in [`../AGENTS.md`](../AGENTS.md).
 
 Skills (`system/skills/`):
 
@@ -80,9 +87,10 @@ Reach for an agent when the work is long, noisy, or better judged by someone
 who did not write the code. Not when writing the brief costs more than doing
 the job.
 
-Agents are repo-wide and not package-scoped, unlike skills: a reviewer that
-only knew one package would miss the interactions that produce most defects
-here.
+Agents are not package-scoped, unlike skills: a reviewer that only knew one
+package would miss the interactions that produce most defects here. They are
+shared across repos instead, and each reads the repo's `AGENTS.md` for what is
+particular to it.
 
 ## Key References
 

@@ -16,6 +16,8 @@ English in everything written, checking before saying something does not
 exist, working a list whole, comments without history, the git and PR
 habits — are rules in `~/.claude/rules/`, versioned in
 [`system/rules/`](system/rules/) and installed by `scripts/install-system.sh`.
+The subagent roles (`dev`, `qa`, `reviewer`, `security`, `spec`) are shared
+the same way, from [`system/agents/`](system/agents/) into `~/.claude/agents/`.
 A session that cannot read `~/.claude/` (a cloud session) reads them there.
 Python rules load from `.claude/rules/python.md` when a Python file is opened.
 
@@ -27,13 +29,16 @@ Python rules load from `.claude/rules/python.md` when a Python file is opened.
   biwenger_tools/   Fantasy-league platform: api, bot, scraper_job, web
   be_water/         Bottled-water catalog (own GCP project be-water-app): web, scripts
   chucknorris_bot/  Telegram joke bot
+  group_polls/      Backend of the "¿Qué votáis?" app: Firestore rules and a moderation CLI
+  interactive_fiction/  Twine story reader (Node + Vite, outside Bazel; Cloudflare static site)
+  wishlist/         Shared gift list (Node, outside Bazel; Cloudflare Worker + D1)
   my_photos/        Plan only, no code
 /docker         Docker configurations
 /infra          Terraform for the static GCP layer of both projects (see infra/README.md)
 /docs           Documentation (operations.md = repo-wide runbook + index; per-package commands in packages/*/OPERATIONS.md; setup/linter.md = lint/format; personal/ = non-code personal notes, the one place Spanish is allowed)
 /openspec       Behaviour specs — the canonical source of project decisions (see "Specs")
-/scripts        Utility scripts (GCP cleanup, costs)
-/system         Personal skills and rules, installed into ~/.claude/ (see .claude/CLAUDE.md)
+/scripts        CI guards and lint (lint.sh, check_*.py, affected_tests.py, coverage_report.py), the security sweep, GCP cost and cleanup, system install and skill sync
+/system         Personal skills, rules and subagent roles, installed into ~/.claude/ (see .claude/CLAUDE.md)
 /tools          Bazel extensions and tools
 /platforms      Platform definitions (linux_amd64, etc.)
 ```
@@ -81,7 +86,7 @@ python3 scripts/affected_tests.py origin/master       # what CI would run here
 
 ## Branch and PR Workflow
 
-This repo deploys to production on every push to `master` (see `.github/workflows/deploy.yml`).
+The GCP services deploy to production on every push to `master` (see `.github/workflows/deploy.yml`). The two Cloudflare Workers, `interactive_fiction` and `wishlist`, are deployed by hand with Wrangler.
 **Always work on a feature branch and open a PR** — never commit directly to master.
 
 **No exceptions.** Every change — docs, comments, CLAUDE.md edits, README
@@ -176,7 +181,8 @@ deleted; lines get pruned as items ship. For "what has shipped" read
 
 - This repo grows with new packages under `/packages/`. When adding one, replicate the `biwenger_tools` structure as a reference.
 - **Skills are scoped.** `/.claude/skills/` holds only what would make sense in a repo that had never heard of Biwenger; anything domain-specific lives in its package (`packages/biwenger_tools/.claude/skills/`), and Claude Code prefers the scoped one when you work inside that package. Each `.claude/CLAUDE.md` indexes its own.
-- **Subagent roles** live in `.claude/agents/` (`dev`, `qa`, `reviewer`,
-  `spec`) — what each is for, and what delegating to one does and does not
-  buy, is in `AGENTS.md`.
+- **Subagent roles** are shared across repos in `system/agents/` (`dev`,
+  `qa`, `reviewer`, `security`, `spec`) — what each is for, what delegating
+  to one does and does not buy, and what each needs to know about this repo
+  are in `AGENTS.md`.
 - **Web UI design system:** see `packages/biwenger_tools/web/DESIGN.md` before touching templates — it defines the canonical color tokens, typography, and component rules.
