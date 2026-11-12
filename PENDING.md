@@ -29,8 +29,9 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
-| 👤 | Bump Pillow to 13 and certifi (and pyasn1, opentelemetry-api) in the lock, `docker/Dockerfile.base` and the base image digest | You: it rebuilds and pushes `python-base` · steps in `.claude/skills/check-deps/UPGRADING.md`; the four majors on offer (gunicorn 27, Pillow 13, python-dateutil 4, soupsieve 4) touch nothing this repo calls, read from their changelogs · boot-test gunicorn 27 before it ships |
-| 👤 | Dependabot's first npm and Terraform PRs (#733, #734) | You: read and merge, or close · the Terraform one shows a failing plan because Dependabot runs get no OIDC; that check is not required |
+| 🔨 | Bump Pillow to 13 and certifi (and pyasn1, opentelemetry-api) in the lock, `docker/Dockerfile.base` and the base image digest: 30 Dependabot alerts wait on it | A session with Docker running and a `venv` holding `pip-tools` · steps in `.claude/skills/check-deps/UPGRADING.md`; the four majors on offer (gunicorn 27, Pillow 13, python-dateutil 4, soupsieve 4) touch nothing this repo calls, read from their changelogs · boot-test gunicorn 27 before it ships |
+| 🔨 | Each of the two public services reads the whole `biwenger-secrets` bundle: split it into one secret per consumer (credentials for the api and the scraper, Telegram for whoever sends, the web's own) | A session, then your `terraform apply` and the three secret versions · it is the accepted gap in `STATUS.md` |
+| 🔨 | `infra.yml` grants `id-token: write` to a workflow that pull requests trigger; the plan identity is read-only, so the exposure is that identity's viewer grants | Pick up: scope the permission to the job, or drop the pull-request trigger for forks |
 | ⏳ | The deploy jobs authenticating with `id-token: write` granted per job | The next push that deploys a service · watch `deploy.yml` on it |
 
 ## core
@@ -43,6 +44,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
+| 🚧 | A starter the squad cannot afford loses to a resale bid on the same morning (12/11: Sucic skipped for cash, Fran García bid as a riser): let auto-bid exceed the cash when the signing enters the eleven, the starter he displaces is worth the shortfall and the round is four days off or more; and keep the trader's cash when auto-bid skipped a starter for it | Parked with the other auto-bid changes · reverses the cash rule in `auto-bid`'s spec, so it starts as a proposal |
 | 🚧 | Auto-bid and trader read the next 2–3 fixtures, not just the next match | Parked by the owner until the recent auto-bid changes settle · proposal: a hard run only lowers a bid (T3 cap) plus `prefer_easier` tie-break; reverses `team-analysis`'s "display only" decision, so it needs the spec changed with it |
 | ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | Promotions to read against real points. **Unblocked**: the projection ledger now stores both, automatically, so the record `log_promotions` could never produce exists. Still needs them to accumulate — one promotion in 12 months means this waits on seasons, not weeks · [how to read it](docs/technical/backend/projection-ledger.md) |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
@@ -83,7 +85,6 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
-| 👤 | Deploy the reader: security headers, saves that survive a rewritten chapter, passages announced to a screen reader | You: `git pull` in the author's clone first (the deploy now refuses a clone that is not its origin's default branch), then `npm run deploy` · `packages/interactive_fiction/OPERATIONS.md` |
 | 🔨 | Scene images as WebP or AVIF with `srcset`: 9.1 MB of JPEG/PNG today, 2.1 MB as WebP at 1600 px, 0.85 MB as AVIF at 1000 px (measured) | A decision on adding an encoder to the build (`sips` writes neither) |
 | ⏳ | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
 | 👤 | Suggestions for the author (speaker colours at 1.3:1 and 2.2:1 on black, the knife never shown, undo against the story's own rule, the 3D draft as a fixed-camera source instead of the reader) | You: forward the note or not · his content, not this repo's |
@@ -92,8 +93,8 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Adding gifts with a photo from `/admin` (#736): open it on an iPhone with `npm run dev`, merge, deploy, then upload one real photo to the remote D1 | You · the browser side has no automated test, and the remote D1's statement size limit is untried (fallback: the photo across several rows) |
-| 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · `openspec/changes/wishlist-events/proposal.md`, in #736 |
+| 👤 | Gifts are added from `/admin` with a photo, and it is deployed: add one from an iPhone (the dialog, both photo buttons) and check the photo shows on the list | You · the browser side has no automated test, and no photo has been stored in the remote D1 yet (if the statement size limit refuses one, the fallback is the photo across several rows) |
+| 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md) |
 
 ## be_water
 
