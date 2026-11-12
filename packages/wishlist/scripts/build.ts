@@ -1,9 +1,10 @@
-// Build dist/ for the Worker: the pages from web/, the photos the list uses and the
-// list itself. Stops on a list the page could not show.
+// Build dist/ for the Worker: the pages from web/ and the photos the first list ships
+// with. The live list is in D1; gifts.json is only the seed behind migrations/0003, and
+// this stops on a seed the page could not show.
 //
 // Usage: npm run build
 
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -67,8 +68,7 @@ function main(): void {
   cpSync(join(root, "web"), dist, { recursive: true });
   mkdirSync(join(dist, "photos"));
   for (const gift of list.gifts) cpSync(join(root, "photos", gift.photo), join(dist, "photos", gift.photo));
-  writeFileSync(join(dist, "gifts.json"), JSON.stringify(list));
-  console.log(`dist/: ${list.gifts.length} gifts`);
+  console.log(`dist/: ${list.gifts.length} seed photos`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) main();
