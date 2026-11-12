@@ -45,6 +45,11 @@ export async function post(url, body) {
   });
 }
 
+/** POST a JPEG as the raw body; a Blob gives the request its length. */
+export async function postPhoto(url, blob) {
+  return fetch(at(url), { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
+}
+
 export function plural(count, one, many) {
   return `${count} ${count === 1 ? one : many}`;
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob:; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="robots" content="noindex">
 <title>Regalos: quién</title>
 <link rel="icon" href="/admin-icon.svg" type="image/svg+xml">
@@ -20,10 +20,11 @@
 <main class="wrap">
   <header class="hero left">
     <h1>Quién regala qué</h1>
-    <p class="how left-text">Solo tú ves esta página. Los nombres son los que cada uno escribió al reservar.</p>
+    <p class="how left-text">Solo tú ves esta página. Los nombres son los que cada uno escribió al reservar. Aquí también añades y quitas regalos.</p>
     <p class="counts" id="counts"></p>
   </header>
   <p class="error" id="error" role="alert" hidden></p>
+  <p class="toolbar"><button class="button primary" type="button" id="addGift">Añadir regalo</button></p>
   <div class="table-wrap">
     <table class="admin">
       <thead><tr><th>Regalo</th><th>Estado</th><th>Quién</th><th>Reservado</th><th>Comprado</th><th></th></tr></thead>
@@ -31,6 +32,30 @@
     </table>
   </div>
 </main>
+
+<dialog id="giftDialog" class="sheet wide">
+  <form method="dialog" id="giftForm">
+    <h2 id="giftHeading">Añadir regalo</h2>
+    <img class="preview" id="preview" alt="" hidden>
+    <div class="pick">
+      <label class="button secondary">Hacer foto<input type="file" accept="image/*" capture="environment" id="photoCamera" hidden></label>
+      <label class="button ghost">Elegir foto<input type="file" accept="image/*" id="photoLibrary" hidden></label>
+    </div>
+    <label for="giftTitle">Nombre del regalo</label>
+    <input id="giftTitle" maxlength="120" required autocomplete="off" placeholder="Por ejemplo, Camión de bomberos">
+    <label for="giftFor">Para <span class="optional">(opcional)</span></label>
+    <select id="giftFor"></select>
+    <label for="giftDetail">Detalle <span class="optional">(marca, edad, piezas)</span></label>
+    <input id="giftDetail" maxlength="200" autocomplete="off">
+    <label for="giftNote">Nota <span class="optional">(tienda, precio, modelo)</span></label>
+    <textarea id="giftNote" maxlength="400"></textarea>
+    <p class="error" id="giftError" role="alert" hidden></p>
+    <div class="actions">
+      <button value="cancel" class="button ghost" formnovalidate>Cancelar</button>
+      <button value="save" class="button primary" id="giftSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
 <script src="/admin.js" type="module"></script>
 </body>
 </html>

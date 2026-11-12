@@ -6,8 +6,8 @@ can say "I'll give this one", then mark it bought. Nobody else can buy the same 
 by mistake, and nobody needs an account.
 
 Served at `https://wishlist.jorgelillo.workers.dev`: a Cloudflare Worker on the free
-plan with the pages and photos as static assets, and the claims in D1, Cloudflare's
-SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spanish.
+plan with the pages as static assets, and the gifts, their photos and the claims in D1,
+Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spanish.
 
 ## How it works
 
@@ -16,8 +16,12 @@ SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spa
   by state sit above the gifts and live in the address (`?para=older&estado=libres`),
   so a link can open one child's list. The recipient is the first level, a solid
   segmented control; the state is the second, lighter chips coloured by state.
-- **Recipients are labels, not names** ("Hermano mayor", "Hermano pequeño"), declared
-  once in `gifts.json` and referenced by each gift's `for`.
+- **The list lives in D1**, not in the repo: events, their recipients and gifts
+  (`/api/list`). `gifts.json` and `photos/` are only the first Christmas list, imported
+  once by `migrations/0003_seed_gifts.sql`; editing them changes nothing on the site.
+  Each gift belongs to an event, and the one marked current is shown.
+- **Recipients are labels, not names** ("Hermano mayor", "Hermano pequeño"), stored per
+  event and referenced by each gift.
 - **Only the browser that reserved a gift can change it.** It gets a random token in
   an HttpOnly cookie that lasts 400 days. D1 keeps only the token's SHA-256. From
   another phone, the gift shows as reserved by someone else.
@@ -29,8 +33,22 @@ SQLite. Node, outside Bazel, like `interactive_fiction`. The page text is in Spa
   in Safari the saved password fills in, and a web app never offers it. The admin
   user is `regalos`, not `jorge`. Safari treats every `*.jorgelillo.workers.dev`
   site as one for autofill, so the user name is what tells the logins apart.
-- **Photos are public**, so `npm run photo` turns them upright and removes their
-  metadata, GPS included, before they enter the repo.
+- **Gifts are added from `/admin`**, on the phone: a name, who it is for, optional
+  detail and note (shop, price, model), and a photo from the camera or the library. The
+  page redraws the photo through a canvas (1280 px, JPEG) before uploading, which drops
+  its EXIF and GPS and keeps the upload small; the Worker then rebuilds it as a plain
+  baseline JPEG, cutting any metadata and anything appended after the image, and refuses
+  anything else. Each gift can be edited, hidden or deleted; a gift someone reserved
+  asks twice before it is deleted.
+- **Photos are public**, so none carries where it was taken. Uploaded ones are stored in
+  D1 as base64 text (600 KB of JPEG at most, far under D1's 2 MB row limit) and served at
+  `/photos/u/<id>.jpg` with an immutable cache; a new photo is a new id. The 18 first
+  ones are static files in `photos/`, made by `npm run photo`, which does the same
+  strip on a Mac.
+- **Volume.** D1's free plan holds 500 MB per database; a photo is ~150-350 KB as text,
+  so the limit is around 1,500 photos, and a photo is read from D1 once per device
+  because the browser keeps it. A list of dozens per occasion is nowhere near; thousands
+  of photos would be the point to move them to R2, which needs the account to enable it.
 
 Behaviour and its tests: [`openspec/specs/wishlist/list/spec.md`](../../openspec/specs/wishlist/list/spec.md).
 
@@ -38,16 +56,20 @@ Behaviour and its tests: [`openspec/specs/wishlist/list/spec.md`](../../openspec
 
 ```text
 wishlist/
-├── gifts.json            # The list: title, and each gift's id, title, detail, note, photo
-├── photos/               # 1280 px JPEGs without metadata, named after the gift id
+├── gifts.json            # The first list, the seed behind migrations/0003 (not the live list)
+├── photos/               # Its 1280 px JPEGs without metadata, shipped as static assets
 ├── web/                  # The list page, the admin page, styles and scripts
 ├── assets/icon.svg       # Home-screen icon; web/ holds it as SVG and 180, 192, 512 px PNGs
 ├── assets/admin-icon.svg # The same gift in green with a tick, for the /admin shortcut
 ├── src/app.ts            # Routes, claims, Basic auth; src/worker.ts only exports it
-├── migrations/           # D1 schema
-├── scripts/build.ts      # Checks gifts.json and writes dist/ for the Worker
-├── scripts/photo.ts      # Takes a photo in: resize, upright, no metadata
-├── scripts/jpeg.ts       # Reads EXIF orientation and drops metadata segments
+├── src/gifts.ts          # The list in D1, and adding, editing, hiding, deleting, photos
+├── src/jpeg.ts           # EXIF orientation, metadata stripping, the baseline rebuild; the
+│                         #   Worker and scripts/photo.ts share it
+├── src/http.ts           # Responses, the same-site check, security headers
+├── migrations/           # D1 schema (0002) and the one-time import of gifts.json (0003)
+├── scripts/build.ts      # Checks the seed and writes dist/ for the Worker
+├── scripts/seed.ts       # Generates migrations/0003 from gifts.json
+├── scripts/photo.ts      # Takes a photo into photos/: resize, upright, no metadata
 ├── scripts/set-admin.sh  # Sets the /admin credentials as Worker secrets
 ├── tests/                # Vitest; the Worker runs against Node's SQLite
 ├── wrangler.toml         # Worker, assets and D1 binding
@@ -59,14 +81,15 @@ wishlist/
 ```bash
 npm ci                                   # once
 npm test && npm run typecheck            # what CI runs
-npm run photo -- ~/Downloads/IMG_1234.jpg lego-fire-station   # add a photo
-npm run build                            # check gifts.json, write dist/
+npm run photo -- ~/Downloads/IMG_1234.jpg lego-fire-station   # a static photo (seed list only)
+npm run build                            # check the seed, write dist/
+npm run seed                             # regenerate migrations/0003 after editing gifts.json
 npm run dev                              # local site with a local D1 at http://localhost:8787
 npm run deploy                           # migrations + upload
 npm run set-admin                        # once: /admin credentials (user "regalos"), password left on the clipboard
 ```
 
-Day-to-day steps (adding gifts, a new occasion, fixing a claim) are in
+Day-to-day steps (adding gifts from the phone, a new occasion, fixing a claim) are in
 [OPERATIONS.md](OPERATIONS.md).
 
 ## Icon

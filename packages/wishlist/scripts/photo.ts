@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { orientation, stripMetadata } from "./jpeg.ts";
+import { metadataMarkers, orientation, stripMetadata } from "../src/jpeg.ts";
 
 // EXIF orientation to the clockwise turn that makes the pixels upright. Mirrored
 // orientations (2, 4, 5, 7) do not come out of phone cameras.
@@ -37,8 +37,7 @@ execFileSync(
 const clean = stripMetadata(readFileSync(target));
 writeFileSync(target, clean);
 
-const text = Buffer.from(clean).toString("latin1");
-if (text.includes("Exif") || text.includes("GPS")) {
+if (metadataMarkers(clean).length) {
   rmSync(target);
   console.error(`${source}: the converted photo still carries metadata; not saved`);
   process.exit(1);

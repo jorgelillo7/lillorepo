@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { orientation, stripMetadata } from "../scripts/jpeg.ts";
+import { metadataMarkers, orientation, stripMetadata } from "../src/jpeg.ts";
 
 const segment = (marker: number, payload: number[]) => [
   0xff,
@@ -45,5 +45,20 @@ describe("jpeg", () => {
 
   test("refuses what is not a JPEG", () => {
     expect(() => stripMetadata(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toThrow(/not a JPEG/);
+  });
+
+  test("finds metadata by its segments, not by bytes that happen to spell a tag", () => {
+    expect(metadataMarkers(photo(6))).toEqual([0xe1, 0xfe]);
+    const clean = stripMetadata(photo(null));
+    expect(metadataMarkers(clean)).toEqual([]);
+    // Image data that contains the words EXIF and GPS by chance is still a clean photo.
+    const unlucky = new Uint8Array([
+      0xff, 0xd8,
+      ...segment(0xe0, ascii("JFIF\0")),
+      ...segment(0xdb, [1, 2, 3]),
+      0xff, 0xda, 0, 4, 9, 9, ...ascii("Exif"), ...ascii("GPS"), 0xff, 0xd9,
+    ]);
+    expect(text(unlucky)).toMatch(/Exif.*GPS/);
+    expect(metadataMarkers(stripMetadata(unlucky))).toEqual([]);
   });
 });

@@ -8,6 +8,7 @@
   "scripts": {
     "build": "node scripts/build.ts",
     "photo": "node scripts/photo.ts",
+    "seed": "node scripts/seed.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "dev": "npm --prefix deploy ci --no-audit --no-fund && npm run build && deploy/node_modules/.bin/wrangler d1 migrations apply wishlist --local && deploy/node_modules/.bin/wrangler dev --local",
@@ -17,6 +18,6 @@
   "devDependencies": {
     "@types/node": "26.6.6",
     "typescript": "7.0.2",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }
