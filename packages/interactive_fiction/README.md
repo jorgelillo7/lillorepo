@@ -276,3 +276,5 @@ npm run art -- <series> [ids] [--dry-run]     # generate planned images (paid Ge
 ```
 
 Scripts run TypeScript directly on Node ≥ 24 (type stripping), no build step.
+
+What changed, release by release: [`release-notes.md`](release-notes.md).

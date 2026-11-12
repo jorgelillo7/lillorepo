@@ -2,6 +2,18 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.11 - Nothing Taken on Trust (11 November 2026)**
+
+Nothing new to look at. A review from outside went through what the app accepts from a browser and what it spends, and tightened both.
+
+* **📸 A photo is promoted only from the app's own upload**: the add form hands back the names of the photos it just uploaded, and the app used to take them as given. It now accepts only the shape the upload step mints, and the copy refuses any other source or destination by itself. Anything else answers 400 before a photo is copied, removed or saved.
+* **🎨 The studio photo waits for Google Sign-In**: the paid studio treatment was offered by nickname. It now follows the Google-verified admin, so it is off for everyone until Sign-In is switched on.
+* **💶 A daily count on paid calls**: paid Gemini calls are counted per day in Firestore — 20 studio images, 100 label reads — and past the count, or if the count cannot be kept, the paid key is not used. The provider's own quota stays as the outer limit.
+* **🔑 The Gemini key travels in a header**, never in the address, and a failed call logs what kind of failure it was, not its text.
+* **🖼️ JPEG, PNG and WebP only**: an upload is checked for format and size before a single pixel is decoded. HEIC is refused; iPhones convert on upload.
+* **⚡ The catalogue is read once a minute, not once a page**: every public page used to read the whole collection. A write shows at once on the instance that made it, and within a minute elsewhere.
+* **🧹 A name made only of punctuation** no longer reaches the database as an empty id.
+
 ### **v1.10 - Hard to Delete (30 September 2026)**
 
 Nothing visible. The catalog's database was reviewed against Google's Firestore best practices, alongside `biwenger_tools` (v9.3 has the shared detail).
