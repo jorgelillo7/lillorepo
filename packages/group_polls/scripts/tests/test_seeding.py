@@ -29,6 +29,34 @@ def test_invalid_entries_are_named():
         load(bad)
 
 
+@pytest.mark.parametrize("language", ["es", "en"])
+@pytest.mark.parametrize(
+    ("entry", "error"),
+    [
+        (["abcd", "A", "B"], "question length"),  # 4 characters, minimum is 5
+        (["x" * 121, "A", "B"], "question length"),
+        (["¿A o B?", "", "B"], "answer length"),
+        (["¿A o B?", "A", ""], "answer length"),
+        (["¿A o B?", "x" * 31, "B"], "answer length"),
+        (["¿A o B?", "A", "x" * 31], "answer length"),
+    ],
+)
+def test_lengths_outside_the_limits_are_named(language, entry, error):
+    other = "en" if language == "es" else "es"
+    bad = {"questions": [{language: entry, other: ["¿A o B?", "A", "B"]}]}
+    with pytest.raises(ValueError, match=f"#0 {language}: {error}"):
+        load(bad)
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [["abcde", "A", "B"], ["x" * 120, "A", "B"], ["¿A o B?", "A", "x" * 30]],
+)
+def test_lengths_at_the_limits_are_accepted(entry):
+    good = {"questions": [{"es": entry, "en": ["¿A or B?", "A", "B"]}]}
+    assert load(good) == good["questions"]
+
+
 def test_batches_skip_published_questions():
     qs = [{"n": i} for i in range(5)]
     assert [i for i, _ in next_batch(qs, {0, 2}, 2)] == [1, 3]

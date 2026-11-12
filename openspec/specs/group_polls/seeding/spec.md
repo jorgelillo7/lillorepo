@@ -23,8 +23,12 @@ rules would reject would fail halfway through a batch.
 - **THEN** the error names its index and language
 - *Verifies:* `test_every_seed_question_fits_the_app_limits`, `test_invalid_entries_are_named`
 
-> **GAP — unverified.** No test feeds a question or answer outside the length limits;
-> one would assert the same `#index language: …length` error.
+#### Scenario: lengths outside the limits
+- **WHEN** a question is shorter than 5 or longer than 120 characters, or an answer is empty or longer than 30, in Spanish or in English
+- **THEN** the error names the index, the language and `question length` or `answer length`
+- **WHEN** a question or an answer is exactly at a limit
+- **THEN** it loads
+- *Verifies:* `test_lengths_outside_the_limits_are_named`, `test_lengths_at_the_limits_are_accepted`
 
 ### Requirement: Batches never repeat a question
 

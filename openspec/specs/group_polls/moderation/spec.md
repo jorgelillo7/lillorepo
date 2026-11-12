@@ -5,7 +5,7 @@ command-line queue, because the app has no moderator screen.
 
 - **Source:** `packages/group_polls/scripts/moderation.py` (the pure helpers) and
   `packages/group_polls/scripts/moderate.py` (the command)
-- **Verified by:** `packages/group_polls/scripts/tests/test_moderation.py`
+- **Verified by:** `packages/group_polls/scripts/tests/` (the pure helpers and the command)
 
 ---
 
@@ -32,6 +32,20 @@ so a decision needs no other screen.
 - **THEN** the line carries state, votes, age and creator name
 - *Verifies:* `test_summary_shows_state_votes_age_and_creator`
 
-> **GAP — unverified.** `moderate.py` itself (restore, remove, and the confirmation
-> before deleting a poll with its votes and reports) talks to Firestore and has no test.
-> A test would fake the client and assert what each command deletes or changes.
+### Requirement: Restore and remove ask first and touch only that poll
+
+`restore` SHALL make the poll visible and clear its reports, and `remove` SHALL delete
+the poll with its votes and its reports, each only after the owner answers `y`; any other
+answer, or no answer, SHALL write nothing. A code with no poll SHALL be reported without
+asking.
+
+#### Scenario: restore and remove
+- **WHEN** `restore` is confirmed
+- **THEN** the poll is not hidden, has 0 reports and no report documents, and its votes and other polls are untouched
+- **WHEN** `remove` is confirmed
+- **THEN** the poll, its votes and its reports are gone and other polls are untouched
+- **WHEN** the answer is empty, `n`, anything but `y`, or the input ends
+- **THEN** nothing is written
+- **WHEN** the code matches no poll
+- **THEN** the command exits 1 without a prompt or a write
+- *Verifies:* `test_restore_unhides_the_poll_and_clears_only_its_reports`, `test_remove_deletes_the_poll_with_its_votes_and_reports`, `test_nothing_is_written_unless_the_answer_is_y`, `test_an_unknown_poll_is_reported_and_never_prompts`

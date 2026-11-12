@@ -43,7 +43,7 @@ def poll_fields(creator="ana", visibility="public", **overrides) -> dict:
     return fields
 
 
-def vote(code, uid, side="red", name=None, counter=None, step=1):
+def vote(code, uid, side="red", name=None, counter=None, step=1, omit=(), extra=None):
     fields = {
         "voterId": uid,
         "side": side,
@@ -52,6 +52,9 @@ def vote(code, uid, side="red", name=None, counter=None, step=1):
     }
     if name is not None:
         fields["name"] = name
+    fields.update(extra or {})
+    for key in omit:
+        del fields[key]
     return (
         fs.create(f"polls/{code}/votes/{uid}", fields),
         fs.update(f"polls/{code}", {f"{counter or side}Votes": Increment(step)}),
@@ -128,6 +131,22 @@ def test_cannot_vote_for_someone_else():
 def test_names_only_on_private_polls():
     assert not fs.commit(BEA, *vote(PUBLIC, "bea", name="Bea"))
     assert fs.commit(BEA, *vote(PRIVATE, "bea", name="Bea"))
+
+
+def test_a_vote_without_a_prediction_is_rejected():
+    assert not fs.commit(BEA, *vote(PUBLIC, "bea", omit=["prediction"]))
+    assert fs.commit(BEA, *vote(PUBLIC, "bea"))
+
+
+@pytest.mark.parametrize("poll", [PUBLIC, PRIVATE])
+def test_a_vote_with_an_extra_field_is_rejected(poll):
+    assert not fs.commit(BEA, *vote(poll, "bea", extra={"admin": True}))
+    assert fs.commit(BEA, *vote(poll, "bea"))
+
+
+def test_a_name_over_24_characters_is_rejected():
+    assert not fs.commit(BEA, *vote(PRIVATE, "bea", name="x" * 25))
+    assert fs.commit(BEA, *vote(PRIVATE, "bea", name="x" * 24))
 
 
 def test_who_voted_is_readable_only_on_private_polls():

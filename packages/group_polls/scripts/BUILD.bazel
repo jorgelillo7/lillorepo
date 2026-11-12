@@ -38,6 +38,16 @@ py_binary(
     ],
 )
 
+# The moderation command as a library, so its tests can drive main() with a fake client.
+py_library(
+    name = "moderate_lib",
+    srcs = ["moderate.py"],
+    deps = [
+        ":moderation",
+        requirement("google-cloud-firestore"),
+    ],
+)
+
 py_test(
     name = "scripts_tests",
     timeout = "short",
@@ -45,6 +55,7 @@ py_test(
     data = ["//packages/group_polls:seed/questions.json"],
     main = "tests/main.py",
     deps = [
+        ":moderate_lib",
         ":moderation",
         ":seeding",
         requirement("pytest"),
