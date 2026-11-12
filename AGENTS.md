@@ -18,23 +18,79 @@ Skills + hooks for Claude Code live under `.claude/`.
 
 ---
 
-## Subagent roles (`.claude/agents/`)
+## Subagent roles (`system/agents/`)
 
-Four roles, each a file with its own model and tool set. The orchestrating
-session stays whoever you are talking to; none of these can be that.
+Five roles, each a file with its own model and tool set. They are shared by
+every repo the owner works in, so they live in [`system/agents/`](system/agents/)
+and `scripts/install-system.sh` installs them into `~/.claude/agents/`. The
+orchestrating session stays whoever you are talking to; none of these can be
+that.
 
 | Role | Model | Use it for | Returns |
 |---|---|---|---|
 | `dev` | sonnet | A change already decided — migrating call sites, repetitive tests, propagating a pattern | The diff, plus the commands it ran |
 | `qa` | sonnet | Running suites, reproducing a bug, sweeping edge cases | Evidence: commands and their real output |
-| `reviewer` | opus | Cold-eyed review of a branch, against this repo's traps | Findings with the input that breaks them |
-| `spec` | opus | Writing or checking `openspec/` | Spec deltas and `check_specs.py` output |
+| `reviewer` | opus | Cold-eyed review of a branch, against the repo's traps | Findings with the input that breaks them |
+| `security` | opus | Cold-eyed review of a diff for untrusted input used unchecked, credentials reaching services that do not need them, tests that bless the unsafe path | Findings with the input that breaks them, plus what it traced and found bounded |
+| `spec` | opus | Writing or checking `openspec/` | Spec deltas and the spec check's output |
+
+Each role starts by reading the repo's `CLAUDE.md` and its `AGENTS.md`, so what
+is specific to a repo goes in that repo's `AGENTS.md` (the section below is
+this one's), never in a repo-level copy of the role: Claude Code resolves a
+name clash between `.claude/agents/` and `~/.claude/agents/` by taking the
+project file whole, so a repo-level `reviewer.md` would silently replace the
+shared one instead of adding to it.
 
 **Claude Code's own agents come first when they fit**: `Explore` for a broad
 read-only search, a `fork` for a side task that needs the whole conversation
 (it inherits the context instead of starting cold), `general-purpose` for
-anything else. The four roles above exist for what those cannot give: this
-repo's rules, a cheaper model for mechanical work, and cold eyes.
+anything else. The roles above exist for what those cannot give: the owner's
+rules, a cheaper model for mechanical work, and cold eyes.
+
+### Role notes for this repo
+
+What each role needs to know about lillorepo in particular.
+
+**Every role.** The commands:
+
+```bash
+bash scripts/lint.sh                      # ruff, mypy, dep-layer sync, spec check, guards
+bazel test --build_tests_only //...       # every suite (bazel query 'tests(//...)')
+bazel test //packages/biwenger_tools/api:api_tests --test_output=errors
+python3 scripts/affected_tests.py origin/master   # what CI would run for this branch
+python3 scripts/check_specs.py            # specs against the tests they name
+```
+
+Add `--cache_test_results=no` when a test must really run rather than be
+served from cache. `pip3`, never `pip`, on this machine.
+
+**`dev`.** Read `docs/technical/backend/python-conventions.md` before touching
+Python. Write the test first for anything in `logic/` or `core/` (LP-18). Three
+times in one week a green test was pinning a defect — a formation list two
+entries short, a status the provider never sends, an XI wrongly called
+illegal — each written alongside the code it tested.
+
+**`qa`.** Do not touch production: no `gcloud run deploy`, no writes to
+Firestore, no Telegram sends, no `--write` flags.
+
+**`reviewer`.** The traps that have shipped here:
+
+- Biwenger facts held as constants and never measured against the API —
+  formations, statuses, league limits, price bands.
+- `/comparar` shipped with a route, a menu entry, a help line and no dispatch
+  branch: trace every bot command from the keyboard to the handler.
+- The lineup and auto-bid paths run unattended at 07:15; anything that writes
+  there needs a switch or a dry run.
+- A behaviour change without its `openspec/` delta; run `check_specs.py`.
+
+**`security`.** Public surfaces: the Cloud Run services (`api`, `bot` webhook,
+`web`), the two Cloudflare Workers (`interactive_fiction`, `wishlist`) and the
+Firestore rules of `group_polls`. Secrets live in Secret Manager, one per
+package; CI authenticates through Workload Identity Federation. A PR from a
+fork must never reach a job that holds either.
+
+**`spec`.** Specs live in `openspec/specs/{package}/{capability}/spec.md`;
+`scripts/check_specs.py` fails on a named test that does not exist.
 
 ### What this buys, and what it does not
 
