@@ -100,3 +100,5 @@ manifest for Android), and copy the SVG to `web/icon.svg`. `assets/admin-icon.sv
 `web/admin-touch-icon.png`, `web/admin-icon-*.png` and `web/admin-icon.svg`. Use a throwaway
 `--user-data-dir` and a new file name each time, because Chrome caches a `file://`
 image. A phone keeps the icon it saved, so the shortcut has to be added again.
+
+What changed, release by release: [`release-notes.md`](release-notes.md).
