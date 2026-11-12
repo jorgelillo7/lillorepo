@@ -85,9 +85,12 @@ SHALL close a poll.
 - **THEN** voting is still accepted
 - *Verifies:* `test_no_votes_once_closed_or_expired`, `test_no_limit_polls_stay_open`
 
-> **GAP — unverified.** Nothing asserts that a vote without `prediction` or with an
-> extra field is rejected, or that a name over 24 characters is. A test would build
-> those votes and expect the commit to fail.
+#### Scenario: the shape of a vote
+- **WHEN** a vote has no `prediction`, or carries a field outside the allowed set, on a public or a private poll
+- **THEN** the commit is rejected, and the same vote without the flaw is accepted
+- **WHEN** a name on a private poll is 25 characters
+- **THEN** it is rejected, while 24 characters are accepted
+- *Verifies:* `test_a_vote_without_a_prediction_is_rejected`, `test_a_vote_with_an_extra_field_is_rejected`, `test_a_name_over_24_characters_is_rejected`
 
 ### Requirement: Polls are never deleted or rewritten
 

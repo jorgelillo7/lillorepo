@@ -72,7 +72,6 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
-| 🔨 | Tests for what the spec records as a GAP: a vote missing `prediction`, with an extra field or a name over 24 characters; `moderate.py` restore and remove; seed lengths outside the limits | Pick up · `grep -rn GAP openspec/specs/group_polls` |
 | ⏳ | App Check enforcement for Firestore and Identity Toolkit declared in Terraform, and a per-user limit on creating polls | The Firebase project existing · today enforcement is a console click, and anonymous sign-in makes votes and polls free to mint |
 
 ## interactive_fiction

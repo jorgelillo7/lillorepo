@@ -96,7 +96,7 @@ bazel test //packages/group_polls:rules_tests \
   --test_env=FIRESTORE_EMULATOR_HOST=127.0.0.1:8085 --test_output=errors
 ```
 
-Without the emulator (CI) the 22 cases are skipped, not failed. The tests load the rules into
+Without the emulator (CI) the 26 cases are skipped, not failed. The tests load the rules into
 the emulator themselves (`PUT /emulator/v1/projects/…:securityRules`), so there is no
 `firebase.json` and no Firebase CLI.
 
