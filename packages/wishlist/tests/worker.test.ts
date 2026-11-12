@@ -1,55 +1,17 @@
-import { readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect, test } from "vitest";
-import { NAME_LIMIT, cleanName, type Database, type Env, type Statement } from "../src/app.ts";
+import { NAME_LIMIT, cleanName, type Env } from "../src/app.ts";
 import worker from "../src/worker.ts";
+import { ADMIN, ORIGIN, database, environment } from "./support.ts";
 
-const ORIGIN = "https://wishlist.test";
 const GIFT = "whirly-derby";
 const OTHER_GIFT = "lobito-book";
-const ADMIN = "Basic " + Buffer.from("me:long secret").toString("base64");
-
-/** D1's surface over Node's SQLite, running the real migration. */
-function database(): Database {
-  const db = new DatabaseSync(":memory:");
-  db.exec(readFileSync(new URL("../migrations/0001_claims.sql", import.meta.url), "utf8"));
-  return {
-    prepare(sql: string): Statement {
-      let values: unknown[] = [];
-      const statement: Statement = {
-        bind(...given: unknown[]) {
-          values = given;
-          return statement;
-        },
-        async run() {
-          const result = db.prepare(sql).run(...(values as never[]));
-          return { meta: { changes: Number(result.changes) } };
-        },
-        async all<T>() {
-          return { results: db.prepare(sql).all(...(values as never[])) as T[] };
-        },
-      };
-      return statement;
-    },
-  };
-}
 
 let env: Env;
 const served: string[] = [];
 
 beforeEach(() => {
   served.length = 0;
-  env = {
-    DB: database(),
-    ASSETS: {
-      fetch: async (request: Request) => {
-        served.push(new URL(request.url).pathname);
-        return new Response("ASSET");
-      },
-    },
-    ADMIN_USER: "me",
-    ADMIN_PASSWORD: "long secret",
-  };
+  env = environment(database().db, served);
 });
 
 /** A browser: it keeps the cookie the Worker sets, as a real one would. */
@@ -176,15 +138,71 @@ describe("admin", () => {
   });
 });
 
+describe("admin writes and headers", () => {
+  const post = (path: string, body: unknown, headers: Record<string, string>) =>
+    worker.fetch(
+      new Request(ORIGIN + path, {
+        method: "POST",
+        headers: { Authorization: ADMIN, "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(body),
+      }),
+      env,
+    );
+
+  test("an admin write must come from this site's own page, whatever credentials the browser sends", async () => {
+    const ana = visitor();
+    await ana("/api/reserve", { id: GIFT, name: "Ana" });
+    const forged: Record<string, string>[] = [
+      {},
+      { Origin: "https://evil.test" },
+      { Origin: ORIGIN, "Sec-Fetch-Site": "cross-site" },
+      { Origin: ORIGIN, "Sec-Fetch-Site": "same-site" },
+    ];
+    for (const headers of forged) {
+      for (const path of ["/admin/api/release", "/admin/api/gift/delete", "/admin/api/gift/hide"]) {
+        expect((await post(path, { id: GIFT, force: true, hidden: true }, headers)).status).toBe(403);
+      }
+    }
+    const photo = await worker.fetch(
+      new Request(ORIGIN + "/admin/api/photo", {
+        method: "POST",
+        headers: { Authorization: ADMIN, "Content-Type": "image/jpeg", "Content-Length": "4" },
+        body: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]),
+      }),
+      env,
+    );
+    expect(photo.status).toBe(403);
+    expect(await (await ana("/api/state")).json()).toHaveLength(1);
+    expect((await post("/admin/api/release", { id: GIFT }, { Origin: ORIGIN, "Sec-Fetch-Site": "same-origin" })).status).toBe(200);
+  });
+
+  test("every response forbids framing, and the admin page is never cached", async () => {
+    const guest = visitor();
+    const responses = [
+      await guest("/"),
+      await guest("/admin"),
+      await guest("/api/state"),
+      await guest("/api/nothing"),
+      await guest("/admin", undefined, { Authorization: ADMIN }),
+    ];
+    for (const response of responses) {
+      expect(response.headers.get("Content-Security-Policy")).toBe("frame-ancestors 'none'");
+      expect(response.headers.get("X-Frame-Options")).toBe("DENY");
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    }
+    expect(responses[4].headers.get("Cache-Control")).toBe("no-store");
+  });
+});
+
 describe("pages", () => {
   test("serves the list and its files, the admin manifest without credentials, and no page by its .html path", async () => {
     const guest = visitor();
     expect((await guest("/")).status).toBe(200);
-    expect((await guest("/gifts.json")).status).toBe(200);
     expect((await guest("/admin.webmanifest")).status).toBe(200);
     expect((await guest("/admin.html")).status).toBe(404);
     expect((await guest("/index.html")).status).toBe(404);
     expect((await guest("/api/nothing")).status).toBe(404);
-    expect(served).toEqual(["/", "/gifts.json", "/admin.webmanifest"]);
+    expect(served).toEqual(["/", "/admin.webmanifest"]);
+    expect((await guest("/api/list")).status).toBe(200);
   });
 });
