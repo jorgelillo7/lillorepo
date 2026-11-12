@@ -18,6 +18,7 @@ py_library(
         "check_test_srcs.py",
         "check_url_secrets.py",
         "coverage_report.py",
+        "security_sweep.py",
     ],
 )
 
