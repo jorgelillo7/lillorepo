@@ -1,0 +1,5 @@
+# Findings the security sweep has reviewed. One fingerprint per line (as the sweep prints it in
+# brackets), or path:<glob>; never a value.
+
+# A Jornada Perfecta token in two documents of one old commit. Rotated; the value in history is dead.
+ab8c5b1e3966
