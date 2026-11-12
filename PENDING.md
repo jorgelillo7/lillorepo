@@ -29,6 +29,9 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
+| 👤 | Bump Pillow to 13 and certifi (and pyasn1, opentelemetry-api) in the lock, `docker/Dockerfile.base` and the base image digest | You: it rebuilds and pushes `python-base` · steps in `.claude/skills/check-deps/UPGRADING.md`; the four majors on offer (gunicorn 27, Pillow 13, python-dateutil 4, soupsieve 4) touch nothing this repo calls, read from their changelogs · boot-test gunicorn 27 before it ships |
+| 👤 | Dependabot's first npm and Terraform PRs (#733, #734) | You: read and merge, or close · the Terraform one shows a failing plan because Dependabot runs get no OIDC; that check is not required |
+| ⏳ | The deploy jobs authenticating with `id-token: write` granted per job | The next push that deploys a service · watch `deploy.yml` on it |
 
 ## core
 
@@ -60,12 +63,15 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
+| 👤 | The plan's README is in Spanish and its tooling moved: `icloudpd` is looking for maintainers and its Homebrew formula is deprecated; rclone's shared Google Photos client ID is being retired during 2026 | You: decide the strategy again before any code |
 
 ## group_polls
 
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
+| 🔨 | Tests for what the spec records as a GAP: a vote missing `prediction`, with an extra field or a name over 24 characters; `moderate.py` restore and remove; seed lengths outside the limits | Pick up · `grep -rn GAP openspec/specs/group_polls` |
+| ⏳ | App Check enforcement for Firestore and Identity Toolkit declared in Terraform, and a per-user limit on creating polls | The Firebase project existing · today enforcement is a console click, and anonymous sign-in makes votes and polls free to mint |
 
 ## interactive_fiction
 
@@ -77,11 +83,25 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
+| 👤 | Deploy the reader: security headers, saves that survive a rewritten chapter, passages announced to a screen reader | You: `git pull` in the author's clone first (the deploy now refuses a clone that is not its origin's default branch), then `npm run deploy` · `packages/interactive_fiction/OPERATIONS.md` |
+| 🔨 | Scene images as WebP or AVIF with `srcset`: 9.1 MB of JPEG/PNG today, 2.1 MB as WebP at 1600 px, 0.85 MB as AVIF at 1000 px (measured) | A decision on adding an encoder to the build (`sips` writes neither) |
+| ⏳ | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
+| 👤 | Suggestions for the author (speaker colours at 1.3:1 and 2.2:1 on black, the knife never shown, undo against the story's own rule, the 3D draft as a fixed-camera source instead of the reader) | You: forward the note or not · his content, not this repo's |
+
+## wishlist
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 👤 | Adding gifts with a photo from `/admin` (#736): open it on an iPhone with `npm run dev`, merge, deploy, then upload one real photo to the remote D1 | You · the browser side has no automated test, and the remote D1's statement size limit is untried (fallback: the photo across several rows) |
+| 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · `openspec/changes/wishlist-events/proposal.md`, in #736 |
 
 ## be_water
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 🚧 | Activate Google Sign-In | ~10 min of Console clicks · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` · **no code change needed**: be_water's CSP already allows Google Sign-In's script, style and frames (#542) |
+| 🚧 | Activate Google Sign-In | ~10 min of Console clicks · **the studio photo is off for everyone until this is done** (it follows the Google-verified admin) · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` · **no code change needed**: be_water's CSP already allows Google Sign-In's script, style and frames (#542) |
 | ⏳ | The AESAN parser reads only Spain's table, of 28 in the PDF | A registered foreign water · **checked:** it would not have caught `FONTÉBIL`, and Portugal's place column is `Locality-Municipality`, which `_PROVINCE` cannot read · [measurements](docs/technical/parked-work.md#be_water-country-field) |
 | ⏳ | Tailwind ships as the Play CDN, which its own docs call development-only | A build step · **not** the `defer` this line used to ask for: deferring the compiler is what causes the unstyled flash · preconnect landed, the rest needs a Bazel node toolchain · affects `be_water` **and** `biwenger_tools/web` · **weighs more since #542**: the CDN compiles styles in the browser, which is the only reason both CSPs still allow `style-src 'unsafe-inline'` |
+| 🔨 | `deploy.yml` still passes `BEWATER_ADMINS`, which nothing reads; `be-water` deploys with no `--max-instances` | Pick up with the next be_water change |
+| 🔨 | The three `backfill_*` scripts, `audit_data.py` and `audit_photos.py` have no test importing them: delete the ones that have run for good, test the rest | Your call on which are finished |
+| ⏳ | HEIC uploads are refused (JPEG, PNG and WebP only) | A contributor whose phone does not convert on upload · iOS Safari converts; not tried on a device |
