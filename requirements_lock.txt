@@ -64,7 +64,7 @@ grpcio==1.84.0
     #   grpcio-status
 grpcio-status==1.84.0
     # via google-api-core
-gunicorn==26.2.0
+gunicorn==27.0.1
     # via -r requirements.in
 httplib2==0.32.0
     # via
@@ -138,7 +138,7 @@ pyparsing==3.3.3
     #   matplotlib
 pytest==9.1.1
     # via -r requirements.in
-python-dateutil==2.9.0.post0
+python-dateutil==4.0.0
     # via
     #   -r requirements.in
     #   freezegun
@@ -157,8 +157,6 @@ requests-mock==1.12.1
     # via -r requirements.in
 ruff==0.16.9
     # via -r requirements.in
-six==1.17.0
-    # via python-dateutil
 soupsieve==4.1
     # via beautifulsoup4
 types-bleach==6.4.0.20260728
@@ -178,7 +176,9 @@ typing-extensions==4.16.0
     #   mypy
     #   opentelemetry-api
 tzdata==2026.4
-    # via icalendar
+    # via
+    #   icalendar
+    #   python-dateutil
 unidecode==1.4.0
     # via -r requirements.in
 uritemplate==4.2.0
