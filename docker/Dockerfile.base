@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir \
     beautifulsoup4==4.15.0 \
     bleach==6.4.0 \
     blinker==1.9.0 \
-    certifi==2026.7.22 \
+    certifi==2026.10.23 \
     cffi==2.1.1 \
     charset-normalizer==3.5.1 \
     click==8.5.0 \
@@ -50,12 +50,12 @@ RUN pip install --no-cache-dir \
     markupsafe==3.0.3 \
     matplotlib==3.11.2 \
     numpy==2.5.3 \
-    opentelemetry-api==1.45.0 \
+    opentelemetry-api==1.45.2 \
     packaging==26.3 \
-    pillow==12.3.0 \
+    pillow==13.0.0 \
     proto-plus==1.28.4 \
     protobuf==7.36.2 \
-    pyasn1==0.6.4 \
+    pyasn1==0.6.5 \
     pyasn1-modules==0.4.2 \
     pycparser==3.0 \
     pyparsing==3.3.3 \
@@ -64,7 +64,7 @@ RUN pip install --no-cache-dir \
     python-json-logger==4.2.0 \
     requests==2.34.2 \
     six==1.17.0 \
-    soupsieve==2.10 \
+    soupsieve==4.1 \
     typing-extensions==4.16.0 \
     tzdata==2026.4 \
     unidecode==1.4.0 \
