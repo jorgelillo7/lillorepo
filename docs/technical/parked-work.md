@@ -438,3 +438,42 @@ Two things the move taught, both in `docs/operations.md`:
   secret could be deleted.
 - A value piped through a filtered shell was truncated on the way into its new
   secret (121 of 148 bytes), and the bot it fed was down for eight minutes.
+
+## interactive_fiction — review 2026-11
+
+A read-only review of the reader and the 3D draft. Engine side solid: 115 tests,
+typecheck clean, every spec reference resolves. What it found, ranked:
+
+**Workflow**
+1. The draft's deploy copies whatever `public/stories` holds: after `npm run dev`
+   or `build:drafts`, an unpublished chapter reaches a public URL with no source
+   guard. Fix in `experiments/draft3d/prepare.ts` and its `package.json`.
+2. No gate before deploy: `explore`, `parity` and `play` are separate, three docs
+   give three orders, and `explore.ts` never exits non-zero. One `npm run verify`
+   that `deploy` depends on.
+3. `play` covers one path per chapter; drive it to every end code (`endPaths`).
+4. Nothing checks the live site after a deploy (chapters, versions, CSP).
+5. CI never runs `build-stories.ts` or `vite build`; a fixture series would.
+6. `experiments/draft3d` is outside typecheck, CI and Dependabot, and hard-codes
+   chapters 01/02 and one character, so chapter 3 will not be found.
+7. Doc drift: `fit.ts` threshold 0.7 vs the skill's 0.8; the draft README and
+   OPERATIONS still describe states that changed.
+
+**3D draft** (three.js + Spark splats; ~13.3 MB to the first room, 185 MB deploy)
+1. Bake anchors and figure quads at build, stop serving colliders (−61 MB).
+2. Progressive quality: 100k splats first, then 500k.
+3. Mood in the renderer (one post pass for grade, grain, flicker; a flashlight
+   cone; depth fog) instead of a CSS filter over the canvas.
+4. Parallax: idle sway and a few centimetres of pointer translation.
+5. Audio: the existing stings, heartbeat and steps; mute; panned sources.
+6. Fallback to 2D without WebGL2 or on a failed fetch; `webglcontextlost`.
+7. Content-hashed worlds with `immutable` headers; split the bundle so the
+   title paints before three and Spark load.
+8. Phones: pointer capture, `pointercancel`, inertia, render on demand.
+9. Accessibility: arrow keys, focus turns the camera, `.quiet` inert, fuller
+   reduced motion.
+
+Folding it into the reader also needs: worker and wasm allowances in the CSP,
+a lazy 3D chunk so "Modo ligero" stays light, a portrait-vs-landscape decision
+(owner and author), and LFS or a bucket for the 187 MB of binaries in the
+author's repo.
