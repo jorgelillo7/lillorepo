@@ -647,7 +647,14 @@ def test_add_water_saves_and_redirects(client):
     assert water.minerals["calcium"] == 80.5  # comma decimal accepted
     assert water.added_by == "jorge"
     # No OCR → both values are hand-entered.
-    assert water.sources == {"tds": "manual", "calcium": "manual"}
+    # Benassal is in the AESAN registry under Castellón, so the save sources
+    # its place from there.
+    assert water.sources == {
+        "tds": "manual",
+        "calcium": "manual",
+        "province": "aesan",
+        "community": "aesan",
+    }
 
 
 def test_add_water_refuses_verified_duplicates(client):

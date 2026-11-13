@@ -317,6 +317,7 @@ def finalize_provenance(
         existing.sources if existing is not None else {},
         submitted,
     )
+    water.sources = provenance.derive_sources(water)
     if (
         water.label_photo_url
         and water.minerals
