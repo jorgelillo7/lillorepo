@@ -13,7 +13,9 @@ gas. "province" y "community" se refieren al lugar del manantial en España.
 "analysis_date" es la fecha del análisis de laboratorio que declara la etiqueta
 ("CNTA, Febrero 2025" → "2025-02"; "CNTA 2023" → "2023"): devuélvela siempre
 como "YYYY-MM", o "YYYY" si la etiqueta solo imprime el año, y null si no
-aparece — no la confundas con el lote ni con el consumo preferente.
+aparece — no la confundas con el lote, con el consumo preferente ni con la
+fecha en que el agua fue declarada mineral natural ("Declarada mineral natural
+(3/11/06)" no es un análisis).
 "registry_id" es el número del registro sanitario tal cual aparece
 ("RGSEAA 27.02231/BA" → "27.02231/BA"), null si no se ve. "bottler" es la
 empresa envasadora ("Envasada por SONEPA" → "SONEPA"), null si no aparece;
