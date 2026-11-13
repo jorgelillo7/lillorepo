@@ -39,7 +39,7 @@ oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 # Imagen base CON TODAS las dependencias preinstaladas (para producción)
 oci.pull(
     name = "python_with_deps",
-    digest = "sha256:8438fdb66cf690d8a0c9ab1cfd0585eabe1891fb9cac1d4a09cc3202a425d836",
+    digest = "sha256:76ac1a8a27e66e0abd746cfe29a325ebdb691bd6620906720f1c959e71f8f370",
     image = "europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base",
     platforms = [
         "linux/amd64",
