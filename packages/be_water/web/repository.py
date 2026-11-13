@@ -210,12 +210,6 @@ def set_water_sources(water_id: str, sources: dict) -> None:
     clear_cache()
 
 
-def set_water_community(water_id: str, community: str) -> None:
-    """Update only the community, leaving the rest of the doc untouched."""
-    firestore.set_document(WATERS, water_id, {"community": community}, merge=True)
-    clear_cache()
-
-
 def delete_water(water_id: str) -> None:
     """Delete the ficha and its analysis series together. Left behind, the
     entries would reattach themselves to any water later given the same id."""

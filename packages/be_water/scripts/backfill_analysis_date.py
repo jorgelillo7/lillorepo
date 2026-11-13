@@ -11,6 +11,8 @@ still has are the label photos in GCS — so the backfill re-reads those:
 Reach is bounded by what was photographed: fichas without a label photo, and
 those that already have a date, are skipped. Labels are not required to print
 the date at all, so "no encontrada" is a legitimate outcome, not a failure.
+A written date also seeds the water's analysis series, as `backfill_analyses`
+would, so a dated water is never missing from its own history.
 
 The batch is paced: a dozen back-to-back OCR calls trip the Gemini free tier
 (429/503) and most fichas come back unread. Use --only to check one cheaply."""
@@ -18,6 +20,7 @@ The batch is paced: a dozen back-to-back OCR calls trip the Gemini free tier
 import argparse
 import os
 import time
+from dataclasses import replace
 
 import requests
 
@@ -107,6 +110,12 @@ def main() -> None:
             continue
         water.analysis_date = date
         repository.save_water(water)
+        if not repository.get_analysis(water.id, date):
+            # No photos, for backfill_analyses' reason: the bare-path images
+            # can be overwritten by a later undated correction.
+            repository.save_analysis(
+                replace(water, photo_url=None, label_photo_url=None)
+            )
         print("    ✓ guardada.\n")
 
     if not args.write:

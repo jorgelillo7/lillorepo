@@ -218,23 +218,45 @@ def test_finalize_does_not_verify_without_full_label_backing():
     assert water.sources["calcium"] == "manual"
 
 
-# --- the narrow write the backfill uses -------------------------------------
-
-
-def test_set_water_community_merges_instead_of_rewriting_the_doc():
-    """The backfill fills one field on documents it has not fully parsed —
-    a whole-document write would drop whatever `to_firestore` does not carry.
-    """
+def test_a_saved_ficha_is_sourced_from_aesan_when_the_registry_agrees():
+    """The save path is where a ficha is born, so the registry check runs
+    there; leaving it to a backfill left most fichas without it."""
     from unittest.mock import patch
 
-    from packages.be_water.web import repository
-
-    with patch("packages.be_water.web.repository.firestore") as fs:
-        repository.set_water_community("neval", "Castilla-La Mancha")
-
-    fs.set_document.assert_called_once_with(
-        repository.WATERS, "neval", {"community": "Castilla-La Mancha"}, merge=True
+    water = _water(
+        name="Solán",
+        province="Cuenca",
+        community="Castilla-La Mancha",
+        minerals={"tds": 100},
     )
+    with (
+        patch(
+            "packages.be_water.web.provenance.aesan.registry_matches",
+            return_value=[{"province": "Cuenca"}],
+        ),
+        patch(
+            "packages.be_water.web.provenance.geo.community_of",
+            return_value="Castilla-La Mancha",
+        ),
+    ):
+        submission.finalize_provenance(water, existing=None, submitted={"tds"})
+    assert water.sources == {
+        "tds": "manual",
+        "province": "aesan",
+        "community": "aesan",
+    }
+
+
+def test_a_saved_ficha_gets_no_aesan_source_when_the_registry_disagrees():
+    from unittest.mock import patch
+
+    water = _water(name="X", province="Cuenca", minerals={"tds": 100})
+    with patch(
+        "packages.be_water.web.provenance.aesan.registry_matches",
+        return_value=[{"province": "Segovia"}],
+    ):
+        submission.finalize_provenance(water, existing=None, submitted={"tds"})
+    assert water.sources == {"tds": "manual"}
 
 
 # --- analysis date ----------------------------------------------------------

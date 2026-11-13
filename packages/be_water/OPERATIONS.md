@@ -67,11 +67,6 @@ operational how-to; the specs are the single source of *what must be true*.
       bazel run //packages/be_water/scripts:backfill_analyses                 # preview
       bazel run //packages/be_water/scripts:backfill_analyses -- --apply
 
-      # Community — derive Water.community from the province so place search
-      # finds the ficha. Fills gaps only; read the unresolved tail first.
-      bazel run //packages/be_water/scripts:backfill_communities              # preview
-      bazel run //packages/be_water/scripts:backfill_communities -- --apply
-
       # Unbacked minerals — keep only values a label or a contributor backs;
       # removals snapshot to water_revisions first, so revert_water undoes them.
       bazel run //packages/be_water/scripts:purge_unbacked_minerals           # preview

@@ -38,6 +38,15 @@ credited for. The seed is gone and those documents were corrected.
 - *Verifies:* `test_province_and_community_from_aesan_registry`,
   `test_no_aesan_source_when_registry_disagrees`
 
+#### Scenario: the check runs on every save
+- **WHEN** a ficha is saved from the form **THEN** `derive_sources` runs on it,
+  so a new ficha whose registry entry agrees is sourced `aesan` at birth. It
+  used to run only from `backfill_sources.py`, and 32 of 51 fichas were
+  waiting on a backfill nobody re-ran.
+- *Verifies:* `test_a_saved_ficha_is_sourced_from_aesan_when_the_registry_agrees`,
+  `test_a_saved_ficha_gets_no_aesan_source_when_the_registry_disagrees`,
+  `test_add_water_saves_and_redirects`
+
 ### Requirement: A province decides its own community
 
 `resolve_place` SHALL store the community that belongs to the submitted
