@@ -14,7 +14,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: infra-${{ github.ref }}
@@ -23,7 +22,12 @@ concurrency:
 jobs:
   plan:
     name: Terraform plan
+    # The plan identity is for this repository's own branches, never a fork's code.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: infra
