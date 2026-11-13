@@ -64,7 +64,7 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
-| 👤 | Photos, in the order that protects first: **(1)** the Google Photos app on both iPhones with backup at original quality — 5 TB are paid for and 10 GB used, so it is a second cloud for photos and videos with nothing to run; **(2)** copy, never move, the ten-year-old disk onto the 5 TB one, verify it, and upload that history too; **(3)** the `YYYY-MM-DD event` folders once or twice a year, with a script and a session proposing the names. Step 1 replaces Amazon Photos, rclone and emptying Google Photos | You for 1 and 2 (no code) · then a session rewrites `packages/my_photos/README.md`, in English, around this order: `icloudpd` is looking for maintainers and its Homebrew formula is deprecated, and rclone's shared Google Photos client ID is being retired during 2026 |
+| 👤 | Photos, in the order that protects first: **(1)** the Google Photos app on both iPhones with backup at original quality — 5 TB are paid for and 10 GB used, so it is a second cloud for photos and videos with nothing to run; **(2)** copy, never move, the ten-year-old disk onto the 5 TB one, verify it, and upload that history too; **(3)** the `YYYY-MM-DD event` folders once or twice a year, with a script and a session proposing the names. Step 1 replaces Amazon Photos, rclone and emptying Google Photos | You for 1 and 2 (no code) · the plan is `packages/my_photos/README.md`; step 3 decides between `icloudpd` and `osxphotos` when it starts |
 
 ## group_polls
 
