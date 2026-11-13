@@ -79,6 +79,9 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
+| 🔨 | The 3D draft's deploy can publish an unpublished chapter: `experiments/draft3d/prepare.ts` copies whatever `public/stories` holds, with no source guard (live is clean today) | Pick up first · refuse `draft: true` in `prepare.ts`, run `STORIES_PUBLISH=1 npm run stories` before its deploy · [review](docs/technical/parked-work.md#interactive_fiction--review-2026-11) |
+| 🔨 | One `npm run verify` gate before `deploy` (`explore --strict`, parity, `play` to every end code) and a post-deploy check | [review](docs/technical/parked-work.md#interactive_fiction--review-2026-11) |
+| 🔨 | 3D: bake anchors and figure quads at build and stop serving the 61 MB of colliders (first room 13.3 → ~7.6 MB); content-hashed worlds with immutable headers; wire stings/heartbeat and a mute | [review](docs/technical/parked-work.md#interactive_fiction--review-2026-11) |
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
