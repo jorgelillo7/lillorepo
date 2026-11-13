@@ -12,7 +12,7 @@ bleach==6.4.0
     # via -r requirements.in
 blinker==1.9.0
     # via flask
-certifi==2026.7.22
+certifi==2026.10.23
     # via requests
 cffi==2.1.1
     # via cryptography
@@ -99,7 +99,7 @@ numpy==2.5.3
     # via
     #   contourpy
     #   matplotlib
-opentelemetry-api==1.45.0
+opentelemetry-api==1.45.2
     # via google-api-core
 packaging==26.3
     # via
@@ -107,7 +107,7 @@ packaging==26.3
     #   pytest
 pathspec==1.1.1
     # via mypy
-pillow==12.3.0
+pillow==13.0.0
     # via
     #   -r requirements.in
     #   matplotlib
@@ -124,7 +124,7 @@ protobuf==7.36.2
     #   googleapis-common-protos
     #   grpcio-status
     #   proto-plus
-pyasn1==0.6.4
+pyasn1==0.6.5
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
@@ -159,7 +159,7 @@ ruff==0.16.9
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
-soupsieve==2.10
+soupsieve==4.1
     # via beautifulsoup4
 types-bleach==6.4.0.20260728
     # via -r requirements.in
