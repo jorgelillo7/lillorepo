@@ -170,7 +170,7 @@ If the token is hardcoded in the React Native JS bundle:
 
 ```bash
 # Search by known token prefix — the first characters of the current token,
-# read from `biwenger-secrets` (never written here: the repo is public)
+# read from `biwenger-credentials` (never written here: the repo is public)
 PREFIX="<first chars of jp_auth_token>"
 unzip -p app.apk assets/index.android.bundle | strings | grep -o "${PREFIX}[^ \"&]*"
 

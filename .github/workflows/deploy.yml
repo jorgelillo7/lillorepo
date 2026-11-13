@@ -321,7 +321,7 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
-            --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-secrets:latest" \
+            --update-secrets="FLASK_WEB_CONFIG_JSON=biwenger-web:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           GCP_PROJECT_ID=${{ env.PROJECT_ID }},\
@@ -403,7 +403,7 @@ jobs:
             --region ${{ env.REGION }} \
             --project ${{ env.PROJECT_ID }} \
             --update-env-vars TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }} \
-            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest"
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-telegram:latest"
 
   # -------------------------------------------------------
   # 2c. Build and deploy bot Cloud Run Service
@@ -497,7 +497,7 @@ jobs:
             --memory=256Mi \
             --cpu=0.5 \
             --concurrency=1 \
-            --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
+            --update-secrets="TELEGRAM_BOT_CONFIG_JSON=biwenger-telegram:latest" \
             --set-env-vars="\
           BIWENGER_API_URL=${{ steps.api_url.outputs.url }},\
           BIWENGER_WEB_URL=${{ steps.web_url.outputs.url }},\
@@ -513,7 +513,7 @@ jobs:
         # menu taps.
         run: |
           CFG=$(gcloud secrets versions access latest \
-            --secret=biwenger-secrets --project=${{ env.PROJECT_ID }})
+            --secret=biwenger-telegram --project=${{ env.PROJECT_ID }})
           TELEGRAM_BOT_TOKEN=$(echo "$CFG" | jq -r .bot_token)
           TELEGRAM_WEBHOOK_SECRET=$(echo "$CFG" | jq -r .webhook_secret)
           # Each command block is scoped to its own chat: the owner's and the
@@ -610,7 +610,7 @@ jobs:
             --memory=512Mi \
             --cpu=1 \
             --concurrency=10 \
-            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest" \
+            --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-telegram:latest" \
             --set-env-vars="\
           TEMPORADA_ACTUAL=${{ env.TEMPORADA_ACTUAL }},\
           DRAFT_APPLY_TO_BIWENGER=${{ vars.DRAFT_APPLY_TO_BIWENGER || 'false' }},\

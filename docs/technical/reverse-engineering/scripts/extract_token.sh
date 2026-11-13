@@ -10,7 +10,7 @@
 #   unzip -o app.xapk -d app_splits && ./extract_token.sh app_splits/com.paquete.app.apk
 #
 # Optional second argument: the known token prefix (the first characters of
-# jp_auth_token in biwenger-secrets), to confirm whether the token changed.
+# jp_auth_token in biwenger-credentials), to confirm whether the token changed.
 # It is an argument, not a constant, because this repository is public.
 
 APK="${1}"

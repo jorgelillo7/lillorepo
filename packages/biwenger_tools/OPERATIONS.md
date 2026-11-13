@@ -242,7 +242,7 @@ single source of *what must be true*.
               --memory=512Mi --cpu=1 --max-retries=3 --task-timeout=600s \
               --labels=app=biwenger \
               --set-env-vars TEMPORADA_ACTUAL=26-27 \
-              --set-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest"
+              --set-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-telegram:latest"
         ```
       * **Update the Job** — what CI runs on every scraper change:
         ```bash
@@ -251,7 +251,7 @@ single source of *what must be true*.
               --region europe-southwest1 --project biwenger-tools \
               --service-account=run-biwenger-scraper@biwenger-tools.iam.gserviceaccount.com \
               --update-env-vars TEMPORADA_ACTUAL=26-27 \
-              --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-secrets:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-secrets:latest"
+              --update-secrets="BIWENGER_CREDENTIALS_JSON=biwenger-credentials:latest,TELEGRAM_BOT_CONFIG_JSON=biwenger-telegram:latest"
         ```
       * **Execute the Job manually:**
         ```bash
@@ -769,7 +769,7 @@ first.
 ### 5. Undo a pick
 
 `/deshacer` in the group, admin only (`draft_admin_telegram_id` in the
-`biwenger-secrets` secret, a **user** id, always positive). It returns the
+`biwenger-telegram` secret, a **user** id, always positive). It returns the
 player to the market, refunds the price and rewinds the turn. Chainable: each
 call undoes the latest pick.
 

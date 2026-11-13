@@ -148,10 +148,10 @@ allows it.
 
 | Account | Runs | May |
 |---|---|---|
-| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` · run the scraper job |
-| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-secrets` · call `biwenger-api` |
-| `run-biwenger-web` | `biwenger-summary` | **read** Firestore · read `biwenger-secrets` · run the scraper job · read the "Biwenger" Drive folder (Viewer) |
-| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-secrets` |
+| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-credentials` and `biwenger-telegram` · read/write objects in `gs://biwenger` · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-telegram` · call `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` | **read** Firestore · read `biwenger-web` · run the scraper job · read the "Biwenger" Drive folder (Viewer) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-credentials` and `biwenger-telegram` |
 | `scheduler-invoker` | both Cloud Scheduler jobs | call `biwenger-api` · run the scraper job |
 | `run-chucknorris-bot` | `chucknorris-bot` | read `chucknorris-secrets` |
 | `run-be-water` (project `be-water-app`) | `be-water` | read/write Firestore · read/write objects in `gs://be-water-photos` · read `be-water-secrets` |
@@ -160,9 +160,9 @@ allows it.
 
 The accounts in `biwenger-tools` are `…@biwenger-tools.iam.gserviceaccount.com`.
 Who may call each service is separate: the webs and the bots answer anyone,
-`biwenger-api` only the accounts above. One gap is accepted, not fixed:
-`biwenger-secrets` is one JSON, so whoever reads it reads all of it
-([`STATUS.md`](STATUS.md)). A new service gets its own account the same way
+`biwenger-api` only the accounts above. A grant covers a whole secret, so
+secrets are split by who reads them: the bot and the web cannot read the
+Biwenger password or the JP token. A new service gets its own account the same way
 ([`packages/biwenger_tools/DEPLOY_YOUR_OWN.md`](packages/biwenger_tools/DEPLOY_YOUR_OWN.md)
 step 7). The rationale is in [`docs/gcp.md`](docs/gcp.md).
 
