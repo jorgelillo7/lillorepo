@@ -26,7 +26,9 @@ Project: `biwenger-tools` · Region: `europe-southwest1` (Madrid)
 
 | Secret | Contents | Mounted by |
 |---|---|---|
-| `biwenger-secrets` | `{"email", "password", "jp_auth_token", "bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret", "secret_key", "admin_password"}` | api and scraper (`BIWENGER_CREDENTIALS_JSON` + `TELEGRAM_BOT_CONFIG_JSON`), bot (`TELEGRAM_BOT_CONFIG_JSON`), web (`FLASK_WEB_CONFIG_JSON`) |
+| `biwenger-credentials` | `{"email", "password", "jp_auth_token"}` | api and scraper (`BIWENGER_CREDENTIALS_JSON`) |
+| `biwenger-telegram` | `{"bot_token", "chat_id", "draft_chat_id", "draft_admin_telegram_id", "webhook_secret"}` | api, scraper and bot (`TELEGRAM_BOT_CONFIG_JSON`); CI reads it to register the bot's webhook |
+| `biwenger-web` | `{"secret_key", "admin_password"}` | web (`FLASK_WEB_CONFIG_JSON`) |
 | `chucknorris-secrets` | `{"bot_token", "webhook_secret"}` | chucknorris-bot |
 | `be-water-secrets` (project `be-water-app`) | `{"secret_key", "gemini_api_key", "gemini_api_key_paid", "telegram_bot_token", "telegram_chat_id"}` | be-water |
 
@@ -59,10 +61,10 @@ resource (secret, bucket, service, job) wherever IAM allows it.
 
 | Runs as | Service | Holds |
 |---|---|---|
-| `run-biwenger-api` | `biwenger-api` | Firestore read/write · `biwenger-secrets` · `storage.objectUser` on `gs://biwenger` · run the scraper job |
-| `run-biwenger-bot` | `biwenger-bot` | `biwenger-secrets` · invoke `biwenger-api` |
-| `run-biwenger-web` | `biwenger-summary` | Firestore **read** · `biwenger-secrets` · run the scraper job · the Drive folder (Viewer) |
-| `run-biwenger-scraper` | job `biwenger-scraper-data` | Firestore read/write · `biwenger-secrets` |
+| `run-biwenger-api` | `biwenger-api` | Firestore read/write · `biwenger-credentials`, `biwenger-telegram` · `storage.objectUser` on `gs://biwenger` · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | `biwenger-telegram` · invoke `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` | Firestore **read** · `biwenger-web` · run the scraper job · the Drive folder (Viewer) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | Firestore read/write · `biwenger-credentials`, `biwenger-telegram` |
 | `run-chucknorris-bot` | `chucknorris-bot` | `chucknorris-secrets` |
 | `scheduler-invoker` | both Cloud Scheduler jobs | invoke `biwenger-api` · run the scraper job |
 | `run-be-water` (`be-water-app`) | `be-water` | Firestore read/write · `storage.objectUser` on `gs://be-water-photos` · `be-water-secrets` |
@@ -127,17 +129,18 @@ verifying a new version works, destroy the old one:
 `gcloud secrets versions destroy <v> --secret=<name>`.
 `scripts/check-gcp-costs.sh` counts billable versions and flags disabled ones.
 
-### One secret per package
-Every package keeps its credentials in a single JSON secret, and a service
-mounts it under the env var names its config already reads — the keys do not
-collide, and each config picks only its own. That keeps the billing account
-at **3 of its 6 free versions** (it sat at 6/6 before), with no Google key
-file anywhere: the web reads Sheets as its Cloud Run identity.
+### One secret per consumer
+A secret is one JSON, and a service mounts it under the env var name its
+config already reads. `chucknorris` and `be_water` have one consumer each, so
+one secret each. `biwenger_tools` has four, and the two public ones — the bot
+and the web — must not read the Biwenger password or the JP token, so its
+keys are split by who reads them: credentials (api, scraper), Telegram (api,
+scraper, bot) and the web's own. A grant sits on a whole secret, which is why
+the split is by secret and not by key.
 
-The accepted cost is least privilege: `biwenger-bot` and the web, the two
-public biwenger services, can read the Biwenger password and the JP token they
-never use. Accepted for a private league with one operator — see `STATUS.md`.
-Rotating any value means redeploying every service that mounts the secret.
+That is **5 of the billing account's 6 free versions**, with no Google key
+file anywhere: the web reads Sheets as its Cloud Run identity. Rotating a
+value means redeploying every service that mounts its secret.
 
 ### Shared Python base image
 All Cloud Run services and jobs extend a shared `python-base` image stored in Artifact Registry.

@@ -7,6 +7,20 @@ locals {
       project   = local.biwenger
       accessors = [local.ci_sa, local.sa.api, local.sa.bot, local.sa.scraper, local.sa.web]
     }
+    # Split by consumer: the public bot and web must not read the Biwenger
+    # password, and a grant covers a whole secret.
+    biwenger-credentials = {
+      project   = local.biwenger
+      accessors = [local.sa.api, local.sa.scraper]
+    }
+    biwenger-telegram = {
+      project   = local.biwenger
+      accessors = [local.ci_sa, local.sa.api, local.sa.bot, local.sa.scraper]
+    }
+    biwenger-web = {
+      project   = local.biwenger
+      accessors = [local.sa.web]
+    }
     chucknorris-secrets = {
       project   = local.biwenger
       accessors = [local.ci_sa, local.sa.chucknorris]

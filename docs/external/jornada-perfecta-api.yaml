@@ -102,7 +102,7 @@ paths:
           in: query
           required: true
           schema: {type: string}
-          description: "Fixed token from the app's JS bundle; stored as `jp_auth_token` in the `biwenger-secrets` secret."
+          description: "Fixed token from the app's JS bundle; stored as `jp_auth_token` in the `biwenger-credentials` secret."
         - name: competition
           in: query
           required: true

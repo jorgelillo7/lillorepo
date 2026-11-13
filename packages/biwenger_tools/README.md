@@ -122,10 +122,10 @@ the job) wherever IAM allows it.
 
 | Account (`…@biwenger-tools.iam.gserviceaccount.com`) | Runs | May |
 |---|---|---|
-| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-secrets` · read/write objects in `gs://biwenger` (front pages, draft market CSV, cup images) · run the scraper job |
-| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-secrets` · call `biwenger-api` |
-| `run-biwenger-web` | `biwenger-summary` (web) | **read** Firestore · read `biwenger-secrets` · run the scraper job (admin button) · read the "Biwenger" Drive folder (Viewer, shared by hand) |
-| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-secrets` |
+| `run-biwenger-api` | `biwenger-api` | read/write Firestore · read `biwenger-credentials` and `biwenger-telegram` · read/write objects in `gs://biwenger` (front pages, draft market CSV, cup images) · run the scraper job |
+| `run-biwenger-bot` | `biwenger-bot` | read `biwenger-telegram` · call `biwenger-api` |
+| `run-biwenger-web` | `biwenger-summary` (web) | **read** Firestore · read `biwenger-web` · run the scraper job (admin button) · read the "Biwenger" Drive folder (Viewer, shared by hand) |
+| `run-biwenger-scraper` | job `biwenger-scraper-data` | read/write Firestore · read `biwenger-credentials` and `biwenger-telegram` |
 | `scheduler-invoker` | both Cloud Scheduler jobs | call `biwenger-api` (07:15 digest) · run the scraper job (Sunday 22:00) |
 | `biwenger-tools-sa` | CI (`deploy.yml`, keyless via Workload Identity, `master` only) | push images · deploy Cloud Run · act as the `run-*` accounts above · project Viewer |
 
@@ -133,8 +133,9 @@ Public reach is separate from these: the web and the bot answer anyone
 (`allUsers` invoker), the api only its callers above. Two things to know when
 changing anything here:
 
-- **`biwenger-secrets` is one JSON**, so every account that reads it reads all
-  of it, Biwenger password included — accepted in [`STATUS.md`](../../STATUS.md).
+- **A grant covers a whole secret**, so the keys are split by who reads them
+  (`biwenger-credentials`, `biwenger-telegram`, `biwenger-web`): a new key goes
+  into the secret of the services that use it, never into a shared one.
 - **A new service gets its own account**, created and granted as in
   [`DEPLOY_YOUR_OWN.md`](DEPLOY_YOUR_OWN.md) step 7 and passed with
   `--service-account` in `deploy.yml`; CI needs `iam.serviceAccountUser` on it.

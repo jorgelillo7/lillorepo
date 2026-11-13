@@ -48,7 +48,7 @@ This file is the operational how-to.
     `setup_commands.py` only refreshes the commands, so the webhook is a manual
     call. Read the token and secret from Secret Manager into a file — never
     through a filtered shell, which truncates the value
-    ([`docs/operations.md`](../../docs/operations.md#one-secret-per-package)):
+    ([`docs/operations.md`](../../docs/operations.md#one-secret-per-consumer)):
 
     ```bash
     gcloud secrets versions access latest --secret=chucknorris-secrets \

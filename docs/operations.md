@@ -212,13 +212,14 @@ Then `bazel build //...` and `bash scripts/lint.sh` to confirm.
   * **Local development:** Use `.env` files at the root of each module.
   * **Production:** Use **Google Secret Manager**.
 
-### One secret per package
+### One secret per consumer
 
-Each package keeps all its credentials in **one regional JSON secret**:
-`biwenger-secrets`, `chucknorris-secrets`, `be-water-secrets`. Services mount
-it under the env var names their config already reads
-(`BIWENGER_CREDENTIALS_JSON`, `TELEGRAM_BOT_CONFIG_JSON`, …), each picking only
-its own keys. Why, and what it costs, in [`gcp.md`](gcp.md).
+Credentials live in **regional JSON secrets**, split by who reads them:
+`biwenger-credentials`, `biwenger-telegram`, `biwenger-web`,
+`chucknorris-secrets`, `be-water-secrets`. Services mount them under the env
+var names their config already reads (`BIWENGER_CREDENTIALS_JSON`,
+`TELEGRAM_BOT_CONFIG_JSON`, …). Which secret holds which keys, and why, in
+[`gcp.md`](gcp.md#secrets).
 
 ```bash
 # Create (regional: one billable version, see gcp.md)

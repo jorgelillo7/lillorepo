@@ -30,7 +30,7 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
 | 🔨 | Two majors on offer with no alert behind them: gunicorn 27 and python-dateutil 4 | The next dependency session · steps in `.claude/skills/check-deps/UPGRADING.md`; boot-test gunicorn 27 before it ships |
-| 🔨 | Each of the two public services reads the whole `biwenger-secrets` bundle: split it into one secret per consumer (credentials for the api and the scraper, Telegram for whoever sends, the web's own) | A session, then your `terraform apply` and the three secret versions · it is the accepted gap in `STATUS.md` |
+| 🔨 | Revoke and delete `biwenger-secrets`, now that the api, bot, web and scraper read `biwenger-credentials`, `biwenger-telegram` and `biwenger-web`; then drop the accepted gap from `STATUS.md` | Every consumer serving a revision bound to the new secrets · the container carries `prevent_destroy`: drop it from `infra/secrets.tf`, `terraform state rm` it, apply, destroy its version and delete it |
 | ⏳ | The deploy jobs authenticating with `id-token: write` granted per job | The next push that deploys a service · watch `deploy.yml` on it |
 
 ## core
