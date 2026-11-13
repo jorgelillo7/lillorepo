@@ -25,6 +25,7 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Check the first weekly Firestore backups exist, in both projects | **Monday 16/11** (the schedule runs Sundays, first on 15/11) · `gcloud firestore backups list --location=europe-southwest1 --project=biwenger-tools` and the same for `be-water-app`; then drop this line · [setup](docs/firestore.md) |
+| ⏳ | Delete the temporary `python-base:pillow-13` tag (the image stays as `latest`; `pre-pillow-13` keeps the previous one for a revert) | A few days of the new base serving cleanly, from 13/11 · `gcloud artifacts docker tags delete europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:pillow-13` |
 | 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
