@@ -112,7 +112,7 @@ If the user asks to fix:
   re-derive them by hand.
 - **Report-only by default.** Fix only on an explicit request in the same
   conversation.
-- Respect intentional Spanish (the `my_photos` plan, `be_water` UI strings,
+- Respect intentional Spanish (`be_water` UI strings,
   Spanish place names, Telegram messages) — it is not a finding.
 - Prefer a link over duplicated content when closing a missing cross-reference.
 - Don't touch the externally-synced `google-*` skills; they track upstream via
