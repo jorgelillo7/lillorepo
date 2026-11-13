@@ -3,10 +3,6 @@
 # (docs/operations.md → "Updating a secret").
 locals {
   secrets = {
-    biwenger-secrets = {
-      project   = local.biwenger
-      accessors = [local.ci_sa, local.sa.api, local.sa.bot, local.sa.scraper, local.sa.web]
-    }
     # Split by consumer: the public bot and web must not read the Biwenger
     # password, and a grant covers a whole secret.
     biwenger-credentials = {
