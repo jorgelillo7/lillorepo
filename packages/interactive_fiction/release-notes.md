@@ -2,6 +2,12 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **The 3D Preview Keeps Drafts In (15 November 2026)**
+
+Nothing a reader sees changed.
+
+* **🚦 An unpublished chapter cannot reach the 3D preview**: the preview refuses to be prepared while a draft chapter is in the build, and its deploy rebuilds from what the author published first.
+
 ### **Saves That Survive a Rewrite (12 November 2026)**
 
 Nothing in the story changed. The reader got safer to publish and kinder when a chapter is edited after someone started it.
