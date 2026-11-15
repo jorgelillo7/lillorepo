@@ -9,13 +9,15 @@
     "build": "npm run prepare-data && vite build",
     "deploy": "STORIES_PUBLISH=1 npm --prefix ../.. run stories && npm run build && ../../deploy/node_modules/.bin/wrangler deploy",
     "fit": "node fit.ts",
-    "check": "npm run prepare-data && node check.ts"
+    "check": "npm run prepare-data && node check.ts",
+    "typecheck": "../../node_modules/.bin/tsc --noEmit -p ."
   },
   "dependencies": {
     "@sparkjsdev/spark": "2.4.0",
     "three": "0.187.0"
   },
   "devDependencies": {
+    "@types/three": "0.187.0",
     "vite": "8.3.5"
   }
 }
