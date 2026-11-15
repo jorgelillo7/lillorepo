@@ -37,6 +37,8 @@ export interface ChapterSummary {
   id: string;
   title: string;
   draft: boolean;
+  /** The picture of the scene the chapter opens on, for the index; absent without scenes. */
+  cover?: string;
 }
 
 /** One entry of `library.json`. */

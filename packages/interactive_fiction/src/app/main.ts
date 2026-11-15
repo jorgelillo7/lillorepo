@@ -11,6 +11,7 @@ import "./styles/effects.css";
 import "./styles/title.css";
 import "./styles/settings.css";
 import "./styles/discoveries.css";
+import "./styles/book.css";
 import { unlock } from "./audio.ts";
 import { app, el } from "./dom.ts";
 import { applySettings } from "./settings.ts";

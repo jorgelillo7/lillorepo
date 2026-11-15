@@ -12,6 +12,7 @@ export async function renderAchievements(seriesId: string): Promise<void> {
     return;
   }
   setStoryCss("");
+  document.title = `Finales y logros · ${series.title}`;
   const data = await Promise.all(series.chapters.map((c) => loadChapter(series.id, c.id)));
   const found = loadFound(series.id);
   const finished = new Set(series.chapters.filter((c) => load(series.id, c.id)?.finished).map((c) => c.id));
@@ -30,8 +31,9 @@ export async function renderAchievements(seriesId: string): Promise<void> {
     .map((a) => `<li class="ach${a.done ? " done" : ""}"><span class="ach-mark">${a.done ? "◆" : "◇"}</span>${esc(a.title)}</li>`)
     .join("");
   app.replaceChildren(
-    el(`<main class="library achievements"><h1>${esc(series.title)}</h1><h2>Finales y logros</h2>
+    el(`<main class="library achievements">
+      <header class="book-head"><p class="kicker">Finales y logros</p><h1>${esc(series.title)}</h1></header>
       ${blocks}<h3>Logros</h3><ul class="ach-list">${list}</ul>
-      <a class="button secondary" href="#/">← Volver</a></main>`),
+      <nav class="book-links"><a class="text-link" href="#/">Portada</a><a class="text-link" href="#/capitulos/${series.id}">Capítulos</a></nav></main>`),
   );
 }

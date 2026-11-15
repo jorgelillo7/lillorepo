@@ -148,7 +148,8 @@ async function buildSeries(id: string): Promise<SeriesEntry> {
       discoveries: discoveriesOf(reports[i]),
     };
     writeFileSync(join(OUT, chapterFile(id, entry.id)), JSON.stringify(data));
-    published.push({ id: entry.id, title: series.stories[i].title, draft: Boolean(entry.draft) });
+    const opening = sceneFile?.scenes[sceneFile.passages[series.stories[i].start]] ?? Object.values(sceneFile?.scenes ?? {})[0];
+    published.push({ id: entry.id, title: series.stories[i].title, draft: Boolean(entry.draft), ...(opening ? { cover: opening.image } : {}) });
   });
 
   checkBible(series, scenes, chapters);
