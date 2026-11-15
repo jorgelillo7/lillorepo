@@ -1,0 +1,123 @@
+# Web interfaces and Modern Web Guidance
+
+Every web interface the owner runs is held to Google Chrome's
+[Modern Web Guidance](https://github.com/GoogleChrome/modern-web-guidance):
+accessibility, CSS, forms, performance, security, privacy and visual design,
+with Baseline browser-support rules for each recommendation.
+
+- **Where it lives:** vendored as a skill in
+  [`system/skills/modern-web-guidance/`](../../system/skills/modern-web-guidance/)
+  (Apache 2.0, upstream commit in its `UPSTREAM` file). `scripts/install-system.sh`
+  installs it into `~/.claude/skills/`, so every repo on the Mac has it.
+- **How it is used:** the `web` rule (`system/rules/web.md`). Read the guides from disk; do
+  not run the skill's `npx` commands.
+- **Updating it:** `bash scripts/sync-web-guidance.sh`, review the diff, PR,
+  then `scripts/install-system.sh`.
+
+## Review of 2026-11
+
+Six sites were checked against one checklist built from the guidance: document
+basics, names/roles/keyboard, contrast, forms, overlays and tables,
+performance, responsive type, dark mode, motion, security, third parties, SEO
+and consistency. The method:
+
+- Source read in full or by pattern search.
+- Live pages loaded in headless Chromium at 320/390/1440 px, in dark mode and
+  with reduced motion.
+- Lighthouse run locally, never through an external analyser.
+- household from tracked source only, and wishlist `/admin` from source only.
+
+Lighthouse, mobile (performance / accessibility / best practices / SEO):
+
+| Page | Scores | LCP |
+|---|---|---|
+| jorgelillo7.github.io `/` | 99 / 97 / 100 / 100 | 0.9 s |
+| Biwenger `/26-27/` | 92 / 95 / 100 / 82 | 2.7 s |
+| Biwenger `/reglamento` | 86 / 94 / 96 / 82 | 3.0 s |
+| be_water `/` | 85 / 93 / 100 / 100 | 3.6 s |
+| chucknorris_bot `/` | 99 / 84 / 100 / 90 | 1.6 s |
+| wishlist `/` | 90 / 94 / 100 / 58 (noindex by design) | 3.5 s |
+
+### What to fix first, across sites
+
+Ordered by impact per unit of work. S = small, M = medium, L = large.
+
+1. **Biwenger: escape `innerHTML`** (S).
+   - `templates/salseo.html:150-158` and `templates/mercado.html:159-263`
+     interpolate league members' titles and team names unescaped.
+   - The nonce CSP stops scripts, so this is markup injection. It was not
+     tested with a payload.
+   - Reuse `escapeHtml` from `index.html:108-114`, moved to `base.html`.
+2. **Security headers** (S each).
+   - **chucknorris_bot sends none:** `bot/app.py:21` never calls
+     `add_security_headers`.
+   - **household Worker:** lacks `frame-ancestors`, `X-Frame-Options` and
+     `nosniff` (`deploy/worker.js:6-10`).
+3. **chucknorris_bot title is clipped on every phone** (S):
+   `clamp(4.5rem, 14vw, 10rem)` in `templates/index.html:75`; lower the floor.
+4. **Text compression in the Flask apps through `core/web`** (S).
+   - Biwenger `/26-27/salseo` serves 221 KiB of uncompressed HTML.
+   - be_water's home serves 86 KiB.
+5. **Stop lazy-loading the LCP image** (S each); add `fetchpriority="high"`.
+   - be_water: `_water_card.html:17-20`.
+   - wishlist: `list.js:150`.
+6. **Contrast pass**, then record the new values in each `DESIGN.md` (S per site).
+
+   | Site | Fails today |
+   |---|---|
+   | Biwenger | `text-gray-400` 2.4:1 (80 uses); white on the green accent 3.25:1 |
+   | be_water | white on `sky-500` 2.77:1; `text-slate-400` 2.45:1 |
+   | wishlist | `--muted` 3.5:1 in the light theme |
+   | chucknorris_bot | red label text 4.0:1 |
+
+7. **Biwenger keyboard** (M).
+   - The hamburger's focus is invisible.
+   - No `aria-expanded` or `aria-pressed` anywhere.
+   - Clickable `<tr>`, `<div>` and `<img>` should be `<button>`s.
+8. **Tailwind build step** for Biwenger and be_water (M, once). Already in
+   `PENDING.md`. It is the precondition for:
+   - dropping `'unsafe-inline'` and the CDN host from the CSP;
+   - dark mode.
+9. **YouTube on `/reglamento`** (S): about 880 KiB and third-party cookies,
+   loaded eagerly. Use `youtube-nocookie.com` with `loading="lazy"`, or a
+   façade.
+10. **Labels and accessible names** (S).
+    - Biwenger's search and filter inputs use placeholders only.
+    - be_water's nickname field has the same problem.
+    - be_water's mobile nav has emoji-only names; use `sr-only` instead of
+      `hidden`.
+11. **Native `<dialog>`** (M) for four hand-built overlays: three in Biwenger,
+    one in be_water.
+12. **Sharing metadata** (S).
+    - chucknorris_bot has no description and no Open Graph.
+    - be_water's meta description shows a literal "?" when a water has no
+      data (`routes/main.py:99-105`).
+    - Biwenger is indexable: decide on `noindex`.
+13. **Self-host fonts** (S each): wishlist, chucknorris_bot, then the two
+    Tailwind apps.
+14. **Shared headers in `core/web/headers.py`** (S): `Permissions-Policy`,
+    COOP, and a `__Host-` cookie name.
+15. **`color-scheme` declarations everywhere** (S), then `px` → `rem` in
+    wishlist and household (S). Dark themes for Biwenger and be_water come
+    after item 8 (L).
+
+### Per site, beyond the list
+
+- **jorgelillo7.github.io:** fixed in that repo's README and content round,
+  together with the content review.
+- **Biwenger web:** no `<h1>` except on `/reglamento`; no table `scope` or
+  caption; static files are sent with `no-cache`; at 320 px the "Tabla de
+  Justicia" toggle is cut off.
+- **be_water:** card titles jump from `<h1>` to `<h3>`; `animate-bounce`
+  ignores reduced motion; at 320 px "Entrar" is cut off.
+- **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.
+- **wishlist:** closest to the guidance. Open items:
+  - the photo grid is a live region;
+  - the admin photo buttons cannot be reached by keyboard;
+  - photos have no `srcset` and repo photos are served with `max-age=0`;
+  - font sizes are in `px`.
+- **household:**
+  - `script-src 'unsafe-inline'` where a hash would do;
+  - font sizes are in `px`;
+  - the passphrase field has no visible label;
+  - table headers have no `scope`.

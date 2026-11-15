@@ -8,8 +8,10 @@ work only in its context, and the next session started it again from zero.
   lost with the agent.
 - Keep a progress file in the scratchpad: one line per checklist item, with
   its status and its branch or PR. Rewrite it after every step.
-- A written deliverable, such as a report, is written section by section as
-  each section is done, never only at the end.
+- A written deliverable, such as a report, is sent back in parts as each
+  section is done (SendMessage to the parent), never only at the end. A
+  subagent may be refused permission to write report files; whatever it
+  sends back, the parent saves.
 
 **When a usage-limit warning arrives**, tell every running subagent to stop
 starting work, push what it has and send its status. Then tell the owner what
