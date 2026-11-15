@@ -254,3 +254,30 @@ def test_the_manifest_names_the_bot_and_serves_every_icon(client):
     assert any(icon.get("purpose") == "maskable" for icon in manifest["icons"])
     for icon in manifest["icons"]:
         assert client.get(icon["src"]).status_code == 200, icon["src"]
+
+
+# --- Landing page: headers and structure ---
+
+
+def test_the_landing_sends_the_security_headers_and_a_strict_csp(client):
+    response = client.get("/")
+
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert "Strict-Transport-Security" in response.headers
+    csp = response.headers["Content-Security-Policy"]
+    assert "script-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    nonce = csp.split("'nonce-")[1].split("'")[0]
+    assert f'<style nonce="{nonce}">' in response.get_data(as_text=True)
+
+
+def test_the_landing_has_landmarks_real_headings_and_share_metadata(client):
+    body = client.get("/").get_data(as_text=True)
+
+    assert '<header class="hero">' in body and "<main>" in body
+    assert body.count('<h2 class="section-label">') == 2
+    assert body.count('<li class="cmd-card">') == 5
+    assert 'name="description"' in body
+    assert 'property="og:image"' in body
+    assert 'style="' not in body
