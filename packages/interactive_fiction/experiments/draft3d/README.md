@@ -89,9 +89,31 @@ The whole procedure, with its traps, is the
   downloads them once, and each entry keeps its own `figures`.
 - A full-model world's `<scene>-500k.spz` (~7.5 MiB) is what the page
   loads; its full resolution (~27 MiB) is over Cloudflare's 25 MiB per file.
-- Every build stamps `worlds.json`, and the page asks for each world file
-  with that stamp: an app on an iPhone's home screen otherwise keeps an older
-  file after a deploy.
+- **The page downloads no collider.** `prepare.ts` casts every chapter's
+  hotspots and cut-outs onto the colliders on disk (`bake.ts`,
+  `room-geometry.ts`) and writes their places into the served `worlds.json`
+  (`rooms`, keyed `chapter/scene`), beside each world's camera. The meshes —
+  61 MB for the fourteen worlds — stay in the author's repository, where
+  `fit.ts` and the bake read them. A room costs its splats (~7.2 MB), not
+  splats plus mesh.
+- **World files are named by their content** (`room-500k.<digest>.spz`) and
+  `prepare.ts` writes a `_headers` that lets a browser keep anything under
+  `worlds/` for a year (`immutable`); `worlds.json` and the pages are checked
+  again on each visit. A changed world is a new name, so an app on an
+  iPhone's home screen gets it at once and never downloads an unchanged room
+  twice.
+- **Loading shows.** The title has a line that fills with the first room's
+  download, and so does the fade between rooms when the next one is not in
+  yet.
+- **Sound** is the reader's: ambience per room, the door, a step on arriving,
+  the series' stings, the heartbeat where a series tracks a condition, and a
+  mute switch in the corner that shares the reader's setting.
+- **The view eases** towards where it is turned and keeps a little of a
+  drag's speed on release; the pointer is captured, so a drag that leaves the
+  window or is cancelled by the system ends. With reduced motion it follows
+  the finger exactly and does not sway.
+- `npm run typecheck` here checks the draft's own sources (they are outside
+  the package's `tsc`).
 
 ## Operating notes
 

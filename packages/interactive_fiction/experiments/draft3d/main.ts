@@ -1,55 +1,25 @@
 /**
  * 3D draft of a chapter: the reader's own engine runs the passages; a scene
  * with a generated world (worlds.json) is shown as a Gaussian-splat room whose
- * hotspots are projected from the 2D scene file onto the world's collider, and
- * any other scene falls back to its 2D picture. The passage reads as
+ * hotspots sit where the build cast them from the 2D scene file onto the
+ * world's collider (bake.ts; the page downloads no mesh), and any other scene
+ * falls back to its 2D picture. The passage reads as
  * subtitles, a paragraph at a time; touching something opens its choices and
  * moves the camera towards it.
  */
 
 import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { door, setAmbience, unlock } from "../../src/app/audio.ts";
+import { applyVolume, door, heartbeat, setAmbience, step, sting, unlock } from "../../src/app/audio.ts";
 import { segment } from "../../src/app/pacing.ts";
 import { freshStart, outcomeOf, withCarriedCode, type Outcome } from "../../src/app/progression.ts";
 import { loadCodes, storeCode } from "../../src/app/save.ts";
+import { settings, updateSettings } from "../../src/app/settings.ts";
 import type { ChapterData, ChapterSummary, SeriesEntry } from "../../src/contract.ts";
-import type { Ambience } from "../../src/engine/game.ts";
+import { conditionFor, isSting, type Ambience, type ConditionState } from "../../src/engine/game.ts";
 import { Runtime, type Action } from "../../src/engine/runtime.ts";
 import { hotspotsFor, type Hotspot, type Scene, type SceneFile, type ShownHotspot } from "../../src/engine/scenes.ts";
-
-interface World {
-  splats: string;
-  collider: string;
-  /** Fraction of the picture's width and height trimmed from each edge before generation. */
-  crop: [number, number];
-  /** Vertical field of view and downward pitch, in degrees, that reproduce the scene image. */
-  fovY: number;
-  pitch: number;
-  /**
-   * How far the view's edges may turn, in degrees from straight ahead (right
-   * negative, left positive): past them the world shows what it invented
-   * beyond the picture — a door that is not there, say. Default: 10° past
-   * the picture's own edges.
-   */
-  bounds?: [number, number];
-  /**
-   * Characters kept out of the world and laid back in as sharp cut-outs from
-   * the picture (`rect` in percent of the picture, like a hotspot): a world
-   * bakes a person in soft and breaks them up seen close.
-   */
-  figures?: { image: string; rect: [number, number, number, number] }[];
-  /** How far the camera moves towards what is inspected (default DOLLY); 0 where a cut-out must stay aligned with the room. */
-  dolly?: number;
-  /** Where the camera stands, when the world did not grow from the picture's own viewpoint. */
-  camera?: [number, number, number];
-  /**
-   * Hotspots placed by hand, as fractions of this world's own view; when set,
-   * a hotspot not listed has no place in the room and stays a text choice.
-   */
-  anchors?: Record<string, [number, number]>;
-}
+import type { BakedRoom, Served, ServedWorld as World } from "./publish.ts";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const stage = $<HTMLElement>("stage");
@@ -63,15 +33,14 @@ const subsClose = $<HTMLButtonElement>("subs-close");
 const reopen = $<HTMLButtonElement>("reopen");
 const prompt = $<HTMLElement>("prompt");
 
-const [library, worlds] = await Promise.all([
+const [library, served] = await Promise.all([
   fetch("/library.json").then((r) => r.json() as Promise<SeriesEntry[]>),
-  fetch("/worlds.json").then((r) => r.json() as Promise<Record<string, World>>),
+  fetch("/worlds.json").then((r) => r.json() as Promise<Served>),
 ]);
 const series = library[0];
-/** The build stamp prepare.ts adds, appended to world files so a cached older one is never used. */
-const BUILD = (worlds as unknown as Record<string, { build?: number }>)[""]?.build ?? 0;
-delete (worlds as Record<string, unknown>)[""];
-const fresh = (path: string) => `/${path}?v=${BUILD}`;
+const { worlds, rooms } = served;
+/** World files are named by their content (prepare.ts) and cached for good: no stamp to add. */
+const asset = (path: string) => `/${path}`;
 
 interface Chapter {
   id: string;
@@ -117,6 +86,7 @@ const camera = new THREE.PerspectiveCamera(46, 1, 0.01, 200);
 scene3d.add(new SparkRenderer({ renderer }));
 /** Marble worlds use OpenCV axes (y down, z forward); three.js has y up, z back. */
 const OPENCV_TO_THREE = new THREE.Quaternion(1, 0, 0, 0);
+const NO_ROOM: BakedRoom = { anchors: {}, figures: [] };
 
 interface Loaded {
   id: string;
@@ -127,26 +97,64 @@ interface Loaded {
   figures: THREE.Object3D[];
   anchors: Map<string, THREE.Vector3>;
 }
-/** A world's downloads by splat file, shared by every chapter and every scene that shows its room. */
-const assets = new Map<string, Promise<{ splat: SplatMesh; collider: THREE.Object3D }>>();
+/** A world's splats by file, shared by every chapter and every scene that shows its room. */
+const assets = new Map<string, Promise<SplatMesh>>();
+/** How much of each splat file has arrived, 0–1, for whoever is waiting on it. */
+const progress = new Map<string, number>();
+const watchers = new Set<() => void>();
 /** A world as one chapter shows it, by "chapter/scene"; `settled` holds those ready to show at once. */
 const loaded = new Map<string, Promise<Loaded>>();
 const settled = new Set<string>();
 let current: Loaded | null = null;
+/** Where the view is, easing towards where the reader has turned it (`aim`), which keeps a little of the drag's speed on release. */
 let yaw = 0;
 let pitch = 0;
+const aim = { yaw: 0, pitch: 0, yawSpeed: 0, pitchSpeed: 0 };
+const PITCH_RANGE = 0.35;
+const calm = matchMedia("(prefers-reduced-motion: reduce)");
 
-function loadAssets(world: World): Promise<{ splat: SplatMesh; collider: THREE.Object3D }> {
+/** The splat file whose download the title's line and the fade's line show, if any. */
+let awaited: string | null = null;
+const loadingLine = $<HTMLElement>("title-loading");
+const loadingText = $<HTMLElement>("title-loading-text");
+function showProgress(): void {
+  const done = awaited === null ? 1 : (progress.get(awaited) ?? 0);
+  const percent = Math.round(done * 100);
+  stage.style.setProperty("--loaded", String(done));
+  loadingLine.hidden = awaited === null || done >= 1;
+  loadingText.textContent = `Preparando la habitación… ${percent} %`;
+  loadingLine.setAttribute("aria-valuenow", String(percent));
+}
+watchers.add(showProgress);
+/** Show `world`'s download until `ready` settles. */
+async function waitingOn<T>(world: World, ready: Promise<T>): Promise<T> {
+  awaited = world.splats;
+  showProgress();
+  try {
+    return await ready;
+  } finally {
+    if (awaited === world.splats) awaited = null;
+    showProgress();
+  }
+}
+
+function loadAssets(world: World): Promise<SplatMesh> {
   let p = assets.get(world.splats);
   if (!p) {
+    progress.set(world.splats, 0);
     p = (async () => {
-      const splat = new SplatMesh({ url: fresh(world.splats) });
+      const splat = new SplatMesh({
+        url: asset(world.splats),
+        onProgress: (e) => {
+          if (e.lengthComputable && e.total) progress.set(world.splats, e.loaded / e.total);
+          watchers.forEach((w) => w());
+        },
+      });
       splat.quaternion.copy(OPENCV_TO_THREE);
-      const collider = (await new GLTFLoader().loadAsync(fresh(world.collider))).scene;
-      collider.quaternion.copy(OPENCV_TO_THREE);
-      collider.updateMatrixWorld(true);
       await splat.initialized;
-      return { splat, collider };
+      progress.set(world.splats, 1);
+      watchers.forEach((w) => w());
+      return splat;
     })();
     assets.set(world.splats, p);
   }
@@ -176,10 +184,8 @@ async function keepAround(c: Chapter, sceneId: string | undefined, page: Action[
       settled.delete(key);
       void l.then((w) => w.figures.forEach(disposeFigure)).catch(() => undefined);
     }
-    void p.then(({ splat, collider }) => {
-      splat.dispose();
-      collider.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
-    }).catch(() => undefined);
+    progress.delete(file);
+    void p.then((splat) => splat.dispose()).catch(() => undefined);
   }
   for (const s of near) {
     if (c !== chapter) return;
@@ -201,58 +207,23 @@ function loadWorld(c: Chapter, id: string): Promise<Loaded> {
     const world = worlds[id];
     const scene = c.scenes.scenes[id];
     p = (async () => {
-      const { splat, collider } = await loadAssets(world);
-      const figures = await Promise.all((world.figures ?? []).map((f) => figure(world, scene, collider, f)));
+      const room = rooms[key] ?? NO_ROOM;
+      const [splat, figures] = await Promise.all([loadAssets(world), Promise.all(room.figures.map(figure))]);
       settled.add(key);
-      return { id, scene, world, splat, figures, anchors: anchorsFor(world, scene, collider) };
+      return { id, scene, world, splat, figures, anchors: new Map(Object.entries(room.anchors).map(([label, at]) => [label, new THREE.Vector3(...at)])) };
     })();
     loaded.set(key, p);
   }
   return p;
 }
 
-/** The picture's camera, as the world's starting view reproduces it. */
-function pictureCamera(world: World, scene: Scene): THREE.PerspectiveCamera {
-  const cam = new THREE.PerspectiveCamera(world.fovY, pictureAspect(scene, world), 0.01, 200);
-  cam.rotation.order = "YXZ";
-  cam.rotation.x = THREE.MathUtils.degToRad(world.pitch);
-  cam.position.fromArray(world.camera ?? [0, 0, 0]);
-  cam.updateMatrixWorld(true);
-  return cam;
-}
-
-/** A point of the picture (fractions of the trimmed view) as normalised device coordinates. */
-function ndc(world: World, xPct: number, yPct: number): THREE.Vector2 {
-  const [cx, cy] = world.crop;
-  const u = (xPct / 100 - cx) / (1 - 2 * cx);
-  const v = (yPct / 100 - cy) / (1 - 2 * cy);
-  return new THREE.Vector2(u * 2 - 1, 1 - v * 2);
-}
-
-/**
- * A cut-out laid into the room: a quad facing the picture's camera at the
- * depth of what lies under its centre (the bed, for someone lying on it), sized
- * so that from that camera it covers exactly its rectangle of the picture.
- */
-async function figure(world: World, scene: Scene, collider: THREE.Object3D, f: NonNullable<World["figures"]>[number]): Promise<THREE.Object3D> {
-  const cam = pictureCamera(world, scene);
-  const [x, y, w, h] = f.rect;
-  const ray = new THREE.Raycaster();
-  ray.setFromCamera(ndc(world, x + w / 2, y + h / 2), cam);
-  const hit = ray.intersectObject(collider, true)[0];
-  const at = hit ? hit.point : ray.ray.at(2, new THREE.Vector3());
-  const depth = at.clone().applyMatrix4(cam.matrixWorldInverse).z;
-  const corner = (px: number, py: number) => {
-    const p = ndc(world, px, py);
-    const v = new THREE.Vector3(p.x, p.y, 0.5).unproject(cam).applyMatrix4(cam.matrixWorldInverse);
-    return v.multiplyScalar(depth / v.z).applyMatrix4(cam.matrixWorld);
-  };
-  const [tl, tr, bl, br] = [corner(x, y), corner(x + w, y), corner(x, y + h), corner(x + w, y + h)];
+/** A cut-out laid into the room on the quad the build placed for it: sharp where a world bakes a person in soft. */
+async function figure(f: BakedRoom["figures"][number]): Promise<THREE.Object3D> {
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute([...tl.toArray(), ...tr.toArray(), ...bl.toArray(), ...br.toArray()], 3));
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(f.corners.flat(), 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
   geometry.setIndex([0, 2, 1, 1, 2, 3]);
-  const texture = await new THREE.TextureLoader().loadAsync(fresh(f.image));
+  const texture = await new THREE.TextureLoader().loadAsync(asset(f.image));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
@@ -264,29 +235,6 @@ async function figure(world: World, scene: Scene, collider: THREE.Object3D, f: N
 function pictureAspect(scene: Scene, world: World): number {
   const [w, h] = scene.aspect;
   return (w * (1 - 2 * world.crop[0])) / (h * (1 - 2 * world.crop[1]));
-}
-
-/** Where each hotspot's centre lands in the room: a ray from the camera that reproduces the image, cast onto the collider. */
-function anchorsFor(world: World, scene: Scene, collider: THREE.Object3D): Map<string, THREE.Vector3> {
-  const [cx, cy] = world.crop;
-  const cam = new THREE.PerspectiveCamera(world.fovY, pictureAspect(scene, world), 0.01, 200);
-  cam.rotation.order = "YXZ";
-  cam.rotation.x = THREE.MathUtils.degToRad(world.pitch);
-  cam.position.fromArray(world.camera ?? [0, 0, 0]);
-  cam.updateMatrixWorld(true);
-  const ray = new THREE.Raycaster();
-  const anchors = new Map<string, THREE.Vector3>();
-  for (const spot of scene.hotspots) {
-    const [x, y, rw, rh] = spot.rect;
-    const placed = world.anchors?.[spot.label];
-    if (world.anchors && !placed) continue;
-    const u = placed ? placed[0] : ((x + rw / 2) / 100 - cx) / (1 - 2 * cx);
-    const v = placed ? placed[1] : ((y + rh / 2) / 100 - cy) / (1 - 2 * cy);
-    ray.setFromCamera(new THREE.Vector2(u * 2 - 1, 1 - v * 2), cam);
-    const hit = ray.intersectObject(collider, true)[0];
-    anchors.set(spot.label, hit ? hit.point.clone() : ray.ray.at(2, new THREE.Vector3()));
-  }
-  return anchors;
 }
 
 /**
@@ -321,6 +269,7 @@ function resize(): void {
   if (current) {
     const [lo, hi] = yawRange(current);
     yaw = THREE.MathUtils.clamp(yaw, lo, hi);
+    aim.yaw = THREE.MathUtils.clamp(aim.yaw, lo, hi);
   }
   layoutFlat();
 }
@@ -349,7 +298,10 @@ function frame(now: number): void {
     focusAmount = THREE.MathUtils.clamp(focusAmount + (focus ? dt : -dt) * 1.4, 0, 1);
     if (focus) lastFocus.copy(focus);
     const t = focusAmount * focusAmount * (3 - 2 * focusAmount);
-    euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch, yaw, 0);
+    turn(current, dt, now);
+    // A breath of movement while nothing is touched, so the room is a place and not a photograph.
+    const sway = calm.matches || drag ? 0 : Math.sin(now / 2600) * 0.004;
+    euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch + sway * 0.5, yaw + sway, 0);
     baseQ.setFromEuler(euler);
     origin.fromArray(current.world.camera ?? [0, 0, 0]);
     eye.copy(lastFocus).sub(origin).multiplyScalar((current.world.dolly ?? DOLLY) * t).add(origin);
@@ -372,21 +324,56 @@ function frame(now: number): void {
 }
 requestAnimationFrame(frame);
 
-// Drag to look around, within the part of the room the picture showed.
-let drag: { x: number; y: number; yaw: number; pitch: number } | null = null;
+/** Ease the view towards where it was turned, within the part of the room the picture showed. */
+function turn(l: Loaded, dt: number, now: number): void {
+  const [lo, hi] = yawRange(l);
+  if (!drag && !calm.matches) {
+    // The drag's last speed carries on and dies away.
+    aim.yaw += aim.yawSpeed * dt;
+    aim.pitch += aim.pitchSpeed * dt;
+    const fade = Math.exp(-dt * 5);
+    aim.yawSpeed *= fade;
+    aim.pitchSpeed *= fade;
+  }
+  aim.yaw = THREE.MathUtils.clamp(aim.yaw, lo, hi);
+  aim.pitch = THREE.MathUtils.clamp(aim.pitch, -PITCH_RANGE, PITCH_RANGE);
+  const ease = calm.matches ? 1 : 1 - Math.exp(-dt * 16);
+  yaw += (aim.yaw - yaw) * ease;
+  pitch += (aim.pitch - pitch) * ease;
+  if (drag) drag.at = now;
+}
+
+// Drag to look around. The pointer is captured, so a drag that leaves the window or is taken over by the system still ends.
+let drag: { id: number; x: number; y: number; at: number } | null = null;
 stage.addEventListener("pointerdown", (e) => {
-  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title, .about")) return;
-  drag = { x: e.clientX, y: e.clientY, yaw, pitch };
+  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title, .about") || !current || focus) return;
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() };
+  aim.yawSpeed = aim.pitchSpeed = 0;
+  stage.setPointerCapture(e.pointerId);
 });
-addEventListener("pointermove", (e) => {
-  if (!drag || !current || focus) return;
+stage.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.id || !current) return;
   const k = THREE.MathUtils.degToRad(camera.fov) / stage.clientHeight;
-  const [lo, hi] = yawRange(current);
-  yaw = THREE.MathUtils.clamp(drag.yaw + (e.clientX - drag.x) * k, lo, hi);
-  pitch = THREE.MathUtils.clamp(drag.pitch + (e.clientY - drag.y) * k, -0.35, 0.35);
+  const [dx, dy] = [(e.clientX - drag.x) * k, (e.clientY - drag.y) * k];
+  const dt = Math.max(0.008, (performance.now() - drag.at) / 1000);
+  aim.yaw += dx;
+  aim.pitch += dy;
+  // Blend towards this move's speed: one jittery sample must not fling the view.
+  aim.yawSpeed = aim.yawSpeed * 0.6 + (dx / dt) * 0.4;
+  aim.pitchSpeed = aim.pitchSpeed * 0.6 + (dy / dt) * 0.4;
+  drag.x = e.clientX;
+  drag.y = e.clientY;
+  drag.at = performance.now();
   $("hint").hidden = true;
 });
-addEventListener("pointerup", () => (drag = null));
+const endDrag = (e: PointerEvent) => {
+  if (!drag || e.pointerId !== drag.id) return;
+  // A pointer held still before letting go throws nothing.
+  if (e.type === "pointercancel" || performance.now() - drag.at > 80) aim.yawSpeed = aim.pitchSpeed = 0;
+  drag = null;
+};
+stage.addEventListener("pointerup", endDrag);
+stage.addEventListener("pointercancel", endDrag);
 
 // Film grain: a small noise tile, redrawn a few times a second.
 const grain = $<HTMLCanvasElement>("grain");
@@ -463,13 +450,14 @@ function spotButton(s: ShownHotspot, at?: THREE.Vector3): HTMLButtonElement {
  * holds, which are found by exploring rather than read in the text.
  */
 let shownScene: string | undefined;
+/** The last move went through a door, which has its own sound. */
+let throughDoor = false;
 const veil = $<HTMLElement>("veil");
 async function showScene(id: string | undefined): Promise<Set<number>> {
   const scene = id ? chapter.scenes.scenes[id] : undefined;
-  if (scene?.room !== room) {
-    if (room !== undefined) door();
-    room = scene?.room;
-  }
+  throughDoor = scene?.room !== room && room !== undefined;
+  if (throughDoor) door();
+  room = scene?.room;
   // The first room fades in too when its world is not downloaded yet.
   const changing = shownScene !== undefined ? id !== shownScene : !!(id && worlds[id] && !settled.has(`${chapter.id}/${id}`));
   shownScene = id;
@@ -493,8 +481,7 @@ function place(next: Loaded | null): void {
   if (current) scene3d.remove(current.splat, ...current.figures);
   if (next) scene3d.add(next.splat, ...next.figures);
   current = next;
-  yaw = 0;
-  pitch = 0;
+  yaw = pitch = aim.yaw = aim.pitch = aim.yawSpeed = aim.pitchSpeed = 0;
   if (next) resize();
 }
 
@@ -502,8 +489,8 @@ async function setScene(id: string | undefined): Promise<Set<number>> {
   const scene = id ? chapter.scenes.scenes[id] : undefined;
   const all = scene ? hotspotsFor(scene, actions, chapter.scenes.scenes).shown : [];
   // A world with hand-placed hotspots shows only those; the rest stay text choices.
-  const placed = id && worlds[id]?.anchors;
-  const hot = placed ? all.filter((h) => h.hotspot.label in placed) : all;
+  const placed = id ? worlds[id]?.placed : undefined;
+  const hot = placed ? all.filter((h) => placed.includes(h.hotspot.label)) : all;
   const onStage = new Set(hot.flatMap((h) => h.actions));
   spots.replaceChildren();
   shown = [];
@@ -513,7 +500,7 @@ async function setScene(id: string | undefined): Promise<Set<number>> {
   focusAmount = 0;
   setAmbience(ambienceFor(scene));
   if (scene && id && worlds[id]) {
-    const next = await loadWorld(chapter, id);
+    const next = await waitingOn(worlds[id], loadWorld(chapter, id));
     place(next);
     canvas.hidden = false;
     flat.hidden = true;
@@ -659,11 +646,37 @@ async function show(name: string): Promise<void> {
     showEnd(outcome.ended ? outcome : null);
     const sceneId = chapter.scenes.passages[page.passage];
     renderText(page.html, await showScene(sceneId));
+    // As in the reader: a sting where the series marks one, else a step unless a door just sounded.
+    if (isSting(series.game, chapter.id, page.passage)) sting();
+    else if (!throughDoor) step();
+    pulse();
     void keepAround(chapter, sceneId, page.actions);
   } catch (e) {
     subsText.textContent = (e as Error).message;
   }
 }
+
+const HEART_BPM: Record<ConditionState["level"], number | null> = { fine: null, caution: null, danger: 84, critical: 112 };
+/** The heartbeat follows the story's own condition, as in the reader; silent for a series that tracks none. */
+function pulse(): void {
+  const cfg = series.game.condition;
+  const state = cfg ? conditionFor(series.game, vars[cfg.variable]) : undefined;
+  heartbeat(state ? HEART_BPM[state.level] : null);
+}
+
+const mute = $<HTMLButtonElement>("mute");
+function showMute(): void {
+  const muted = settings().muted;
+  mute.setAttribute("aria-pressed", String(muted));
+  mute.classList.toggle("off", muted);
+}
+mute.addEventListener("click", () => {
+  updateSettings({ muted: !settings().muted });
+  unlock();
+  applyVolume();
+  showMute();
+});
+showMute();
 
 function act(i: number): void {
   const a = actions[i];
@@ -729,6 +742,7 @@ function hideTitle(): void {
 }
 
 function showTitle(): void {
+  heartbeat(null);
   subs.hidden = true;
   prompt.hidden = true;
   reopen.hidden = true;
@@ -819,9 +833,11 @@ $("about-close").addEventListener("click", closeAbout);
 // The first chapter's first room loads behind the title; starting is the gesture that unlocks sound.
 const firstScene = chapter.scenes.passages[chapter.data.start];
 if (firstScene && worlds[firstScene]) {
-  void loadWorld(chapter, firstScene).then((l) => {
-    if (shownScene === undefined) place(l);
-  });
+  void waitingOn(worlds[firstScene], loadWorld(chapter, firstScene))
+    .then((l) => {
+      if (shownScene === undefined) place(l);
+    })
+    .catch(() => undefined);
 }
 
 // The reader's keys: Space or Enter reads on (and, after the last paragraph, explores); Escape steps back.

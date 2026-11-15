@@ -460,7 +460,7 @@ typecheck clean, every spec reference resolves. What it found, ranked:
    OPERATIONS still describe states that changed.
 
 **3D draft** (three.js + Spark splats; ~13.3 MB to the first room, 185 MB deploy)
-1. Bake anchors and figure quads at build, stop serving colliders (−61 MB).
+1. Bake anchors and figure quads at build, stop serving colliders (−61 MB). **Done**, with item 7's hashed worlds, item 5's stings, heartbeat and mute, and item 8's pointer capture and inertia.
 2. Progressive quality: 100k splats first, then 500k.
 3. Mood in the renderer (one post pass for grade, grain, flicker; a flashlight
    cone; depth fog) instead of a CSS filter over the canvas.

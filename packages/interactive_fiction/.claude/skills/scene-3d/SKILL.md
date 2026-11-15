@@ -163,7 +163,7 @@ text offers means a hotspot without a place: fix the world, not the rule.
 
 The draft reads its 3D art from the author's `web/3d/` (`art.ts`), falling
 back to the draft's `worlds/` for a world not handed over yet. Once a world is
-right, copy what the page serves (the 500k splats, the collider, the
+right, copy what the build reads (the 500k splats, the collider — read at build to place the hotspots, never served — the
 cut-outs, the picture it grew from) and its Gemini prompts into his
 `web/3d/`, and open a PR to his repo: that is where the art lives.
 

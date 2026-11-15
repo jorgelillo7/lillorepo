@@ -9,6 +9,9 @@ import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { art, artFile, readWorlds } from "./art.ts";
 import { dirname, join } from "node:path";
+import { bakeRooms } from "./bake.ts";
+import { hashedName, headersFile, servedWorld, type Served, type WorldSource } from "./publish.ts";
+import type { ChapterData } from "../../src/contract.ts";
 
 const here = dirname(new URL(import.meta.url).pathname);
 const stories = join(here, "../../public/stories/samantha");
@@ -25,15 +28,31 @@ cpSync(join(stories, "../library.json"), join(pub, "library.json"));
 cpSync(join(stories, "scenes"), join(pub, "stories/samantha/scenes"), { recursive: true });
 // The author's own images in the text (signs, the broken mirror), by the same path.
 cpSync(join(stories, "resources"), join(pub, "stories/samantha/resources"), { recursive: true });
-// Every build stamps worlds.json, and the page asks for each world file with that stamp: a phone that cached an older file (an app on the home screen does) gets the new one.
-const worlds = readWorlds();
-writeFileSync(join(pub, "worlds.json"), JSON.stringify({ ...worlds, "": { build: Date.now() } }, null, 2));
-for (const w of Object.values(worlds)) {
-  for (const f of [w.splats, w.collider, ...(w.figures ?? []).map((g) => g.image)]) {
-    mkdirSync(dirname(join(pub, f)), { recursive: true });
-    cpSync(artFile(f), join(pub, f));
+// Splats and cut-outs are served under a name that carries a digest of their content, and cached for good (_headers):
+// a new file is a new name, so a phone that cached an older one (an app on the home screen does) asks for the new one.
+const worlds = readWorlds() as Record<string, WorldSource>;
+const names = new Map<string, string>();
+const publish = (path: string): string => {
+  let name = names.get(path);
+  if (!name) {
+    const bytes = readFileSync(artFile(path));
+    name = hashedName(path, bytes);
+    mkdirSync(dirname(join(pub, name)), { recursive: true });
+    writeFileSync(join(pub, name), bytes);
+    names.set(path, name);
   }
-}
+  return name;
+};
+// The collider meshes stay on disk: the place of every hotspot and cut-out is cast onto them here.
+const chapters = series.chapters.map(({ id }) => ({ id, data: JSON.parse(readFileSync(join(pub, `${id}.json`), "utf8")) as ChapterData }));
+const served: Served = {
+  worlds: Object.fromEntries(Object.entries(worlds).map(([id, w]) => [id, servedWorld(w, publish(w.splats))])),
+  rooms: await bakeRooms(chapters, worlds, artFile, publish),
+};
+writeFileSync(join(pub, "worlds.json"), JSON.stringify(served));
+writeFileSync(join(pub, "_headers"), headersFile());
+const unplaced = Object.entries(served.rooms).flatMap(([room, r]) => (Object.keys(r.anchors).length ? [] : [room]));
+console.log(`✓ ${Object.keys(served.rooms).length} rooms baked from ${new Set(Object.values(worlds).map((w) => w.collider)).size} colliders, none of them served${unplaced.length ? ` (no hotspot placed in: ${unplaced.join(", ")})` : ""}`);
 // Home-screen icon (Cheshire's keychain, painted with view.ts) and the manifest that opens the draft full screen.
 const icon = join(art, "worlds/icon-1024.png");
 if (existsSync(icon)) {

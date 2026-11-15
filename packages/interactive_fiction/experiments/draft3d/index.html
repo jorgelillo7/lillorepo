@@ -45,6 +45,13 @@
       <button class="reopen" id="reopen" hidden aria-label="Leer el texto">Texto</button>
       <p class="hint" id="hint" hidden>Arrastra para mirar · toca lo que brilla</p>
       <span class="badge">Borrador 3D</span>
+      <button class="mute" id="mute" aria-label="Silenciar el sonido" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
+          <g class="mute-on"><path d="M15.5 9a4 4 0 0 1 0 6" /><path d="M18 6.5a7.5 7.5 0 0 1 0 11" /></g>
+          <g class="mute-off"><path d="M16 9.5l5 5" /><path d="M21 9.5l-5 5" /></g>
+        </svg>
+      </button>
       <section class="rotate" role="alert">
         <div class="rotate-phone" aria-hidden="true"></div>
         <p>Gira el móvil en horizontal</p>
@@ -55,6 +62,10 @@
       <section class="title" id="title">
         <h1 class="title-name" id="title-name"></h1>
         <nav class="title-menu" id="title-menu"></nav>
+        <p class="title-loading" id="title-loading" role="progressbar" aria-valuemin="0" aria-valuemax="100" hidden>
+          <span class="loading-track" aria-hidden="true"></span>
+          <span id="title-loading-text"></span>
+        </p>
         <p class="title-warning" id="title-warning"></p>
         <button class="title-credits" id="title-credits" hidden></button>
         <p class="title-tip" id="title-tip">Para jugar a pantalla completa en iPhone: Compartir → Añadir a pantalla de inicio, y ábrelo desde el icono.</p>
