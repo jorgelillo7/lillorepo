@@ -1,6 +1,7 @@
 /**
  * Copy what the draft serves into public/: every built chapter of the series
- * and its images (run `npm run stories` in the package first) and the worlds
+ * and its images (run `npm run stories` in the package first; a built library
+ * holding a draft chapter is refused) and the worlds
  * listed in the author's `web/3d/worlds.json`. A file not in his repo yet is
  * taken from this folder's `worlds/`, where new worlds are tried first.
  */
@@ -8,15 +9,18 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { art, artFile, readWorlds } from "./art.ts";
+import { refuseDrafts } from "./draft-guard.ts";
 import { dirname, join } from "node:path";
 
 const here = dirname(new URL(import.meta.url).pathname);
 const stories = join(here, "../../public/stories/samantha");
 const pub = join(here, "public");
 if (!existsSync(join(stories, "../library.json"))) throw new Error("No built chapters: run `npm run stories` in packages/interactive_fiction.");
+const library = JSON.parse(readFileSync(join(stories, "../library.json"), "utf8")) as { id: string; chapters: { id: string; title: string; draft: boolean }[] }[];
+// Before anything is copied: this folder is what the public preview Worker uploads.
+refuseDrafts(library);
 rmSync(pub, { recursive: true, force: true });
 mkdirSync(pub, { recursive: true });
-const library = JSON.parse(readFileSync(join(stories, "../library.json"), "utf8")) as { id: string; chapters: { id: string }[] }[];
 const series = library.find((s) => s.id === "samantha");
 if (!series) throw new Error("No samantha series in the built library.");
 for (const { id } of series.chapters) cpSync(join(stories, `${id}.json`), join(pub, `${id}.json`));
