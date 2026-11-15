@@ -64,7 +64,7 @@ in every project. Edit them here and run it again; the installed copies are
 overwritten.
 
 Rules (`system/rules/`), loaded at the start of every session: `language`,
-`verify`, `lists`, `comments`, `git`, `working-style`, `machine`.
+`verify`, `lists`, `comments`, `git`, `working-style`, `machine`, `subagents`.
 
 Subagent roles (`system/agents/`): `dev`, `qa`, `reviewer`, `security`,
 `spec` — table and this repo's notes for each in [`../AGENTS.md`](../AGENTS.md).
