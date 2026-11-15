@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predeploy": "STORIES_PUBLISH=1 npm --prefix ../.. run verify",
     "prepare-data": "node prepare.ts",
     "dev": "npm run prepare-data && vite",
     "build": "npm run prepare-data && vite build",
