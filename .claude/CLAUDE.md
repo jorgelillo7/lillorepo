@@ -64,7 +64,7 @@ in every project. Edit them here and run it again; the installed copies are
 overwritten.
 
 Rules (`system/rules/`), loaded at the start of every session: `language`,
-`verify`, `lists`, `comments`, `git`, `working-style`, `machine`.
+`verify`, `lists`, `comments`, `git`, `working-style`, `machine`, `subagents`, `web`.
 
 Subagent roles (`system/agents/`): `dev`, `qa`, `reviewer`, `security`,
 `spec` — table and this repo's notes for each in [`../AGENTS.md`](../AGENTS.md).
@@ -76,6 +76,7 @@ Skills (`system/skills/`):
 | `audit-mac-tools` | Audit the machine's toolchain — what is stale, what is abandoned, what only looks stale. |
 | `audit-apple-contacts` | Audit the Apple address book and merge a Google export into it — one-by-one approval, nothing written until the owner says so. |
 | `mac-cleanup` | Measure the disk and recover space — nothing deleted without the owner's yes in that round. |
+| `modern-web-guidance` | Google Chrome's guides for HTML, CSS and client JS (accessibility, performance, security…). Vendored by `scripts/sync-web-guidance.sh` — **do not edit**; read the guides from disk, as the `web` rule says. |
 
 ## Agents vs skills
 

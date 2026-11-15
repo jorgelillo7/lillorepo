@@ -13,7 +13,8 @@ graph and no caching worth having.
 
 Personal habits that hold in every repo — Spanish in the conversation and
 English in everything written, checking before saying something does not
-exist, working a list whole, comments without history, the git and PR
+exist, working a list whole, comments without history, subagents that survive
+a usage-limit cut, web interfaces held to Chrome's Modern Web Guidance, the git and PR
 habits — are rules in `~/.claude/rules/`, versioned in
 [`system/rules/`](system/rules/) and installed by `scripts/install-system.sh`.
 The subagent roles (`dev`, `qa`, `reviewer`, `security`, `spec`) are shared
