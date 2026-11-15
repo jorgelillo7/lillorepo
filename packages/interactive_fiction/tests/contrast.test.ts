@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from "vitest";
-import { AA, contrast, legible, legibleColours, parseRgb, type Rgb } from "../src/app/contrast.ts";
+import { AA, backgroundBehind, contrast, legible, legibleColours, parseRgb, parseRgba, type Rgb } from "../src/app/contrast.ts";
 
 const BLACK: Rgb = [0, 0, 0];
 const PAPER: Rgb = [243, 232, 201];
@@ -60,5 +60,27 @@ describe("coloured text stays readable", () => {
     expect(contrast(colour("dark"), BLACK)).toBeGreaterThanOrEqual(AA);
     expect(colour("fine")).toEqual([255, 255, 0]);
     expect(colour("paper")).toEqual(NAVY);
+  });
+
+  test("a translucent background is seen over what is under it, not as an opaque colour", () => {
+    expect(parseRgba("rgba(200, 169, 106, 0.05)")).toEqual([200, 169, 106, 0.05]);
+    expect(parseRgba("rgb(1 2 3 / 50%)")).toEqual([1, 2, 3, 0.5]);
+    expect(parseRgba("rgb(1, 2, 3)")).toEqual([1, 2, 3, 1]);
+    const root = document.createElement("div");
+    root.innerHTML =
+      `<div style="background-color: rgb(243, 232, 201)"><div style="background-color: rgba(0, 0, 0, 0.5)"><span id="half">x</span></div></div>` +
+      `<tw-link style="background-color: rgba(200, 169, 106, 0.05)"><tw-hook id="link" style="color: rgb(0, 0, 128)">D:</tw-hook></tw-link>`;
+    document.body.replaceChildren(root);
+    expect(backgroundBehind(root.querySelector("#half")!)).toEqual([122, 116, 101]);
+    expect(backgroundBehind(root.querySelector("#link")!)).toEqual([10, 8, 5]);
+  });
+
+  test("navy inside a faintly tinted link on the dark page is lightened to AA against what is really behind it", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<tw-link style="background-color: rgba(200, 169, 106, 0.05)"><tw-hook id="link" style="color: rgb(0, 0, 128)">D:</tw-hook></tw-link>`;
+    document.body.replaceChildren(root);
+    legibleColours(root);
+    const fixed = parseRgb(root.querySelector<HTMLElement>("#link")!.style.color)!;
+    expect(contrast(fixed, [10, 8, 5])).toBeGreaterThanOrEqual(AA);
   });
 });

@@ -35,24 +35,59 @@ export function setStoryCss(css: string): void {
   tag.textContent = css;
 }
 
+/** A selector that finds `el` again after the page under it is redrawn; null when it has nothing stable to go by. */
+function selectorOf(el: HTMLElement): string | null {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  for (const { name, value } of el.attributes) {
+    if (name.startsWith("data-")) return `[${name}="${value.replace(/["\\]/g, "\\$&")}"]`;
+  }
+  return null;
+}
+
 /**
  * Show `dialog` as a modal: the browser keeps focus inside it and closes it on Escape; a click on
  * the dimmed page around its sheet closes it too. Closed, it leaves the page and focus returns to
- * whatever opened it.
+ * whatever opened it, or to its replacement when a setting redrew the page meanwhile.
  */
 export function openModal(dialog: HTMLDialogElement, focus?: string): void {
-  const opener = document.activeElement as HTMLElement | null;
+  const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+  const reopen = opener && selectorOf(opener);
   dialog.addEventListener("click", (ev) => {
     if (ev.target === dialog) dialog.close();
   });
   dialog.addEventListener("close", () => {
     dialog.remove();
-    if (opener?.isConnected) opener.focus();
+    const back = opener?.isConnected ? opener : reopen ? document.querySelector<HTMLElement>(reopen) : null;
+    back?.focus();
   });
   document.body.appendChild(dialog);
   if (typeof dialog.showModal === "function") dialog.showModal();
   else dialog.setAttribute("open", "");
   if (focus) dialog.querySelector<HTMLElement>(focus)?.focus();
+}
+
+/**
+ * Asks for a second tap within 4 s before a destructive action (embedded viewers block
+ * window.confirm()): true on the second tap. While armed the button's visible question is its
+ * name, so its `aria-label` steps aside, and the live region reads the question.
+ */
+export function armed(tool: HTMLElement, question: string): boolean {
+  if (tool.dataset.armed) return true;
+  const resting = tool.innerHTML;
+  const label = tool.getAttribute("aria-label");
+  tool.dataset.armed = "1";
+  tool.removeAttribute("aria-label");
+  tool.textContent = question;
+  tool.classList.add("armed");
+  announce(question);
+  setTimeout(() => {
+    if (!tool.isConnected) return;
+    delete tool.dataset.armed;
+    tool.innerHTML = resting;
+    if (label !== null) tool.setAttribute("aria-label", label);
+    tool.classList.remove("armed");
+  }, 4000);
+  return false;
 }
 
 /** 1 → I, 4 → IV, 12 → XII: how a book numbers its chapters. */
@@ -99,8 +134,12 @@ export function arriveAt(root: ParentNode): void {
   if (!passage) return;
   passage.tabIndex = -1;
   passage.focus({ preventScroll: true });
-  const opening = (passage.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, ANNOUNCE_CHARS);
-  announcer().textContent = opening;
+  announce((passage.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, ANNOUNCE_CHARS));
+}
+
+/** Read `text` out through the page's polite live region. */
+export function announce(text: string): void {
+  announcer().textContent = text;
 }
 
 /** The page's one polite live region, outside #app so redrawing a page never removes it. */

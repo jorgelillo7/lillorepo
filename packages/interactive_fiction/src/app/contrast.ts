@@ -61,21 +61,39 @@ export function legible(colour: Rgb, background: Rgb, ratio = AA): Rgb {
   return fromHsl(h, s, far);
 }
 
-/** `rgb(1, 2, 3)` or `rgba(1, 2, 3, 0.5)` as the browser computes it; null for anything else, and for a transparent colour. */
-export function parseRgb(css: string): Rgb | null {
-  const m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,/\s]+([\d.]+%?))?\s*\)$/.exec(css.trim());
+const RGBA = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,/\s]+([\d.]+)(%?))?\s*\)$/;
+
+/** `rgb(1, 2, 3)` or `rgba(1, 2, 3, 0.5)` as the browser computes it, with its alpha from 0 to 1; null for anything else. */
+export function parseRgba(css: string): [...Rgb, number] | null {
+  const m = RGBA.exec(css.trim());
   if (!m) return null;
-  if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+  const alpha = m[4] === undefined ? 1 : parseFloat(m[4]) / (m[5] ? 100 : 1);
+  return [Number(m[1]), Number(m[2]), Number(m[3]), Math.min(1, alpha)];
 }
 
-/** The first background painted behind `el`, walking up; black, the page's own, when none is. */
-function backgroundBehind(el: Element): Rgb {
+/** `rgb(1, 2, 3)` or `rgba(1, 2, 3, 0.5)` as the browser computes it; null for anything else, and for a transparent colour. */
+export function parseRgb(css: string): Rgb | null {
+  const c = parseRgba(css);
+  return c && c[3] > 0 ? [c[0], c[1], c[2]] : null;
+}
+
+/**
+ * The colour behind `el` as the eye sees it: every background from `el` up to the first opaque one,
+ * translucent ones laid over what is under them; black, the page's own, at the bottom.
+ */
+export function backgroundBehind(el: Element): Rgb {
+  const layers: [...Rgb, number][] = [];
   for (let node: Element | null = el; node; node = node.parentElement) {
-    const painted = parseRgb(getComputedStyle(node).backgroundColor);
-    if (painted) return painted;
+    const painted = parseRgba(getComputedStyle(node).backgroundColor);
+    if (!painted || painted[3] === 0) continue;
+    layers.push(painted);
+    if (painted[3] >= 1) break;
   }
-  return [0, 0, 0];
+  let seen: Rgb = [0, 0, 0];
+  for (const [r, g, b, a] of layers.reverse()) {
+    seen = [r * a + seen[0] * (1 - a), g * a + seen[1] * (1 - a), b * a + seen[2] * (1 - a)].map(Math.round) as Rgb;
+  }
+  return seen;
 }
 
 /** Bring every text colour the story sets inline under `root` up to AA against what is behind it. */

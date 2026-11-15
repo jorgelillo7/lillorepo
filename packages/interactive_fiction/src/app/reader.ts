@@ -11,7 +11,7 @@ import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtim
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { applyVolume, door as doorSound, heartbeat, setAmbience, step, sting } from "./audio.ts";
 import { legibleColours } from "./contrast.ts";
-import { app, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { app, armed, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
 import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
@@ -299,22 +299,6 @@ function onAction(s: Session, link: HTMLElement): void {
   });
   link.replaceWith(holder);
   legibleColours(holder);
-}
-
-/** Asks for a second tap within 4 s before a destructive action: embedded viewers block window.confirm(). */
-function armed(tool: HTMLElement, question: string): boolean {
-  if (tool.dataset.armed) return true;
-  const resting = tool.innerHTML;
-  tool.dataset.armed = "1";
-  tool.textContent = question;
-  tool.classList.add("armed");
-  setTimeout(() => {
-    if (!tool.isConnected) return;
-    delete tool.dataset.armed;
-    tool.innerHTML = resting;
-    tool.classList.remove("armed");
-  }, 4000);
-  return false;
 }
 
 const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {

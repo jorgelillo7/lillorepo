@@ -281,15 +281,18 @@ passages, their order and the chapter versions are the author's.
 - **Colour.** A text colour the story sets inline that falls under WCAG AA
   (4.5:1) against what is painted behind it SHALL be moved along its own hue
   just far enough to reach it; a colour that already reads is left exactly as
-  set.
+  set. A translucent background counts as the colour it makes over what is
+  under it.
 - **Front matter.** The title screen names the author (the first credit)
   under the title; the chapter index lists each chapter with its number, its
   title, the picture it opens on and where the reader is in it; the credits
   page shows the author first and largest.
 - **Operation.** Every control has an accessible name and a visible focus
   ring; the settings and status sheets are modal dialogs that keep focus
-  inside, close on Escape or on a click around the sheet, and give focus back;
-  a chapter page has one main region; animations stop when the system asks for
+  inside, close on Escape or on a click around the sheet, and give focus back,
+  to the opener's new copy when a setting redrew the page; while restart asks
+  for its second tap, the question is the button's name and the live region
+  reads it; a chapter page has one main region; animations stop when the system asks for
   reduced motion.
 
 #### Scenario: Text colours
@@ -300,7 +303,9 @@ passages, their order and the chapter versions are the author's.
   `contrast.test.ts: a colour that already reads is left exactly as the story set it`,
   `contrast.test.ts: a colour too light for a light page is darkened instead`,
   `contrast.test.ts: computed colours are read, transparent ones ignored`,
-  `contrast.test.ts: on the page, only inline colours under AA change, against the background behind them`
+  `contrast.test.ts: on the page, only inline colours under AA change, against the background behind them`,
+  `contrast.test.ts: a translucent background is seen over what is under it, not as an opaque colour`,
+  `contrast.test.ts: navy inside a faintly tinted link on the dark page is lightened to AA against what is really behind it`
 
 #### Scenario: Paragraph rhythm
 - **WHEN** a passage is shown
@@ -317,11 +322,17 @@ passages, their order and the chapter versions are the author's.
 - **THEN** every control has a name and the sound switch says whether it is pressed
 - *Verifies:* `book.test.ts: every control of the toolbar has a name, and the sound switch says whether it is pressed`
 
+#### Scenario: Restart asks again
+- **WHEN** restart is tapped once
+- **THEN** its visible question becomes its name, the live region reads it, and after 4 s it rests with its name back
+- *Verifies:* `book.test.ts: an armed restart is named by its question, which the live region reads, and rests again after 4 s`
+
 #### Scenario: Sheets
 - **WHEN** the settings or the status sheet is opened and closed
 - **THEN** it opens as a modal dialog, and closing it removes it and returns focus to what opened it
 - *Verifies:* `book.test.ts: a sheet opens as a modal dialog, and closing it removes it and gives focus back`,
-  `book.test.ts: a click on the dimmed page around the sheet closes the dialog; a click inside does not`
+  `book.test.ts: a click on the dimmed page around the sheet closes the dialog; a click inside does not`,
+  `book.test.ts: closing a sheet after a setting redrew the page gives focus to the new copy of its opener`
 
 ### Requirement: The site is served with restrictive headers
 

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // dom.ts looks the app's root up when it loads.
 document.body.innerHTML = `<div id="app"></div>`;
-const { openModal, paragraphGaps, roman } = await import("../src/app/dom.ts");
+const { armed, openModal, paragraphGaps, roman } = await import("../src/app/dom.ts");
 const { muteButton, toolbar } = await import("../src/app/views.ts");
 
 const series = { id: "s", title: "S", carry: null, about: [], credits: [], game: {}, chapters: [] };
@@ -66,5 +66,35 @@ describe("the pages around the story", () => {
     expect(dialog.open).toBe(true);
     dialog.click();
     expect(dialog.isConnected).toBe(false);
+  });
+
+  test("closing a sheet after a setting redrew the page gives focus to the new copy of its opener", () => {
+    document.getElementById("app")!.innerHTML = `<nav><button data-tool="settings" aria-label="Ajustes">⚙</button></nav>`;
+    document.querySelector<HTMLElement>('[data-tool="settings"]')!.focus();
+    const dialog = document.createElement("dialog");
+    dialog.innerHTML = `<button class="close">Close</button>`;
+    openModal(dialog, ".close");
+    document.getElementById("app")!.innerHTML = `<nav><button data-tool="settings" aria-label="Ajustes">⚙</button></nav>`;
+    dialog.close();
+    expect(document.activeElement).toBe(document.querySelector('[data-tool="settings"]'));
+  });
+
+  test("an armed restart is named by its question, which the live region reads, and rests again after 4 s", () => {
+    vi.useFakeTimers();
+    try {
+      document.getElementById("app")!.innerHTML = `<button data-tool="restart" aria-label="Reiniciar el capítulo"><svg></svg><span>Reiniciar</span></button>`;
+      const tool = document.querySelector<HTMLElement>('[data-tool="restart"]')!;
+      expect(armed(tool, "¿Seguro? Toca otra vez")).toBe(false);
+      expect(tool.hasAttribute("aria-label")).toBe(false);
+      expect(tool.textContent).toBe("¿Seguro? Toca otra vez");
+      expect(document.getElementById("announcer")!.textContent).toBe("¿Seguro? Toca otra vez");
+      expect(armed(tool, "¿Seguro? Toca otra vez")).toBe(true);
+      vi.advanceTimersByTime(4000);
+      expect(tool.getAttribute("aria-label")).toBe("Reiniciar el capítulo");
+      expect(tool.querySelector("span")!.textContent).toBe("Reiniciar");
+      expect(tool.dataset.armed).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
