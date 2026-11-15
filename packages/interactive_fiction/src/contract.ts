@@ -47,8 +47,8 @@ export interface SeriesEntry {
   about: string[];
   credits: Credit[];
   game: GameConfig;
-  /** Every published JPEG and PNG of the series, by the path passages and scenes name it with. */
-  images: Record<string, ImageSet>;
+  /** Every published JPEG and PNG of the series, by the path passages and scenes name it with; absent from a library built before pictures were encoded. */
+  images?: Record<string, ImageSet>;
   chapters: ChapterSummary[];
 }
 
