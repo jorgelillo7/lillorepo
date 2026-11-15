@@ -202,6 +202,17 @@ What it gives the reader:
   and generic achievements. The build explores every chapter to know its
   endings.
 
+## Art bible
+
+A series may keep `stories/<series>/art-bible.json`: one English description per
+character and place, each backed by sentences quoted verbatim from the story,
+and a register of every image (place, characters, the shot, the image it edits,
+the prompt that made it). `npm run prompts -- <series>` composes the prompts for
+the planned images from it, and the build fails when a quote is no longer in
+the text, a scene image is not registered, or a generated image has no prompt
+recorded. The whole procedure — new chapter to published scene — is the
+[`scene-art`](.claude/skills/scene-art/SKILL.md) skill.
+
 ## Sharing a link
 
 `npm run build` ends with `scripts/share-pages.ts`: a static page per series
@@ -214,17 +225,6 @@ chapter hands out exactly that one. The site's own page carries the series'
 tags when there is one series. Drafts get no page. The absolute URLs use
 `SITE_URL` (default: the public Worker); set it when the site moves to its own
 domain.
-
-## Art bible
-
-A series may keep `stories/<series>/art-bible.json`: one English description per
-character and place, each backed by sentences quoted verbatim from the story,
-and a register of every image (place, characters, the shot, the image it edits,
-the prompt that made it). `npm run prompts -- <series>` composes the prompts for
-the planned images from it, and the build fails when a quote is no longer in
-the text, a scene image is not registered, or a generated image has no prompt
-recorded. The whole procedure — new chapter to published scene — is the
-[`scene-art`](.claude/skills/scene-art/SKILL.md) skill.
 
 ## What it supports
 
