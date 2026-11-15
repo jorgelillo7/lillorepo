@@ -11,8 +11,17 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="apple-mobile-web-app-title" content="ChuckBot">
   <meta name="theme-color" content="#0d0d0d">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="ChuckBot sends Chuck Norris facts to your Telegram: random, science, food, animal or dev, one command away.">
+  <link rel="canonical" href="{{ url_for('index', _external=True) }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ChuckBot — Chuck Norris Facts for Telegram">
+  <meta property="og:description" content="Chuck Norris facts, delivered to your Telegram. No browser. No waiting. No mercy.">
+  <meta property="og:url" content="{{ url_for('index', _external=True) }}">
+  <meta property="og:image" content="{{ url_for('static', filename='icon-512.png', _external=True) }}">
+  <meta name="twitter:card" content="summary">
   <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
+  <style nonce="{{ csp_nonce() }}">
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -24,6 +33,7 @@
       --accent:       #dc2626;
       --accent-hover: #b91c1c;
       --gold:         #f59e0b;
+      color-scheme: dark;
     }
 
     body {
@@ -31,7 +41,7 @@
       color: var(--text);
       font-family: 'Inter', system-ui, sans-serif;
       line-height: 1.6;
-      min-height: 100vh;
+      min-height: 100dvh;
     }
 
     /* ── Hero ── */
@@ -120,6 +130,7 @@
 
     /* ── Commands grid ── */
     .commands {
+      list-style: none;
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 1rem;
@@ -172,6 +183,7 @@
     .origin-card p { color: var(--muted); font-size: .9rem; line-height: 1.75; }
     .origin-card p + p { margin-top: .75rem; }
     .origin-card em { color: var(--text); font-style: italic; }
+    .origin-card code { color: var(--gold); font-size: .85em; }
 
     /* ── Footer ── */
     footer {
@@ -189,7 +201,7 @@
 <body>
 
   <!-- Hero -->
-  <div class="hero">
+  <header class="hero">
     <div class="badge">🤜 Telegram Bot</div>
     <h1>CHUCK<span>BOT</span></h1>
     <p class="tagline">Chuck Norris facts, delivered to your Telegram. No browser. No waiting. No mercy.</p>
@@ -199,47 +211,49 @@
       </svg>
       Open in Telegram
     </a>
-  </div>
+  </header>
+
+  <main>
 
   <div class="divider"></div>
 
   <!-- Commands -->
   <section>
-    <p class="section-label">Commands</p>
-    <div class="commands">
-      <div class="cmd-card">
-        <span class="cmd-emoji">🎲</span>
+    <h2 class="section-label">Commands</h2>
+    <ul class="commands">
+      <li class="cmd-card">
+        <span class="cmd-emoji" aria-hidden="true">🎲</span>
         <span class="cmd-name">/random</span>
         <span class="cmd-desc">Random fact</span>
-      </div>
-      <div class="cmd-card">
-        <span class="cmd-emoji">🔬</span>
+      </li>
+      <li class="cmd-card">
+        <span class="cmd-emoji" aria-hidden="true">🔬</span>
         <span class="cmd-name">/science</span>
         <span class="cmd-desc">Science fact</span>
-      </div>
-      <div class="cmd-card">
-        <span class="cmd-emoji">🍔</span>
+      </li>
+      <li class="cmd-card">
+        <span class="cmd-emoji" aria-hidden="true">🍔</span>
         <span class="cmd-name">/food</span>
         <span class="cmd-desc">Food fact</span>
-      </div>
-      <div class="cmd-card">
-        <span class="cmd-emoji">🐾</span>
+      </li>
+      <li class="cmd-card">
+        <span class="cmd-emoji" aria-hidden="true">🐾</span>
         <span class="cmd-name">/animal</span>
         <span class="cmd-desc">Animal fact</span>
-      </div>
-      <div class="cmd-card">
-        <span class="cmd-emoji">💻</span>
+      </li>
+      <li class="cmd-card">
+        <span class="cmd-emoji" aria-hidden="true">💻</span>
         <span class="cmd-name">/dev</span>
         <span class="cmd-desc">Dev fact</span>
-      </div>
-    </div>
+      </li>
+    </ul>
   </section>
 
   <div class="divider"></div>
 
   <!-- Origin -->
   <section>
-    <p class="section-label">Origin</p>
+    <h2 class="section-label">Origin</h2>
     <div class="origin-card">
       <div class="year-badge">2015 → 2026</div>
       <h3>From Heroku to Cloud Run</h3>
@@ -247,7 +261,7 @@
         Born on 6 October 2015 with a commit message that read <em>"appbot example"</em> —
         a weekend project to try Node.js, Heroku, and the Telegram Bot API all at once.
         It shipped with a Bootstrap landing page, an Angular controller, and
-        <code style="color:var(--gold);font-size:.85em">jquery-2.1.4.min.js</code>.
+        <code>jquery-2.1.4.min.js</code>.
       </p>
       <p>
         In 2026 it was resurrected: rewritten in Python, moved into a Bazel monorepo,
@@ -255,6 +269,7 @@
       </p>
     </div>
   </section>
+  </main>
 
   <!-- Footer -->
   <footer>
