@@ -435,9 +435,10 @@ passages, their order and the chapter versions are the author's.
 
 #### Scenario: Sheets
 - **WHEN** the settings or the status sheet is opened and closed
-- **THEN** it opens as a modal dialog, and closing it removes it and returns focus to what opened it
+- **THEN** it is a native modal `<dialog>`, named, closed by a `<form method="dialog">` button, Escape or a tap around it (`closedby="any"`, done by hand where the browser lacks it), and closing it removes it and returns focus to what opened it
 - *Verifies:* `book.test.ts: a sheet opens as a modal dialog, and closing it removes it and gives focus back`,
-  `book.test.ts: a click on the dimmed page around the sheet closes the dialog; a click inside does not`,
+  `book.test.ts: where the browser lacks closedby, a press and release outside a light-dismiss sheet close it; one inside does not`,
+  `book.test.ts: the settings and status sheets are native dialogs: named, light-dismissed, closed by a dialog form`,
   `book.test.ts: closing a sheet after a setting redrew the page gives focus to the new copy of its opener`
 
 ### Requirement: The site is served with restrictive headers

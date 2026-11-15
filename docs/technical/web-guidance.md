@@ -128,11 +128,13 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   `og:image:type`, `color-scheme`, the root `<title>`, `/assets/*` immutable
   and checked live, a 1280 px width, the first index covers eager, reduced
   motion keeping colour and opacity, the code field's border, `<main>` in a
-  scene page, and the 3D draft's `<progress>`, indeterminate bar and
-  headers. Open items:
-  - the settings and status sheets are not yet `<dialog>` as `dialog.md`
-    describes, and the title image is a CSS background the browser cannot
-    discover early;
+  scene page, the 3D draft's `<progress>`, indeterminate bar and headers,
+  the settings and status sheets as native `<dialog>`s (`dialog.md`), and
+  the title picture as a discoverable `<img>` preloaded by the build.
+  `font-size-adjust: from-font` was tried and measured in Chrome, with the
+  fonts loaded and with them blocked: it moved nothing, since it takes the
+  ratio from the face in use, the fallback itself during a swap. It was
+  removed. Open items:
   - control borders under 3:1: `tw-link` 2.32, `.button.secondary` 2.57,
     `.credit-links a` 2.15;
   - `:focus-visible` sets `border-radius`, which reshapes elements;

@@ -45,16 +45,6 @@
   descent-override: 31%;
   line-gap-override: 0%;
 }
-/*
- * Every text element sizes a stand-in face to the x-height of its own face, so text set before
- * the fonts arrive, or where Georgia and Times are missing (Android), is not visibly smaller or
- * larger. On every element because each `font:` shorthand below resets it, and an inherited ratio
- * would size the display face by the reading face's.
- */
-:root body,
-:root body * {
-  font-size-adjust: from-font;
-}
 :root {
   --font-read: "Literata", "Literata Fallback", Georgia, serif;
   --font-display: "Cormorant Garamond", "Cormorant Fallback", "Times New Roman", serif;
@@ -758,22 +748,23 @@ tw-passage {
 
 /* ---- Dialogs -------------------------------------------------------------- */
 
-dialog.status-overlay {
-  width: 100vw;
-  height: 100dvh;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  border: 0;
+/* A sheet is the dialog itself: the browser centres it in the top layer and dims the page behind it. */
+dialog.status-sheet {
   box-sizing: border-box;
-  color: inherit;
+  max-width: calc(100% - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+dialog.status-sheet:modal {
   overscroll-behavior: contain;
 }
-dialog.status-overlay:not([open]) {
-  display: none;
+dialog.status-sheet::backdrop {
+  background: rgba(0, 0, 0, 0.82);
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
-dialog.status-overlay::backdrop {
-  background: transparent;
+.status-sheet form {
+  margin: 0;
 }
 .status-sheet h2 {
   margin: 0 0 1rem;

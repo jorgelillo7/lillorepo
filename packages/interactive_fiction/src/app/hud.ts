@@ -30,13 +30,12 @@ export function openStatus(config: GameConfig, state: ConditionState | undefined
     .map((name, i) => `<button class="item" data-item="${i}"><span>${esc(name)}</span></button>`)
     .join("");
   const empty = items && !items.length ? `<p class="status-empty">No llevas nada.</p>` : "";
-  const overlay = el(`<dialog class="status-overlay" aria-label="Estado">
-    <div class="status-sheet">
+  const overlay = el(`<dialog class="status-sheet" aria-label="Estado" closedby="any">
       ${state ? `<div class="status-condition">${ecg(state, true)}<div class="status-label status-${state.level}">${esc(state.label)}</div></div>` : ""}
       ${items ? `<h3>Objetos</h3><div class="items">${cells}</div>${empty}` : ""}
       <p class="item-detail" aria-live="polite"></p>
-      <button class="button secondary status-close">Cerrar</button>
-    </div></dialog>`) as HTMLDialogElement;
+      <form method="dialog"><button class="button secondary status-close" autofocus>Cerrar</button></form>
+    </dialog>`) as HTMLDialogElement;
   overlay.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;
     const item = t.closest<HTMLElement>("[data-item]");
@@ -45,9 +44,7 @@ export function openStatus(config: GameConfig, state: ConditionState | undefined
       overlay.querySelectorAll(".item").forEach((x) => x.classList.toggle("selected", x === item));
       const quote = quotes[name]?.quote.text;
       overlay.querySelector(".item-detail")!.innerHTML = `<b>${esc(name)}</b>${quote ? `<br><i>${esc(quote)}</i>` : ""}`;
-      return;
     }
-    if (t.closest(".status-close")) overlay.close();
   });
-  openModal(overlay, ".status-close");
+  openModal(overlay);
 }

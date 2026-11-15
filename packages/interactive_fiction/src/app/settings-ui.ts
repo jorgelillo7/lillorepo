@@ -14,8 +14,7 @@ function choice<K extends keyof Settings>(key: K, value: Settings[K], label: str
 export function openSettings(onChange: () => void = () => {}): void {
   const s = settings();
   const mode = loadMode();
-  const sheet = el(`<dialog class="status-overlay settings-overlay" aria-labelledby="settings-title">
-    <div class="status-sheet settings-sheet">
+  const sheet = el(`<dialog class="status-sheet settings-sheet" aria-labelledby="settings-title" closedby="any">
       <h2 id="settings-title">Ajustes</h2>
       <label class="setting">Volumen
         <input type="range" min="0" max="100" value="${Math.round(s.volume * 100)}" data-volume>
@@ -30,8 +29,8 @@ export function openSettings(onChange: () => void = () => {}): void {
       </div>
       <div class="setting">Opciones ${choice("sceneChoices", "image", "En la imagen")}${choice("sceneChoices", "both", "También como botones")}</div>
       <p class="settings-note">Los efectos (temblores, viñetas, parpadeos) también se apagan si tu sistema pide reducir el movimiento.</p>
-      <button class="button secondary status-close">Cerrar</button>
-    </div></dialog>`) as HTMLDialogElement;
+      <form method="dialog"><button class="button secondary status-close" autofocus>Cerrar</button></form>
+    </dialog>`) as HTMLDialogElement;
   sheet.addEventListener("input", (ev) => {
     const t = ev.target as HTMLInputElement;
     if (t.dataset.volume !== undefined) {
@@ -62,7 +61,7 @@ export function openSettings(onChange: () => void = () => {}): void {
         b.setAttribute("aria-pressed", String(b === modeButton));
       });
       onChange();
-    } else if (t.closest(".status-close")) sheet.close();
+    }
   });
-  openModal(sheet, ".status-close");
+  openModal(sheet);
 }

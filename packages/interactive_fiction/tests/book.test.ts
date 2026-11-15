@@ -48,24 +48,40 @@ describe("the pages around the story", () => {
     document.body.appendChild(opener);
     opener.focus();
     const dialog = document.createElement("dialog");
-    dialog.innerHTML = `<div class="sheet"><button class="close">Close</button></div>`;
-    openModal(dialog, ".close");
+    dialog.innerHTML = `<form method="dialog"><button class="close" autofocus>Close</button></form>`;
+    openModal(dialog);
     expect(dialog.isConnected).toBe(true);
     expect(dialog.open).toBe(true);
-    expect(document.activeElement).toBe(dialog.querySelector(".close"));
     dialog.close();
     expect(dialog.isConnected).toBe(false);
     expect(document.activeElement).toBe(opener);
   });
 
-  test("a click on the dimmed page around the sheet closes the dialog; a click inside does not", () => {
+  test("where the browser lacks closedby, a press and release outside a light-dismiss sheet close it; one inside does not", () => {
     const dialog = document.createElement("dialog");
-    dialog.innerHTML = `<div class="sheet"><button class="close">Close</button></div>`;
+    dialog.setAttribute("closedby", "any");
+    dialog.innerHTML = `<button class="close">Close</button>`;
     openModal(dialog);
-    dialog.querySelector<HTMLElement>(".sheet")!.click();
+    dialog.getBoundingClientRect = () => new DOMRect(100, 100, 200, 200);
+    const at = (type: string, x: number) => dialog.dispatchEvent(new PointerEvent(type, { clientX: x, clientY: 150 }));
+    at("pointerdown", 150);
+    at("pointerup", 20);
     expect(dialog.open).toBe(true);
-    dialog.click();
+    at("pointerdown", 20);
+    at("pointerup", 20);
     expect(dialog.isConnected).toBe(false);
+  });
+
+  test("the settings and status sheets are native dialogs: named, light-dismissed, closed by a dialog form", async () => {
+    const { openSettings } = await import("../src/app/settings-ui.ts");
+    openSettings();
+    const sheet = document.querySelector("dialog")!;
+    expect(sheet.classList.contains("status-sheet")).toBe(true);
+    expect(sheet.getAttribute("aria-labelledby")).toBe("settings-title");
+    expect(sheet.getAttribute("closedby")).toBe("any");
+    expect(sheet.querySelector('form[method="dialog"] .status-close[autofocus]')).not.toBeNull();
+    expect(sheet.querySelector("[role=dialog], [aria-modal]")).toBeNull();
+    sheet.close();
   });
 
   test("closing a sheet after a setting redrew the page gives focus to the new copy of its opener", () => {
@@ -73,7 +89,7 @@ describe("the pages around the story", () => {
     document.querySelector<HTMLElement>('[data-tool="settings"]')!.focus();
     const dialog = document.createElement("dialog");
     dialog.innerHTML = `<button class="close">Close</button>`;
-    openModal(dialog, ".close");
+    openModal(dialog);
     document.getElementById("app")!.innerHTML = `<nav><button data-tool="settings" aria-label="Ajustes">⚙</button></nav>`;
     dialog.close();
     expect(document.activeElement).toBe(document.querySelector('[data-tool="settings"]'));

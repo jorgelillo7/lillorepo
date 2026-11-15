@@ -29,15 +29,24 @@ export function picture(images: Record<string, ImageSet>, src: string, attribute
   return `<picture>${sources(set, sizes)}<img src="${escAttr(src)}" width="${set.width}" height="${set.height}" ${attributes}></picture>`;
 }
 
-/** A CSS `image-set()` for a background: the widest AVIF and WebP, then the original. */
-export function backgroundImage(images: Record<string, ImageSet>, src: string): string {
-  const set = images[src];
-  const url = (path: string) => `url('${path.replace(/'/g, "%27")}')`;
-  if (!set) return url(src);
-  const best = (format: "avif" | "webp") => set[format].at(-1);
-  const options = (["avif", "webp"] as const).flatMap((format) => (best(format) ? [`${url(best(format)![0])} type('image/${format}')`] : []));
-  const original = `${url(src)} type('image/${/\.png$/i.test(src) ? "png" : "jpeg"}')`;
-  return `image-set(${[...options, original].join(", ")})`;
+/** How wide the title screen shows its picture: the whole viewport. */
+export const TITLE_SIZES = "100vw";
+
+/**
+ * The attributes of a `<link rel="preload" as="image">` for the title picture of a site holding one
+ * series, matching what its `<picture>` will choose (the lightest format, at TITLE_SIZES); null when
+ * the site holds several series or the series has no title picture.
+ */
+export function titlePreload(library: { images?: Record<string, ImageSet>; game: { title?: { image?: string } } }[]): Record<string, string> | null {
+  if (library.length !== 1) return null;
+  const [series] = library;
+  const src = series.game.title?.image;
+  if (!src) return null;
+  const base = { rel: "preload", as: "image", fetchpriority: "high" };
+  const set = series.images?.[src];
+  const format = set && (["avif", "webp"] as const).find((f) => set[f].length);
+  if (!set || !format) return { ...base, href: src };
+  return { ...base, imagesrcset: srcset(set[format]), imagesizes: TITLE_SIZES, type: `image/${format}` };
 }
 
 /** Wrap the pictures a passage's own markup shows (`<img src>`) with their encoded variants, in place. */
