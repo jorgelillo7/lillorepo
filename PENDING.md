@@ -87,6 +87,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
+| 👤 | Link previews: after the next deploy, paste the site link and `…/leer/samantha/01/` into WhatsApp and check the card (title, author, picture); the tags are tested, the apps' own rendering is not | You, on a phone |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
 | 🔨 | Scene images as WebP or AVIF with `srcset`: 9.1 MB of JPEG/PNG today, 2.1 MB as WebP at 1600 px, 0.85 MB as AVIF at 1000 px (measured) | A decision on adding an encoder to the build (`sips` writes neither) |
 | ⏳ | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |

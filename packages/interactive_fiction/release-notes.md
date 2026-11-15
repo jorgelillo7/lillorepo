@@ -2,6 +2,11 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **Links That Show What They Lead To (15 November 2026)**
+
+* **🔗 A preview when you share it**: a link to the site, or to one chapter, now unfolds in WhatsApp and other chats with the chapter's title, the series, its author and the picture the chapter opens on.
+* **📤 Share a chapter from its ending**: the end of each chapter has a "Compartir" button that hands its link to your phone's share sheet, or copies it.
+
 ### **Saves That Survive a Rewrite (12 November 2026)**
 
 Nothing in the story changed. The reader got safer to publish and kinder when a chapter is edited after someone started it.

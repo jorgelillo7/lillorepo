@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "STORIES_DRAFTS=1 npm run stories && vite",
-    "build": "npm run stories && tsc --noEmit && vite build",
+    "build": "npm run stories && tsc --noEmit && vite build && node scripts/share-pages.ts",
     "build:drafts": "STORIES_DRAFTS=1 npm run build",
     "preview": "vite preview",
     "deploy": "npm --prefix deploy ci --no-audit --no-fund && STORIES_PUBLISH=1 npm run build && deploy/node_modules/.bin/wrangler deploy",

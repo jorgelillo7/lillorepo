@@ -336,7 +336,26 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
     s.arrived = true;
     show();
   },
+  share: (s, tool) => void shareChapter(s, tool),
 };
+
+/**
+ * Hand the chapter's link to the system's share sheet, or copy it where there is none. The link is
+ * the chapter's static page (`leer/<series>/<chapter>/`), the one a chat app can preview.
+ */
+async function shareChapter(s: Session, tool: HTMLElement): Promise<void> {
+  const url = new URL(`leer/${s.series.id}/${s.chapter.id}/`, document.baseURI).href;
+  const title = `${shortTitle(s.rt.story.title)} · ${s.series.title}`;
+  try {
+    if (navigator.share) await navigator.share({ title, url });
+    else {
+      await navigator.clipboard.writeText(url);
+      tool.textContent = "Enlace copiado";
+    }
+  } catch {
+    // The reader closed the share sheet, or the browser refused the clipboard: nothing to report.
+  }
+}
 
 app.addEventListener("click", (ev) => {
   const target = ev.target as HTMLElement;
