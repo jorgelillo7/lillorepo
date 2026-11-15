@@ -36,7 +36,6 @@
   letter-spacing: 0.08em;
   font-size: 0.75rem;
 }
-.status-overlay,
 .doc-overlay {
   position: fixed;
   inset: 0;

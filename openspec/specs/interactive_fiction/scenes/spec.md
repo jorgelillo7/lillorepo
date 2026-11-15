@@ -81,8 +81,8 @@ original, and list them in the library. The reader SHALL show a scene, and any
 picture a passage's own markup shows, and each chapter's picture in the
 index (the first ones loaded at once), as a `<picture>` offering AVIF, then
 WebP, then the original, with the original's pixel size on the image so its
-place is held while it loads; the title screen's background offers the same
-formats. A picture the build did not encode is shown as it is. The author's
+place is held while it loads; the title screen shows its picture the same
+way, fetched first, and with one series the built page preloads it. A picture the build did not encode is shown as it is. The author's
 files are never rewritten: the encodings exist only in the build's output.
 
 #### Scenario: Encoding at build
@@ -95,7 +95,7 @@ files are never rewritten: the encodings exist only in the build's output.
 - **WHEN** a scene, a picture in a passage, or the title background is shown
 - **THEN** the lightest format the browser reads is offered first and the original last
 - *Verifies:* `images.test.ts: a scene is a picture element: AVIF, then WebP, then the original with its pixel size`,
-  `images.test.ts: a background offers the widest AVIF and WebP before the original`,
+  `images.test.ts: with one series, the build preloads the title picture as the cover's <picture> will choose it`,
   `images.test.ts: a picture in the passage's own markup is wrapped in place, keeping its class and gaining its size`
 
 #### Scenario: A picture without encodings

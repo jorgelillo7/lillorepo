@@ -5,7 +5,7 @@ import { join } from "node:path";
 import sharp from "sharp";
 import { describe, expect, test } from "vitest";
 import { encodeImages, variantPath, widthsFor } from "../scripts/images.ts";
-import { backgroundImage, picture, upgradeImages } from "../src/app/picture.ts";
+import { picture, titlePreload, upgradeImages } from "../src/app/picture.ts";
 import type { ImageSet } from "../src/contract.ts";
 
 const room: ImageSet = {
@@ -60,13 +60,21 @@ describe("pictures are encoded at build and offered lightest first", () => {
 
   test("a picture the build did not encode is shown as it is", () => {
     expect(picture({}, "s/other.gif", `alt=""`, "100vw")).toBe(`<img src="s/other.gif" alt="">`);
-    expect(backgroundImage({}, "s/other.jpg")).toBe("url('s/other.jpg')");
   });
 
-  test("a background offers the widest AVIF and WebP before the original", () => {
-    expect(backgroundImage({ "s/room.jpg": room }, "s/room.jpg")).toBe(
-      "image-set(url('s/room.w1600.avif') type('image/avif'), url('s/room.w1600.webp') type('image/webp'), url('s/room.jpg') type('image/jpeg'))",
-    );
+  test("with one series, the build preloads the title picture as the cover's <picture> will choose it", () => {
+    const game = { title: { image: "s/room.jpg" } };
+    expect(titlePreload([{ game, images: { "s/room.jpg": room } }])).toEqual({
+      rel: "preload",
+      as: "image",
+      fetchpriority: "high",
+      imagesrcset: "s/room.w640.avif 640w, s/room.w1600.avif 1600w",
+      imagesizes: "100vw",
+      type: "image/avif",
+    });
+    expect(titlePreload([{ game }])).toEqual({ rel: "preload", as: "image", fetchpriority: "high", href: "s/room.jpg" });
+    expect(titlePreload([{ game }, { game }])).toBeNull();
+    expect(titlePreload([{ game: {} }])).toBeNull();
   });
 
   test("a picture in the passage's own markup is wrapped in place, keeping its class and gaining its size", () => {

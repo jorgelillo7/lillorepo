@@ -2,6 +2,11 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **The Cover Arrives First (15 November 2026)**
+
+* **🖼️ The cover's picture starts with the page**: the title screen's picture now loads together with the page instead of after it, in the lightest format the browser reads.
+* **🪟 Settings and status as the browser's own dialogs**: they close with the button, Escape, the back gesture or a tap around them, and a screen reader knows what they are.
+
 ### **Easier to Follow Without Seeing It (15 November 2026)**
 
 The reader and the 3D preview, after a check against Chrome's Modern Web Guidance.

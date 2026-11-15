@@ -6,11 +6,18 @@
   display: grid;
   place-items: end center;
   background-color: #000;
-  background-position: center 30%;
-  background-size: cover;
-  background-repeat: no-repeat;
   color: #e9e2c9;
   overflow: hidden;
+}
+/* The picture lies under the cover's grid instead of taking a row of it. */
+.title-screen > picture,
+.title-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
 }
 .title-shade {
   position: absolute;

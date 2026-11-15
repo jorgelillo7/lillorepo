@@ -4,7 +4,7 @@ import { setAmbience } from "./audio.ts";
 import { app, el, esc, roman, setStoryCss, shortTitle } from "./dom.ts";
 import { authorLine, type SeriesEntry } from "./library.ts";
 import { clear, lastPlayed, load } from "./save.ts";
-import { backgroundImage } from "./picture.ts";
+import { picture, TITLE_SIZES } from "./picture.ts";
 import { openSettings } from "./settings-ui.ts";
 
 /** "Capítulo II · Its title", for the chapter a reader left off in. */
@@ -27,9 +27,10 @@ export function renderTitle(series: SeriesEntry): void {
       : "";
   const first = series.chapters[0];
   const started = first && load(series.id, first.id);
-  // Inline, so the path resolves against the page and not against the stylesheet.
-  const art = title.image ? ` style="background-image: url('${esc(title.image)}'); background-image: ${esc(backgroundImage(series.images ?? {}, title.image))}"` : "";
-  const screen = el(`<main class="title-screen"${art}>
+  // The cover's largest paint: found in the markup, fetched first, and preloaded by the build when the site holds one series.
+  const art = title.image ? picture(series.images ?? {}, title.image, `class="title-art" alt="" fetchpriority="high" decoding="async"`, TITLE_SIZES) : "";
+  const screen = el(`<main class="title-screen">
+    ${art}
     <div class="title-shade"></div>
     <div class="title-content">
       <p class="kicker">Ficción interactiva</p>

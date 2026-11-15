@@ -44,26 +44,34 @@ function selectorOf(el: HTMLElement): string | null {
   return null;
 }
 
+/** Whether a pointer event fell outside `box`. */
+function outside(ev: PointerEvent, box: DOMRect): boolean {
+  return ev.clientX < box.left || ev.clientX > box.right || ev.clientY < box.top || ev.clientY > box.bottom;
+}
+
 /**
- * Show `dialog` as a modal: the browser keeps focus inside it and closes it on Escape; a click on
- * the dimmed page around its sheet closes it too. Closed, it leaves the page and focus returns to
- * whatever opened it, or to its replacement when a setting redrew the page meanwhile.
+ * Show `dialog` as a modal. It names itself, says which control takes focus (`autofocus`), closes
+ * with a `<form method="dialog">` button, Escape or, with `closedby="any"`, a tap on the dimmed page
+ * around it (done by hand where the browser lacks `closedby`). Closed, it leaves the page and focus
+ * returns to whatever opened it, or to its replacement when a setting redrew the page meanwhile.
  */
-export function openModal(dialog: HTMLDialogElement, focus?: string): void {
+export function openModal(dialog: HTMLDialogElement): void {
   const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
   const reopen = opener && selectorOf(opener);
-  dialog.addEventListener("click", (ev) => {
-    if (ev.target === dialog) dialog.close();
-  });
+  if (dialog.getAttribute("closedby") === "any" && !("closedBy" in HTMLDialogElement.prototype)) {
+    let pressedOutside = false;
+    dialog.addEventListener("pointerdown", (ev) => (pressedOutside = outside(ev, dialog.getBoundingClientRect())));
+    dialog.addEventListener("pointerup", (ev) => {
+      if (pressedOutside && outside(ev, dialog.getBoundingClientRect())) dialog.close();
+    });
+  }
   dialog.addEventListener("close", () => {
     dialog.remove();
-    const back = opener?.isConnected ? opener : reopen ? document.querySelector<HTMLElement>(reopen) : null;
-    back?.focus();
+    if (opener?.isConnected) return;
+    if (reopen) document.querySelector<HTMLElement>(reopen)?.focus();
   });
   document.body.appendChild(dialog);
-  if (typeof dialog.showModal === "function") dialog.showModal();
-  else dialog.setAttribute("open", "");
-  if (focus) dialog.querySelector<HTMLElement>(focus)?.focus();
+  dialog.showModal();
 }
 
 /**
