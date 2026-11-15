@@ -86,7 +86,6 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
 | 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
-| 🔨 | Scene images as WebP or AVIF with `srcset`: 9.1 MB of JPEG/PNG today, 2.1 MB as WebP at 1600 px, 0.85 MB as AVIF at 1000 px (measured) | A decision on adding an encoder to the build (`sips` writes neither) |
 | ⏳ | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
 | 👤 | Suggestions for the author (speaker colours at 1.3:1 and 2.2:1 on black, the knife never shown, undo against the story's own rule, the 3D draft as a fixed-camera source instead of the reader) | You: forward the note or not · his content, not this repo's |
 | 👤 | CI runs `npm run verify` on a fixture series without the Harlowe comparison: vendoring a Harlowe 3 build (Zlib licence, ~400 KB) as a test fixture would let CI run parity too | Your call |

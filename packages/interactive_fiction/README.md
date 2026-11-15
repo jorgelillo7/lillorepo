@@ -262,7 +262,7 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 
 ```bash
 npm ci                 # once
-npm run stories        # validate + build stories/ into public/stories/
+npm run stories        # validate + build stories/ into public/stories/, pictures encoded as AVIF and WebP (cached in node_modules/.cache)
 npm run dev            # local site with hot reload
 npm run build          # stories (no drafts) + typecheck + dist/
 npm run build:drafts   # the same, drafts included — never upload this one publicly

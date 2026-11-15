@@ -3,6 +3,9 @@
  * public/stories/ (the shapes in src/contract.ts). Exits non-zero on any
  * validation error, so a chapter the reader cannot run never reaches a build.
  *
+ * Every published JPEG and PNG is also encoded as AVIF and WebP at several
+ * widths (scripts/images.ts); the library lists them for the reader.
+ *
  * Chapters marked `draft` are left out unless STORIES_DRAFTS=1: a draft the
  * author has not published must not reach a public upload by accident.
  *
@@ -22,6 +25,7 @@ import { validateScenes, type SceneFile } from "../src/engine/scenes.ts";
 import type { Story } from "../src/engine/source.ts";
 import { validate, variablesSet } from "../src/engine/validate.ts";
 import { validateBible, type ArtBible } from "./art-bible.ts";
+import { encodeImages } from "./images.ts";
 import { loadSeries, seriesIds, validateCredits, type Series } from "./series.ts";
 import { publishProblems } from "./source-guard.ts";
 
@@ -113,7 +117,7 @@ function copyMedia(series: Series, outDir: string): void {
   }
 }
 
-function buildSeries(id: string): SeriesEntry {
+async function buildSeries(id: string): Promise<SeriesEntry> {
   const series = loadSeries(id);
   const served = `stories/${id}/`;
   const outDir = join(OUT, id);
@@ -152,7 +156,8 @@ function buildSeries(id: string): SeriesEntry {
   const game = loadGame(series, chapters);
   if (game.title?.image) game.title.image = served + game.title.image;
   copyMedia(series, outDir);
-  console.log(`✓ ${id}: ${published.length} chapters`);
+  const images = await encodeImages(outDir, served);
+  console.log(`✓ ${id}: ${published.length} chapters, ${Object.keys(images).length} pictures encoded as AVIF and WebP`);
   return {
     id,
     title: series.manifest.title,
@@ -160,6 +165,7 @@ function buildSeries(id: string): SeriesEntry {
     about: series.manifest.about ?? [],
     credits: series.manifest.credits ?? [],
     game,
+    images,
     chapters: published,
   };
 }
@@ -180,7 +186,8 @@ if (process.env.STORIES_PUBLISH === "1") {
 
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-const library = seriesIds().map(buildSeries);
+const library: SeriesEntry[] = [];
+for (const id of seriesIds()) library.push(await buildSeries(id));
 writeFileSync(join(OUT, LIBRARY_FILE), JSON.stringify(library, null, 2));
 if (failed) {
   console.error("Validation failed: fix the errors above.");

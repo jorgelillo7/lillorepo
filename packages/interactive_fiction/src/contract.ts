@@ -22,6 +22,17 @@ export interface Credit {
   links: Record<string, string>;
 }
 
+/**
+ * A published picture's lighter encodings, beside the original: each a list of `[path, width]`,
+ * narrowest first. `width` and `height` are the original's, in pixels.
+ */
+export interface ImageSet {
+  width: number;
+  height: number;
+  avif: [path: string, width: number][];
+  webp: [path: string, width: number][];
+}
+
 export interface ChapterSummary {
   id: string;
   title: string;
@@ -36,6 +47,8 @@ export interface SeriesEntry {
   about: string[];
   credits: Credit[];
   game: GameConfig;
+  /** Every published JPEG and PNG of the series, by the path passages and scenes name it with; absent from a library built before pictures were encoded. */
+  images?: Record<string, ImageSet>;
   chapters: ChapterSummary[];
 }
 

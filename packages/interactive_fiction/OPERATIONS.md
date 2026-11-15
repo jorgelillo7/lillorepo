@@ -69,6 +69,18 @@ rectangles and check them with an overlay. Say on the series' "about" page
 that the art is generated. Without a key, `npm run prompts -- <series>` prints
 the same prompts for the Gemini app, by hand.
 
+## Pictures in the build
+
+The author's `scenes/*.jpg` and the PNGs his passages show stay as they are
+in his repository. `npm run stories` encodes each one as AVIF and WebP at
+640, 1024 and 1600 px (never wider than the original) into `public/stories/`,
+with `sharp` (a dev dependency with prebuilt binaries, nothing to install on
+the system), and lists them in `library.json`; the reader offers AVIF, then
+WebP, then the original. Encoded files are cached by content in
+`node_modules/.cache/if-images/`, so only a new or changed picture is encoded
+(about half a minute for a whole series from an empty cache). The quality
+settings are `FORMATS` in `scripts/images.ts`.
+
 ## Updating a chapter
 
 ```bash
