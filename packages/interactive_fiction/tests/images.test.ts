@@ -17,10 +17,10 @@ const room: ImageSet = {
 
 describe("pictures are encoded at build and offered lightest first", () => {
   test("a picture is encoded at the widths below its own and at its own, never enlarged", () => {
-    expect(widthsFor(1600)).toEqual([640, 1024, 1600]);
+    expect(widthsFor(1600)).toEqual([640, 1024, 1280, 1600]);
     expect(widthsFor(1024)).toEqual([640, 1024]);
     expect(widthsFor(500)).toEqual([500]);
-    expect(widthsFor(3000)).toEqual([640, 1024, 1600]);
+    expect(widthsFor(3000)).toEqual([640, 1024, 1280, 1600]);
     expect(variantPath("scenes/room.jpg", 640, "avif")).toBe("scenes/room.w640.avif");
   });
 

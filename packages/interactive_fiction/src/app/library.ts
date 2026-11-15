@@ -2,6 +2,7 @@
 
 import { chapterFile, LIBRARY_FILE, type ChapterData, type ChapterSummary, type Credit, type SeriesEntry } from "../contract.ts";
 import { app, el, esc, fetchJson, roman, setStoryCss, shortTitle } from "./dom.ts";
+import { picture } from "./picture.ts";
 import { load, loadCodes, loadFound } from "./save.ts";
 
 export type { ChapterData, ChapterSummary, SeriesEntry };
@@ -41,12 +42,23 @@ export function authorLine(series: SeriesEntry): string {
   return author ? `<p class="byline"><span class="byline-role">${esc(author.role)}</span><span class="byline-name">${esc(author.name)}</span></p>` : "";
 }
 
+/** Index cards whose picture is on screen when the index opens: those load at once, the rest when scrolled to. */
+const FIRST_SEEN = 2;
+/** How wide a card's picture is shown: a third of the column, at least 7.5rem; the column is 44rem at most. */
+const COVER_SIZES = "(max-width: 44rem) max(7.5rem, 34vw), 15rem";
+
+function chapterCover(series: SeriesEntry, src: string, seen: boolean): string {
+  const images = series.images ?? {};
+  const size = images[src] ? "" : ' width="16" height="9"';
+  return picture(images, src, `class="chapter-cover" alt="" loading="${seen ? "eager" : "lazy"}" decoding="async"${size}`, COVER_SIZES);
+}
+
 /** One chapter of the index, a whole link: its picture, its number as a book gives it, its title and where the reader is. */
 function chapterCard(series: SeriesEntry, c: ChapterSummary, i: number): string {
   const p = load(series.id, c.id);
   const verb = !p ? "Empezar" : p.finished ? "Releer" : "Continuar";
   const state = !p ? "new" : p.finished ? "done" : "open";
-  const cover = c.cover ? `<img class="chapter-cover" src="${esc(c.cover)}" alt="" loading="lazy" decoding="async" width="16" height="9">` : "";
+  const cover = c.cover ? chapterCover(series, c.cover, i < FIRST_SEEN) : "";
   return `<li class="chapter" data-state="${state}">
     <a class="chapter-link" href="#/${series.id}/${c.id}">
       <span class="chapter-art">${cover}</span>
@@ -127,5 +139,4 @@ export function renderAbout(seriesId: string): void {
       <nav class="book-links"><a class="text-link" href="#/">Portada</a><a class="text-link" href="#/capitulos/${series.id}">Capítulos</a></nav>
     </main>`),
   );
-  app.querySelector<HTMLElement>("h1")?.focus?.();
 }

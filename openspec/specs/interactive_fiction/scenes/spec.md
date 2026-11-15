@@ -78,7 +78,8 @@ is not a scene of the file, or a hotspot has neither targets nor a view.
 The build SHALL encode every published JPEG and PNG of a series as AVIF and
 WebP, at the widths below its own and at its own (never enlarged), beside the
 original, and list them in the library. The reader SHALL show a scene, and any
-picture a passage's own markup shows, as a `<picture>` offering AVIF, then
+picture a passage's own markup shows, and each chapter's picture in the
+index (the first ones loaded at once), as a `<picture>` offering AVIF, then
 WebP, then the original, with the original's pixel size on the image so its
 place is held while it loads; the title screen's background offers the same
 formats. A picture the build did not encode is shown as it is. The author's

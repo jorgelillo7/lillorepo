@@ -103,10 +103,10 @@ export function scenePage(
   images: Record<string, ImageSet> = {},
 ): string {
   return `<div class="reader game">${bar}
-    <div class="game-layout">
+    <main class="game-layout">
       <div class="stage-wrap">${stage(scene, shown, actions, seen, images)}</div>
       <section class="panel">${passage}${footer}</section>
-    </div></div>`;
+    </main></div>`;
 }
 
 /** A save the chapter can no longer resume: what happened, and the way on. */
@@ -162,7 +162,8 @@ export function endPanel(e: EndState): string {
     : "";
   const next = e.nextChapter ? `<a class="button" href="#/${e.series.id}/${e.nextChapter}">Siguiente capítulo →</a>` : "";
   return `<footer class="end-panel">${code}${e.discoveries ? yourPath(e.discoveries, e.found, e.progress) : ""}
-    <div class="end-actions"><button class="button secondary" data-tool="share">Compartir</button><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div></footer>`;
+    <div class="end-actions"><button class="button secondary" data-tool="share">Compartir</button><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div>
+    <p class="share-status" role="status"></p></footer>`;
 }
 
 export function unwrittenPanel(): string {

@@ -2,6 +2,18 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **Easier to Follow Without Seeing It (15 November 2026)**
+
+The reader and the 3D preview, after a check against Chrome's Modern Web Guidance.
+
+* **🧭 Focus lands where the page starts**: moving to the index, the credits or the achievements puts a keyboard or screen reader on the page's title.
+* **🔗 Sharing says what happened**: "Enlace copiado" shows under the buttons and goes away; if the link cannot be copied, it is shown, selected, to copy by hand.
+* **🖼️ Lighter pictures on big phones, and the index's at once**: a new 1280 px size, and the first chapter pictures of the index load straight away in a modern format.
+* **🌑 Dark from the first frame**: the site and its link pages tell the browser they are dark, so nothing flashes white, and a link to the site is titled with the series.
+* **🫨 Less motion keeps the fades**: with reduced motion on, nothing moves, but colours and fades still change gently.
+* **📶 The 3D preview's loading bar is a real one**: a screen reader hears it, and it keeps moving when the server does not say how big a room is.
+* **⚡ Faster repeat visits**: the site's scripts, styles and fonts are kept by the browser for a year; a new version gets new names.
+
 ### **The 3D Preview Loads a Third Lighter (15 November 2026)**
 
 For the 3D preview only; the reader is unchanged.

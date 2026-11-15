@@ -121,3 +121,23 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   - font sizes are in `px`;
   - the passphrase field has no visible label;
   - table headers have no `scope`.
+- **interactive_fiction** (reader and 3D draft), reviewed separately after
+  its November work. Fixed: restart's armed name, translucent backgrounds in
+  the contrast check, focus after a setting redraws the page, focus on the
+  heading after a route change, the copy-link status, `og:image:alt` and
+  `og:image:type`, `color-scheme`, the root `<title>`, `/assets/*` immutable
+  and checked live, a 1280 px width, the first index covers eager, reduced
+  motion keeping colour and opacity, the code field's border, `<main>` in a
+  scene page, and the 3D draft's `<progress>`, indeterminate bar and
+  headers. Open items:
+  - the settings and status sheets are not yet `<dialog>` as `dialog.md`
+    describes, and the title image is a CSS background the browser cannot
+    discover early;
+  - control borders under 3:1: `tw-link` 2.32, `.button.secondary` 2.57,
+    `.credit-links a` 2.15;
+  - `:focus-visible` sets `border-radius`, which reshapes elements;
+  - a speaker is told apart by colour alone (the author's call);
+  - 3D draft: the idle camera sway ignores the effects setting, `px` font
+    sizes and `text-align: left`, the sound icon has no background, a drag
+    does not clear on `lostpointercapture`, no arrow keys to look around,
+    and `script-src` waits for a test of the renderer on Cloudflare.

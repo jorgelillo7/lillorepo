@@ -124,8 +124,9 @@ deploy registers the account's `workers.dev` subdomain.
 sources, uploads the `dist/` that passed to the project named in
 `wrangler.toml` (`interactive-fiction`), and then runs `npm run check:live`:
 the live site must list the build's chapters at the build's versions, none a
-draft, answer with the headers of `public/_headers`, and serve every file the
-page loads. `npm run check:live [-- <url>]` is read-only and can be run at any
+draft, answer with the headers of `public/_headers` (the hashed files under
+`assets/` also with their year-long `Cache-Control`), serve every file the
+page loads, and serve each series' share page (`leer/<series>/`) naming it. `npm run check:live [-- <url>]` is read-only and can be run at any
 time. The build fetches each story's repository and stops unless it is on its default
 branch, with no local changes or untracked files, and equal to its origin: the
 site is the author's published chapters, never a branch or an edit sitting in

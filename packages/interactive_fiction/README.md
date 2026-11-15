@@ -306,7 +306,7 @@ npm run preview        # serve dist/ on localhost:4173
 npm run deploy:login   # once: log wrangler in to Cloudflare
 npm run verify         # the gate before a deploy: build, explore --strict, parity, every ending played
 npm run deploy         # verify (sources must be the author's published branch), upload to Cloudflare, check the live site
-npm run check:live     # the live site against dist/: chapters, versions, headers, page files (read-only)
+npm run check:live     # the live site against dist/: chapters, versions, headers, page files, share pages (read-only)
 npm run explore        # path report for every series (or: npm run explore -- <series>; --strict fails on what must be fixed)
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
