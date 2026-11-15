@@ -10,11 +10,13 @@ import { ambienceFor, conditionFor, documentFor, inventoryOf, isSting, type Cond
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { applyVolume, door as doorSound, heartbeat, setAmbience, step, sting } from "./audio.ts";
-import { app, arriveAt, el, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { legibleColours } from "./contrast.ts";
+import { app, armed, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
 import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
 import { pace, type Pacing } from "./pacing.ts";
+import { upgradeImages } from "./picture.ts";
 import { advance, finish, freshStart, isStale, outcomeOf, undo, withCarriedCode, withNewVariables, type Progress } from "./progression.ts";
 import { clear, load, loadCodes, loadFound, loadMode, recordFound, store, storeCode, storeLastPlayed, storeMode } from "./save.ts";
 import { settings, updateSettings } from "./settings.ts";
@@ -199,7 +201,7 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
   s.lastScene = sceneId;
   const { shown } = hotspotsFor(scene, page.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
-  const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer));
+  const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer, s.series.images));
   // A link the scene already shows as a hotspot is not repeated in the text, unless the reader asked for both.
   const inScene = new Set(settings().sceneChoices === "both" ? [] : shown.flatMap((x) => x.actions.map(String)));
   root.querySelectorAll<HTMLElement>("tw-passage tw-link[data-action]").forEach((link) => {
@@ -217,6 +219,8 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
 /** Put a page on screen with the condition's effects, scrolled to the top. */
 function mount(s: Session, html: string): HTMLElement {
   const root = el(html);
+  // The pictures the author's own markup shows (a sign, a mirror) are at most a text column wide.
+  upgradeImages(root.querySelector("tw-passage") ?? root, s.series.images ?? {}, "(max-width: 700px) 90vw, 640px");
   app.replaceChildren(root);
   const state = condition(s);
   const effects = settings().effects && !reducedMotion();
@@ -224,6 +228,9 @@ function mount(s: Session, html: string): HTMLElement {
   heartbeat(state ? HEART_BPM[state.level] : null);
   trackToolbarHeight(root.querySelector<HTMLElement>(".toolbar"));
   window.scrollTo({ top: 0 });
+  // In a scene the picture and the text share the page's main region.
+  root.querySelector(".game-layout")?.setAttribute("role", "main");
+  legibleColours(root);
   arriveAt(root);
   return root;
 }
@@ -258,6 +265,7 @@ function startPacing(s: Session): void {
     hint.remove();
     pacing = null;
   });
+  paragraphGaps(passageEl);
 }
 
 function navigate(s: Session, target: string, choice?: string): void {
@@ -292,22 +300,9 @@ function onAction(s: Session, link: HTMLElement): void {
   holder.querySelectorAll<HTMLElement>("[data-action]").forEach((a) => {
     a.dataset.action = String(offset + Number(a.dataset.action));
   });
+  upgradeImages(holder, s.series.images ?? {}, "(max-width: 700px) 90vw, 640px");
   link.replaceWith(holder);
-}
-
-/** Asks for a second tap within 4 s before a destructive action: embedded viewers block window.confirm(). */
-function armed(tool: HTMLElement, question: string, label: string): boolean {
-  if (tool.dataset.armed) return true;
-  tool.dataset.armed = "1";
-  tool.textContent = question;
-  tool.classList.add("armed");
-  setTimeout(() => {
-    if (!tool.isConnected) return;
-    delete tool.dataset.armed;
-    tool.textContent = label;
-    tool.classList.remove("armed");
-  }, 4000);
-  return false;
+  legibleColours(holder);
 }
 
 const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
@@ -316,7 +311,8 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
   mute: (_, tool) => {
     updateSettings({ muted: !settings().muted });
     applyVolume();
-    tool.textContent = settings().muted ? "🔇" : "🔊";
+    tool.outerHTML = view.muteButton(settings().muted);
+    app.querySelector<HTMLElement>('[data-tool="mute"]')?.focus();
   },
   mode: (s) => {
     storeMode(gameMode(s) ? "text" : "game");
@@ -329,14 +325,33 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
     show();
   },
   restart: (s, tool) => {
-    if (!armed(tool, "¿Seguro? Toca otra vez", "⟲ Reiniciar")) return;
+    if (!armed(tool, "¿Seguro? Toca otra vez")) return;
     clear(s.series.id, s.chapter.id);
     s.progress = freshStart(s.rt.story.start, s.rt.start(), s.version);
     s.lastScene = undefined;
     s.arrived = true;
     show();
   },
+  share: (s, tool) => void shareChapter(s, tool),
 };
+
+/**
+ * Hand the chapter's link to the system's share sheet, or copy it where there is none. The link is
+ * the chapter's static page (`leer/<series>/<chapter>/`), the one a chat app can preview.
+ */
+async function shareChapter(s: Session, tool: HTMLElement): Promise<void> {
+  const url = new URL(`leer/${s.series.id}/${s.chapter.id}/`, document.baseURI).href;
+  const title = `${shortTitle(s.rt.story.title)} · ${s.series.title}`;
+  try {
+    if (navigator.share) await navigator.share({ title, url });
+    else {
+      await navigator.clipboard.writeText(url);
+      tool.textContent = "Enlace copiado";
+    }
+  } catch {
+    // The reader closed the share sheet, or the browser refused the clipboard: nothing to report.
+  }
+}
 
 app.addEventListener("click", (ev) => {
   const target = ev.target as HTMLElement;
@@ -388,7 +403,7 @@ function showView(s: Session, sceneId: string): void {
   s.lastScene = sceneId;
   const { shown } = hotspotsFor(scene, s.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
-  holder.innerHTML = view.stage(scene, shown, s.actions, seen);
+  holder.innerHTML = view.stage(scene, shown, s.actions, seen, s.series.images);
   setAmbience(ambienceFor(s.series.game, scene.room, []));
   if (lastRoom && scene.room && lastRoom !== scene.room) {
     playDoor();

@@ -127,7 +127,7 @@ npm run build      # drafts left out
 ```
 
 ```bash
-npm run play       # each chapter's shortest path to an ending, clicked in headless Chrome
+npm run play       # the shortest path to every ending of each chapter, clicked in headless Chrome
 ```
 
 It clicks hotspots and links by their choice label, so a hotspot whose targets

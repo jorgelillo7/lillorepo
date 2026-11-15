@@ -6,7 +6,7 @@
  */
 
 import type { ConditionState, GameConfig } from "../engine/game.ts";
-import { el, esc } from "./dom.ts";
+import { el, esc, openModal } from "./dom.ts";
 
 const ECG_PATH = "M0 20 H30 L36 8 L42 32 L48 4 L54 26 L60 20 H100 L106 12 L112 28 L118 20 H160";
 
@@ -30,13 +30,13 @@ export function openStatus(config: GameConfig, state: ConditionState | undefined
     .map((name, i) => `<button class="item" data-item="${i}"><span>${esc(name)}</span></button>`)
     .join("");
   const empty = items && !items.length ? `<p class="status-empty">No llevas nada.</p>` : "";
-  const overlay = el(`<div class="status-overlay" role="dialog" aria-label="Estado">
+  const overlay = el(`<dialog class="status-overlay" aria-label="Estado">
     <div class="status-sheet">
       ${state ? `<div class="status-condition">${ecg(state, true)}<div class="status-label status-${state.level}">${esc(state.label)}</div></div>` : ""}
       ${items ? `<h3>Objetos</h3><div class="items">${cells}</div>${empty}` : ""}
       <p class="item-detail" aria-live="polite"></p>
       <button class="button secondary status-close">Cerrar</button>
-    </div></div>`);
+    </div></dialog>`) as HTMLDialogElement;
   overlay.addEventListener("click", (ev) => {
     const t = ev.target as HTMLElement;
     const item = t.closest<HTMLElement>("[data-item]");
@@ -47,8 +47,7 @@ export function openStatus(config: GameConfig, state: ConditionState | undefined
       overlay.querySelector(".item-detail")!.innerHTML = `<b>${esc(name)}</b>${quote ? `<br><i>${esc(quote)}</i>` : ""}`;
       return;
     }
-    if (t.closest(".status-close") || t === overlay) overlay.remove();
+    if (t.closest(".status-close")) overlay.close();
   });
-  document.body.appendChild(overlay);
-  overlay.querySelector<HTMLElement>(".status-close")!.focus();
+  openModal(overlay, ".status-close");
 }

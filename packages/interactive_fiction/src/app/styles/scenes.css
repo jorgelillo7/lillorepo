@@ -237,3 +237,11 @@
   background: rgba(10, 8, 6, 0.85);
   border-color: rgba(233, 226, 201, 0.25);
 }
+/* The <picture> around an encoded image takes no box of its own: the image lays out as it did alone. */
+picture {
+  display: contents;
+}
+/* A picture in the passage's own markup carries its pixel size, to hold its place while it loads; its height follows whatever width the story's stylesheet gives it. */
+tw-passage picture img {
+  height: auto;
+}

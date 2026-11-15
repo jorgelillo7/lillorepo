@@ -158,6 +158,48 @@ kind of contract break no single chapter's test can see.
 - **THEN** exploration stops at the limit and reports itself truncated
 - *Verifies:* `explore.test.ts: a story whose state grows forever is cut off and says so`
 
+### Requirement: One gate runs before a deploy, and the live site is checked after it
+
+`npm run verify` SHALL build the site as it will be uploaded, explore every
+published chapter strictly, compare every page with real Harlowe and play the
+built site to every ending in a real browser, stopping at the first step that
+fails. `npm run deploy`, and the 3D draft's own deploy, SHALL run it before
+uploading. Strict exploration SHALL fail on an unreachable passage, a runtime
+error, an exploration cut short, a chapter with no ending, a page with nothing
+to click and no end code in a chapter that ends with codes, a code of the
+previous chapter treated like a wrong one, and on having no published chapter
+to check; a draft is reported and never fails. After the upload,
+`npm run check:live` SHALL compare the live site with the build, read-only.
+
+#### Scenario: A chapter ready to ship
+- **WHEN** every path of a published chapter ends, with a code where the chapter ends with codes
+- **THEN** strict exploration has nothing to report
+- *Verifies:* `explore.test.ts: a chapter whose every path ends, with a code where it ends with codes, has nothing to fix`
+
+#### Scenario: A chapter with something to fix
+- **WHEN** a passage is unreachable, a passage fails at runtime, exploration is cut short, or an ending has no code
+- **THEN** each is named and the gate fails
+- *Verifies:* `explore.test.ts: an unreachable passage, a runtime error, a cut-off exploration and an ending without a code each stop a chapter shipping`
+
+#### Scenario: A code the next chapter rejects
+- **WHEN** the next chapter treats a code of the previous one like a wrong code
+- **THEN** the code is named
+- *Verifies:* `explore.test.ts: a code of the previous chapter that the next treats like a wrong one is named`
+
+#### Scenario: The Harlowe build to compare with
+- **WHEN** parity is run without naming an engine
+- **THEN** it uses the first `build/index.html` beside a chapter's sources, and fails when there is none
+- *Verifies:* `parity.test.ts: the Harlowe build to compare with is the one beside a chapter's sources`
+
+#### Scenario: The live site after a deploy
+- **WHEN** the live site misses a chapter of the build, serves one the build lacks, serves a draft, serves another version, or answers without a header of `public/_headers`
+- **THEN** the check names it and fails
+- *Verifies:* `live.test.ts: the same chapters at the same versions pass`,
+  `live.test.ts: a chapter missing, extra, at another version or not loading is named`,
+  `live.test.ts: a draft chapter live is a failure whatever the build holds`,
+  `live.test.ts: a response header missing or different from the headers file is named`,
+  `live.test.ts: the files a built page loads are read from its HTML, remote and data: URLs left out`
+
 ### Requirement: Stories stay out of the repository, and drafts out of the build
 
 Story text, images and scene files SHALL live in a gitignored `stories/`
@@ -177,6 +219,14 @@ record.
 - **THEN** chapter sources resolve inside that folder, and without it inside
   the series folder
 - *Verifies:* `series.test.ts: a sourceRoot may be relative to the series folder, absolute, or under the home folder`
+
+#### Scenario: The 3D draft's preview is a public URL too
+- **WHEN** the built library holds a chapter marked `draft` and the 3D draft's
+  data is prepared
+- **THEN** the preparation stops before copying anything and names the chapter;
+  the draft's own `npm run deploy` rebuilds the stories with `STORIES_PUBLISH=1` first
+- *Verifies:* `draft3d-guard.test.ts: a built library holding a draft chapter is refused, naming it`,
+  `draft3d-guard.test.ts: a built library of published chapters is prepared`
 
 ### Requirement: A public deploy publishes only what the author's repository publishes
 
@@ -255,6 +305,44 @@ a browser.
   `progression.test.ts: a save from before versions existed is checked by its passages`,
   `progression.test.ts: a new save records the chapter's version`
 
+### Requirement: A shared link shows what it leads to
+
+A chat app that previews a link reads the HTML at its URL and runs no script,
+and a chapter's address in the reader is a fragment that never reaches a
+server. The build SHALL therefore write a static page per series and per
+published chapter under `leer/<series>/[<chapter>/]`, carrying Open Graph and
+Twitter tags with absolute URLs — the chapter's own title and number, the
+series, its author (the first credit), and the JPEG or PNG the chapter opens
+on (the series' title picture for the series, or for a chapter without
+scenes) with its pixel size — and sending a person straight on to the reader
+without a script, which the site's policy forbids inline. A draft chapter
+SHALL never get a page. When the site holds one series, its own page SHALL
+carry that series' tags. No description is written about the story's content:
+only its names, or the series' own tagline. The end of a chapter offers to
+share the chapter's page.
+
+#### Scenario: A series' preview
+- **WHEN** a series' page is written
+- **THEN** it names the series, its author and how many chapters are published, with the title picture
+- *Verifies:* `share-pages.test.ts: a series is previewed with its title, its author, its published chapters and its title picture`
+
+#### Scenario: A chapter's preview
+- **WHEN** a published chapter's page is written
+- **THEN** it carries the chapter's title, its number, the author and the picture it opens on, falling back to the series' picture
+- *Verifies:* `share-pages.test.ts: a chapter is previewed with its own title, its number, the author and the picture it opens on`
+
+#### Scenario: The page itself
+- **WHEN** a chat app or a person opens a share page
+- **THEN** the tags are absolute and escaped, there is no script, and a refresh and a link lead to the reader
+- *Verifies:* `share-pages.test.ts: the page a chat app reads carries absolute Open Graph tags, escaped, and sends a person on to the reader without a script`,
+  `share-pages.test.ts: a page without a picture is a plain summary card`,
+  `share-pages.test.ts: a picture's size is read from a PNG or JPEG header`
+
+#### Scenario: The site's own page
+- **WHEN** the build finishes
+- **THEN** the site's page carries the tags once
+- *Verifies:* `share-pages.test.ts: the site's own page gets the tags once, before the end of its head`
+
 ### Requirement: Every new passage is announced
 
 When a passage is shown, focus SHALL move to it and a polite live region SHALL
@@ -268,6 +356,71 @@ start on the new text rather than on a control of the previous page.
   `arrive.test.ts: a polite live region reads the passage's opening`,
   `arrive.test.ts: a long passage is announced by its opening only`,
   `arrive.test.ts: the live region is one, and survives redrawing the page`
+
+### Requirement: The story is set like a book, and anyone can read and operate it
+
+The reader SHALL change how the story looks and never what it says: the
+passages, their order and the chapter versions are the author's.
+
+- **Type.** Text is set in a self-hosted reading face with a display face for
+  headings (no font is fetched from another origin), in a column no wider
+  than a comfortable line, with a spacer after each top-level line break of
+  the passage so paragraphs and lines of dialogue are told apart.
+- **Colour.** A text colour the story sets inline that falls under WCAG AA
+  (4.5:1) against what is painted behind it SHALL be moved along its own hue
+  just far enough to reach it; a colour that already reads is left exactly as
+  set. A translucent background counts as the colour it makes over what is
+  under it.
+- **Front matter.** The title screen names the author (the first credit)
+  under the title; the chapter index lists each chapter with its number, its
+  title, the picture it opens on and where the reader is in it; the credits
+  page shows the author first and largest.
+- **Operation.** Every control has an accessible name and a visible focus
+  ring; the settings and status sheets are modal dialogs that keep focus
+  inside, close on Escape or on a click around the sheet, and give focus back,
+  to the opener's new copy when a setting redrew the page; while restart asks
+  for its second tap, the question is the button's name and the live region
+  reads it; a chapter page has one main region; animations stop when the system asks for
+  reduced motion.
+
+#### Scenario: Text colours
+- **WHEN** the story colours text too dark for the page, or dark enough already, or on a light sheet
+- **THEN** only the first is changed, to AA, keeping its hue
+- *Verifies:* `contrast.test.ts: the contrast ratio follows WCAG`,
+  `contrast.test.ts: a colour too dark for a dark page is lightened to AA along its own hue`,
+  `contrast.test.ts: a colour that already reads is left exactly as the story set it`,
+  `contrast.test.ts: a colour too light for a light page is darkened instead`,
+  `contrast.test.ts: computed colours are read, transparent ones ignored`,
+  `contrast.test.ts: on the page, only inline colours under AA change, against the background behind them`,
+  `contrast.test.ts: a translucent background is seen over what is under it, not as an opaque colour`,
+  `contrast.test.ts: navy inside a faintly tinted link on the dark page is lightened to AA against what is really behind it`
+
+#### Scenario: Paragraph rhythm
+- **WHEN** a passage is shown
+- **THEN** each top-level line break is followed by one spacer, breaks inside the author's own components are left alone, and the text is unchanged
+- *Verifies:* `book.test.ts: every line break of the passage gets one spacer after it, and the text stays as it was`
+
+#### Scenario: Chapter numbers
+- **WHEN** the index or the title names a chapter
+- **THEN** it is numbered in roman numerals
+- *Verifies:* `book.test.ts: chapters are numbered as a book numbers them`
+
+#### Scenario: Controls
+- **WHEN** the toolbar is shown
+- **THEN** every control has a name and the sound switch says whether it is pressed
+- *Verifies:* `book.test.ts: every control of the toolbar has a name, and the sound switch says whether it is pressed`
+
+#### Scenario: Restart asks again
+- **WHEN** restart is tapped once
+- **THEN** its visible question becomes its name, the live region reads it, and after 4 s it rests with its name back
+- *Verifies:* `book.test.ts: an armed restart is named by its question, which the live region reads, and rests again after 4 s`
+
+#### Scenario: Sheets
+- **WHEN** the settings or the status sheet is opened and closed
+- **THEN** it opens as a modal dialog, and closing it removes it and returns focus to what opened it
+- *Verifies:* `book.test.ts: a sheet opens as a modal dialog, and closing it removes it and gives focus back`,
+  `book.test.ts: a click on the dimmed page around the sheet closes the dialog; a click inside does not`,
+  `book.test.ts: closing a sheet after a setting redrew the page gives focus to the new copy of its opener`
 
 ### Requirement: The site is served with restrictive headers
 

@@ -1,13 +1,15 @@
 /** The reader's HTML: toolbar, page layouts and end-of-chapter panels, from the data they show. */
 
-import type { SeriesEntry } from "../contract.ts";
+import type { ImageSet, SeriesEntry } from "../contract.ts";
 import { summarize, type ChapterDiscoveries, type Found } from "../engine/discoveries.ts";
 import type { ConditionState } from "../engine/game.ts";
 import type { Action } from "../engine/runtime.ts";
 import type { Scene, ShownHotspot } from "../engine/scenes.ts";
 import { esc, shortTitle } from "./dom.ts";
 import { statusButton } from "./hud.ts";
+import { picture } from "./picture.ts";
 import { choicesOf, type Progress } from "./progression.ts";
+import { ICONS } from "./icons.ts";
 
 export interface ToolbarState {
   series: SeriesEntry;
@@ -21,17 +23,25 @@ export interface ToolbarState {
 }
 
 export function toolbar(t: ToolbarState): string {
-  const mode = t.gameMode === undefined ? "" : `<button class="tool" data-tool="mode">${t.gameMode ? "📖 Texto" : "🎮 Juego"}</button>`;
-  return `<nav class="toolbar">
-    <a class="tool" href="#/capitulos/${t.series.id}">← Capítulos</a>
+  const mode =
+    t.gameMode === undefined
+      ? ""
+      : `<button class="tool" data-tool="mode" aria-label="${t.gameMode ? "Leer solo el texto" : "Ver las escenas"}">${t.gameMode ? ICONS.text : ICONS.scene}<span class="tool-label">${t.gameMode ? "Texto" : "Escenas"}</span></button>`;
+  return `<nav class="toolbar" aria-label="Capítulo">
+    <a class="tool" href="#/capitulos/${t.series.id}" aria-label="Índice de capítulos">${ICONS.back}<span class="tool-label">Capítulos</span></a>
     <span class="tool-title">${esc(shortTitle(t.title))}</span>
     ${statusButton(t.condition, t.items)}
     ${mode}
-    <button class="tool" data-tool="mute" aria-label="Sonido">${t.muted ? "🔇" : "🔊"}</button>
-    <button class="tool" data-tool="settings" aria-label="Ajustes">⚙</button>
-    <button class="tool" data-tool="undo" ${t.canUndo ? "" : "disabled"}>↶ Atrás</button>
-    <button class="tool" data-tool="restart">⟲ Reiniciar</button>
+    ${muteButton(t.muted)}
+    <button class="tool" data-tool="settings" aria-label="Ajustes">${ICONS.settings}</button>
+    <button class="tool" data-tool="undo" aria-label="Volver atrás" ${t.canUndo ? "" : "disabled"}>${ICONS.undo}<span class="tool-label">Atrás</span></button>
+    <button class="tool" data-tool="restart" aria-label="Reiniciar el capítulo">${ICONS.restart}<span class="tool-label">Reiniciar</span></button>
   </nav>`;
+}
+
+/** The sound switch: pressed while the sound is off. */
+export function muteButton(muted: boolean): string {
+  return `<button class="tool" data-tool="mute" aria-label="Silenciar el sonido" aria-pressed="${muted}">${muted ? ICONS.muted : ICONS.sound}</button>`;
 }
 
 export function passageHtml(tags: string[], html: string): string {
@@ -40,16 +50,19 @@ export function passageHtml(tags: string[], html: string): string {
 }
 
 export function textPage(bar: string, passage: string, footer: string): string {
-  return `<div class="reader">${bar}${passage}${footer}</div>`;
+  return `<div class="reader">${bar}<main class="page">${passage}${footer}</main></div>`;
 }
 
 export function documentPage(bar: string, title: string, passage: string, footer: string): string {
   return `<div class="reader doc-reader">${bar}
-    <div class="doc-overlay"><div class="doc-sheet"><h2 class="doc-title">${esc(title)}</h2>${passage}${footer}</div></div></div>`;
+    <main class="doc-overlay"><div class="doc-sheet"><h2 class="doc-title">${esc(title)}</h2>${passage}${footer}</div></main></div>`;
 }
 
+/** How wide the scene is shown: the whole screen on a phone, its column beside the text on a wide one. */
+const STAGE_SIZES = "(max-width: 900px) 100vw, 63vw";
+
 /** The picture and its clickable areas. `seen` dims areas leading only to places already visited. */
-export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], seen: Set<string>): string {
+export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], seen: Set<string>, images: Record<string, ImageSet> = {}): string {
   const targetOf = (i: number) => (actions[i] as { target: string }).target;
   const spots = shown
     .map(({ hotspot, actions: mine, view }, n) => {
@@ -75,7 +88,7 @@ export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], se
     })
     .join("");
   const [aw, ah] = scene.aspect;
-  return `<div class="stage" style="--ar:${aw / ah}"><img src="${esc(scene.image)}" alt="" draggable="false">${spots}</div>`;
+  return `<div class="stage" style="--ar:${aw / ah}">${picture(images, scene.image, `alt="" draggable="false" fetchpriority="high"`, STAGE_SIZES)}${spots}</div>`;
 }
 
 /** The scene with its clickable areas beside the text. */
@@ -87,10 +100,11 @@ export function scenePage(
   seen: Set<string>,
   passage: string,
   footer: string,
+  images: Record<string, ImageSet> = {},
 ): string {
   return `<div class="reader game">${bar}
     <div class="game-layout">
-      <div class="stage-wrap">${stage(scene, shown, actions, seen)}</div>
+      <div class="stage-wrap">${stage(scene, shown, actions, seen, images)}</div>
       <section class="panel">${passage}${footer}</section>
     </div></div>`;
 }
@@ -143,10 +157,12 @@ export interface EndState {
 }
 
 export function endPanel(e: EndState): string {
-  const code = e.progress.code ? `<p>Tu código: <b>${esc(e.progress.code)}</b>. Se guardará para el siguiente capítulo.</p>` : "";
+  const code = e.progress.code
+    ? `<p class="end-code"><span class="end-code-label">Tu código</span><b>${esc(e.progress.code)}</b><span class="end-code-note">Se guardará para el siguiente capítulo.</span></p>`
+    : "";
   const next = e.nextChapter ? `<a class="button" href="#/${e.series.id}/${e.nextChapter}">Siguiente capítulo →</a>` : "";
   return `<footer class="end-panel">${code}${e.discoveries ? yourPath(e.discoveries, e.found, e.progress) : ""}
-    <div class="end-actions"><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div></footer>`;
+    <div class="end-actions"><button class="button secondary" data-tool="share">Compartir</button><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div></footer>`;
 }
 
 export function unwrittenPanel(): string {
@@ -156,6 +172,6 @@ export function unwrittenPanel(): string {
 
 export function paceHint(): string {
   return `<div class="pace-hint" role="status">
-    <button class="pace-next" data-pace="next">▼ Toca para continuar</button>
+    <button class="pace-next" data-pace="next"><span aria-hidden="true">▾</span> Continuar</button>
     <button class="pace-all" data-pace="all">Mostrar todo</button></div>`;
 }

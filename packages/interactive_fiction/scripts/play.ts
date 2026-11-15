@@ -1,11 +1,14 @@
 /**
  * Plays every built chapter end to end in a real (headless) Chrome, the way a
- * reader would: for each chapter the explorer's shortest path to an ending is
- * clicked through — hotspot or link alike, by its choice label — typing any
- * code the chapter asks for. Fails on a choice that cannot be found, a chapter
- * that does not reach its end panel, or any console error.
+ * reader would: the explorer's shortest path to each ending of a published
+ * chapter — every end code, or every ending passage — is clicked through,
+ * hotspot or link alike, by its choice label, typing any code the chapter asks
+ * for. A draft is played to its first ending only. Fails on a choice that
+ * cannot be found, a path that does not reach its end panel, any console
+ * error, or a build with nothing to play.
  *
  *   npm run play          builds (drafts included, local only) and plays
+ *   node scripts/play.ts  plays the dist/ already built (what `npm run verify` does)
  *
  * Needs Google Chrome; set CHROME_PATH if it is not in the usual place.
  */
@@ -85,6 +88,7 @@ async function main(): Promise<number> {
     stdio: "ignore",
   });
   let failures = 0;
+  let played = 0;
   try {
     await waitFor(BASE, "vite preview");
     await withChrome(CDP_PORT, async (c) => {
@@ -94,21 +98,31 @@ async function main(): Promise<number> {
         for (const [i, ch] of series.chapters.entries()) {
           const d = data[i].discoveries;
           const report = reports[i];
-          const ending = d?.endings[0];
-          const path = !ending ? undefined : d!.kind === "codes" ? report.endPaths[ending] : report.deadEndPaths[ending];
-          if (!path) {
-            console.log(`· ${series.id}/${ch.id}: no ending to play to`);
+          const endings = (ch.draft ? d?.endings.slice(0, 1) : d?.endings) ?? [];
+          if (!endings.length) {
+            console.log(`${ch.draft ? "·" : "✗"} ${series.id}/${ch.id}: no ending to play to`);
+            if (!ch.draft) failures++;
             continue;
           }
-          const before = c.errors.length;
-          const problem = (await playChapter(c, series, ch.id, path)) ?? (c.errors.length > before ? `console: ${c.errors.slice(before).join(" / ")}` : null);
-          console.log(`${problem ? "✗" : "✓"} ${series.id}/${ch.id} → ${ending} in ${path.length} clicks${problem ? ` — ${problem}` : ""}`);
-          if (problem) failures++;
+          for (const ending of endings) {
+            const path = d!.kind === "codes" ? report.endPaths[ending] : report.deadEndPaths[ending];
+            const before = c.errors.length;
+            const problem = !path
+              ? "the explorer found no path to it"
+              : ((await playChapter(c, series, ch.id, path)) ?? (c.errors.length > before ? `console: ${c.errors.slice(before).join(" / ")}` : null));
+            console.log(`${problem ? "✗" : "✓"} ${series.id}/${ch.id} → ${ending}${path ? ` in ${path.length} clicks` : ""}${problem ? ` — ${problem}` : ""}`);
+            if (problem) failures++;
+            else played++;
+          }
         }
       }
     });
   } finally {
     web.kill();
+  }
+  if (!failures && !played) {
+    console.error("✗ nothing was played: the build holds no chapter");
+    return 1;
   }
   return failures ? 1 : 0;
 }

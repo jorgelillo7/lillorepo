@@ -1,0 +1,804 @@
+/*
+ * The book: type, measure and rhythm for reading, and the pages around the
+ * story (cover, index, credits) set like the front matter of a printed one.
+ * Loaded last, so it refines every sheet before it; the story's own
+ * stylesheet still loads after and keeps its components.
+ */
+/* The Latin subsets, self-hosted (SIL Open Font License, texts in src/app/fonts/). */
+@font-face {
+  font-family: "Literata";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/literata-latin-wght-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Literata";
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("../fonts/literata-latin-wght-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/cormorant-garamond-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Literata Fallback";
+  src: local("Georgia");
+  size-adjust: 97%;
+  ascent-override: 108%;
+  descent-override: 28%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Cormorant Fallback";
+  src: local("Times New Roman"), local("Times");
+  size-adjust: 92%;
+  ascent-override: 100%;
+  descent-override: 31%;
+  line-gap-override: 0%;
+}
+:root {
+  --font-read: "Literata", "Literata Fallback", Georgia, serif;
+  --font-display: "Cormorant Garamond", "Cormorant Fallback", "Times New Roman", serif;
+  --bone: #e9e2c9;
+  --ink: #e6e1d3;
+  --muted: #a39e8f;
+  --line: #2c2a25;
+  --accent: #c8a96a;
+  --measure: 36rem;
+}
+body {
+  font-family: var(--font-read);
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One visible focus ring everywhere a key can land. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.title-button:focus-visible,
+.hotspot:focus-visible,
+.hotspot-option:focus-visible,
+.item:focus-visible,
+tw-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+tw-passage:focus-visible {
+  outline: none;
+}
+
+/* ---- Reading ---------------------------------------------------------- */
+
+.reader tw-story {
+  font-family: var(--font-read);
+  font-size: clamp(1.06rem, 0.98rem + 0.42vw, 1.3rem);
+  line-height: 1.72;
+  color: var(--ink);
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  hanging-punctuation: first;
+}
+/* A column a line can be read across: the story's sheet asks for the whole window. */
+.reader:not(.game):not(.doc-reader) tw-story tw-passage[tags],
+.reader:not(.game):not(.doc-reader) tw-story tw-passage {
+  width: auto !important;
+  max-width: var(--measure) !important;
+  margin: 0 auto !important;
+  padding: 2.5rem 20px 3rem !important;
+  box-sizing: border-box !important;
+}
+.reader tw-story tw-passage {
+  text-wrap: pretty;
+  hyphenate-limit-chars: 7 3 3;
+}
+/* A narrow column justified opens rivers: there the lines keep their natural spacing. */
+@media (max-width: 600px) {
+  .reader tw-story tw-passage[tags] {
+    text-align: start !important;
+    hyphens: manual;
+    -webkit-hyphens: manual;
+  }
+}
+.reader.game .panel tw-story tw-passage[tags] {
+  text-align: start !important;
+  hyphens: manual;
+  -webkit-hyphens: manual;
+}
+.reader.game .panel tw-story {
+  font-size: clamp(1rem, 0.95rem + 0.2vw, 1.12rem);
+  line-height: 1.68;
+}
+/* Each line of the source is a paragraph or a line of dialogue: a little air between them. */
+.par-gap {
+  display: block;
+  height: 0.62em;
+}
+/* The blank lines the source leaves round a heading add nothing to the heading's own margins. */
+.titulo ~ .par-gap:nth-of-type(-n + 3) {
+  display: none;
+}
+/* The chapter's heading, as a book opens a chapter. */
+.reader tw-story tw-passage[tags] .titulo,
+.reader tw-story tw-passage .titulo {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.75rem, 1.3rem + 2vw, 2.7rem);
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+  text-wrap: balance;
+  hyphens: none;
+  color: var(--bone);
+  margin: 1.5rem 0 0.4rem;
+  padding-bottom: 1.6rem;
+  background: linear-gradient(to right, transparent, var(--accent), transparent) bottom center / 7rem 1px no-repeat;
+}
+tw-passage {
+  animation: tw-appear 0.45s ease-out;
+}
+@keyframes tw-appear {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.stage img {
+  animation: stage-in 0.5s ease-out, stage-flicker 7s 0.5s infinite;
+}
+@keyframes stage-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Beside the text on a wide screen, the picture sits in the middle of the window's height, not at its top. */
+@media (min-width: 901px) {
+  .stage-wrap {
+    min-height: calc(100dvh - var(--bar-h, 51px));
+    align-items: center;
+  }
+}
+
+/* ---- Choices ---------------------------------------------------------- */
+
+.reader tw-link,
+.game .panel tw-link {
+  display: inline-block;
+  margin: 0.28rem 0;
+  padding: 0.5em 1em 0.5em 0.85em;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-family: var(--font-read);
+  font-weight: 500;
+  font-size: 0.95em;
+  line-height: 1.35;
+  text-align: start;
+  hyphens: none;
+  color: var(--bone);
+  background: rgba(200, 169, 106, 0.05);
+  border: 1px solid rgba(200, 169, 106, 0.42);
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
+  transition: background-color 0.18s, border-color 0.18s, color 0.18s, transform 0.18s;
+}
+.reader tw-link:hover,
+.reader tw-link:focus-visible {
+  color: #fff;
+  background: rgba(200, 169, 106, 0.16);
+  border-color: var(--accent);
+}
+.reader tw-link:active {
+  transform: translateY(1px);
+}
+/* A link inside a document keeps the document's own look. */
+.reader .pagina-libro tw-link,
+.reader .nav-libro tw-link {
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-decoration: underline;
+}
+.tw-input {
+  font-family: var(--font-read);
+  letter-spacing: 0.12em;
+  min-height: 44px;
+  box-sizing: border-box;
+  border-color: rgba(200, 169, 106, 0.5);
+  background: #0b0a08;
+  color: var(--bone);
+}
+.hotspot-label,
+.hotspot-option {
+  font-family: var(--font-read);
+}
+.hotspot-option {
+  min-height: 44px;
+  color: var(--bone);
+}
+.pace-hint button {
+  font-family: var(--font-read);
+  min-height: 44px;
+  padding: 0 0.8rem;
+}
+.pace-all {
+  color: var(--muted) !important;
+}
+
+/* ---- Toolbar ---------------------------------------------------------- */
+
+.toolbar {
+  gap: 0.15rem;
+  padding: 0.3rem 10px;
+  padding-top: calc(0.3rem + env(safe-area-inset-top));
+  background: rgba(0, 0, 0, 0.92);
+  font-family: var(--font-read);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+.tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
+  padding: 0 0.55rem;
+  color: var(--muted);
+  border-radius: 3px;
+  transition: color 0.15s, background-color 0.15s;
+}
+.tool:hover:not(:disabled) {
+  color: var(--bone);
+  background: rgba(233, 226, 201, 0.07);
+}
+.tool[aria-pressed="true"] {
+  color: var(--accent);
+}
+.tool.armed {
+  color: #ffb3b3;
+}
+.icon {
+  flex: none;
+}
+.tool-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--bone);
+}
+.status-button {
+  font-family: var(--font-read);
+}
+@media (max-width: 700px) {
+  .tool-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .tool.armed {
+    font-size: 0.72rem;
+  }
+  .toolbar {
+    justify-content: space-between;
+  }
+  .tool-title {
+    display: none;
+  }
+}
+
+/* ---- Buttons and links around the story -------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0.5rem 1.2rem;
+  font-family: var(--font-read);
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  color: #0b0a08;
+  background: var(--bone);
+  border: 1px solid var(--bone);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s, border-color 0.18s;
+}
+.button:hover {
+  background: #fff;
+  border-color: #fff;
+}
+.button.secondary {
+  color: var(--bone);
+  background: transparent;
+  border-color: rgba(233, 226, 201, 0.35);
+}
+.button.secondary:hover {
+  background: rgba(233, 226, 201, 0.08);
+  border-color: var(--bone);
+}
+.text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.18s;
+}
+.text-link:hover {
+  color: var(--bone);
+}
+.kicker {
+  margin: 0 0 0.9rem;
+  font: 500 0.74rem var(--font-read);
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.byline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.9rem 0 0;
+}
+.byline-role {
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.byline-name {
+  font: 500 clamp(1.35rem, 1.1rem + 1vw, 1.7rem) var(--font-display);
+  letter-spacing: 0.06em;
+  color: var(--bone);
+}
+
+/* ---- Front matter: index, credits, achievements ------------------------ */
+
+.library {
+  max-width: 44rem;
+  padding: clamp(2.5rem, 8vh, 5rem) 20px 4rem;
+  color: var(--ink);
+}
+.book-head {
+  text-align: center;
+  margin-bottom: clamp(2rem, 6vh, 3.5rem);
+  padding-bottom: 2rem;
+  background: linear-gradient(to right, transparent, var(--accent), transparent) bottom center / 9rem 1px no-repeat;
+}
+.library h1 {
+  margin: 0;
+  font: 500 clamp(2.4rem, 1.6rem + 4.4vw, 4rem) / 1.05 var(--font-display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bone);
+  text-wrap: balance;
+}
+.library h1:focus {
+  outline: none;
+}
+.chapters {
+  display: grid;
+  gap: 1.1rem;
+}
+.chapter {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+.chapter-link {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 34%) 1fr;
+  align-items: stretch;
+  color: inherit;
+  text-decoration: none;
+  background: #0a0908;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.2s;
+}
+.chapter-link:hover,
+.chapter-link:focus-visible {
+  border-color: rgba(200, 169, 106, 0.7);
+  background: #100e0b;
+}
+.chapter-art {
+  position: relative;
+  display: block;
+  min-height: 7.5rem;
+  background: #050505;
+  overflow: hidden;
+}
+.chapter-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.75) brightness(0.85);
+  transition: filter 0.3s, transform 0.6s;
+}
+.chapter-link:hover .chapter-cover,
+.chapter-link:focus-visible .chapter-cover {
+  filter: none;
+  transform: scale(1.03);
+}
+.chapter[data-state="new"] .chapter-cover {
+  filter: saturate(0.35) brightness(0.6);
+}
+.chapter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 1.1rem 1.25rem 1rem;
+}
+.chapter-num {
+  width: auto;
+  height: auto;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.chapter-title {
+  font: 500 clamp(1.4rem, 1.15rem + 1.2vw, 1.85rem) / 1.15 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--bone);
+  text-wrap: balance;
+}
+.chapter-status {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.chapter-status b {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--bone);
+}
+.chapter-cta {
+  margin-top: auto;
+  padding-top: 0.7rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone);
+}
+.badge {
+  color: #e5e619;
+  letter-spacing: 0.08em;
+}
+.book-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem 1.4rem;
+  margin-top: 2.2rem;
+}
+.note {
+  margin-top: 1.2rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Credits: the author first, as large as the title allows. */
+.author {
+  text-align: center;
+  margin: 0 0 2.6rem;
+}
+.author-role {
+  margin: 0 0 0.6rem;
+  font-size: 0.76rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.about .author-name {
+  margin: 0 0 1.1rem;
+  font: 500 clamp(2.1rem, 1.5rem + 3.4vw, 3.4rem) / 1.1 var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--bone);
+  text-wrap: balance;
+}
+.credit-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0;
+}
+.credit-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--bone);
+  border: 1px solid rgba(233, 226, 201, 0.3);
+  border-radius: 2px;
+  transition: border-color 0.18s, background-color 0.18s;
+}
+.credit-links a:hover {
+  border-color: var(--accent);
+  background: rgba(200, 169, 106, 0.1);
+}
+.credits {
+  margin: 0 0 2.6rem;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+.credit {
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1.5rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  text-align: center;
+}
+.credit-role {
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.credit-name {
+  font: 500 1.45rem var(--font-display);
+  letter-spacing: 0.04em;
+  color: var(--bone);
+  margin-bottom: 0.5rem;
+}
+.made {
+  max-width: 34rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.about .made .kicker {
+  font: 500 0.74rem var(--font-read);
+  letter-spacing: 0.34em;
+  color: var(--accent);
+}
+.about .made p {
+  margin: 0 0 1rem;
+  line-height: 1.75;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.colophon {
+  max-width: 30rem;
+  margin: 2rem auto 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.your-path h3,
+.achievements h3,
+.ending,
+.doc-title,
+.item,
+.chip,
+.status-sheet {
+  font-family: var(--font-read);
+}
+.ach-chapter p {
+  color: var(--ink);
+}
+.ach {
+  color: #8a8577;
+}
+.ending {
+  color: #8a8577;
+  border-color: #4a463c;
+}
+
+/* ---- Cover ------------------------------------------------------------- */
+
+.title-content {
+  width: min(32rem, 100%);
+  padding: 0 20px calc(2.2rem + env(safe-area-inset-bottom));
+}
+.title-content .kicker {
+  margin-bottom: 0.7rem;
+  text-shadow: 0 0 12px #000;
+}
+.title-name {
+  font: 500 clamp(3rem, 1.6rem + 9.5vw, 5.6rem) / 1 var(--font-display);
+  letter-spacing: 0.2em;
+  /* The tracking after the last letter would push the name off centre. */
+  margin: 0 -0.2em 0 0;
+  color: var(--bone);
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.95);
+}
+.title-content .byline {
+  margin-top: 1.1rem;
+  text-shadow: 0 0 14px #000;
+}
+.title-tagline {
+  margin: 1.2rem 0 0;
+}
+.title-menu {
+  gap: 0;
+  margin: 1.8rem 0 1.6rem;
+}
+.title-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.2rem 0.6rem;
+  font: 500 0.92rem var(--font-read);
+  letter-spacing: 0.3em;
+  /* Centre the letters, not the letters plus the tracking after the last one. */
+  text-indent: 0.3em;
+  color: #c9c2ad;
+  transition: color 0.2s, letter-spacing 0.3s;
+}
+.title-button:hover,
+.title-button:focus-visible {
+  color: #fff;
+  letter-spacing: 0.36em;
+  text-shadow: 0 0 14px rgba(233, 226, 201, 0.45);
+}
+.title-button.primary {
+  margin-bottom: 0.5rem;
+  padding: 0.7rem 1.4rem;
+  align-self: center;
+  min-width: min(17rem, 100%);
+  box-sizing: border-box;
+  font-size: 1rem;
+  color: #0b0a08;
+  background: var(--bone);
+  border-radius: 2px;
+  text-shadow: none;
+}
+.title-button.primary:hover,
+.title-button.primary:focus-visible {
+  color: #000;
+  background: #fff;
+  text-shadow: none;
+}
+.title-button-note {
+  margin-top: 0.25rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-indent: 0;
+  text-transform: none;
+  opacity: 0.75;
+}
+.title-warning {
+  max-width: 26rem;
+  margin: 0 auto;
+  font-size: 0.78rem;
+  color: #a39e8f;
+  text-wrap: pretty;
+}
+.title-credits {
+  margin-top: 1rem;
+  padding: 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: #a39e8f;
+}
+
+/* ---- End of a chapter --------------------------------------------------- */
+
+.end-panel {
+  max-width: var(--measure);
+  padding: 2rem 20px;
+  border-top: 0;
+  background: linear-gradient(to right, transparent, var(--accent), transparent) top center / 7rem 1px no-repeat;
+}
+.end-code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 1.6rem;
+}
+.end-code-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.end-code b {
+  padding: 0.35rem 1.2rem;
+  font: 500 1.7rem var(--font-display);
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: var(--bone);
+  border: 1px solid rgba(200, 169, 106, 0.6);
+}
+.end-code-note {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* ---- Dialogs -------------------------------------------------------------- */
+
+dialog.status-overlay {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  box-sizing: border-box;
+  color: inherit;
+  overscroll-behavior: contain;
+}
+dialog.status-overlay:not([open]) {
+  display: none;
+}
+dialog.status-overlay::backdrop {
+  background: transparent;
+}
+.status-sheet h2 {
+  margin: 0 0 1rem;
+  font: 500 1.5rem var(--font-display);
+  letter-spacing: 0.12em;
+  color: var(--bone);
+}
+.chip {
+  min-height: 40px;
+  padding: 0.3rem 0.8rem;
+}
+
+/* ---- Less motion ------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  tw-passage,
+  .stage img,
+  .hotspot::after,
+  .ecg .ecg-pulse,
+  .pace-next {
+    animation: none !important;
+  }
+  .chapter-link,
+  .chapter-cover,
+  .title-button,
+  .button,
+  tw-link,
+  .tool {
+    transition: none !important;
+  }
+  .chapter-link:hover .chapter-cover,
+  .chapter-link:focus-visible .chapter-cover {
+    transform: none;
+  }
+}
+:root[data-effects="off"] .stage img,
+:root[data-effects="off"] .hotspot::after {
+  animation: none;
+}

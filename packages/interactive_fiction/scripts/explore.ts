@@ -3,17 +3,27 @@
  * unreachable passages, dead ends, end codes, runtime errors, and whether each
  * end code of a chapter is accepted by the next one.
  *
- *   node scripts/explore.ts [series]
+ *   node scripts/explore.ts [series] [--strict]
+ *
+ * With `--strict` it exits non-zero when a published chapter has something to fix before it ships
+ * (`shipProblems`, or a code of the previous chapter it rejects), or when there is no chapter to
+ * check at all. A draft is reported and never fails: it is unfinished by definition.
  */
 
-import { explore, exploreSeries, WRONG_CODE } from "../src/engine/explore.ts";
+import { exploreSeries, rejectedCodes, shipProblems } from "../src/engine/explore.ts";
 import { loadSeries, seriesIds } from "./series.ts";
 
 function section(title: string, lines: string[]): void {
   if (lines.length) console.log(`  ${title}:\n${lines.map((l) => `    - ${l}`).join("\n")}`);
 }
 
-for (const id of process.argv[2] ? [process.argv[2]] : seriesIds()) {
+const args = process.argv.slice(2);
+const strict = args.includes("--strict");
+const only = args.find((a) => !a.startsWith("--"));
+const failures: string[] = [];
+let checked = 0;
+
+for (const id of only ? [only] : seriesIds()) {
   const series = loadSeries(id);
   const carry = series.manifest.carry;
   console.log(`\n# ${series.manifest.title}`);
@@ -40,12 +50,13 @@ for (const id of process.argv[2] ? [process.argv[2]] : seriesIds()) {
       Object.entries(report.errors).map(([p, m]) => `${p}: ${m}`),
     );
 
+    const rejected = carry && previous.length ? rejectedCodes(story, carry, previous) : [];
+    if (!entry.draft) {
+      checked++;
+      const problems = [...shipProblems(report), ...rejected.map((code) => `code ${code} from the previous chapter is treated like a wrong code`)];
+      failures.push(...problems.map((p) => `${id}/${entry.id}: ${p}`));
+    }
     if (carry && previous.length) {
-      // A code the chapter accepts lets the reader reach more than a wrong code does.
-      const reach = (code: string) =>
-        explore(story, { endVar: carry.from, inputs: { [carry.to]: [code] } }).reached.length;
-      const wrong = reach(WRONG_CODE);
-      const rejected = previous.filter((code) => reach(code) <= wrong);
       section(
         `Codes from chapter ${series.manifest.chapters[i - 1].id} treated like a wrong code`,
         rejected,
@@ -53,4 +64,14 @@ for (const id of process.argv[2] ? [process.argv[2]] : seriesIds()) {
       if (!rejected.length) console.log(`  Every code from chapter ${series.manifest.chapters[i - 1].id} is accepted.`);
     }
   });
+}
+
+if (strict) {
+  if (!checked) failures.push("no published chapter to check");
+  for (const f of failures) console.log(`✗ ${f}`);
+  if (failures.length) {
+    console.error(`\n${failures.length} thing(s) to fix before shipping.`);
+    process.exit(1);
+  }
+  console.log(`\n✓ ${checked} published chapter(s): nothing to fix before shipping.`);
 }

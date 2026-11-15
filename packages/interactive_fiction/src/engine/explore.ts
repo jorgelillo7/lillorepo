@@ -160,6 +160,30 @@ export function explore(story: Story, options: ExploreOptions = {}): ExploreRepo
   };
 }
 
+/**
+ * What must be fixed before a chapter ships, empty when it may: an exploration cut short, a runtime
+ * error, a passage nobody can reach, no ending at all, or — in a chapter that ends with codes — a
+ * page with nothing to click and no code, which a reader sees as a path not written yet.
+ */
+export function shipProblems(report: ExploreReport): string[] {
+  const problems: string[] = [];
+  if (report.truncated) problems.push(`exploration stopped at ${report.states} states: the results are incomplete`);
+  for (const [passage, message] of Object.entries(report.errors)) problems.push(`runtime error in [${passage}]: ${message}`);
+  for (const passage of report.unreached) problems.push(`[${passage}] is unreachable`);
+  const ends = Object.values(report.deadEnds).reduce((a, b) => a + b, 0);
+  if (!ends) problems.push("no path reaches an ending");
+  const coded = Object.values(report.endCodes).reduce((a, b) => a + b, 0);
+  if (coded && coded < ends) problems.push(`${ends - coded} of ${ends} ways to a page with nothing to click end without a code`);
+  return problems;
+}
+
+/** The previous chapter's end codes this chapter treats like a wrong one: an accepted code lets the reader reach more. */
+export function rejectedCodes(story: Story, carry: Carry, previous: string[]): string[] {
+  const reach = (code: string) => explore(story, { endVar: carry.from, inputs: { [carry.to]: [code] } }).reached.length;
+  const wrong = reach(WRONG_CODE);
+  return previous.filter((code) => reach(code) <= wrong);
+}
+
 /** A code no chapter produces: how a chapter treats a wrong code is the baseline for an accepted one. */
 export const WRONG_CODE = "NO-ES-UN-CODIGO";
 

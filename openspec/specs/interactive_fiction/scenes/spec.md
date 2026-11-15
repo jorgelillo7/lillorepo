@@ -73,6 +73,35 @@ is not a scene of the file, or a hotspot has neither targets nor a view.
   `scenes.test.ts: a hotspot with no area yet is an error, so a drafted scene cannot ship unplaced`,
   `scenes.test.ts: a view must be a scene of the file, and a hotspot needs a target or a view`
 
+### Requirement: Pictures are served in modern formats, with the original as the fallback
+
+The build SHALL encode every published JPEG and PNG of a series as AVIF and
+WebP, at the widths below its own and at its own (never enlarged), beside the
+original, and list them in the library. The reader SHALL show a scene, and any
+picture a passage's own markup shows, as a `<picture>` offering AVIF, then
+WebP, then the original, with the original's pixel size on the image so its
+place is held while it loads; the title screen's background offers the same
+formats. A picture the build did not encode is shown as it is. The author's
+files are never rewritten: the encodings exist only in the build's output.
+
+#### Scenario: Encoding at build
+- **WHEN** a series is built
+- **THEN** each JPEG and PNG has AVIF and WebP files at each width, smaller than the original, and a second build lists the same files
+- *Verifies:* `images.test.ts: a picture is encoded at the widths below its own and at its own, never enlarged`,
+  `images.test.ts: the build writes AVIF and WebP beside each JPEG and PNG, smaller than the original, and lists them`
+
+#### Scenario: Showing a picture
+- **WHEN** a scene, a picture in a passage, or the title background is shown
+- **THEN** the lightest format the browser reads is offered first and the original last
+- *Verifies:* `images.test.ts: a scene is a picture element: AVIF, then WebP, then the original with its pixel size`,
+  `images.test.ts: a background offers the widest AVIF and WebP before the original`,
+  `images.test.ts: a picture in the passage's own markup is wrapped in place, keeping its class and gaining its size`
+
+#### Scenario: A picture without encodings
+- **WHEN** the library lists no encodings for a picture
+- **THEN** it is shown from its original file
+- *Verifies:* `images.test.ts: a picture the build did not encode is shown as it is`
+
 ### Requirement: Planned images are generated from the bible, and every call is paid
 
 `npm run art` SHALL send each planned image to the Gemini API with the prompt

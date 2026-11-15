@@ -171,6 +171,10 @@ cut-outs, the picture it grew from) and its Gemini prompts into his
 npm run deploy           # the draft's own Worker, never the public reader
 ```
 
+The deploy rebuilds the stories as a public deploy does (published chapters
+only, the author's default branch) and `prepare.ts` refuses a built library
+with a draft chapter in it: the preview is a public URL too.
+
 Open it on a phone in landscape too — headless Chrome does not apply Safari's
 text inflation or its bars. Added to the home screen it opens full screen,
 without Safari's bars: that is the way to play it on an iPhone, and the title

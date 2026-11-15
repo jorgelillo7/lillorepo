@@ -13,13 +13,31 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
+from core.web.headers import add_security_headers
 from core.web.logs import use_json_logging
+from core.web.proxy import trust_proxy
 from packages.chucknorris_bot.bot import config, menu
 
 logger = get_logger(__name__)
 
+# The landing runs no script; its one <style> carries the request's nonce.
+CSP = {
+    "default-src": ["'self'"],
+    "script-src": ["'none'"],
+    "style-src": ["'nonce-{nonce}'", "https://fonts.googleapis.com"],
+    "font-src": ["https://fonts.gstatic.com"],
+    "img-src": ["'self'"],
+    "manifest-src": ["'self'"],
+    "object-src": ["'none'"],
+    "base-uri": ["'none'"],
+    "form-action": ["'none'"],
+    "frame-ancestors": ["'none'"],
+}
+
 app = Flask(__name__)
 use_json_logging(app)
+add_security_headers(app, csp=CSP)
+trust_proxy(app)
 
 _CHUCK_API = "https://api.chucknorris.io/jokes/random"
 
