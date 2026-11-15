@@ -11,10 +11,10 @@ import { dirname, join } from "node:path";
 import sharp from "sharp";
 import type { ImageSet } from "../src/contract.ts";
 
-/** Widths offered, in CSS pixels at 1x and 2x of a phone, and the full picture for a desktop. */
-export const WIDTHS = [640, 1024, 1600];
+/** Widths offered: a phone at 1x and 2x, at 3x (390 px × 3 = 1170), and the full picture for a desktop. */
+export const WIDTHS = [640, 1024, 1280, 1600];
 const FORMATS = { avif: { quality: 64, effort: 5 }, webp: { quality: 82, effort: 5 } } as const;
-/** Bump when the widths or the encoder settings change: cached files of the old settings are then ignored. */
+/** Bump when the encoder settings change: cached files of the old settings are then ignored. A width is part of each cached file's name, so a new width needs no bump. */
 const SETTINGS = `v1:${JSON.stringify(FORMATS)}`;
 const CACHE = join(import.meta.dirname, "../node_modules/.cache/if-images");
 const SOURCE = /\.(png|jpe?g)$/i;

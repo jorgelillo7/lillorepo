@@ -79,7 +79,9 @@ export function rounded(p: { x: number; y: number; z: number }): Point {
 /**
  * The `_headers` file of the draft's Worker: files under `worlds/` are named by their content and
  * never change, so a browser keeps them for a year without asking; everything else is checked
- * again on each visit (Cloudflare's default), so a new deploy shows at once.
+ * again on each visit (Cloudflare's default), so a new deploy shows at once. Every file gets a CSP
+ * that forbids framing, plugins, `<base>` and form posts; script and style sources stay open until
+ * the Spark renderer's needs (workers, WASM, blobs) are tested on Cloudflare.
  */
 export function headersFile(): string {
   return [
@@ -87,6 +89,9 @@ export function headersFile(): string {
     "/worlds/*",
     "  Cache-Control: public, max-age=31536000, immutable",
     "/*",
+    "  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+    "  Strict-Transport-Security: max-age=31536000",
+    "  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()",
     "  X-Content-Type-Options: nosniff",
     "  X-Frame-Options: DENY",
     "  Referrer-Policy: same-origin",

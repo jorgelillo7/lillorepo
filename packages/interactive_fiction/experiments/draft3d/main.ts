@@ -99,8 +99,8 @@ interface Loaded {
 }
 /** A world's splats by file, shared by every chapter and every scene that shows its room. */
 const assets = new Map<string, Promise<SplatMesh>>();
-/** How much of each splat file has arrived, 0–1, for whoever is waiting on it. */
-const progress = new Map<string, number>();
+/** How much of each splat file has arrived, 0–1, for whoever is waiting on it; null while its size is unknown. */
+const progress = new Map<string, number | null>();
 const watchers = new Set<() => void>();
 /** A world as one chapter shows it, by "chapter/scene"; `settled` holds those ready to show at once. */
 const loaded = new Map<string, Promise<Loaded>>();
@@ -116,14 +116,20 @@ const calm = matchMedia("(prefers-reduced-motion: reduce)");
 /** The splat file whose download the title's line and the fade's line show, if any. */
 let awaited: string | null = null;
 const loadingLine = $<HTMLElement>("title-loading");
-const loadingText = $<HTMLElement>("title-loading-text");
+const loadingBar = $<HTMLProgressElement>("title-loading-bar");
+const loadingPercent = $<HTMLElement>("title-loading-percent");
 function showProgress(): void {
-  const done = awaited === null ? 1 : (progress.get(awaited) ?? 0);
-  const percent = Math.round(done * 100);
+  const done = awaited === null ? 1 : (progress.get(awaited) ?? null);
+  loadingLine.hidden = awaited === null || done === 1;
+  stage.classList.toggle("loading-unknown", done === null);
+  if (done === null) {
+    loadingBar.removeAttribute("value");
+    loadingPercent.textContent = "";
+    return;
+  }
   stage.style.setProperty("--loaded", String(done));
-  loadingLine.hidden = awaited === null || done >= 1;
-  loadingText.textContent = `Preparando la habitación… ${percent} %`;
-  loadingLine.setAttribute("aria-valuenow", String(percent));
+  loadingBar.value = done;
+  loadingPercent.textContent = `${Math.round(done * 100)} %`;
 }
 watchers.add(showProgress);
 /** Show `world`'s download until `ready` settles. */
@@ -141,7 +147,7 @@ async function waitingOn<T>(world: World, ready: Promise<T>): Promise<T> {
 function loadAssets(world: World): Promise<SplatMesh> {
   let p = assets.get(world.splats);
   if (!p) {
-    progress.set(world.splats, 0);
+    progress.set(world.splats, null);
     p = (async () => {
       const splat = new SplatMesh({
         url: asset(world.splats),

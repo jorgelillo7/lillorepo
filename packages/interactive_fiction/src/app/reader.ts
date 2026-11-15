@@ -11,7 +11,7 @@ import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtim
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { applyVolume, door as doorSound, heartbeat, setAmbience, step, sting } from "./audio.ts";
 import { legibleColours } from "./contrast.ts";
-import { app, armed, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { app, armed, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle, showStatus } from "./dom.ts";
 import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
@@ -228,8 +228,6 @@ function mount(s: Session, html: string): HTMLElement {
   heartbeat(state ? HEART_BPM[state.level] : null);
   trackToolbarHeight(root.querySelector<HTMLElement>(".toolbar"));
   window.scrollTo({ top: 0 });
-  // In a scene the picture and the text share the page's main region.
-  root.querySelector(".game-layout")?.setAttribute("role", "main");
   legibleColours(root);
   arriveAt(root);
   return root;
@@ -342,14 +340,21 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
 async function shareChapter(s: Session, tool: HTMLElement): Promise<void> {
   const url = new URL(`leer/${s.series.id}/${s.chapter.id}/`, document.baseURI).href;
   const title = `${shortTitle(s.rt.story.title)} · ${s.series.title}`;
-  try {
-    if (navigator.share) await navigator.share({ title, url });
-    else {
-      await navigator.clipboard.writeText(url);
-      tool.textContent = "Enlace copiado";
+  const status = tool.closest(".end-panel")?.querySelector<HTMLElement>(".share-status");
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (e) {
+      // The reader closed the share sheet: nothing to report. Any other refusal falls back to copying.
+      if ((e as Error).name === "AbortError") return;
     }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    if (status) showStatus(status, "Enlace copiado");
   } catch {
-    // The reader closed the share sheet, or the browser refused the clipboard: nothing to report.
+    if (status) showStatus(status, "No se ha podido copiar. Este es el enlace:", url);
   }
 }
 

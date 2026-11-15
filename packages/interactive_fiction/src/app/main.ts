@@ -13,31 +13,36 @@ import "./styles/settings.css";
 import "./styles/discoveries.css";
 import "./styles/book.css";
 import { unlock } from "./audio.ts";
-import { app, el } from "./dom.ts";
+import { app, el, focusHeading } from "./dom.ts";
 import { applySettings } from "./settings.ts";
 import { library, loadLibrary, renderAbout, renderLibrary } from "./library.ts";
 import { closeChapter, openChapter } from "./reader.ts";
 import { renderTitle } from "./title.ts";
 import { renderAchievements } from "./achievements.ts";
 
-function route(): void {
+/** Show the page the hash names. A page reached by a link, not the first one, puts focus on its heading. */
+function route(ev?: HashChangeEvent): void {
   const [, first, second] = location.hash.replace(/^#\/?/, "#/").split("/");
+  let shown: void | Promise<void>;
   if (first === "acerca" && second) {
     closeChapter();
-    renderAbout(second);
+    shown = renderAbout(second);
   } else if (first === "logros" && second) {
     closeChapter();
-    void renderAchievements(second);
+    shown = renderAchievements(second);
   } else if (first === "capitulos") {
     closeChapter();
-    renderLibrary(second);
-  } else if (first && second) void openChapter(first, second);
-  else {
+    shown = renderLibrary(second);
+  } else if (first && second) {
+    // A chapter puts focus on its passage itself.
+    void openChapter(first, second);
+    return;
+  } else {
     closeChapter();
     // One series opens on its title screen; several on the list of all of them.
-    if (library.length === 1) renderTitle(library[0]);
-    else renderLibrary();
+    shown = library.length === 1 ? renderTitle(library[0]) : renderLibrary();
   }
+  if (ev) void Promise.resolve(shown).then(() => focusHeading());
 }
 
 async function boot(): Promise<void> {

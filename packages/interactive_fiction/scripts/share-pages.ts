@@ -29,6 +29,8 @@ export interface ShareMeta {
   siteName: string;
   /** Absolute URL of a JPEG or PNG; chat apps do not all read newer formats. */
   image?: string;
+  /** What the image shows, for whoever cannot see it. */
+  imageAlt?: string;
   imageSize?: [width: number, height: number];
 }
 
@@ -71,7 +73,7 @@ export function seriesMeta(series: SeriesEntry, site: string): ShareMeta {
       series.game.title?.tagline ??
       `${series.title}, ${byline(series)}. ${chapters === 1 ? "Un capítulo" : `${chapters} capítulos`} para leer y jugar en el navegador.`,
     siteName: series.title,
-    ...(image ? { image: absolute(site, image) } : {}),
+    ...(image ? { image: absolute(site, image), imageAlt: `Portada de ${series.title}` } : {}),
   };
 }
 
@@ -85,8 +87,15 @@ export function chapterMeta(series: SeriesEntry, index: number, site: string, co
     title: `${shortTitle(chapter.title)} · ${series.title}`,
     description: `Capítulo ${roman(index + 1)} de ${series.title}, ${byline(series)}.`,
     siteName: series.title,
-    ...(image ? { image: absolute(site, image) } : {}),
+    ...(image ? { image: absolute(site, image), imageAlt: `La escena con la que empieza «${shortTitle(chapter.title)}»` } : {}),
   };
+}
+
+/** The media type of a JPEG or PNG URL, which chat apps read before fetching it; undefined for anything else. */
+function imageType(url: string): string | undefined {
+  if (/\.jpe?g$/i.test(url)) return "image/jpeg";
+  if (/\.png$/i.test(url)) return "image/png";
+  return undefined;
 }
 
 /** The Open Graph and Twitter tags of a page, one per line. */
@@ -103,6 +112,9 @@ export function shareTags(meta: ShareMeta): string {
   ];
   if (meta.image) {
     tags.push(`<meta property="og:image" content="${esc(meta.image)}" />`);
+    const type = imageType(meta.image);
+    if (type) tags.push(`<meta property="og:image:type" content="${type}" />`);
+    if (meta.imageAlt) tags.push(`<meta property="og:image:alt" content="${esc(meta.imageAlt)}" />`);
     if (meta.imageSize) {
       tags.push(`<meta property="og:image:width" content="${meta.imageSize[0]}" />`, `<meta property="og:image:height" content="${meta.imageSize[1]}" />`);
     }
@@ -112,6 +124,7 @@ export function shareTags(meta: ShareMeta): string {
     `<meta name="twitter:title" content="${esc(meta.title)}" />`,
     `<meta name="twitter:description" content="${esc(meta.description)}" />`,
     ...(meta.image ? [`<meta name="twitter:image" content="${esc(meta.image)}" />`] : []),
+    ...(meta.image && meta.imageAlt ? [`<meta name="twitter:image:alt" content="${esc(meta.imageAlt)}" />`] : []),
   );
   return tags.join("\n    ");
 }
@@ -127,12 +140,14 @@ export function sharePage(meta: ShareMeta): string {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
     <title>${esc(meta.title)}</title>
     ${shareTags(meta)}
     <meta http-equiv="refresh" content="0; url=${esc(meta.target)}" />
     <style>
+      :root { color-scheme: dark; }
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #000; color: #e9e2c9; font: 1.1rem Georgia, serif; text-align: center; }
-      a { color: inherit; }
+      a { display: inline-block; padding: 0.75rem 1.25rem; color: inherit; }
     </style>
   </head>
   <body>
@@ -146,10 +161,15 @@ export function sharePage(meta: ShareMeta): string {
 `;
 }
 
-/** The site's own page with a description and, when given, a series' tags, added before `</head>`. Tags already there are not added twice. */
-export function withTags(html: string, tags: string): string {
+/**
+ * The site's own page with a description and, when given, a series' tags, added before `</head>`,
+ * and `title` as its `<title>`, so a link to the site names what the preview names. Tags already
+ * there are not added twice.
+ */
+export function withTags(html: string, tags: string, title?: string): string {
   if (html.includes('property="og:title"')) return html;
-  return html.replace("</head>", `  ${tags}\n  </head>`);
+  const titled = title ? html.replace(/<title>[^<]*<\/title>/, `<title>${esc(title)}</title>`) : html;
+  return titled.replace("</head>", `  ${tags}\n  </head>`);
 }
 
 /** Width and height of a JPEG or PNG file, read from its header; undefined for anything else. */
@@ -200,7 +220,7 @@ function main(): void {
     library.length === 1
       ? { ...sized(seriesMeta(library[0], site)), url: absolute(site, "") }
       : { url: absolute(site, ""), target: "./", title: "Historias", siteName: "Historias", description: "Ficción interactiva para leer y jugar en el navegador." };
-  writeFileSync(index, withTags(readFileSync(index, "utf8"), shareTags(root)));
+  writeFileSync(index, withTags(readFileSync(index, "utf8"), shareTags(root), root.title));
   console.log(`✓ ${pages} share pages in dist/${SHARE_DIR}/, link preview tags on the site's page (${site})`);
 }
 

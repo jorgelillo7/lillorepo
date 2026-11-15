@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { SeriesEntry } from "../src/contract.ts";
-import { contentProblems, expectedHeaders, headerProblems, pageAssets } from "../scripts/live.ts";
+import { contentProblems, expectedHeaders, headerProblems, pageAssets, sharePageProblems } from "../scripts/live.ts";
 
 const library = (chapters: [id: string, draft?: boolean][]): SeriesEntry[] => [
   { id: "s", title: "S", carry: null, about: [], credits: [], game: {}, chapters: chapters.map(([id, draft]) => ({ id, title: id, draft: Boolean(draft) })) },
@@ -41,5 +41,18 @@ describe("the live site against the build it was deployed from", () => {
   test("the files a built page loads are read from its HTML, remote and data: URLs left out", () => {
     const html = `<link rel="icon" href="data:image/svg+xml,x"><script type="module" src="./assets/a.js"></script><link rel="stylesheet" href="./assets/a.css"><a href="https://x.test/">x</a>`;
     expect(pageAssets(html)).toEqual(["./assets/a.js", "./assets/a.css"]);
+  });
+
+  test("a named block of _headers is read on its own, so the hashed files' cache rule can be checked", () => {
+    const file = "/*\n  X-Frame-Options: DENY\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n";
+    expect(expectedHeaders(file, "/assets/*")).toEqual({ "cache-control": "public, max-age=31536000, immutable" });
+  });
+
+  test("a series' share page must answer and name the series in og:title", () => {
+    const page = `<meta property="og:title" content="A &amp; B" />`;
+    expect(sharePageProblems("leer/s/", 200, page, "A & B")).toEqual([]);
+    expect(sharePageProblems("leer/s/", 404, "", "A & B")).toEqual(["leer/s/ answered 404"]);
+    expect(sharePageProblems("leer/s/", 200, "<html></html>", "A & B")).toEqual(["leer/s/ has no og:title"]);
+    expect(sharePageProblems("leer/s/", 200, page, "C")).toEqual([`leer/s/ has og:title "A &amp; B", expected "C"`]);
   });
 });

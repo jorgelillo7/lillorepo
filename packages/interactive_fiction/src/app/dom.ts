@@ -86,6 +86,7 @@ export function armed(tool: HTMLElement, question: string): boolean {
     tool.innerHTML = resting;
     if (label !== null) tool.setAttribute("aria-label", label);
     tool.classList.remove("armed");
+    if (announcer().textContent === question) announce("");
   }, 4000);
   return false;
 }
@@ -116,6 +117,42 @@ export function paragraphGaps(passage: HTMLElement): void {
     gap.setAttribute("aria-hidden", "true");
     br.after(gap);
   }
+}
+
+/** How long a passing status, such as "Enlace copiado", stays. */
+export const STATUS_MS = 2000;
+const statusTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+/**
+ * Show `message` in `region`, a visible `role="status"` element, which also reads it out. Without
+ * `link` it clears after STATUS_MS; with it, the message stays and the link follows in a read-only
+ * field, selected, for the reader to copy by hand.
+ */
+export function showStatus(region: HTMLElement, message: string, link?: string): void {
+  clearTimeout(statusTimers.get(region));
+  const shownLink = region.nextElementSibling;
+  if (shownLink?.classList.contains("status-link")) shownLink.remove();
+  region.textContent = message;
+  if (link === undefined) {
+    statusTimers.set(region, setTimeout(() => (region.textContent = ""), STATUS_MS));
+    return;
+  }
+  const field = document.createElement("input");
+  field.className = "status-link";
+  field.readOnly = true;
+  field.value = link;
+  field.setAttribute("aria-label", "Enlace");
+  region.after(field);
+  field.focus();
+  field.select();
+}
+
+/** After a route change, focus goes to the new page's heading, so keyboard and screen-reader users start there. */
+export function focusHeading(root: ParentNode = app): void {
+  const heading = root.querySelector<HTMLElement>("h1");
+  if (!heading) return;
+  heading.tabIndex = -1;
+  heading.focus({ preventScroll: true });
 }
 
 export function reducedMotion(): boolean {

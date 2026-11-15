@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 // dom.ts looks the app's root up when it loads.
 document.body.innerHTML = `<div id="app"></div>`;
-const { armed, openModal, paragraphGaps, roman } = await import("../src/app/dom.ts");
+const { STATUS_MS, armed, focusHeading, openModal, paragraphGaps, roman, showStatus } = await import("../src/app/dom.ts");
 const { muteButton, toolbar } = await import("../src/app/views.ts");
 
 const series = { id: "s", title: "S", carry: null, about: [], credits: [], game: {}, chapters: [] };
@@ -93,8 +93,44 @@ describe("the pages around the story", () => {
       expect(tool.getAttribute("aria-label")).toBe("Reiniciar el capítulo");
       expect(tool.querySelector("span")!.textContent).toBe("Reiniciar");
       expect(tool.dataset.armed).toBeUndefined();
+      expect(document.getElementById("announcer")!.textContent).toBe("");
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test("a page reached by a link puts focus on its heading, which takes focus without entering the tab order", () => {
+    document.getElementById("app")!.innerHTML = `<main><h1>Índice</h1><a href="#/">Portada</a></main>`;
+    focusHeading(document.getElementById("app")!);
+    const h1 = document.querySelector("h1")!;
+    expect(document.activeElement).toBe(h1);
+    expect(h1.tabIndex).toBe(-1);
+  });
+
+  test("a copied link is reported in a visible status that clears itself", () => {
+    vi.useFakeTimers();
+    try {
+      document.getElementById("app")!.innerHTML = `<footer><p class="share-status" role="status"></p></footer>`;
+      const region = document.querySelector<HTMLElement>(".share-status")!;
+      showStatus(region, "Enlace copiado");
+      expect(region.textContent).toBe("Enlace copiado");
+      vi.advanceTimersByTime(STATUS_MS);
+      expect(region.textContent).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("a link that could not be copied stays on screen in a selected read-only field, once", () => {
+    document.getElementById("app")!.innerHTML = `<footer><p class="share-status" role="status"></p></footer>`;
+    const region = document.querySelector<HTMLElement>(".share-status")!;
+    showStatus(region, "No se ha podido copiar. Este es el enlace:", "https://x.test/leer/s/01/");
+    showStatus(region, "No se ha podido copiar. Este es el enlace:", "https://x.test/leer/s/01/");
+    const fields = document.querySelectorAll<HTMLInputElement>(".status-link");
+    expect(fields).toHaveLength(1);
+    expect(fields[0].readOnly).toBe(true);
+    expect(fields[0].value).toBe("https://x.test/leer/s/01/");
+    expect(document.activeElement).toBe(fields[0]);
+    expect(region.textContent).toContain("No se ha podido copiar");
   });
 });

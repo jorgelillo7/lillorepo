@@ -45,6 +45,16 @@
   descent-override: 31%;
   line-gap-override: 0%;
 }
+/*
+ * Every text element sizes a stand-in face to the x-height of its own face, so text set before
+ * the fonts arrive, or where Georgia and Times are missing (Android), is not visibly smaller or
+ * larger. On every element because each `font:` shorthand below resets it, and an inherited ratio
+ * would size the display face by the reading face's.
+ */
+:root body,
+:root body * {
+  font-size-adjust: from-font;
+}
 :root {
   --font-read: "Literata", "Literata Fallback", Georgia, serif;
   --font-display: "Cormorant Garamond", "Cormorant Fallback", "Times New Roman", serif;
@@ -213,7 +223,8 @@ tw-passage {
   letter-spacing: 0.12em;
   min-height: 44px;
   box-sizing: border-box;
-  border-color: rgba(200, 169, 106, 0.5);
+  /* The field's edge at 8.8:1 on its own background; WCAG asks 3:1 of a control's boundary. */
+  border-color: var(--accent);
   background: #0b0a08;
   color: var(--bone);
 }
@@ -775,28 +786,56 @@ dialog.status-overlay::backdrop {
   padding: 0.3rem 0.8rem;
 }
 
+/* A passing word after an action ("Enlace copiado"); empty, it takes no room. */
+.share-status {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  color: var(--muted);
+}
+.share-status:empty {
+  margin: 0;
+}
+.status-link {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0.5rem auto 0;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--ink);
+  background: #0a0908;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+}
+
 /* ---- Less motion ------------------------------------------------------------ */
 
+/* Movement stops; colour and opacity changes stay, since they move nothing. */
 @media (prefers-reduced-motion: reduce) {
-  tw-passage,
   .stage img,
   .hotspot::after,
   .ecg .ecg-pulse,
   .pace-next {
     animation: none !important;
   }
-  .chapter-link,
-  .chapter-cover,
-  .title-button,
-  .button,
-  tw-link,
-  .tool {
-    transition: none !important;
+  tw-passage {
+    animation-name: tw-fade;
   }
+  .title-button {
+    transition-property: color;
+  }
+  .title-button:hover,
+  .title-button:focus-visible {
+    letter-spacing: 0.3em;
+  }
+  .reader tw-link:active,
   .chapter-link:hover .chapter-cover,
   .chapter-link:focus-visible .chapter-cover {
     transform: none;
   }
+}
+@keyframes tw-fade {
+  from { opacity: 0; }
 }
 :root[data-effects="off"] .stage img,
 :root[data-effects="off"] .hotspot::after {

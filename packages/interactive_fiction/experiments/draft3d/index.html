@@ -62,9 +62,10 @@
       <section class="title" id="title">
         <h1 class="title-name" id="title-name"></h1>
         <nav class="title-menu" id="title-menu"></nav>
-        <p class="title-loading" id="title-loading" role="progressbar" aria-valuemin="0" aria-valuemax="100" hidden>
-          <span class="loading-track" aria-hidden="true"></span>
-          <span id="title-loading-text"></span>
+        <p class="title-loading" id="title-loading" hidden>
+          <progress class="loading-track" id="title-loading-bar"></progress>
+          <label for="title-loading-bar">Preparando la habitación…</label>
+          <span id="title-loading-percent" aria-hidden="true"></span>
         </p>
         <p class="title-warning" id="title-warning"></p>
         <button class="title-credits" id="title-credits" hidden></button>

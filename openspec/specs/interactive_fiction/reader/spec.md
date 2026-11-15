@@ -192,13 +192,15 @@ to check; a draft is reported and never fails. After the upload,
 - *Verifies:* `parity.test.ts: the Harlowe build to compare with is the one beside a chapter's sources`
 
 #### Scenario: The live site after a deploy
-- **WHEN** the live site misses a chapter of the build, serves one the build lacks, serves a draft, serves another version, or answers without a header of `public/_headers`
+- **WHEN** the live site misses a chapter of the build, serves one the build lacks, serves a draft, serves another version, answers without a header of `public/_headers` (the `/assets/*` block's on the hashed files), or a series' share page is missing or names another title
 - **THEN** the check names it and fails
 - *Verifies:* `live.test.ts: the same chapters at the same versions pass`,
   `live.test.ts: a chapter missing, extra, at another version or not loading is named`,
   `live.test.ts: a draft chapter live is a failure whatever the build holds`,
   `live.test.ts: a response header missing or different from the headers file is named`,
-  `live.test.ts: the files a built page loads are read from its HTML, remote and data: URLs left out`
+  `live.test.ts: the files a built page loads are read from its HTML, remote and data: URLs left out`,
+  `live.test.ts: a named block of _headers is read on its own, so the hashed files' cache rule can be checked`,
+  `live.test.ts: a series' share page must answer and name the series in og:title`
 
 ### Requirement: Stories stay out of the repository, and drafts out of the build
 
@@ -314,12 +316,15 @@ published chapter under `leer/<series>/[<chapter>/]`, carrying Open Graph and
 Twitter tags with absolute URLs — the chapter's own title and number, the
 series, its author (the first credit), and the JPEG or PNG the chapter opens
 on (the series' title picture for the series, or for a chapter without
-scenes) with its pixel size — and sending a person straight on to the reader
+scenes) with its pixel size, its media type and a line saying what it shows —
+and a dark `color-scheme`, and sending a person straight on to the reader
 without a script, which the site's policy forbids inline. A draft chapter
 SHALL never get a page. When the site holds one series, its own page SHALL
-carry that series' tags. No description is written about the story's content:
+carry that series' tags and its title. No description is written about the story's content:
 only its names, or the series' own tagline. The end of a chapter offers to
-share the chapter's page.
+share the chapter's page: through the system's share sheet, or by copying the
+link, which a visible status confirms for two seconds; when copying fails the
+link is shown, selected, for the reader to copy by hand.
 
 #### Scenario: A series' preview
 - **WHEN** a series' page is written
@@ -338,10 +343,17 @@ share the chapter's page.
   `share-pages.test.ts: a page without a picture is a plain summary card`,
   `share-pages.test.ts: a picture's size is read from a PNG or JPEG header`
 
+#### Scenario: Sharing from the end of a chapter
+- **WHEN** the link is copied, or cannot be
+- **THEN** a visible status says so and clears after two seconds, or the link stays on screen in a selected read-only field
+- *Verifies:* `book.test.ts: a copied link is reported in a visible status that clears itself`,
+  `book.test.ts: a link that could not be copied stays on screen in a selected read-only field, once`
+
 #### Scenario: The site's own page
 - **WHEN** the build finishes
 - **THEN** the site's page carries the tags once
-- *Verifies:* `share-pages.test.ts: the site's own page gets the tags once, before the end of its head`
+- *Verifies:* `share-pages.test.ts: the site's own page gets the tags once, before the end of its head`,
+  `share-pages.test.ts: the site's own page is titled as its preview, when it holds one series`
 
 ### Requirement: Every new passage is announced
 
@@ -380,8 +392,9 @@ passages, their order and the chapter versions are the author's.
   inside, close on Escape or on a click around the sheet, and give focus back,
   to the opener's new copy when a setting redrew the page; while restart asks
   for its second tap, the question is the button's name and the live region
-  reads it; a chapter page has one main region; animations stop when the system asks for
-  reduced motion.
+  reads it; a page reached by a link puts focus on its heading; a chapter page has one
+  `<main>`; under reduced motion movement stops while colour and opacity changes
+  stay.
 
 #### Scenario: Text colours
 - **WHEN** the story colours text too dark for the page, or dark enough already, or on a light sheet
@@ -414,6 +427,11 @@ passages, their order and the chapter versions are the author's.
 - **WHEN** restart is tapped once
 - **THEN** its visible question becomes its name, the live region reads it, and after 4 s it rests with its name back
 - *Verifies:* `book.test.ts: an armed restart is named by its question, which the live region reads, and rests again after 4 s`
+
+#### Scenario: A new page
+- **WHEN** the index, the credits or the achievements are reached by a link
+- **THEN** focus moves to the page's heading, which stays out of the tab order
+- *Verifies:* `book.test.ts: a page reached by a link puts focus on its heading, which takes focus without entering the tab order`
 
 #### Scenario: Sheets
 - **WHEN** the settings or the status sheet is opened and closed

@@ -1,5 +1,6 @@
 /* The app around the story: library, toolbar, end panel. */
 :root {
+  color-scheme: dark;
   --ink: #e8e8e8;
   --muted: #9a9a9a;
   --line: #2a2a2a;
