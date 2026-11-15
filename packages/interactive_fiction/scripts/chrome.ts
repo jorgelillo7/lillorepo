@@ -92,7 +92,8 @@ export async function withChrome<T>(port: number, work: (c: Devtools) => Promise
   mkdirSync(profile, { recursive: true });
   const chrome: ChildProcess = spawn(
     chromePath(),
-    ["--headless=new", ...(opts.gpu ? [] : ["--disable-gpu"]), "--window-size=1400,900", `--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1", `--user-data-dir=${profile}`, "about:blank"],
+    // GitHub's Ubuntu runners forbid the unprivileged user namespaces Chrome's sandbox needs.
+    ["--headless=new", ...(process.env.CI ? ["--no-sandbox"] : []), ...(opts.gpu ? [] : ["--disable-gpu"]), "--window-size=1400,900", `--remote-debugging-port=${port}`, "--remote-debugging-address=127.0.0.1", `--user-data-dir=${profile}`, "about:blank"],
     { stdio: "ignore" },
   );
   const stop = () => {

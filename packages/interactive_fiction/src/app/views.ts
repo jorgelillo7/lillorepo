@@ -1,12 +1,13 @@
 /** The reader's HTML: toolbar, page layouts and end-of-chapter panels, from the data they show. */
 
-import type { SeriesEntry } from "../contract.ts";
+import type { ImageSet, SeriesEntry } from "../contract.ts";
 import { summarize, type ChapterDiscoveries, type Found } from "../engine/discoveries.ts";
 import type { ConditionState } from "../engine/game.ts";
 import type { Action } from "../engine/runtime.ts";
 import type { Scene, ShownHotspot } from "../engine/scenes.ts";
 import { esc, shortTitle } from "./dom.ts";
 import { statusButton } from "./hud.ts";
+import { picture } from "./picture.ts";
 import { choicesOf, type Progress } from "./progression.ts";
 import { ICONS } from "./icons.ts";
 
@@ -57,8 +58,11 @@ export function documentPage(bar: string, title: string, passage: string, footer
     <main class="doc-overlay"><div class="doc-sheet"><h2 class="doc-title">${esc(title)}</h2>${passage}${footer}</div></main></div>`;
 }
 
+/** How wide the scene is shown: the whole screen on a phone, its column beside the text on a wide one. */
+const STAGE_SIZES = "(max-width: 900px) 100vw, 63vw";
+
 /** The picture and its clickable areas. `seen` dims areas leading only to places already visited. */
-export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], seen: Set<string>): string {
+export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], seen: Set<string>, images: Record<string, ImageSet> = {}): string {
   const targetOf = (i: number) => (actions[i] as { target: string }).target;
   const spots = shown
     .map(({ hotspot, actions: mine, view }, n) => {
@@ -84,7 +88,7 @@ export function stage(scene: Scene, shown: ShownHotspot[], actions: Action[], se
     })
     .join("");
   const [aw, ah] = scene.aspect;
-  return `<div class="stage" style="--ar:${aw / ah}"><img src="${esc(scene.image)}" alt="" draggable="false">${spots}</div>`;
+  return `<div class="stage" style="--ar:${aw / ah}">${picture(images, scene.image, `alt="" draggable="false" fetchpriority="high"`, STAGE_SIZES)}${spots}</div>`;
 }
 
 /** The scene with its clickable areas beside the text. */
@@ -96,10 +100,11 @@ export function scenePage(
   seen: Set<string>,
   passage: string,
   footer: string,
+  images: Record<string, ImageSet> = {},
 ): string {
   return `<div class="reader game">${bar}
     <div class="game-layout">
-      <div class="stage-wrap">${stage(scene, shown, actions, seen)}</div>
+      <div class="stage-wrap">${stage(scene, shown, actions, seen, images)}</div>
       <section class="panel">${passage}${footer}</section>
     </div></div>`;
 }

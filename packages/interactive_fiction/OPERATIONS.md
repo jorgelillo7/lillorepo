@@ -69,15 +69,44 @@ rectangles and check them with an overlay. Say on the series' "about" page
 that the art is generated. Without a key, `npm run prompts -- <series>` prints
 the same prompts for the Gemini app, by hand.
 
+## Pictures in the build
+
+The author's `scenes/*.jpg` and the PNGs his passages show stay as they are
+in his repository. `npm run stories` encodes each one as AVIF and WebP at
+640, 1024 and 1600 px (never wider than the original) into `public/stories/`,
+with `sharp` (a dev dependency with prebuilt binaries, nothing to install on
+the system), and lists them in `library.json`; the reader offers AVIF, then
+WebP, then the original. Encoded files are cached by content in
+`node_modules/.cache/if-images/`, so only a new or changed picture is encoded
+(about half a minute for a whole series from an empty cache). The quality
+settings are `FORMATS` in `scripts/images.ts`.
+
 ## Updating a chapter
 
 ```bash
 git -C ~/Projects/<his repo> pull
-npm run stories && npm run explore -- <series>
-npm run parity -- <series> --harlowe "$HOME/Projects/<his repo>/Capitulo 1/build/index.html"
-npm run build && npm run preview     # check it at http://localhost:4173
-npm run deploy
+npm run verify                       # build, explore --strict, parity, every ending played
+npm run preview                      # look at it at http://localhost:4173
+npm run deploy                       # verify again on the published sources, upload, check the live site
 ```
+
+`npm run verify` is the one gate, and `npm run deploy` runs it itself, so
+nothing ships without it. It stops at the first step that fails:
+
+1. **build** — the site as it will be uploaded, drafts left out.
+2. **`explore --strict`** — fails when a published chapter has an unreachable
+   passage, a runtime error, an exploration cut short, no ending, a page with
+   nothing to click and no end code, or rejects a code the previous chapter
+   produces. Drafts are reported and never fail.
+3. **parity** — every page against real Harlowe. The engine is the first
+   `build/index.html` beside a chapter's sources in the author's clone, or
+   `PARITY_HARLOWE`; none is a failure.
+4. **play** — the built `dist/` clicked through to every end code (or ending
+   passage) of every chapter in headless Chrome.
+
+CI runs the same gate on the fixture series in `tests/fixtures/stories/`
+(`STORIES_DIR` points the scripts there), with `--no-parity`: the repository
+holds no Harlowe build. `--no-parity` is refused under `STORIES_PUBLISH=1`.
 
 ## Deploying (Cloudflare Workers static assets)
 
@@ -91,9 +120,13 @@ serves `dist/` as static assets and runs no code.
 package (opens the browser; wrangler keeps the login on this Mac). The first
 deploy registers the account's `workers.dev` subdomain.
 
-**Every deploy:** `npm run deploy` — builds (drafts left out) and uploads
-`dist/` to the project named in `wrangler.toml` (`interactive-fiction`). The
-build fetches each story's repository and stops unless it is on its default
+**Every deploy:** `npm run deploy` — runs `npm run verify` on the published
+sources, uploads the `dist/` that passed to the project named in
+`wrangler.toml` (`interactive-fiction`), and then runs `npm run check:live`:
+the live site must list the build's chapters at the build's versions, none a
+draft, answer with the headers of `public/_headers`, and serve every file the
+page loads. `npm run check:live [-- <url>]` is read-only and can be run at any
+time. The build fetches each story's repository and stops unless it is on its default
 branch, with no local changes or untracked files, and equal to its origin: the
 site is the author's published chapters, never a branch or an edit sitting in
 his clone. `git -C ~/Projects/<his repo> pull` first; for a deliberate preview of
