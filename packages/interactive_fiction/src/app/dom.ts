@@ -35,6 +35,54 @@ export function setStoryCss(css: string): void {
   tag.textContent = css;
 }
 
+/**
+ * Show `dialog` as a modal: the browser keeps focus inside it and closes it on Escape; a click on
+ * the dimmed page around its sheet closes it too. Closed, it leaves the page and focus returns to
+ * whatever opened it.
+ */
+export function openModal(dialog: HTMLDialogElement, focus?: string): void {
+  const opener = document.activeElement as HTMLElement | null;
+  dialog.addEventListener("click", (ev) => {
+    if (ev.target === dialog) dialog.close();
+  });
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    if (opener?.isConnected) opener.focus();
+  });
+  document.body.appendChild(dialog);
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+  if (focus) dialog.querySelector<HTMLElement>(focus)?.focus();
+}
+
+/** 1 → I, 4 → IV, 12 → XII: how a book numbers its chapters. */
+export function roman(n: number): string {
+  const steps: [number, string][] = [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+  let out = "";
+  for (const [value, mark] of steps) {
+    while (n >= value) {
+      out += mark;
+      n -= value;
+    }
+  }
+  return out;
+}
+
+/**
+ * A little air after each line of the passage: every line of the story's source is a paragraph or a
+ * line of dialogue, separated only by a line break, and a browser gives a `<br>` no height to style.
+ * An empty spacer goes after each top-level break; the text is untouched.
+ */
+export function paragraphGaps(passage: HTMLElement): void {
+  for (const br of passage.querySelectorAll(":scope > br, :scope > tw-seg > br")) {
+    if (br.nextElementSibling?.classList.contains("par-gap")) continue;
+    const gap = document.createElement("span");
+    gap.className = "par-gap";
+    gap.setAttribute("aria-hidden", "true");
+    br.after(gap);
+  }
+}
+
 export function reducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

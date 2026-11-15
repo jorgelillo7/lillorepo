@@ -202,6 +202,29 @@ What it gives the reader:
   and generic achievements. The build explores every chapter to know its
   endings.
 
+## How it looks
+
+The reader changes how a story looks and never what it says. Its look is one
+stylesheet, `src/app/styles/book.css`, loaded after the others:
+
+- **Type:** Literata (text) and Cormorant Garamond (headings, title, names),
+  both SIL Open Font License, their Latin subsets self-hosted in
+  `src/app/fonts/` beside the licence texts — the CSP allows fonts from this
+  origin only. The two a first screen needs are
+  preloaded by a small plugin in `vite.config.ts`; each has a metric-matched
+  local fallback so nothing shifts when it arrives.
+- **Tokens:** `--bone` (headings, buttons), `--ink` (text), `--muted`,
+  `--accent` (rules, kickers, focus ring), `--measure` (the text column).
+- **The story's own stylesheet still loads last** and keeps its components
+  (a diary page, a wall of writing). Where it lays out the whole page — full
+  window width, justified on a phone — `book.css` out-ranks it by specificity.
+- **Colours the story sets on text** (who is speaking) are kept; one under
+  4.5:1 against its background is lightened along its own hue to reach it
+  (`src/app/contrast.ts`).
+- **Front matter:** the first entry of `credits` in `series.json` is the
+  author: named under the title and on the index, and first on the credits
+  page.
+
 ## Art bible
 
 A series may keep `stories/<series>/art-bible.json`: one English description per

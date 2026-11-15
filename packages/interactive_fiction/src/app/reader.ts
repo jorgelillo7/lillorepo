@@ -10,7 +10,8 @@ import { ambienceFor, conditionFor, documentFor, inventoryOf, isSting, type Cond
 import { Runtime, type Action, type Rendered, type Vars } from "../engine/runtime.ts";
 import { hotspotsFor, type SceneFile } from "../engine/scenes.ts";
 import { applyVolume, door as doorSound, heartbeat, setAmbience, step, sting } from "./audio.ts";
-import { app, arriveAt, el, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
+import { legibleColours } from "./contrast.ts";
+import { app, arriveAt, el, paragraphGaps, reducedMotion, setStoryCss, shortTitle } from "./dom.ts";
 import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
@@ -224,6 +225,9 @@ function mount(s: Session, html: string): HTMLElement {
   heartbeat(state ? HEART_BPM[state.level] : null);
   trackToolbarHeight(root.querySelector<HTMLElement>(".toolbar"));
   window.scrollTo({ top: 0 });
+  // In a scene the picture and the text share the page's main region.
+  root.querySelector(".game-layout")?.setAttribute("role", "main");
+  legibleColours(root);
   arriveAt(root);
   return root;
 }
@@ -258,6 +262,7 @@ function startPacing(s: Session): void {
     hint.remove();
     pacing = null;
   });
+  paragraphGaps(passageEl);
 }
 
 function navigate(s: Session, target: string, choice?: string): void {
@@ -293,18 +298,20 @@ function onAction(s: Session, link: HTMLElement): void {
     a.dataset.action = String(offset + Number(a.dataset.action));
   });
   link.replaceWith(holder);
+  legibleColours(holder);
 }
 
 /** Asks for a second tap within 4 s before a destructive action: embedded viewers block window.confirm(). */
-function armed(tool: HTMLElement, question: string, label: string): boolean {
+function armed(tool: HTMLElement, question: string): boolean {
   if (tool.dataset.armed) return true;
+  const resting = tool.innerHTML;
   tool.dataset.armed = "1";
   tool.textContent = question;
   tool.classList.add("armed");
   setTimeout(() => {
     if (!tool.isConnected) return;
     delete tool.dataset.armed;
-    tool.textContent = label;
+    tool.innerHTML = resting;
     tool.classList.remove("armed");
   }, 4000);
   return false;
@@ -316,7 +323,8 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
   mute: (_, tool) => {
     updateSettings({ muted: !settings().muted });
     applyVolume();
-    tool.textContent = settings().muted ? "🔇" : "🔊";
+    tool.outerHTML = view.muteButton(settings().muted);
+    app.querySelector<HTMLElement>('[data-tool="mute"]')?.focus();
   },
   mode: (s) => {
     storeMode(gameMode(s) ? "text" : "game");
@@ -329,7 +337,7 @@ const TOOLS: Record<string, (s: Session, tool: HTMLElement) => void> = {
     show();
   },
   restart: (s, tool) => {
-    if (!armed(tool, "¿Seguro? Toca otra vez", "⟲ Reiniciar")) return;
+    if (!armed(tool, "¿Seguro? Toca otra vez")) return;
     clear(s.series.id, s.chapter.id);
     s.progress = freshStart(s.rt.story.start, s.rt.start(), s.version);
     s.lastScene = undefined;

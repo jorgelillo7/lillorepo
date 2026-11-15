@@ -269,6 +269,60 @@ start on the new text rather than on a control of the previous page.
   `arrive.test.ts: a long passage is announced by its opening only`,
   `arrive.test.ts: the live region is one, and survives redrawing the page`
 
+### Requirement: The story is set like a book, and anyone can read and operate it
+
+The reader SHALL change how the story looks and never what it says: the
+passages, their order and the chapter versions are the author's.
+
+- **Type.** Text is set in a self-hosted reading face with a display face for
+  headings (no font is fetched from another origin), in a column no wider
+  than a comfortable line, with a spacer after each top-level line break of
+  the passage so paragraphs and lines of dialogue are told apart.
+- **Colour.** A text colour the story sets inline that falls under WCAG AA
+  (4.5:1) against what is painted behind it SHALL be moved along its own hue
+  just far enough to reach it; a colour that already reads is left exactly as
+  set.
+- **Front matter.** The title screen names the author (the first credit)
+  under the title; the chapter index lists each chapter with its number, its
+  title, the picture it opens on and where the reader is in it; the credits
+  page shows the author first and largest.
+- **Operation.** Every control has an accessible name and a visible focus
+  ring; the settings and status sheets are modal dialogs that keep focus
+  inside, close on Escape or on a click around the sheet, and give focus back;
+  a chapter page has one main region; animations stop when the system asks for
+  reduced motion.
+
+#### Scenario: Text colours
+- **WHEN** the story colours text too dark for the page, or dark enough already, or on a light sheet
+- **THEN** only the first is changed, to AA, keeping its hue
+- *Verifies:* `contrast.test.ts: the contrast ratio follows WCAG`,
+  `contrast.test.ts: a colour too dark for a dark page is lightened to AA along its own hue`,
+  `contrast.test.ts: a colour that already reads is left exactly as the story set it`,
+  `contrast.test.ts: a colour too light for a light page is darkened instead`,
+  `contrast.test.ts: computed colours are read, transparent ones ignored`,
+  `contrast.test.ts: on the page, only inline colours under AA change, against the background behind them`
+
+#### Scenario: Paragraph rhythm
+- **WHEN** a passage is shown
+- **THEN** each top-level line break is followed by one spacer, breaks inside the author's own components are left alone, and the text is unchanged
+- *Verifies:* `book.test.ts: every line break of the passage gets one spacer after it, and the text stays as it was`
+
+#### Scenario: Chapter numbers
+- **WHEN** the index or the title names a chapter
+- **THEN** it is numbered in roman numerals
+- *Verifies:* `book.test.ts: chapters are numbered as a book numbers them`
+
+#### Scenario: Controls
+- **WHEN** the toolbar is shown
+- **THEN** every control has a name and the sound switch says whether it is pressed
+- *Verifies:* `book.test.ts: every control of the toolbar has a name, and the sound switch says whether it is pressed`
+
+#### Scenario: Sheets
+- **WHEN** the settings or the status sheet is opened and closed
+- **THEN** it opens as a modal dialog, and closing it removes it and returns focus to what opened it
+- *Verifies:* `book.test.ts: a sheet opens as a modal dialog, and closing it removes it and gives focus back`,
+  `book.test.ts: a click on the dimmed page around the sheet closes the dialog; a click inside does not`
+
 ### Requirement: The site is served with restrictive headers
 
 Every file SHALL be served with a Content-Security-Policy that denies by default and

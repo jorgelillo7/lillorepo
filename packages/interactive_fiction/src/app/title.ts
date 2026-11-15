@@ -1,10 +1,16 @@
 /** The title screen of a series: its key art, the content warning, and where to go next. */
 
 import { setAmbience } from "./audio.ts";
-import { app, el, esc, setStoryCss } from "./dom.ts";
-import type { SeriesEntry } from "./library.ts";
+import { app, el, esc, roman, setStoryCss, shortTitle } from "./dom.ts";
+import { authorLine, type SeriesEntry } from "./library.ts";
 import { clear, lastPlayed, load } from "./save.ts";
 import { openSettings } from "./settings-ui.ts";
+
+/** "Capítulo II · Its title", for the chapter a reader left off in. */
+function chapterLabel(series: SeriesEntry, chapterId: string): string {
+  const i = series.chapters.findIndex((c) => c.id === chapterId);
+  return `Capítulo ${roman(i + 1)} · ${shortTitle(series.chapters[i].title)}`;
+}
 
 export function renderTitle(series: SeriesEntry): void {
   setStoryCss("");
@@ -14,7 +20,9 @@ export function renderTitle(series: SeriesEntry): void {
   const last = lastPlayed();
   const resume =
     last && last.series === series.id && series.chapters.some((c) => c.id === last.chapter)
-      ? `<a class="title-button primary" href="#/${series.id}/${last.chapter}">Continuar</a>`
+      ? `<a class="title-button primary" href="#/${series.id}/${last.chapter}">Continuar<span class="title-button-note">${esc(
+          chapterLabel(series, last.chapter),
+        )}</span></a>`
       : "";
   const first = series.chapters[0];
   const started = first && load(series.id, first.id);
@@ -23,20 +31,25 @@ export function renderTitle(series: SeriesEntry): void {
   const screen = el(`<main class="title-screen"${art}>
     <div class="title-shade"></div>
     <div class="title-content">
+      <p class="kicker">Ficción interactiva</p>
       <h1 class="title-name">${esc(series.title)}</h1>
+      ${authorLine(series)}
       ${title.tagline ? `<p class="title-tagline">${esc(title.tagline)}</p>` : ""}
-      <nav class="title-menu">
+      <nav class="title-menu" aria-label="${esc(series.title)}">
         ${resume}
         ${first ? `<button class="title-button${resume ? "" : " primary"}" data-new>${started ? "Nueva partida" : "Empezar"}</button>` : ""}
         <a class="title-button" href="#/capitulos/${series.id}">Capítulos</a>
         <a class="title-button" href="#/logros/${series.id}">Finales y logros</a>
         <button class="title-button" data-settings>Ajustes</button>
-        ${series.about.length || series.credits.length ? `<a class="title-button" href="#/acerca/${series.id}">Acerca de</a>` : ""}
+        ${series.about.length || series.credits.length ? `<a class="title-button" href="#/acerca/${series.id}">Créditos</a>` : ""}
       </nav>
       ${title.warning ? `<p class="title-warning">${esc(title.warning)}</p>` : ""}
       ${
-        series.credits.length
-          ? `<a class="title-credits" href="#/acerca/${series.id}">${series.credits.map((c) => `${esc(c.role)}: ${esc(c.name)}`).join(" · ")}</a>`
+        series.credits.length > 1
+          ? `<a class="title-credits" href="#/acerca/${series.id}">${series.credits
+              .slice(1)
+              .map((c) => `${esc(c.role)}: ${esc(c.name)}`)
+              .join("<br>")}</a>`
           : ""
       }
     </div></main>`);
