@@ -40,6 +40,8 @@ Lighthouse, mobile (performance / accessibility / best practices / SEO):
 
 ### What to fix first, across sites
 
+Done since the review: chucknorris_bot (headers, CSP, title on phones, landmarks, share metadata, red text contrast, focus ring) in #763; jorgelillo7.github.io in that repo's PR #19. The items below still name them for the record.
+
 Ordered by impact per unit of work. S = small, M = medium, L = large.
 
 1. **Biwenger: escape `innerHTML`** (S).
