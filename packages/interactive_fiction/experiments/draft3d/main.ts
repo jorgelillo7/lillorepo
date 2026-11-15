@@ -298,7 +298,7 @@ function frame(now: number): void {
     focusAmount = THREE.MathUtils.clamp(focusAmount + (focus ? dt : -dt) * 1.4, 0, 1);
     if (focus) lastFocus.copy(focus);
     const t = focusAmount * focusAmount * (3 - 2 * focusAmount);
-    turn(current, dt, now);
+    turn(current, dt);
     // A breath of movement while nothing is touched, so the room is a place and not a photograph.
     const sway = calm.matches || drag ? 0 : Math.sin(now / 2600) * 0.004;
     euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch + sway * 0.5, yaw + sway, 0);
@@ -325,13 +325,13 @@ function frame(now: number): void {
 requestAnimationFrame(frame);
 
 /** Ease the view towards where it was turned, within the part of the room the picture showed. */
-function turn(l: Loaded, dt: number, now: number): void {
+function turn(l: Loaded, dt: number): void {
   const [lo, hi] = yawRange(l);
   if (!drag && !calm.matches) {
     // The drag's last speed carries on and dies away.
     aim.yaw += aim.yawSpeed * dt;
     aim.pitch += aim.pitchSpeed * dt;
-    const fade = Math.exp(-dt * 5);
+    const fade = Math.exp(-dt * 8);
     aim.yawSpeed *= fade;
     aim.pitchSpeed *= fade;
   }
@@ -340,7 +340,6 @@ function turn(l: Loaded, dt: number, now: number): void {
   const ease = calm.matches ? 1 : 1 - Math.exp(-dt * 16);
   yaw += (aim.yaw - yaw) * ease;
   pitch += (aim.pitch - pitch) * ease;
-  if (drag) drag.at = now;
 }
 
 // Drag to look around. The pointer is captured, so a drag that leaves the window or is taken over by the system still ends.
