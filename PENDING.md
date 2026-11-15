@@ -107,9 +107,3 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | ⏳ | Tailwind ships as the Play CDN, which its own docs call development-only | A build step · **not** the `defer` this line used to ask for: deferring the compiler is what causes the unstyled flash · preconnect landed, the rest needs a Bazel node toolchain · affects `be_water` **and** `biwenger_tools/web` · **weighs more since #542**: the CDN compiles styles in the browser, which is the only reason both CSPs still allow `style-src 'unsafe-inline'` |
 | ⏳ | HEIC uploads are refused (JPEG, PNG and WebP only) | A contributor whose phone does not convert on upload · iOS Safari converts; not tried on a device |
 | 🔨 | Web: first card image not lazy plus `fetchpriority`, contrast (`sky-500`/`slate-400`), mobile nav names and the 320 px header, the "?" in the meta description, `<dialog>` for the zoom, `motion-safe` bounce | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
-
-## chucknorris_bot
-
-| | What is missing | Waiting on |
-|---|---|---|
-| 🔨 | Landing: `add_security_headers` in `bot/app.py` (it sends none), the title clipped on phones (`clamp` floor), `<main>` and real headings, description and Open Graph, red label contrast | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
