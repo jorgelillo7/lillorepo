@@ -37,6 +37,7 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — a Biwenger change that breaks another package. **The CI cost that looked like the trigger is gone**: it was the unused `core_deps`, not the file layout, and wiring the slices cut a `sdk/biwenger` edit from 10 suites to 5 · [measured](docs/technical/parked-work.md#the-shape-of-core) |
+| 🔨 | Web: gzip/brotli for HTML, JSON and JS in `core/web`, and `Permissions-Policy`, COOP and a `__Host-` cookie name in `headers.py` (Biwenger, be_water, chucknorris_bot) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) items 4 and 14 |
 
 ## biwenger_tools
 
@@ -57,6 +58,7 @@ in `STATUS.md` — neither belongs here.
 | ⏳ | What the squad is made of: why it scores below average while projected near the top | **Measured, rounds 1–11, all managers** (`scripts/projections/squad_gap.py`): the base SofaScore explains 19 of the 22 points a round to the leader, bonuses ~2; picking the eleven is at the league's average (72 % of hindsight, range 71–80 %); per million of team value the squad scores at the league's middle, but it is the cheapest (66 M against 72–110 M) and, with cash, the poorest manager (75 M against 89–140 M). **Where the wealth went**: market flips — −17.5 M for us (six August–September signings bought dear, −15.7 M) against +38–40 M for the two leaders; the trader's own flips since 22/10 are all up. Next: 8 rounds of `league_projection` · [`openspec/changes/squad-composition/`](openspec/changes/squad-composition/proposal.md) |
 | ⏳ | Captain (and close defender calls) by the chance his team wins or keeps a clean sheet | 6–8 rounds of `team_outlook` in the projection ledger, captured from round 13 · free: Analítica Fantasy's calendar predictor, already the Oráculo source · expected gain is small (bonuses ~2 pts a round; captain tie-breaks ~0.5–1.5 by a review's estimate), so it ships only if the graded rounds show it · [what is stored](docs/technical/backend/projection-ledger.md) |
 | ⏳ | Should a defender facing Barcelona or Real Madrid be benched whatever JP projects? | **Measured, the effect is real**: defenders score −3.3 (Barcelona) and −2.4 (Madrid) SofaScore points under their own mean, 9 and 10 of 11 games negative; keepers only against Barcelona. What decides a rule is whether JP already discounts it — 5 own-squad cases say no; `league_jp`, captured from round 13, gives the sample · `scripts/projections/opponent_effect.py`, [how to read it](docs/technical/backend/projection-ledger.md#the-opponent-effect) |
+| 🔨 | Web, in order: escape the `innerHTML` in `salseo.html`/`mercado.html`, contrast (`text-gray-400`, the green fill), keyboard (focus, `aria-expanded`, buttons), labels, YouTube façade, `<dialog>`, `<h1>` and table `scope`, decide `noindex` | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## my_photos
 
@@ -79,7 +81,6 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 🔨 | The 3D draft's deploy can publish an unpublished chapter: `experiments/draft3d/prepare.ts` copies whatever `public/stories` holds, with no source guard (live is clean today) | Pick up first · refuse `draft: true` in `prepare.ts`, run `STORIES_PUBLISH=1 npm run stories` before its deploy · [review](docs/technical/parked-work.md#interactive_fiction--review-2026-11) |
 | 🔨 | 3D: bake anchors and figure quads at build and stop serving the 61 MB of colliders (first room 13.3 → ~7.6 MB); content-hashed worlds with immutable headers; wire stings/heartbeat and a mute | [review](docs/technical/parked-work.md#interactive_fiction--review-2026-11) |
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
 | 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
@@ -96,6 +97,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 |---|---|---|
 | 👤 | Gifts are added from `/admin` with a photo, and it is deployed: add one from an iPhone (the dialog, both photo buttons) and check the photo shows on the list | You · the browser side has no automated test, and no photo has been stored in the remote D1 yet (if the statement size limit refuses one, the fallback is the photo across several rows) |
 | 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md) |
+| 🔨 | Web: first photos eager plus `fetchpriority`, `srcset` WebP and immutable photo caching, `--muted` contrast, grid not a live region, keyboard-reachable admin photo buttons, `rem`, self-hosted Fraunces | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## be_water
 
@@ -105,3 +107,10 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | ⏳ | The AESAN parser reads only Spain's table, of 28 in the PDF | A registered foreign water · **checked:** it would not have caught `FONTÉBIL`, and Portugal's place column is `Locality-Municipality`, which `_PROVINCE` cannot read · [measurements](docs/technical/parked-work.md#be_water-country-field) |
 | ⏳ | Tailwind ships as the Play CDN, which its own docs call development-only | A build step · **not** the `defer` this line used to ask for: deferring the compiler is what causes the unstyled flash · preconnect landed, the rest needs a Bazel node toolchain · affects `be_water` **and** `biwenger_tools/web` · **weighs more since #542**: the CDN compiles styles in the browser, which is the only reason both CSPs still allow `style-src 'unsafe-inline'` |
 | ⏳ | HEIC uploads are refused (JPEG, PNG and WebP only) | A contributor whose phone does not convert on upload · iOS Safari converts; not tried on a device |
+| 🔨 | Web: first card image not lazy plus `fetchpriority`, contrast (`sky-500`/`slate-400`), mobile nav names and the 320 px header, the "?" in the meta description, `<dialog>` for the zoom, `motion-safe` bounce | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
+
+## chucknorris_bot
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 🔨 | Landing: `add_security_headers` in `bot/app.py` (it sends none), the title clipped on phones (`clamp` floor), `<main>` and real headings, description and Open Graph, red label contrast | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |

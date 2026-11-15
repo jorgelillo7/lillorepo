@@ -30,6 +30,7 @@ One entry per document. Runbooks first, then setup, then deep dives.
 | [`technical/backend/second-projection-source.md`](technical/backend/second-projection-source.md) | Adding a second projection provider beside Jornada Perfecta: why, the division of labour, and the shadow-mode sequencing |
 | [`technical/backend/container-strategy.md`](technical/backend/container-strategy.md) | How service images are built, the two dependency universes, and why not distroless |
 | [`technical/reverse-engineering/frida-android-intercept.md`](technical/reverse-engineering/frida-android-intercept.md) | How the JP token was captured (Frida + Android JS bundle); scripts alongside |
+| [`technical/web-guidance.md`](technical/web-guidance.md) | The standard every web interface follows (Chrome's Modern Web Guidance, vendored as a skill) and the last review of each site with what is still open |
 | [`technical/migration/retrofit-patterns.md`](technical/migration/retrofit-patterns.md) | Legacy-modernisation patterns (Strangler Fig, Branch by Abstraction…) |
 | [`technical/ai/claude-code-roadmap.md`](technical/ai/claude-code-roadmap.md) | Claude Code adoption roadmap for this repo |
 | [`technical/ai/claude-code-director-workflow.md`](technical/ai/claude-code-director-workflow.md) | Director-mode workflow notes |

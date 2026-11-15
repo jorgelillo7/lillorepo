@@ -220,6 +220,14 @@ record.
   the series folder
 - *Verifies:* `series.test.ts: a sourceRoot may be relative to the series folder, absolute, or under the home folder`
 
+#### Scenario: The 3D draft's preview is a public URL too
+- **WHEN** the built library holds a chapter marked `draft` and the 3D draft's
+  data is prepared
+- **THEN** the preparation stops before copying anything and names the chapter;
+  the draft's own `npm run deploy` rebuilds the stories with `STORIES_PUBLISH=1` first
+- *Verifies:* `draft3d-guard.test.ts: a built library holding a draft chapter is refused, naming it`,
+  `draft3d-guard.test.ts: a built library of published chapters is prepared`
+
 ### Requirement: A public deploy publishes only what the author's repository publishes
 
 `npm run deploy` SHALL build with `STORIES_PUBLISH=1`, and that build SHALL

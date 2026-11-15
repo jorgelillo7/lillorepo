@@ -8,6 +8,7 @@ colors:
   text: "#f5f5f5"
   muted: "#888888"
   accent: "#dc2626"
+  accent-text: "#ef4444"
   accent-hover: "#b91c1c"
   gold: "#f59e0b"
 typography:
@@ -33,7 +34,7 @@ components:
   hero-badge:
     background: "rgba(220,38,38,.12)"
     borderColor: "rgba(220,38,38,.3)"
-    textColor: "{colors.accent}"
+    textColor: "{colors.text}"
     borderRadius: "{rounded.pill}"
   cta-button:
     backgroundColor: "{colors.accent}"
@@ -73,14 +74,15 @@ Aggressive and intentional. Red on near-black is maximum contrast; gold is the w
 - **Border (#2a2a2a):** Barely-visible structural separation. Not decorative.
 - **Text (#f5f5f5):** Off-white. Easier on the eyes than pure white on a dark background.
 - **Muted (#888888):** Secondary text — taglines, command descriptions, footer, origin body copy.
-- **Accent (#dc2626):** Chuck Norris red. The only warm color in the UI. Hero glow, CTA button, section labels, card hover borders. One active element per visual zone — don't stack multiple red things.
+- **Accent (#dc2626):** Chuck Norris red. The only warm color in the UI. Hero glow, CTA button, card hover borders.
+- **Accent text (#ef4444):** the same red, one step lighter, for red text (section labels): 5.2:1 on the background, where #dc2626 gives 4.0:1. The badge text is `--text`: on the hero glow even this red falls under 4.5:1. One active element per visual zone — don't stack multiple red things.
 - **Gold (#f59e0b):** Reserved for two things: monospace command names and the "2015 → 2026" year badge. Adds warmth without competing with red.
 
 ## Typography
 
 Two fonts. Strict roles.
 
-- **Black Ops One** — military stencil cut. Used only for the `CHUCKBOT` hero title and the origin card heading. Never body copy. The CSS `clamp(4.5rem, 14vw, 10rem)` scales the hero from 375px mobile to 1400px desktop without a media query.
+- **Black Ops One** — military stencil cut. Used only for the `CHUCKBOT` hero title and the origin card heading. Never body copy. The CSS `clamp(3rem, 16.5vw, 10rem)` fits `CHUCKBOT` (about 5.4× its font size wide) inside 320 px with margins and keeps 160 px on desktop. Its max/min ratio (3.3) is above the 2.5 that Modern Web Guidance asks for zoom; that is accepted for this one wordmark, since any floor that fits a phone would otherwise shrink the desktop title.
 - **Inter** — clean, modern, legible at any density. Everything else: tagline, descriptions, footer, origin text, section labels.
 - **Courier New** (fallback monospace) — command names only, in `--gold`. Makes it immediately obvious these are bot commands, not prose.
 
@@ -90,7 +92,7 @@ Single centered column, `max-width: 800px`. Sections separated by 1px `--border`
 
 Hero is full-bleed with a CSS-only radial gradient glow behind the title (`::before` pseudo-element, `rgba(220,38,38,.18)`). No images, no SVG backgrounds.
 
-The commands grid uses `auto-fill` with a `150px` minimum — 5 cards land in one row on desktop, wrap naturally on mobile.
+The commands grid uses `auto-fill` with a `130px` minimum — 5 cards land in one row on desktop (150px gave 4 + 1), two columns at 390px, one at 320px.
 
 ## Components
 
@@ -98,7 +100,7 @@ The commands grid uses `auto-fill` with a `150px` minimum — 5 cards land in on
 Pill chip above the H1. Semi-transparent red background + border. Labels the context ("Telegram Bot"). Used once, in the hero only.
 
 ### CTA Button
-The primary action. Red fill, white text, Telegram SVG icon inline. Hover darkens to `--accent-hover` and lifts 2px. The only filled button on the page.
+The primary action. Red fill, white text, Telegram SVG icon inline. Hover darkens to `--accent-hover` and lifts 2px; keyboard focus draws a 3px `--text` outline with a 3px offset. The only filled button on the page.
 
 ### Command Card
 5-card responsive grid. Each card: emoji → monospace command in gold → short description in muted. Hover lifts 3px and switches border to `--accent`. No click action — these are informational.
