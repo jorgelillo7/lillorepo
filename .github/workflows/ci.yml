@@ -213,6 +213,13 @@ jobs:
         run: npm run typecheck
       - if: steps.changed.outputs.run == 'true'
         run: npm test
+      # The deploy gate on the fixture series: built, explored strictly and played to every
+      # ending in the runner's Chrome. No Harlowe build is in the repository to compare with.
+      - name: Verify the fixture series
+        if: steps.changed.outputs.run == 'true'
+        env:
+          STORIES_DIR: tests/fixtures/stories
+        run: npm run verify -- --no-parity
 
   # The gift list, a Node Worker outside Bazel, set up like the reader above: the job
   # always runs and succeeds, and its steps run only when the PR touches the package.

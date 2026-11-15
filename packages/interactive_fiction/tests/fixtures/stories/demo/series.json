@@ -1,0 +1,9 @@
+{
+  "title": "Demo",
+  "chapters": [
+    { "id": "01", "source": "01.twee" },
+    { "id": "02", "source": "02.twee" }
+  ],
+  "carry": { "from": "code", "to": "previous" },
+  "credits": [{ "name": "Fixture Author", "role": "Story", "links": {} }]
+}

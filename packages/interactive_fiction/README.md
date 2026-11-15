@@ -32,14 +32,17 @@ package is only the reader. Both are cloned side by side
 1. The author writes in `fuente/`, checks it with his `tools/build.sh` and
    walkthrough tests, and merges to his `master`.
 2. Here: `git -C ~/Projects/project-silent-hill pull`.
-3. `npm run stories`, `npm run explore -- <series>` and `npm run parity`. What
-   fails goes back to him by passage name.
+3. `npm run verify`: the build, `explore --strict`, parity with his Harlowe
+   build and every ending played in Chrome. What fails goes back to him by
+   passage name.
 4. New rooms or characters: art-bible entries quoted from the text, each image
    listing its passages; `npm run art` generates them; review each against the
    bible; `npm run scenes:draft`, then place the hotspots and check them with
    an overlay ([`scene-art`](.claude/skills/scene-art/SKILL.md)); `npm run play`.
 5. Changes to `web/` go to the author as a PR in his repository.
-6. `npm run deploy`. It publishes only what the author's repository
+6. `npm run deploy`. It runs `npm run verify` first, uploads the `dist/` that
+   passed, and then checks the live site against it (`npm run check:live`).
+   It publishes only what the author's repository
    publishes: the build refuses a clone that is not on its default branch,
    clean and equal to its origin after a fetch (`STORIES_ALLOW_UNPUBLISHED=1`
    overrides it, for a deliberate preview, and lists why).
@@ -202,6 +205,29 @@ What it gives the reader:
   and generic achievements. The build explores every chapter to know its
   endings.
 
+## How it looks
+
+The reader changes how a story looks and never what it says. Its look is one
+stylesheet, `src/app/styles/book.css`, loaded after the others:
+
+- **Type:** Literata (text) and Cormorant Garamond (headings, title, names),
+  both SIL Open Font License, their Latin subsets self-hosted in
+  `src/app/fonts/` beside the licence texts — the CSP allows fonts from this
+  origin only. The two a first screen needs are
+  preloaded by a small plugin in `vite.config.ts`; each has a metric-matched
+  local fallback so nothing shifts when it arrives.
+- **Tokens:** `--bone` (headings, buttons), `--ink` (text), `--muted`,
+  `--accent` (rules, kickers, focus ring), `--measure` (the text column).
+- **The story's own stylesheet still loads last** and keeps its components
+  (a diary page, a wall of writing). Where it lays out the whole page — full
+  window width, justified on a phone — `book.css` out-ranks it by specificity.
+- **Colours the story sets on text** (who is speaking) are kept; one under
+  4.5:1 against its background is lightened along its own hue to reach it
+  (`src/app/contrast.ts`).
+- **Front matter:** the first entry of `credits` in `series.json` is the
+  author: named under the title and on the index, and first on the credits
+  page.
+
 ## Art bible
 
 A series may keep `stories/<series>/art-bible.json`: one English description per
@@ -272,18 +298,20 @@ Not supported: story JavaScript, `(either:)`/`(random:)`, named hooks,
 
 ```bash
 npm ci                 # once
-npm run stories        # validate + build stories/ into public/stories/
+npm run stories        # validate + build stories/ into public/stories/, pictures encoded as AVIF and WebP (cached in node_modules/.cache)
 npm run dev            # local site with hot reload
 npm run build          # stories (no drafts) + typecheck + dist/
 npm run build:drafts   # the same, drafts included — never upload this one publicly
 npm run preview        # serve dist/ on localhost:4173
 npm run deploy:login   # once: log wrangler in to Cloudflare
-npm run deploy         # build (no drafts, sources must be the author's published branch) and upload to Cloudflare
-npm run explore        # path report for every series (or: npm run explore -- <series>)
+npm run verify         # the gate before a deploy: build, explore --strict, parity, every ending played
+npm run deploy         # verify (sources must be the author's published branch), upload to Cloudflare, check the live site
+npm run check:live     # the live site against dist/: chapters, versions, headers, page files (read-only)
+npm run explore        # path report for every series (or: npm run explore -- <series>; --strict fails on what must be fixed)
 npm run prompts -- <series>   # image prompts for the planned images, from the art bible
 npm test               # engine tests
-npm run play           # every built chapter played end to end in headless Chrome (needs Chrome)
-npm run parity -- <series> --harlowe <Twine build.html>   # every page compared with real Harlowe, line breaks included
+npm run play           # drafts included: every ending of each published chapter clicked through in headless Chrome (needs Chrome)
+npm run parity [-- <series> --harlowe <Twine build.html>]   # every page compared with real Harlowe, line breaks included
 npm run scenes:draft -- <series> <chapter>    # a first scene file from the art bible, hotspots still to place
 npm run art -- <series> [ids] [--dry-run]     # generate planned images (paid Gemini API key in GEMINI_API_KEY)
 ```

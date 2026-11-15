@@ -1,0 +1,32 @@
+:: StoryTitle
+Chapter 1 - The Door
+
+
+:: StoryData
+{
+  "ifid": "00000000-0000-4000-8000-000000000001",
+  "format": "Harlowe",
+  "format-version": "3.3.9",
+  "start": "Start"
+}
+
+
+:: Setup [startup]
+{(set:$keys to 0)
+(set:$code to "")}
+
+
+:: Start
+A door, and a key on the floor.
+(if:$keys is 0)[ [[Take the key|Key]] ]
+[[Leave|Door]]
+
+
+:: Key
+(set:$keys to 1)The key is cold.
+(link:"Pick it up")[(set:$code to "KEY")(goto:"Door")]
+(link:"Put it back")[(set:$keys to 0)(goto:"Start")]
+
+
+:: Door
+(if:$keys > 0)[The door opens.](else:)[(set:$code to "LOST")The door stays shut.]

@@ -1,0 +1,34 @@
+:: StoryTitle
+Chapter 2 - The Corridor
+
+
+:: StoryData
+{
+  "ifid": "00000000-0000-4000-8000-000000000002",
+  "format": "Harlowe",
+  "format-version": "3.3.9",
+  "start": "Start"
+}
+
+
+:: Setup [startup]
+{(set:$previous to "")
+(set:$code to "")}
+
+
+:: Start
+Type the code of the first chapter.
+(input: bind $previous)
+[[Go on|Check]]
+
+
+:: Check
+(if:$previous is "KEY")[ [[Walk through the door|Open]] ](else-if:$previous is "LOST")[ [[Knock|Shut]] ](else:)[That is not a code. [[Try again|Start]] ]
+
+
+:: Open
+(set:$code to "FREE")The corridor is empty.
+
+
+:: Shut
+(set:$code to "STAY")Nobody answers.

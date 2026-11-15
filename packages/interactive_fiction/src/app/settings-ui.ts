@@ -1,7 +1,7 @@
 /** The settings sheet, opened over whatever is on screen. Changes apply at once. */
 
 import { applyVolume } from "./audio.ts";
-import { el } from "./dom.ts";
+import { el, openModal } from "./dom.ts";
 import { loadMode, storeMode } from "./save.ts";
 import { settings, updateSettings, type Settings } from "./settings.ts";
 
@@ -14,9 +14,9 @@ function choice<K extends keyof Settings>(key: K, value: Settings[K], label: str
 export function openSettings(onChange: () => void = () => {}): void {
   const s = settings();
   const mode = loadMode();
-  const sheet = el(`<div class="status-overlay settings-overlay" role="dialog" aria-label="Ajustes">
+  const sheet = el(`<dialog class="status-overlay settings-overlay" aria-labelledby="settings-title">
     <div class="status-sheet settings-sheet">
-      <h3>Ajustes</h3>
+      <h2 id="settings-title">Ajustes</h2>
       <label class="setting">Volumen
         <input type="range" min="0" max="100" value="${Math.round(s.volume * 100)}" data-volume>
       </label>
@@ -25,13 +25,13 @@ export function openSettings(onChange: () => void = () => {}): void {
       <div class="setting">Tamaño ${choice("textSize", "s", "A−")}${choice("textSize", "m", "A")}${choice("textSize", "l", "A+")}</div>
       <div class="setting">Efectos ${choice("effects", true, "Sí")}${choice("effects", false, "No")}</div>
       <div class="setting">Escenas
-        <button class="chip${mode === "game" ? " on" : ""}" data-mode="game">Imágenes</button>
-        <button class="chip${mode === "text" ? " on" : ""}" data-mode="text">Solo texto</button>
+        <button class="chip${mode === "game" ? " on" : ""}" data-mode="game" aria-pressed="${mode === "game"}">Imágenes</button>
+        <button class="chip${mode === "text" ? " on" : ""}" data-mode="text" aria-pressed="${mode === "text"}">Solo texto</button>
       </div>
       <div class="setting">Opciones ${choice("sceneChoices", "image", "En la imagen")}${choice("sceneChoices", "both", "También como botones")}</div>
       <p class="settings-note">Los efectos (temblores, viñetas, parpadeos) también se apagan si tu sistema pide reducir el movimiento.</p>
       <button class="button secondary status-close">Cerrar</button>
-    </div></div>`);
+    </div></dialog>`) as HTMLDialogElement;
   sheet.addEventListener("input", (ev) => {
     const t = ev.target as HTMLInputElement;
     if (t.dataset.volume !== undefined) {
@@ -57,10 +57,12 @@ export function openSettings(onChange: () => void = () => {}): void {
       onChange();
     } else if (modeButton) {
       storeMode(modeButton.dataset.mode as "game" | "text");
-      sheet.querySelectorAll("[data-mode]").forEach((b) => b.classList.toggle("on", b === modeButton));
+      sheet.querySelectorAll("[data-mode]").forEach((b) => {
+        b.classList.toggle("on", b === modeButton);
+        b.setAttribute("aria-pressed", String(b === modeButton));
+      });
       onChange();
-    } else if (t.closest(".status-close") || t === sheet) sheet.remove();
+    } else if (t.closest(".status-close")) sheet.close();
   });
-  document.body.appendChild(sheet);
-  sheet.querySelector<HTMLElement>(".status-close")!.focus();
+  openModal(sheet, ".status-close");
 }
