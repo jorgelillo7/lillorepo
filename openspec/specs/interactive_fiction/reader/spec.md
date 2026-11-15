@@ -305,6 +305,44 @@ a browser.
   `progression.test.ts: a save from before versions existed is checked by its passages`,
   `progression.test.ts: a new save records the chapter's version`
 
+### Requirement: A shared link shows what it leads to
+
+A chat app that previews a link reads the HTML at its URL and runs no script,
+and a chapter's address in the reader is a fragment that never reaches a
+server. The build SHALL therefore write a static page per series and per
+published chapter under `leer/<series>/[<chapter>/]`, carrying Open Graph and
+Twitter tags with absolute URLs — the chapter's own title and number, the
+series, its author (the first credit), and the JPEG or PNG the chapter opens
+on (the series' title picture for the series, or for a chapter without
+scenes) with its pixel size — and sending a person straight on to the reader
+without a script, which the site's policy forbids inline. A draft chapter
+SHALL never get a page. When the site holds one series, its own page SHALL
+carry that series' tags. No description is written about the story's content:
+only its names, or the series' own tagline. The end of a chapter offers to
+share the chapter's page.
+
+#### Scenario: A series' preview
+- **WHEN** a series' page is written
+- **THEN** it names the series, its author and how many chapters are published, with the title picture
+- *Verifies:* `share-pages.test.ts: a series is previewed with its title, its author, its published chapters and its title picture`
+
+#### Scenario: A chapter's preview
+- **WHEN** a published chapter's page is written
+- **THEN** it carries the chapter's title, its number, the author and the picture it opens on, falling back to the series' picture
+- *Verifies:* `share-pages.test.ts: a chapter is previewed with its own title, its number, the author and the picture it opens on`
+
+#### Scenario: The page itself
+- **WHEN** a chat app or a person opens a share page
+- **THEN** the tags are absolute and escaped, there is no script, and a refresh and a link lead to the reader
+- *Verifies:* `share-pages.test.ts: the page a chat app reads carries absolute Open Graph tags, escaped, and sends a person on to the reader without a script`,
+  `share-pages.test.ts: a page without a picture is a plain summary card`,
+  `share-pages.test.ts: a picture's size is read from a PNG or JPEG header`
+
+#### Scenario: The site's own page
+- **WHEN** the build finishes
+- **THEN** the site's page carries the tags once
+- *Verifies:* `share-pages.test.ts: the site's own page gets the tags once, before the end of its head`
+
 ### Requirement: Every new passage is announced
 
 When a passage is shown, focus SHALL move to it and a polite live region SHALL

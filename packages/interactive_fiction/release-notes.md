@@ -2,6 +2,11 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **Links That Show What They Lead To (15 November 2026)**
+
+* **🔗 A preview when you share it**: a link to the site, or to one chapter, now unfolds in WhatsApp and other chats with the chapter's title, the series, its author and the picture the chapter opens on.
+* **📤 Share a chapter from its ending**: the end of each chapter has a "Compartir" button that hands its link to your phone's share sheet, or copies it.
+
 ### **Set Like a Book (15 November 2026)**
 
 The story reads the same, word for word. Everything around the words was redrawn.

@@ -162,7 +162,7 @@ export function endPanel(e: EndState): string {
     : "";
   const next = e.nextChapter ? `<a class="button" href="#/${e.series.id}/${e.nextChapter}">Siguiente capítulo →</a>` : "";
   return `<footer class="end-panel">${code}${e.discoveries ? yourPath(e.discoveries, e.found, e.progress) : ""}
-    <div class="end-actions"><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div></footer>`;
+    <div class="end-actions"><button class="button secondary" data-tool="share">Compartir</button><a class="button secondary" href="#/capitulos/${e.series.id}">Índice</a><a class="button secondary" href="#/logros/${e.series.id}">Logros</a>${next}</div></footer>`;
 }
 
 export function unwrittenPanel(): string {

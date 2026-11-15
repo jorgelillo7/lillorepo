@@ -239,6 +239,19 @@ the text, a scene image is not registered, or a generated image has no prompt
 recorded. The whole procedure — new chapter to published scene — is the
 [`scene-art`](.claude/skills/scene-art/SKILL.md) skill.
 
+## Sharing a link
+
+`npm run build` ends with `scripts/share-pages.ts`: a static page per series
+and per published chapter at `leer/<series>/` and `leer/<series>/<chapter>/`,
+with Open Graph tags (title, series, author, the picture the chapter opens on)
+and a refresh into the reader. A chat app reads tags from the HTML at the URL
+and runs no script, and `#/<series>/<chapter>` never reaches a server — so
+those are the links to share, and the "Compartir" button at the end of a
+chapter hands out exactly that one. The site's own page carries the series'
+tags when there is one series. Drafts get no page. The absolute URLs use
+`SITE_URL` (default: the public Worker); set it when the site moves to its own
+domain.
+
 ## What it supports
 
 A deliberate subset of Harlowe 3, the one the stories use. Anything else fails
