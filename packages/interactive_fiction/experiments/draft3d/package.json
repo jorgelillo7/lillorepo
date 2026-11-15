@@ -6,7 +6,7 @@
     "prepare-data": "node prepare.ts",
     "dev": "npm run prepare-data && vite",
     "build": "npm run prepare-data && vite build",
-    "deploy": "npm run build && ../../deploy/node_modules/.bin/wrangler deploy",
+    "deploy": "STORIES_PUBLISH=1 npm --prefix ../.. run stories && npm run build && ../../deploy/node_modules/.bin/wrangler deploy",
     "fit": "node fit.ts",
     "check": "npm run prepare-data && node check.ts"
   },

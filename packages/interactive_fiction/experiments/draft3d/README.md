@@ -54,7 +54,11 @@ deploys to its own Worker:
    skips. It also fails when the title or "Acerca de" overflows a 750×330
    phone. `npm run fit -- <scene>` (step 4) finds the camera by rendering the
    world and scoring it against the picture.
-7. **Preview** — `npm run deploy` (after `npm run stories` in the package).
+7. **Preview** — `npm run deploy`. It rebuilds the stories first as a public
+   deploy does (`STORIES_PUBLISH=1`: published chapters only, from the
+   author's default branch), and `prepare.ts` refuses a built library that
+   holds a draft chapter, so what `npm run dev` or `build:drafts` left in
+   `public/stories` cannot reach the preview's public URL.
 
 Added to an iPhone's home screen, the draft opens full screen with its own
 icon — Cheshire's keychain, painted with `view.ts --aspect 1:1` into
