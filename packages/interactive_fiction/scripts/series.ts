@@ -47,7 +47,8 @@ export interface Series {
   stories: Story[];
 }
 
-export const STORIES_DIR = new URL("../stories/", import.meta.url).pathname;
+/** The stories folder; STORIES_DIR points the scripts at another one (CI builds and plays the fixture series). */
+export const STORIES_DIR = process.env.STORIES_DIR ? resolve(process.env.STORIES_DIR) : new URL("../stories/", import.meta.url).pathname;
 
 export function seriesIds(): string[] {
   if (!existsSync(STORIES_DIR)) return [];

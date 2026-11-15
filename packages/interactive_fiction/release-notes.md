@@ -2,6 +2,13 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **One Gate Before Every Deploy (15 November 2026)**
+
+Nothing a reader sees changed.
+
+* **🚦 Nothing ships unchecked**: a deploy now builds the site, plays every path of every chapter, compares every page with the author's own Twine build and clicks through to every ending in a real browser — and stops if any of it fails.
+* **🔎 The live site is checked after the upload**: the chapters, their versions and the security headers online must be the ones just built.
+
 ### **The 3D Preview Keeps Drafts In (15 November 2026)**
 
 Nothing a reader sees changed.

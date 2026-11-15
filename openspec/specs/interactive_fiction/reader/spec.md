@@ -158,6 +158,48 @@ kind of contract break no single chapter's test can see.
 - **THEN** exploration stops at the limit and reports itself truncated
 - *Verifies:* `explore.test.ts: a story whose state grows forever is cut off and says so`
 
+### Requirement: One gate runs before a deploy, and the live site is checked after it
+
+`npm run verify` SHALL build the site as it will be uploaded, explore every
+published chapter strictly, compare every page with real Harlowe and play the
+built site to every ending in a real browser, stopping at the first step that
+fails. `npm run deploy`, and the 3D draft's own deploy, SHALL run it before
+uploading. Strict exploration SHALL fail on an unreachable passage, a runtime
+error, an exploration cut short, a chapter with no ending, a page with nothing
+to click and no end code in a chapter that ends with codes, a code of the
+previous chapter treated like a wrong one, and on having no published chapter
+to check; a draft is reported and never fails. After the upload,
+`npm run check:live` SHALL compare the live site with the build, read-only.
+
+#### Scenario: A chapter ready to ship
+- **WHEN** every path of a published chapter ends, with a code where the chapter ends with codes
+- **THEN** strict exploration has nothing to report
+- *Verifies:* `explore.test.ts: a chapter whose every path ends, with a code where it ends with codes, has nothing to fix`
+
+#### Scenario: A chapter with something to fix
+- **WHEN** a passage is unreachable, a passage fails at runtime, exploration is cut short, or an ending has no code
+- **THEN** each is named and the gate fails
+- *Verifies:* `explore.test.ts: an unreachable passage, a runtime error, a cut-off exploration and an ending without a code each stop a chapter shipping`
+
+#### Scenario: A code the next chapter rejects
+- **WHEN** the next chapter treats a code of the previous one like a wrong code
+- **THEN** the code is named
+- *Verifies:* `explore.test.ts: a code of the previous chapter that the next treats like a wrong one is named`
+
+#### Scenario: The Harlowe build to compare with
+- **WHEN** parity is run without naming an engine
+- **THEN** it uses the first `build/index.html` beside a chapter's sources, and fails when there is none
+- *Verifies:* `parity.test.ts: the Harlowe build to compare with is the one beside a chapter's sources`
+
+#### Scenario: The live site after a deploy
+- **WHEN** the live site misses a chapter of the build, serves one the build lacks, serves a draft, serves another version, or answers without a header of `public/_headers`
+- **THEN** the check names it and fails
+- *Verifies:* `live.test.ts: the same chapters at the same versions pass`,
+  `live.test.ts: a chapter missing, extra, at another version or not loading is named`,
+  `live.test.ts: a draft chapter live is a failure whatever the build holds`,
+  `live.test.ts: a response header missing or different from the headers file is named`,
+  `live.test.ts: the files a built page loads are read from its HTML, remote and data: URLs left out`
+
 ### Requirement: Stories stay out of the repository, and drafts out of the build
 
 Story text, images and scene files SHALL live in a gitignored `stories/`

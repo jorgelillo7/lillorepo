@@ -5,22 +5,24 @@
  * compared line by line — line breaks included, which a word-by-word check
  * misses. Fails on any difference.
  *
- *   npm run parity -- <series> --harlowe <a Twine HTML build> [--drafts] [--max N]
+ *   npm run parity -- [series] [--harlowe <a Twine HTML build>] [--drafts] [--max N]
  *
  * Any Harlowe 3 build works as the engine (the author's own `build/index.html`):
  * its story is replaced, for each page, by the chapter with a startup passage
- * that sets the page's state and starts on it.
+ * that sets the page's state and starts on it. Without `--harlowe` the engine is
+ * PARITY_HARLOWE, or the first `build/index.html` beside a chapter's sources;
+ * without a series every series is compared. No engine, or nothing compared, fails.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { exploreSeries } from "../src/engine/explore.ts";
 import { Runtime, type Vars } from "../src/engine/runtime.ts";
 import type { Story } from "../src/engine/source.ts";
 import type { Value } from "../src/engine/values.ts";
 import { sleep, withChrome, type Devtools } from "./chrome.ts";
-import { loadSeries } from "./series.ts";
+import { loadSeries, seriesIds, type Series } from "./series.ts";
 
 const CDP_PORT = 9398;
 const SETUP = "__parity_setup";
@@ -106,15 +108,51 @@ function firstDifference(a: string, b: string): string {
   return `    line ${at + 1}\n    Harlowe:\n${show(la)}\n    reader:\n${show(lb)}`;
 }
 
-async function main(): Promise<number> {
-  const id = process.argv[2];
-  const engine = arg("--harlowe");
-  if (!id || id.startsWith("--") || !engine) {
-    console.error("usage: npm run parity -- <series> --harlowe <a Twine HTML build> [--drafts] [--max N]");
-    return 2;
+/**
+ * A Twine build to borrow Harlowe from, for a series whose author compiles his chapters: the first
+ * `build/index.html` beside a chapter's sources (`<chapter folder>/fuente` → `<chapter folder>/build`).
+ */
+export function harloweBuildFor(series: Pick<Series, "sourceDir" | "manifest">, exists: (path: string) => boolean = existsSync): string | undefined {
+  for (const chapter of series.manifest.chapters) {
+    for (const source of [chapter.source].flat()) {
+      const build = join(series.sourceDir, dirname(source), "build/index.html");
+      if (exists(build)) return build;
+    }
   }
+  return undefined;
+}
+
+async function main(): Promise<number> {
+  const first = process.argv[2];
+  const ids = first && !first.startsWith("--") ? [first] : seriesIds();
+  if (!ids.length) {
+    console.error("✗ no series to compare");
+    return 1;
+  }
+  let status = 0;
+  let compared = 0;
+  for (const id of ids) {
+    const series = loadSeries(id);
+    const engine = arg("--harlowe") ?? process.env.PARITY_HARLOWE ?? harloweBuildFor(series);
+    if (!engine) {
+      console.error(`✗ ${id}: no Harlowe build to compare with — pass --harlowe <a Twine HTML build> or set PARITY_HARLOWE`);
+      status = 1;
+      continue;
+    }
+    const result = await compareSeries(series, engine);
+    compared += result.pages;
+    if (result.differences) status = 1;
+  }
+  if (!status && !compared) {
+    console.error("✗ no page was compared");
+    return 1;
+  }
+  return status;
+}
+
+async function compareSeries(series: Series, engine: string): Promise<{ pages: number; differences: number }> {
+  const id = series.id;
   const max = Number(arg("--max") ?? 2000);
-  const series = loadSeries(id);
   const template = readFileSync(engine, "utf8");
   const a = template.indexOf("<tw-storydata");
   const b = template.indexOf("</tw-storydata>") + "</tw-storydata>".length;
@@ -137,6 +175,7 @@ async function main(): Promise<number> {
   const dir = mkdtempSync(join(tmpdir(), "if-parity-"));
   const file = join(dir, "page.html");
   let differences = 0;
+  let compared = 0;
   let n = 0;
   try {
     await withChrome(CDP_PORT, async (c) => {
@@ -152,6 +191,7 @@ async function main(): Promise<number> {
           else diffs.push(`  ✗ [${passage}]\n${firstDifference(harlowe, ours)}`);
         }
         differences += diffs.length;
+        compared += pages[i].size;
         console.log(`${diffs.length ? "✗" : "✓"} ${id}/${entry.id}: ${same} of ${pages[i].size} pages render as in Harlowe`);
         for (const d of diffs.slice(0, 10)) console.log(d);
         if (diffs.length > 10) console.log(`  … and ${diffs.length - 10} more`);
@@ -160,7 +200,7 @@ async function main(): Promise<number> {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-  return differences ? 1 : 0;
+  return { pages: compared, differences };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) process.exit(await main());
