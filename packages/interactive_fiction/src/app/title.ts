@@ -4,6 +4,7 @@ import { setAmbience } from "./audio.ts";
 import { app, el, esc, setStoryCss } from "./dom.ts";
 import type { SeriesEntry } from "./library.ts";
 import { clear, lastPlayed, load } from "./save.ts";
+import { backgroundImage } from "./picture.ts";
 import { openSettings } from "./settings-ui.ts";
 
 export function renderTitle(series: SeriesEntry): void {
@@ -19,7 +20,7 @@ export function renderTitle(series: SeriesEntry): void {
   const first = series.chapters[0];
   const started = first && load(series.id, first.id);
   // Inline, so the path resolves against the page and not against the stylesheet.
-  const art = title.image ? ` style="background-image: url('${esc(title.image)}')"` : "";
+  const art = title.image ? ` style="background-image: url('${esc(title.image)}'); background-image: ${esc(backgroundImage(series.images ?? {}, title.image))}"` : "";
   const screen = el(`<main class="title-screen"${art}>
     <div class="title-shade"></div>
     <div class="title-content">

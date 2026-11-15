@@ -15,6 +15,7 @@ import { playDoor } from "./door.ts";
 import { openStatus } from "./hud.ts";
 import { library, loadChapter } from "./library.ts";
 import { pace, type Pacing } from "./pacing.ts";
+import { upgradeImages } from "./picture.ts";
 import { advance, finish, freshStart, isStale, outcomeOf, undo, withCarriedCode, withNewVariables, type Progress } from "./progression.ts";
 import { clear, load, loadCodes, loadFound, loadMode, recordFound, store, storeCode, storeLastPlayed, storeMode } from "./save.ts";
 import { settings, updateSettings } from "./settings.ts";
@@ -199,7 +200,7 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
   s.lastScene = sceneId;
   const { shown } = hotspotsFor(scene, page.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
-  const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer));
+  const root = mount(s, view.scenePage(bar, scene, shown, page.actions, seen, passage, footer, s.series.images));
   // A link the scene already shows as a hotspot is not repeated in the text, unless the reader asked for both.
   const inScene = new Set(settings().sceneChoices === "both" ? [] : shown.flatMap((x) => x.actions.map(String)));
   root.querySelectorAll<HTMLElement>("tw-passage tw-link[data-action]").forEach((link) => {
@@ -217,6 +218,8 @@ function renderPage(s: Session, page: Rendered, footer: string): void {
 /** Put a page on screen with the condition's effects, scrolled to the top. */
 function mount(s: Session, html: string): HTMLElement {
   const root = el(html);
+  // The pictures the author's own markup shows (a sign, a mirror) are at most a text column wide.
+  upgradeImages(root.querySelector("tw-passage") ?? root, s.series.images ?? {}, "(max-width: 700px) 90vw, 640px");
   app.replaceChildren(root);
   const state = condition(s);
   const effects = settings().effects && !reducedMotion();
@@ -292,6 +295,7 @@ function onAction(s: Session, link: HTMLElement): void {
   holder.querySelectorAll<HTMLElement>("[data-action]").forEach((a) => {
     a.dataset.action = String(offset + Number(a.dataset.action));
   });
+  upgradeImages(holder, s.series.images ?? {}, "(max-width: 700px) 90vw, 640px");
   link.replaceWith(holder);
 }
 
@@ -388,7 +392,7 @@ function showView(s: Session, sceneId: string): void {
   s.lastScene = sceneId;
   const { shown } = hotspotsFor(scene, s.actions, s.scenes!.scenes);
   const seen = new Set(s.progress.undo.map((u) => u.passage));
-  holder.innerHTML = view.stage(scene, shown, s.actions, seen);
+  holder.innerHTML = view.stage(scene, shown, s.actions, seen, s.series.images);
   setAmbience(ambienceFor(s.series.game, scene.room, []));
   if (lastRoom && scene.room && lastRoom !== scene.room) {
     playDoor();
