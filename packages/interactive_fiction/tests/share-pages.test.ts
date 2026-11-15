@@ -26,6 +26,7 @@ describe("link previews for a series and its chapters", () => {
       description: "The Ward, ficción interactiva de Ann Author. 2 capítulos para leer y jugar en el navegador.",
       siteName: "The Ward",
       image: "https://example.test/stories/s/scenes/cover.jpg",
+      imageAlt: "Portada de The Ward",
     });
     expect(seriesMeta({ ...series, game: { title: { tagline: "A line of the author's" } } }, SITE).description).toBe("A line of the author's");
   });
@@ -38,6 +39,7 @@ describe("link previews for a series and its chapters", () => {
       description: "Capítulo II de The Ward, ficción interactiva de Ann Author.",
       siteName: "The Ward",
       image: "https://example.test/stories/s/scenes/corridor.jpg",
+      imageAlt: 'La escena con la que empieza «"Who" & <where>»',
     });
     expect(chapterMeta(series, 0, SITE).image).toBe("https://example.test/stories/s/scenes/cover.jpg");
   });
@@ -49,6 +51,10 @@ describe("link previews for a series and its chapters", () => {
     expect(html).toContain(`<meta property="og:image" content="https://example.test/stories/s/scenes/corridor.jpg" />`);
     expect(html).toContain(`<meta property="og:image:width" content="1600" />`);
     expect(html).toContain(`<meta name="twitter:card" content="summary_large_image" />`);
+    expect(html).toContain(`<meta property="og:image:type" content="image/jpeg" />`);
+    expect(html).toContain(`<meta property="og:image:alt" content="La escena con la que empieza «&quot;Who&quot; &amp; &lt;where&gt;»" />`);
+    expect(html).toContain(`<meta name="twitter:image:alt" content="La escena con la que empieza «&quot;Who&quot; &amp; &lt;where&gt;»" />`);
+    expect(html).toContain(`<meta name="color-scheme" content="dark" />`);
     expect(html).toContain(`<meta http-equiv="refresh" content="0; url=../../../#/s/02" />`);
     expect(html).toContain(`<a href="../../../#/s/02">Leer</a>`);
     expect(html).not.toMatch(/<script/);
@@ -66,6 +72,12 @@ describe("link previews for a series and its chapters", () => {
     const tagged = withTags(page, shareTags(seriesMeta(series, SITE)));
     expect(tagged).toMatch(/og:title[\s\S]*<\/head><body>/);
     expect(withTags(tagged, "<meta again>")).toBe(tagged);
+  });
+
+  test("the site's own page is titled as its preview, when it holds one series", () => {
+    const page = `<html><head><title>Historias</title></head><body></body></html>`;
+    expect(withTags(page, "", "The Ward & co")).toContain("<title>The Ward &amp; co</title>");
+    expect(withTags(page, "")).toContain("<title>Historias</title>");
   });
 
   test("a picture's size is read from a PNG or JPEG header", () => {

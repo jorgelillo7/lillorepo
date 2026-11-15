@@ -6,14 +6,17 @@
  *
  * Fails when a chapter is missing, extra, marked draft or at another version
  * than the build, when a response header of public/_headers is missing or
- * different, or when a file the page loads does not answer 200.
+ * different (the page's, and the `/assets/*` block's on its hashed files),
+ * when a file the page loads does not answer 200, or when a series' share page
+ * (`leer/<series>/`) is missing or names another title.
  */
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chapterFile, LIBRARY_FILE, type ChapterData, type SeriesEntry } from "../src/contract.ts";
 import { sleep } from "./chrome.ts";
-import { contentProblems, expectedHeaders, headerProblems, pageAssets, versionsOf } from "./live.ts";
+import { contentProblems, expectedHeaders, headerProblems, pageAssets, sharePageProblems, versionsOf } from "./live.ts";
+import { SHARE_DIR } from "./share-pages.ts";
 
 const ROOT = new URL("../", import.meta.url).pathname;
 const DIST = join(ROOT, "dist");
@@ -33,15 +36,24 @@ async function problemsNow(): Promise<string[]> {
 
   const page = await get("");
   if (!page.ok) return [`${site} answered ${page.status}`];
-  const problems = headerProblems(expectedHeaders(readFileSync(join(DIST, "_headers"), "utf8")), (name) => page.headers.get(name));
+  const headersFile = readFileSync(join(DIST, "_headers"), "utf8");
+  const problems = headerProblems(expectedHeaders(headersFile), (name) => page.headers.get(name));
+  const hashed = expectedHeaders(headersFile, "/assets/*");
   for (const asset of pageAssets(await page.text())) {
-    const res = await get(asset.replace(/^\.?\//, ""));
+    const path = asset.replace(/^\.?\//, "");
+    const res = await get(path);
     if (!res.ok) problems.push(`${asset}, which the page loads, answered ${res.status}`);
+    else if (path.startsWith("assets/")) problems.push(...headerProblems(hashed, (name) => res.headers.get(name)).map((p) => `${path}: ${p}`));
   }
 
   const lib = await get(`stories/${LIBRARY_FILE}`);
   if (!lib.ok) return [...problems, `stories/${LIBRARY_FILE} answered ${lib.status}`];
   const liveLibrary = (await lib.json()) as SeriesEntry[];
+  for (const s of liveLibrary) {
+    const path = `${SHARE_DIR}/${s.id}/`;
+    const res = await get(path);
+    problems.push(...sharePageProblems(path, res.status, res.ok ? await res.text() : "", s.title));
+  }
   const liveVersions: Record<string, string> = {};
   for (const s of liveLibrary) {
     for (const c of s.chapters) {
@@ -67,4 +79,4 @@ if (problems.length) {
   console.error(`\n${site} does not serve the build in dist/.`);
   process.exit(1);
 }
-console.log(`✓ ${site} serves the build in dist/: chapters, versions, headers and page files.`);
+console.log(`✓ ${site} serves the build in dist/: chapters, versions, headers, page files and share pages.`);

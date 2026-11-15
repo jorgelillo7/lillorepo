@@ -1,7 +1,8 @@
 /**
  * What a deploy must have put online, compared with the build it uploaded: the
  * same chapters at the same versions, no draft, the response headers of
- * `public/_headers`, and every file the page loads.
+ * `public/_headers` (those of `/assets/*` on the hashed files too), every file
+ * the page loads, and a share page per series.
  */
 
 import type { ChapterData, SeriesEntry } from "../src/contract.ts";
@@ -43,14 +44,14 @@ export function contentProblems(built: Snapshot, live: Snapshot): string[] {
   return problems;
 }
 
-/** The headers of the `/*` block of a Cloudflare `_headers` file, by lower-cased name. */
-export function expectedHeaders(headersFile: string): Record<string, string> {
+/** The headers of one block (`/*` unless named) of a Cloudflare `_headers` file, by lower-cased name. */
+export function expectedHeaders(headersFile: string, block = "/*"): Record<string, string> {
   const found: Record<string, string> = {};
   let inBlock = false;
   for (const line of headersFile.split("\n")) {
     if (line.startsWith("#") || !line.trim()) continue;
     if (!/^\s/.test(line)) {
-      inBlock = line.trim() === "/*";
+      inBlock = line.trim() === block;
       continue;
     }
     if (!inBlock) continue;
@@ -72,4 +73,13 @@ export function headerProblems(expected: Record<string, string>, sent: (name: st
 /** The scripts and stylesheets a built page loads from its own origin, as written in its HTML. */
 export function pageAssets(html: string): string[] {
   return [...html.matchAll(/<(?:script|link)\b[^>]*\s(?:src|href)="([^"]+)"/g)].map((m) => m[1]).filter((u) => !/^(?:https?:|data:|#)/.test(u));
+}
+
+/** What is wrong with a series' share page as served: its og:title must name the series. */
+export function sharePageProblems(path: string, status: number, html: string, title: string): string[] {
+  if (status !== 200) return [`${path} answered ${status}`];
+  const m = /<meta property="og:title" content="([^"]*)"/.exec(html);
+  const esc = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  if (!m) return [`${path} has no og:title`];
+  return m[1] === esc ? [] : [`${path} has og:title "${m[1]}", expected "${esc}"`];
 }

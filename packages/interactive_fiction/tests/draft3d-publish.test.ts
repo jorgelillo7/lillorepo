@@ -45,6 +45,14 @@ describe("what the 3D draft serves of its worlds", () => {
     expect(rest.map((l) => l.trim())).toContain("X-Content-Type-Options: nosniff");
   });
 
+  test("every file forbids framing, plugins, <base> and form posts, and is HTTPS-only", () => {
+    const rest = headersFile().split("\n").slice(headersFile().split("\n").indexOf("/*")).map((l) => l.trim());
+    const csp = rest.find((l) => l.startsWith("Content-Security-Policy:"))!;
+    for (const d of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'none'"]) expect(csp).toContain(d);
+    expect(rest).toContain("Strict-Transport-Security: max-age=31536000");
+    expect(rest.some((l) => l.startsWith("Permissions-Policy:") && l.includes("camera=()"))).toBe(true);
+  });
+
   test("a baked place keeps a tenth of a millimetre", () => {
     expect(rounded({ x: 1.234567, y: -0.00004, z: 2 })).toEqual([1.2346, 0, 2]);
   });

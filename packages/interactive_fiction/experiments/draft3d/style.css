@@ -91,9 +91,25 @@ button { font: inherit; color: inherit; }
 .veil-bar { position: absolute; left: 50%; top: 50%; width: 120px; height: 2px; margin-left: -60px; overflow: hidden; background: rgba(201, 162, 74, 0.15); opacity: 0; transition: opacity 0.3s; }
 .veil.waiting .veil-bar { opacity: 1; }
 /* The line fills with the room's download (--loaded, 0 to 1). */
-.veil-bar::after, .loading-track::after { content: ""; position: absolute; inset: 0; background: var(--accent); transform-origin: left; transform: scaleX(var(--loaded, 0)); transition: transform 0.2s linear; }
+.veil-bar::after { content: ""; position: absolute; inset: 0; background: var(--accent); transform-origin: left; transform: scaleX(var(--loaded, 0)); transition: transform 0.2s linear; }
+/* Size unknown (no Content-Length): a short segment slides along instead of a fill stuck at 0. */
+.loading-unknown .veil-bar::after { inset: 0 auto 0 0; width: 30%; transform: none; animation: loading-slide 1.5s linear infinite; }
+@keyframes loading-slide { from { translate: -100%; } to { translate: 400%; } }
 .title-loading { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; font: 12px/1 var(--mono); letter-spacing: 0.04em; color: var(--muted); font-variant-numeric: tabular-nums; }
-.loading-track { position: relative; flex: none; width: 140px; height: 2px; overflow: hidden; background: rgba(201, 162, 74, 0.18); }
+.loading-track {
+  appearance: none; border: 0 solid; overflow: clip; flex: none; width: 140px; height: 2px;
+  background: rgba(201, 162, 74, 0.18); container-type: inline-size;
+  --progress-bar-indeterminate-animation-duration: 1.5s;
+}
+.loading-track::-webkit-progress-bar { background: transparent; }
+.loading-track::-webkit-progress-value { background: var(--accent); transition: inline-size 0.2s linear; animation: var(--progress-bar-animation, revert-rule); }
+.loading-track::-moz-progress-bar { background: var(--accent); animation: var(--progress-bar-animation, revert-rule); }
+.loading-track:indeterminate { --progress-bar-animation: progress-bar-indeterminate var(--progress-bar-indeterminate-animation-duration) infinite linear; }
+@keyframes progress-bar-indeterminate {
+  from, to { inline-size: 30%; margin-right: auto; }
+  from { translate: -100%; }
+  to { translate: 100cqi; }
+}
 /* Sound switch, in the corner opposite the badge. */
 .mute { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
   background: none; border: 0; border-radius: 50%; color: var(--muted); cursor: pointer; }
@@ -168,4 +184,4 @@ button { font: inherit; color: inherit; }
   .rotate-phone { width: 34px; height: 58px; margin-bottom: 18px; border: 2px solid var(--accent); border-radius: 7px; animation: turn 2.2s ease-in-out infinite; }
 }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
-@media (prefers-reduced-motion: reduce) { #world { animation: none; } .spot::before { animation: none; } .veil, .title, .veil-bar::after, .loading-track::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #world { animation: none; } .spot::before { animation: none; } .veil-bar::after { transition: none; } .loading-track { --progress-bar-indeterminate-animation-duration: 10s; } .loading-unknown .veil-bar::after { animation-duration: 10s; } }

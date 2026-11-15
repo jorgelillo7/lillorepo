@@ -6,6 +6,9 @@
 # the favicon as a data: URL, and the chapter's own stylesheet injected as a
 # <style> element and inline style attributes from story markup. `tests/headers.test.ts`
 # fails when the source starts loading something this does not allow.
+#
+# Vite names every file under /assets/ by a hash of its content, so a browser
+# can keep them for a year without asking again; a new build gets new names.
 /*
   Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Frame-Options: DENY
@@ -13,3 +16,5 @@
   Referrer-Policy: same-origin
   Permissions-Policy: accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()
   Strict-Transport-Security: max-age=31536000
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
