@@ -1,10 +1,18 @@
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("/fonts/fraunces-latin.woff2") format("woff2");
+}
+
 :root {
   color-scheme: light;
   --page: #f8f3ea;
   --card: #fffdf9;
   --ink: #221c18;
   --ink-2: #5c534c;
-  --muted: #8a8077;
+  --muted: #72685f;
   --line: rgba(34, 28, 24, 0.12);
   --red: #b3261e;
   --red-ink: #ffffff;
@@ -37,11 +45,12 @@
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
-  font: 16px/1.5 var(--body);
+  font: 1rem/1.5 var(--body);
   -webkit-font-smoothing: antialiased;
 }
 .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
@@ -49,27 +58,27 @@ body {
 .hero { text-align: center; margin-bottom: 28px; }
 .hero.left { text-align: left; }
 .star { width: 28px; height: 28px; fill: var(--red); }
-h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 44px); line-height: 1.1; margin: 6px 0 4px; letter-spacing: -0.01em; }
-h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0 0 4px; }
-.subtitle { margin: 0; color: var(--red); font-family: var(--display); font-size: 19px; font-weight: 600; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.875rem, 1.25rem + 3vw, 2.75rem); line-height: 1.1; margin: 6px 0 4px; letter-spacing: -0.01em; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 1.5rem; margin: 0 0 4px; }
+.subtitle { margin: 0; color: var(--red); font-family: var(--display); font-size: 1.1875rem; font-weight: 600; }
 .how { max-width: 560px; margin: 14px auto 0; color: var(--ink-2); }
 .how.left-text { margin-left: 0; }
-.counts { margin: 14px 0 0; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.counts { margin: 14px 0 0; color: var(--muted); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
 .error { background: var(--amber-soft); color: var(--amber); border-radius: 10px; padding: 10px 14px; }
 
 .filters { display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 0 0 26px; }
 .filter-level { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
-.filter-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.filter-label { font-size: 0.7188rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .n { font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.7; }
 
 /* Level 1: who the gift is for. One solid segmented control. */
 .segmented { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 4px; max-width: 100%; overflow-x: auto; box-shadow: var(--shadow); }
-.segment { font: inherit; font-size: 15px; font-weight: 700; color: var(--ink-2); background: transparent; border: 0; border-radius: 10px; padding: 9px 16px; min-height: 42px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.segment { font: inherit; font-size: 0.9375rem; font-weight: 700; color: var(--ink-2); background: transparent; border: 0; border-radius: 10px; padding: 9px 16px; min-height: 42px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .segment[aria-pressed="true"] { background: var(--red); color: var(--red-ink); }
 
 /* Level 2: state. Lighter chips, each with its state's colour. */
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.chip { font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; min-height: 34px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+.chip { font: inherit; font-size: 0.8438rem; font-weight: 600; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; min-height: 34px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--muted)); }
 .chip[data-state="libres"] { --dot: var(--red); --tint: rgba(179, 38, 30, 0.10); }
 .chip[data-state="reservados"] { --dot: var(--amber); --tint: var(--amber-soft); }
@@ -77,24 +86,24 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0 0
 .chip[aria-pressed="true"] { color: var(--ink); background: var(--tint, var(--line)); border-color: var(--dot, var(--ink-2)); }
 .segment:focus-visible, .chip:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 .empty { text-align: center; color: var(--muted); padding: 32px 0; }
-.tag { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--green); background: var(--green-soft); border-radius: 6px; padding: 2px 8px; }
+.tag { align-self: flex-start; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--green); background: var(--green-soft); border-radius: 6px; padding: 2px 8px; }
 .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
 .gift { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow); }
 .gift .photo { display: block; aspect-ratio: 1 / 1; overflow: hidden; background: var(--line); }
 .gift img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gift.done img { filter: grayscale(0.6); opacity: 0.75; }
 .gift .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.gift h3 { margin: 0; font-size: 17px; line-height: 1.3; }
-.gift .detail { margin: 0; color: var(--ink-2); font-size: 14px; }
-.gift .note { margin: 0; color: var(--muted); font-size: 13.5px; font-style: italic; }
+.gift h3 { margin: 0; font-size: 1.0625rem; line-height: 1.3; }
+.gift .detail { margin: 0; color: var(--ink-2); font-size: 0.875rem; }
+.gift .note { margin: 0; color: var(--muted); font-size: 0.8438rem; font-style: italic; }
 .gift .state { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 
-.badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 13px; font-weight: 600; }
+.badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 0.8125rem; font-weight: 600; }
 .badge.reserved { background: var(--amber-soft); color: var(--amber); }
 .badge.bought { background: var(--green-soft); color: var(--green); }
-.when { color: var(--muted); font-size: 13px; }
+.when { color: var(--muted); font-size: 0.8125rem; }
 
-.button { font: inherit; font-size: 15px; font-weight: 600; border-radius: 10px; padding: 9px 14px; border: 1px solid transparent; cursor: pointer; min-height: 44px; }
+.button { font: inherit; font-size: 0.9375rem; font-weight: 600; border-radius: 10px; padding: 9px 14px; border: 1px solid transparent; cursor: pointer; min-height: 44px; }
 .button.primary { background: var(--red); color: var(--red-ink); }
 .button.secondary { background: var(--green); color: var(--page); }
 .button.ghost { background: transparent; color: var(--ink-2); border-color: var(--line); }
@@ -107,22 +116,22 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 24px; margin: 0 0
 .sheet::backdrop { background: rgba(20, 14, 10, 0.45); }
 .sheet form { padding: 22px; display: flex; flex-direction: column; gap: 8px; }
 .dialog-gift { margin: 0 0 8px; color: var(--ink-2); }
-.sheet label { font-weight: 600; font-size: 14px; }
+.sheet label { font-weight: 600; font-size: 0.875rem; }
 .optional { color: var(--muted); font-weight: 400; }
-.sheet input { font: inherit; font-size: 17px; color: var(--ink); background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-.hint { margin: 0; color: var(--muted); font-size: 13px; }
+.sheet input { font: inherit; font-size: 1.0625rem; color: var(--ink); background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.hint { margin: 0; color: var(--muted); font-size: 0.8125rem; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 
 .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
-table.admin { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.admin { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 table.admin th, table.admin td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-table.admin th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+table.admin th { color: var(--muted); font-weight: 600; font-size: 0.7812rem; text-transform: uppercase; letter-spacing: 0.04em; }
 table.admin tr:last-child td { border-bottom: 0; }
 table.admin .thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; vertical-align: middle; margin-right: 10px; }
-table.admin .button { min-height: 36px; padding: 6px 10px; font-size: 13px; }
+table.admin .button { min-height: 36px; padding: 6px 10px; font-size: 0.8125rem; }
 
 /* Admin: add and edit a gift */
-.sheet select, .sheet textarea { font: inherit; font-size: 17px; color: var(--ink); background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.sheet select, .sheet textarea { font: inherit; font-size: 1.0625rem; color: var(--ink); background: var(--page); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
 .sheet textarea { resize: vertical; min-height: 64px; }
 .sheet select:focus-visible, .sheet textarea:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 .sheet.wide { width: min(480px, calc(100% - 24px)); max-height: calc(100% - 24px); }

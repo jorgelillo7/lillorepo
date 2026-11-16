@@ -107,6 +107,25 @@ describe("photos", () => {
     expect(served.subarray(-2)).toEqual(new Uint8Array([0xff, 0xd9]));
   });
 
+  test("an uploaded photo answers HEAD with its headers and no body", async () => {
+    const { photo } = await addGift();
+    const response = await worker.fetch(new Request(ORIGIN + photo, { method: "HEAD" }), env);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("image/jpeg");
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
+    expect(response.body).toBeNull();
+  });
+
+  test("seed photos and the font are cached for good; pages and scripts are not", async () => {
+    const cache = async (path: string) =>
+      (await worker.fetch(new Request(ORIGIN + path), env)).headers.get("Cache-Control");
+    expect(await cache("/photos/lobito-book.jpg")).toBe("public, max-age=31536000, immutable");
+    expect(await cache("/fonts/fraunces-latin.woff2")).toBe("public, max-age=31536000, immutable");
+    expect(await cache("/list.js")).toBeNull();
+    expect(await cache("/app.css")).toBeNull();
+    expect(await cache("/")).toBeNull();
+  });
+
   test("the stored bytes carry no EXIF, GPS, IPTC, comment or appended second picture", async () => {
     await addGift();
     const rows = sqlite.prepare("SELECT data, bytes FROM photos").all() as { data: string; bytes: number }[];

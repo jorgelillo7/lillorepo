@@ -60,6 +60,10 @@ function showPreview(source) {
   preview.hidden = !preview.src;
 }
 
+for (const button of document.querySelectorAll("[data-pick]")) {
+  button.addEventListener("click", () => document.getElementById(button.dataset.pick).click());
+}
+
 for (const id of ["photoCamera", "photoLibrary"]) {
   const input = document.getElementById(id);
   input.addEventListener("change", async () => {

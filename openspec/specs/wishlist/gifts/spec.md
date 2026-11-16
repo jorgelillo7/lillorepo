@@ -61,7 +61,9 @@ scan, cut everything after the end-of-image marker, and refuse a file that is no
 baseline JPEG, is wider or taller than 1600 px, would display turned by an EXIF
 orientation that stripping drops, is truncated, or is larger than 600 KB. A photo
 SHALL be served from `/photos/u/<id>.jpg` with an immutable cache, under an id that
-changes whenever the photo does.
+changes whenever the photo does, and SHALL answer `HEAD` with the same headers. The seed
+photos and the self-hosted font SHALL be cached for good too, since neither ever changes
+under the same name; pages, scripts and styles SHALL keep the default revalidation.
 
 #### Scenario: no metadata is stored
 - **WHEN** a JPEG with EXIF and GPS, a multi-picture block, IPTC, a comment and a second EXIF-carrying picture appended after its end is uploaded
@@ -77,6 +79,16 @@ changes whenever the photo does.
 - **WHEN** an uploaded photo is requested
 - **THEN** it is served as `image/jpeg` with `Cache-Control: public, max-age=31536000, immutable`
 - *Verifies:* `gifts.test.ts: an uploaded photo is served from D1 with an immutable cache and nothing but the image`
+
+#### Scenario: HEAD
+- **WHEN** an uploaded photo is requested with `HEAD`
+- **THEN** it answers 200 with the same type and cache headers and no body
+- *Verifies:* `gifts.test.ts: an uploaded photo answers HEAD with its headers and no body`
+
+#### Scenario: static files
+- **WHEN** a seed photo, the font, a page, a script or a stylesheet is requested
+- **THEN** the seed photo and the font carry `Cache-Control: public, max-age=31536000, immutable`, and the rest carry none of their own
+- *Verifies:* `gifts.test.ts: seed photos and the font are cached for good; pages and scripts are not`
 
 ### Requirement: Gifts can be edited, hidden and deleted
 

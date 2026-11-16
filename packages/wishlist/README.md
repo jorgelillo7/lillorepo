@@ -59,6 +59,7 @@ wishlist/
 ├── gifts.json            # The first list, the seed behind migrations/0003 (not the live list)
 ├── photos/               # Its 1280 px JPEGs without metadata, shipped as static assets
 ├── web/                  # The list page, the admin page, styles and scripts
+├── web/fonts/            # Fraunces (latin subset) and its OFL licence, served by the site
 ├── assets/icon.svg       # Home-screen icon; web/ holds it as SVG and 180, 192, 512 px PNGs
 ├── assets/admin-icon.svg # The same gift in green with a tick, for the /admin shortcut
 ├── src/app.ts            # Routes, claims, Basic auth; src/worker.ts only exports it

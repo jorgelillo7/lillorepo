@@ -137,7 +137,11 @@ function setFilter(change) {
   render();
 }
 
-function card(gift) {
+// The first row is on screen at load: those photos load at once, and the first, the
+// page's largest paint, ahead of the rest.
+const EAGER = 4;
+
+function card(gift, index) {
   const claim = claims.get(gift.id);
   const photo = gift.photo;
   const label = recipientLabel(gift.for);
@@ -147,7 +151,12 @@ function card(gift) {
     el(
       "a",
       { class: "photo", href: photo, target: "_blank", rel: "noopener" },
-      el("img", { src: photo, alt: gift.title, loading: "lazy" }),
+      el("img", {
+        src: photo,
+        alt: gift.title,
+        ...(index >= EAGER ? { loading: "lazy" } : {}),
+        ...(index === 0 ? { fetchpriority: "high" } : {}),
+      }),
     ),
     el(
       "div",
@@ -166,6 +175,8 @@ function render() {
   const shown = list.gifts.filter((gift) => forWho(gift) && inStatus(gift, status));
   grid.replaceChildren(...shown.map(card));
   document.getElementById("empty").hidden = shown.length > 0;
+  document.getElementById("shown").textContent =
+    shown.length === 1 ? "Se muestra 1 regalo." : `Se muestran ${shown.length} regalos.`;
   renderFilters();
 }
 
