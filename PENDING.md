@@ -91,7 +91,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Add a gift from an iPhone with the button not yet tried (camera or library) and check its photo shows. The first upload is stored and served clean | You · the browser side has no automated test, and the photo buttons are now real buttons |
+| 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
 | 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md) |
 | 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
