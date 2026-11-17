@@ -107,9 +107,13 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
 
 - **jorgelillo7.github.io:** fixed in that repo's README and content round,
   together with the content review.
-- **Biwenger web:** no `<h1>` except on `/reglamento`; no table `scope` or
-  caption; static files are sent with `no-cache`; at 320 px the "Tabla de
-  Justicia" toggle is cut off.
+- **Biwenger web:** fixed in #772 and #773: escaping, contrast,
+  keyboard, a hidden `<h1>` per page from its title, `scope` on every column
+  header, labels on every search and filter input, the three overlays as
+  `<dialog closedby="any">`, the zoomable images as buttons, the YouTube
+  façade on `youtube-nocookie.com`, `noindex`, and the Tabla de Justicia
+  header wrapping at 320 px. Open: static files are sent with `no-cache`, and
+  dark mode waits on the Tailwind build (item 8).
 - **be_water:** card titles jump from `<h1>` to `<h3>`; `animate-bounce`
   ignores reduced motion; at 320 px "Entrar" is cut off.
 - **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.

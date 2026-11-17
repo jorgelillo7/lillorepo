@@ -124,11 +124,13 @@
                     {% for t in data.tournaments or special_tournaments %}
                     {% set win = (data.copas or {}).get(t.slug) %}
                     <figure class="special-cup">
+                        <button type="button" class="cup-zoom block w-full rounded-lg" aria-label="Ampliar {{ t.label }}">
                         <img src="{{ special_base }}/{{ t.slug }}/{{ season }}.png"
                              alt="{{ t.label }} — {{ data.display_season or season }}{% if win %}: {{ win.ganador }}{% endif %}"
                              loading="lazy"
                              class="w-full rounded-lg shadow-md ring-1 ring-gray-200 cursor-pointer hover:ring-green-400 transition"
                              data-on-error="cupImgFallback" data-args='["@this"]'>
+                        </button>
                         <figcaption class="mt-2 text-center">
                             <span class="block text-xs font-semibold uppercase tracking-wide text-gray-500">{{ t.label }}</span>
                             {% if win %}
@@ -151,15 +153,15 @@
                     <table class="min-w-full text-sm">
                         <thead>
                             <tr class="text-left text-gray-600 border-b border-gray-200">
-                                <th class="py-2 pr-3">#</th>
-                                <th class="py-2 pr-3">Manager</th>
-                                <th class="py-2 pr-3">Equipo</th>
-                                <th class="py-2 pr-3 text-right">Puntos</th>
-                                <th class="py-2 pr-3 text-right">Mejor J.</th>
-                                <th class="py-2 pr-3 text-right">Peor J.</th>
-                                <th class="py-2 pr-3 text-right">J. ganadas</th>
-                                <th class="py-2 pr-3 text-right">Pos. media</th>
-                                <th class="py-2 pr-3">Notas</th>
+                                <th scope="col" class="py-2 pr-3">#</th>
+                                <th scope="col" class="py-2 pr-3">Manager</th>
+                                <th scope="col" class="py-2 pr-3">Equipo</th>
+                                <th scope="col" class="py-2 pr-3 text-right">Puntos</th>
+                                <th scope="col" class="py-2 pr-3 text-right">Mejor J.</th>
+                                <th scope="col" class="py-2 pr-3 text-right">Peor J.</th>
+                                <th scope="col" class="py-2 pr-3 text-right">J. ganadas</th>
+                                <th scope="col" class="py-2 pr-3 text-right">Pos. media</th>
+                                <th scope="col" class="py-2 pr-3">Notas</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -202,12 +204,11 @@
 </div>
 
 <!-- Fullscreen viewer for special-cup graphics (click to enlarge) -->
-<div id="cup-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 hidden z-50">
-    <div class="relative max-w-5xl max-h-full">
-        <img id="cup-modal-image" src="" alt="Copa ampliada" class="w-auto h-auto max-w-full max-h-[90vh] rounded-lg">
-        <button id="cup-modal-close" class="absolute -top-4 -right-4 h-10 w-10 bg-white rounded-full text-gray-800 flex items-center justify-center text-2xl font-bold" aria-label="Cerrar">&times;</button>
-    </div>
-</div>
+<dialog id="cup-modal" closedby="any" aria-label="Copa ampliada"
+        class="bg-transparent p-0 max-w-5xl overflow-visible backdrop:bg-black/80">
+    <img id="cup-modal-image" src="" alt="" class="w-auto h-auto max-w-full max-h-[90vh] rounded-lg">
+    <button id="cup-modal-close" type="button" class="absolute -top-4 -right-4 h-10 w-10 bg-white rounded-full text-gray-800 flex items-center justify-center text-2xl font-bold" aria-label="Cerrar">&times;</button>
+</dialog>
 
 <script nonce="{{ csp_nonce() }}">
 // Special-cup graphics are optional and per-season: try {slug}/{season}.png,
@@ -230,17 +231,16 @@ function cupImgFallback(img) {
 (function () {
     const modal = document.getElementById('cup-modal');
     const modalImage = document.getElementById('cup-modal-image');
-    const close = () => { modal.classList.add('hidden'); modalImage.src = ''; };
     document.addEventListener('click', e => {
-        const img = e.target.closest('.special-cup img');
-        if (img) {
-            modalImage.src = img.currentSrc || img.src;
-            modal.classList.remove('hidden');
-        }
+        const button = e.target.closest('.special-cup .cup-zoom');
+        if (!button) return;
+        const img = button.querySelector('img');
+        modalImage.src = img.currentSrc || img.src;
+        modalImage.alt = img.alt;
+        modal.showModal();
     });
-    document.getElementById('cup-modal-close').addEventListener('click', close);
-    modal.addEventListener('click', e => { if (e.target === modal) close(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    document.getElementById('cup-modal-close').addEventListener('click', () => modal.close());
+    modal.addEventListener('close', () => { modalImage.src = ''; });
 })();
 </script>
 {% endblock %}

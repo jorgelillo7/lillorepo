@@ -7,6 +7,10 @@ The incredible, and sometimes chaotic, evolution of our little big project.
 * **🛡️ Nobody's title can break the page**: a crónica's title, an author or a team name containing HTML is shown as text in the search results and the Tabla de Justicia, never run as markup.
 * **👓 Easier to read**: the light grey text is darker, and the green tabs and buttons with white text are a shade deeper.
 * **⌨️ By keyboard**: a visible focus ring everywhere, the menu and the season picker say whether they are open, and every row of the Tabla de Justicia opens with Tab and Enter.
+* **🪟 Windows that behave**: the calendar's event card, the enlarged cups and the rulebook's tables open as real dialogs — Esc, the back gesture or a tap outside closes them, and the images open from the keyboard too.
+* **🎬 The video waits for you**: El Veredicto loads from YouTube only when someone presses play, without YouTube's cookies.
+* **🔎 Private**: search engines are asked not to list the site; it is still reached by link as always.
+* **🗂️ For screen readers**: every page names itself in a heading, every table header says it heads a column, and every search box and filter has a name.
 
 ### **v12.0 - Where the Money Went (9 November 2026)**
 

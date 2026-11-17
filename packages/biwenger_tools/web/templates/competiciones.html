@@ -86,16 +86,16 @@
             <table class="hidden md:table min-w-full text-sm">
                 <thead>
                     <tr class="text-gray-500 border-b border-gray-200">
-                        <th class="py-2 px-2 text-left font-semibold">#</th>
-                        <th class="py-2 px-2 text-left font-semibold">Presidente</th>
-                        <th class="py-2 px-2 font-semibold">PJ</th>
-                        <th class="py-2 px-2 font-semibold">G</th>
-                        <th class="py-2 px-2 font-semibold">E</th>
-                        <th class="py-2 px-2 font-semibold">P</th>
-                        <th class="py-2 px-2 font-semibold">PF</th>
-                        <th class="py-2 px-2 font-semibold">PC</th>
-                        <th class="py-2 px-2 font-semibold">Dif.</th>
-                        <th class="py-2 px-2 font-semibold text-green-700">Pts</th>
+                        <th scope="col" class="py-2 px-2 text-left font-semibold">#</th>
+                        <th scope="col" class="py-2 px-2 text-left font-semibold">Presidente</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">PJ</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">G</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">E</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">P</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">PF</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">PC</th>
+                        <th scope="col" class="py-2 px-2 font-semibold">Dif.</th>
+                        <th scope="col" class="py-2 px-2 font-semibold text-green-700">Pts</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-center">
@@ -212,7 +212,7 @@
                             {% for h in sec.headers %}
                             {% set sample = (first[loop.index0] if loop.index0 < first | length else '') | string %}
                             {% set numeric = sample.lstrip('+-').replace(',', '').replace('.', '').isdigit() %}
-                            <th class="py-2 px-2 md:px-3 {% if not numeric %}text-left{% endif %} font-semibold uppercase md:tracking-wider">{{ h }}</th>
+                            <th scope="col" class="py-2 px-2 md:px-3 {% if not numeric %}text-left{% endif %} font-semibold uppercase md:tracking-wider">{{ h }}</th>
                             {% endfor %}
                         </tr>
                     </thead>

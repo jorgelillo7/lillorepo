@@ -400,3 +400,25 @@ and is inserted as that cleaned HTML.
 - **THEN** every league value in them is interpolated as `escapeHtml(value)`, never bare
 - *Verifies:* `test_web_app.py: test_league_values_reach_innerHTML_only_escaped`,
   `test_web_app.py: test_escape_html_is_defined_once_for_every_page`
+
+### Requirement: The site is not listed by search engines
+
+The site is a private league's noticeboard reached by link. Every page SHALL carry
+`<meta name="robots" content="noindex">`, and SHALL have exactly one `<h1>`: a visually
+hidden one drawn from the page title, unless the page draws its own. The rulebook's
+YouTube video SHALL load only when someone presses play, from `youtube-nocookie.com`.
+
+#### Scenario: noindex
+- **WHEN** a season page or the reglamento is served
+- **THEN** it carries the `noindex` robots meta
+- *Verifies:* `test_web_app.py: test_pages_ask_search_engines_not_to_index_them`
+
+#### Scenario: one heading
+- **WHEN** a season page or the reglamento is served
+- **THEN** it has exactly one `<h1>`
+- *Verifies:* `test_web_app.py: test_every_page_has_exactly_one_h1`
+
+#### Scenario: video on demand
+- **WHEN** the reglamento is served
+- **THEN** it has no `<iframe>`, only the play button that builds one on `youtube-nocookie.com`
+- *Verifies:* `test_web_app.py: test_reglamento_loads_youtube_only_on_demand`

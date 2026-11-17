@@ -69,8 +69,9 @@
 </div>
 
 <!-- Event detail modal -->
-<div id="event-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40" data-on-click="closeEventModal">
-    <div class="card rounded-xl shadow-lg p-6 max-w-sm w-full" data-on-click="stop">
+<dialog id="event-modal" closedby="any" aria-labelledby="event-modal-title"
+        class="card rounded-xl shadow-lg p-6 max-w-sm w-[calc(100%-2rem)] backdrop:bg-black/40">
+    <div>
         <div class="flex items-start justify-between mb-2">
             <div>
                 <span id="event-modal-category" class="inline-block mb-1 px-2 py-0.5 rounded-full text-[0.65rem] font-medium border"></span>
@@ -86,7 +87,7 @@
         <p id="event-modal-location" class="text-sm text-gray-500 mb-2 hidden"></p>
         <p id="event-modal-description" class="text-sm text-gray-700 whitespace-pre-line"></p>
     </div>
-</div>
+</dialog>
 
 <script nonce="{{ csp_nonce() }}">
 const EVENTS_BY_DAY = {{ events_by_day | tojson }};
@@ -135,11 +136,11 @@ function showEventDetail(dateIso, index) {
     }
 
     document.getElementById('event-modal-description').textContent = evt.description || '';
-    document.getElementById('event-modal').classList.remove('hidden');
+    document.getElementById('event-modal').showModal();
 }
 
 function closeEventModal() {
-    document.getElementById('event-modal').classList.add('hidden');
+    document.getElementById('event-modal').close();
 }
 </script>
 {% endblock %}
