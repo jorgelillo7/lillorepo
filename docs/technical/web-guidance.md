@@ -107,7 +107,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
 
 - **jorgelillo7.github.io:** fixed in that repo's README and content round,
   together with the content review.
-- **Biwenger web:** fixed in #772 and the PR after it: escaping, contrast,
+- **Biwenger web:** fixed in #772 and #773: escaping, contrast,
   keyboard, a hidden `<h1>` per page from its title, `scope` on every column
   header, labels on every search and filter input, the three overlays as
   `<dialog closedby="any">`, the zoomable images as buttons, the YouTube
