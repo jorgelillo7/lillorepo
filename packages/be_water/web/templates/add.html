@@ -11,7 +11,7 @@
 </header>
 
 <div id="processing" class="hidden fixed inset-0 z-50 bg-white/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-center px-6">
-    <p class="text-5xl animate-bounce">🔮</p>
+    <p class="text-5xl motion-safe:animate-bounce" aria-hidden="true">🔮</p>
     <p class="font-bold text-slate-800">Leyendo la etiqueta…</p>
     <p class="text-xs text-slate-500">la IA está rellenando la ficha y preparando la foto — unos segundos</p>
 </div>
@@ -34,12 +34,12 @@
     <p class="text-xs text-slate-500 mb-3">Que se lea la tabla de minerales (suele estar en el lateral o detrás) — la IA hace el resto</p>
     <!-- No `capture`: it forces the camera on mobile and hides the gallery. -->
     <input id="photo" name="photo" type="file" accept="image/*" required
-           class="block w-full text-sm text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-sky-500 file:text-white file:font-semibold hover:file:bg-sky-600 file:transition mb-4">
-    <label for="beauty" class="block font-bold text-slate-800 mb-1">✨ Foto para la ficha <span class="font-normal text-slate-400">(opcional)</span></label>
+           class="block w-full text-sm text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-sky-700 file:text-white file:font-semibold hover:file:bg-sky-600 file:transition mb-4">
+    <label for="beauty" class="block font-bold text-slate-800 mb-1">✨ Foto para la ficha <span class="font-normal text-slate-500">(opcional)</span></label>
     <p class="text-xs text-slate-500 mb-3">El frontal bonito de la botella — si no la subes, usamos la de la composición</p>
     <input id="beauty" name="beauty" type="file" accept="image/*"
            class="block w-full text-sm text-slate-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-white file:ring-1 file:ring-sky-300 file:text-sky-600 file:font-semibold hover:file:bg-sky-50 file:transition mb-4">
-    <button class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition">
+    <button class="w-full py-3 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold transition">
         Leer etiqueta con IA
     </button>
 </form>
@@ -49,7 +49,7 @@
         this.querySelector('button').disabled = true;
     });
 </script>
-<p class="text-center text-xs text-slate-400 mb-6">— o rellena la ficha a mano 👇 —</p>
+<p class="text-center text-xs text-slate-500 mb-6">— o rellena la ficha a mano 👇 —</p>
 {% else %}
 <div class="max-w-xl mx-auto mb-6 text-center">
     <img src="{{ photo_tmp_url }}" alt="Etiqueta subida" class="inline-block h-40 rounded-2xl shadow-md ring-1 ring-slate-200">
@@ -102,10 +102,10 @@
                     <option value="{{ code }}" {% if prefill.get('country', 'ES') == code %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1">Fuera de España no se pide comunidad.</p>
+                <p class="text-[11px] text-slate-500 mt-1">Fuera de España no se pide comunidad.</p>
             </div>
             <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1" for="province">Provincia <span class="font-normal text-slate-400">(o región)</span></label>
+                <label class="block text-sm font-semibold text-slate-700 mb-1" for="province">Provincia <span class="font-normal text-slate-500">(o región)</span></label>
                 <input id="province" name="province" placeholder="Castellón" value="{{ prefill.get('province', '') }}"
                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
             </div>
@@ -123,7 +123,7 @@
     </fieldset>
 
     <fieldset class="pt-2 border-t border-slate-100">
-        <legend class="font-bold text-slate-800 pt-4">🧪 Composición de la etiqueta <span class="text-slate-400 font-normal text-sm">(mg/L)</span></legend>
+        <legend class="font-bold text-slate-800 pt-4">🧪 Composición de la etiqueta <span class="text-slate-500 font-normal text-sm">(mg/L)</span></legend>
         <p class="text-xs text-slate-500 mt-1 mb-3">Los que declara casi toda etiqueta. Deja en blanco lo que la tuya no traiga — la verificación cuenta solo lo declarado.</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {% for field in mineral_fields_main %}
@@ -138,7 +138,7 @@
     </fieldset>
 
     <fieldset class="pt-2 border-t border-slate-100">
-        <legend class="font-bold text-slate-800 pt-4">➕ Otros valores <span class="text-slate-400 font-normal text-sm">(opcional)</span></legend>
+        <legend class="font-bold text-slate-800 pt-4">➕ Otros valores <span class="text-slate-500 font-normal text-sm">(opcional)</span></legend>
         <p class="text-xs text-slate-500 mt-1 mb-3">Solo algunas etiquetas los traen — en blanco no pasa nada.</p>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {% for field in mineral_fields_extra %}
@@ -151,11 +151,11 @@
             {% endfor %}
         </div>
         <div class="mt-3">
-            <label class="block text-xs text-slate-500 mb-1" for="analysis_date">Fecha del análisis <span class="text-slate-400">(«CNTA, Febrero 2025» → 2025-02)</span></label>
+            <label class="block text-xs text-slate-500 mb-1" for="analysis_date">Fecha del análisis <span class="text-slate-500">(«CNTA, Febrero 2025» → 2025-02)</span></label>
             <input id="analysis_date" name="analysis_date" placeholder="2025-02"
                    value="{{ prefill.get('analysis_date', '') }}"
                    class="w-full sm:w-48 px-3 py-2 rounded-xl border border-slate-300 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-sky-400">
-            <p class="text-xs text-slate-400 mt-1">Sirve para saber qué etiqueta manda cuando dos no coinciden. No todas la imprimen.</p>
+            <p class="text-xs text-slate-500 mt-1">Sirve para saber qué etiqueta manda cuando dos no coinciden. No todas la imprimen.</p>
         </div>
     </fieldset>
 
@@ -176,7 +176,7 @@
     </div>
     <div class="grid sm:grid-cols-2 gap-3">
         <button name="merge_into" value="{{ similar.id }}"
-                class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition">
+                class="w-full py-3 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold transition">
             Es la misma — actualizarla
         </button>
         <button name="force_new" value="1"
@@ -185,7 +185,7 @@
         </button>
     </div>
     {% else %}
-    <button class="w-full py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold transition">Guardar agua</button>
+    <button class="w-full py-3 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold transition">Guardar agua</button>
     {% endif %}
 </form>
 {% endblock %}

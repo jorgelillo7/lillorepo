@@ -12,7 +12,7 @@
    else 'amber' if water.mineralization == 'fuerte'
    else 'rose' if water.mineralization == 'muy fuerte' else 'slate' %}
 
-<nav class="text-sm text-slate-400 mb-4" aria-label="breadcrumb">
+<nav class="text-sm text-slate-500 mb-4" aria-label="breadcrumb">
     <a href="{{ url_for('index') }}" class="hover:text-sky-600">Catálogo</a>
     <span class="mx-1">/</span>
     {% if water.province and water.is_spanish %}
@@ -30,16 +30,20 @@
     <section class="md:col-span-2">
         <div class="bg-gradient-to-br from-{{ tone }}-50 to-{{ tone }}-100 rounded-3xl p-8 text-center ring-1 ring-{{ tone }}-200/60">
             {% if water.photo_url %}
-            <img src="{{ water.photo_url }}" alt="Botella de {{ water.name }}"
-                 data-zoom data-caption="Botella de {{ water.name }}{% if water.analysis_date and photo_is_of_the_analysis %} · análisis de {{ water.analysis_date }}{% elif not photo_is_of_the_analysis %} · foto actual de la ficha{% endif %}"
-                 class="mx-auto mb-4 h-64 w-auto rounded-2xl object-cover shadow-md ring-1 ring-white/60 cursor-zoom-in">
+            <button type="button" class="block mx-auto mb-4 rounded-2xl cursor-zoom-in"
+                    aria-label="Ampliar la foto de {{ water.name }}"
+                    data-zoom data-zoom-src="{{ water.photo_url }}"
+                    data-caption="Botella de {{ water.name }}{% if water.analysis_date and photo_is_of_the_analysis %} · análisis de {{ water.analysis_date }}{% elif not photo_is_of_the_analysis %} · foto actual de la ficha{% endif %}">
+                <img src="{{ water.photo_url }}" alt="Botella de {{ water.name }}" fetchpriority="high"
+                     class="h-64 w-auto rounded-2xl object-cover shadow-md ring-1 ring-white/60">
+            </button>
             {% else %}
             <div class="text-7xl mb-4">{{ '🫧' if water.sparkling else '💧' }}</div>
             {% endif %}
             <h1 class="text-2xl font-extrabold text-slate-900">{{ water.name }}</h1>
             {% if is_admin %}
             <a href="{{ url_for('admin_edit_water', water_id=water.id) }}"
-               class="inline-block mt-1 text-[11px] font-semibold text-slate-400 hover:text-sky-600 underline">🛠️ editar ficha</a>
+               class="inline-block mt-1 text-[11px] font-semibold text-slate-500 hover:text-sky-600 underline">🛠️ editar ficha</a>
             {% endif %}
             <p class="text-slate-500 text-sm mt-1">{{ water.spring }}</p>
             {% if water.is_spanish %}
@@ -48,14 +52,14 @@
             <p class="text-slate-600 text-sm mt-2 font-medium">🌍 {{ water.province ~ ' · ' if water.province }}{{ water.country_name }}</p>
             {% endif %}
             {% if water.registry_id or water.bottler %}
-            <p class="text-[11px] text-slate-400 mt-1.5">
+            <p class="text-[11px] text-slate-500 mt-1.5">
                 {% if water.bottler %}<span title="Empresa envasadora">🏭 {{ water.bottler }}</span>{% endif %}
                 {% if water.registry_id and water.bottler %} · {% endif %}
                 {% if water.registry_id %}<span class="font-mono" title="Registro sanitario">{{ water.registry_id }}</span>{% endif %}
             </p>
             {% endif %}
             {% if water.source_of('province') == 'aesan' %}
-            <p class="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mt-0.5"
+            <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mt-0.5"
                title="Procedencia cruzada con el registro oficial AESAN">registro AESAN</p>
             {% endif %}
             <div class="mt-5 inline-flex flex-col items-center">
@@ -86,7 +90,7 @@
                 {% endif %}
             </form>
             {% else %}
-            <p class="mt-6 text-xs text-slate-400">Entra con tu nick para marcarla como favorita</p>
+            <p class="mt-6 text-xs text-slate-500">Entra con tu nick para marcarla como favorita</p>
             {% endif %}
             {% if water.mentions %}
             <div class="mt-4 space-y-1">
@@ -104,7 +108,7 @@
                    label is the photo people actually need to enlarge. #}
                 <a href="{{ water.label_photo_url }}" target="_blank" rel="noopener"
                    data-zoom data-caption="Etiqueta de {{ water.name }}{% if water.analysis_date %} · análisis de {{ water.analysis_date }}{% endif %}"
-                   class="text-slate-400 hover:text-sky-600 underline">📄 ver etiqueta de composición</a>
+                   class="text-slate-500 hover:text-sky-600 underline">📄 ver etiqueta de composición</a>
             </p>
             {% endif %}
         </div>
@@ -113,9 +117,9 @@
     <!-- Composición -->
     <section class="md:col-span-3">
         <div class="bg-white rounded-3xl ring-1 ring-slate-200 p-6">
-            <h2 class="font-bold text-lg text-slate-900 mb-1">Composición <span class="text-slate-400 font-normal text-sm">(mg/L)</span></h2>
+            <h2 class="font-bold text-lg text-slate-900 mb-1">Composición <span class="text-slate-500 font-normal text-sm">(mg/L)</span></h2>
             {% if analyses | length > 1 %}
-            <p class="text-xs text-slate-400 mb-2">Análisis de la etiqueta:</p>
+            <p class="text-xs text-slate-500 mb-2">Análisis de la etiqueta:</p>
             <div class="flex flex-wrap gap-2 mb-4">
                 {% for entry in analyses %}
                 {% set is_shown = entry.analysis_date == water.analysis_date %}
@@ -133,7 +137,7 @@
             </p>
             {% endif %}
             {% else %}
-            <p class="text-xs text-slate-400 mb-4">
+            <p class="text-xs text-slate-500 mb-4">
                 {% if water.analysis_date %}Análisis de la etiqueta: <span class="tabular-nums font-medium text-slate-500">{{ water.analysis_date }}</span>{% else %}Sin fecha de análisis{% endif %}
             </p>
             {% endif %}
@@ -184,7 +188,7 @@
                 </div>
                 {% endfor %}
             </dl>
-            <p class="mt-4 text-[11px] text-slate-400 leading-relaxed">
+            <p class="mt-4 text-[11px] text-slate-500 leading-relaxed">
                 <span class="text-teal-600 font-semibold">✓ etiqueta</span> confirmado de foto ·
                 <span class="text-amber-600 font-semibold">a mano</span> aportado por la comunidad.
                 <a href="{{ url_for('about') }}#fuentes" class="underline hover:text-sky-600">Más sobre las fuentes</a>
@@ -205,55 +209,45 @@
 
 {# Tap a photo to read it. A label shot is 150 KB of small print — on a phone
    the ficha renders it 64 units tall, which is proof nobody can check. #}
-{# Driven by an inline style, not the `hidden` attribute: `[hidden]` and a
-   utility class have the same specificity, so Tailwind's `flex` came later in
-   the cascade and won — the viewer covered every ficha on load. #}
-<div id="zoom" style="display: none"
-     class="fixed inset-0 z-50 bg-slate-900/90 p-4 flex-col items-center justify-center">
+<dialog id="zoom" closedby="any" aria-labelledby="zoom-caption"
+        class="bg-transparent p-0 max-w-[calc(100%-2rem)] overflow-visible backdrop:bg-slate-900/90">
     <img id="zoom-img" src="" alt=""
          class="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl">
-    <p id="zoom-caption" class="mt-3 text-xs text-white/70 text-center"></p>
-    <button type="button" id="zoom-close" aria-label="Cerrar"
-            class="absolute top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white text-2xl leading-none">×</button>
-</div>
+    <p id="zoom-caption" class="mt-3 text-xs text-white/80 text-center"></p>
+    <button type="button" id="zoom-close" aria-label="Cerrar" autofocus
+            class="fixed top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white text-2xl leading-none">×</button>
+</dialog>
 
 <script nonce="{{ csp_nonce() }}">
 (function () {
     const box = document.getElementById('zoom');
     const img = document.getElementById('zoom-img');
     const caption = document.getElementById('zoom-caption');
-    let lastFocus = null;
-
-    function open(src, text, trigger) {
-        lastFocus = trigger;
-        img.src = src;
-        img.alt = text;
-        caption.textContent = text;
-        box.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        document.getElementById('zoom-close').focus();
-    }
-
-    function close() {
-        box.style.display = 'none';
-        // Dropping the src frees the full-size image; the ficha keeps its own.
-        img.src = '';
-        document.body.style.overflow = '';
-        if (lastFocus) lastFocus.focus();
-    }
 
     document.querySelectorAll('[data-zoom]').forEach(el => {
         const src = el.dataset.zoomSrc || el.getAttribute('src') || el.href;
         el.addEventListener('click', event => {
             event.preventDefault();
-            open(src, el.dataset.caption || '', el);
+            img.src = src;
+            img.alt = el.dataset.caption || '';
+            caption.textContent = el.dataset.caption || '';
+            box.showModal();
         });
     });
+    document.getElementById('zoom-close').addEventListener('click', () => box.close());
+    // Dropping the src frees the full-size image; the ficha keeps its own.
+    box.addEventListener('close', () => { img.src = ''; });
 
-    box.addEventListener('click', close);
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && box.style.display !== 'none') close();
-    });
+    // Click outside closes it where the browser lacks closedby (Safari).
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+        const outside = e => {
+            const r = box.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        };
+        let pressedOutside = false;
+        box.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+        box.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) box.close(); });
+    }
 })();
 </script>
 {% endblock %}

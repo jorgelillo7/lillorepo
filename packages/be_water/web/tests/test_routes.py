@@ -579,8 +579,7 @@ def test_catalog_thumbnails_are_images_a_reader_can_name(client):
     assert 'src="https://x/bezoya.jpg"' in body
     assert 'alt="Botella de Bezoya · Segovia"' in body
     assert "background-image" not in body
-    # 48 cards on one page: the ones below the fold wait their turn.
-    assert 'loading="lazy"' in body
+    # Which cards wait for lazy loading is the first-row test's business.
 
 
 def test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable(client):
@@ -600,7 +599,7 @@ def test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable(client):
     # The hero is the only zoomable bottle on the page: the viewer binds to
     # `[data-zoom]`, and a neighbour's card is a link to that water, not a
     # photo to open here.
-    assert body.count("data-zoom data-caption=") == 1
+    assert len(re.findall(r"\sdata-zoom(?=[\s>])", body)) == 1
 
 
 def test_a_water_with_no_photo_still_renders_its_card(client):
@@ -1875,11 +1874,10 @@ def test_both_photos_can_be_opened_full_size(client):
     assert 'data-caption="Botella de Bezoya"' in body
     assert 'data-caption="Etiqueta de Bezoya' in body
     assert 'href="https://x/originals/bezoya.jpg"' in body
-    # It shipped covering every ficha on load: the `hidden` attribute and a
-    # utility class have the same specificity, and Tailwind's `flex` came
-    # later in the cascade. An inline style is the one thing a class cannot
-    # outrank.
-    assert '<div id="zoom" style="display: none"' in body
+    # It once shipped covering every ficha on load. A <dialog> without `open`
+    # is closed whatever its classes say.
+    assert '<dialog id="zoom" closedby="any"' in body
+    assert not re.search(r'<dialog id="zoom"[^>]*\bopen\b', body)
 
 
 def test_the_caption_says_which_analysis_the_bottle_belongs_to(client):
@@ -1934,7 +1932,7 @@ def test_the_viewer_is_closed_on_a_water_with_no_photos_either(client):
     ):
         body = client.get("/agua/bezoya").get_data(as_text=True)
 
-    assert 'id="zoom" style="display: none"' in body
+    assert '<dialog id="zoom" closedby="any"' in body
     assert "data-caption=" not in body
 
 
@@ -3098,3 +3096,39 @@ def test_a_failed_label_read_logs_no_exception_text(client, caplog):
         _post_photo(client)
     assert "SECRET-TOKEN" not in caplog.text
     assert any(getattr(r, "error", "") == "ConnectionError" for r in caplog.records)
+
+
+def test_the_first_row_of_photos_loads_at_once_and_the_first_first(client):
+    """The first card's photo is the catalog's largest paint: it must not wait
+    for lazy loading, and it goes ahead of the rest."""
+    catalog = _catalog()
+    for w in catalog:
+        w.photo_url = f"https://x/{w.id}.jpg"
+    with patch(f"{_REPO}.get_all_waters", return_value=catalog):
+        body = client.get("/").get_data(as_text=True)
+
+    imgs = re.findall(r"<img src=\"https://x/[^\"]+\"[^>]*>", body)
+    assert len(imgs) == len(catalog)
+    assert 'fetchpriority="high"' in imgs[0] and 'loading="lazy"' not in imgs[0]
+    assert sum('fetchpriority="high"' in i for i in imgs) == 1
+    assert all('loading="lazy"' not in i for i in imgs[:3])
+    if len(imgs) > 3:
+        assert all('loading="lazy"' in i for i in imgs[3:])
+
+
+def test_the_meta_description_leaves_out_what_the_label_lacks(client):
+    """A water without a residuo seco used to read "residuo seco ? mg/L"."""
+    catalog = _catalog()
+    catalog[1].minerals.pop("tds", None)
+    with (
+        patch(f"{_REPO}.get_all_waters", return_value=catalog),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
+    ):
+        body = client.get("/agua/bezoya").get_data(as_text=True)
+
+    description = re.search(r'<meta name="description" content="([^"]*)"', body).group(
+        1
+    )
+    assert "?" not in description
+    assert "residuo seco" not in description
+    assert description.startswith("Bezoya")

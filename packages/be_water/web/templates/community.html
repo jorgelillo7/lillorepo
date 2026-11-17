@@ -94,7 +94,7 @@
     <section class="max-w-2xl mx-auto space-y-3">
         {% for s in ranking %}
         <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-4 flex flex-wrap items-center gap-3">
-            <span class="font-bold text-slate-400 w-6">{{ loop.index }}</span>
+            <span class="font-bold text-slate-500 w-6">{{ loop.index }}</span>
             <span class="font-bold text-slate-900 flex-1">{{ s.nickname }}</span>
             <span class="text-sm text-slate-500">
                 💧 {{ s.month_waters if period == 'mes' else s.waters_added }} aguas ·

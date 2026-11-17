@@ -4,12 +4,13 @@ description: Open catalog of Spanish mineral waters — light, fresh, product-gr
 colors:
   primary: "#0f172a"
   secondary: "#64748b"
-  muted: "#94a3b8"
+  muted: "#64748b"
   background: "#f8fafc"
   surface: "#ffffff"
   border: "#e2e8f0"
   accent: "#0ea5e9"
   accent-hover: "#0284c7"
+  accent-fill: "#0369a1"
   accent-gradient-to: "#22d3ee"
   favorite: "#e11d48"
 tones-by-mineralization:
@@ -80,7 +81,10 @@ carries meaning (never decoration).
 ## Colors
 
 Neutral slate base + one live accent (`sky-500`), same discipline as the
-other webs — the accent marks interactive elements only.
+other webs — the accent marks interactive elements only. White on `sky-500` is
+2.8:1, so a filled button with white text uses `sky-700` (5.9:1, hover
+`sky-800`). The lightest grey for text is `slate-500` (4.6:1 on the page);
+`slate-400` (2.5:1) is never text.
 
 The **mineralization tone system** is the signature rule:
 
@@ -119,8 +123,10 @@ size, not from mixing families:
 - **Grid:** 1 column mobile → 2 `sm` → 3 `lg`. Mobile-first always.
 - **Nav:** sticky glass bar (`backdrop-filter: blur(12px)` + `rgba(255,255,255,.82)`),
   56px tall, with inline nickname login. Nav labels collapse to emoji-only
-  on mobile (`hidden sm:inline`).
-- Footer is whisper-quiet: `text-xs text-slate-400`, commit hash included.
+  on mobile but stay as the link's name (`sr-only sm:not-sr-only`, the emoji
+  `aria-hidden`); under 360 px the "Be Water" wordmark does the same so
+  "Entrar" fits.
+- Footer is whisper-quiet: `text-xs text-slate-500`, commit hash included.
 
 ## Components
 
