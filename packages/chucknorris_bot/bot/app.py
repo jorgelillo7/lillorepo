@@ -13,6 +13,7 @@ from core.sdk.telegram import (
     validate_webhook_secret,
 )
 from core.utils import get_logger
+from core.web.compress import compress_responses
 from core.web.headers import add_security_headers
 from core.web.logs import use_json_logging
 from core.web.proxy import trust_proxy
@@ -35,6 +36,7 @@ CSP = {
 }
 
 app = Flask(__name__)
+compress_responses(app)  # first registered, so it runs last
 use_json_logging(app)
 add_security_headers(app, csp=CSP)
 trust_proxy(app)

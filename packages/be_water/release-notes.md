@@ -9,6 +9,8 @@ Every drop of progress, documented. 💧
 * **📱 Fits a small phone**: at 320 px the header no longer cuts "Entrar" off, and the emoji-only menu still tells a screen reader where each link goes.
 * **🔍 A photo viewer that behaves**: the bottle and the label open in a real dialog — Esc, the back gesture or a tap outside closes it, and the bottle opens from the keyboard too.
 * **🧘 Calmer**: the bouncing crystal ball while a label is read stays still for anyone who asked their device for less motion.
+* **📦 Lighter pages**: the catalogue travels gzipped, and icons stay in the browser until they change.
+* **🔐 Tighter session**: the login cookie is bound to this exact site, so everyone signs in once more after this deploy.
 * **🔗 Cleaner previews**: a water without a residuo seco no longer shares "residuo seco ? mg/L".
 
 ### **v1.11 - Nothing Taken on Trust (11 November 2026)**

@@ -1,5 +1,7 @@
 """Tests for the Biwenger web application."""
 
+import gzip
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -107,7 +109,7 @@ def test_home_redirects_to_current_season(client):
 def test_before_request_manages_season(client):
     """Verify that the session is updated with the season from the URL."""
     client.get("/")
-    assert client.get_cookie("session") is not None
+    assert client.get_cookie(app.config["SESSION_COOKIE_NAME"]) is not None
     client.get("/25-26/")
     with client.session_transaction() as sess:
         assert sess["current_season"] == "25-26"
@@ -1630,3 +1632,23 @@ def test_reglamento_loads_youtube_only_on_demand(client):
     assert "<iframe" not in body
     assert 'id="veredicto-play"' in body
     assert "youtube-nocookie.com/embed/" in body
+
+
+def test_the_session_cookie_carries_the_host_prefix():
+    """Secure in production, so the browser binds it to this exact host."""
+    assert app.config["SESSION_COOKIE_SECURE"] is True
+    assert app.config["SESSION_COOKIE_NAME"] == "__Host-session"
+
+
+def test_pages_are_gzipped_for_a_client_that_accepts_it(client):
+    response = client.get("/reglamento", headers={"Accept-Encoding": "gzip, br"})
+    assert response.headers["Content-Encoding"] == "gzip"
+    assert "Accept-Encoding" in response.headers["Vary"]
+    plain = client.get("/reglamento")
+    assert "Content-Encoding" not in plain.headers
+
+    # Each request draws its own CSP nonce; everything else is the same page.
+    def same(body):
+        return re.sub(rb'nonce="[^"]+"', b'nonce=""', body)
+
+    assert same(gzip.decompress(response.data)) == same(plain.data)

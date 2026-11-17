@@ -125,3 +125,41 @@ changed file is never served stale. Biwenger and be_water both use it.
 - **WHEN** the versioned URL, the bare path and a stale version are requested
 - **THEN** only the versioned URL is immutable
 - *Verifies:* `core/tests/test_web.py: test_a_versioned_static_request_is_cached_for_good`
+
+### Requirement: Rendered text is gzipped
+
+`compress_responses` SHALL gzip a response whose type is HTML, CSS, plain text, JSON,
+JavaScript, a web manifest or SVG, when the client's `Accept-Encoding` names gzip and the
+body is at least 1 KiB, adding `Vary: Accept-Encoding` and weakening a strong ETag. It
+SHALL leave alone file passthroughs, streams, bodies under 1 KiB, other types and
+clients without gzip. Biwenger, be_water and chucknorris_bot use it.
+
+#### Scenario: compressed
+- **WHEN** a client accepting gzip asks for a page or JSON over 1 KiB
+- **THEN** it gets `Content-Encoding: gzip` that decompresses to the plain body
+- *Verifies:* `core/tests/test_web.py: test_text_over_1kib_is_gzipped_when_accepted`,
+  `test_web_app.py: test_pages_are_gzipped_for_a_client_that_accepts_it`
+
+#### Scenario: left alone
+- **WHEN** the client does not accept gzip, the body is small, or it is an image
+- **THEN** no `Content-Encoding` is set
+- *Verifies:* `core/tests/test_web.py: test_small_bodies_images_and_clients_without_gzip_are_left_alone`
+
+### Requirement: Device APIs off, window isolated, session cookie host-bound
+
+`add_security_headers` SHALL also send a `Permissions-Policy` turning off camera,
+microphone, geolocation, payment, USB, serial, Bluetooth and topics, and
+`Cross-Origin-Opener-Policy: same-origin-allow-popups` (Google Sign-In's popup must
+work). `harden_session_cookie` SHALL name a Secure session cookie `__Host-session`, with
+`Path=/` and no domain, and leave Flask's name when the cookie is not Secure (local HTTP).
+
+#### Scenario: headers
+- **WHEN** any response is sent
+- **THEN** it carries both headers
+- *Verifies:* `core/tests/test_web.py: test_every_response_carries_permissions_policy_and_coop`
+
+#### Scenario: cookie name
+- **WHEN** the session cookie is Secure, and when it is not
+- **THEN** it is `__Host-session` with `Path=/`, and `session` respectively
+- *Verifies:* `core/tests/test_web.py: test_a_secure_session_cookie_takes_the_host_prefix_and_plain_http_does_not`,
+  `test_web_app.py: test_the_session_cookie_carries_the_host_prefix`

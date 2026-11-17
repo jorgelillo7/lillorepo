@@ -34,7 +34,7 @@ in `STATUS.md` — neither belongs here.
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — a Biwenger change that breaks another package. **The CI cost that looked like the trigger is gone**: it was the unused `core_deps`, not the file layout, and wiring the slices cut a `sdk/biwenger` edit from 10 suites to 5 · [measured](docs/technical/parked-work.md#the-shape-of-core) |
-| 🔨 | Web: gzip/brotli for HTML, JSON and JS in `core/web`, and `Permissions-Policy`, COOP and a `__Host-` cookie name in `headers.py` (Biwenger, be_water, chucknorris_bot) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) items 4 and 14 |
+| ⏳ | Brotli next to gzip in `core/web/compress.py` (a few percent smaller than gzip on HTML) | The next change to the base image's dependencies, so it rides along instead of forcing a rebuild: `brotli` through the `add-python-dep` skill, then prefer `br` when `Accept-Encoding` names it |
 
 ## biwenger_tools
 

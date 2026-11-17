@@ -1,10 +1,13 @@
 """core.web — CSRF helpers, the in-process rate limiter and versioned static URLs."""
 
+import gzip
 import time
 
 from flask import Flask, session, url_for
 
+from core.web.compress import compress_responses
 from core.web.csrf import get_csrf_token, verify_csrf_token
+from core.web.headers import add_security_headers, harden_session_cookie
 from core.web.ratelimit import RateLimiter, client_ip
 from core.web.static import IMMUTABLE, version_static_urls
 
@@ -205,3 +208,66 @@ def test_a_versioned_static_request_is_cached_for_good(tmp_path):
     assert client.get("/static/logo.png").headers.get("Cache-Control") != IMMUTABLE
     stale = client.get("/static/logo.png?v=000000000000")
     assert stale.headers.get("Cache-Control") != IMMUTABLE
+
+
+def _text_app() -> Flask:
+    app = compress_responses(Flask(__name__))
+
+    @app.route("/big")
+    def big():
+        return "<p>hola</p>" * 500
+
+    @app.route("/small")
+    def small():
+        return "<p>hola</p>"
+
+    @app.route("/data")
+    def data():
+        return {"rows": list(range(1000))}
+
+    @app.route("/png")
+    def png():
+        return app.response_class(b"\x89PNG" + b"0" * 5000, mimetype="image/png")
+
+    return app
+
+
+def test_text_over_1kib_is_gzipped_when_accepted():
+    client = _text_app().test_client()
+    for path in ("/big", "/data"):
+        response = client.get(path, headers={"Accept-Encoding": "gzip"})
+        assert response.headers["Content-Encoding"] == "gzip"
+        assert "Accept-Encoding" in response.headers["Vary"]
+        plain = client.get(path)
+        assert gzip.decompress(response.data) == plain.data
+
+
+def test_small_bodies_images_and_clients_without_gzip_are_left_alone():
+    client = _text_app().test_client()
+    assert "Content-Encoding" not in client.get("/big").headers
+    small = client.get("/small", headers={"Accept-Encoding": "gzip"})
+    assert "Content-Encoding" not in small.headers
+    assert "Accept-Encoding" in small.headers["Vary"]
+    image = client.get("/png", headers={"Accept-Encoding": "gzip"})
+    assert "Content-Encoding" not in image.headers
+
+
+def test_every_response_carries_permissions_policy_and_coop():
+    app = add_security_headers(Flask(__name__))
+    app.add_url_rule("/", "home", lambda: "ok")
+    headers = app.test_client().get("/").headers
+    assert "camera=()" in headers["Permissions-Policy"]
+    assert "geolocation=()" in headers["Permissions-Policy"]
+    assert headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
+
+
+def test_a_secure_session_cookie_takes_the_host_prefix_and_plain_http_does_not():
+    secure = Flask(__name__)
+    secure.config["SESSION_COOKIE_SECURE"] = True
+    harden_session_cookie(secure)
+    assert secure.config["SESSION_COOKIE_NAME"] == "__Host-session"
+    assert secure.config["SESSION_COOKIE_PATH"] == "/"
+    local = Flask(__name__)
+    local.config["SESSION_COOKIE_SECURE"] = False
+    harden_session_cookie(local)
+    assert local.config["SESSION_COOKIE_NAME"] == "session"

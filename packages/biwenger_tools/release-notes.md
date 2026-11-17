@@ -10,6 +10,8 @@ The incredible, and sometimes chaotic, evolution of our little big project.
 * **🪟 Windows that behave**: the calendar's event card, the enlarged cups and the rulebook's tables open as real dialogs — Esc, the back gesture or a tap outside closes them, and the images open from the keyboard too.
 * **🎬 The video waits for you**: El Veredicto loads from YouTube only when someone presses play, without YouTube's cookies.
 * **🔎 Private**: search engines are asked not to list the site; it is still reached by link as always.
+* **📦 Lighter pages**: pages travel gzipped (the salseo was 221 KiB of HTML), and the icons and rulebook images are kept by the browser until they change.
+* **🔐 Tighter session**: the admin's session cookie is bound to this exact site. Logging in once more after this deploy is expected.
 * **🗂️ For screen readers**: every page names itself in a heading, every table header says it heads a column, and every search box and filter has a name.
 
 ### **v12.0 - Where the Money Went (9 November 2026)**

@@ -9,7 +9,8 @@ import os
 
 from flask import Flask
 
-from core.web.headers import add_security_headers
+from core.web.compress import compress_responses
+from core.web.headers import add_security_headers, harden_session_cookie
 from core.web.logs import use_json_logging
 from core.web.proxy import trust_proxy
 from core.web.static import version_static_urls
@@ -60,6 +61,7 @@ CSP = {
 }
 
 app = Flask(__name__, template_folder=template_dir)
+compress_responses(app)  # first registered, so it runs last
 use_json_logging(app)
 add_security_headers(app, csp=CSP)
 version_static_urls(app)
@@ -70,6 +72,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "true").lower() != "false",
 )
+harden_session_cookie(app)
 
 app.context_processor(helpers.context_data)
 app.add_template_filter(format_mineral, "mineral")
