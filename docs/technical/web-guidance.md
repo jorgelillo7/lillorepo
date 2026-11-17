@@ -114,7 +114,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   façade on `youtube-nocookie.com`, `noindex`, and the Tabla de Justicia
   header wrapping at 320 px. Open: static files are sent with `no-cache`, and
   dark mode waits on the Tailwind build (item 8).
-- **be_water:** fixed in the PR after #773: the first card photos eager with
+- **be_water:** fixed in #774: the first card photos eager with
   `fetchpriority`, `text-slate-500` and white text on `sky-700`, mobile nav
   names kept for screen readers, "Entrar" fitting at 320 px, no "?" in the
   meta description, the photo viewer as a `<dialog>` with the bottle as a
