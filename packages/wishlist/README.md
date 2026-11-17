@@ -12,10 +12,12 @@ Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page t
 ## How it works
 
 - **The list (`/`)** is public. Each gift is free, reserved or bought, with the time.
-  Reserving asks for an optional name, up to 40 characters. Filters by recipient and
-  by state sit above the gifts and live in the address (`?para=older&estado=libres`),
-  so a link can open one child's list. The recipient is the first level, a solid
-  segmented control; the state is the second, lighter chips coloured by state.
+  Reserving asks for an optional name, up to 40 characters. Filters by recipient, by
+  kind of toy and by state sit above the gifts and live in the address
+  (`?para=older&tipo=coches&estado=libres`), so a link can open one child's list. The
+  recipient is the first level, a solid segmented control; the kind (six fixed
+  categories in `src/gifts.ts`, only those the recipient has gifts of) and the state are
+  lighter chips, the state's coloured by state.
 - **The list lives in D1**, not in the repo: events, their recipients and gifts
   (`/api/list`). `gifts.json` and `photos/` are only the first Christmas list, imported
   once by `migrations/0003_seed_gifts.sql`; editing them changes nothing on the site.
@@ -59,6 +61,7 @@ wishlist/
 ├── gifts.json            # The first list, the seed behind migrations/0003 (not the live list)
 ├── photos/               # Its 1280 px JPEGs without metadata, shipped as static assets
 ├── web/                  # The list page, the admin page, styles and scripts
+├── web/fonts/            # Fraunces (latin subset) and its OFL licence, served by the site
 ├── assets/icon.svg       # Home-screen icon; web/ holds it as SVG and 180, 192, 512 px PNGs
 ├── assets/admin-icon.svg # The same gift in green with a tick, for the /admin shortcut
 ├── src/app.ts            # Routes, claims, Basic auth; src/worker.ts only exports it

@@ -29,6 +29,28 @@ Each gift SHALL belong to an event, and only the event marked current is shown.
 - **THEN** `/admin` shows it with its name
 - *Verifies:* `gifts.test.ts: existing claims survive the move to D1 and still show for the same ids`
 
+### Requirement: Gifts are filed by kind for the list's third filter
+
+A gift SHALL carry one category from a fixed list of six (coches, figuras, construir,
+crear, musica, casa) or none; `/api/list` SHALL send that list with its labels and each
+gift's category. Few on purpose, so the filter fits on a phone. Add and edit SHALL refuse
+any other value; an edit that sends no category SHALL keep the gift's own, so an admin
+page loaded before categories cannot wipe them. The public page SHALL offer the
+categories as a "Tipo" filter between "Para" and "Estado", kept in the address as
+`?tipo=`, listing only the kinds the chosen recipient has gifts of (plus the one
+selected), with counts that apply the other two filters, and hidden when fewer than two
+kinds are in use. A gift without a category shows only under "Todos".
+
+#### Scenario: the list carries categories
+- **WHEN** a gift is added with a category and another without
+- **THEN** `/api/list` has the six categories in order, the first gift's category and `null` for the second
+- *Verifies:* `gifts.test.ts: the list carries the categories, and each gift its own or none`
+
+#### Scenario: unknown or missing category
+- **WHEN** a gift is added or edited with a category outside the list, or edited without one, or with an empty one
+- **THEN** the unknown one gets 400 `category`, the missing one keeps the gift's category, and the empty one clears it
+- *Verifies:* `gifts.test.ts: an unknown category is refused on add and on edit, and an edit without one keeps it`
+
 ### Requirement: The owner adds a gift from the phone
 
 A photo SHALL be uploaded first, as the raw `image/jpeg` body of `/admin/api/photo`,
@@ -61,7 +83,9 @@ scan, cut everything after the end-of-image marker, and refuse a file that is no
 baseline JPEG, is wider or taller than 1600 px, would display turned by an EXIF
 orientation that stripping drops, is truncated, or is larger than 600 KB. A photo
 SHALL be served from `/photos/u/<id>.jpg` with an immutable cache, under an id that
-changes whenever the photo does.
+changes whenever the photo does, and SHALL answer `HEAD` with the same headers. The seed
+photos and the self-hosted font SHALL be cached for good too, since neither ever changes
+under the same name; pages, scripts and styles SHALL keep the default revalidation.
 
 #### Scenario: no metadata is stored
 - **WHEN** a JPEG with EXIF and GPS, a multi-picture block, IPTC, a comment and a second EXIF-carrying picture appended after its end is uploaded
@@ -77,6 +101,16 @@ changes whenever the photo does.
 - **WHEN** an uploaded photo is requested
 - **THEN** it is served as `image/jpeg` with `Cache-Control: public, max-age=31536000, immutable`
 - *Verifies:* `gifts.test.ts: an uploaded photo is served from D1 with an immutable cache and nothing but the image`
+
+#### Scenario: HEAD
+- **WHEN** an uploaded photo is requested with `HEAD`
+- **THEN** it answers 200 with the same type and cache headers and no body
+- *Verifies:* `gifts.test.ts: an uploaded photo answers HEAD with its headers and no body`
+
+#### Scenario: static files
+- **WHEN** a seed photo, the font, a page, a script or a stylesheet is requested
+- **THEN** the seed photo and the font carry `Cache-Control: public, max-age=31536000, immutable`, and the rest carry none of their own
+- *Verifies:* `gifts.test.ts: seed photos and the font are cached for good; pages and scripts are not`
 
 ### Requirement: Gifts can be edited, hidden and deleted
 

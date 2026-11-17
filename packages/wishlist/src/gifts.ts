@@ -15,9 +15,20 @@ export const PHOTO_MAX_SIDE = 1600;
 const ORPHAN_HOURS = 24;
 const UPLOADED = /^\/photos\/u\/([0-9a-f-]{36})\.jpg$/;
 
+/** The kinds of toy a gift can be filed under: few on purpose, so the filter stays one row. */
+export const CATEGORIES = [
+  { id: "coches", label: "Coches y pistas" },
+  { id: "figuras", label: "Héroes y figuras" },
+  { id: "construir", label: "Construir y canicas" },
+  { id: "crear", label: "Pintar y crear" },
+  { id: "musica", label: "Música y cuentos" },
+  { id: "casa", label: "Casa y bebé" },
+] as const;
+
 interface GiftRow {
   id: string;
   recipient: string | null;
+  category: string | null;
   title: string;
   detail: string | null;
   note: string | null;
@@ -64,7 +75,7 @@ async function currentEvent(env: Env): Promise<EventRow | null> {
 
 async function listOf(env: Env, withHidden: boolean): Promise<Response> {
   const event = await currentEvent(env);
-  if (!event) return json({ title: "Regalos", recipients: [], gifts: [] });
+  if (!event) return json({ title: "Regalos", recipients: [], categories: CATEGORIES, gifts: [] });
   const recipients = await rows<Recipient>(
     env,
     "SELECT id, label FROM recipients WHERE event = ? ORDER BY position",
@@ -72,7 +83,7 @@ async function listOf(env: Env, withHidden: boolean): Promise<Response> {
   );
   const gifts = await rows<GiftRow>(
     env,
-    "SELECT id, recipient, title, detail, note, photo, hidden FROM gifts " +
+    "SELECT id, recipient, category, title, detail, note, photo, hidden FROM gifts " +
       `WHERE event = ? ${withHidden ? "" : "AND hidden = 0"} ORDER BY position, created_at`,
     event.slug,
   );
@@ -80,9 +91,11 @@ async function listOf(env: Env, withHidden: boolean): Promise<Response> {
     title: event.title,
     subtitle: event.subtitle,
     recipients,
+    categories: CATEGORIES,
     gifts: gifts.map((gift) => ({
       id: gift.id,
       for: gift.recipient,
+      category: gift.category,
       title: gift.title,
       detail: gift.detail,
       note: gift.note,
@@ -155,6 +168,12 @@ async function recipientOf(env: Env, event: string, value: unknown): Promise<str
   return found.length ? value : undefined;
 }
 
+/** A category id, null for none, or undefined when the value is not one of CATEGORIES. */
+function categoryOf(value: unknown): string | null | undefined {
+  if (value === undefined || value === null || value === "") return null;
+  return CATEGORIES.some((category) => category.id === value) ? (value as string) : undefined;
+}
+
 /** Whether `photo` is an upload that exists and no gift uses yet (unless `gift` itself does). */
 async function freePhoto(env: Env, photo: unknown, gift?: string): Promise<string | null> {
   const id = typeof photo === "string" ? photo.match(UPLOADED)?.[1] : undefined;
@@ -178,17 +197,20 @@ export async function addGift(body: Fields, env: Env): Promise<Response> {
   if (!event || !title) return json({ error: "title" }, 400);
   const recipient = await recipientOf(env, event.slug, body.recipient);
   if (recipient === undefined) return json({ error: "recipient" }, 400);
+  const category = categoryOf(body.category);
+  if (category === undefined) return json({ error: "category" }, 400);
   const photo = await freePhoto(env, body.photo);
   if (!photo) return json({ error: "photo" }, 400);
   const id = await newId(env, title);
   const { meta } = await env.DB.prepare(
-    "INSERT INTO gifts (id, event, recipient, title, detail, note, photo, position, created_at) " +
-      "SELECT ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(position), -1) + 1, ? FROM gifts WHERE event = ?",
+    "INSERT INTO gifts (id, event, recipient, category, title, detail, note, photo, position, created_at) " +
+      "SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(position), -1) + 1, ? FROM gifts WHERE event = ?",
   )
     .bind(
       id,
       event.slug,
       recipient,
+      category,
       title,
       cleanText(body.detail, DETAIL_LIMIT),
       cleanText(body.note, NOTE_LIMIT),
@@ -202,12 +224,15 @@ export async function addGift(body: Fields, env: Env): Promise<Response> {
 
 export async function editGift(body: Fields, env: Env): Promise<Response> {
   const id = typeof body.id === "string" ? body.id : "";
-  const [gift] = await rows<GiftRow & { event: string }>(env, "SELECT id, event, photo FROM gifts WHERE id = ?", id);
+  const [gift] = await rows<GiftRow & { event: string }>(env, "SELECT id, event, photo, category FROM gifts WHERE id = ?", id);
   if (!gift) return json({ error: "gift" }, 400);
   const title = cleanText(body.title, TITLE_LIMIT);
   if (!title) return json({ error: "title" }, 400);
   const recipient = await recipientOf(env, gift.event, body.recipient);
   if (recipient === undefined) return json({ error: "recipient" }, 400);
+  // An admin page from before categories sends none; that keeps the gift's own.
+  const category = body.category === undefined ? gift.category : categoryOf(body.category);
+  if (category === undefined) return json({ error: "category" }, 400);
   let photo = gift.photo;
   if (body.photo !== undefined && body.photo !== gift.photo) {
     const next = await freePhoto(env, body.photo, id);
@@ -215,9 +240,12 @@ export async function editGift(body: Fields, env: Env): Promise<Response> {
     photo = next;
   }
   const statements = [
-    env.DB.prepare("UPDATE gifts SET title = ?, recipient = ?, detail = ?, note = ?, photo = ? WHERE id = ?").bind(
+    env.DB.prepare(
+      "UPDATE gifts SET title = ?, recipient = ?, category = ?, detail = ?, note = ?, photo = ? WHERE id = ?",
+    ).bind(
       title,
       recipient,
+      category,
       cleanText(body.detail, DETAIL_LIMIT),
       cleanText(body.note, NOTE_LIMIT),
       photo,

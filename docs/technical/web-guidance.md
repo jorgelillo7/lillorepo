@@ -113,11 +113,12 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
 - **be_water:** card titles jump from `<h1>` to `<h3>`; `animate-bounce`
   ignores reduced motion; at 320 px "Entrar" is cut off.
 - **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.
-- **wishlist:** closest to the guidance. Open items:
-  - the photo grid is a live region;
-  - the admin photo buttons cannot be reached by keyboard;
-  - photos have no `srcset` and repo photos are served with `max-age=0`;
-  - font sizes are in `px`.
+- **wishlist:** closest to the guidance. Fixed: the first photos load eagerly and
+  the first with `fetchpriority="high"`; `--muted` is 4.9:1 on the page; the grid is
+  no longer a live region (a hidden status line reads the count); the admin photo
+  buttons are `<button>`s; font sizes in `rem`; Fraunces self-hosted, with the CSP
+  down to `'self'`; seed photos and the font cached immutable; `HEAD` on uploaded
+  photos. Open: photos have no `srcset`.
 - **household:**
   - `script-src 'unsafe-inline'` where a hash would do;
   - font sizes are in `px`;

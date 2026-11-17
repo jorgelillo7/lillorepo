@@ -6,13 +6,14 @@ const form = document.getElementById("giftForm");
 const fields = {
   title: document.getElementById("giftTitle"),
   recipient: document.getElementById("giftFor"),
+  category: document.getElementById("giftKind"),
   detail: document.getElementById("giftDetail"),
   note: document.getElementById("giftNote"),
 };
 const preview = document.getElementById("preview");
 const formError = document.getElementById("giftError");
 const save = document.getElementById("giftSave");
-let list = { gifts: [], recipients: [] };
+let list = { gifts: [], recipients: [], categories: [] };
 let editing = null;
 let chosen = null;
 let previewUrl = null;
@@ -60,6 +61,10 @@ function showPreview(source) {
   preview.hidden = !preview.src;
 }
 
+for (const button of document.querySelectorAll("[data-pick]")) {
+  button.addEventListener("click", () => document.getElementById(button.dataset.pick).click());
+}
+
 for (const id of ["photoCamera", "photoLibrary"]) {
   const input = document.getElementById(id);
   input.addEventListener("change", async () => {
@@ -87,8 +92,13 @@ function openForm(gift) {
     el("option", { value: "" }, "Sin destinatario"),
     ...list.recipients.map((r) => el("option", { value: r.id }, r.label)),
   );
+  fields.category.replaceChildren(
+    el("option", { value: "" }, "Sin tipo"),
+    ...list.categories.map((c) => el("option", { value: c.id }, c.label)),
+  );
   fields.title.value = gift?.title ?? "";
   fields.recipient.value = gift?.for ?? "";
+  fields.category.value = gift?.category ?? "";
   fields.detail.value = gift?.detail ?? "";
   fields.note.value = gift?.note ?? "";
   showPreview(gift?.photo ?? null);
@@ -124,6 +134,7 @@ form.addEventListener("submit", async (event) => {
     const body = {
       title: fields.title.value,
       recipient: fields.recipient.value,
+      category: fields.category.value,
       detail: fields.detail.value,
       note: fields.note.value,
       photo,
@@ -203,7 +214,8 @@ function render(state) {
         "tr",
         {},
         el("td", {}, el("img", { class: "thumb", src: gift.photo, alt: "" }), gift.title,
-          gift.for && el("span", { class: "when" }, ` · ${list.recipients.find((r) => r.id === gift.for)?.label ?? gift.for}`)),
+          gift.for && el("span", { class: "when" }, ` · ${list.recipients.find((r) => r.id === gift.for)?.label ?? gift.for}`),
+          gift.category && el("span", { class: "when" }, ` · ${list.categories.find((c) => c.id === gift.category)?.label ?? gift.category}`)),
         el("td", {}, status),
         el("td", {}, claim ? (claim.name ?? "Sin nombre") : ""),
         el("td", {}, when(claim?.reservedAt)),

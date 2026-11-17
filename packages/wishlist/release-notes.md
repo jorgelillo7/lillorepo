@@ -2,6 +2,15 @@
 
 What changed for whoever opens the list, newest first. 🎁
 
+### **v1.2 - Filter by Kind, Quicker and Easier to Read (17 November 2026)**
+
+* **🧸 Filter by kind of toy**: cars and tracks, heroes and figures, building and marbles, painting and making, music and stories, home and baby. Only the kinds that child has show, each with how many.
+* **⚡ The first photos come first**: the ones on screen when the list opens load at once, the top one ahead of everything else.
+* **👓 Easier to read**: the grey text is darker, and text sizes follow the size set on the phone or the browser.
+* **🔤 No font from Google**: the title font is served by the list itself, so opening it tells no one else.
+* **⌨️ Photo buttons by keyboard**: "Hacer foto" and "Elegir foto" in the admin are real buttons.
+* **🔁 Photos kept**: the first list's photos and the font stay in the browser instead of being asked for again.
+
 ### **v1.1 - Added From the Shop (12 November 2026)**
 
 A gift used to exist only if someone edited a file and ran a script. Now it is added where the toy is: standing in the shop, from the phone.

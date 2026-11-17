@@ -223,7 +223,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path.startsWith("/api/")) return notFound();
 
   const uploaded = path.match(/^\/photos\/u\/([0-9a-f-]{36})\.jpg$/);
-  if (uploaded && get) return (await servePhoto(env, uploaded[1])) ?? notFound();
+  if (uploaded && (get || request.method === "HEAD")) {
+    const photo = await servePhoto(env, uploaded[1]);
+    if (!photo) return notFound();
+    return get ? photo : new Response(null, { headers: photo.headers });
+  }
 
   if (path === "/admin" || path.startsWith("/admin/")) {
     if (!(await isAdmin(request, env))) return challenge();
@@ -257,8 +261,18 @@ async function route(request: Request, env: Env): Promise<Response> {
   // The pages are served by their clean paths only, so admin.html cannot be reached
   // around the credential check.
   if (path.endsWith(".html")) return notFound();
-  return env.ASSETS.fetch(request);
+  const asset = await env.ASSETS.fetch(request);
+  if (asset.ok && IMMUTABLE_ASSET.test(path)) {
+    const headers = new Headers(asset.headers);
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    return new Response(asset.body, { status: asset.status, headers });
+  }
+  return asset;
 }
+
+// The seed photos never change (their list is a one-time migration) and a new font
+// file takes a new name, so both can be kept by the browser for good.
+const IMMUTABLE_ASSET = /^\/(?:photos\/[a-z0-9-]+\.jpg|fonts\/[a-z0-9-]+\.woff2)$/;
 
 export async function handle(request: Request, env: Env): Promise<Response> {
   const response = await route(request, env);

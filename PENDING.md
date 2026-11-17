@@ -24,13 +24,10 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| ⏳ | Check the first weekly Firestore backups exist, in both projects | **Monday 16/11** (the schedule runs Sundays, first on 15/11) · `gcloud firestore backups list --location=europe-southwest1 --project=biwenger-tools` and the same for `be-water-app`; then drop this line · [setup](docs/firestore.md) |
-| ⏳ | Delete the temporary `python-base:pillow-13` tag (the image stays as `latest`; `pre-pillow-13` keeps the previous one for a revert) | A few days of the new base serving cleanly, from 13/11 · `gcloud artifacts docker tags delete europe-southwest1-docker.pkg.dev/biwenger-tools/biwenger-docker/python-base:pillow-13` |
 | 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
 | 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
 | 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
 | 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
-| ⏳ | Delete the temporary `python-base:gunicorn-27` tag | With the `pillow-13` one above |
 
 ## core
 
@@ -94,9 +91,9 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Gifts are added from `/admin` with a photo, and it is deployed: add one from an iPhone (the dialog, both photo buttons) and check the photo shows on the list | You · the browser side has no automated test, and no photo has been stored in the remote D1 yet (if the statement size limit refuses one, the fallback is the photo across several rows) |
+| 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
 | 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md) |
-| 🔨 | Web: first photos eager plus `fetchpriority`, `srcset` WebP and immutable photo caching, `--muted` contrast, grid not a live region, keyboard-reachable admin photo buttons, `rem`, self-hosted Fraunces | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
+| 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## be_water
 
