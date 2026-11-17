@@ -1,11 +1,12 @@
-"""core.web — CSRF helpers and the in-process rate limiter."""
+"""core.web — CSRF helpers, the in-process rate limiter and versioned static URLs."""
 
 import time
 
-from flask import Flask, session
+from flask import Flask, session, url_for
 
 from core.web.csrf import get_csrf_token, verify_csrf_token
 from core.web.ratelimit import RateLimiter, client_ip
+from core.web.static import IMMUTABLE, version_static_urls
 
 
 def _app() -> Flask:
@@ -178,3 +179,29 @@ def test_no_csp_unless_asked():
         return "ok"
 
     assert "Content-Security-Policy" not in app.test_client().get("/").headers
+
+
+def _static_app(tmp_path):
+    (tmp_path / "logo.png").write_bytes(b"one")
+    app = Flask(__name__, static_folder=str(tmp_path), static_url_path="/static")
+    return version_static_urls(app)
+
+
+def test_static_urls_carry_a_hash_of_the_file(tmp_path):
+    app = _static_app(tmp_path)
+    with app.test_request_context("/"):
+        url = url_for("static", filename="logo.png")
+        assert url.startswith("/static/logo.png?v=")
+        assert url_for("static", filename="missing.png") == "/static/missing.png"
+
+
+def test_a_versioned_static_request_is_cached_for_good(tmp_path):
+    app = _static_app(tmp_path)
+    with app.test_request_context("/"):
+        url = url_for("static", filename="logo.png")
+    client = app.test_client()
+    assert client.get(url).headers["Cache-Control"] == IMMUTABLE
+    # No version, or one that no longer matches the file: revalidate as before.
+    assert client.get("/static/logo.png").headers.get("Cache-Control") != IMMUTABLE
+    stale = client.get("/static/logo.png?v=000000000000")
+    assert stale.headers.get("Cache-Control") != IMMUTABLE

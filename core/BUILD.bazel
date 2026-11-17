@@ -130,6 +130,7 @@ py_library(
         "web/logs.py",
         "web/proxy.py",
         "web/ratelimit.py",
+        "web/static.py",
     ],
     deps = [
         ":_init",
