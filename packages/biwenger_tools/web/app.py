@@ -8,6 +8,7 @@ from flask import Flask, g, request, session
 from core.web.csrf import get_csrf_token
 from core.web.headers import add_security_headers
 from core.web.logs import use_json_logging
+from core.web.static import version_static_urls
 from packages.biwenger_tools.web import config, services
 from packages.biwenger_tools.web.routes.admin import bp as admin_bp
 from packages.biwenger_tools.web.routes.main import bp as main_bp
@@ -39,6 +40,7 @@ CSP = {
 app = Flask(__name__, template_folder=template_dir)
 use_json_logging(app)
 add_security_headers(app, csp=CSP)
+version_static_urls(app)
 app.config["SECRET_KEY"] = config.SECRET_KEY
 # Session cookie hardening. SESSION_COOKIE_SECURE defaults to True so HTTPS
 # is enforced in Cloud Run; local dev over plain HTTP can set

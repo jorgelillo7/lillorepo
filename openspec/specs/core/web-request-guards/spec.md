@@ -107,3 +107,21 @@ WARNING and answer 204. Without `csp`, no policy header is sent.
 - *Verifies:* `test_csp_nonce_in_header_matches_the_page`,
   `test_csp_nonce_changes_every_request`, `test_csp_report_is_logged_as_a_warning`,
   `test_no_csp_unless_asked`
+
+### Requirement: Static files are cached for good under a versioned URL
+
+`version_static_urls` SHALL add `?v=<first 12 hex of the file's SHA-256>` to every
+`url_for('static', …)` of a file that exists, and SHALL serve a static request whose `v`
+matches the file with `Cache-Control: public, max-age=31536000, immutable`. A request
+without `v`, or with one that no longer matches, SHALL keep Flask's revalidation, so a
+changed file is never served stale. Biwenger and be_water both use it.
+
+#### Scenario: versioned URL
+- **WHEN** a template asks for a static file that exists, and for one that does not
+- **THEN** the first URL carries `v`, the second does not
+- *Verifies:* `core/tests/test_web.py: test_static_urls_carry_a_hash_of_the_file`
+
+#### Scenario: cached for good only when the version matches
+- **WHEN** the versioned URL, the bare path and a stale version are requested
+- **THEN** only the versioned URL is immutable
+- *Verifies:* `core/tests/test_web.py: test_a_versioned_static_request_is_cached_for_good`
