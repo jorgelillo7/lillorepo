@@ -23,7 +23,7 @@
                  loading="lazy" class="w-full aspect-[3/4] object-cover object-top bg-gray-100">
             <div class="p-2">
                 <p class="text-xs font-semibold text-gray-900 leading-tight">{{ portada.titulo }}</p>
-                <p class="text-xs text-gray-400 mt-0.5">{{ portada.fecha }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">{{ portada.fecha }}</p>
             </div>
         </a>
         {% endfor %}
@@ -45,7 +45,7 @@
         <input type="text" id="search-input" placeholder="Buscar en la sección actual..."
                class="w-full p-3 pr-10 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition text-gray-800">
         <button id="clear-btn" data-on-click="clearSearch"
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden text-xl leading-none">×</button>
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 hidden text-xl leading-none">×</button>
     </div>
 </div>
 
@@ -63,7 +63,7 @@
         <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe_html }}</div>
     </article>
     {% else %}
-    <div class="card p-8 text-center text-gray-400 rounded-xl">No hay crónicas esta temporada.</div>
+    <div class="card p-8 text-center text-gray-500 rounded-xl">No hay crónicas esta temporada.</div>
     {% endfor %}
 </div>
 
@@ -81,7 +81,7 @@
         <div class="prose max-w-none leading-relaxed">{{ message.contenido | safe_html }}</div>
     </article>
     {% else %}
-    <div class="card p-8 text-center text-gray-400 rounded-xl">No hay datos curiosos esta temporada.</div>
+    <div class="card p-8 text-center text-gray-500 rounded-xl">No hay datos curiosos esta temporada.</div>
     {% endfor %}
 </div>
 
@@ -92,7 +92,7 @@
 
 <style>
     .tab-btn { background-color: #f1f5f9; color: #64748b; }
-    .tab-btn.active-tab { background-color: #38a169; color: white; }
+    .tab-btn.active-tab { background-color: #2f855a; color: white; }
 </style>
 
 <script nonce="{{ csp_nonce() }}">
@@ -151,12 +151,12 @@ document.getElementById('search-input').addEventListener('input', function() {
         <article class="card p-6 rounded-xl shadow-md">
             <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h2 class="text-xl font-bold text-gray-900">${m.titulo}</h2>
-                    <p class="text-sm font-medium text-green-700 mt-1">por ${m.autor}</p>
+                    <h2 class="text-xl font-bold text-gray-900">${escapeHtml(m.titulo)}</h2>
+                    <p class="text-sm font-medium text-green-700 mt-1">por ${escapeHtml(m.autor)}</p>
                 </div>
-                <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${m.fecha}</span>
+                <span class="text-sm text-gray-500 text-right flex-shrink-0 ml-4">${escapeHtml(m.fecha)}</span>
             </div>
-            <div class="prose max-w-none leading-relaxed">${m.contenido}</div>
+            <div class="prose max-w-none leading-relaxed">${m.contenido /* sanitized server-side by safe_html */}</div>
         </article>
     `).join('');
 });

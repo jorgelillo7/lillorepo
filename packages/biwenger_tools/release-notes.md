@@ -2,6 +2,12 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v12.1 - Safer and Easier to Read (17 November 2026)**
+
+* **🛡️ Nobody's title can break the page**: a crónica's title, an author or a team name containing HTML is shown as text in the search results and the Tabla de Justicia, never run as markup.
+* **👓 Easier to read**: the light grey text is darker, and the green tabs and buttons with white text are a shade deeper.
+* **⌨️ By keyboard**: a visible focus ring everywhere, the menu and the season picker say whether they are open, and every row of the Tabla de Justicia opens with Tab and Enter.
+
 ### **v12.0 - Where the Money Went (9 November 2026)**
 
 Sixth of seven, and the question was why. The answer was measured, not guessed: picking the eleven is league-average, the bonuses are worth two points a round, and the gap is a squad bought dear and sold cheap. This release stops the bleeding and lets the platform run without anyone opening the app.

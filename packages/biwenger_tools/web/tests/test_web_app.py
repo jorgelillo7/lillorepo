@@ -1572,3 +1572,30 @@ def test_pages_link_the_manifest_and_register_the_worker(client):
 
     assert '<link rel="manifest" href="/manifest.webmanifest">' in body
     assert 'navigator.serviceWorker.register("/sw.js")' in body
+
+
+# --- Client-side rendering ---
+
+
+@pytest.mark.parametrize(
+    "template, fields",
+    [
+        ("salseo.html", ["m.titulo", "m.autor", "m.fecha"]),
+        ("mercado.html", ["row.equipo", "objetivo", "n", "c"]),
+        ("index.html", ["msg.titulo", "msg.autor", "msg.fecha", "msg.contenido"]),
+    ],
+)
+def test_league_values_reach_innerHTML_only_escaped(template, fields):
+    """Titles, authors and team names are written by league members, so every
+    template literal that interpolates one wraps it in the shared escapeHtml."""
+    source, _, _ = app.jinja_loader.get_source(app.jinja_env, template)
+    for field in fields:
+        assert "${" + field + "}" not in source, f"{template}: ${{{field}}} unescaped"
+        assert "${escapeHtml(" + field + ")}" in source, (
+            f"{template}: {field} never escaped"
+        )
+
+
+def test_escape_html_is_defined_once_for_every_page():
+    source, _, _ = app.jinja_loader.get_source(app.jinja_env, "base.html")
+    assert "window.escapeHtml = function" in source

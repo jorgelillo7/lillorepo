@@ -386,3 +386,17 @@ visible on the next load.
   `test_the_service_worker_is_served_from_the_root_and_never_cached`,
   `test_the_offline_page_the_worker_falls_back_to_exists_and_runs_no_script`,
   `test_pages_link_the_manifest_and_register_the_worker`
+
+### Requirement: League text reaches the page as text
+
+Titles, authors, dates and team names are written by league members. Every template
+that builds markup in the browser SHALL pass each of them through the one `escapeHtml`
+defined in `base.html` before it reaches `innerHTML`. A message's body is the exception:
+it SHALL arrive already cleaned on the server by `safe_html` (bleach, a fixed tag list),
+and is inserted as that cleaned HTML.
+
+#### Scenario: client-side templates
+- **WHEN** the search results of `/comunicados` and `/salseo` or the Tabla de Justicia on `/mercado` are built in the browser
+- **THEN** every league value in them is interpolated as `escapeHtml(value)`, never bare
+- *Verifies:* `test_web_app.py: test_league_values_reach_innerHTML_only_escaped`,
+  `test_web_app.py: test_escape_html_is_defined_once_for_every_page`

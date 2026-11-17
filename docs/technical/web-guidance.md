@@ -40,7 +40,7 @@ Lighthouse, mobile (performance / accessibility / best practices / SEO):
 
 ### What to fix first, across sites
 
-Done since the review: chucknorris_bot (headers, CSP, title on phones, landmarks, share metadata, red text contrast, focus ring) in #763; jorgelillo7.github.io in that repo's PR #19. The items below still name them for the record.
+Done since the review: Biwenger's escaping, contrast (`text-gray-500`, white text on `#2f855a`) and keyboard (focus ring, `aria-expanded`, the Tabla de Justicia rows and cards as buttons) in the PR after #771; wishlist in #771; chucknorris_bot (headers, CSP, title on phones, landmarks, share metadata, red text contrast, focus ring) in #763; jorgelillo7.github.io in that repo's PR #19. The items below still name them for the record.
 
 Ordered by impact per unit of work. S = small, M = medium, L = large.
 

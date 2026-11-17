@@ -10,6 +10,7 @@ colors:
   border: "#e2e8f0"
   accent: "#38a169"
   accent-hover: "#276749"
+  accent-fill: "#2f855a"
   accent-light: "#c6f6d5"
   danger: "#e53e3e"
   warning: "#d69e2e"
@@ -86,7 +87,8 @@ This is not a commercial product — it's a private league intranet. The design 
 - **Primary (#2d3748):** Main text, content headings, UI icons.
 - **Secondary (#4a5568):** Secondary text, labels, metadata.
 - **Muted (#718096):** Dates, footnotes, lower-hierarchy content.
-- **Accent (#38a169):** Active nav indicator, confirmed-action buttons, active page numbers, author highlights. The only live colour — don't use it as decoration.
+- **Accent (#38a169):** Active nav indicator, author highlights. The only live colour — don't use it as decoration. White on it is 3.25:1, so it never sits behind text.
+- **Accent fill (#2f855a, Tailwind `green-700` in classes):** Any green fill that carries white text — active tabs, active page numbers, confirmed-action buttons, the current season (4.5:1 and up). Also the keyboard focus ring.
 - **Background (#f7fafc):** Page base, slightly off-white to reduce eye fatigue vs. pure white.
 - **Surface (#ffffff):** Cards and panels elevated above the background.
 - **Border (#e2e8f0):** Dividers and card borders — subtle, not prominent.
@@ -220,4 +222,7 @@ Button with `data-target="section-id"` + collapsible div. First item open by def
 - **Do:** Keep information density high — this app needs it.
 - **Don't:** Use Oswald at weight < 500.
 - **Don't:** Add new colours without updating this file first.
+- **Don't:** Use `text-gray-400` for text: 2.5:1 on white. `text-gray-500` (4.6:1 on the page) is the lightest grey text may be.
+- **Don't:** Remove the focus outline (`focus:outline-none`); `:focus-visible` in `base.html` draws one ring for every control.
+- **Don't:** Put a league value (a title, an author, a team name) into an `innerHTML` template without `escapeHtml()` from `base.html`.
 - **Don't:** Use shadows heavier than `shadow-lg` — the design is flat with functional shadow.
