@@ -17,7 +17,7 @@ const STATUSES = [
   { id: "comprados", label: "Comprados", test: (claim) => claim?.boughtAt },
 ];
 const params = new URLSearchParams(location.search);
-const filter = { who: params.get("para") ?? "", status: params.get("estado") ?? "" };
+const filter = { who: params.get("para") ?? "", kind: params.get("tipo") ?? "", status: params.get("estado") ?? "" };
 
 const FAILED = {
   taken: "Alguien acaba de reservarlo. La lista ya está al día.",
@@ -83,9 +83,10 @@ function stateBlock(gift, claim) {
 
 const recipientLabel = (id) => list.recipients?.find((recipient) => recipient.id === id)?.label;
 const forWho = (gift) => !filter.who || gift.for === filter.who;
+const ofKind = (gift) => !filter.kind || gift.category === filter.kind;
 const inStatus = (gift, status) => !status.test || Boolean(status.test(claims.get(gift.id)));
 
-function buttons(container, kind, options, selected, count, choose) {
+function buttons(container, kind, options, selected, count, choose, dots = true) {
   container.replaceChildren(
     ...options.map((option) => {
       const button = el(
@@ -94,9 +95,9 @@ function buttons(container, kind, options, selected, count, choose) {
           class: kind,
           type: "button",
           "aria-pressed": String(option.id === selected),
-          "data-state": kind === "chip" ? option.id || "todos" : null,
+          "data-state": dots && kind === "chip" ? option.id || "todos" : null,
         },
-        kind === "chip" && option.id ? el("span", { class: "dot", "aria-hidden": "true" }) : null,
+        dots && kind === "chip" && option.id ? el("span", { class: "dot", "aria-hidden": "true" }) : null,
         option.label,
         el("span", { class: "n" }, count(option)),
       );
@@ -115,15 +116,30 @@ function renderFilters() {
     "segment",
     [{ id: "", label: "Ambos" }, ...recipients],
     filter.who,
-    (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && inStatus(g, status)).length,
+    (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
     (id) => setFilter({ who: id }),
+  );
+  // Only the kinds this recipient has gifts of, so the row stays short; the chosen
+  // one stays even when the other filters empty it, so it can be undone.
+  const kinds = (list.categories ?? []).filter(
+    (kind) => kind.id === filter.kind || list.gifts.some((g) => forWho(g) && g.category === kind.id),
+  );
+  document.getElementById("kindLevel").hidden = kinds.length < 2;
+  buttons(
+    document.getElementById("kindFilter"),
+    "chip",
+    [{ id: "", label: "Todos" }, ...kinds],
+    filter.kind,
+    (option) => list.gifts.filter((g) => forWho(g) && (!option.id || g.category === option.id) && inStatus(g, status)).length,
+    (id) => setFilter({ kind: id }),
+    false,
   );
   buttons(
     document.getElementById("statusFilter"),
     "chip",
     STATUSES,
     status.id,
-    (option) => list.gifts.filter((g) => forWho(g) && inStatus(g, option)).length,
+    (option) => list.gifts.filter((g) => forWho(g) && ofKind(g) && inStatus(g, option)).length,
     (id) => setFilter({ status: id }),
   );
 }
@@ -132,6 +148,7 @@ function setFilter(change) {
   Object.assign(filter, change);
   const query = new URLSearchParams();
   if (filter.who) query.set("para", filter.who);
+  if (filter.kind) query.set("tipo", filter.kind);
   if (filter.status) query.set("estado", filter.status);
   history.replaceState(null, "", query.size ? `?${query}` : location.pathname);
   render();
@@ -172,7 +189,7 @@ function card(gift, index) {
 
 function render() {
   const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
-  const shown = list.gifts.filter((gift) => forWho(gift) && inStatus(gift, status));
+  const shown = list.gifts.filter((gift) => forWho(gift) && ofKind(gift) && inStatus(gift, status));
   grid.replaceChildren(...shown.map(card));
   document.getElementById("empty").hidden = shown.length > 0;
   document.getElementById("shown").textContent =

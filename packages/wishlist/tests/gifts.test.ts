@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, test } from "vitest";
-import { PHOTO_MAX_BYTES, slugify } from "../src/gifts.ts";
+import { CATEGORIES, PHOTO_MAX_BYTES, slugify } from "../src/gifts.ts";
 import { fromBase64 } from "../src/http.ts";
 import worker from "../src/worker.ts";
 import type { Env } from "../src/types.ts";
@@ -57,6 +57,29 @@ async function addGift(fields: Record<string, unknown> = {}): Promise<{ id: stri
 }
 
 describe("the list in D1", () => {
+  test("the list carries the categories, and each gift its own or none", async () => {
+    await addGift({ title: "Pista de coches", category: "coches" });
+    await addGift({ title: "Sin tipo" });
+    const list = await publicList();
+    expect(list.categories.map((c: { id: string }) => c.id)).toEqual(CATEGORIES.map((c) => c.id));
+    const byTitle = (title: string) => list.gifts.find((g: { title: string }) => g.title === title);
+    expect(byTitle("Pista de coches").category).toBe("coches");
+    expect(byTitle("Sin tipo").category).toBeNull();
+  });
+
+  test("an unknown category is refused on add and on edit, and an edit without one keeps it", async () => {
+    const photo = await upload();
+    const refused = await admin("/admin/api/gift/add", { title: "X", photo, category: "dragones" });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toEqual({ error: "category" });
+    const { id } = await addGift({ category: "figuras" });
+    expect((await admin("/admin/api/gift/edit", { id, title: "Y", category: "dragones" })).status).toBe(400);
+    expect((await admin("/admin/api/gift/edit", { id, title: "Y" })).status).toBe(200);
+    expect(sqlite.prepare("SELECT category FROM gifts WHERE id = ?").get(id)).toEqual({ category: "figuras" });
+    expect((await admin("/admin/api/gift/edit", { id, title: "Y", category: "" })).status).toBe(200);
+    expect(sqlite.prepare("SELECT category FROM gifts WHERE id = ?").get(id)).toEqual({ category: null });
+  });
+
   test("the first list is imported with its ids, recipients and static photos", async () => {
     const seed = JSON.parse(readFileSync(new URL("../gifts.json", import.meta.url), "utf8"));
     const list = await publicList();

@@ -29,6 +29,28 @@ Each gift SHALL belong to an event, and only the event marked current is shown.
 - **THEN** `/admin` shows it with its name
 - *Verifies:* `gifts.test.ts: existing claims survive the move to D1 and still show for the same ids`
 
+### Requirement: Gifts are filed by kind for the list's third filter
+
+A gift SHALL carry one category from a fixed list of six (coches, figuras, construir,
+crear, musica, casa) or none; `/api/list` SHALL send that list with its labels and each
+gift's category. Few on purpose, so the filter fits on a phone. Add and edit SHALL refuse
+any other value; an edit that sends no category SHALL keep the gift's own, so an admin
+page loaded before categories cannot wipe them. The public page SHALL offer the
+categories as a "Tipo" filter between "Para" and "Estado", kept in the address as
+`?tipo=`, listing only the kinds the chosen recipient has gifts of (plus the one
+selected), with counts that apply the other two filters, and hidden when fewer than two
+kinds are in use. A gift without a category shows only under "Todos".
+
+#### Scenario: the list carries categories
+- **WHEN** a gift is added with a category and another without
+- **THEN** `/api/list` has the six categories in order, the first gift's category and `null` for the second
+- *Verifies:* `gifts.test.ts: the list carries the categories, and each gift its own or none`
+
+#### Scenario: unknown or missing category
+- **WHEN** a gift is added or edited with a category outside the list, or edited without one, or with an empty one
+- **THEN** the unknown one gets 400 `category`, the missing one keeps the gift's category, and the empty one clears it
+- *Verifies:* `gifts.test.ts: an unknown category is refused on add and on edit, and an edit without one keeps it`
+
 ### Requirement: The owner adds a gift from the phone
 
 A photo SHALL be uploaded first, as the raw `image/jpeg` body of `/admin/api/photo`,
