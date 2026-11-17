@@ -2,6 +2,15 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.12 - Easier on the Eyes (17 November 2026)**
+
+* **⚡ The first bottles come first**: the photos on screen when the catalogue opens load at once, the top one ahead of everything.
+* **👓 Easier to read**: the light grey text is darker, and the blue buttons with white text a shade deeper.
+* **📱 Fits a small phone**: at 320 px the header no longer cuts "Entrar" off, and the emoji-only menu still tells a screen reader where each link goes.
+* **🔍 A photo viewer that behaves**: the bottle and the label open in a real dialog — Esc, the back gesture or a tap outside closes it, and the bottle opens from the keyboard too.
+* **🧘 Calmer**: the bouncing crystal ball while a label is read stays still for anyone who asked their device for less motion.
+* **🔗 Cleaner previews**: a water without a residuo seco no longer shares "residuo seco ? mg/L".
+
 ### **v1.11 - Nothing Taken on Trust (11 November 2026)**
 
 Nothing new to look at. A review from outside went through what the app accepts from a browser and what it spends, and tightened both.

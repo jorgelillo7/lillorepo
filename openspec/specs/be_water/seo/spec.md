@@ -127,9 +127,12 @@ Every page SHALL declare `og:site_name` and `og:locale`.
 
 A water's photo SHALL be rendered as an `<img>` carrying an `alt` that names the
 water and its province — on the catalogue card as much as on the ficha — and
-SHALL NOT be painted as a CSS `background-image`. Cards below the fold SHALL
-load lazily. A water with no photo SHALL render its placeholder without an
-image element.
+SHALL NOT be painted as a CSS `background-image`. On the catalogue the first
+three cards' photos SHALL load at once and the first SHALL carry
+`fetchpriority="high"`, being the page's largest paint; the rest SHALL load
+lazily. A water with no photo SHALL render its placeholder without an image
+element. A ficha's meta description SHALL leave out a value the water lacks
+rather than print "?".
 
 A background image has no `alt` and no `src` a crawler indexes: the whole
 catalogue grid was a wall of nameless boxes to a screen reader, and earned
@@ -144,6 +147,12 @@ grid is where almost every visitor lands.
   image is claimed
 - **WHEN** the card renders on a ficha, beside the zoomable hero **THEN** it is
   named and stays out of the photo viewer
+- **WHEN** the catalogue lists its cards **THEN** photos one to three load at
+  once, only the first has `fetchpriority="high"`, and the rest are lazy
+- **WHEN** a ficha's water has no residuo seco **THEN** its meta description
+  says neither "?" nor "residuo seco"
 - *Verifies:* `test_catalog_thumbnails_are_images_a_reader_can_name`,
+  `test_the_first_row_of_photos_loads_at_once_and_the_first_first`,
+  `test_the_meta_description_leaves_out_what_the_label_lacks`,
   `test_a_water_with_no_photo_still_renders_its_card`,
   `test_the_nearby_cards_on_a_ficha_are_named_but_not_zoomable`

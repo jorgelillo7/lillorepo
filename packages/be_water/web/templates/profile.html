@@ -50,14 +50,14 @@
         <details class="mt-5 group" {% if favorites | length <= 8 %}open{% endif %}>
             <summary class="text-xs text-slate-500 cursor-pointer list-none marker:content-none">
                 según tus {{ favorites | length }} favoritas
-                <span class="ml-1 text-slate-400 group-open:hidden">— ver todas</span>
+                <span class="ml-1 text-slate-500 group-open:hidden">— ver todas</span>
             </summary>
             <p class="mt-2 text-xs text-slate-500 leading-relaxed">
                 {% for w in favorites %}<a href="{{ url_for('water_detail', water_id=w.id) }}" class="font-semibold text-slate-600 hover:text-sky-700">{{ w.name }}</a>{{ " · " if not loop.last }}{% endfor %}
             </p>
         </details>
         {% if favorites | length < 2 %}
-        <p class="mt-2 text-[11px] text-slate-400">con 2-3 favoritas el perfil afina más 😉</p>
+        <p class="mt-2 text-[11px] text-slate-500">con 2-3 favoritas el perfil afina más 😉</p>
         {% endif %}
     </section>
 

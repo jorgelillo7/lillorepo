@@ -28,7 +28,7 @@
         <option value="{{ p }}" {% if p == place %}selected{% endif %}>{{ p }}</option>
         {% endfor %}
     </select>
-    <button class="px-5 py-3 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm transition">Buscar</button>
+    <button class="px-5 py-3 rounded-2xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-sm transition">Buscar</button>
 </form>
 
 {% if place and region %}
@@ -72,7 +72,7 @@
         de las provincias vecinas, pide:
     </h2>
 {% elif place %}
-    <p class="text-center text-slate-400 py-10">No conocemos aguas de <strong>{{ place }}</strong> todavía —
+    <p class="text-center text-slate-500 py-10">No conocemos aguas de <strong>{{ place }}</strong> todavía —
         <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">¿añades tú la primera?</a></p>
 {% endif %}
 
@@ -93,7 +93,7 @@
     </section>
     {% endif %}
     {% if not region %}
-    <p class="text-center text-xs text-slate-400 mb-12">
+    <p class="text-center text-xs text-slate-500 mb-12">
         ¿Conoces un agua de {{ place }}?
         <a href="{{ url_for('add_water') }}" class="text-sky-600 hover:underline">Añádela al catálogo</a>
     </p>

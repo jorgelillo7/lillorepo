@@ -114,8 +114,13 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   façade on `youtube-nocookie.com`, `noindex`, and the Tabla de Justicia
   header wrapping at 320 px. Open: static files are sent with `no-cache`, and
   dark mode waits on the Tailwind build (item 8).
-- **be_water:** card titles jump from `<h1>` to `<h3>`; `animate-bounce`
-  ignores reduced motion; at 320 px "Entrar" is cut off.
+- **be_water:** fixed in the PR after #773: the first card photos eager with
+  `fetchpriority`, `text-slate-500` and white text on `sky-700`, mobile nav
+  names kept for screen readers, "Entrar" fitting at 320 px, no "?" in the
+  meta description, the photo viewer as a `<dialog>` with the bottle as a
+  button, `motion-safe:animate-bounce`, card titles as `<h2>` on the
+  catalogue, and `aria-pressed` on the filters. Open: the Tailwind build
+  (item 8).
 - **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.
 - **wishlist:** closest to the guidance. Fixed: the first photos load eagerly and
   the first with `fetchpriority="high"`; `--muted` is 4.9:1 on the page; the grid is

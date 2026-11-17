@@ -96,14 +96,24 @@ def water_detail(water_id: str):
             home_url=home,
             place_url=f"{home}/recomendar?lugar={quote(water.province)}",
         ),
-        meta_description=(
-            f"{shown.name}{f' ({shown.province})' if shown.province else ''}: "
-            f"residuo seco "
-            f"{format_mineral(shown.tds) if shown.tds is not None else '?'} mg/L, "
-            f"mineralización {shown.mineralization}. "
-            "Composición completa y aguas similares."
-        ),
+        meta_description=_meta_description(shown),
     )
+
+
+def _meta_description(water) -> str:
+    """The ficha's search and share snippet; a missing value is left out, never "?"."""
+    facts = []
+    if water.tds is not None:
+        facts.append(f"residuo seco {format_mineral(water.tds)} mg/L")
+    if water.mineralization:
+        facts.append(f"mineralización {water.mineralization}")
+    place = f" ({water.province})" if water.province else ""
+    lead = (
+        f"{water.name}{place}: {', '.join(facts)}. "
+        if facts
+        else f"{water.name}{place}. "
+    )
+    return lead + "Composición completa y aguas similares."
 
 
 def recommend():
