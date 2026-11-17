@@ -117,11 +117,11 @@
                  data-jugador="{{ c.jugador }}"
                  data-vendedor="{{ c.equipo_vendedor }}"
                  data-comprador="{{ c.equipo_comprador }}">
-                <p class="text-xs text-gray-400 mb-2">{{ c.fecha }}</p>
+                <p class="text-xs text-gray-500 mb-2">{{ c.fecha }}</p>
                 <h3 class="text-lg font-bold text-gray-900 mb-3 {{ 'line-through' if c.anulado }}">{{ c.jugador }}</h3>
                 <div class="flex items-center justify-center gap-2 text-sm text-gray-600 mb-3 w-full">
                     <span class="font-medium text-gray-700 truncate">{{ c.equipo_vendedor }}</span>
-                    <span class="text-gray-400 flex-shrink-0">→</span>
+                    <span class="text-gray-500 flex-shrink-0">→</span>
                     <span class="font-medium text-gray-700 truncate">{{ c.equipo_comprador }}</span>
                 </div>
                 {% if c.anulado %}
@@ -146,7 +146,7 @@
 
 <style>
     .tabla-mode-btn { background-color: #f1f5f9; color: #64748b; }
-    .tabla-mode-btn.active-tabla { background-color: #38a169; color: white; }
+    .tabla-mode-btn.active-tabla { background-color: #2f855a; color: white; }
 </style>
 
 <script nonce="{{ csp_nonce() }}">
@@ -155,11 +155,11 @@ let currentSorted = [];
 let currentMode = 'ataques';
 
 function renderDetalleHtml(detalle) {
-    if (!detalle || !detalle.length) return '<span class="text-gray-400">Sin desglose disponible.</span>';
+    if (!detalle || !detalle.length) return '<span class="text-gray-500">Sin desglose disponible.</span>';
     return detalle.map(([n, c]) =>
         `<span class="inline-flex items-center gap-1 mr-3 mb-1">
-            <span class="bg-gray-200 text-gray-800 font-bold text-xs px-1.5 py-0.5 rounded">${c}×</span>
-            <span class="text-gray-700">${n}</span>
+            <span class="bg-gray-200 text-gray-800 font-bold text-xs px-1.5 py-0.5 rounded">${escapeHtml(c)}×</span>
+            <span class="text-gray-700">${escapeHtml(n)}</span>
         </span>`
     ).join('');
 }
@@ -170,6 +170,8 @@ function toggleRowDetail(idx) {
         if (el.dataset.detailRow !== String(idx)) el.remove();
     });
     const existing = document.querySelector(`[data-detail-row="${idx}"]`);
+    document.querySelectorAll('[data-row-toggle]').forEach(b =>
+        b.setAttribute('aria-expanded', String(!existing && b.dataset.rowToggle === String(idx))));
     if (existing) { existing.remove(); return; }
 
     const row = currentSorted[idx];
@@ -190,7 +192,9 @@ function toggleRowDetail(idx) {
 
 function toggleCardDetail(idx) {
     const el = document.getElementById('card-detail-' + idx);
-    if (el) el.classList.toggle('hidden');
+    if (!el) return;
+    const open = el.classList.toggle('hidden') === false;
+    document.querySelector(`[aria-controls="card-detail-${idx}"]`)?.setAttribute('aria-expanded', String(open));
 }
 
 function renderTabla(mode) {
@@ -221,15 +225,15 @@ function renderTabla(mode) {
         const icon = isAtaques ? '🎯' : '😤';
         const iconColor = isAtaques ? 'text-orange-600' : 'text-red-500';
         const objetivoHtml = objetivo && objetivo !== '—'
-            ? `<span class="${iconColor} font-medium">${icon} ${objetivo}</span>`
-            : `<span class="text-gray-400">—</span>`;
+            ? `<span class="${iconColor} font-medium">${icon} ${escapeHtml(objetivo)}</span>`
+            : `<span class="text-gray-500">—</span>`;
         return `<tr class="border-b border-gray-100 hover:bg-gray-50 transition cursor-pointer select-none"
                     data-row-idx="${i}" data-on-click="toggleRowDetail" data-args='[${i}]' title="Click para ver desglose">
-            <td class="px-5 py-3 text-gray-400 font-medium">${i + 1}</td>
-            <td class="px-5 py-3 font-semibold text-gray-800 whitespace-nowrap">${row.equipo}</td>
+            <td class="px-5 py-3 text-gray-500 font-medium">${i + 1}</td>
+            <td class="px-5 py-3 font-semibold text-gray-800 whitespace-nowrap">${escapeHtml(row.equipo)}</td>
             <td class="px-5 py-3 text-center"><span class="font-bold text-base ${countColor}">${total}</span></td>
             <td class="px-5 py-3 whitespace-nowrap">${objetivoHtml}</td>
-            <td class="px-5 py-3 text-gray-400 text-xs">ver desglose ▾</td>
+            <td class="px-5 py-3 text-xs"><button type="button" class="text-gray-500 hover:text-gray-800 rounded" data-row-toggle="${i}" aria-expanded="false">ver desglose ▾</button></td>
         </tr>`;
     }).join('');
 
@@ -243,17 +247,17 @@ function renderTabla(mode) {
             const targetIcon = isAtaques ? '🎯' : '😤';
             const detalle = isAtaques ? row.hechos : row.recibidos;
             return `<div class="card rounded-xl shadow-sm overflow-hidden">
-                <div class="p-4 flex items-center gap-4 cursor-pointer select-none" data-on-click="toggleCardDetail" data-args='[${i}]'>
-                    <span class="text-2xl font-bold text-gray-200 w-8 text-center flex-shrink-0">${i + 1}</span>
-                    <div class="flex-1 min-w-0">
-                        <p class="font-semibold text-gray-800 truncate">${row.equipo}</p>
-                        ${objetivo && objetivo !== '—' ? `<p class="text-xs text-gray-500 mt-0.5">${targetIcon} ${objetivo}</p>` : ''}
-                    </div>
-                    <div class="text-right flex-shrink-0">
-                        <p class="font-bold text-lg ${countColor}">${modeIcon} ${total}</p>
-                        <p class="text-xs text-gray-400">ver ▾</p>
-                    </div>
-                </div>
+                <button type="button" class="w-full text-left p-4 flex items-center gap-4 cursor-pointer select-none" data-on-click="toggleCardDetail" data-args='[${i}]' aria-expanded="false" aria-controls="card-detail-${i}">
+                    <span class="text-2xl font-bold text-gray-200 w-8 text-center flex-shrink-0" aria-hidden="true">${i + 1}</span>
+                    <span class="block flex-1 min-w-0">
+                        <span class="block font-semibold text-gray-800 truncate">${escapeHtml(row.equipo)}</span>
+                        ${objetivo && objetivo !== '—' ? `<span class="block text-xs text-gray-500 mt-0.5">${targetIcon} ${escapeHtml(objetivo)}</span>` : ''}
+                    </span>
+                    <span class="block text-right flex-shrink-0">
+                        <span class="block font-bold text-lg ${countColor}">${modeIcon} ${total}</span>
+                        <span class="block text-xs text-gray-500">ver ▾</span>
+                    </span>
+                </button>
                 <div id="card-detail-${i}" class="hidden border-t border-gray-100 px-4 py-3 bg-gray-50">
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                         ${isAtaques ? '⚔️ Ataques realizados' : '🛡️ Compras recibidas'}

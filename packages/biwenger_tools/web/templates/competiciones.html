@@ -60,22 +60,22 @@
                 <div>
                     <button data-on-click="toggleStanding" data-args='[{{ loop.index0 }}]'
                             class="w-full flex items-center gap-3 py-3 text-left">
-                        <span class="w-6 text-sm font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.position }}</span>
+                        <span class="w-6 text-sm font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-500{% endif %}">{{ s.position }}</span>
                         <span class="flex-1 font-medium text-gray-800">
                             {{ s.equipo }}{% if s.tie_unresolved %} <span class="text-amber-500" title="Empate técnico: quedan criterios que no salen de esta hoja">≈</span>{% endif %}
                         </span>
-                        <span class="text-xs text-gray-400">{{ s.pj }} PJ</span>
+                        <span class="text-xs text-gray-500">{{ s.pj }} PJ</span>
                         <span class="w-9 text-right font-bold text-green-700">{{ s.puntos }}</span>
                         <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                     </button>
                     <div id="card-detail-{{ loop.index0 }}" class="hidden pb-3 pl-9">
                         <dl class="grid grid-cols-3 gap-y-2 text-xs">
-                            <div><dt class="text-gray-400">G</dt><dd class="font-medium text-gray-700">{{ s.pg }}</dd></div>
-                            <div><dt class="text-gray-400">E</dt><dd class="font-medium text-gray-700">{{ s.pe }}</dd></div>
-                            <div><dt class="text-gray-400">P</dt><dd class="font-medium text-gray-700">{{ s.pp }}</dd></div>
-                            <div><dt class="text-gray-400">A favor</dt><dd class="font-medium text-gray-700">{{ s.pf }}</dd></div>
-                            <div><dt class="text-gray-400">En contra</dt><dd class="font-medium text-gray-700">{{ s.pc }}</dd></div>
-                            <div><dt class="text-gray-400">Dif.</dt><dd class="font-medium text-gray-700">{{ '+%d' % s.dif if s.dif > 0 else s.dif }}</dd></div>
+                            <div><dt class="text-gray-500">G</dt><dd class="font-medium text-gray-700">{{ s.pg }}</dd></div>
+                            <div><dt class="text-gray-500">E</dt><dd class="font-medium text-gray-700">{{ s.pe }}</dd></div>
+                            <div><dt class="text-gray-500">P</dt><dd class="font-medium text-gray-700">{{ s.pp }}</dd></div>
+                            <div><dt class="text-gray-500">A favor</dt><dd class="font-medium text-gray-700">{{ s.pf }}</dd></div>
+                            <div><dt class="text-gray-500">En contra</dt><dd class="font-medium text-gray-700">{{ s.pc }}</dd></div>
+                            <div><dt class="text-gray-500">Dif.</dt><dd class="font-medium text-gray-700">{{ '+%d' % s.dif if s.dif > 0 else s.dif }}</dd></div>
                         </dl>
                     </div>
                 </div>
@@ -101,7 +101,7 @@
                 <tbody class="divide-y divide-gray-100 text-center">
                     {% for s in h2h_standings %}
                     <tr class="hover:bg-gray-50 transition">
-                        <td class="py-2 px-2 text-left font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-400{% endif %}">{{ s.position }}</td>
+                        <td class="py-2 px-2 text-left font-bold {% if s.position == 1 %}text-green-700{% else %}text-gray-500{% endif %}">{{ s.position }}</td>
                         <td class="py-2 px-2 text-left font-medium text-gray-800">
                             {{ s.equipo }}{% if s.tie_unresolved %} <span class="text-amber-500" title="Empate técnico: quedan criterios que no salen de esta hoja">≈</span>{% endif %}
                         </td>
@@ -119,7 +119,7 @@
             </table>
 
             {% if h2h_standings | selectattr('tie_unresolved') | list %}
-            <p class="mt-4 text-xs text-gray-400">
+            <p class="mt-4 text-xs text-gray-500">
                 ≈ empate técnico: iguales en puntos, diferencia y victorias. El
                 <a href="{{ url_for('main.reglamento') }}#art-3-4" class="hover:underline">art. 3.4</a>
                 lo resuelve con la puntuación total de la Liga Regular, que no está en esta hoja.
@@ -141,7 +141,7 @@
                     <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">En juego</span>
                     {% endif %}
                     <span class="flex-1"></span>
-                    <span class="text-xs text-gray-400">Descansa {{ r.descansa }}</span>
+                    <span class="text-xs text-gray-500">Descansa {{ r.descansa }}</span>
                     <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
                 <div id="round-{{ r.jornada }}" class="{% if not r.started %}hidden{% endif %} px-4 pb-3 divide-y divide-gray-100">
@@ -192,7 +192,7 @@
                         {% for cell in row[1:] %}
                         {% if cell %}
                         <div class="flex gap-1 min-w-0">
-                            <dt class="text-gray-400 shrink-0">{{ sec.headers[loop.index] | default('', true) }}</dt>
+                            <dt class="text-gray-500 shrink-0">{{ sec.headers[loop.index] | default('', true) }}</dt>
                             <dd class="font-medium text-gray-700 truncate">{{ cell }}</dd>
                         </div>
                         {% endif %}
@@ -253,7 +253,7 @@
                     {% for m in r.matches %}
                     <div class="flex items-center gap-2 py-2 text-sm">
                         {% if m.grupo %}
-                        <span class="shrink-0 w-6 text-center text-xs font-semibold text-gray-400" title="Grupo {{ m.grupo }}">{{ m.grupo }}</span>
+                        <span class="shrink-0 w-6 text-center text-xs font-semibold text-gray-500" title="Grupo {{ m.grupo }}">{{ m.grupo }}</span>
                         {% endif %}
                         <span class="flex-1 min-w-0 text-right break-words {% if m.outcome == 'home' %}font-bold text-green-700{% else %}text-gray-700{% endif %}">{{ m.home }}</span>
                         <span class="shrink-0 w-16 md:w-20 text-center font-mono {% if m.played %}text-gray-900 font-semibold{% else %}text-gray-300{% endif %}">
@@ -273,7 +273,7 @@
 
 <style>
 .tab-btn { background-color: #f1f5f9; color: #64748b; }
-.tab-btn.active-tab { background-color: #38a169; color: white; }
+.tab-btn.active-tab { background-color: #2f855a; color: white; }
 </style>
 
 <script nonce="{{ csp_nonce() }}">

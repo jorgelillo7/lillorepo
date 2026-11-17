@@ -32,6 +32,13 @@
             var message = ev.target.getAttribute && ev.target.getAttribute('data-confirm');
             if (message && !window.confirm(message)) ev.preventDefault();
         });
+        // Every value from the league (titles, authors, team names) goes through
+        // this before it reaches an innerHTML template.
+        window.escapeHtml = function (s) {
+            var d = document.createElement('div');
+            d.textContent = s == null ? '' : String(s);
+            return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        };
     })();
     </script>
     <title>{% block title %}Tablón Biwenger{% endblock %}</title>
@@ -84,6 +91,8 @@
             transition: color 0.15s;
         }
         .nav-link:hover { color: #1a202c; }
+        /* One visible focus ring for every control reached by keyboard. */
+        :focus-visible { outline: 2px solid #2f855a; outline-offset: 2px; }
         .nav-link.active { color: #2d3748; font-weight: 600; border-bottom-color: #38a169; }
         .prose { color: #4a5568; }
         .prose h1, .prose h2, .prose h3, .prose strong { color: #1a202c; }
@@ -99,8 +108,8 @@
         <div class="md:hidden flex items-center justify-between px-4 py-3">
             <a href="{{ url_for('season.comunicados', season=season) }}"
                class="font-header text-2xl font-bold text-gray-900 tracking-wider">LLOROS LEAGUE</a>
-            <button id="hamburger-btn" aria-label="Abrir menú"
-                    class="text-gray-500 hover:text-gray-900 p-1 focus:outline-none">
+            <button id="hamburger-btn" type="button" aria-label="Menú" aria-expanded="false" aria-controls="mobile-menu"
+                    class="text-gray-500 hover:text-gray-900 p-1 rounded">
                 <svg id="icon-menu" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
@@ -113,7 +122,7 @@
         <!-- Mobile menu panel -->
         <nav id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white divide-y divide-gray-100">
             <div class="px-2 py-2 space-y-0.5">
-                <p class="px-3 pt-1 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Temporada {{ season }}</p>
+                <p class="px-3 pt-1 pb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Temporada {{ season }}</p>
                 <a href="{{ url_for('season.comunicados', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'comunicados' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Comunicados</a>
@@ -129,7 +138,7 @@
                 <a href="{{ url_for('season.participacion', season=season) }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'participacion' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Participación</a>
-                <p class="px-3 pt-3 pb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">La liga</p>
+                <p class="px-3 pt-3 pb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">La liga</p>
                 <a href="{{ url_for('main.palmares') }}"
                    class="block px-3 py-2 rounded-lg text-sm font-medium {% if active_page == 'palmares' %}bg-green-50 text-green-700{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
                     Palmarés</a>
@@ -142,12 +151,12 @@
             </div>
             <!-- Season selector in mobile panel -->
             <div class="px-4 py-3">
-                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Temporada</p>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Temporada</p>
                 <div class="flex flex-wrap gap-2">
                     {% for s in temporadas_disponibles %}
                     <a href="{{ url_for('season.comunicados', season=s) }}"
                        class="px-3 py-1 rounded-full text-sm font-medium border
-                              {% if s == season %}bg-green-600 text-white border-green-600
+                              {% if s == season %}bg-green-700 text-white border-green-700
                               {% elif s == temporada_actual %}border-green-300 text-green-700 hover:bg-green-50
                               {% else %}border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
                         {{ s }}
@@ -182,7 +191,7 @@
             </nav>
             <!-- Season pill -->
             <div class="relative ml-3 flex-shrink-0">
-                <button id="season-menu-button"
+                <button id="season-menu-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="season-menu"
                         class="flex items-center gap-1.5 px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-sm font-medium text-gray-700 transition">
                     {{ season }}
                     <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -230,7 +239,7 @@
 
     <footer class="text-center p-4 text-gray-500 text-sm">
         <div>Desarrollado con cocacola zero y amor de Farolillo Oracle United ⭐️</div>
-        <div class="text-gray-400 text-xs font-mono mt-1">{{ git_commit }}{% if deploy_time %} · {{ deploy_time }}{% endif %} · <a href="{{ url_for('admin.admin') }}" class="hover:text-gray-600">VAR</a></div>
+        <div class="text-gray-500 text-xs font-mono mt-1">{{ git_commit }}{% if deploy_time %} · {{ deploy_time }}{% endif %} · <a href="{{ url_for('admin.admin') }}" class="hover:text-gray-600">VAR</a></div>
     </footer>
 
     <script nonce="{{ csp_nonce() }}">
@@ -245,6 +254,7 @@
             mobileMenu.classList.toggle('hidden', isOpen);
             iconMenu.classList.toggle('hidden', !isOpen);
             iconClose.classList.toggle('hidden', isOpen);
+            hamburgerBtn.setAttribute('aria-expanded', String(!isOpen));
         });
 
         // Season dropdown (desktop)
@@ -253,10 +263,20 @@
 
         seasonBtn.addEventListener('click', e => {
             e.stopPropagation();
-            seasonMenu.classList.toggle('hidden');
+            const open = seasonMenu.classList.toggle('hidden') === false;
+            seasonBtn.setAttribute('aria-expanded', String(open));
         });
 
-        document.addEventListener('click', () => seasonMenu.classList.add('hidden'));
+        document.addEventListener('click', () => {
+            seasonMenu.classList.add('hidden');
+            seasonBtn.setAttribute('aria-expanded', 'false');
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' || seasonMenu.classList.contains('hidden')) return;
+            seasonMenu.classList.add('hidden');
+            seasonBtn.setAttribute('aria-expanded', 'false');
+            seasonBtn.focus();
+        });
 
         // Installable app: the worker only adds an offline page (static/sw.js).
         if ('serviceWorker' in navigator) {

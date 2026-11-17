@@ -30,7 +30,7 @@
     <!-- Portada -->
     <section class="card rounded-xl overflow-hidden">
         <div class="px-6 py-8 md:py-10 text-center border-b border-gray-100">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">Lloros League · {{ season }}</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Lloros League · {{ season }}</p>
             <h1 class="font-header text-4xl md:text-5xl font-bold text-gray-900 tracking-wider mt-2">REGLAMENTO</h1>
             <p class="text-sm text-gray-500 mt-3 max-w-xl mx-auto">
                 Normas oficiales de la competición, ordenadas por capítulos y artículos.
@@ -55,7 +55,7 @@
 
     <!-- Buscador -->
     <div class="relative">
-        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
         </svg>
         <input id="rule-search" type="search" autocomplete="off"
@@ -117,7 +117,7 @@
                     <span class="block font-header text-xl font-bold text-gray-800">El Draft</span>
                     <span class="block text-xs text-gray-500 mt-0.5">Artículos 1.1 – 1.9 · Reparto inicial de jugadores</span>
                 </span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="accordion-icon w-5 h-5 text-gray-500 transition-transform rotate-180 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -187,22 +187,22 @@
                         <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
                             <p class="stat-num text-xl font-bold text-gray-900">1</p>
                             <p class="text-xs font-semibold text-gray-600 mt-0.5">Portero</p>
-                            <p class="text-[11px] text-gray-400">suplente</p>
+                            <p class="text-[11px] text-gray-500">suplente</p>
                         </div>
                         <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
                             <p class="stat-num text-xl font-bold text-gray-900">1</p>
                             <p class="text-xs font-semibold text-gray-600 mt-0.5">Defensa</p>
-                            <p class="text-[11px] text-gray-400">suplente</p>
+                            <p class="text-[11px] text-gray-500">suplente</p>
                         </div>
                         <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
                             <p class="stat-num text-xl font-bold text-gray-900">1</p>
                             <p class="text-xs font-semibold text-gray-600 mt-0.5">Centrocampista</p>
-                            <p class="text-[11px] text-gray-400">suplente</p>
+                            <p class="text-[11px] text-gray-500">suplente</p>
                         </div>
                         <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
                             <p class="stat-num text-xl font-bold text-gray-900">1</p>
                             <p class="text-xs font-semibold text-gray-600 mt-0.5">Delantero</p>
-                            <p class="text-[11px] text-gray-400">suplente</p>
+                            <p class="text-[11px] text-gray-500">suplente</p>
                         </div>
                     </div>
                     <div class="mt-3 rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3">
@@ -227,7 +227,7 @@
                         y así sucesivamente hasta completar las quince rondas.
                     </p>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Orden {{ season_label }} · Ronda 1</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Orden {{ season_label }} · Ronda 1</p>
                     <ol class="space-y-1.5">
                         {% for p in draft_order %}
                         <li class="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2">
@@ -238,12 +238,12 @@
                     </ol>
 
                     <div class="mt-3 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
-                        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Cómo serpentea</p>
+                        <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Cómo serpentea</p>
                         <div class="space-y-1 font-mono text-xs text-gray-600">
                             <p><span class="font-bold text-gray-800">R1</span> &nbsp;1 → 2 → 3 → 4 → 5 → 6 → 7</p>
                             <p><span class="font-bold text-gray-800">R2</span> &nbsp;7 → 6 → 5 → 4 → 3 → 2 → 1</p>
                             <p><span class="font-bold text-gray-800">R3</span> &nbsp;1 → 2 → 3 → 4 → 5 → 6 → 7</p>
-                            <p class="text-gray-400">… hasta la ronda 15</p>
+                            <p class="text-gray-500">… hasta la ronda 15</p>
                         </div>
                     </div>
 
@@ -361,7 +361,7 @@
                     <span class="block font-header text-xl font-bold text-gray-800">Lloros League</span>
                     <span class="block text-xs text-gray-500 mt-0.5">Artículos 2.1 – 2.5 · Competición, puntuación, mercado y alineaciones</span>
                 </span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="accordion-icon w-5 h-5 text-gray-500 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -380,13 +380,13 @@
                         obtenidos por cada equipo.
                     </p>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Criterio de desempate</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Criterio de desempate</p>
                     <p class="text-sm text-gray-600 leading-relaxed">
                         En caso de empate a puntos, gana la mejor diferencia de puntos en los enfrentamientos
                         directos de la Liga H2H entre los presidentes afectados.
                     </p>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Clasificación final</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Clasificación final</p>
                     <p class="text-sm text-gray-600 leading-relaxed">
                         Al término de la jornada 38 no hay ascensos ni descensos: todos conservan su plaza
                         para la temporada siguiente, salvo decisión contraria de la organización. Se
@@ -404,11 +404,11 @@
                         </div>
                         <div class="rounded-lg border border-gray-200 px-3 py-3 text-center">
                             <p class="text-sm font-bold text-gray-900">Farolillo Rojo</p>
-                            <p class="text-[11px] text-gray-400">último clasificado</p>
+                            <p class="text-[11px] text-gray-500">último clasificado</p>
                         </div>
                     </div>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Comida de final de temporada</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Comida de final de temporada</p>
                     <div class="space-y-2">
                         <div class="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
                             <span class="text-sm text-gray-700">El clasificado en 5.ª posición invita a comer al clasificado en 3.ª posición.</span>
@@ -498,7 +498,7 @@
                         </div>
                     </div>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Negociaciones entre presidentes</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Negociaciones entre presidentes</p>
                     <p class="text-sm text-gray-600 leading-relaxed">
                         Los presidentes pueden pactar traspasos libremente, pero ningún jugador puede
                         venderse a otro presidente por debajo de su valor de mercado vigente. Como
@@ -511,7 +511,7 @@
                         <li class="rule-no">Cualquier otra contraprestación distinta de la económica.</li>
                     </ul>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Cesiones, recompras y ventas</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Cesiones, recompras y ventas</p>
                     <p class="text-sm text-gray-600 leading-relaxed">
                         Se permiten cesiones entre presidentes y acuerdos de recompra; su cumplimiento es
                         responsabilidad de las partes y la organización no interviene salvo que se vulnere
@@ -541,7 +541,7 @@
                         impedirla, retrasarla ni cancelarla, y recibe el importe íntegro.
                     </p>
 
-                    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mt-4 mb-2">Importe de la cláusula</p>
+                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mt-4 mb-2">Importe de la cláusula</p>
                     <div class="rounded-lg border border-gray-200 overflow-hidden mt-2 overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
@@ -647,7 +647,7 @@
                     <span class="block font-header text-xl font-bold text-gray-800">Liga H2H</span>
                     <span class="block text-xs text-gray-500 mt-0.5">Artículos 3.1 – 3.6 · Duelos semanales paralelos a la liga regular</span>
                 </span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="accordion-icon w-5 h-5 text-gray-500 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -714,7 +714,7 @@
                                         <td class="py-1.5 px-3 text-gray-600">{{ j.p1[0] }} – {{ j.p1[1] }}</td>
                                         <td class="py-1.5 px-3 text-gray-600">{{ j.p2[0] }} – {{ j.p2[1] }}</td>
                                         <td class="py-1.5 px-3 text-gray-600">{{ j.p3[0] }} – {{ j.p3[1] }}</td>
-                                        <td class="py-1.5 px-3 text-gray-400">{{ j.descansa }}</td>
+                                        <td class="py-1.5 px-3 text-gray-500">{{ j.descansa }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -805,7 +805,7 @@
                     <span class="block font-header text-xl font-bold text-gray-800">Copa Santa Claus</span>
                     <span class="block text-xs text-gray-500 mt-0.5">Artículos 4.1 – 4.8 · Torneo navideño de grupos y eliminatorias</span>
                 </span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="accordion-icon w-5 h-5 text-gray-500 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -980,7 +980,7 @@
                     <span class="block font-header text-xl font-bold text-gray-800">Copa Castolo</span>
                     <span class="block text-xs text-gray-500 mt-0.5">Artículos 5.1 – 5.11 · Eliminatoria directa de marzo y abril</span>
                 </span>
-                <svg class="accordion-icon w-5 h-5 text-gray-400 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="accordion-icon w-5 h-5 text-gray-500 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                 </svg>
             </button>
@@ -1083,11 +1083,11 @@
                     </p>
                     <div class="space-y-2">
                         <div class="rounded-lg border border-gray-200 px-4 py-3">
-                            <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">Ronda 1</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Ronda 1</p>
                             <p class="text-sm text-gray-700">Campeón Copa Santa Claus: pasa directo · 2.º vs 3.º · 1.º vs 4.º · 5.º vs 6.º</p>
                         </div>
                         <div class="rounded-lg border border-gray-200 px-4 py-3">
-                            <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">Ronda 2</p>
+                            <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Ronda 2</p>
                             <p class="text-sm text-gray-700">Campeón Copa Santa Claus vs vencedor (2.º–3.º) · vencedor (1.º–4.º) vs vencedor (5.º–6.º)</p>
                         </div>
                         <div class="rounded-lg border-2 border-red-300 bg-red-50 px-4 py-3">

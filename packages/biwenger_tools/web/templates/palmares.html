@@ -58,7 +58,7 @@
                         <div class="rounded-lg border border-gray-200 bg-white px-3 py-3 text-center">
                             <p class="font-header text-3xl font-bold text-gray-900 leading-none">{{ data.clausulazos_total }}</p>
                             <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mt-1.5">Clausulazos</p>
-                            <p class="text-xs text-gray-400 mt-0.5">en toda la liga</p>
+                            <p class="text-xs text-gray-500 mt-0.5">en toda la liga</p>
                         </div>
                         {% endif %}
                     </div>
@@ -76,7 +76,7 @@
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-50 text-red-700 text-xs font-bold flex-shrink-0">{{ c.invita.position }}</span>
                             <span class="font-semibold text-gray-800">{{ c.invita.real_name }}</span>
                             {% if c.invita.note %}<span class="text-xs text-red-600 font-semibold">({{ c.invita.note }})</span>{% endif %}
-                            <span class="text-gray-400">invita a</span>
+                            <span class="text-gray-500">invita a</span>
                             <span class="font-semibold text-gray-800">{{ c.invitado.real_name }}</span>
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-50 text-green-700 text-xs font-bold flex-shrink-0">{{ c.invitado.position }}</span>
                         </li>
@@ -85,7 +85,7 @@
                         <li class="flex items-center gap-2 text-sm pt-1">
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-bold flex-shrink-0">{{ data.paga_lo_suyo.position }}</span>
                             <span class="font-semibold text-gray-800">{{ data.paga_lo_suyo.real_name }}</span>
-                            <span class="text-gray-400">paga lo suyo</span>
+                            <span class="text-gray-500">paga lo suyo</span>
                         </li>
                         {% endif %}
                     </ul>

@@ -30,7 +30,7 @@
                   data-confirm="¿Lanzar el scraper ahora? La ejecución tarda ~2 min.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit"
-                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700
+                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-700 hover:bg-green-800
                                text-white text-sm font-semibold rounded-lg shadow transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
                          viewBox="0 0 24 24" aria-hidden="true">
@@ -83,23 +83,23 @@
         <h3 class="font-header text-xl font-bold text-gray-800 mb-4">Sistema</h3>
         <dl class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
             <div>
-                <dt class="text-gray-400 text-xs uppercase tracking-wide">Versión</dt>
+                <dt class="text-gray-500 text-xs uppercase tracking-wide">Versión</dt>
                 <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ git_commit }}</dd>
             </div>
             <div>
-                <dt class="text-gray-400 text-xs uppercase tracking-wide">Desplegado</dt>
+                <dt class="text-gray-500 text-xs uppercase tracking-wide">Desplegado</dt>
                 <dd class="font-medium text-gray-800 mt-0.5">{{ deploy_time or '—' }}</dd>
             </div>
             <div>
-                <dt class="text-gray-400 text-xs uppercase tracking-wide">Proyecto GCP</dt>
+                <dt class="text-gray-500 text-xs uppercase tracking-wide">Proyecto GCP</dt>
                 <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ gcp_project }}</dd>
             </div>
             <div>
-                <dt class="text-gray-400 text-xs uppercase tracking-wide">Región</dt>
+                <dt class="text-gray-500 text-xs uppercase tracking-wide">Región</dt>
                 <dd class="font-mono font-medium text-gray-800 mt-0.5">{{ cloud_run_region }}</dd>
             </div>
             <div>
-                <dt class="text-gray-400 text-xs uppercase tracking-wide">Temporada activa</dt>
+                <dt class="text-gray-500 text-xs uppercase tracking-wide">Temporada activa</dt>
                 <dd class="font-medium text-gray-800 mt-0.5">{{ temporada_actual }}</dd>
             </div>
         </dl>
