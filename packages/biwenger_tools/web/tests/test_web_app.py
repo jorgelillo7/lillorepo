@@ -1599,3 +1599,34 @@ def test_league_values_reach_innerHTML_only_escaped(template, fields):
 def test_escape_html_is_defined_once_for_every_page():
     source, _, _ = app.jinja_loader.get_source(app.jinja_env, "base.html")
     assert "window.escapeHtml = function" in source
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_pages_ask_search_engines_not_to_index_them(mock_count, mock_get, client):
+    _paged(mock_count, mock_get, 1, ["h1"])
+    for path in ("/24-25/", "/reglamento"):
+        body = client.get(path).get_data(as_text=True)
+        assert '<meta name="robots" content="noindex">' in body, path
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_messages_page")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.count_messages_by_category"
+)
+def test_every_page_has_exactly_one_h1(mock_count, mock_get, client):
+    """The base draws a visually hidden <h1> from the page title; a page with
+    its own heading (the reglamento) replaces it rather than adding a second."""
+    _paged(mock_count, mock_get, 1, ["h1"])
+    for path in ("/24-25/", "/reglamento"):
+        body = client.get(path).get_data(as_text=True)
+        assert body.count("<h1") == 1, path
+
+
+def test_reglamento_loads_youtube_only_on_demand(client):
+    body = client.get("/reglamento").get_data(as_text=True)
+    assert "<iframe" not in body
+    assert 'id="veredicto-play"' in body
+    assert "youtube-nocookie.com/embed/" in body

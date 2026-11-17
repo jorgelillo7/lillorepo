@@ -42,6 +42,8 @@
     })();
     </script>
     <title>{% block title %}Tablón Biwenger{% endblock %}</title>
+    {# A private league's noticeboard: reachable by link, never listed by a search engine. #}
+    <meta name="robots" content="noindex">
 
     <!-- iOS home-screen integration. Without these, iOS uses a screenshot
          of the page and the first letter of the current page title — so
@@ -215,6 +217,7 @@
 
     <div class="container mx-auto p-4 md:p-8 max-w-4xl flex-grow">
         <main>
+            {% block page_heading %}<h1 class="sr-only">{{ self.title() }}</h1>{% endblock %}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <div class="mb-8 space-y-4">
@@ -277,6 +280,20 @@
             seasonBtn.setAttribute('aria-expanded', 'false');
             seasonBtn.focus();
         });
+
+        // Click outside a dialog[closedby="any"] closes it where the browser lacks
+        // closedby (Safari); Esc and the back gesture already work everywhere.
+        if (!('closedBy' in HTMLDialogElement.prototype)) {
+            const outside = (e, d) => {
+                const r = d.getBoundingClientRect();
+                return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+            };
+            for (const d of document.querySelectorAll('dialog[closedby="any"]')) {
+                let pressedOutside = false;
+                d.addEventListener('pointerdown', e => { pressedOutside = outside(e, d); });
+                d.addEventListener('pointerup', e => { if (pressedOutside && outside(e, d)) d.close(); });
+            }
+        }
 
         // Installable app: the worker only adds an offline page (static/sw.js).
         if ('serviceWorker' in navigator) {

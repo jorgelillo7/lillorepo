@@ -10,14 +10,14 @@
 <!-- Tabla de Justicia -->
 {% if tabla_justicia %}
 <div class="mb-10">
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
         <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
-            <button id="btn-tabla-ataques" data-on-click="setTablaMode" data-args='["ataques"]'
+            <button id="btn-tabla-ataques" type="button" aria-pressed="true" data-on-click="setTablaMode" data-args='["ataques"]'
                     class="tabla-mode-btn active-tabla px-4 py-1.5 transition">
                 ⚔️ Realizados
             </button>
-            <button id="btn-tabla-defensa" data-on-click="setTablaMode" data-args='["defensa"]'
+            <button id="btn-tabla-defensa" type="button" aria-pressed="false" data-on-click="setTablaMode" data-args='["defensa"]'
                     class="tabla-mode-btn px-4 py-1.5 transition">
                 🛡️ Recibidos
             </button>
@@ -29,11 +29,11 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="text-left px-5 py-3 font-semibold text-gray-500 w-10">#</th>
-                    <th class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
-                    <th id="th-count" class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
-                    <th id="th-objetivo" class="text-left px-5 py-3 font-semibold text-gray-600">Punto de mira</th>
-                    <th class="text-left px-5 py-3 font-semibold text-gray-600">Desglose</th>
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-500 w-10">#</th>
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
+                    <th scope="col" id="th-count" class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
+                    <th scope="col" id="th-objetivo" class="text-left px-5 py-3 font-semibold text-gray-600">Punto de mira</th>
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Desglose</th>
                 </tr>
             </thead>
             <tbody id="tabla-justicia-body"></tbody>
@@ -82,9 +82,11 @@
     <!-- Filtros -->
     <div class="card p-4 rounded-xl mb-4">
         <div class="flex flex-wrap items-center gap-3">
-            <input id="filter-player" type="text" placeholder="🔍 Jugador..."
+            <label for="filter-player" class="sr-only">Jugador</label>
+            <input id="filter-player" type="search" placeholder="🔍 Jugador..."
                    data-on-input="applyFilters"
                    class="flex-1 min-w-[140px] border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-300">
+            <label for="filter-vendedor" class="sr-only">Vendedor</label>
             <select id="filter-vendedor" data-on-change="applyFilters"
                     class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
                 <option value="">Todos los vendedores</option>
@@ -92,6 +94,7 @@
                 <option value="{{ team }}">{{ team }}</option>
                 {% endfor %}
             </select>
+            <label for="filter-comprador" class="sr-only">Comprador</label>
             <select id="filter-comprador" data-on-change="applyFilters"
                     class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-300">
                 <option value="">Todos los compradores</option>
@@ -210,6 +213,8 @@ function renderTabla(mode) {
     const isAtaques = mode === 'ataques';
     btnAtaques.classList.toggle('active-tabla', isAtaques);
     btnDefensa.classList.toggle('active-tabla', !isAtaques);
+    btnAtaques.setAttribute('aria-pressed', String(isAtaques));
+    btnDefensa.setAttribute('aria-pressed', String(!isAtaques));
     thCount.className = `text-center px-5 py-3 font-semibold ${isAtaques ? 'text-green-700' : 'text-red-600'}`;
     thObjetivo.textContent = isAtaques ? 'Punto de mira' : 'Mayor agresor';
 
