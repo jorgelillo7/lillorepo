@@ -125,6 +125,7 @@ py_library(
     name = "web",
     srcs = [
         "web/__init__.py",
+        "web/compress.py",
         "web/csrf.py",
         "web/headers.py",
         "web/logs.py",

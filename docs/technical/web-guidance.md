@@ -57,7 +57,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
      `nosniff` (`deploy/worker.js:6-10`).
 3. **chucknorris_bot title is clipped on every phone** (S):
    `clamp(4.5rem, 14vw, 10rem)` in `templates/index.html:75`; lower the floor.
-4. **Text compression in the Flask apps through `core/web`** (S).
+4. **Text compression in the Flask apps through `core/web`** (S). **Done** in #777: gzip (`core/web/compress.py`); brotli left out, it would add a base-image dependency.
    - Biwenger `/26-27/salseo` serves 221 KiB of uncompressed HTML.
    - be_water's home serves 86 KiB.
 5. **Stop lazy-loading the LCP image** (S each); add `fetchpriority="high"`.
@@ -97,7 +97,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
     - Biwenger is indexable: decide on `noindex`.
 13. **Self-host fonts** (S each): wishlist, chucknorris_bot, then the two
     Tailwind apps.
-14. **Shared headers in `core/web/headers.py`** (S): `Permissions-Policy`,
+14. **Shared headers in `core/web/headers.py`** (S), **done** in #777: `Permissions-Policy`,
     COOP, and a `__Host-` cookie name.
 15. **`color-scheme` declarations everywhere** (S), then `px` → `rem` in
     wishlist and household (S). Dark themes for Biwenger and be_water come
