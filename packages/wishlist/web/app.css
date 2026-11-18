@@ -92,6 +92,8 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 1.5rem; margin: 0
 .tag { align-self: flex-start; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--green); background: var(--green-soft); border-radius: 6px; padding: 2px 8px; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .fav { display: inline-block; font-size: 0.75rem; font-weight: 700; color: var(--red); background: var(--fav-soft); border-radius: 6px; padding: 2px 8px; white-space: nowrap; }
+.fav-n { font-size: 0.8125rem; font-weight: 700; color: var(--red); background: var(--fav-soft); border-radius: 6px; padding: 1px 6px; font-variant-numeric: tabular-nums; }
+.segment[aria-pressed="true"] .fav-n { color: var(--red-ink); background: rgba(255, 255, 255, 0.22); }
 .gift.featured { border: 2px solid var(--red); }
 .button.star[aria-pressed="true"] { background: var(--fav-soft); color: var(--red); border-color: var(--red); }
 .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
