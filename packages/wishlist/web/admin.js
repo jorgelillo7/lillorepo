@@ -203,6 +203,11 @@ function render(state) {
           ),
         );
       }
+      const star = button("★ Destacado", "ghost star", () =>
+        change("/admin/api/gift/feature", { id: gift.id, featured: !gift.featured }),
+      );
+      star.setAttribute("aria-pressed", String(Boolean(gift.featured)));
+      actions.push(star);
       actions.push(button("Editar", "ghost", () => openForm(gift)));
       actions.push(
         button(gift.hidden ? "Mostrar" : "Ocultar", "ghost", () =>
@@ -213,7 +218,7 @@ function render(state) {
       return el(
         "tr",
         {},
-        el("td", {}, el("img", { class: "thumb", src: gift.photo, alt: "" }), gift.title,
+        el("td", {}, el("img", { class: "thumb", src: gift.photo, alt: "" }), gift.featured ? `★ ${gift.title}` : gift.title,
           gift.for && el("span", { class: "when" }, ` · ${list.recipients.find((r) => r.id === gift.for)?.label ?? gift.for}`),
           gift.category && el("span", { class: "when" }, ` · ${list.categories.find((c) => c.id === gift.category)?.label ?? gift.category}`)),
         el("td", {}, status),

@@ -5,7 +5,8 @@
 From the phone, no Claude session or deploy involved: open `/admin` in Safari (a
 normal tab, see the README on why not a web app), tap **Añadir regalo**, take or pick
 a photo, fill the name and who it is for, and save. It is on the public list at once.
-The same dialog edits a gift; **Ocultar** takes it off the public list without losing
+The same dialog edits a gift; **★ Destacado** stars it as a favourite, first in the public list;
+**Ocultar** takes it off the public list without losing
 reservations; **Borrar** removes the gift and its photo, and asks twice when someone
 reserved it.
 

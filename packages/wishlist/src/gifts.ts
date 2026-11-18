@@ -34,6 +34,7 @@ interface GiftRow {
   note: string | null;
   photo: string;
   hidden: number;
+  featured: number;
 }
 
 interface EventRow {
@@ -83,8 +84,8 @@ async function listOf(env: Env, withHidden: boolean): Promise<Response> {
   );
   const gifts = await rows<GiftRow>(
     env,
-    "SELECT id, recipient, category, title, detail, note, photo, hidden FROM gifts " +
-      `WHERE event = ? ${withHidden ? "" : "AND hidden = 0"} ORDER BY position, created_at`,
+    "SELECT id, recipient, category, title, detail, note, photo, hidden, featured FROM gifts " +
+      `WHERE event = ? ${withHidden ? "" : "AND hidden = 0"} ORDER BY featured DESC, position, created_at`,
     event.slug,
   );
   return json({
@@ -100,6 +101,7 @@ async function listOf(env: Env, withHidden: boolean): Promise<Response> {
       detail: gift.detail,
       note: gift.note,
       photo: gift.photo,
+      featured: gift.featured === 1,
       ...(withHidden ? { hidden: gift.hidden === 1 } : {}),
     })),
   });
@@ -262,6 +264,15 @@ export async function hideGift(body: Fields, env: Env): Promise<Response> {
   if (typeof body.id !== "string" || typeof body.hidden !== "boolean") return json({ error: "gift" }, 400);
   const { meta } = await env.DB.prepare("UPDATE gifts SET hidden = ? WHERE id = ?")
     .bind(body.hidden ? 1 : 0, body.id)
+    .run();
+  return meta.changes === 0 ? json({ error: "gift" }, 400) : json({ ok: true });
+}
+
+/** Star a gift as a favourite, or take the star away. */
+export async function featureGift(body: Fields, env: Env): Promise<Response> {
+  if (typeof body.id !== "string" || typeof body.featured !== "boolean") return json({ error: "gift" }, 400);
+  const { meta } = await env.DB.prepare("UPDATE gifts SET featured = ? WHERE id = ?")
+    .bind(body.featured ? 1 : 0, body.id)
     .run();
   return meta.changes === 0 ? json({ error: "gift" }, 400) : json({ ok: true });
 }

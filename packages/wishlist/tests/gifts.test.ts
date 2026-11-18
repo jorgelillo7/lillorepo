@@ -224,6 +224,21 @@ describe("editing, hiding and deleting", () => {
     expect((await publicList()).gifts.map((g: { id: string }) => g.id)).toContain("whirly-derby");
   });
 
+  test("a starred gift goes first on the list, and the star comes off again", async () => {
+    const ids = async () => (await publicList()).gifts.map((g: { id: string }) => g.id);
+    const before = await ids();
+    const last = before[before.length - 1];
+    expect((await admin("/admin/api/gift/feature", { id: last, featured: true })).status).toBe(200);
+    const list = await publicList();
+    expect(list.gifts[0]).toMatchObject({ id: last, featured: true });
+    expect(list.gifts.slice(1).every((g: { featured: boolean }) => g.featured === false)).toBe(true);
+    expect((await (await admin("/admin/api/gifts")).json()).gifts[0].id).toBe(last);
+    await admin("/admin/api/gift/feature", { id: last, featured: false });
+    expect(await ids()).toEqual(before);
+    expect((await admin("/admin/api/gift/feature", { id: "pony", featured: true })).status).toBe(400);
+    expect((await admin("/admin/api/gift/feature", { id: last, featured: "yes" })).status).toBe(400);
+  });
+
   test("deleting removes the gift and its uploaded photo; a claimed gift needs force", async () => {
     const free = await addGift();
     expect((await admin("/admin/api/gift/delete", { id: free.id })).status).toBe(200);
