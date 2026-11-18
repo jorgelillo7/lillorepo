@@ -86,7 +86,7 @@ const forWho = (gift) => !filter.who || gift.for === filter.who;
 const ofKind = (gift) => !filter.kind || gift.category === filter.kind;
 const inStatus = (gift, status) => !status.test || Boolean(status.test(claims.get(gift.id)));
 
-function buttons(container, kind, options, selected, count, choose, dots = true) {
+function buttons(container, kind, options, selected, count, choose, dots = true, favourites = null) {
   container.replaceChildren(
     ...options.map((option) => {
       const button = el(
@@ -100,10 +100,22 @@ function buttons(container, kind, options, selected, count, choose, dots = true)
         dots && kind === "chip" && option.id ? el("span", { class: "dot", "aria-hidden": "true" }) : null,
         option.label,
         el("span", { class: "n" }, count(option)),
+        favourites && favouriteCount(favourites(option)),
       );
       button.addEventListener("click", () => choose(option.id));
       return button;
     }),
+  );
+}
+
+/** "★ 3" with a spoken label, or nothing when the filter has no favourites. */
+function favouriteCount(n) {
+  if (!n) return null;
+  return el(
+    "span",
+    { class: "fav-n" },
+    el("span", { "aria-hidden": "true" }, `★ ${n}`),
+    el("span", { class: "visually-hidden" }, n === 1 ? ", 1 favorito" : `, ${n} favoritos`),
   );
 }
 
@@ -118,6 +130,9 @@ function renderFilters() {
     filter.who,
     (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
     (id) => setFilter({ who: id }),
+    true,
+    (option) =>
+      list.gifts.filter((g) => g.featured && (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
   );
   // Only the kinds this recipient has gifts of, so the row stays short; the chosen
   // one stays even when the other filters empty it, so it can be undone.
