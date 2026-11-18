@@ -51,6 +51,19 @@ kinds are in use. A gift without a category shows only under "Todos".
 - **THEN** the unknown one gets 400 `category`, the missing one keeps the gift's category, and the empty one clears it
 - *Verifies:* `gifts.test.ts: an unknown category is refused on add and on edit, and an edit without one keeps it`
 
+### Requirement: Starred gifts go first
+
+The owner SHALL be able to star a gift on `/admin` as one of the children's favourites
+and take the star off again. `/api/list` SHALL send `featured` for every gift and put the
+starred ones first, then the rest in their own order, so every filter on the public
+page shows the favourites first. The public card SHALL mark a starred gift
+"★ Favorito", and the page header SHALL say what the star means.
+
+#### Scenario: starring
+- **WHEN** the last gift is starred, then unstarred, and an unknown gift or a non-boolean is sent
+- **THEN** it comes first in the public and admin lists with `featured: true` while the others are `false`, the order goes back when the star comes off, and the bad requests get 400
+- *Verifies:* `gifts.test.ts: a starred gift goes first on the list, and the star comes off again`
+
 ### Requirement: The owner adds a gift from the phone
 
 A photo SHALL be uploaded first, as the raw `image/jpeg` body of `/admin/api/photo`,

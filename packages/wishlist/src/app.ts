@@ -4,7 +4,7 @@
 // HttpOnly cookie, so only that browser can change its own claim. Names are optional
 // and only /admin, behind Basic auth, ever shows them.
 
-import { addGift, adminList, deleteGift, editGift, giftExists, hideGift, publicList, servePhoto, uploadPhoto } from "./gifts.ts";
+import { addGift, adminList, deleteGift, editGift, featureGift, giftExists, hideGift, publicList, servePhoto, uploadPhoto } from "./gifts.ts";
 import { NO_STORE, SECURITY, fromThisSite, json, notFound, sha256 } from "./http.ts";
 import type { Env } from "./types.ts";
 
@@ -243,6 +243,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (path === "/admin/api/gift/add" && post) return adminWrite(request, env, addGift);
     if (path === "/admin/api/gift/edit" && post) return adminWrite(request, env, editGift);
     if (path === "/admin/api/gift/hide" && post) return adminWrite(request, env, hideGift);
+    if (path === "/admin/api/gift/feature" && post) return adminWrite(request, env, featureGift);
     if (path === "/admin/api/gift/delete" && post) return adminWrite(request, env, deleteGift);
     if (path === "/admin/api/release" && post) {
       return adminChange(request, env, "DELETE FROM claims WHERE gift_id = ?", false);

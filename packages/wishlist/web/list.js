@@ -164,7 +164,7 @@ function card(gift, index) {
   const label = recipientLabel(gift.for);
   return el(
     "article",
-    { class: claim?.boughtAt ? "gift done" : "gift" },
+    { class: ["gift", gift.featured && "featured", claim?.boughtAt && "done"].filter(Boolean).join(" ") },
     el(
       "a",
       { class: "photo", href: photo, target: "_blank", rel: "noopener" },
@@ -178,7 +178,8 @@ function card(gift, index) {
     el(
       "div",
       { class: "body" },
-      label && el("span", { class: "tag" }, label),
+      (label || gift.featured) &&
+        el("div", { class: "tags" }, gift.featured && el("span", { class: "fav" }, "★ Favorito"), label && el("span", { class: "tag" }, label)),
       el("h3", {}, gift.title),
       gift.detail && el("p", { class: "detail" }, gift.detail),
       gift.note && el("p", { class: "note" }, gift.note),

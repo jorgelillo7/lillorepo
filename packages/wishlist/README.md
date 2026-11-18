@@ -35,6 +35,9 @@ Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page t
   in Safari the saved password fills in, and a web app never offers it. The admin
   user is `regalos`, not `jorge`. Safari treats every `*.jorgelillo.workers.dev`
   site as one for autofill, so the user name is what tells the logins apart.
+- **Favourites carry a star.** `/admin` stars a gift (**★ Destacado**); starred gifts
+  come first under any filter and show "★ Favorito" on the public list, whose header
+  says the starred ones are what the children want most.
 - **Gifts are added from `/admin`**, on the phone: a name, who it is for, optional
   detail and note (shop, price, model), and a photo from the camera or the library. The
   page redraws the photo through a canvas (1280 px, JPEG) before uploading, which drops
@@ -69,7 +72,8 @@ wishlist/
 ├── src/jpeg.ts           # EXIF orientation, metadata stripping, the baseline rebuild; the
 │                         #   Worker and scripts/photo.ts share it
 ├── src/http.ts           # Responses, the same-site check, security headers
-├── migrations/           # D1 schema (0002) and the one-time import of gifts.json (0003)
+├── migrations/           # D1 schema (0002, then 0004 category, 0005 featured) and the
+│                         #   one-time import of gifts.json (0003)
 ├── scripts/build.ts      # Checks the seed and writes dist/ for the Worker
 ├── scripts/seed.ts       # Generates migrations/0003 from gifts.json
 ├── scripts/photo.ts      # Takes a photo into photos/: resize, upright, no metadata
