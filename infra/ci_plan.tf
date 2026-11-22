@@ -53,8 +53,7 @@ resource "google_service_account_iam_member" "terraform_plan_wif" {
 locals {
   terraform_plan_roles = {
     for pair in setproduct(
-      # group_polls joins once its project id is set in group_polls.tf.
-      concat([local.biwenger, local.be_water], tolist(local.group_polls_projects)),
+      [local.biwenger, local.be_water],
       ["roles/viewer", "roles/iam.securityReviewer"],
     ) : "${pair[0]} ${pair[1]}" => { project = pair[0], role = pair[1] }
   }

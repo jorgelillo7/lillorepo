@@ -84,8 +84,7 @@ Firestore, no Telegram sends, no `--write` flags.
 - A behaviour change without its `openspec/` delta; run `check_specs.py`.
 
 **`security`.** Public surfaces: the Cloud Run services (`api`, `bot` webhook,
-`web`), the two Cloudflare Workers (`interactive_fiction`, `wishlist`) and the
-Firestore rules of `group_polls`. Secrets live in Secret Manager, one per
+`web`), the two Cloudflare Workers (`interactive_fiction`, `wishlist`). Secrets live in Secret Manager, one per
 package; CI authenticates through Workload Identity Federation. A PR from a
 fork must never reach a job that holds either.
 
