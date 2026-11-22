@@ -10,8 +10,8 @@ that, the reasoning lives where it belongs and this file links to it:
 What each `biwenger_tools` measurement asks, what it has found and what would
 change the code: [`docs/technical/backend/measurements.md`](docs/technical/backend/measurements.md).
 
-Never deleted; lines are pruned as items ship. Grouped by area, `infra` being
-the cross-cutting GCP/CI/policy one. What has **shipped** lives in
+Never deleted; lines are pruned as items ship. Grouped by area. Parked infra and `core` work lives only in
+[`docs/technical/parked-work.md`](docs/technical/parked-work.md). What has **shipped** lives in
 `packages/biwenger_tools/release-notes.md`, and the current state of the repo
 in `STATUS.md` — neither belongs here.
 
@@ -20,47 +20,19 @@ in `STATUS.md` — neither belongs here.
 
 ---
 
-## infra
-
-| | What is missing | Waiting on |
-|---|---|---|
-| 🚧 | Reusable deploy workflow | A seventh service · [why parked](docs/technical/parked-work.md#reusable-deploy-workflow) |
-| 🚧 | Per-service base images (`base_deps` from the lock) | Measured and parked again by the owner: modest gain, cold-start risk, Artifact Registry free tier · [numbers](docs/technical/parked-work.md#still-parked) |
-| 🚧 | Distroless base image | Cold start eating the 07:15 SLO, or the free tier tightening · [measured](docs/technical/backend/container-strategy.md) · **further off since #540**: the amd64 base with bytecode halved the api's first request after a cold start (6.0–7.4 s → 3.3–3.7 s) |
-| 🚧 | Containers run as root | The next change to how `core` reaches `/app` · [why parked](docs/technical/parked-work.md#containers-run-as-root) |
-
-## core
-
-| | What is missing | Waiting on |
-|---|---|---|
-| ⏳ | Move the Biwenger-only two thirds of `core` into its package | `core` becoming an obstacle — a Biwenger change that breaks another package. **The CI cost that looked like the trigger is gone**: it was the unused `core_deps`, not the file layout, and wiring the slices cut a `sdk/biwenger` edit from 10 suites to 5 · [measured](docs/technical/parked-work.md#the-shape-of-core) |
-| ⏳ | Brotli next to gzip in `core/web/compress.py` (a few percent smaller than gzip on HTML) | The next change to the base image's dependencies, so it rides along instead of forcing a rebuild: `brotli` through the `add-python-dep` skill, then prefer `br` when `Accept-Encoding` names it |
-
 ## biwenger_tools
 
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | A starter the squad cannot afford loses to a resale bid on the same morning (12/11: Sucic skipped for cash, Fran García bid as a riser): let auto-bid exceed the cash when the signing enters the eleven, the starter he displaces is worth the shortfall and the round is four days off or more; and keep the trader's cash when auto-bid skipped a starter for it | Parked with the other auto-bid changes · reverses the cash rule in `auto-bid`'s spec, so it starts as a proposal |
 | 🚧 | Auto-bid and trader read the next 2–3 fixtures, not just the next match | Parked by the owner until the recent auto-bid changes settle · proposal: a hard run only lowers a bid (T3 cap) plus `prefer_easier` tie-break; reverses `team-analysis`'s "display only" decision, so it needs the spec changed with it |
-| ⏳ | Is `LINEUP_SUB_STARTS_ABOVE` = 300 the right bar? | Promotions to read against real points. **Unblocked**: the projection ledger now stores both, automatically, so the record `log_promotions` could never produce exists. Still needs them to accumulate — one promotion in 12 months means this waits on seasons, not weeks · [how to read it](docs/technical/backend/projection-ledger.md) |
+| ⏳ | Monthly review of the open measurements (auto-bid shares with `scripts/auto_bid/calibrate.py`, squad floor, hold days, absence sales, captain upgrade, Oráculo blend, squad composition, captain by win chance, defenders against Barcelona or Madrid) — **next: late November** | The questions, their data so far and how to read each: [measurements.md § Monthly review](docs/technical/backend/measurements.md#monthly-review) |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
-| ⏳ | What to do when JP and Biwenger disagree on availability | More sightings. **The first real one arrived 19/09**: Haitam, Biwenger `discarded` ("Asuntos incompatibles con la práctica deportiva") against JP's fieldable `other` — so the sensor works and the rate is what the 1-in-481 measurement predicted. One case is still not a rule; JP remains the only source a decision reads |
-| ⏳ | `nextMatch.status == "break"` has never been observed | A break **while a lineup runs** · verified wired, 0 events · same ~20-row window: the sighting needs the status to land on a player I own |
-| ⏳ | Re-measure the auto-bid shares (T1–T4) | More settled auctions — run `scripts/auto_bid/calibrate.py` monthly, **next ~late November** · 27/09 (137 auctions) set +40/+20/+10/+5 % for win rate; 12/10 (95 priced) cut them to +15/+8/+5/+3 % for value; 22/10 (196 priced) lifted T3/T4 to +6/+5 %, above the +0–5 % gap where most rival bids land · [how](packages/biwenger_tools/OPERATIONS.md) |
-| ⏳ | Is 16 the right squad floor (`TRADER_MIN_SQUAD`, raised from 14 on 11/11)? | Late November with the trader's other checks: how often a reserve came on (`squad_gap.py` counts the substitutions), against what the two spare players lost in price while held |
-| ⏳ | Was lowering `TRADER_HOLD_DAYS` from 14 to 7 right? (the keeper cover still reads the 14-day clause lock, `CLAUSE_LOCK_DAYS`) | Lowered on 9/11 on a selection-biased read of 148 league flips (sold within 7 days, 70–74 % up; held 10–21, 38–60 %) · check: simulate both holds on `price_snapshots`, late November, and the trader's own sales between day 7 and 14 · [measurements](docs/technical/backend/measurements.md) |
-| ⏳ | Are two rounds missed (`TRADER_ABSENCE_ROUNDS`) and 6.4 M (`TRADER_STAR_PRICE`) the right lines for selling an absence? | Since 9/11 · each "baja larga" sale against the player's price when he came back, late November with the trader's other checks · [measurements](docs/technical/backend/measurements.md) |
-| ⏳ | Does auto-bid's captain upgrade (the tier above for a player under 3 M who would captain better than the squad's best) pay? | Since 9/11 · late November with the auto-bid calibration: the upgraded signings, how often they captained, their points as captain · [measurements](docs/technical/backend/measurements.md) |
-| ⏳ | Does the Oráculo blend beat Jornada Perfecta alone? (`ORACULO_W` stays, or goes to 0) — **until 9/11 it blended Oráculo's Diario AS points**; since then SofaScore for the ~40 listed players, JP alone for the rest, so grade rounds 13+ apart from the earlier ones | 10 rounds where the two elevens differ, graded by the projection ledger — 2 so far (J10 −9, J11 +3); it counted none until grading read the rounds the digest stores · read with `report.py`, [how](docs/technical/backend/projection-ledger.md) |
-| ⏳ | What the squad is made of: why it scores below average while projected near the top | **Measured, rounds 1–11, all managers** (`scripts/projections/squad_gap.py`): the base SofaScore explains 19 of the 22 points a round to the leader, bonuses ~2; picking the eleven is at the league's average (72 % of hindsight, range 71–80 %); per million of team value the squad scores at the league's middle, but it is the cheapest (66 M against 72–110 M) and, with cash, the poorest manager (75 M against 89–140 M). **Where the wealth went**: market flips — −17.5 M for us (six August–September signings bought dear, −15.7 M) against +38–40 M for the two leaders; the trader's own flips since 22/10 are all up. Next: 8 rounds of `league_projection` · [`openspec/changes/squad-composition/`](openspec/changes/squad-composition/proposal.md) |
-| ⏳ | Captain (and close defender calls) by the chance his team wins or keeps a clean sheet | 6–8 rounds of `team_outlook` in the projection ledger, captured from round 13 · free: Analítica Fantasy's calendar predictor, already the Oráculo source · expected gain is small (bonuses ~2 pts a round; captain tie-breaks ~0.5–1.5 by a review's estimate), so it ships only if the graded rounds show it · [what is stored](docs/technical/backend/projection-ledger.md) |
-| ⏳ | Should a defender facing Barcelona or Real Madrid be benched whatever JP projects? | **Measured, the effect is real**: defenders score −3.3 (Barcelona) and −2.4 (Madrid) SofaScore points under their own mean, 9 and 10 of 11 games negative; keepers only against Barcelona. What decides a rule is whether JP already discounts it — 5 own-squad cases say no; `league_jp`, captured from round 13, gives the sample · `scripts/projections/opponent_effect.py`, [how to read it](docs/technical/backend/projection-ledger.md#the-opponent-effect) |
 
 ## my_photos
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
 | 👤 | Photos, in the order that protects first: **(1)** the Google Photos app on both iPhones with backup at original quality — 5 TB are paid for and 10 GB used, so it is a second cloud for photos and videos with nothing to run; **(2)** copy, never move, the ten-year-old disk onto the 5 TB one, verify it, and upload that history too; **(3)** the `YYYY-MM-DD event` folders once or twice a year, with a script and a session proposing the names. Step 1 replaces Amazon Photos, rclone and emptying Google Photos | You for 1 and 2 (no code) · the plan is `packages/my_photos/README.md`; step 3 decides between `icloudpd` and `osxphotos` when it starts |
 
 ## group_polls
@@ -78,20 +50,16 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
-| 👤 | 3D draft of chapter 1: try [the preview](https://interactive-fiction-draft3d.jorgelillo.workers.dev) with the author and decide whether to continue (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
-| ⏳ | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
-| 👤 | Link previews: after the next deploy, paste the site link and `…/leer/samantha/01/` into WhatsApp and check the card (title, author, picture); the tags are tested, the apps' own rendering is not | You, on a phone |
-| 🚧 | Publish on itch.io too (free, the genre's community, devlogs per chapter) | Parked by your call |
-| ⏳ | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
-| 👤 | Suggestions for the author (speaker colours at 1.3:1 and 2.2:1 on black, the knife never shown, undo against the story's own rule, the 3D draft as a fixed-camera source instead of the reader) | You: forward the note or not · his content, not this repo's |
-| 👤 | CI runs `npm run verify` on a fixture series without the Harlowe comparison: vendoring a Harlowe 3 build (Zlib licence, ~400 KB) as a test fixture would let CI run parity too | Your call |
+| 🔨 | 3D menu for the reader, then take it and [the 3D draft](https://interactive-fiction-draft3d.jorgelillo.workers.dev) to the author: the author's validation decides whether the 3D continues (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
+| 🚧 | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
+| 🚧 | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
 
 ## wishlist
 
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
-| 🚧 | One list per event (birthdays), reached by an unguessable link | Your call · [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md) |
+| 🔨 | Birthdays on the same list instead of one list per event: an admin "Ocasión" panel to edit the title and subtitle, pick a theme (colours and header icon) and hide a recipient, plus a "new occasion" action that releases unbought reservations and hides bought gifts; unbought gifts carry over by themselves. Limit: one occasion at a time | **Before 24/03** (first birthday after Christmas) · supersedes [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md), which gets rewritten to this |
 | 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## be_water
@@ -99,6 +67,4 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Activate Google Sign-In | ~10 min of Console clicks · **the studio photo is off for everyone until this is done** (it follows the Google-verified admin) · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` · **no code change needed**: be_water's CSP already allows Google Sign-In's script, style and frames (#542) |
-| ⏳ | The AESAN parser reads only Spain's table, of 28 in the PDF | A registered foreign water · **checked:** it would not have caught `FONTÉBIL`, and Portugal's place column is `Locality-Municipality`, which `_PROVINCE` cannot read · [measurements](docs/technical/parked-work.md#be_water-country-field) |
 | 🔨 | Tailwind build step for `biwenger_tools/web` and `be_water`: the official Tailwind standalone CLI binary, pinned by version and SHA-256, run by Bazel at image build (no npm), replacing the Play CDN that its own docs call development-only. Unlocks dropping the CDN host and `style-src 'unsafe-inline'` from both CSPs, then dark mode for Biwenger (the last open item of its web review) | **Planned for the week of 23/11 by the owner** · several PRs · [web review](docs/technical/web-guidance.md#review-of-2026-11) item 8 |
-| ⏳ | HEIC uploads are refused (JPEG, PNG and WebP only) | A contributor whose phone does not convert on upload · iOS Safari converts; not tried on a device |
