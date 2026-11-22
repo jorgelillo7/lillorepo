@@ -63,14 +63,6 @@ in `STATUS.md` — neither belongs here.
 | 🚧 | Photo-recognition project | You: run the migration and free the disks · plan in `packages/my_photos/README.md` |
 | 👤 | Photos, in the order that protects first: **(1)** the Google Photos app on both iPhones with backup at original quality — 5 TB are paid for and 10 GB used, so it is a second cloud for photos and videos with nothing to run; **(2)** copy, never move, the ten-year-old disk onto the 5 TB one, verify it, and upload that history too; **(3)** the `YYYY-MM-DD event` folders once or twice a year, with a script and a session proposing the names. Step 1 replaces Amazon Photos, rclone and emptying Google Photos | You for 1 and 2 (no code) · the plan is `packages/my_photos/README.md`; step 3 decides between `icloudpd` and `osxphotos` when it starts |
 
-## group_polls
-
-| | What is missing | Waiting on |
-|---|---|---|
-| 👤 | Create the Firebase project (Spark), then turn on `infra/group_polls.tf` and adopt it | You · **ready to run**: the runbook is reviewed against `infra/` (imports the default rules release too, App Check enforced last), and `ci_plan.tf` picks the project up by itself · `packages/group_polls/OPERATIONS.md` → "Create the project" |
-| ⏳ | App Check enforcement for Firestore and Identity Toolkit declared in Terraform, and a per-user limit on creating polls | The Firebase project existing · today enforcement is a console click, and anonymous sign-in makes votes and polls free to mint |
-| ⏳ | Restrict the Firebase API key: to the Android app (package `com.jorgelillo.grouppolls` and both SHA-1 fingerprints, the upload key's and Play app signing's) and to the Firebase APIs the app calls. It is in neither `infra/group_polls.tf` nor the runbook today | The Firebase project existing · add it to `packages/group_polls/OPERATIONS.md` → "Create the project" and, where the provider allows, to Terraform; try it with a build installed from Play's internal track, since a wrong restriction breaks sign-in |
-
 ## interactive_fiction
 
 Next session starts here; the story-specific detail is in the local plan (`.claude/plans/interactive-fiction.md`, gitignored).

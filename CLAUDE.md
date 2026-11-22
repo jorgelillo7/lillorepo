@@ -1,7 +1,7 @@
 # CLAUDE.md — lillorepo
 
 Bazel monorepo with Python projects targeting Google Cloud — `biwenger_tools`,
-`be_water`, `chucknorris_bot`, `group_polls` and `my_photos` (plan only) — over
+`be_water`, `chucknorris_bot` and `my_photos` (plan only) — over
 one shared `core`. Two packages are not Python: `interactive_fiction` (a static
 site) and `wishlist` (a Worker with D1) are Node, outside Bazel, each with its
 own `npm` workflow (see their READMEs).
@@ -30,7 +30,6 @@ Python rules load from `.claude/rules/python.md` when a Python file is opened.
   biwenger_tools/   Fantasy-league platform: api, bot, scraper_job, web
   be_water/         Bottled-water catalog (own GCP project be-water-app): web, scripts
   chucknorris_bot/  Telegram joke bot
-  group_polls/      Backend of the "¿Qué votáis?" app: Firestore rules and a moderation CLI
   interactive_fiction/  Twine story reader (Node + Vite, outside Bazel; Cloudflare static site)
   wishlist/         Shared gift list (Node, outside Bazel; Cloudflare Worker + D1)
   my_photos/        Plan only, no code
