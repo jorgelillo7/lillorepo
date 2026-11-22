@@ -78,8 +78,7 @@ Infrastructure inventory lives in `INFRA.md`; this is the capability list.
 - **Outside GCP** — `interactive_fiction`, a story reader served from
   Cloudflare, and `wishlist`, a shared gift list on a Cloudflare Worker with
   D1; both Node, outside Bazel, tested by their own required CI jobs and
-  deployed by hand with Wrangler. `group_polls` holds the Firestore rules and
-  moderation CLI for an Android app; its Firebase project is not created yet.
+  deployed by hand with Wrangler.
 - **Auto-bid engine** — a flat share over the price per tier (+15 / +8 / +6 /
   +5 %, re-measured monthly with `calibrate.py`), a keeper only when he would
   start, at most three starters per club, jitter and Firestore idempotency.
