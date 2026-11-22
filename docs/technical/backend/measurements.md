@@ -65,6 +65,22 @@ disagreeing on whether a player is available (one case so far), and a
 `nextMatch.status == "break"` on a player we own (none so far). One case is
 not a rule.
 
+## Monthly review
+
+The open questions `PENDING.md` folds into one monthly line. Read them together, late each month, and move a row out when it leads to a change or to "leave it".
+
+| | Question | Data so far and how to read it |
+|---|---|---|
+| ⏳ | Re-measure the auto-bid shares (T1–T4) | More settled auctions — run `scripts/auto_bid/calibrate.py` monthly, **next ~late November** · 27/09 (137 auctions) set +40/+20/+10/+5 % for win rate; 12/10 (95 priced) cut them to +15/+8/+5/+3 % for value; 22/10 (196 priced) lifted T3/T4 to +6/+5 %, above the +0–5 % gap where most rival bids land · [how](packages/biwenger_tools/OPERATIONS.md) |
+| ⏳ | Is 16 the right squad floor (`TRADER_MIN_SQUAD`, raised from 14 on 11/11)? | Late November with the trader's other checks: how often a reserve came on (`squad_gap.py` counts the substitutions), against what the two spare players lost in price while held |
+| ⏳ | Was lowering `TRADER_HOLD_DAYS` from 14 to 7 right? (the keeper cover still reads the 14-day clause lock, `CLAUSE_LOCK_DAYS`) | Lowered on 9/11 on a selection-biased read of 148 league flips (sold within 7 days, 70–74 % up; held 10–21, 38–60 %) · check: simulate both holds on `price_snapshots`, late November, and the trader's own sales between day 7 and 14 · [measurements](docs/technical/backend/measurements.md) |
+| ⏳ | Are two rounds missed (`TRADER_ABSENCE_ROUNDS`) and 6.4 M (`TRADER_STAR_PRICE`) the right lines for selling an absence? | Since 9/11 · each "baja larga" sale against the player's price when he came back, late November with the trader's other checks · [measurements](docs/technical/backend/measurements.md) |
+| ⏳ | Does auto-bid's captain upgrade (the tier above for a player under 3 M who would captain better than the squad's best) pay? | Since 9/11 · late November with the auto-bid calibration: the upgraded signings, how often they captained, their points as captain · [measurements](docs/technical/backend/measurements.md) |
+| ⏳ | Does the Oráculo blend beat Jornada Perfecta alone? (`ORACULO_W` stays, or goes to 0) — **until 9/11 it blended Oráculo's Diario AS points**; since then SofaScore for the ~40 listed players, JP alone for the rest, so grade rounds 13+ apart from the earlier ones | 10 rounds where the two elevens differ, graded by the projection ledger — 2 so far (J10 −9, J11 +3); it counted none until grading read the rounds the digest stores · read with `report.py`, [how](docs/technical/backend/projection-ledger.md) |
+| ⏳ | What the squad is made of: why it scores below average while projected near the top | **Measured, rounds 1–11, all managers** (`scripts/projections/squad_gap.py`): the base SofaScore explains 19 of the 22 points a round to the leader, bonuses ~2; picking the eleven is at the league's average (72 % of hindsight, range 71–80 %); per million of team value the squad scores at the league's middle, but it is the cheapest (66 M against 72–110 M) and, with cash, the poorest manager (75 M against 89–140 M). **Where the wealth went**: market flips — −17.5 M for us (six August–September signings bought dear, −15.7 M) against +38–40 M for the two leaders; the trader's own flips since 22/10 are all up. Next: 8 rounds of `league_projection` · [`openspec/changes/squad-composition/`](openspec/changes/squad-composition/proposal.md) |
+| ⏳ | Captain (and close defender calls) by the chance his team wins or keeps a clean sheet | 6–8 rounds of `team_outlook` in the projection ledger, captured from round 13 · free: Analítica Fantasy's calendar predictor, already the Oráculo source · expected gain is small (bonuses ~2 pts a round; captain tie-breaks ~0.5–1.5 by a review's estimate), so it ships only if the graded rounds show it · [what is stored](docs/technical/backend/projection-ledger.md) |
+| ⏳ | Should a defender facing Barcelona or Real Madrid be benched whatever JP projects? | **Measured, the effect is real**: defenders score −3.3 (Barcelona) and −2.4 (Madrid) SofaScore points under their own mean, 9 and 10 of 11 games negative; keepers only against Barcelona. What decides a rule is whether JP already discounts it — 5 own-squad cases say no; `league_jp`, captured from round 13, gives the sample · `scripts/projections/opponent_effect.py`, [how to read it](docs/technical/backend/projection-ledger.md#the-opponent-effect) |
+
 ## What was looked at and left out
 
 | Source | Why not |
