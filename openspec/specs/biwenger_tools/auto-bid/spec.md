@@ -44,7 +44,11 @@ losses went by 2,000–2,500 €. T3 and T4 moved to +6 % and +5 %, just above i
 T1 and T2 did not move, since the contested stars go for +19–35 % and the 19
 wins still paid 7.6M over the runner-up. The earlier ladder — the whole wallet for T1, and
 `min(price × 1.7 / 1.5 / 1.2, price + 5M / 2M / 500K)` below — had paid 6.36M
-over the runner-up across eight wins (Valverde alone 3.24M). The trader
+over the runner-up across eight wins (Valverde alone 3.24M). The fourth reading
+(23/11, 251 priced auctions, 61 since the third) moved nothing: the five
+auctions lost since went to bids of +12 to +26 % against ours of +3 to +6 %,
+so no share a point or two higher would have won one, and the three wins at
++6 % beat a runner-up at +0 to +1.3 %. The trader
 (`market-trader`) buys risers at +3 %, which is where squad trading now lives.
 
 The cut-offs are set against the league as it scores, not a round number: at

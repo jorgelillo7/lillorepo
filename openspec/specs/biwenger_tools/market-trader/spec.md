@@ -122,9 +122,10 @@ is not held.
 The hold was 14 days, Biwenger's clause lock, until a read of the league's 148
 market flips (`board_archive`, 9/11) found the ones sold within a week up 70–74 %
 of the time against 38–60 % for those held 10–21 days, and the most profitable
-manager holding about ten. The read is selection-biased — sellers chose when —
-so it is checked again on `price_snapshots` (`docs/technical/backend/
-measurements.md`). The keeper cover keeps reading the clause lock itself,
+manager holding about ten. That read was selection-biased — sellers chose when —
+so it was checked on `price_snapshots` (23/11): replaying the two-day-fall sale
+on 44 league purchases, a 7-day hold beat 14 in 20 of the 22 where they
+differ, +4.4 M over 21 days. The keeper cover keeps reading the clause lock itself,
 `CLAUSE_LOCK_DAYS` (14): a new keeper cannot be claused for two weeks however
 soon a signing may be sold.
 
