@@ -98,6 +98,6 @@ auto-bid buys.
 - The opponent effect (defenders against Barcelona and Real Madrid). It is a
   per-fixture lineup question, measured on its own
   (`projection-ledger.md`, "The opponent effect").
-- Reading the next 2–3 fixtures in auto-bid, parked by the owner
-  (`PENDING.md`).
+- Reading the next 2–3 fixtures in auto-bid, dropped (`measurements.md`,
+  "Two auto-bid changes dropped").
 - Any automatic tuning of a weight from the same rounds that motivated it.
