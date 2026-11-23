@@ -24,8 +24,6 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 🚧 | A starter the squad cannot afford loses to a resale bid on the same morning (12/11: Sucic skipped for cash, Fran García bid as a riser): let auto-bid exceed the cash when the signing enters the eleven, the starter he displaces is worth the shortfall and the round is four days off or more; and keep the trader's cash when auto-bid skipped a starter for it | Parked with the other auto-bid changes · reverses the cash rule in `auto-bid`'s spec, so it starts as a proposal · the 23/11 review recommends dropping it: [why](docs/technical/backend/measurements.md#the-two-parked-auto-bid-changes) |
-| 🚧 | Auto-bid and trader read the next 2–3 fixtures, not just the next match | Parked by the owner until the recent auto-bid changes settle · proposal: a hard run only lowers a bid (T3 cap) plus `prefer_easier` tie-break; reverses `team-analysis`'s "display only" decision, so it needs the spec changed with it · the 23/11 review recommends dropping it: [why](docs/technical/backend/measurements.md#the-two-parked-auto-bid-changes) |
 | ⏳ | Monthly review of the open measurements (squad floor, absence sales, captain upgrade, Oráculo blend, squad composition, captain by win chance, defenders against Barcelona or Madrid) — **next: late December** | The questions, their data so far and how to read each: [measurements.md § Monthly review](docs/technical/backend/measurements.md#monthly-review) |
 | ⏳ | Should the starts penalty be the draft's default? | Next pre-season, with both fifteens side by side · `--starts-penalty` exists and is off; on the Aspas case it drops him from 1st to 3rd (143 → 75) |
 
