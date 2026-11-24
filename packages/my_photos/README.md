@@ -91,6 +91,36 @@ since June"*.
 - **Deleting** what the agent flagged: review "Revisar para borrar", select
   all, delete.
 
+### Archiving old years
+
+iCloud does not have to hold everything forever. The same session checks
+the library size (`osxphotos query` sums original sizes, a proxy for iCloud
+use) against a threshold, say 80% of the plan, and when it is crossed offers
+to archive the oldest years beyond a window (say, keep the last 10):
+
+1. **Export** those years to the 5 TB disk with their albums as folders:
+   `osxphotos export /Volumes/<disk> --directory "{created.year}/{album}"
+   --update --report <file>`. `--update` makes it incremental, so a
+   re-run only adds what is missing.
+2. **Verify** the copy: `osxphotos` has no checksum option, so the skill
+   compares counts against the library and hashes the exported files against
+   the report.
+3. **Confirm the second copy**: the same years must be in Google Photos.
+4. **Stage the deletion**: put every archived photo in an album
+   **"Archivado — borrar"**. Neither `osxphotos` nor AppleScript can delete
+   from Photos ([photoscript](https://github.com/RhetTbull/photoscript):
+   AppleScript "cannot … delete a photo"), so the last step is the owner's:
+   open the album, select all, delete. One action a year at most.
+
+What archiving costs: those years leave Photos on both iPhones. They stay in
+Google Photos (searchable, without the albums) and on the disk (with the
+albums as folders). Whether shared albums keep their own copies after the
+originals are deleted is unverified; if they do, archived events stay
+visible on the phones.
+
+With 2 TB the threshold may not be reached for many years; the check costs
+nothing and runs every session anyway.
+
 ### Copies
 
 | Where | What |
@@ -98,7 +128,7 @@ since June"*.
 | iCloud | Everything, native |
 | Google Photos (each spouse's account) | Everything on each phone, in the background |
 | Amazon Photos | Photos, optional |
-| 5 TB disk | The history; optionally a yearly `osxphotos export` with `{album}` folders |
+| 5 TB disk | The history, plus archived years exported with their albums as folders |
 
 ## Open questions
 
@@ -131,7 +161,9 @@ Each one is checked in the first trial session or before it.
 6. **`osxphotos` writes** only to the last-opened library, and macOS asks once
    for permission to control Photos.
 7. **Deleting from the Shared Library deletes for both** — "Revisar para
-   borrar" is reviewed with that in mind.
+   borrar" and "Archivado — borrar" are reviewed with that in mind.
+8. **`--directory "{created.year}/{album}"`** — confirm with `--dry-run
+   --verbose` how a photo in several albums, or in none, is exported.
 
 ## Later, if wanted
 
@@ -143,7 +175,7 @@ cloud can create an Apple Photos album.
 ## What this package will not do
 
 - Run in the cloud, or read iCloud from outside a Mac.
-- Delete photos by itself.
+- Delete photos by itself: Photos cannot be told to by any script.
 - Be a viewer or a cloud.
 - Self-host Immich or PhotoPrism.
 
@@ -155,4 +187,5 @@ cloud can create an Apple Photos album.
    messaging rules.
 3. A trial session together on one month of photos, answering the open
    questions.
-4. Write the skill and import the old disk.
+4. Write the skill (organise, flag junk, archive old years) and import the
+   old disk.
