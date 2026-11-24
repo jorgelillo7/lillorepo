@@ -114,9 +114,22 @@ to archive the oldest years beyond a window (say, keep the last 10):
 
 What archiving costs: those years leave Photos on both iPhones. They stay in
 Google Photos (searchable, without the albums) and on the disk (with the
-albums as folders). Whether shared albums keep their own copies after the
-originals are deleted is unverified; if they do, archived events stay
-visible on the phones.
+albums as folders).
+
+**Shared albums get in the way.** A shared album holds its own copy: deleting
+from the library does not remove it from the album, and removing it from the
+album leaves the library untouched
+([Apple](https://support.apple.com/guide/photos/pht5f6df5f0/mac),
+[Apple](https://support.apple.com/en-us/108314)). Classic albums keep only a
+2048 px copy; iOS 27 albums are reported to keep the full-resolution one,
+stored once for the owner ([iDrop News](https://www.idropnews.com/ios-27/ios-27-icloud-shared-albums-overhaul/266144/),
+not Apple). If so, deleting an archived photo **frees no iCloud space while it
+is still in an iOS 27 shared album**. Archiving a year then means choosing:
+remove its shared albums too (they cannot be scripted, so that is manual and
+the events leave the phones), or keep them and accept that they keep their
+space. A throwaway ~1 GB video settles it: note iCloud usage, add it to a
+new shared album, delete it from the library, empty Recently Deleted, and
+see whether usage drops.
 
 With 2 TB the threshold may not be reached for many years; the check costs
 nothing and runs every session anyway.
