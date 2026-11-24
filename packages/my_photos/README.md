@@ -154,12 +154,12 @@ Each one is checked in the first trial session or before it.
    alone and away stay in her personal library, which the agent on the
    owner's Mac cannot see. She adds them to the shared album, or moves them to
    the Shared Library. Check how often that happens in practice.
-2. **Shared Album limits.** 5,000 items per album and 100 subscribers; Apple's
-   regional pages disagree on whether an owner can share at most 200 albums
-   or has no limit ([Apple](https://support.apple.com/en-gb/148868)). At
-   ~10 events a year plus the history since 2014, 200 would run out. If the
-   cap is real, share only the events the wife wants on her phone, or share
-   the history moved into the Shared Library instead of as albums.
+2. **Shared Album limits — settled.** Albums created in iOS 27 or later
+   have no limit on the number of albums or items "beyond the owner's
+   available iCloud storage", and up to 100 participants. The 200-album and
+   5,000-item caps apply only to albums created in iOS 26 or earlier
+   ([Apple](https://support.apple.com/en-us/148868)). Every shared album
+   must therefore be created on iOS 27, and both phones must run it.
 3. **Storage.** Shared Albums count against the owner's iCloud since iOS 27,
    including what others add. Measure whether a photo in both the Shared
    Library and a shared album counts twice, and the size of the old disk,
