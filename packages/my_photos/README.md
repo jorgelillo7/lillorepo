@@ -1,8 +1,8 @@
 # my_photos — plan
 
-> **State:** plan only, no code. Several load-bearing assumptions are still
-> unproven; [the tests](#tests-before-any-code) decide whether the design
-> holds before anything is written.
+> **State:** plan only, no code. Several assumptions are still unproven;
+> [the tests](#tests-before-any-code) decide whether the design holds before
+> anything is written.
 
 ## The problem
 
@@ -11,10 +11,10 @@ library to a shared iCloud library that never settled. Some photos end up
 shared, others stay in one person's library and get lost, and in the last
 year not a single album was made.
 
-The family's own format is an album — and a folder on disk — per event,
-named `YYYY-MM-DD event`. That format stays. What has to go is the manual
-work behind it: every process that needed someone to sit down regularly has
-been abandoned.
+The family's own format is an album — and a folder — per event, named
+`YYYY-MM-DD event`. That format stays. What has to go is the manual work
+behind it: every process that needed someone to sit down regularly has been
+abandoned.
 
 **The design rule is "it happens by itself".** A step that needs a person
 regularly is presumed to fail. The only recurring human action the design
@@ -25,13 +25,13 @@ the person instead of waiting for them.
 
 | Item | Notes |
 |---|---|
-| Two iPhones | One per spouse, iCloud Photos with a Shared Library |
+| Two iPhones | One per spouse, iCloud Photos on both |
 | Mac M1 | Often off, little free disk: the design must not depend on it |
 | Old disk (10+ years) | The history since 2014, already in `YYYY-MM-DD event` folders. Treat it as about to die: **copy, never move** |
 | 5 TB disk | Not empty; it has to be emptied before use |
 | Google One AI Pro, 5 TB family plan | Kept anyway for Gemini and YouTube Premium Lite; about 10 GB used |
 | Amazon Prime | Kept anyway for shopping; Amazon Photos stores photos without limit, video up to 5 GB |
-| iCloud+, 200 GB | About 27 GB used, growing ~18 GB a year |
+| iCloud+, 200 GB | About 27 GB used |
 | GCP and this monorepo | Cloud Run, Cloud Run Jobs, Secret Manager and Telegram bots already exist here |
 
 No paid product was found that produces `YYYY-MM-DD event` albums by itself:
@@ -42,65 +42,85 @@ more does not buy this; the plan adds no subscription.
 ## The design
 
 ```
- iPhone (owner) ─┐
-                 ├─► iCloud: both personal libraries + Shared Library   layer 1, native
- iPhone (wife) ──┘                 │
-                                   ▼
-            Cloud Run Job, daily
-             · icloudpd pulls what is new from all three libraries
-             · dedupes, groups by EXIF time gaps and place
+ iPhone (owner) ──► iCloud Photos                         layer 1, native backup
+ iPhone (wife)  ──►      (untouched; nothing reads it)
+
+ iPhone (owner) ──► Google Photos, owner's account  ─┐   app backup, opened
+ iPhone (wife)  ──► Google Photos, wife's account   ─┤   nightly by a Shortcut
+                                                     │
+                        scheduled Takeout, every 2 months, to each Drive
+                        folder shared with the "familia" account
+                                                     │
+                                                     ▼
+            Cloud Run Job
+             · reads the new Takeout archives
+             · dedupes, groups by time gaps and place
              · Gemini names each group "YYYY-MM-DD event"
-             · proposals stored in Firestore
-                                   │
-                                   ▼
-            Telegram bot, monthly digest
-             "4 events: 2026-11-08 Lucía's birthday ✅ ✏️ …"
+                                                     │
+                                                     ▼
+            Telegram bot: "4 events: 2026-11-08 Lucía's birthday ✅ ✏️ …"
              no answer within a week = accepted
-                                   │
-                                   ▼
-            Google Photos, a dedicated "familia" account      layer 2, organised
+                                                     │
+                                                     ▼
+            Google Photos, "familia" account                layer 2, organised
              albums "YYYY-MM-DD event" and "YYYY-MM Varios"
              both spouses add the account in the app and browse there
-                                   │
-                                   ▼
-            GCS Archive, folders "YYYY-MM-DD event/"           layer 3, cold copy
+                                                     │
+                                                     ▼
+            GCS Archive, folders "YYYY-MM-DD event/"         layer 3, cold copy
 
- Amazon Photos app on the owner's iPhone                         extra, free
+ Amazon Photos app on the owner's iPhone                     extra, free
 ```
 
-### Who does what
+### How it is used
 
 | Who | What | How often |
 |---|---|---|
-| The phones | Take photos | Always |
-| The job | Download, group, name, upload, create albums, write the cold copy | Daily, unattended |
-| Owner (and wife, if she wants) | ✅ or rename each proposal in Telegram | Monthly, about a minute |
-| Each spouse | Hand the iCloud 2FA code to the job | Every ~2 months |
+| Both | Take photos with the iPhone | Always |
+| Each iPhone | A Shortcut opens Google Photos while charging; the app backs up the camera roll | Nightly, unattended |
+| Both | Browse photos and albums in Google Photos, familia account | Any time |
+| The job | Read the Takeout, group, name, ask | Every 2 months, unattended |
+| Owner | ✅ or rename each proposal in Telegram | Every 2 months, about a minute |
+| The job | Upload to the familia account, create the albums, write the cold copy | After approval |
+| Each spouse | Re-enable the scheduled Takeout (it lasts a year); the bot reminds them | Once a year |
 
-If the job breaks, nothing is lost: iCloud still holds everything, and only
-the organising pauses until it is fixed.
+Albums lag up to two months behind the photos; for a family archive that does
+not matter.
+
+**Nothing is lost if a piece fails.** iCloud keeps every photo natively. If
+Google's backup lags or the job breaks, only the organising waits.
 
 ### Pieces and decisions
 
-**Sources.** iCloud's Shared Library cannot share everything: "Share
-Automatically" only adds photos taken near another participant or at home,
-and whatever arrives from outside the camera — screenshots, WhatsApp and
-Telegram saves — lands in the personal library
-([Apple](https://support.apple.com/HT213248)). So the job reads **both
-personal libraries and the Shared Library**, and dedupes by asset id and
-hash. That means two Apple IDs and two 2FA renewals; the wife does not use
-Telegram, so her renewal channel is still open (one idea: the owner's number
-as a trusted number on her account).
+**iCloud stays, untouched.** It is the only backup that runs reliably in the
+background on iOS, which is what lets the Google side be imperfect; the
+device backup and WhatsApp's chat backup live there too. Amazon Photos is not
+a replacement: it is a third-party app with the same background limits as
+Google, and stores 5 GB of video. Nothing in the pipeline reads iCloud, so
+there is no `icloudpd`, no 2FA renewals and no Shared-Library gaps. The
+Shared Library may stay or go; any duplicates it causes are removed by the
+job.
 
-**Downloader.** [`icloudpd`](https://github.com/icloud-photos-downloader/icloud_photos_downloader)
-is the only route without a Mac; Apple has no continuous export API. Known
-weaknesses: it is looking for a maintainer, sessions last about two months,
-it decides what is new by looking at its local files and cookies (so both
-must persist across Cloud Run executions, e.g. on a GCS-backed volume), its
-docs contradict each other on Advanced Data Protection (keep ADP off), and
-Apple is reported to block some datacenter ranges. **Fallback** if Cloud Run
-is blocked: a small always-on box at home with a residential IP — not the
-Mac.
+**Google backup on the phones.** Each spouse backs up to their own Google
+account at original quality. The app backs up everything in the camera roll,
+whatever library it belongs to. Google's own help says to keep the app open
+and the phone plugged in for best results
+([Google](https://support.google.com/photos/answer/6193313?hl=en&co=GENIE.Platform%3DiOS)),
+so a personal automation in Shortcuts opens the app nightly while charging,
+set to run without asking.
+
+**Getting the files.** The Library API, since 31 March 2025, only lets an app
+read media it uploaded itself
+([updates](https://developers.google.com/photos/support/updates)), so the
+job cannot read what the phones backed up. The bridge is
+[Takeout](https://support.google.com/accounts/answer/3024190): a scheduled
+export every two months for a year, incremental for Photos since June 2026
+when Photos is the only product
+([9to5Google](https://9to5google.com/2026/06/01/google-photos-schedule-export/)),
+delivered to each spouse's Drive and shared with the familia account. Takeout
+puts dates, places and album membership in JSON sidecars; the job reads them
+instead of trusting EXIF. Processed archives are deleted to keep the quota
+clean.
 
 **Naming.** One Gemini Flash call per group with three or four small
 thumbnails. Cost is cents a month. Paid-tier data is not used for training,
@@ -110,16 +130,11 @@ and in the EEA those terms also cover the free tier
 **Approval.** A Telegram bot on Cloud Run (webhook, since Telegram drops
 undelivered updates after 24 hours). ✅ accepts, ✏️ asks for the right name,
 silence for a week accepts. Photos that belong to no event go to a monthly
-`YYYY-MM Varios` album. Media is uploaded **only after approval**, so what is
-deleted before then never reaches Google.
+`YYYY-MM Varios` album.
 
-**Google side.** The Library API, since 31 March 2025, only lets an app
-manage media and albums it created, and can no longer share albums
-([updates](https://developers.google.com/photos/support/updates)). So the job
-is the uploader and a dedicated **"familia" Google account** owns
-everything: nothing needs sharing, both spouses simply add that account. The
-phones' own Google Photos backup is turned off — it is unreliable in the
-background on iOS and would duplicate everything.
+**The familia account.** The API can no longer share albums, so a dedicated
+Google account owns the organised library and both spouses add it in the
+app: nothing needs sharing.
 
 - OAuth client created **by the familia account** in
   [Personal mode](https://support.google.com/cloud/answer/15549945): no
@@ -127,88 +142,82 @@ background on iOS and would duplicate everything.
   that created it, and the choice is irreversible. The Photos docs say every
   app "must pass the OAuth verification review"
   ([auth](https://developers.google.com/photos/overview/authorization)) — the
-  two pages contradict each other, so this is test 5.
-- Scopes from day one: `photoslibrary.appendonly`,
-  `photoslibrary.readonly.appcreateddata` and
-  `photoslibrary.edit.appcreateddata` (renaming an album needs the last one).
-- The API has no delete. What is deleted in iCloud after upload goes to a
-  "Revisar" album for a human to remove.
-- Live Photos arrive as two files (HEIC + MOV) and are not documented to
-  pair through the API; decide between uploading both and uploading only the
-  still. Limits: 200 MB per photo, 20 GB per video, 10,000 requests a day,
-  20,000 items per album ([limits](https://developers.google.com/photos/overview/api-limits-quotas)).
-- The familia account must join the Google One family group (same country,
-  at most one group change per 12 months) and use its 5 TB. Google deletes
-  accounts after two years of inactivity and does not list Photos or API use
-  as activity ([policy](https://support.google.com/accounts/answer/12418290)):
-  set up the Inactive Account Manager, a recovery address and passkeys on
-  both phones.
+  two pages contradict each other, so this is a test.
+- Scopes: `photoslibrary.appendonly`,
+  `photoslibrary.readonly.appcreateddata`,
+  `photoslibrary.edit.appcreateddata` (renaming an album needs it), and
+  Drive access to the shared Takeout folders.
+- The API has no delete: a photo removed from a phone after it was uploaded
+  stays in the familia account until someone removes it there.
+- Live Photos arrive as two files (HEIC + MOV) and are not documented to pair
+  through the API; decide between uploading both and only the still. Limits:
+  200 MB per photo, 20 GB per video, 10,000 requests a day, 20,000 items per
+  album ([limits](https://developers.google.com/photos/overview/api-limits-quotas)).
+- It must join the Google One family group (same country, at most one group
+  change per 12 months) and draw from the 5 TB. Google deletes accounts after
+  two years of inactivity and does not list Photos or API use as activity
+  ([policy](https://support.google.com/accounts/answer/12418290)): set up the
+  Inactive Account Manager, a recovery address and passkeys on both phones.
 
 **Cold copy.** The job writes the approved originals to GCS Archive in
 `YYYY-MM-DD event/` folders — the historic format — at about 2.5 $/TB a
-month. Takeout is no longer needed: it scatters album membership into JSON
-sidecars and duplicates files across folders.
+month.
 
 **Old disk and backlog.** The old disk's folders are already named, so they
 are loaded once, without approval, with `rclone copy <folder>
 gphotos:album/<name>` on an OAuth client of the familia account (rclone's
 shared client stops working during 2026, [rclone](https://rclone.org/googlephotos/)).
-The year without albums is proposed one backlog month a week, or on a page
-with every proposal accepted by default and only its link in Telegram, so
-the chat is not flooded. Expect duplicates between the old disk and iCloud
-re-exports; Google only dedupes identical bytes.
+The first Takeout carries everything already in Google; its proposals go out
+one month a week, or on a page with every proposal accepted by default and
+only its link in Telegram, so the chat is not flooded. Expect duplicates
+between the old disk and later exports; Google only dedupes identical bytes,
+so the job dedupes by hash first.
 
 **Messaging apps.** WhatsApp: auto-save off by default, "Always" only on
 family chats. Telegram: auto-save only from private contacts (it filters by
-category, not by chat).
+category, not by chat). Whatever is saved reaches the camera roll and is
+backed up like any photo.
 
-**Watching it.** A heartbeat alerts in Telegram when there has been no
-successful run in 48 hours, when an iCloud session expires in under 7 days,
-or when counts do not add up. Gemini model names and prices change (Flash
-doubles in 2027, still cents); the model is configuration, not code.
-
-**iCloud capacity.** The Shared Library counts against its creator's
-storage, and 200 GB will not hold both libraries for long. Either move to
-2 TB, or trim iCloud once photos are archived (`icloudpd
---keep-icloud-recent-days`) — which also removes them from the phones, so it
-is an explicit decision, not a default.
+**Watching it.** The bot alerts when a Takeout is overdue, when a scheduled
+export is about to expire, when a run fails, or when counts do not add up.
+The Gemini model is configuration, not code.
 
 ## The order
 
 1. **Copy the old disk onto the 5 TB one now** — no code, and the only
    urgent step. Copy, never move; verify both trees with checksums before
    anything on the old disk is touched.
-2. **Run the tests below.** They can kill or reshape the design.
-3. **Build** the job, the bot and the cold copy, with their spec in
+2. **Turn on Google Photos backup and the nightly Shortcut** on both phones,
+   and the messaging-app rules. No code, and it already gives a second copy.
+3. **Run the tests below.** They can kill or reshape the design.
+4. **Build** the job, the bot and the cold copy, with their spec in
    `openspec/` first.
-4. **Load the old disk and the backlog** into the familia account.
+5. **Load the old disk and the backlog** into the familia account.
 
 ## Tests before any code
 
-1. The wife takes a photo alone and away from home: which library does it
-   land in?
-2. A Cloud Run Job runs `icloudpd --auth-only`, then downloads the Shared
-   Library and both personal libraries for seven days in a row, reusing
-   cookies, without a lockout.
-3. The wife's contributions appear in the Shared Library from the owner's
-   account.
-4. The 2FA flow for both accounts: the code arrives and reaches icloudpd.
-5. OAuth in Personal mode, created by the familia account, with the three
-   scopes: the refresh token still works on day 8 and no verification screen
-   appears.
-6. Upload HEIC, a Live Photo, HEVC, ProRAW and an edited photo; check date,
-   time zone, GPS and dedupe in Google Photos.
-7. Create an album, rename it and add photos to it later through the API.
-8. The familia account draws from the 5 TB family pool.
-9. Upload 1 GB from GCP and read the egress on the bill (Photos is not on
+1. The Shortcut opens Google Photos nightly on both phones and the backup
+   completes without anyone opening the app.
+2. A scheduled Takeout (Photos only) is delivered to Drive without
+   intervention, and the next one is incremental.
+3. The familia account reads a Takeout folder shared from another account,
+   through its Personal-mode client, and the token still works on day 8 with
+   no verification screen.
+4. Takeout keeps originals, dates, time zones and GPS (in the files or the
+   sidecars) for HEIC, a Live Photo, HEVC and an edited photo.
+5. Upload those files to the familia account; create an album, rename it and
+   add photos to it later through the API.
+6. The familia account draws from the 5 TB family pool.
+7. Upload 1 GB from GCP and read the egress on the bill (Photos is not on
    Google's zero-egress list).
-10. Load three old-disk folders with rclone.
-11. Write to GCS Archive and restore one file.
-12. Disable the job and check that the heartbeat fires.
+8. Load three old-disk folders with rclone.
+9. Write to GCS Archive and restore one file.
+10. Disable the job and check that the alert fires.
 
 ## What this package will not do
 
-- Be a viewer (Google Photos and Apple Photos are) or a cloud.
+- Be a viewer (Google Photos is) or a cloud.
+- Read iCloud.
 - Self-host Immich or PhotoPrism.
 - Edit photos.
 - Depend on the Mac being on.
@@ -217,8 +226,8 @@ is an explicit decision, not a default.
 
 | Limit | When | What then |
 |---|---|---|
-| iCloud 200 GB | Sooner than the old ~18 GB/year estimate, since the owner's account holds the Shared Library | Move to 2 TB, or trim archived years explicitly |
-| Google One 5 TB | Not in sight | If the plan is ever lowered, GCS Archive holds the full archive |
+| iCloud 200 GB | Years away | Move to 2 TB, or trim archived years explicitly — trimming also removes them from the phones |
+| Google One 5 TB | Not in sight; personal backups and the familia account both draw from it | If the plan is ever lowered, GCS Archive holds the organised archive |
 | GCS Archive | No limit | ~2.5 $/TB a month |
 | Old and 5 TB disks | Die of age | The disk is a one-off rescue copy; the cold copy lives in GCS |
 
