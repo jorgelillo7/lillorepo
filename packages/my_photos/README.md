@@ -28,6 +28,9 @@ the junk — the part nobody sits down to do.
   LangGraph and no third-party MCP server: `osxphotos` is maintained (v0.78.1,
   November 2026), reads the library directly and can add photos to albums.
   The procedure lives in a skill in this package.
+- **No self-hosted photo server.** Immich on an always-on Mac mini would
+  let a Telegram bot do everything, sharing included, because it has a full
+  API. It was rejected as too much to run and maintain for a family archive.
 - **No paid product does this.** Google's automatic trips, Apple's Trips,
   Mylio and Ask Photos (not in the EU) all group on their own terms and names.
 
@@ -121,10 +124,13 @@ from the library does not remove it from the album, and removing it from the
 album leaves the library untouched
 ([Apple](https://support.apple.com/guide/photos/pht5f6df5f0/mac),
 [Apple](https://support.apple.com/en-us/108314)). Classic albums keep only a
-2048 px copy; iOS 27 albums are reported to keep the full-resolution one,
-stored once for the owner ([iDrop News](https://www.idropnews.com/ios-27/ios-27-icloud-shared-albums-overhaul/266144/),
-not Apple). If so, deleting an archived photo **frees no iCloud space while it
-is still in an iOS 27 shared album**. Archiving a year then means choosing:
+2048 px copy; iOS 27 albums keep full resolution and count against the
+owner's iCloud ([Apple](https://support.apple.com/en-us/148868)), so deleting
+an archived photo **frees no iCloud space while it is still in an iOS 27
+shared album**. Whether a photo in both the library and a shared album counts
+once or twice is not documented (one report says once,
+[iDrop News](https://www.idropnews.com/ios-27/ios-27-icloud-shared-albums-overhaul/266144/));
+that changes how fast 2 TB fills, not how archiving works. Archiving a year then means choosing:
 remove its shared albums too (they cannot be scripted, so that is manual and
 the events leave the phones), or keep them and accept that they keep their
 space. A throwaway ~1 GB video settles it: note iCloud usage, add it to a
@@ -142,6 +148,93 @@ nothing and runs every session anyway.
 | Google Photos (each spouse's account) | Everything on each phone, in the background |
 | Amazon Photos | Photos, optional |
 | 5 TB disk | The history, plus archived years exported with their albums as folders |
+
+## At a glance
+
+### Automatic
+
+| What | By |
+|---|---|
+| Upload and sync both iPhones | iCloud, natively |
+| Second copy | Google Photos app, in the background |
+| Keep messaging junk out of the camera roll | WhatsApp and Telegram settings |
+| Read a period from the library, no download | `osxphotos` |
+| Group by time gaps and place | Script |
+| Name each group `YYYY-MM-DD event` | Claude, from a few thumbnails |
+| Spot screenshots, bursts, duplicates, blurred shots | Script, then Claude |
+| Create the albums and "Revisar para borrar" | Script |
+| Watch library size; past the threshold, export old years, verify, stage "Archivado — borrar" | Script |
+| Import the old disk, one album per folder | Script, once |
+
+### Manual
+
+| What | Who | How often | Time |
+|---|---|---|---|
+| Copy the old disk onto the 5 TB one | Owner | Once | An afternoon, mostly waiting |
+| iCloud 2 TB, Camera sharing, Google backup, messaging rules | Both | Once | 15 min |
+| Open Claude on the Mac: *"organise July to September"* | Owner | Quarterly | 1 min |
+| Confirm or correct the proposed names | Owner | Quarterly | 2–3 min |
+| Share each album with the wife (open, select all, Share › Shared Album) | Owner | Quarterly | ~30 s per album |
+| Review "Revisar para borrar" and delete | Owner | Quarterly | 1 min |
+| Add photos she took alone and away to the shared album | Wife | When she wants | — |
+| Delete "Archivado — borrar" and, to free all the space, that year's shared albums | Owner | Every few years, when warned | 2 min |
+
+About 15–20 minutes a quarter, all of it the owner's. A skipped quarter
+loses nothing.
+
+### Scripts
+
+All run on the Mac over `osxphotos`. Only naming and reviewing doubtful
+photos uses a model; everything else is deterministic.
+
+| Script | Does | When |
+|---|---|---|
+| `scripts/inventory.sh` (exists) | Measures the library, iCloud and the mounted disks | Before any decision |
+| `copy_verify` | Copies the old disk and compares checksums of both trees | Once |
+| `import_history` | `osxphotos import --walk --album "{filepath.parent.name}" --skip-dups`, in batches | Once |
+| `propose_events` | Reads a date range, groups by time gaps and place, writes the groups and thumbnail paths as JSON | Every session |
+| `flag_junk` | Lists screenshots, bursts, duplicates and blurred shots | Every session |
+| `apply_albums` | Creates the approved albums and "Revisar para borrar" | Every session, after approval |
+| `archive_years` | Checks size against the threshold; past it, exports with `--update`, verifies by hash, stages "Archivado — borrar" | Checks every session, acts rarely |
+| Skill `organize-photos` | The session script: which step runs which script, how events are named, and what is never done (deleting) | Every session |
+
+## Trial session
+
+Before writing the skill, one session together on one month of photos. It
+answers most open questions and shows whether the names are good enough.
+
+**Before it**
+
+1. The old disk is copied and verified.
+2. Both phones are set up: Google backup on, Camera sharing on, messaging
+   rules on, both on iOS 27.
+3. `pip3 install osxphotos` on the Mac; Photos is the last-opened library;
+   macOS has granted the terminal permission to control Photos.
+
+**During it, about an hour**
+
+1. Run `scripts/inventory.sh` for the starting numbers.
+2. Write `propose_events` and run it on one recent month; Claude names the
+   groups from thumbnails; the owner (and the wife, if she wants) judge the
+   names.
+3. Write `flag_junk`; review what it flags.
+4. Write `apply_albums`; create the albums and "Revisar para borrar"; check
+   them in Photos on both phones.
+5. Share one album by hand and time it.
+6. The storage test: a throwaway ~1 GB video — note iCloud usage, add it to a
+   new shared album, note again (counts twice?), delete it from the library,
+   empty Recently Deleted, note again (frees space?).
+7. Check in Google Photos that Shared Library items from that month are
+   there (open question 5).
+8. Import one old-disk folder with `import_history` and check the album.
+9. `osxphotos export --dry-run --verbose --directory "{created.year}/{album}"`
+   on that month (open question 8).
+
+**After it**
+
+- Decide the go/no-go, the threshold and the archive window.
+- Write the skill from what worked, and the remaining scripts.
+- Update this README: answered questions out, decisions in.
 
 ## Open questions
 
@@ -190,15 +283,13 @@ cloud can create an Apple Photos album.
 - Run in the cloud, or read iCloud from outside a Mac.
 - Delete photos by itself: Photos cannot be told to by any script.
 - Be a viewer or a cloud.
-- Self-host Immich or PhotoPrism.
+- Self-host Immich or PhotoPrism (see Decisions).
 
 ## The order
 
 1. **Copy the old disk onto the 5 TB one** — urgent, no code. Copy, never
    move; verify both trees with checksums.
 2. Set up iCloud 2 TB, the Camera sharing setting, Google backup and the
-   messaging rules.
-3. A trial session together on one month of photos, answering the open
-   questions.
-4. Write the skill (organise, flag junk, archive old years) and import the
-   old disk.
+   messaging rules; both phones on iOS 27.
+3. **The [trial session](#trial-session)** on one month of photos.
+4. Write the skill and the remaining scripts, and import the old disk.
