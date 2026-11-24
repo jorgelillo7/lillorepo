@@ -31,7 +31,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Photos: **(1)** copy, never move, the ten-year-old disk onto the 5 TB one and verify it — urgent, no code; **(2)** Google Photos backup on both phones with a nightly Shortcut that opens the app; **(3)** the ten tests that decide whether the automated design holds (scheduled Takeout to Drive, OAuth Personal mode for a dedicated familia account, file fidelity, egress); **(4)** then build the Takeout-reading job, the Telegram approval bot and the GCS cold copy | You for 1, 2 and the account-side tests · the plan and the tests are in `packages/my_photos/README.md` |
+| 👤 | Photos: **(1)** copy, never move, the ten-year-old disk onto the 5 TB one and verify it — urgent, no code; **(2)** iCloud to 2 TB, Camera sharing to the Shared Library, Google Photos backup on both phones, messaging auto-save rules; **(3)** a trial session of the Claude Code + `osxphotos` album agent on one month, answering the plan's open questions; **(4)** then the skill and the import of the old disk as albums | You for 1 and 2 · the plan and its open questions are in `packages/my_photos/README.md` |
 
 ## interactive_fiction
 

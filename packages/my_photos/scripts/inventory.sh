@@ -86,7 +86,7 @@ echo " you re-check Configuración > Apple ID > iCloud > Fotos)"
 section "🔵 Google One (reference)"
 printf "Plan: %s TB    Used: %s GB total (%s GB in Google Photos)\n" \
     "$GOOGLE_PLAN_TB" "$GOOGLE_TOTAL_GB" "$GOOGLE_PHOTOS_GB"
-echo "(kept for Gemini and YouTube; the 'familia' account draws from this pool)"
+echo "(kept for Gemini and YouTube; the phones' background copy draws from it)"
 
 # --- External drives -------------------------------------------------------
 section "💾 External drives currently mounted"
@@ -125,7 +125,7 @@ fi
 section "🎯 Next"
 cat <<'EOF'
 Compare these numbers with packages/my_photos/README.md (Capacity):
-  - iCloud usage against 200 GB -> when to move to 2 TB or trim
+  - iCloud usage against the plan -> whether 2 TB holds the history too
   - external drives -> the old disk and the 5 TB copy, with their event folders
 
 If anything looks unexpected, adjust the plan before writing any code that
