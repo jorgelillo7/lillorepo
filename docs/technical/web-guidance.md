@@ -113,8 +113,9 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   `<dialog closedby="any">`, the zoomable images as buttons, the YouTube
   façade on `youtube-nocookie.com`, `noindex`, and the Tabla de Justicia
   header wrapping at 320 px. Static files are served immutable under a
-  content-versioned URL (`core/web/static.py`, be_water too). Open: dark mode
-  waits on the Tailwind build (item 8).
+  content-versioned URL (`core/web/static.py`, be_water too). Tailwind is
+  compiled at build time and the web follows the system's dark mode
+  (`DESIGN.md` § Dark mode). Open: `'unsafe-inline'` in `style-src`.
 - **be_water:** fixed in #774: the first card photos eager with
   `fetchpriority`, `text-slate-500` and white text on `sky-700`, mobile nav
   names kept for screen readers, "Entrar" fitting at 320 px, no "?" in the

@@ -93,6 +93,23 @@ This is not a commercial product — it's a private league intranet. The design 
 - **Surface (#ffffff):** Cards and panels elevated above the background.
 - **Border (#e2e8f0):** Dividers and card borders — subtle, not prominent.
 
+### Dark mode
+
+The web follows the system setting (`prefers-color-scheme`); there is no
+toggle. Two layers carry it, and a new colour must go through one of them:
+
+- **Tailwind classes** read CSS variables (`tailwind.config.js`): each palette
+  shade swaps to the shade that plays its role on a dark page — tinted
+  backgrounds go deep, text goes light. Grey has its own ramp, and `white`
+  becomes the card surface (#111827), so `bg-green-700 text-white` turns into
+  a light green fill with dark text. Write plain classes; no `dark:` variants.
+- **Page tokens** in `base.html` (`--page-bg`, `--card-bg`, `--nav-text`,
+  `--accent`, `--focus`, `--tab-bg`…) for the hand-written CSS. A hex colour in
+  a template's `<style>` stays light in dark mode; use a token instead.
+
+Dark values: page #0b1220, card #111827, border #1f2937, body text #e5e7eb,
+accent and focus ring #4ade80. Photos are dimmed slightly (`brightness(.92)`).
+
 ## Typography
 
 Two families, clearly separated roles:
