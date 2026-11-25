@@ -87,7 +87,8 @@ def service(
         package_srcs = [],
         secrets = [],
         test_deps = [],
-        enable_tests = True):
+        enable_tests = True,
+        generated_static = []):
     """What the service is made of.
 
     Args:
@@ -108,6 +109,9 @@ def service(
         secrets:      Files baked into the **local** image only, never into GCP's.
         test_deps:    Extra deps for the test target, beyond the library and pytest.
         enable_tests: Generate `<name>_tests` when a `tests/` directory exists.
+        generated_static: Files under `static/` that a rule in this package
+                      builds (e.g. `static/tailwind.css`), shipped beside the
+                      source `static/` files in runfiles and both images.
     """
     return struct(
         _kind = "service",
@@ -119,6 +123,7 @@ def service(
         secrets = _ensure_str_list("service.secrets", secrets),
         test_deps = _ensure_str_list("service.test_deps", test_deps),
         enable_tests = _ensure_bool("service.enable_tests", enable_tests),
+        generated_static = _ensure_str_list("service.generated_static", generated_static),
     )
 
 def job(
@@ -230,7 +235,8 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
 
     pkg_dir = "/app/packages/" + package + "/" + name
     templates = native.glob(["templates/**/*.html"], allow_empty = True)
-    static_files = native.glob(["static/**/*"], allow_empty = True)
+    generated_static = getattr(svc, "generated_static", [])
+    static_files = native.glob(["static/**/*"], allow_empty = True) + [":" + f for f in generated_static]
 
     # ============================================================
     # 1️⃣ LIBRERÍA PRINCIPAL
@@ -265,6 +271,7 @@ def _python_workload(*, name, package, repository, spec, image, serves_http):
 
     template_map = {f: f for f in native.glob(["templates/**/*"], allow_empty = True)}
     static_map = {f: f for f in native.glob(["static/**/*"], allow_empty = True)}
+    static_map.update({":" + f: f for f in generated_static})
 
     # ============================================================
     # 3️⃣ CAPAS DE CÓDIGO

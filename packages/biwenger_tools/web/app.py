@@ -20,11 +20,11 @@ _SEASON_RE = re.compile(r"^\d{2}-\d{2}$")
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 # What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
-# 'unsafe-inline' because Tailwind's CDN build injects them at runtime; scripts
-# run only with this request's nonce.
+# 'unsafe-inline' for the templates' style attributes and <style> blocks;
+# scripts run only with this request's nonce.
 CSP = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'nonce-{nonce}'", "https://cdn.tailwindcss.com"],
+    "script-src": ["'self'", "'nonce-{nonce}'"],
     "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
     "font-src": ["'self'", "https://fonts.gstatic.com"],
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
