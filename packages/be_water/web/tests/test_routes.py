@@ -3132,3 +3132,15 @@ def test_the_meta_description_leaves_out_what_the_label_lacks(client):
     assert "?" not in description
     assert "residuo seco" not in description
     assert description.startswith("Bezoya")
+
+
+def test_every_page_carries_the_theme_toggle_and_applies_a_pinned_scheme_early(client):
+    """The toggle pins a scheme through <meta name="color-scheme">; the script
+    that reads it back must sit right after that meta, before any paint."""
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        body = client.get("/acerca").get_data(as_text=True)
+    meta = body.index('<meta name="color-scheme" content="light dark">')
+    early = body.index("localStorage.getItem('color-scheme')")
+    assert meta < early < body.index("</head>")
+    assert body.count("data-theme-toggle class=") == 1
+    assert "Cambiar a modo oscuro" in body and "Cambiar a modo claro" in body

@@ -12,6 +12,12 @@ const palette = darkPalette({
     950: "#ffffff",
   },
   darkWhite: "#0f172a",
+  tokens: {
+    light: { "--glass": "rgba(255,255,255,.82)", "--accent": "#0369a1" },
+    dark: { "--glass": "rgba(2,6,23,.78)", "--accent": "#38bdf8" },
+  },
+  // Bottle photos are shot on white; dim them so they do not glare.
+  darkRules: { 'img:not([src$=".svg"])': { filter: "brightness(.9)" } },
 });
 
 // Templates compose the mineralization tone into class names

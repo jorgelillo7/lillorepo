@@ -95,8 +95,14 @@ This is not a commercial product — it's a private league intranet. The design 
 
 ### Dark mode
 
-The web follows the system setting (`prefers-color-scheme`); there is no
-toggle. Two layers carry it, and a new colour must go through one of them:
+The web follows the system setting (`prefers-color-scheme`) until the reader
+pins the other scheme with the sun/moon button in the header (mobile bar and
+desktop nav). The button has two states, as Modern Web Guidance's
+`dark-mode-toggle` recommends: the system's scheme and its opposite. Pinning
+writes `light` or `dark` to `localStorage` and to `<meta name="color-scheme">`
+(read back before first paint by a script right after that meta); choosing the
+system's own scheme unpins. Without JS the site follows the system. Two layers
+carry the colours, and a new colour must go through one of them:
 
 - **Tailwind classes** read CSS variables (`tools/bazel/tailwind_dark_palette.js`,
   configured in `tailwind.config.js`): each palette
@@ -104,9 +110,12 @@ toggle. Two layers carry it, and a new colour must go through one of them:
   backgrounds go deep, text goes light. Grey has its own ramp, and `white`
   becomes the card surface (#111827), so `bg-green-700 text-white` turns into
   a light green fill with dark text. Write plain classes; no `dark:` variants.
-- **Page tokens** in `base.html` (`--page-bg`, `--card-bg`, `--nav-text`,
-  `--accent`, `--focus`, `--tab-bg`…) for the hand-written CSS. A hex colour in
-  a template's `<style>` stays light in dark mode; use a token instead.
+- **Page tokens** (`--page-bg`, `--card-bg`, `--nav-text`, `--accent`,
+  `--focus`, `--tab-bg`, `--yes`/`--no`, `--lift`/`--sink` for Reglamento's
+  chapter colours…), defined with both values in `tailwind.config.js` beside the
+  palette, for the hand-written CSS. A hex colour in a template's `<style>`
+  stays light in dark mode, and a `@media (prefers-color-scheme: dark)` block
+  ignores the button; use a token, or `darkRules` in the config.
 
 Dark values: page #0b1220, card #111827, border #1f2937, body text #e5e7eb,
 accent and focus ring #4ade80. Photos are dimmed slightly (`brightness(.92)`).
