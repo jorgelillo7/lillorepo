@@ -53,3 +53,10 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | 🔨 | Birthdays on the same list instead of one list per event: an admin "Ocasión" panel to edit the title and subtitle, pick a theme (colours and header icon) and hide a recipient, plus a "new occasion" action that releases unbought reservations and hides bought gifts; unbought gifts carry over by themselves. Limit: one occasion at a time | **Before 24/03** (first birthday after Christmas) · supersedes [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md), which gets rewritten to this |
 | 👤 | Filter the gifts on the list page | You: what to filter by (recipient, price, bought or not…) |
 | 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
+
+## be_water
+
+| | What is missing | Waiting on |
+|---|---|---|
+| 🔨 | Foreign waters recognised by the registry: parse the other 27 country tables of the EU list (each with its own place format), then a 🌍 tier and country chips | Ready · [parked-work](docs/technical/parked-work.md#be_water--foreign-waters-from-the-eu-registry) |
+| 🔨 | An optional second label photo, read for the origin only, when the composition photo does not show the address | Ready · [parked-work](docs/technical/parked-work.md#be_water--a-second-label-photo-for-the-origin) |
