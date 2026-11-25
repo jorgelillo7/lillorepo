@@ -117,6 +117,7 @@ Two families, clearly separated roles:
 
 - **Oswald** for the `LLOROS LEAGUE` logotype and high-impact section headings. Always weight 500 or 700, never lighter. Wide tracking (0.05em) on the main heading reinforces the sport character.
 - **Roboto** for all body text: messages, tables, forms, metadata. Readable at high information density.
+- Both are served from `static/fonts/` (latin subsets, variable weight, OFL beside them) and declared in `base.html`; a glyph outside the latin subset falls back to the system font.
 
 Never mix both families in the same text block.
 

@@ -96,7 +96,8 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
       data (`routes/main.py:99-105`).
     - Biwenger is indexable: decide on `noindex`.
 13. **Self-host fonts** (S each): wishlist, chucknorris_bot, then the two
-    Tailwind apps.
+    Tailwind apps. **Done** for Biwenger and be_water: latin woff2 subsets in
+    `static/fonts/` with their OFL, preloaded, `font-src 'self'`.
 14. **Shared headers in `core/web/headers.py`** (S), **done** in #777: `Permissions-Policy`,
     COOP, and a `__Host-` cookie name.
 15. **`color-scheme` declarations everywhere** (S), then `px` → `rem` in

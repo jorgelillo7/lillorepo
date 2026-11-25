@@ -25,8 +25,8 @@ template_dir = os.path.join(os.path.dirname(__file__), "templates")
 CSP = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "'nonce-{nonce}'"],
-    "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-    "font-src": ["'self'", "https://fonts.gstatic.com"],
+    "style-src": ["'self'", "'unsafe-inline'"],
+    "font-src": ["'self'"],
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://www.youtube.com", "https://www.youtube-nocookie.com"],
     "connect-src": ["'self'"],
