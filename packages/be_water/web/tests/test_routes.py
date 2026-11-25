@@ -3286,5 +3286,37 @@ def test_the_profile_shows_a_linked_nickname_as_protected(client):
         patch(f"{_REPO}.get_favorites", return_value=[]),
     ):
         body = client.get("/perfil").get_data(as_text=True)
-    assert "está vinculado a tu cuenta de Google" in body
+    assert "está vinculado a tu cuenta de Google (jorge@x.com)" in body
     assert "g_id_onload" not in body
+
+
+def test_the_link_offer_comes_before_the_favourites(client):
+    with client.session_transaction() as sess:
+        sess["nickname"] = "jorgelillo"
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_REPO}.get_favorites", return_value=[]),
+    ):
+        body = client.get("/perfil").get_data(as_text=True)
+    assert body.index("Protege tu nick") < body.index("Marca 2-3 aguas favoritas")
+
+
+def test_the_admin_table_shows_which_nicknames_are_linked(client):
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_APP}.config.ADMIN_EMAILS", {"admin@x.com"}),
+    ):
+        _google_login(client, "admin@x.com")
+        with (
+            patch(
+                f"{_REPO}.get_all_users",
+                return_value={
+                    "jorgelillo": {"google_email": "jorge@x.com", "favorites": []},
+                    "bea": {"favorites": []},
+                },
+            ),
+            patch(f"{_REPO}.get_all_waters", return_value=_catalog()),
+        ):
+            body = client.get("/admin").get_data(as_text=True)
+    assert "jorge@x.com" in body
+    assert body.count('title="Vinculado a Google"') == 1
