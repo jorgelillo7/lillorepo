@@ -1652,3 +1652,14 @@ def test_pages_are_gzipped_for_a_client_that_accepts_it(client):
         return re.sub(rb'nonce="[^"]+"', b'nonce=""', body)
 
     assert same(gzip.decompress(response.data)) == same(plain.data)
+
+
+def test_every_page_carries_the_theme_toggle_and_applies_a_pinned_scheme_early(client):
+    """The toggle pins a scheme through <meta name="color-scheme">; the script
+    that reads it back must sit right after that meta, before any paint."""
+    body = client.get("/reglamento").get_data(as_text=True)
+    meta = body.index('<meta name="color-scheme" content="light dark">')
+    early = body.index("localStorage.getItem('color-scheme')")
+    assert meta < early < body.index("</head>")
+    assert body.count("data-theme-toggle class=") == 2  # mobile bar and desktop nav
+    assert "Cambiar a modo oscuro" in body and "Cambiar a modo claro" in body

@@ -14,34 +14,20 @@
     .ch-red    { --ch: #e53e3e; --ch-soft: #fff5f5; }
     .ch-slate  { --ch: #718096; }
     .chapter-head { border-left: 4px solid var(--ch); }
-    .chapter-roman {
-        font-family: 'Oswald', sans-serif;
-        color: var(--ch);
-        background: var(--ch-soft);
-    }
-    .art-badge {
-        font-family: 'Oswald', sans-serif;
-        color: var(--ch);
-        background: var(--ch-soft);
-        letter-spacing: 0.04em;
+    .chapter-roman { font-family: 'Oswald', sans-serif; }
+    .art-badge { font-family: 'Oswald', sans-serif; letter-spacing: 0.04em; }
+    /* --lift and --sink are 0% in light, so these are the chapter colour and its
+       soft tint; in dark the text is lifted and the tint sunk into the card. */
+    .chapter-roman, .art-badge {
+        color: color-mix(in srgb, var(--ch), white var(--lift));
+        background: color-mix(in srgb, color-mix(in srgb, var(--ch) 22%, var(--card-bg)) var(--sink), var(--ch-soft));
     }
     .art + .art { border-top: 1px solid var(--rule); }
     .nav-tile:hover { border-color: var(--ch); }
-    .nav-tile:hover .nav-tile-roman { color: var(--ch); }
+    .nav-tile:hover .nav-tile-roman { color: color-mix(in srgb, var(--ch), white var(--lift)); }
     .stat-num { font-family: 'Oswald', sans-serif; line-height: 1; }
-    .rule-yes::before { content: '✓'; color: #38a169; font-weight: 700; margin-right: .5rem; }
-    .rule-no::before  { content: '✕'; color: #e53e3e; font-weight: 700; margin-right: .5rem; }
-    @media (prefers-color-scheme: dark) {
-        /* Chapter colours are set per element; on a dark page they are lifted
-           for text and sunk into the card for the badge backgrounds. */
-        .chapter-roman, .art-badge {
-            color: color-mix(in srgb, var(--ch) 65%, white);
-            background: color-mix(in srgb, var(--ch) 22%, var(--card-bg));
-        }
-        .nav-tile:hover .nav-tile-roman { color: color-mix(in srgb, var(--ch) 65%, white); }
-        .rule-yes::before { color: #4ade80; }
-        .rule-no::before { color: #f87171; }
-    }
+    .rule-yes::before { content: '✓'; color: var(--yes); font-weight: 700; margin-right: .5rem; }
+    .rule-no::before  { content: '✕'; color: var(--no); font-weight: 700; margin-right: .5rem; }
 </style>
 
 <div class="space-y-6">
