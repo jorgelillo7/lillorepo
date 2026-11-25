@@ -48,6 +48,10 @@
         /* --glass and --accent switch scheme in tailwind.config.js. */
         :root { accent-color: var(--accent); }
         .glass { backdrop-filter: blur(12px); background: var(--glass); }
+        /* Google's button is a light-only iframe wider than its icon; an iframe whose
+           colour scheme differs from the page's is painted opaque, so a dark page
+           showed a white box around the G. Matching it keeps the iframe clear. */
+        .g_id_signin { color-scheme: light; }
     </style>
     <!-- Last in <head> so Tailwind utilities win over the rules above at equal
          specificity. -->
