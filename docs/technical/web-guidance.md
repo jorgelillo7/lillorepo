@@ -131,7 +131,8 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   no longer a live region (a hidden status line reads the count); the admin photo
   buttons are `<button>`s; font sizes in `rem`; Fraunces self-hosted, with the CSP
   down to `'self'`; seed photos and the font cached immutable; `HEAD` on uploaded
-  photos. Open: photos have no `srcset`.
+  photos. `srcset` was dropped: Safari cannot encode WebP from a canvas, where
+  the photos are made, and phones already need near the stored size.
 - **household:**
   - `script-src 'unsafe-inline'` where a hash would do;
   - font sizes are in `px`;

@@ -155,6 +155,70 @@ form.addEventListener("submit", async (event) => {
 });
 
 dialog.addEventListener("close", () => showPreview(null));
+
+const occasionDialog = document.getElementById("occasionDialog");
+const occasionForm = document.getElementById("occasionForm");
+const occasionError = document.getElementById("occasionError");
+
+function openOccasion() {
+  occasionError.hidden = true;
+  document.getElementById("occasionTitle").value = list.title ?? "";
+  document.getElementById("occasionSubtitle").value = list.subtitle ?? "";
+  const theme = document.getElementById("occasionTheme");
+  theme.replaceChildren(...(list.themes ?? []).map((t) => el("option", { value: t.id }, t.label)));
+  theme.value = list.theme ?? "navidad";
+  const fieldset = document.getElementById("occasionRecipients");
+  fieldset.replaceChildren(
+    el("legend", {}, "Para quién"),
+    ...list.recipients.map((recipient, index) =>
+      el(
+        "div",
+        { class: "occasion-recipient", "data-id": recipient.id },
+        el("input", {
+          type: "text",
+          value: recipient.label,
+          maxlength: "40",
+          required: "",
+          autocomplete: "off",
+          "aria-label": `Nombre ${index + 1}`,
+        }),
+        el("label", {}, el("input", { type: "checkbox", ...(recipient.active ? { checked: "" } : {}) }), "Activo"),
+      ),
+    ),
+  );
+  occasionDialog.showModal();
+}
+
+occasionForm.addEventListener("submit", async (event) => {
+  if (event.submitter?.value !== "save") return;
+  event.preventDefault();
+  const recipients = [...document.querySelectorAll(".occasion-recipient")].map((row) => ({
+    id: row.dataset.id,
+    label: row.querySelector('input[type="text"]').value,
+    active: row.querySelector('input[type="checkbox"]').checked,
+  }));
+  const response = await post("/admin/api/occasion", {
+    title: document.getElementById("occasionTitle").value,
+    subtitle: document.getElementById("occasionSubtitle").value,
+    theme: document.getElementById("occasionTheme").value,
+    recipients,
+  });
+  if (!response.ok) {
+    occasionError.textContent = "No se ha podido guardar: revisa que el título y los nombres no estén vacíos.";
+    occasionError.hidden = false;
+    return;
+  }
+  occasionDialog.close();
+  await refresh();
+});
+
+document.getElementById("editOccasion").addEventListener("click", openOccasion);
+document.getElementById("hideAll").addEventListener("click", () =>
+  change("/admin/api/gift/hide-all", { hidden: true }, "¿Ocultar todos los regalos de la lista pública? Luego puedes mostrar uno a uno los que quieras."),
+);
+document.getElementById("showAll").addEventListener("click", () =>
+  change("/admin/api/gift/hide-all", { hidden: false }, "¿Mostrar todos los regalos en la lista pública?"),
+);
 document.getElementById("addGift").addEventListener("click", () => openForm(null));
 
 async function change(path, body, question) {
@@ -180,6 +244,12 @@ function button(label, kind, handler) {
   const node = el("button", { class: `button ${kind}`, type: "button" }, label);
   node.addEventListener("click", handler);
   return node;
+}
+
+function recipientName(id) {
+  const recipient = list.recipients.find((r) => r.id === id);
+  if (!recipient) return id;
+  return recipient.active === false ? `${recipient.label} (desactivado)` : recipient.label;
 }
 
 function render(state) {
@@ -219,7 +289,7 @@ function render(state) {
         "tr",
         {},
         el("td", {}, el("img", { class: "thumb", src: gift.photo, alt: "" }), gift.featured ? `★ ${gift.title}` : gift.title,
-          gift.for && el("span", { class: "when" }, ` · ${list.recipients.find((r) => r.id === gift.for)?.label ?? gift.for}`),
+          gift.for && el("span", { class: "when" }, ` · ${recipientName(gift.for)}`),
           gift.category && el("span", { class: "when" }, ` · ${list.categories.find((c) => c.id === gift.category)?.label ?? gift.category}`)),
         el("td", {}, status),
         el("td", {}, claim ? (claim.name ?? "Sin nombre") : ""),
@@ -229,7 +299,8 @@ function render(state) {
       );
     }),
   );
-  const shown = list.gifts.filter((gift) => !gift.hidden);
+  // What the public list shows: not hidden, and not for a switched-off recipient.
+  const shown = list.gifts.filter((gift) => !gift.hidden && list.recipients.find((r) => r.id === gift.for)?.active !== false);
   const live = state.filter((claim) => shown.some((gift) => gift.id === claim.id));
   const bought = live.filter((claim) => claim.boughtAt).length;
   document.getElementById("counts").textContent = [
@@ -237,13 +308,14 @@ function render(state) {
     plural(shown.length - live.length, "libre", "libres"),
     plural(live.length - bought, "reservado", "reservados"),
     plural(bought, "comprado", "comprados"),
-    ...(list.gifts.length > shown.length ? [plural(list.gifts.length - shown.length, "oculto", "ocultos")] : []),
+    ...(list.gifts.length > shown.length ? [plural(list.gifts.length - shown.length, "sin publicar", "sin publicar")] : []),
   ].join(" · ");
 }
 
 async function refresh() {
   try {
     [list, state] = await Promise.all([getJSON("/admin/api/gifts"), getJSON("/admin/api/state")]);
+    document.documentElement.dataset.theme = list.theme ?? "navidad";
     render(state);
   } catch {
     showError("No se ha podido cargar el estado. Recarga la página.");

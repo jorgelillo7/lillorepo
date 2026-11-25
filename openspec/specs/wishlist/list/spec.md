@@ -64,6 +64,41 @@ SHALL NOT be released by its claimer.
 - **THEN** the cookie is HttpOnly, Secure, SameSite=Strict, scoped to `/api` and lasts more than 300 days
 - *Verifies:* `worker.test.ts: the token cookie is HttpOnly, scoped to the API and outlives Safari's 7 days`
 
+### Requirement: One list serves every occasion
+
+The owner SHALL be able, from `/admin`, to change the current event's title, subtitle
+and look (`navidad`, `cumpleanos`, `neutro`), and to rename each recipient or switch it
+off. The public list SHALL carry the look and only the active recipients, and SHALL
+leave out, and refuse to reserve, the gifts of a switched-off one; `/admin` SHALL keep
+showing them. An unknown look, a recipient that is not the event's, an empty name or an
+empty title SHALL be refused with nothing changed. The owner SHALL be able to hide, or
+show, every gift at once.
+
+Birthdays and the next Christmas reuse the same list rather than a list per event: the
+gifts that carry over stay, the ones that do not are hidden, and a recipient whose
+occasion it is not is switched off rather than deleted.
+
+#### Scenario: a new occasion
+- **WHEN** the owner sets «Cumpleaños de Leo», the birthday look and renames a recipient
+- **THEN** the public list carries the new title, subtitle, look and name
+- *Verifies:* `gifts.test.ts: renaming it, picking its look and renaming a recipient reach the public list`
+
+#### Scenario: a recipient switched off
+- **WHEN** a recipient is switched off
+- **THEN** they and their gifts leave the public list, their gifts cannot be reserved,
+  and `/admin` still shows them; switched on again, they come back
+- *Verifies:* `gifts.test.ts: a switched-off recipient leaves the public list with their gifts, which cannot be reserved`
+
+#### Scenario: bad input
+- **WHEN** the look, a recipient, a name or the title is not valid
+- **THEN** the request is refused and the public list is unchanged
+- *Verifies:* `gifts.test.ts: an unknown look, an unknown recipient or an empty title is refused and changes nothing`
+
+#### Scenario: hide everything, then pick
+- **WHEN** the owner hides every gift and then shows one
+- **THEN** the public list holds only that one, and showing every gift brings all back
+- *Verifies:* `gifts.test.ts: every gift can be hidden at once, then shown one by one`
+
 ### Requirement: Names are optional and private
 
 The name SHALL be optional, with spaces collapsed and at most 40 characters. The

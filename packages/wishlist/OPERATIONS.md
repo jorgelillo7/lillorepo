@@ -21,20 +21,12 @@ them does not change the site. After editing `gifts.json` for the repo's own sak
 
 ## A new occasion
 
-There is no admin screen for events yet. Add the event and its recipients in D1 and
-switch `current`; the public list shows one event, and the old event's rows stay:
-
-```bash
-W=deploy/node_modules/.bin/wrangler
-$W d1 execute wishlist --remote --command "UPDATE events SET current = 0; \
-  INSERT INTO events (slug, title, subtitle, current) VALUES ('cumple-2027', 'Cumpleaños', NULL, 1); \
-  INSERT INTO recipients (event, id, label, position) VALUES ('cumple-2027', 'older', 'Hermano mayor', 0)"
-```
-
-Per-event URLs and an admin screen are proposed in
-`openspec/changes/wishlist-events/proposal.md`.
-Claims belong to a gift, so a new event's gifts start free as long as their ids are new
-(ids come from the title; the admin appends `-2` when one repeats).
+One list serves every occasion. In `/admin`, **Ocasión** changes the title, the
+subtitle, the look (Navidad, Cumpleaños, Neutro) and the recipients: rename them, or
+switch one off, which takes them and their gifts off the public list without deleting
+anything. **Ocultar todos** hides every gift at once; then show, one by one, the ones
+the new occasion needs. Claims belong to a gift, so a gift kept from the last occasion
+keeps its reservation; release it from the table if it should start free.
 
 ## Fix a claim
 
