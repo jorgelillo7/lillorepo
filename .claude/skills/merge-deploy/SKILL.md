@@ -1,5 +1,5 @@
 ---
-name: ship
+name: merge-deploy
 description: Merge a PR and prove it reached production — checks the pushed head matches local, refuses stacked branches, watches the deploy, and confirms the Cloud Run revisions are serving. Use when a PR is green and ready to merge.
 model-invocable: false
 allowed-tools:

@@ -113,9 +113,9 @@ Rationale:
 
 For quick fixes or documentation-only changes, use a short-lived branch + immediate PR merge once checks are green.
 
-### Merging and shipping: the `ship` skill
+### Merging and shipping: the `merge-deploy` skill
 
-Every merge goes through `.claude/skills/ship/SKILL.md`. It holds the three
+Every merge goes through `.claude/skills/merge-deploy/SKILL.md`. It holds the three
 traps that each cost a broken `master` or a lost PR once: merge only the head
 that GitHub checked (`git rev-parse HEAD` = `origin/<branch>`); never merge a
 base with `--delete-branch` while a PR is stacked on it (branch off `master`
