@@ -124,7 +124,7 @@ fi
 # --- Hint -----------------------------------------------------------------
 section "🎯 Next"
 cat <<'EOF'
-Compare these numbers with packages/my_photos/README.md (Capacity):
+Compare these numbers with packages/my_photos/README.md (The design):
   - iCloud usage against the plan -> whether 2 TB holds the history too
   - external drives -> the old disk and the 5 TB copy, with their event folders
 
