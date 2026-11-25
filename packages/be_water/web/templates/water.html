@@ -164,7 +164,7 @@
                         {% set top = mineral_scale.get(field) or val %}
                         <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
                             <div class="h-full rounded-full bg-gradient-to-r from-sky-400 to-cyan-400"
-                                 style="width: {{ [100, (val / top * 100) | round(1)] | min }}%"></div>
+                                 data-pct="{{ [100, (val / top * 100) | round(1)] | min }}"></div>
                         </div>
                         {% endif %}
                     </dd>

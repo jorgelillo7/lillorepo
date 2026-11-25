@@ -87,9 +87,13 @@ would still refuse to run it.
   element), dispatched by one script in `base.html`; `data-confirm` replaces
   `onsubmit="return confirm(...)"`. JSON-LD blocks need no nonce: they are
   data, not code.
-- **Styles keep `'unsafe-inline'`.** Tailwind is compiled at build time in
-  both webs (`tools/bazel/tailwind.bzl`), but their templates still carry
-  `style` attributes and `<style>` blocks. Removing those is in `PENDING.md`.
+- **Styles follow the same rule.** Every `<style>` block carries the nonce;
+  `style="…"` attributes are not allowed at all, so a value computed per row
+  (a bar's width) travels as `data-pct` and one script in `base.html` sets it
+  through the CSSOM, which the CSP does not restrict. The offline page is a
+  static file with no nonce: `style_hashes()` (`core/web/headers.py`) allows its
+  `<style>` by hash. Tailwind is compiled at build time
+  (`tools/bazel/tailwind.bzl`), so nothing generates styles in the browser.
 - **Violations are reported.** The browser posts what it blocks to
   `/csp-report`, logged as a `WARNING` (`CSP blocked a source.`, with the URL,
   directive and page). A new external source — a font, an embed, an image

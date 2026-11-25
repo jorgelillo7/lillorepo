@@ -1,6 +1,10 @@
 """Baseline security headers for the public Flask apps, and their CSP."""
 
+import base64
+import hashlib
+import re
 import secrets
+from pathlib import Path
 
 from flask import Flask, Response, g, request
 
@@ -32,6 +36,22 @@ def csp_nonce() -> str:
     if "csp_nonce" not in g:
         g.csp_nonce = secrets.token_urlsafe(18)
     return g.csp_nonce
+
+
+def style_hashes(html_file: str | Path) -> list[str]:
+    """CSP sources (`'sha256-…'`) for every <style> block in a static HTML file.
+
+    For pages served as files, such as the offline page a service worker
+    caches, which cannot carry a per-request nonce.
+    """
+    html = Path(html_file).read_text(encoding="utf-8")
+    blocks = re.findall(r"<style[^>]*>(.*?)</style>", html, flags=re.S)
+    return [
+        "'sha256-"
+        + base64.b64encode(hashlib.sha256(b.encode()).digest()).decode()
+        + "'"
+        for b in blocks
+    ]
 
 
 def _policy_header(policy: dict[str, list[str]]) -> str:

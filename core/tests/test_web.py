@@ -1,13 +1,15 @@
 """core.web — CSRF helpers, the in-process rate limiter and versioned static URLs."""
 
+import base64
 import gzip
+import hashlib
 import time
 
 from flask import Flask, session, url_for
 
 from core.web.compress import compress_responses
 from core.web.csrf import get_csrf_token, verify_csrf_token
-from core.web.headers import add_security_headers, harden_session_cookie
+from core.web.headers import add_security_headers, harden_session_cookie, style_hashes
 from core.web.ratelimit import RateLimiter, client_ip
 from core.web.static import IMMUTABLE, version_static_urls
 
@@ -271,3 +273,19 @@ def test_a_secure_session_cookie_takes_the_host_prefix_and_plain_http_does_not()
     local.config["SESSION_COOKIE_SECURE"] = False
     harden_session_cookie(local)
     assert local.config["SESSION_COOKIE_NAME"] == "session"
+
+
+def test_style_hashes_cover_each_style_block_of_a_static_page(tmp_path):
+    page = tmp_path / "offline.html"
+    page.write_text(
+        '<style>body{color:red}</style><p>x</p><style media="print">p{}</style>'
+    )
+    # sha256 of the exact text between the tags, base64, as browsers compute it.
+    assert style_hashes(page) == [
+        "'sha256-FcQqt3aNlV7AZnGV4zkQRVeCeJOxbMPnQSx258L803E='",
+        "'sha256-" + _b64_sha256(b"p{}") + "'",
+    ]
+
+
+def _b64_sha256(data: bytes) -> str:
+    return base64.b64encode(hashlib.sha256(data).digest()).decode()

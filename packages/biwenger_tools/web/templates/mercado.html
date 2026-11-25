@@ -147,7 +147,7 @@
     {% endif %}
 </div>
 
-<style>
+<style nonce="{{ csp_nonce() }}">
     .tabla-mode-btn { background-color: var(--tab-bg); color: var(--tab-text); }
     .tabla-mode-btn.active-tabla { background-color: var(--accent); color: white; }
 </style>
