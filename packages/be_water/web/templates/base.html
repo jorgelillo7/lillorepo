@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Be Water — encuentra tu agua{% endblock %}</title>
     <meta name="description" content="{{ meta_description | default('Catálogo abierto de aguas minerales españolas: composición, procedencia y recomendaciones.') }}">
-    <meta name="theme-color" content="#0ea5e9">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
     <meta name="apple-mobile-web-app-title" content="Be Water">
@@ -32,7 +34,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
-        .glass { backdrop-filter: blur(12px); background: rgba(255,255,255,.82); }
+        :root { --glass: rgba(255,255,255,.82); accent-color: #0369a1; }
+        @media (prefers-color-scheme: dark) {
+            :root { --glass: rgba(2,6,23,.78); accent-color: #38bdf8; }
+            /* Bottle photos are shot on white; dim them so they do not glare. */
+            img:not([src$=".svg"]) { filter: brightness(.9); }
+        }
+        .glass { backdrop-filter: blur(12px); background: var(--glass); }
     </style>
     <!-- Last in <head> so Tailwind utilities win over the rules above at equal
          specificity. -->

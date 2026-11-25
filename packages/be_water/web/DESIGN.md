@@ -106,6 +106,18 @@ so the config safelists every shape the templates use for every tone. A new
 tone, or a new `…-{{ tone }}-…` shape, goes in `TONES` or `TONE_SHAPES` there,
 or it renders unstyled.
 
+### Dark mode
+
+The site follows the system setting (`prefers-color-scheme`); there is no
+toggle. Every palette colour the templates use reads a CSS variable
+(`tools/bazel/tailwind_dark_palette.js`, configured in `tailwind.config.js`):
+tinted backgrounds go deep and text goes light, slate has a hand-tuned ramp
+(page `slate-50` → #020617, cards `white` → #0f172a), and tone gradients become
+dark tints of the same hue. Write plain classes, no `dark:` variants. A colour
+that must not flip — the photo viewer over its dark backdrop — is written as
+an arbitrary value (`text-[#fff]`). The nav glass and `accent-color` switch in
+`base.html`; photos are dimmed slightly (`brightness(.9)`).
+
 ## Typography
 
 **Inter only**, weights 400/500/600/800. Hierarchy comes from weight and

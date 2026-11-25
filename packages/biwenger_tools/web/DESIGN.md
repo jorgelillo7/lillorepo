@@ -98,7 +98,8 @@ This is not a commercial product — it's a private league intranet. The design 
 The web follows the system setting (`prefers-color-scheme`); there is no
 toggle. Two layers carry it, and a new colour must go through one of them:
 
-- **Tailwind classes** read CSS variables (`tailwind.config.js`): each palette
+- **Tailwind classes** read CSS variables (`tools/bazel/tailwind_dark_palette.js`,
+  configured in `tailwind.config.js`): each palette
   shade swaps to the shade that plays its role on a dark page — tinted
   backgrounds go deep, text goes light. Grey has its own ramp, and `white`
   becomes the card surface (#111827), so `bg-green-700 text-white` turns into

@@ -30,3 +30,5 @@ alias(
     ),
     visibility = ["//visibility:public"],
 )
+
+exports_files(["tailwind_dark_palette.js"])

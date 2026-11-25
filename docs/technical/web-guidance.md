@@ -121,8 +121,9 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   names kept for screen readers, "Entrar" fitting at 320 px, no "?" in the
   meta description, the photo viewer as a `<dialog>` with the bottle as a
   button, `motion-safe:animate-bounce`, card titles as `<h2>` on the
-  catalogue, and `aria-pressed` on the filters. Open: the Tailwind build
-  (item 8).
+  catalogue, and `aria-pressed` on the filters. Tailwind is compiled at build
+  time and the site follows the system's dark mode (`DESIGN.md` § Dark mode).
+  Open: `'unsafe-inline'` in `style-src`.
 - **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.
 - **wishlist:** closest to the guidance. Fixed: the first photos load eagerly and
   the first with `fetchpriority="high"`; `--muted` is 4.9:1 on the page; the grid is
