@@ -77,4 +77,22 @@
         ¿De viaje? <a href="{{ url_for('recommend') }}" class="text-sky-600 hover:underline font-semibold">📍 Busca tu agua por zona</a>
     </p>
 {% endif %}
+
+{% if nickname and google_client_id %}
+<section class="max-w-md mx-auto mt-10 bg-white rounded-2xl ring-1 ring-slate-200 p-6 text-center">
+    {% if google_email %}
+    <p class="font-semibold text-slate-900">🔒 «{{ nickname }}» está vinculado a tu cuenta de Google</p>
+    <p class="mt-1 text-sm text-slate-500">{{ google_email }} · solo se puede entrar como «{{ nickname }}» con ella.</p>
+    {% else %}
+    <h2 class="font-bold text-slate-900">🔒 Protege tu nick</h2>
+    <p class="mt-1 mb-4 text-sm text-slate-500">
+        Ahora cualquiera puede entrar como «{{ nickname }}» escribiéndolo. Vincúlalo a tu
+        cuenta de Google y solo podrás entrar tú, con ella. Tus favoritas y aportaciones siguen aquí.
+    </p>
+    <div class="flex justify-center">
+        {% with gsi_type = "standard" %}{% include "_google_signin.html" %}{% endwith %}
+    </div>
+    {% endif %}
+</section>
+{% endif %}
 {% endblock %}

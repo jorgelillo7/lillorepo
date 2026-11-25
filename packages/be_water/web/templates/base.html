@@ -108,13 +108,7 @@
                     <button class="px-3 py-1.5 rounded-full bg-sky-700 hover:bg-sky-800 text-white font-semibold text-sm transition">Entrar</button>
                 </form>
                 {% if google_client_id %}
-                <script nonce="{{ csp_nonce() }}" src="https://accounts.google.com/gsi/client" async></script>
-                <div id="g_id_onload"
-                     data-client_id="{{ google_client_id }}"
-                     data-login_uri="{{ url_for('google_login', _external=True) }}"
-                     data-auto_prompt="false"></div>
-                <div class="g_id_signin" data-type="icon" data-shape="circle" data-size="medium"
-                     title="Entrar con Google"></div>
+                {% with gsi_type = "icon" %}{% include "_google_signin.html" %}{% endwith %}
                 {% endif %}
                 </div>
             {% endif %}

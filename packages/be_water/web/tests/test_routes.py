@@ -3263,3 +3263,28 @@ def test_the_refusal_says_to_use_google(client):
         client.post("/login", data={"nickname": "jorgelillo"})
         body = client.get("/acerca").get_data(as_text=True)
     assert "«jorgelillo» está vinculado a una cuenta de Google" in body
+
+
+def test_the_profile_offers_to_link_an_unlinked_nickname(client):
+    with client.session_transaction() as sess:
+        sess["nickname"] = "jorgelillo"
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_REPO}.get_favorites", return_value=[]),
+    ):
+        body = client.get("/perfil").get_data(as_text=True)
+    assert "Protege tu nick" in body
+    assert 'data-type="standard"' in body and "g_id_onload" in body
+
+
+def test_the_profile_shows_a_linked_nickname_as_protected(client):
+    with client.session_transaction() as sess:
+        sess["nickname"] = "jorgelillo"
+        sess["google_email"] = "jorge@x.com"
+    with (
+        patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"),
+        patch(f"{_REPO}.get_favorites", return_value=[]),
+    ):
+        body = client.get("/perfil").get_data(as_text=True)
+    assert "está vinculado a tu cuenta de Google" in body
+    assert "g_id_onload" not in body

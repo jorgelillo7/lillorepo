@@ -63,6 +63,16 @@ working exactly as before, so nobody is forced through Google.
 - *Verifies:* `test_a_linked_nickname_cannot_be_typed`,
   `test_the_refusal_says_to_use_google`
 
+#### Scenario: the profile is where a nickname gets linked
+The Google button in the nav is only there signed out, so a signed-in nickname
+needs a way in to link itself.
+- **WHEN** a signed-in, unlinked nickname opens `/perfil` with Sign-In
+  configured **THEN** a "Protege tu nick" block offers the Google button
+- **WHEN** the session carries a Google email **THEN** the block says the
+  nickname is linked, and offers no button
+- *Verifies:* `test_the_profile_offers_to_link_an_unlinked_nickname`,
+  `test_the_profile_shows_a_linked_nickname_as_protected`
+
 ### Requirement: Google Sign-In does not exist until it is configured
 
 `/auth/google` and `/admin` SHALL answer **404** while `GOOGLE_CLIENT_ID` is
