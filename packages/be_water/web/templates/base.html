@@ -56,11 +56,11 @@
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
 <nav class="glass sticky top-0 z-40 border-b border-slate-200/60">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+    <div class="max-w-6xl mx-auto px-4 min-h-14 py-2 sm:py-0 flex items-center justify-between gap-3">
         <a href="{{ url_for('index') }}" class="flex items-center gap-2 font-extrabold text-lg tracking-tight text-slate-900 shrink-0">
             <span class="text-xl" aria-hidden="true">💧</span> <span class="max-[419px]:sr-only">Be Water</span>
         </a>
-        <div class="flex items-center gap-2 sm:gap-4 text-sm">
+        <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:gap-x-4 text-sm">
             <button type="button" data-theme-toggle class="p-1 rounded-full text-slate-500 hover:text-sky-600 transition flex items-center">
                 <span class="theme-to-dark items-center">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -93,6 +93,9 @@
                     <button class="text-slate-500 hover:text-slate-700 transition" title="Salir" aria-label="Salir">⏻</button>
                 </form>
             {% else %}
+                {# On phones the sign-in controls take a row of their own: with Google's
+                   button beside them, one row does not fit under 640 px. #}
+                <div class="basis-full sm:basis-auto flex items-center justify-end gap-2 sm:gap-4">
                 <form method="post" action="{{ url_for('login') }}" class="flex items-center gap-1.5">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input name="nickname" placeholder="tu nick" aria-label="Tu nick" required minlength="2" maxlength="20"
@@ -109,6 +112,7 @@
                 <div class="g_id_signin" data-type="icon" data-shape="circle" data-size="medium"
                      title="Entrar con Google"></div>
                 {% endif %}
+                </div>
             {% endif %}
         </div>
     </div>
