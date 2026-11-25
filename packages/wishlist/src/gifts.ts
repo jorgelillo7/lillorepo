@@ -25,6 +25,16 @@ export const CATEGORIES = [
   { id: "casa", label: "Casa y bebé" },
 ] as const;
 
+/** The looks an occasion can take: colours and the header's icon (web/app.css). */
+export const THEMES = [
+  { id: "navidad", label: "Navidad" },
+  { id: "cumpleanos", label: "Cumpleaños" },
+  { id: "neutro", label: "Neutro" },
+] as const;
+export const OCCASION_TITLE_LIMIT = 80;
+export const OCCASION_SUBTITLE_LIMIT = 120;
+export const RECIPIENT_LIMIT = 40;
+
 interface GiftRow {
   id: string;
   recipient: string | null;
@@ -41,12 +51,19 @@ interface EventRow {
   slug: string;
   title: string;
   subtitle: string | null;
+  theme: string;
 }
 
 interface Recipient {
   id: string;
   label: string;
+  active: number;
 }
+
+/** A gift the public sees: not hidden, and for nobody or for an active recipient. */
+const VISIBLE =
+  "hidden = 0 AND (recipient IS NULL OR recipient IN " +
+  "(SELECT id FROM recipients WHERE recipients.event = gifts.event AND active = 1))";
 
 const rows = async <T>(env: Env, sql: string, ...values: unknown[]): Promise<T[]> =>
   (await env.DB.prepare(sql).bind(...values).all<T>()).results;
@@ -71,28 +88,32 @@ export function slugify(title: string): string {
 }
 
 async function currentEvent(env: Env): Promise<EventRow | null> {
-  return (await rows<EventRow>(env, "SELECT slug, title, subtitle FROM events WHERE current = 1 LIMIT 1"))[0] ?? null;
+  return (
+    (await rows<EventRow>(env, "SELECT slug, title, subtitle, theme FROM events WHERE current = 1 LIMIT 1"))[0] ?? null
+  );
 }
 
 async function listOf(env: Env, withHidden: boolean): Promise<Response> {
   const event = await currentEvent(env);
-  if (!event) return json({ title: "Regalos", recipients: [], categories: CATEGORIES, gifts: [] });
+  if (!event) return json({ title: "Regalos", theme: "navidad", recipients: [], categories: CATEGORIES, gifts: [] });
   const recipients = await rows<Recipient>(
     env,
-    "SELECT id, label FROM recipients WHERE event = ? ORDER BY position",
+    `SELECT id, label, active FROM recipients WHERE event = ? ${withHidden ? "" : "AND active = 1"} ORDER BY position`,
     event.slug,
   );
   const gifts = await rows<GiftRow>(
     env,
     "SELECT id, recipient, category, title, detail, note, photo, hidden, featured FROM gifts " +
-      `WHERE event = ? ${withHidden ? "" : "AND hidden = 0"} ORDER BY featured DESC, position, created_at`,
+      `WHERE event = ? ${withHidden ? "" : `AND ${VISIBLE}`} ORDER BY featured DESC, position, created_at`,
     event.slug,
   );
   return json({
     title: event.title,
     subtitle: event.subtitle,
-    recipients,
+    theme: event.theme,
+    recipients: recipients.map((r) => (withHidden ? { id: r.id, label: r.label, active: r.active === 1 } : { id: r.id, label: r.label })),
     categories: CATEGORIES,
+    ...(withHidden ? { themes: THEMES } : {}),
     gifts: gifts.map((gift) => ({
       id: gift.id,
       for: gift.recipient,
@@ -116,7 +137,7 @@ export const adminList = (env: Env) => listOf(env, true);
 export async function giftExists(env: Env, id: string, anyway: boolean): Promise<boolean> {
   const found = await rows<{ id: string }>(
     env,
-    `SELECT id FROM gifts WHERE id = ? ${anyway ? "" : "AND hidden = 0"}`,
+    `SELECT id FROM gifts WHERE id = ? ${anyway ? "" : `AND ${VISIBLE}`}`,
     id,
   );
   return found.length > 0;
@@ -292,4 +313,46 @@ export async function deleteGift(body: Fields, env: Env): Promise<Response> {
   if (upload) statements.push(env.DB.prepare("DELETE FROM photos WHERE id = ?").bind(upload));
   await env.DB.batch(statements);
   return json({ ok: true });
+}
+
+/**
+ * Rename the occasion, pick its look, and rename or switch recipients on and off.
+ * Every recipient sent must be one of the current event's; ones not sent are left alone.
+ */
+export async function editOccasion(body: Fields, env: Env): Promise<Response> {
+  const event = await currentEvent(env);
+  const title = cleanText(body.title, OCCASION_TITLE_LIMIT);
+  if (!event || !title) return json({ error: "title" }, 400);
+  if (!THEMES.some((theme) => theme.id === body.theme)) return json({ error: "theme" }, 400);
+  const sent = Array.isArray(body.recipients) ? body.recipients : [];
+  const known = new Set((await rows<{ id: string }>(env, "SELECT id FROM recipients WHERE event = ?", event.slug)).map((r) => r.id));
+  const updates = [];
+  for (const recipient of sent) {
+    const { id, label, active } = (recipient ?? {}) as Fields;
+    const clean = cleanText(label, RECIPIENT_LIMIT);
+    if (typeof id !== "string" || !known.has(id) || !clean || typeof active !== "boolean") {
+      return json({ error: "recipient" }, 400);
+    }
+    updates.push(
+      env.DB.prepare("UPDATE recipients SET label = ?, active = ? WHERE event = ? AND id = ?").bind(clean, active ? 1 : 0, event.slug, id),
+    );
+  }
+  await env.DB.batch([
+    env.DB.prepare("UPDATE events SET title = ?, subtitle = ?, theme = ? WHERE slug = ?").bind(
+      title,
+      cleanText(body.subtitle, OCCASION_SUBTITLE_LIMIT),
+      body.theme,
+      event.slug,
+    ),
+    ...updates,
+  ]);
+  return json({ ok: true });
+}
+
+/** Hide, or show, every gift of the current event at once. */
+export async function hideAllGifts(body: Fields, env: Env): Promise<Response> {
+  const event = await currentEvent(env);
+  if (!event || typeof body.hidden !== "boolean") return json({ error: "hidden" }, 400);
+  const { meta } = await env.DB.prepare("UPDATE gifts SET hidden = ? WHERE event = ?").bind(body.hidden ? 1 : 0, event.slug).run();
+  return json({ ok: true, changed: meta.changes });
 }

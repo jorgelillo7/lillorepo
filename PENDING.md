@@ -50,9 +50,6 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
-| 🔨 | Birthdays on the same list instead of one list per event: an admin "Ocasión" panel to edit the title and subtitle, pick a theme (colours and header icon) and hide a recipient, plus a "new occasion" action that releases unbought reservations and hides bought gifts; unbought gifts carry over by themselves. Limit: one occasion at a time | **Before 24/03** (first birthday after Christmas) · supersedes [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md), which gets rewritten to this |
-| 👤 | Filter the gifts on the list page | You: what to filter by (recipient, price, bought or not…) |
-| 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## be_water
 

@@ -265,3 +265,78 @@ describe("editing, hiding and deleting", () => {
     expect(state).toEqual([{ id: "lobito-book", name: "Ana", reservedAt: "now", boughtAt: null }]);
   });
 });
+
+describe("the occasion", () => {
+  const reserve = (id: string) =>
+    worker.fetch(
+      new Request(ORIGIN + "/api/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: ORIGIN },
+        body: JSON.stringify({ id }),
+      }),
+      env,
+    );
+  const recipients = async () => (await (await admin("/admin/api/gifts")).json()).recipients;
+
+  test("renaming it, picking its look and renaming a recipient reach the public list", async () => {
+    const response = await admin("/admin/api/occasion", {
+      title: "Cumpleaños de Leo",
+      subtitle: "4 años",
+      theme: "cumpleanos",
+      recipients: [{ id: "older", label: "Leo", active: true }],
+    });
+    expect(response.status).toBe(200);
+    const list = await publicList();
+    expect([list.title, list.subtitle, list.theme]).toEqual(["Cumpleaños de Leo", "4 años", "cumpleanos"]);
+    expect(list.recipients.find((r: { id: string }) => r.id === "older").label).toBe("Leo");
+  });
+
+  test("a switched-off recipient leaves the public list with their gifts, which cannot be reserved", async () => {
+    const all = await recipients();
+    expect(all.every((r: { active: boolean }) => r.active)).toBe(true);
+    const theirs = await addGift({ title: "Tren de madera", recipient: "younger" });
+    expect(
+      (
+        await admin("/admin/api/occasion", {
+          title: "Cumpleaños",
+          theme: "cumpleanos",
+          recipients: [{ id: "younger", label: "Hermano pequeño", active: false }],
+        })
+      ).status,
+    ).toBe(200);
+    const list = await publicList();
+    expect(list.recipients.map((r: { id: string }) => r.id)).toEqual(["older"]);
+    expect(list.gifts.some((g: { for: string }) => g.for === "younger")).toBe(false);
+    expect((await reserve(theirs.id)).status).toBe(400);
+    // Still in /admin, switched off, and back on the list once switched on again.
+    expect((await recipients()).find((r: { id: string }) => r.id === "younger").active).toBe(false);
+    await admin("/admin/api/occasion", {
+      title: "Cumpleaños",
+      theme: "cumpleanos",
+      recipients: [{ id: "younger", label: "Hermano pequeño", active: true }],
+    });
+    expect((await publicList()).gifts.some((g: { for: string }) => g.for === "younger")).toBe(true);
+  });
+
+  test("an unknown look, an unknown recipient or an empty title is refused and changes nothing", async () => {
+    const before = await publicList();
+    for (const body of [
+      { title: "X", theme: "halloween" },
+      { title: "X", theme: "neutro", recipients: [{ id: "cousin", label: "Primo", active: true }] },
+      { title: "X", theme: "neutro", recipients: [{ id: "older", label: "  ", active: true }] },
+      { title: "", theme: "neutro" },
+    ]) {
+      expect((await admin("/admin/api/occasion", body)).status).toBe(400);
+    }
+    expect(await publicList()).toEqual(before);
+  });
+
+  test("every gift can be hidden at once, then shown one by one", async () => {
+    expect((await admin("/admin/api/gift/hide-all", { hidden: true })).status).toBe(200);
+    expect((await publicList()).gifts).toEqual([]);
+    expect((await admin("/admin/api/gift/hide", { id: "whirly-derby", hidden: false })).status).toBe(200);
+    expect((await publicList()).gifts.map((g: { id: string }) => g.id)).toEqual(["whirly-derby"]);
+    expect((await admin("/admin/api/gift/hide-all", { hidden: false })).status).toBe(200);
+    expect((await publicList()).gifts.length).toBe(count("SELECT COUNT(*) AS n FROM gifts"));
+  });
+});

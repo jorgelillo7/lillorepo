@@ -45,6 +45,18 @@
   }
 }
 
+/* The occasion's look (/admin → Ocasión): Navidad is the default above; the others
+   swap the accent, which every highlight on both pages reads. */
+:root[data-theme="cumpleanos"] { --red: #6d3fb3; --red-ink: #ffffff; --fav-soft: rgba(109, 63, 179, 0.10); }
+:root[data-theme="neutro"] { --red: #1f6f8b; --red-ink: #ffffff; --fav-soft: rgba(31, 111, 139, 0.10); }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="cumpleanos"] { --red: #b493e8; --red-ink: #1b1029; --fav-soft: rgba(180, 147, 232, 0.16); }
+  :root[data-theme="neutro"] { --red: #6fbfdc; --red-ink: #0b1d24; --fav-soft: rgba(111, 191, 220, 0.16); }
+}
+.icon-cumpleanos, .icon-neutro { display: none; }
+:root[data-theme="cumpleanos"] .icon-navidad, :root[data-theme="neutro"] .icon-navidad { display: none; }
+:root[data-theme="cumpleanos"] .icon-cumpleanos, :root[data-theme="neutro"] .icon-neutro { display: inline; }
+
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
@@ -84,7 +96,7 @@ h2 { font-family: var(--display); font-weight: 600; font-size: 1.5rem; margin: 0
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .chip { font: inherit; font-size: 0.8438rem; font-weight: 600; color: var(--ink-2); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; min-height: 34px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--muted)); }
-.chip[data-state="libres"] { --dot: var(--red); --tint: rgba(179, 38, 30, 0.10); }
+.chip[data-state="libres"] { --dot: var(--red); --tint: var(--fav-soft); }
 .chip[data-state="reservados"] { --dot: var(--amber); --tint: var(--amber-soft); }
 .chip[data-state="comprados"] { --dot: var(--green); --tint: var(--green-soft); }
 .chip[aria-pressed="true"] { color: var(--ink); background: var(--tint, var(--line)); border-color: var(--dot, var(--ink-2)); }
@@ -148,4 +160,10 @@ table.admin .button { min-height: 36px; padding: 6px 10px; font-size: 0.8125rem;
 .preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; background: var(--page); }
 .pick { display: flex; gap: 8px; }
 .pick .button { flex: 1; display: inline-flex; align-items: center; justify-content: center; text-align: center; }
-.toolbar { margin: 0 0 14px; }
+.toolbar { margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+
+.occasion-recipient { display: flex; align-items: center; gap: 10px; }
+.occasion-recipient input[type="text"] { flex: 1; }
+.occasion-recipient label { font-weight: 400; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.occasion-recipients { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.occasion-recipients legend { font-weight: 600; font-size: 0.875rem; padding: 0; margin-bottom: 4px; }

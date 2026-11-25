@@ -23,6 +23,11 @@ Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page t
   (`/api/list`). `gifts.json` and `photos/` are only the first Christmas list, imported
   once by `migrations/0003_seed_gifts.sql`; editing them changes nothing on the site.
   Each gift belongs to an event, and the one marked current is shown.
+- **One list for every occasion.** `/admin` → **Ocasión** sets the title, subtitle and
+  look (Navidad, Cumpleaños or Neutro: the accent colour and the header's icon) and
+  renames or switches off recipients; a switched-off one leaves the public list with
+  their gifts. **Ocultar todos** hides every gift at once, to start an occasion and
+  show only what it needs.
 - **Recipients are labels, not names** ("Hermano mayor", "Hermano pequeño"), stored per
   event and referenced by each gift.
 - **Only the browser that reserved a gift can change it.** It gets a random token in

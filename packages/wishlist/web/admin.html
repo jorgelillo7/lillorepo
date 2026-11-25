@@ -24,7 +24,12 @@
     <p class="counts" id="counts"></p>
   </header>
   <p class="error" id="error" role="alert" hidden></p>
-  <p class="toolbar"><button class="button primary" type="button" id="addGift">Añadir regalo</button></p>
+  <p class="toolbar">
+    <button class="button primary" type="button" id="addGift">Añadir regalo</button>
+    <button class="button secondary" type="button" id="editOccasion">Ocasión</button>
+    <button class="button ghost" type="button" id="hideAll">Ocultar todos</button>
+    <button class="button ghost" type="button" id="showAll">Mostrar todos</button>
+  </p>
   <div class="table-wrap">
     <table class="admin">
       <thead><tr><th>Regalo</th><th>Estado</th><th>Quién</th><th>Reservado</th><th>Comprado</th><th></th></tr></thead>
@@ -57,6 +62,27 @@
     <div class="actions">
       <button value="cancel" class="button ghost" formnovalidate>Cancelar</button>
       <button value="save" class="button primary" id="giftSave">Guardar</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="occasionDialog" class="sheet wide">
+  <form method="dialog" id="occasionForm">
+    <h2>Ocasión</h2>
+    <p class="hint">El título, el tema y quién aparece en la lista pública.</p>
+    <label for="occasionTitle">Título</label>
+    <input id="occasionTitle" maxlength="80" required autocomplete="off" placeholder="Por ejemplo, Cumpleaños de Leo">
+    <label for="occasionSubtitle">Subtítulo <span class="optional">(opcional)</span></label>
+    <input id="occasionSubtitle" maxlength="120" autocomplete="off">
+    <label for="occasionTheme">Tema</label>
+    <select id="occasionTheme"></select>
+    <fieldset class="occasion-recipients" id="occasionRecipients">
+      <legend>Para quién</legend>
+    </fieldset>
+    <p class="hint">Quien esté desactivado no sale en la lista, ni sus regalos; aquí los sigues viendo.</p>
+    <p class="error" id="occasionError" role="alert" hidden></p>
+    <div class="actions">
+      <button value="cancel" class="button ghost" formnovalidate>Cancelar</button>
+      <button value="save" class="button primary">Guardar</button>
     </div>
   </form>
 </dialog>

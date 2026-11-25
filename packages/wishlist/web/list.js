@@ -179,6 +179,13 @@ function setFilter(change) {
   render();
 }
 
+/** The occasion's look: colours and header icon by CSS, and the browser bar's colour. */
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme ?? "navidad";
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--red").trim();
+  if (accent) document.querySelector('meta[name="theme-color"]')?.setAttribute("content", accent);
+}
+
 // The first row is on screen at load: those photos load at once, and the first, the
 // page's largest paint, ahead of the rest.
 const EAGER = 4;
@@ -255,6 +262,7 @@ search.addEventListener("keydown", (event) => {
 
 list = await getJSON("/api/list");
 document.getElementById("title").textContent = list.title;
+applyTheme(list.theme);
 document.getElementById("subtitle").textContent = list.subtitle ?? "";
 document.title = list.title;
 await refresh();
