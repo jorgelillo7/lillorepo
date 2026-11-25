@@ -2,7 +2,7 @@
 
 import re
 
-from flask import abort, redirect, request, session, url_for
+from flask import abort, flash, redirect, request, session, url_for
 
 from core.utils import get_logger
 from core.web.csrf import verify_csrf_token
@@ -21,9 +21,32 @@ def login():
     user = repository.get_user(nickname)
     if user and user.get("blocked"):
         return redirect(request.referrer or url_for("index"))
+    if user and user.get("google_email"):
+        # A linked nickname belongs to its Google account: typing it is not enough.
+        flash(
+            f"«{nickname}» está vinculado a una cuenta de Google: "
+            "entra con el botón de Google."
+        )
+        return redirect(request.referrer or url_for("index"))
     repository.touch_user(nickname)
     session["nickname"] = nickname
     return redirect(request.referrer or url_for("index"))
+
+
+def _derived_nickname(email: str) -> str:
+    """A nickname from the email's local part, skipping ones another account owns."""
+    base = (
+        re.sub(r"[^a-z0-9_-]", "-", email.split("@")[0].lower())[:20].strip("-")
+        or "user"
+    )
+    candidate = base
+    for n in range(2, 100):
+        user = repository.get_user(candidate)
+        if not (user and user.get("google_email")):
+            return candidate
+        suffix = f"-{n}"
+        candidate = base[: 20 - len(suffix)] + suffix
+    return candidate
 
 
 def google_login():
@@ -43,17 +66,29 @@ def google_login():
     except auth.GoogleAuthError as exc:
         logger.warning("Google Sign-In rejected.", extra={"error": str(exc)[:200]})
         return redirect(url_for("index"))
-    session["google_email"] = identity["email"]
+    email = identity["email"]
+    session["google_email"] = email
     session["google_name"] = identity["name"]
-    # Google identity doubles as contributor identity: derive a nickname
-    # so signed-in users can favorite/add without the nick prompt.
-    if not session.get("nickname"):
-        derived = re.sub(r"[^a-z0-9_-]", "-", identity["email"].split("@")[0].lower())
-        derived = derived[:20].strip("-") or "user"
-        user = repository.get_user(derived)
-        if not (user and user.get("blocked")):
-            repository.touch_user(derived)
-            session["nickname"] = derived
+    # The Google account picks the nickname: the one it is linked to; else the
+    # nickname already in the session, which it now claims; else a derived one.
+    nickname = repository.find_nickname_by_google_email(email)
+    linked = nickname is not None
+    if not linked:
+        current = session.get("nickname")
+        current_user = repository.get_user(current) if current else None
+        if current and not (current_user and current_user.get("google_email")):
+            nickname = current
+        else:
+            nickname = _derived_nickname(email)
+    user = repository.get_user(nickname)
+    if user and user.get("blocked"):
+        session.pop("nickname", None)
+    else:
+        if linked:
+            repository.touch_user(nickname)
+        else:
+            repository.link_google_email(nickname, email)
+        session["nickname"] = nickname
     return redirect(url_for("admin_page") if helpers.is_admin() else url_for("index"))
 
 

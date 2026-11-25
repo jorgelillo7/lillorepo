@@ -1,8 +1,8 @@
 # Capability: identity-and-moderation
 
-Who the visitor is and what they may do: a nickname anyone can claim, an
-optional Google identity that also confers admin, and the moderation surface
-that blocks an abusive contributor.
+Who the visitor is and what they may do: a nickname anyone can claim until a
+Google account links it, an optional Google identity that also confers admin,
+and the moderation surface that blocks an abusive contributor.
 
 The catalogue is public and readable by anyone — identity buys favourites, the
 right to add a water, and nothing else. Admin is a separate, stricter claim.
@@ -46,6 +46,23 @@ needs more.
 - *Verifies:* `test_login_sets_session_and_favorite_toggles`,
   `test_login_rejects_bad_nickname`, `test_login_touches_last_seen`
 
+### Requirement: A linked nickname belongs to its Google account
+
+A nickname whose user document carries `google_email` SHALL NOT be claimable by
+typing it: `/login` SHALL refuse it, set no session, and say on the next page
+that the nickname is linked and Google is the way in.
+
+Typing is the whole of a nickname's protection, which is fine for a nickname
+nobody cares about and not for one with years of favourites and contributions,
+or an admin's. Linking is how an owner opts out of that: unlinked nicknames keep
+working exactly as before, so nobody is forced through Google.
+
+#### Scenario: the typed claim is refused
+- **WHEN** a linked nickname is posted to `/login` **THEN** no session is set
+  and the following page names the nickname and points to the Google button
+- *Verifies:* `test_a_linked_nickname_cannot_be_typed`,
+  `test_the_refusal_says_to_use_google`
+
 ### Requirement: Google Sign-In does not exist until it is configured
 
 `/auth/google` and `/admin` SHALL answer **404** while `GOOGLE_CLIENT_ID` is
@@ -60,17 +77,27 @@ surface is not there.
   `GET /admin` are both 404
 - *Verifies:* `test_google_routes_hidden_until_configured`
 
-### Requirement: A Google credential is verified, and doubles as a nickname
+### Requirement: A Google credential is verified, and picks the nickname
 
 `/auth/google` SHALL verify the GIS credential's signature and audience against
 `GOOGLE_CLIENT_ID`, require `email_verified`, and store the email and name in
-the session. When the visitor has no nickname yet, one SHALL be derived from
-the email's local part (lowercased, non-`[a-z0-9_-]` folded to `-`, capped at
-20 chars), unless that nickname is blocked.
+the session. The nickname SHALL then be, in order:
 
-The derivation exists so signing in is enough to favourite and contribute:
-asking a signed-in user to also invent a nickname is a second gate for the same
-person.
+1. the one already **linked** to that email (`google_email` on the user);
+2. else the nickname in the session, if it is not linked to another account,
+   which this sign-in **links** to the email;
+3. else one **derived** from the email's local part (lowercased,
+   non-`[a-z0-9_-]` folded to `-`, capped at 20 chars), skipping any nickname
+   another Google account owns by adding `-2`, `-3`…, and linked to the email.
+
+A blocked nickname SHALL get no session nickname, whichever way it was reached.
+
+Order 1 is what makes linking stick: signing in with Google alone returns the
+owner to their own nickname instead of minting a second account. Order 2 is how
+an owner links: type the nickname once, then Google. The first Google account
+to do that owns an unlinked nickname, which is the same trust typing it already
+gave; a linked one is never taken. The derivation exists so signing in is enough
+to favourite and contribute without inventing a nickname.
 
 Because the GIS script mints the POST itself and cannot read our form token,
 this route SHALL verify Google's double-submit cookie (`g_csrf_token` in body
@@ -80,9 +107,23 @@ mismatch with 403.
 #### Scenario: sign-in, derivation, and the cookie check
 - **WHEN** a valid credential arrives **THEN** the email and name land in the
   session and `maria.perez@example.com` becomes nickname `maria-perez`
+- **WHEN** a session holding `jorgelillo` signs in with Google **THEN**
+  `jorgelillo` is linked to that email and stays the nickname
+- **WHEN** a linked account signs in with Google alone **THEN** it gets its
+  linked nickname and no derived account is created
+- **WHEN** the derived nickname is linked to another account **THEN** the
+  sign-in gets `maria-2` and the other link is untouched
+- **WHEN** the session's nickname is unlinked and another account owns a
+  different one **THEN** only the session's nickname is linked
+- **WHEN** the linked nickname is blocked **THEN** no nickname is set
 - **WHEN** the body and cookie `g_csrf_token` disagree **THEN** 403
 - *Verifies:* `test_google_login_sets_identity_and_derives_nickname`,
-  `test_google_login_rejects_csrf_cookie_mismatch`
+  `test_google_login_rejects_csrf_cookie_mismatch`,
+  `test_google_after_a_nickname_links_that_nickname`,
+  `test_google_alone_comes_back_to_the_linked_nickname`,
+  `test_google_never_takes_a_nickname_linked_to_another_account`,
+  `test_a_typed_nickname_linked_to_someone_else_is_not_claimed`,
+  `test_a_blocked_linked_nickname_gets_no_session`
 
 ### Requirement: Admin is a Google-verified email, never a nickname
 
