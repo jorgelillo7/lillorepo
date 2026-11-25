@@ -44,10 +44,9 @@ CSP = {
     "style-src": [
         "'self'",
         "'unsafe-inline'",
-        "https://fonts.googleapis.com",
         "https://accounts.google.com/gsi/style",
     ],
-    "font-src": ["'self'", "https://fonts.gstatic.com"],
+    "font-src": ["'self'"],
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://accounts.google.com/gsi/"],
     "connect-src": ["'self'", "https://accounts.google.com/gsi/"],
