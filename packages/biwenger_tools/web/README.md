@@ -36,7 +36,13 @@ never use `|safe` directly on `contenido`.
 
 ## 🎨 UI
 
-Tailwind via CDN + vanilla JavaScript. No build step, no framework. The design
+Tailwind CSS + vanilla JavaScript, no framework. The CSS is compiled at build
+time by the official Tailwind standalone CLI (v3, pinned in `MODULE.bazel`,
+no npm): `tailwind.config.js` scans `templates/`, `static/**/*.js` and the
+package's Python (some classes live there), and Bazel writes
+`static/tailwind.css` (`//packages/biwenger_tools/web:tailwind`). A class built
+from pieces at runtime is never seen by the scanner, so write class names out
+in full. The design
 tokens (colours, typography, components) are documented in
 [`DESIGN.md`](DESIGN.md) — read it before touching templates.
 

@@ -1,2 +1,32 @@
 # tools/bazel/BUILD.bazel
 # Macros de infraestructura del monorepo
+# The Tailwind standalone CLI for the machine running the build. Consumed as a
+# genrule `tool`, so the select resolves against the exec platform: a deploy
+# that targets linux_amd64 from a Mac still runs the Mac binary.
+config_setting(
+    name = "exec_macos_arm64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "exec_linux_x64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+alias(
+    name = "tailwindcss",
+    actual = select(
+        {
+            ":exec_macos_arm64": "@tailwindcss_macos_arm64//file",
+            ":exec_linux_x64": "@tailwindcss_linux_x64//file",
+        },
+        no_match_error = "No Tailwind standalone CLI is pinned for this machine; add one to MODULE.bazel.",
+    ),
+    visibility = ["//visibility:public"],
+)

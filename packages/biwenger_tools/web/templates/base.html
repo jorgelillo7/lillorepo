@@ -60,13 +60,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#38a169">
     <link rel="manifest" href="/manifest.webmanifest">
-    <!-- Tailwind ships as the Play CDN, which its own docs call development-only:
-         it downloads a compiler and generates styles in the browser on every
-         load. The fix is a build step, not an attribute — `defer` was tried and
-         backed out, since deferring the compiler is what produces a flash of
-         unstyled content. Preconnecting is the part that costs nothing. -->
-    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
-    <script nonce="{{ csp_nonce() }}" src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
@@ -100,6 +93,9 @@
         .prose h1, .prose h2, .prose h3, .prose strong { color: #1a202c; }
         .prose p { margin-top: 0.5em; margin-bottom: 0.5em; }
     </style>
+    <!-- Last in <head> so Tailwind utilities win over the rules above at equal
+         specificity. -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.css') }}">
 </head>
 <body class="min-h-screen flex flex-col">
 

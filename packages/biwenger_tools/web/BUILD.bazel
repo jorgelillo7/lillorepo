@@ -1,4 +1,14 @@
 load("//tools/bazel:python_service.bzl", "image", "python_service", "service")
+load("//tools/bazel:tailwind.bzl", "tailwind_css")
+
+tailwind_css(
+    name = "tailwind",
+    out = "static/tailwind.css",
+    srcs = glob(
+        ["templates/**/*.html", "static/**/*.js", "**/*.py"],
+        exclude = ["tests/**"],
+    ),
+)
 
 python_service(
     name = "web",
@@ -8,6 +18,7 @@ python_service(
         main = "app.py",
         package_srcs = ["//packages/biwenger_tools:constants.py"],
         secrets = [".env"],
+        generated_static = ["static/tailwind.css"],
         core_deps = [
             "//core:domain",
             "//core:firestore",

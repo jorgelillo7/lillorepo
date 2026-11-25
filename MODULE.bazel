@@ -46,3 +46,22 @@ oci.pull(
     ],
 )
 use_repo(oci, "python_with_deps", "python_with_deps_linux_amd64")
+
+# --- TAILWIND (standalone CLI, no npm) ---
+# Pinned to the release the Play CDN served, so compiled CSS matches what the
+# pages rendered before. SHA-256 values come from the release's sha256sums.txt.
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+http_file(
+    name = "tailwindcss_macos_arm64",
+    executable = True,
+    sha256 = "a1d0c7985759accca0bf12e51ac1dcbf0f6cf2fffb62e6e0f62d091c477a10a3",
+    url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-macos-arm64",
+)
+
+http_file(
+    name = "tailwindcss_linux_x64",
+    executable = True,
+    sha256 = "7d24f7fa191d2193b78cd5f5a42a6093e14409521908529f42d80b11fde1f1d4",
+    url = "https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64",
+)
