@@ -59,4 +59,4 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Activate Google Sign-In | ~10 min of Console clicks · **the studio photo is off for everyone until this is done** (it follows the Google-verified admin) · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` · **no code change needed**: be_water's CSP already allows Google Sign-In's script, style and frames (#542) |
-| 🔨 | Biwenger dark mode, and `style-src 'unsafe-inline'` out of both CSPs (move the templates' `style` attributes and `<style>` blocks to CSS). Tailwind is already compiled at build time in both webs (`tools/bazel/tailwind.bzl`) | **In progress** · [web review](docs/technical/web-guidance.md#review-of-2026-11) item 8 |
+| 🔨 | `style-src 'unsafe-inline'` out of both CSPs: move the templates' `style` attributes and `<style>` blocks into CSS. Tailwind is compiled at build time in both webs and Biwenger follows the system's dark mode | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) item 8 |

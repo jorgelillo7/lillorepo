@@ -19,12 +19,23 @@
         background: var(--ch-soft);
         letter-spacing: 0.04em;
     }
-    .art + .art { border-top: 1px solid #edf2f7; }
+    .art + .art { border-top: 1px solid var(--rule); }
     .nav-tile:hover { border-color: var(--ch); }
     .nav-tile:hover .nav-tile-roman { color: var(--ch); }
     .stat-num { font-family: 'Oswald', sans-serif; line-height: 1; }
     .rule-yes::before { content: '✓'; color: #38a169; font-weight: 700; margin-right: .5rem; }
     .rule-no::before  { content: '✕'; color: #e53e3e; font-weight: 700; margin-right: .5rem; }
+    @media (prefers-color-scheme: dark) {
+        /* Chapter colours are set per element; on a dark page they are lifted
+           for text and sunk into the card for the badge backgrounds. */
+        .chapter-roman, .art-badge {
+            color: color-mix(in srgb, var(--ch) 65%, white);
+            background: color-mix(in srgb, var(--ch) 22%, var(--card-bg));
+        }
+        .nav-tile:hover .nav-tile-roman { color: color-mix(in srgb, var(--ch) 65%, white); }
+        .rule-yes::before { color: #4ade80; }
+        .rule-no::before { color: #f87171; }
+    }
 </style>
 
 <div class="space-y-6">

@@ -58,24 +58,77 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#38a169">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#38a169" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
     <style>
+        /* Page tokens; the Tailwind palette switches scheme in tailwind.config.js. */
+        :root {
+            --page-bg: #f7fafc;
+            --page-text: #2d3748;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --nav-text: #4a5568;
+            --nav-text-strong: #1a202c;
+            --accent: #2f855a;
+            --accent-bright: #38a169;
+            --focus: #2f855a;
+            --tab-bg: #f1f5f9;
+            --tab-text: #64748b;
+            --rule: #edf2f7;
+            accent-color: var(--accent);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --page-bg: #0b1220;
+                --page-text: #e5e7eb;
+                --card-bg: #111827;
+                --card-border: #1f2937;
+                --nav-text: #9ca3af;
+                --nav-text-strong: #f9fafb;
+                --accent-bright: #4ade80;
+                --focus: #4ade80;
+                --tab-bg: #1f2937;
+                --tab-text: #9ca3af;
+                --rule: #1f2937;
+            }
+            html .prose {
+                --tw-prose-body: var(--tw-prose-invert-body);
+                --tw-prose-headings: var(--tw-prose-invert-headings);
+                --tw-prose-lead: var(--tw-prose-invert-lead);
+                --tw-prose-links: var(--tw-prose-invert-links);
+                --tw-prose-bold: var(--tw-prose-invert-bold);
+                --tw-prose-counters: var(--tw-prose-invert-counters);
+                --tw-prose-bullets: var(--tw-prose-invert-bullets);
+                --tw-prose-hr: var(--tw-prose-invert-hr);
+                --tw-prose-quotes: var(--tw-prose-invert-quotes);
+                --tw-prose-quote-borders: var(--tw-prose-invert-quote-borders);
+                --tw-prose-captions: var(--tw-prose-invert-captions);
+                --tw-prose-code: var(--tw-prose-invert-code);
+                --tw-prose-pre-code: var(--tw-prose-invert-pre-code);
+                --tw-prose-pre-bg: var(--tw-prose-invert-pre-bg);
+                --tw-prose-th-borders: var(--tw-prose-invert-th-borders);
+                --tw-prose-td-borders: var(--tw-prose-invert-td-borders);
+            }
+            /* Photos and covers keep their own colours but stop glaring. */
+            img:not([src$=".svg"]) { filter: brightness(.92); }
+        }
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #f7fafc;
-            color: #2d3748;
+            background-color: var(--page-bg);
+            color: var(--page-text);
         }
         .font-header { font-family: 'Oswald', sans-serif; }
         .card {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
         }
         .nav-link {
-            color: #4a5568;
+            color: var(--nav-text);
             display: flex;
             align-items: center;
             height: 100%;
@@ -85,12 +138,12 @@
             border-bottom: 2px solid transparent;
             transition: color 0.15s;
         }
-        .nav-link:hover { color: #1a202c; }
+        .nav-link:hover { color: var(--nav-text-strong); }
         /* One visible focus ring for every control reached by keyboard. */
-        :focus-visible { outline: 2px solid #2f855a; outline-offset: 2px; }
-        .nav-link.active { color: #2d3748; font-weight: 600; border-bottom-color: #38a169; }
-        .prose { color: #4a5568; }
-        .prose h1, .prose h2, .prose h3, .prose strong { color: #1a202c; }
+        :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+        .nav-link.active { color: var(--page-text); font-weight: 600; border-bottom-color: var(--accent-bright); }
+        .prose { color: var(--nav-text); }
+        .prose h1, .prose h2, .prose h3, .prose strong { color: var(--nav-text-strong); }
         .prose p { margin-top: 0.5em; margin-bottom: 0.5em; }
     </style>
     <!-- Last in <head> so Tailwind utilities win over the rules above at equal
