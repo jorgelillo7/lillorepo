@@ -3144,3 +3144,14 @@ def test_every_page_carries_the_theme_toggle_and_applies_a_pinned_scheme_early(c
     assert meta < early < body.index("</head>")
     assert body.count("data-theme-toggle class=") == 1
     assert "Cambiar a modo oscuro" in body and "Cambiar a modo claro" in body
+
+
+def test_csp_allows_inline_style_attributes_but_never_inline_style_elements(client):
+    """Google's sign-in script sizes its button through style attributes; a
+    <style> element still needs the request's nonce."""
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        csp = client.get("/acerca").headers["Content-Security-Policy"]
+    directives = {d.split()[0]: d.split()[1:] for d in csp.split("; ")}
+    assert directives["style-src-attr"] == ["'unsafe-inline'"]
+    assert "'unsafe-inline'" not in directives["style-src"]
+    assert any(s.startswith("'nonce-") for s in directives["style-src"])
