@@ -1,0 +1,14 @@
+{# Google Identity Services: the script, its config and one button.
+   `gsi_type` picks the button: "icon" in the nav, "standard" elsewhere. #}
+<script nonce="{{ csp_nonce() }}" src="https://accounts.google.com/gsi/client" async></script>
+<div id="g_id_onload"
+     data-client_id="{{ google_client_id }}"
+     data-login_uri="{{ url_for('google_login', _external=True) }}"
+     data-auto_prompt="false"></div>
+{% if gsi_type == "icon" %}
+<div class="g_id_signin" data-type="icon" data-shape="circle" data-size="medium"
+     title="Entrar con Google"></div>
+{% else %}
+<div class="g_id_signin" data-type="standard" data-shape="pill" data-size="large"
+     data-text="continue_with" data-locale="es"></div>
+{% endif %}
