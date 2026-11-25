@@ -24,7 +24,9 @@ Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page t
   once by `migrations/0003_seed_gifts.sql`; editing them changes nothing on the site.
   Each gift belongs to an event, and the one marked current is shown.
 - **One list for every occasion.** `/admin` → **Ocasión** sets the title, subtitle and
-  look (Navidad, Cumpleaños or Neutro: the accent colour and the header's icon) and
+  look (Navidad, Cumpleaños or Neutro: the header becomes a banner in its colours —
+  red with snow, pink-to-purple with confetti, teal with stripes —, the page takes a
+  tint, and the accent and icon follow) and
   renames or switches off recipients; a switched-off one leaves the public list with
   their gifts. **Ocultar todos** hides every gift at once, to start an occasion and
   show only what it needs.
