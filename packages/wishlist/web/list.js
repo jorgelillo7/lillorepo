@@ -1,4 +1,5 @@
 import { el, when, getJSON, post, showError } from "/common.js";
+import { nameMatches } from "/match.js";
 
 const grid = document.getElementById("gifts");
 const dialog = document.getElementById("reserveDialog");
@@ -8,8 +9,8 @@ let list = null;
 let claims = new Map();
 let pending = null;
 
-// The filters live in the address (?para=older&estado=libres), so a link can open
-// one brother's list straight away.
+// The filters live in the address (?para=older&estado=libres&buscar=lego), so a link
+// can open one brother's list straight away.
 const STATUSES = [
   { id: "", label: "Todos" },
   { id: "libres", label: "Libres", test: (claim) => !claim },
@@ -17,7 +18,12 @@ const STATUSES = [
   { id: "comprados", label: "Comprados", test: (claim) => claim?.boughtAt },
 ];
 const params = new URLSearchParams(location.search);
-const filter = { who: params.get("para") ?? "", kind: params.get("tipo") ?? "", status: params.get("estado") ?? "" };
+const filter = {
+  who: params.get("para") ?? "",
+  kind: params.get("tipo") ?? "",
+  status: params.get("estado") ?? "",
+  name: params.get("buscar") ?? "",
+};
 
 const FAILED = {
   taken: "Alguien acaba de reservarlo. La lista ya está al día.",
@@ -85,6 +91,8 @@ const recipientLabel = (id) => list.recipients?.find((recipient) => recipient.id
 const forWho = (gift) => !filter.who || gift.for === filter.who;
 const ofKind = (gift) => !filter.kind || gift.category === filter.kind;
 const inStatus = (gift, status) => !status.test || Boolean(status.test(claims.get(gift.id)));
+// Every count and every card goes through the name search first.
+const searched = () => list.gifts.filter((gift) => nameMatches(gift.title, filter.name));
 
 function buttons(container, kind, options, selected, count, choose, dots = true, favourites = null) {
   container.replaceChildren(
@@ -122,22 +130,23 @@ function favouriteCount(n) {
 function renderFilters() {
   const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
   const recipients = list.recipients ?? [];
+  const gifts = searched();
   document.getElementById("whoLevel").hidden = recipients.length < 2;
   buttons(
     document.getElementById("whoFilter"),
     "segment",
     [{ id: "", label: "Ambos" }, ...recipients],
     filter.who,
-    (option) => list.gifts.filter((g) => (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
+    (option) => gifts.filter((g) => (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
     (id) => setFilter({ who: id }),
     true,
     (option) =>
-      list.gifts.filter((g) => g.featured && (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
+      gifts.filter((g) => g.featured && (!option.id || g.for === option.id) && ofKind(g) && inStatus(g, status)).length,
   );
   // Only the kinds this recipient has gifts of, so the row stays short; the chosen
   // one stays even when the other filters empty it, so it can be undone.
   const kinds = (list.categories ?? []).filter(
-    (kind) => kind.id === filter.kind || list.gifts.some((g) => forWho(g) && g.category === kind.id),
+    (kind) => kind.id === filter.kind || gifts.some((g) => forWho(g) && g.category === kind.id),
   );
   document.getElementById("kindLevel").hidden = kinds.length < 2;
   buttons(
@@ -145,7 +154,7 @@ function renderFilters() {
     "chip",
     [{ id: "", label: "Todos" }, ...kinds],
     filter.kind,
-    (option) => list.gifts.filter((g) => forWho(g) && (!option.id || g.category === option.id) && inStatus(g, status)).length,
+    (option) => gifts.filter((g) => forWho(g) && (!option.id || g.category === option.id) && inStatus(g, status)).length,
     (id) => setFilter({ kind: id }),
     false,
   );
@@ -154,7 +163,7 @@ function renderFilters() {
     "chip",
     STATUSES,
     status.id,
-    (option) => list.gifts.filter((g) => forWho(g) && ofKind(g) && inStatus(g, option)).length,
+    (option) => gifts.filter((g) => forWho(g) && ofKind(g) && inStatus(g, option)).length,
     (id) => setFilter({ status: id }),
   );
 }
@@ -165,6 +174,7 @@ function setFilter(change) {
   if (filter.who) query.set("para", filter.who);
   if (filter.kind) query.set("tipo", filter.kind);
   if (filter.status) query.set("estado", filter.status);
+  if (filter.name.trim()) query.set("buscar", filter.name.trim());
   history.replaceState(null, "", query.size ? `?${query}` : location.pathname);
   render();
 }
@@ -205,7 +215,7 @@ function card(gift, index) {
 
 function render() {
   const status = STATUSES.find((s) => s.id === filter.status) ?? STATUSES[0];
-  const shown = list.gifts.filter((gift) => forWho(gift) && ofKind(gift) && inStatus(gift, status));
+  const shown = searched().filter((gift) => forWho(gift) && ofKind(gift) && inStatus(gift, status));
   grid.replaceChildren(...shown.map(card));
   document.getElementById("empty").hidden = shown.length > 0;
   document.getElementById("shown").textContent =
@@ -233,6 +243,14 @@ form.addEventListener("submit", (event) => {
   }
   act("/api/reserve", { id: pending.id, name });
   pending = null;
+});
+
+const search = document.getElementById("search");
+search.value = filter.name;
+search.addEventListener("input", () => setFilter({ name: search.value }));
+// The phone keyboard's search key closes the keyboard; the list is already filtered.
+search.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") search.blur();
 });
 
 list = await getJSON("/api/list");

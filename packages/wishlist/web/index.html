@@ -23,7 +23,11 @@
     <p class="how">Elige un regalo y pulsa <strong>Lo regalo yo</strong>. Así nadie más lo compra.</p>
     <p class="how">Los que tienen <span class="fav">★ Favorito</span> son los que más ilusión les hacen. Los demás también les gustan.</p>
   </header>
-  <nav class="filters" aria-label="Filtros">
+  <search class="filters" aria-label="Filtros">
+    <div class="filter-level">
+      <label class="filter-label" for="search">Buscar</label>
+      <input class="search" id="search" type="search" placeholder="Nombre del regalo" autocomplete="off" enterkeyhint="search">
+    </div>
     <div class="filter-level" id="whoLevel">
       <span class="filter-label">Para</span>
       <div class="segmented" id="whoFilter" role="group" aria-label="Para quién"></div>
@@ -36,11 +40,11 @@
       <span class="filter-label">Estado</span>
       <div class="chips" id="statusFilter" role="group" aria-label="Estado"></div>
     </div>
-  </nav>
+  </search>
   <p class="error" id="error" role="alert" hidden></p>
   <p class="visually-hidden" id="shown" role="status"></p>
   <section class="grid" id="gifts" aria-label="Regalos"></section>
-  <p class="empty" id="empty" hidden>No hay regalos con estos filtros.</p>
+  <p class="empty" id="empty" hidden>No hay regalos con estos filtros o con ese nombre.</p>
 </main>
 
 <dialog id="reserveDialog" class="sheet">

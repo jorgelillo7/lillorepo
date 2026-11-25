@@ -12,9 +12,10 @@ Cloudflare's SQLite. Node, outside Bazel, like `interactive_fiction`. The page t
 ## How it works
 
 - **The list (`/`)** is public. Each gift is free, reserved or bought, with the time.
-  Reserving asks for an optional name, up to 40 characters. Filters by recipient, by
+  Reserving asks for an optional name, up to 40 characters. A search by name (any
+  case, any accents, every word typed) and filters by recipient, by
   kind of toy and by state sit above the gifts and live in the address
-  (`?para=older&tipo=coches&estado=libres`), so a link can open one child's list. The
+  (`?para=older&tipo=coches&estado=libres&buscar=lego`), so a link can open one child's list. The
   recipient is the first level, a solid segmented control; the kind (six fixed
   categories in `src/gifts.ts`, only those the recipient has gifts of) and the state are
   lighter chips, the state's coloured by state.

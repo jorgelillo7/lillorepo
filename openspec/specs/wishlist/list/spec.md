@@ -27,6 +27,21 @@ SHALL be accepted, so the address cannot be used to fill the database.
 - **THEN** it is refused and nothing is stored
 - *Verifies:* `worker.test.ts: a gift that is not on the list, or a request from another site, is refused`
 
+### Requirement: The list can be searched by a gift's name
+
+The list page SHALL offer a search over the gifts' names next to its filters. It SHALL
+ignore case and accents, and match a gift whose name contains every word typed, in any
+order. It SHALL narrow the cards and every filter's count together, and live in the
+address (`?buscar=`) like the other filters, so a search can be shared as a link.
+
+#### Scenario: what a search finds
+- **WHEN** someone types `camion`, or `policia lego`
+- **THEN** «Camión de bomberos», and «Lego coche de policía», are found; `lego tren`
+  finds neither, and an empty search shows every gift
+- *Verifies:* `match.test.ts: ignores case and accents, in both directions`,
+  `match.test.ts: every word must appear, in any order`,
+  `match.test.ts: an empty search matches everything`
+
 ### Requirement: Only the claimer changes a claim
 
 The Worker SHALL give the claiming browser a random token in an HttpOnly, Secure,
