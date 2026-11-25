@@ -76,8 +76,8 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
    - The hamburger's focus is invisible.
    - No `aria-expanded` or `aria-pressed` anywhere.
    - Clickable `<tr>`, `<div>` and `<img>` should be `<button>`s.
-8. **Tailwind build step** for Biwenger and be_water (M, once). Already in
-   `PENDING.md`. It is the precondition for:
+8. **Tailwind build step** for Biwenger and be_water (M, once). **Done**
+   (#788, #790), and so is what it unlocked (#791–#794). It was the precondition for:
    - dropping `'unsafe-inline'` and the CDN host from the CSP;
    - dark mode.
 9. **YouTube on `/reglamento`** (S): about 880 KiB and third-party cookies,
@@ -116,7 +116,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   header wrapping at 320 px. Static files are served immutable under a
   content-versioned URL (`core/web/static.py`, be_water too). Tailwind is
   compiled at build time and the web follows the system's dark mode
-  (`DESIGN.md` § Dark mode). Open: `'unsafe-inline'` in `style-src`.
+  (`DESIGN.md` § Dark mode). Styles run by nonce, without `'unsafe-inline'`.
 - **be_water:** fixed in #774: the first card photos eager with
   `fetchpriority`, `text-slate-500` and white text on `sky-700`, mobile nav
   names kept for screen readers, "Entrar" fitting at 320 px, no "?" in the
@@ -124,7 +124,7 @@ Ordered by impact per unit of work. S = small, M = medium, L = large.
   button, `motion-safe:animate-bounce`, card titles as `<h2>` on the
   catalogue, and `aria-pressed` on the filters. Tailwind is compiled at build
   time and the site follows the system's dark mode (`DESIGN.md` § Dark mode).
-  Open: `'unsafe-inline'` in `style-src`.
+  Styles run by nonce, without `'unsafe-inline'`.
 - **chucknorris_bot:** no `<main>` or real headings; `100vh`; a global reset.
 - **wishlist:** closest to the guidance. Fixed: the first photos load eagerly and
   the first with `fetchpriority="high"`; `--muted` is 4.9:1 on the page; the grid is

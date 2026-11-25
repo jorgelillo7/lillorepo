@@ -64,7 +64,7 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="preload" href="{{ url_for('static', filename='fonts/roboto-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="{{ url_for('static', filename='fonts/oswald-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
-    <style>
+    <style nonce="{{ csp_nonce() }}">
         /* Latin subsets, served from here (static/fonts, OFL). */
         @font-face {
             font-family: "Roboto";
@@ -232,7 +232,7 @@
         </nav>
 
         <!-- Desktop nav -->
-        <div class="hidden md:flex items-center px-6 max-w-4xl mx-auto w-full" style="height: 48px;">
+        <div class="hidden md:flex items-center px-6 max-w-4xl mx-auto w-full h-12">
             <a href="{{ url_for('season.comunicados', season=season) }}"
                class="font-header text-lg font-bold text-gray-900 tracking-wider mr-4 flex-shrink-0">LLOROS LEAGUE</a>
             <nav class="flex items-stretch flex-1 h-full">
@@ -363,5 +363,9 @@
             navigator.serviceWorker.register("/sw.js");
         }
     </script>
+<script nonce="{{ csp_nonce() }}">
+// Bars carry their width as data-pct: a style attribute would need 'unsafe-inline'.
+document.querySelectorAll('[data-pct]').forEach(function (el) { el.style.width = el.dataset.pct + '%'; });
+</script>
 </body>
 </html>

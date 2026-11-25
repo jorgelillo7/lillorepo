@@ -10,7 +10,7 @@ import os
 from flask import Flask
 
 from core.web.compress import compress_responses
-from core.web.headers import add_security_headers, harden_session_cookie
+from core.web.headers import add_security_headers, harden_session_cookie, style_hashes
 from core.web.logs import use_json_logging
 from core.web.proxy import trust_proxy
 from core.web.static import version_static_urls
@@ -31,9 +31,9 @@ from packages.be_water.web.domain import format_mineral
 from packages.be_water.web.routes import add, admin, main, session
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
-# What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
-# 'unsafe-inline' for the templates' style attributes and <style> blocks;
-# scripts run only with this request's nonce.
+# What the pages may load, and nothing else (docs/gcp.md, CSP). Inline <script>
+# and <style> run only with this request's nonce; the offline page, a static
+# file, is allowed by the hash of its styles.
 CSP = {
     "default-src": ["'self'"],
     "script-src": [
@@ -43,7 +43,10 @@ CSP = {
     ],
     "style-src": [
         "'self'",
-        "'unsafe-inline'",
+        "'nonce-{nonce}'",
+        *style_hashes(
+            os.path.join(os.path.dirname(__file__), "static", "offline.html")
+        ),
         "https://accounts.google.com/gsi/style",
     ],
     "font-src": ["'self'"],

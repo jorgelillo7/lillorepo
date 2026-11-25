@@ -7,7 +7,7 @@ from flask import Flask, g, request, session
 
 from core.web.compress import compress_responses
 from core.web.csrf import get_csrf_token
-from core.web.headers import add_security_headers, harden_session_cookie
+from core.web.headers import add_security_headers, harden_session_cookie, style_hashes
 from core.web.logs import use_json_logging
 from core.web.static import version_static_urls
 from packages.biwenger_tools.web import config, services
@@ -19,13 +19,19 @@ from packages.biwenger_tools.web.sanitize import safe_html
 _SEASON_RE = re.compile(r"^\d{2}-\d{2}$")
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
-# What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
-# 'unsafe-inline' for the templates' style attributes and <style> blocks;
-# scripts run only with this request's nonce.
+# What the pages may load, and nothing else (docs/gcp.md, CSP). Inline <script>
+# and <style> run only with this request's nonce; the offline page, a static
+# file, is allowed by the hash of its styles.
 CSP = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "'nonce-{nonce}'"],
-    "style-src": ["'self'", "'unsafe-inline'"],
+    "style-src": [
+        "'self'",
+        "'nonce-{nonce}'",
+        *style_hashes(
+            os.path.join(os.path.dirname(__file__), "static", "offline.html")
+        ),
+    ],
     "font-src": ["'self'"],
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://www.youtube.com", "https://www.youtube-nocookie.com"],

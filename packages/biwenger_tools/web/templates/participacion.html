@@ -37,7 +37,7 @@
                     <div class="font-semibold text-gray-800">{{ row.autor }}</div>
                     <div class="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden w-28">
                         <div class="h-full bg-green-500 rounded-full"
-                             style="width: {{ (row.total / safe_max * 100) | round | int }}%"></div>
+                             data-pct="{{ (row.total / safe_max * 100) | round | int }}"></div>
                     </div>
                 </td>
                 <td class="px-5 py-3 text-center font-bold text-green-700 text-base">{{ row.total }}</td>
@@ -64,7 +64,7 @@
             <p class="font-semibold text-gray-800 truncate">{{ row.autor }}</p>
             <div class="mt-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div class="h-full bg-green-500 rounded-full"
-                     style="width: {{ (row.total / safe_max * 100) | round | int }}%"></div>
+                     data-pct="{{ (row.total / safe_max * 100) | round | int }}"></div>
             </div>
             <p class="text-xs text-gray-500 mt-1">
                 📢 {{ row.comunicados }} · 📖 {{ row.cronicas }} · 📊 {{ row.datos }} · 🤝 {{ row.cesiones }}

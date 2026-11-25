@@ -5,8 +5,14 @@
 {# The page draws its own <h1> (REGLAMENTO). #}
 {% block page_heading %}{% endblock %}
 {% block content %}
-<style>
+<style nonce="{{ csp_nonce() }}">
     .chapter { --ch: #38a169; --ch-soft: #f0fff4; }
+    .ch-purple { --ch: #805ad5; --ch-soft: #faf5ff; }
+    .ch-green  { --ch: #38a169; --ch-soft: #f0fff4; }
+    .ch-blue   { --ch: #3182ce; --ch-soft: #ebf8ff; }
+    .ch-amber  { --ch: #d69e2e; --ch-soft: #fffaf0; }
+    .ch-red    { --ch: #e53e3e; --ch-soft: #fff5f5; }
+    .ch-slate  { --ch: #718096; }
     .chapter-head { border-left: 4px solid var(--ch); }
     .chapter-roman {
         font-family: 'Oswald', sans-serif;
@@ -83,37 +89,37 @@
 
     <!-- Índice visual -->
     <nav id="chapter-index" class="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <a href="#cap-1" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#805ad5">
+        <a href="#cap-1" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-purple">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">I</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">El Draft</p>
             <p class="text-xs text-gray-500 mt-0.5">9 artículos</p>
         </a>
-        <a href="#cap-2" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#38a169">
+        <a href="#cap-2" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-green">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">II</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">Lloros League</p>
             <p class="text-xs text-gray-500 mt-0.5">5 artículos</p>
         </a>
-        <a href="#cap-3" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#3182ce">
+        <a href="#cap-3" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-blue">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">III</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">Liga H2H</p>
             <p class="text-xs text-gray-500 mt-0.5">6 artículos</p>
         </a>
-        <a href="#cap-4" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#d69e2e">
+        <a href="#cap-4" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-amber">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">IV</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">Copa Santa Claus</p>
             <p class="text-xs text-gray-500 mt-0.5">8 artículos</p>
         </a>
-        <a href="#cap-8" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#e53e3e">
+        <a href="#cap-8" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-red">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">V</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">Copa Castolo</p>
             <p class="text-xs text-gray-500 mt-0.5">12 artículos</p>
         </a>
-        <a href="#web-help" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#718096">
+        <a href="#web-help" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-slate">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">§</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">Cómo funciona la web</p>
             <p class="text-xs text-gray-500 mt-0.5">Prefijos de mensajes</p>
         </a>
-        <a href="#veredicto" class="nav-tile card rounded-xl p-4 transition hover:shadow-md" style="--ch:#718096">
+        <a href="#veredicto" class="nav-tile card rounded-xl p-4 transition hover:shadow-md ch-slate">
             <span class="nav-tile-roman font-header text-2xl font-bold text-gray-300 transition">▶</span>
             <p class="font-header text-base font-bold text-gray-800 mt-1">El Veredicto</p>
             <p class="text-xs text-gray-500 mt-0.5">Vídeo oficial</p>
@@ -123,7 +129,7 @@
     <div class="space-y-3">
 
         <!-- ═══════════ CAPÍTULO I — EL DRAFT ═══════════ -->
-        <section id="cap-1" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#805ad5; --ch-soft:#faf5ff">
+        <section id="cap-1" class="chapter card rounded-xl overflow-hidden scroll-mt-20 ch-purple">
             <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
                     data-target="body-cap-1">
                 <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">I</span>
@@ -367,7 +373,7 @@
         </section>
 
         <!-- ═══════════ CAPÍTULO II — LLOROS LEAGUE ═══════════ -->
-        <section id="cap-2" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#38a169; --ch-soft:#f0fff4">
+        <section id="cap-2" class="chapter card rounded-xl overflow-hidden scroll-mt-20 ch-green">
             <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
                     data-target="body-cap-2">
                 <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">II</span>
@@ -653,7 +659,7 @@
         </section>
 
         <!-- ═══════════ CAPÍTULO III — LIGA H2H ═══════════ -->
-        <section id="cap-3" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#3182ce; --ch-soft:#ebf8ff">
+        <section id="cap-3" class="chapter card rounded-xl overflow-hidden scroll-mt-20 ch-blue">
             <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
                     data-target="body-cap-3">
                 <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">III</span>
@@ -811,7 +817,7 @@
         </section>
 
         <!-- ═══════════ CAPÍTULO IV — COPA SANTA CLAUS ═══════════ -->
-        <section id="cap-4" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#d69e2e; --ch-soft:#fffaf0">
+        <section id="cap-4" class="chapter card rounded-xl overflow-hidden scroll-mt-20 ch-amber">
             <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
                     data-target="body-cap-4">
                 <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-xl font-bold">IV</span>
@@ -986,7 +992,7 @@
         </section>
 
         <!-- ═══════════ CAPÍTULO VIII — COPA CASTOLO ═══════════ -->
-        <section id="cap-8" class="chapter card rounded-xl overflow-hidden scroll-mt-20" style="--ch:#e53e3e; --ch-soft:#fff5f5">
+        <section id="cap-8" class="chapter card rounded-xl overflow-hidden scroll-mt-20 ch-red">
             <button class="accordion-btn chapter-head w-full text-left pl-5 pr-4 py-4 flex items-center gap-4 hover:bg-gray-50 transition"
                     data-target="body-cap-8">
                 <span class="chapter-roman flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center text-lg font-bold">V</span>

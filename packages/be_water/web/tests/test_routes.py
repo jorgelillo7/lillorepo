@@ -1950,7 +1950,7 @@ def test_a_mineral_bar_is_scaled_by_that_mineral_not_a_shared_ceiling(client):
 
     # 100 of a catalog whose most sodic water holds 1000 — a tenth, not a
     # quarter of an arbitrary 400.
-    assert "width: 10.0%" in body
+    assert 'data-pct="10.0"' in body
 
 
 def test_every_provenance_badge_links_to_an_explanation_that_exists(client):
