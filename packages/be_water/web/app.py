@@ -49,6 +49,9 @@ CSP = {
         ),
         "https://accounts.google.com/gsi/style",
     ],
+    # Google's sign-in script sizes its button through style attributes it
+    # writes itself; only attributes are allowed inline, <style> stays nonced.
+    "style-src-attr": ["'unsafe-inline'"],
     "font-src": ["'self'"],
     "img-src": ["'self'", "data:", "https://storage.googleapis.com"],
     "frame-src": ["https://accounts.google.com/gsi/"],

@@ -94,6 +94,9 @@ would still refuse to run it.
   static file with no nonce: `style_hashes()` (`core/web/headers.py`) allows its
   `<style>` by hash. Tailwind is compiled at build time
   (`tools/bazel/tailwind.bzl`), so nothing generates styles in the browser.
+  be_water alone adds `style-src-attr 'unsafe-inline'`: Google's sign-in
+  script writes style attributes on its button, and blocking them leaves the
+  button unsized. `<style>` elements stay nonce-only there too.
 - **Violations are reported.** The browser posts what it blocks to
   `/csp-report`, logged as a `WARNING` (`CSP blocked a source.`, with the URL,
   directive and page). A new external source — a font, an embed, an image
