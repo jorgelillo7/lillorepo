@@ -40,6 +40,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
+| 👤 | On a phone, share a chapter over WhatsApp and check its card (title, image, description) | You |
 | 🔨 | 3D menu for the reader, then take it and [the 3D draft](https://interactive-fiction-draft3d.jorgelillo.workers.dev) to the author: the author's validation decides whether the 3D continues (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
 | 🚧 | Android app: wrap the site as a Trusted Web Activity (Bubblewrap; Google Play account US$25 once, content rating for horror/violence) — reuses the web as is | The 3D reader on the main URL (`openspec/changes/interactive-fiction-3d-reader`) |
 | 🚧 | A custom domain and a save export code | Before the Android app or any promotion: saves live in the browser per origin, so a new URL loses them |
@@ -50,6 +51,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 |---|---|---|
 | 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
 | 🔨 | Birthdays on the same list instead of one list per event: an admin "Ocasión" panel to edit the title and subtitle, pick a theme (colours and header icon) and hide a recipient, plus a "new occasion" action that releases unbought reservations and hides bought gifts; unbought gifts carry over by themselves. Limit: one occasion at a time | **Before 24/03** (first birthday after Christmas) · supersedes [`openspec/changes/wishlist-events/`](openspec/changes/wishlist-events/proposal.md), which gets rewritten to this |
+| 👤 | Filter the gifts on the list page | You: what to filter by (recipient, price, bought or not…) |
 | 🔨 | Web: `srcset` with WebP photos (needs the photo stored at more than one size, from the admin page's canvas and for the seed) | Ready · [web review](docs/technical/web-guidance.md#review-of-2026-11) |
 
 ## be_water
@@ -57,4 +59,4 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | 🚧 | Activate Google Sign-In | ~10 min of Console clicks · **the studio photo is off for everyone until this is done** (it follows the Google-verified admin) · the ficha editor is built, tested and deployed behind a 404 until this is done · runbook in `packages/be_water/OPERATIONS.md` · **no code change needed**: be_water's CSP already allows Google Sign-In's script, style and frames (#542) |
-| 🔨 | Tailwind build step for `biwenger_tools/web` and `be_water`: the official Tailwind standalone CLI binary, pinned by version and SHA-256, run by Bazel at image build (no npm), replacing the Play CDN that its own docs call development-only. Unlocks dropping the CDN host and `style-src 'unsafe-inline'` from both CSPs, then dark mode for Biwenger (the last open item of its web review) | **Planned for the week of 23/11 by the owner** · several PRs · [web review](docs/technical/web-guidance.md#review-of-2026-11) item 8 |
+| 🔨 | Tailwind build step for `biwenger_tools/web` (**done**, #788) and `be_water` (still on the Play CDN): the official Tailwind standalone CLI binary, pinned by version and SHA-256, run by Bazel at image build (`tools/bazel/tailwind.bzl`, no npm). Unlocks dropping the CDN host and `style-src 'unsafe-inline'` from both CSPs, then dark mode for Biwenger (the last open item of its web review) | **Planned for the week of 23/11 by the owner** · several PRs · [web review](docs/technical/web-guidance.md#review-of-2026-11) item 8 |
