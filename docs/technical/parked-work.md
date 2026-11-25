@@ -293,6 +293,34 @@ it is the fallback if we ever want no vendor.
 continue — the bathroom and the Cheshire room as worlds, full-model quality,
 then a proposal to bring it into the reader.
 
+### Marble shuts down
+
+World Labs is closing Marble, the generator in the stack above: credit purchases end
+on **2026-12-08**, the API (`POST /marble/v1/worlds:generate`, models `marble-1.1` and
+`marble-1.0-draft`) stops on **2027-01-08**, and account content on their CDN is deleted
+on 2027-02-28; unused credits are refunded after 8 January.
+
+- **The published site is safe.** The chapter-2 worlds in the author's repository
+  (`web/3d/worlds.json`) have their `.spz` and `.glb` tracked in git; nothing loads
+  from Marble's CDN.
+- **What breaks** is generating new rooms: `experiments/draft3d/generate.ts` and
+  `fetch.ts`, the scene-3d skill and `.claude/plans/interactive-fiction-ch2-3d.md` all
+  assume Marble.
+
+Alternatives, as published:
+
+| Option | Shape | Cost | Catch |
+|---|---|---|---|
+| World Labs Atlas (Marble's successor) | `images2PosedRGBD → atlasGenerate → posedImages2Splats → splats2Mesh`; SPZ + GLB + collider boxes | draft 500 credits (~$0.50, ~30 s); refined 5,000 (~$5, 15–21 min) | more steps; asset URLs expire in 24 h, download at once |
+| SpAItial Echo-2 | one image → SPZ/PLY + collider | ~$1.60 a world; free tier 5 a month | free tier is non-commercial; Pro is $99.99 a month |
+| HY-World 2.0 | — | — | licence excludes the EU |
+| Matrix-3D | MIT code | own GPU | needs a large NVIDIA GPU; no collider |
+| Apple ml-sharp, fal/Replicate | — | — | research-only licence or object-level only |
+
+The plan: generate every settled chapter-3 room with Marble before 8 January, test
+Echo-2 (free) and Atlas (draft) on room 207 against its Marble version, then adapt the
+generator, the skill and this note to the winner.
+
 ## Ideas from other Biwenger projects
 
 Four outside projects were read against this package:
