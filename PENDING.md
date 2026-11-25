@@ -39,6 +39,7 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 
 | | What is missing | Waiting on |
 |---|---|---|
+| 👤 | **Marble shuts down**: generate every settled chapter-3 room with Marble before the API stops, then test Echo-2 (free) and Atlas (draft) on room 207 and adapt the generator to the best | **Credits until 08/12, API off 08/01/2027** · you and the author: which chapter-3 scenes are settled, and whether Historias will ever be commercial (Echo-2 free vs Pro) · [parked-work](docs/technical/parked-work.md#marble-shuts-down) |
 | ⏳ | Chapter 3 into the reader: art, scenes, SCARE among its valid codes, the condition/inventory setup | The author finishing it in `Capitulo 3/fuente/` on his `master` |
 | 👤 | On a phone, share a chapter over WhatsApp and check its card (title, image, description) | You |
 | 🔨 | 3D menu for the reader, then take it and [the 3D draft](https://interactive-fiction-draft3d.jorgelillo.workers.dev) to the author: the author's validation decides whether the 3D continues (more rooms, full quality, then into the reader) | You and the author · [evaluation](docs/technical/parked-work.md#interactive_fiction--a-3d-draft-of-chapter-1) |
