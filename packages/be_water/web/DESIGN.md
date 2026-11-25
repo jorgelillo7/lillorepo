@@ -99,10 +99,12 @@ TDS figure (`text-{tone}-700`) and the class badge. A water's tone must be
 consistent across every surface it appears on. ❤️ favorite uses rose and is
 exempt from the accent-discipline rule.
 
-Tailwind CDN note: tone classes are composed in Jinja (`from-{{ tone }}-50`).
-That works because the CDN scans the *rendered* DOM — but it means every
-tone must actually appear somewhere in served HTML before it "exists". If a
-new tone renders unstyled, that's why.
+Tailwind build note: the CSS is compiled at build time (`tailwind.config.js`,
+`//packages/be_water/web:tailwind`), and the scanner only sees class names
+written out in full. Tone classes are composed in Jinja (`from-{{ tone }}-50`),
+so the config safelists every shape the templates use for every tone. A new
+tone, or a new `…-{{ tone }}-…` shape, goes in `TONES` or `TONE_SHAPES` there,
+or it renders unstyled.
 
 ## Typography
 

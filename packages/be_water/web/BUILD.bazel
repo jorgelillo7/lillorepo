@@ -1,8 +1,18 @@
 load("//tools/bazel:python_service.bzl", "image", "python_service", "service")
+load("//tools/bazel:tailwind.bzl", "tailwind_css")
 
 # Expose web_lib (and the service targets) to sibling packages under
 # be_water — e.g. scripts/ reuses web_lib for the photo-audit tool.
 package(default_visibility = ["//packages/be_water:__subpackages__"])
+
+tailwind_css(
+    name = "tailwind",
+    out = "static/tailwind.css",
+    srcs = glob(
+        ["templates/**/*.html", "static/**/*.js", "**/*.py"],
+        exclude = ["tests/**"],
+    ),
+)
 
 python_service(
     name = "web",
@@ -11,6 +21,7 @@ python_service(
     service = service(
         main = "app.py",
         secrets = [".env"],
+        generated_static = ["static/tailwind.css"],
         core_deps = [
             "//core:firestore",
             "//core:gcp",
