@@ -245,6 +245,23 @@ def touch_user(nickname: str) -> None:
     firestore.set_document(USERS, nickname, user)
 
 
+def find_nickname_by_google_email(email: str) -> str | None:
+    """The nickname a Google account is linked to, or None."""
+    for nickname, user in get_all_users().items():
+        if user.get("google_email") == email:
+            return nickname
+    return None
+
+
+def link_google_email(nickname: str, email: str) -> None:
+    """Bind a nickname to a Google account; only it can sign in as that nickname."""
+    user = ensure_user(nickname)
+    user["google_email"] = email
+    user["last_seen"] = _now_iso()
+    firestore.set_document(USERS, nickname, user)
+    logger.info("Nickname linked to Google.", extra={"nickname": nickname})
+
+
 def set_user_blocked(nickname: str, blocked: bool) -> None:
     """Blocked users can't log in or contribute (enforced in the routes)."""
     user = ensure_user(nickname)

@@ -123,6 +123,13 @@
 </nav>
 
 <main class="flex-1 w-full max-w-6xl mx-auto px-4 py-6 sm:py-10">
+    {% with messages = get_flashed_messages() %}{% if messages %}
+    <div role="status" class="max-w-xl mx-auto mb-6 space-y-2">
+        {% for message in messages %}
+        <p class="px-4 py-3 rounded-2xl bg-amber-50 ring-1 ring-amber-200 text-amber-900 text-sm">{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}{% endwith %}
     {% block content %}{% endblock %}
 </main>
 

@@ -395,6 +395,8 @@ def _google_login(client, email="admin@x.com"):
         ),
         patch(f"{_REPO}.touch_user"),
         patch(f"{_REPO}.get_user", return_value=None),
+        patch(f"{_REPO}.find_nickname_by_google_email", return_value=None),
+        patch(f"{_REPO}.link_google_email"),
     ):
         return client.post(
             "/auth/google",
@@ -3155,3 +3157,109 @@ def test_csp_allows_inline_style_attributes_but_never_inline_style_elements(clie
     assert directives["style-src-attr"] == ["'unsafe-inline'"]
     assert "'unsafe-inline'" not in directives["style-src"]
     assert any(s.startswith("'nonce-") for s in directives["style-src"])
+
+
+class _Users:
+    """In-memory stand-in for the users collection, for the linking tests."""
+
+    def __init__(self, **users):
+        self.docs = {name: dict(doc) for name, doc in users.items()}
+
+    def get_user(self, nickname):
+        return self.docs.get(nickname)
+
+    def touch_user(self, nickname):
+        self.docs.setdefault(nickname, {})["last_seen"] = "now"
+
+    def find_nickname_by_google_email(self, email):
+        return next(
+            (n for n, u in self.docs.items() if u.get("google_email") == email), None
+        )
+
+    def link_google_email(self, nickname, email):
+        self.docs.setdefault(nickname, {})["google_email"] = email
+
+    def patches(self):
+        names = [
+            "get_user",
+            "touch_user",
+            "find_nickname_by_google_email",
+            "link_google_email",
+        ]
+        return [patch(f"{_REPO}.{name}", getattr(self, name)) for name in names]
+
+
+def _sign_in_with(client, users, email, nickname_first=None):
+    """Optionally type a nickname, then come back through Google."""
+    from contextlib import ExitStack
+
+    with ExitStack() as stack:
+        for p in users.patches():
+            stack.enter_context(p)
+        stack.enter_context(patch(f"{_APP}.config.GOOGLE_CLIENT_ID", "cid"))
+        if nickname_first:
+            client.post("/login", data={"nickname": nickname_first})
+        client.set_cookie("g_csrf_token", "gtok")
+        stack.enter_context(
+            patch(
+                f"{_APP}.auth.verify_google_credential",
+                return_value={"email": email, "name": "X", "picture": ""},
+            )
+        )
+        client.post("/auth/google", data={"credential": "jwt", "g_csrf_token": "gtok"})
+    with client.session_transaction() as sess:
+        return sess.get("nickname")
+
+
+def test_google_after_a_nickname_links_that_nickname(client):
+    users = _Users(jorgelillo={"favorites": ["solan"]})
+    assert (
+        _sign_in_with(client, users, "jorge@x.com", nickname_first="jorgelillo")
+        == "jorgelillo"
+    )
+    assert users.docs["jorgelillo"]["google_email"] == "jorge@x.com"
+
+
+def test_google_alone_comes_back_to_the_linked_nickname(client):
+    users = _Users(jorgelillo={"google_email": "jorge@x.com"})
+    assert _sign_in_with(client, users, "jorge@x.com") == "jorgelillo"
+    assert "jorge" not in users.docs  # no derived account created
+
+
+def test_a_linked_nickname_cannot_be_typed(client):
+    users = _Users(jorgelillo={"google_email": "jorge@x.com"})
+    with users.patches()[0], users.patches()[1]:
+        client.post("/login", data={"nickname": "jorgelillo"})
+    with client.session_transaction() as sess:
+        assert "nickname" not in sess
+        assert any("vinculado" in m for _, m in sess.get("_flashes", []))
+
+
+def test_google_never_takes_a_nickname_linked_to_another_account(client):
+    users = _Users(maria={"google_email": "maria@otro.com"})
+    nickname = _sign_in_with(client, users, "maria@x.com")
+    assert nickname == "maria-2"
+    assert users.docs["maria"]["google_email"] == "maria@otro.com"
+
+
+def test_a_typed_nickname_linked_to_someone_else_is_not_claimed(client):
+    users = _Users(bea={"google_email": "bea@x.com"}, intruso={})
+    # Session holds "intruso" (unlinked); bea's account stays bea's.
+    assert (
+        _sign_in_with(client, users, "otro@x.com", nickname_first="intruso")
+        == "intruso"
+    )
+    assert users.docs["bea"]["google_email"] == "bea@x.com"
+
+
+def test_a_blocked_linked_nickname_gets_no_session(client):
+    users = _Users(troll={"google_email": "troll@x.com", "blocked": True})
+    assert _sign_in_with(client, users, "troll@x.com") is None
+
+
+def test_the_refusal_says_to_use_google(client):
+    users = _Users(jorgelillo={"google_email": "jorge@x.com"})
+    with users.patches()[0], users.patches()[1]:
+        client.post("/login", data={"nickname": "jorgelillo"})
+        body = client.get("/acerca").get_data(as_text=True)
+    assert "«jorgelillo» está vinculado a una cuenta de Google" in body
