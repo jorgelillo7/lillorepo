@@ -65,8 +65,9 @@
                 {% for row in rows %}
                 <tr class="border-b border-slate-50 {{ 'opacity-50' if row.blocked }}">
                     <td class="px-5 py-3 font-semibold text-slate-800">
-                        {{ row.nickname }}
+                        {{ row.nickname }}{% if row.google_email %} <span title="Vinculado a Google">🔒</span>{% endif %}
                         {% if row.blocked %}<span class="ml-1 text-[10px] uppercase font-bold text-rose-500">bloqueado</span>{% endif %}
+                        {% if row.google_email %}<div class="text-xs font-normal text-slate-500 break-all">{{ row.google_email }}</div>{% endif %}
                     </td>
                     <td class="px-3 py-3 text-slate-500 tabular-nums">{{ row.created_at or '—' }}</td>
                     <td class="px-3 py-3 text-slate-500 tabular-nums">{{ row.last_seen or '—' }}</td>
@@ -93,7 +94,7 @@
 </section>
 
 <p class="max-w-3xl mx-auto mt-4 text-xs text-slate-500">
-    💧 = aguas aportadas · ❤️ = favoritas. Los bloqueados no pueden entrar ni
+    💧 = aguas aportadas · ❤️ = favoritas · 🔒 = nick vinculado a Google (solo se entra con esa cuenta). Los bloqueados no pueden entrar ni
     añadir. Admins actuales ({{ admin_emails | join(', ') }}) — para promover a
     alguien, añade su email a <code>BEWATER_ADMIN_EMAILS</code> en deploy.yml.
 </p>

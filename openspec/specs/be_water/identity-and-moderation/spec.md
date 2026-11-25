@@ -67,11 +67,18 @@ working exactly as before, so nobody is forced through Google.
 The Google button in the nav is only there signed out, so a signed-in nickname
 needs a way in to link itself.
 - **WHEN** a signed-in, unlinked nickname opens `/perfil` with Sign-In
-  configured **THEN** a "Protege tu nick" block offers the Google button
-- **WHEN** the session carries a Google email **THEN** the block says the
-  nickname is linked, and offers no button
+  configured **THEN** a "Protege tu nick" block offers the Google button, above
+  the favourites
+- **WHEN** the session carries a Google email **THEN** a line says the
+  nickname is linked to that email, and no button is offered
 - *Verifies:* `test_the_profile_offers_to_link_an_unlinked_nickname`,
-  `test_the_profile_shows_a_linked_nickname_as_protected`
+  `test_the_profile_shows_a_linked_nickname_as_protected`,
+  `test_the_link_offer_comes_before_the_favourites`
+
+#### Scenario: the admin sees who is linked
+- **WHEN** an admin opens `/admin` **THEN** each linked nickname carries 🔒 and
+  its Google email, and unlinked ones carry neither
+- *Verifies:* `test_the_admin_table_shows_which_nicknames_are_linked`
 
 ### Requirement: Google Sign-In does not exist until it is configured
 

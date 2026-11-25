@@ -42,6 +42,7 @@ def admin_page():
             "favorites": len(data.get("favorites", [])),
             "waters": contributions.get(nickname, 0),
             "blocked": bool(data.get("blocked")),
+            "google_email": data.get("google_email") or "",
         }
         for nickname, data in sorted(users.items())
     ]
