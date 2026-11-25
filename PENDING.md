@@ -31,7 +31,7 @@ in `STATUS.md` — neither belongs here.
 
 | | What is missing | Waiting on |
 |---|---|---|
-| 👤 | Photos, in the order that protects first: **(1)** the Google Photos app on both iPhones with backup at original quality — 5 TB are paid for and 10 GB used, so it is a second cloud for photos and videos with nothing to run; **(2)** copy, never move, the ten-year-old disk onto the 5 TB one, verify it, and upload that history too; **(3)** the `YYYY-MM-DD event` folders once or twice a year, with a script and a session proposing the names. Step 1 replaces Amazon Photos, rclone and emptying Google Photos | You for 1 and 2 (no code) · the plan is `packages/my_photos/README.md`; step 3 decides between `icloudpd` and `osxphotos` when it starts |
+| 👤 | Photos: **(1)** copy, never move, the ten-year-old disk onto the 5 TB one and verify it — urgent, no code; **(2)** iCloud to 2 TB, Camera sharing to the Shared Library, Google Photos backup on both phones, messaging auto-save rules; **(3)** a trial session of the Claude Code + `osxphotos` album agent on one month, answering the plan's open questions; **(4)** then the skill and the import of the old disk as albums | You for 1 and 2 · the plan and its open questions are in `packages/my_photos/README.md` |
 
 ## interactive_fiction
 

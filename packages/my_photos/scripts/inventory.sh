@@ -10,14 +10,13 @@
 #     system disk), with their free/used space and the count of folders
 #     matching the YYYY-MM-DD convention.
 #
-# Cloud services do not expose sizes from the Mac, so iCloud, Google Photos
-# and Amazon Photos are shown as static reference values taken from the
-# user's screenshots during the planning session. Update the constants
-# below when those numbers change.
+# Cloud services do not expose sizes from the Mac, so iCloud and Google
+# Photos are shown as static reference values. Update the constants below
+# when those numbers change.
 
 set -euo pipefail
 
-# --- Static reference values (last measured 2026-05-17) ---------------------
+# --- Static reference values -----------------------------------------------
 ICLOUD_GB="26.89"
 ICLOUD_PHOTOS="3933"
 ICLOUD_VIDEOS="598"
@@ -26,8 +25,7 @@ GOOGLE_PHOTOS_GB="6.21"
 GOOGLE_TOTAL_GB="9.91"
 GOOGLE_PLAN_TB="5"
 
-# Mac biblioteca local — Apple uses either Spanish (Imágenes) or English (Pictures)
-# depending on system locale. Both paths are checked.
+# The library folder is localised (Imágenes or Pictures); both are checked.
 LIBRARY_CANDIDATES=(
     "${HOME}/Imágenes/Photos Library.photoslibrary"
     "${HOME}/Pictures/Photos Library.photoslibrary"
@@ -88,12 +86,7 @@ echo " you re-check Configuración > Apple ID > iCloud > Fotos)"
 section "🔵 Google One (reference)"
 printf "Plan: %s TB    Used: %s GB total (%s GB in Google Photos)\n" \
     "$GOOGLE_PLAN_TB" "$GOOGLE_TOTAL_GB" "$GOOGLE_PHOTOS_GB"
-echo "(slated for cancellation once the 6.21 GB in Photos are dumped to"
-echo " the new external drive; savings ~240 €/year — see README)"
-
-# --- Amazon Photos ---------------------------------------------------------
-section "📦 Amazon Photos"
-echo "No official CLI. Check via web or the desktop app for exact totals."
+echo "(kept for Gemini and YouTube; the phones' background copy draws from it)"
 
 # --- External drives -------------------------------------------------------
 section "💾 External drives currently mounted"
@@ -131,12 +124,10 @@ fi
 # --- Hint -----------------------------------------------------------------
 section "🎯 Next"
 cat <<'EOF'
-With these numbers you can confirm the plan in packages/my_photos/README.md:
-  - iCloud at 13% of plan → no quota upgrade needed
-  - Google Photos at 6.21 GB → trivial dump before cancelling Google One
-  - New 5 TB drive empty → destination for the unified historic archive
+Compare these numbers with packages/my_photos/README.md (The design):
+  - iCloud usage against the plan -> whether 2 TB holds the history too
+  - external drives -> the old disk and the 5 TB copy, with their event folders
 
-If anything looks unexpected (iCloud higher than expected, external drive
-not appearing, etc.), report back and we adjust the plan before writing
-any code that touches the photos.
+If anything looks unexpected, adjust the plan before writing any code that
+touches the photos.
 EOF
