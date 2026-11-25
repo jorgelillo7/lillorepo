@@ -32,14 +32,13 @@ from packages.be_water.web.routes import add, admin, main, session
 
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
 # What the pages may load, and nothing else (docs/gcp.md, CSP). Styles stay
-# 'unsafe-inline' because Tailwind's CDN build injects them at runtime; scripts
-# run only with this request's nonce.
+# 'unsafe-inline' for the templates' style attributes and <style> blocks;
+# scripts run only with this request's nonce.
 CSP = {
     "default-src": ["'self'"],
     "script-src": [
         "'self'",
         "'nonce-{nonce}'",
-        "https://cdn.tailwindcss.com",
         "https://accounts.google.com/gsi/client",
     ],
     "style-src": [
