@@ -210,12 +210,12 @@
 {# Tap a photo to read it. A label shot is 150 KB of small print — on a phone
    the ficha renders it 64 units tall, which is proof nobody can check. #}
 <dialog id="zoom" closedby="any" aria-labelledby="zoom-caption"
-        class="bg-transparent p-0 max-w-[calc(100%-2rem)] overflow-visible backdrop:bg-slate-900/90">
+        class="bg-transparent p-0 max-w-[calc(100%-2rem)] overflow-visible backdrop:bg-[#0f172a]/90">
     <img id="zoom-img" src="" alt=""
          class="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl">
-    <p id="zoom-caption" class="mt-3 text-xs text-white/80 text-center"></p>
+    <p id="zoom-caption" class="mt-3 text-xs text-[#fff]/80 text-center"></p>
     <button type="button" id="zoom-close" aria-label="Cerrar" autofocus
-            class="fixed top-4 right-4 h-11 w-11 rounded-full bg-white/15 text-white text-2xl leading-none">×</button>
+            class="fixed top-4 right-4 h-11 w-11 rounded-full bg-[#fff]/15 text-[#fff] text-2xl leading-none">×</button>
 </dialog>
 
 <script nonce="{{ csp_nonce() }}">
