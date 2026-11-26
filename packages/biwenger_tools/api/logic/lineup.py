@@ -9,6 +9,7 @@ example that motivated exhaustive backtracking), see the
 """
 
 from html import escape
+from itertools import product
 
 from core.utils import get_logger
 from packages.biwenger_tools.api import config
@@ -816,26 +817,40 @@ def _pick_reserves(squad: list, starter_ids: set) -> list:
     players: a squad with eleven midfield-eligible names left the midfield
     reserve slot empty because the twelfth-ranked one had been dropped before
     the bench was ever considered.
+
+    Fills as many slots as the squad can, then takes the best substitute slot
+    by slot in that order: a MED/DEL who would take the midfield slot is kept
+    for the forward one when only he can fill it and another midfielder can
+    take his place.
     """
     bench_pool = [r for r in squad if r["bw_id"] not in starter_ids]
-    used_ids: set = set()
-    reserves: list = []
-    for slot_pos in (GK, DEF, MID, FWD):
-        candidates = sorted(
-            (
-                r
-                for r in bench_pool
-                if r["bw_id"] not in used_ids and slot_pos in _positions(r)
-            ),
+    slots = (GK, DEF, MID, FWD)
+    options = [
+        sorted(
+            (r for r in bench_pool if slot_pos in _positions(r)),
             key=_bench_rank,
             reverse=True,
+        )[: len(slots)]
+        + [None]
+        for slot_pos in slots
+    ]
+    best: list = []
+    best_key: tuple = ()
+    for choice in product(*options):
+        ids = [r["bw_id"] for r in choice if r]
+        if len(ids) != len(set(ids)):
+            continue
+        key = (
+            len(ids),
+            tuple(_bench_rank(r) if r else _NO_SUBSTITUTE for r in choice),
         )
-        if candidates:
-            reserves.append(candidates[0])
-            used_ids.add(candidates[0]["bw_id"])
-        else:
-            reserves.append(None)
-    return reserves
+        if not best or key > best_key:
+            best, best_key = list(choice), key
+    return best
+
+
+# Ranks below any substitute's `_bench_rank`.
+_NO_SUBSTITUTE = (float("-inf"), float("-inf"), -1)
 
 
 def _pick_captain(starters: list) -> dict | None:
