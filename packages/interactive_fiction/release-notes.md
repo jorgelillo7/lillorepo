@@ -2,6 +2,11 @@
 
 What changed in the reader, newest first. The stories have their own history, in their author's repository. 📖
 
+### **The 3D Preview Gets the Reader's Menu (26 November 2026)**
+
+* **💾 The 3D preview remembers**: Continuar, chapters with their state, endings and achievements, and settings, all with the reader's own saves.
+* **🚪 A cover, not a list**: the room fills the screen, with one way in (Continuar or Empezar) and the rest quiet under it.
+
 ### **The Cover Arrives First (15 November 2026)**
 
 * **🖼️ The cover's picture starts with the page**: the title screen's picture now loads together with the page instead of after it, in the lightest format the browser reads.

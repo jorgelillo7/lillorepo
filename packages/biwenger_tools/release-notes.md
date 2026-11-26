@@ -2,6 +2,13 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v12.2 - Dark When You Want It (26 November 2026)**
+
+* **🌙 Dark mode**: the site follows the phone's or computer's setting, and a sun/moon button in the header picks the other one when you prefer.
+* **⚡ Faster first paint**: styles are built once when the site is published instead of in every browser, so pages no longer download a compiler from a CDN.
+* **🔤 No fonts from Google**: Roboto and Oswald come from the site itself, so opening a page tells no one else.
+* **🔐 Stricter page security**: no inline style is accepted any more, and a browser warning on every page is gone.
+
 ### **v12.1 - Safer and Easier to Read (17 November 2026)**
 
 * **🛡️ Nobody's title can break the page**: a crónica's title, an author or a team name containing HTML is shown as text in the search results and the Tabla de Justicia, never run as markup.
