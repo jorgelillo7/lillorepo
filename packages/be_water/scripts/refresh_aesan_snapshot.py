@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate the recognised-waters snapshot for Spain from the official list.
+"""Regenerate the recognised-waters snapshots from the official EU list.
 
 AESAN used to publish Spain's list as its own PDF. That document, and the whole
 `/AECOSAN/` tree it lived under, now 404: the agency points instead at the
@@ -10,8 +10,11 @@ manually (or from a Claude session) every few months:
     pip3 install pypdf==6.19.0   # one-time, local only — not a Bazel dep
     python3 packages/be_water/scripts/refresh_aesan_snapshot.py
 
-A non-empty `git diff` on the snapshot IS the news: waters Spain has recognised
-(or dropped) since the last refresh.
+It writes two snapshots: Spain's own table (`aesan_snapshot.py`, with the
+province parsed out of each place) and every other country's (`eu_snapshot.py`:
+member states, Northern Ireland and the EEA, place as printed). A non-empty
+`git diff` on either IS the news: waters recognised (or dropped) since the last
+refresh.
 """
 
 import io
@@ -30,6 +33,7 @@ PDF_URL = (
     "?filename=labelling-nutrition_mineral-waters_list_eu-recognised.pdf"
 )
 SNAPSHOT_PATH = Path("packages/be_water/web/aesan_snapshot.py")
+EU_SNAPSHOT_PATH = Path("packages/be_water/web/eu_snapshot.py")
 LANDING_PAGE = (
     "https://food.ec.europa.eu/food-safety/labelling-and-nutrition"
     "/natural-mineral-waters-and-spring-water_en"
@@ -56,6 +60,54 @@ _CELL = re.compile(r"\S(?:.*?\S)?(?=\s{2,}|$)")
 _PROVINCE = re.compile(r"^(.*)\(([^)]+)\)\s*$")
 # An HTML refusal names itself in its title ("Sorry - 35884773" for a 429).
 _TITLE = re.compile(rb"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+# Every other country's table, by the name the list gives it, as the catalog's
+# country codes (`geo.COUNTRIES`). A table whose country is not here fails the
+# refresh, so a new member state is noticed rather than dropped.
+COUNTRY_CODES = {
+    "Austria": "AT",
+    "Belgium": "BE",
+    "Bulgaria": "BG",
+    "Croatia": "HR",
+    "Cyprus": "CY",
+    "Czech Republic": "CZ",
+    "Denmark": "DK",
+    "Estonia": "EE",
+    "Finland": "FI",
+    "France": "FR",
+    "Germany": "DE",
+    "Greece": "GR",
+    "Hungary": "HU",
+    "Iceland": "IS",
+    "Ireland": "IE",
+    "Italy": "IT",
+    "Latvia": "LV",
+    "Lithuania": "LT",
+    "Luxembourg": "LU",
+    "Netherlands": "NL",
+    "Norway": "NO",
+    "Poland": "PL",
+    "Portugal": "PT",
+    "Romania": "RO",
+    "Slovakia": "SK",
+    "Slovenia": "SI",
+    "Sweden": "SE",
+    "United Kingdom (Northern Ireland)": "GB",
+}
+_TABLE = re.compile(
+    r"List of natural mineral waters (from third countries )?recognised by "
+    r"(?:[Tt]he )?(.+?)\s*$"
+)
+# Page furniture outside the tables: the list's own title and preamble, section
+# headings ("2.  UNITED KINGDOM (NORTHERN IRELAND)"), footnotes, page numbers.
+_FURNITURE = re.compile(
+    r"Last update|^\s*\d+\s+OJ |^\s*\d+\.\s+[A-Z][A-Z ()]+$|LIST OF NATURAL"
+    r"|MEMBER STATES|EEA COUNTRIES|In accordance with|Council\s+of|Commission\s+is"
+    r"|recognised as such by|The following list replaces|^\s*\d+\s*$"
+)
+# The German table lists sources without a trade description as "---".
+_NO_NAME = re.compile(r"^-+\d*$")
 
 
 def _is_noise(line: str) -> bool:
@@ -99,18 +151,6 @@ def _column_starts(picked: list[tuple[int, str]]) -> dict[int, tuple[int, int]]:
         for number, pairs in per_page.items()
         if pairs
     }
-
-
-def parse(pdf_bytes: bytes) -> tuple[str, list[dict]]:
-    # Imported here, not at module scope: pypdf is a local-only pip install
-    # (deliberately not a Bazel dep, to keep it out of the runtime image), and
-    # `parse_pages` must stay importable from the tests without it.
-    from pypdf import PdfReader
-
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    return parse_pages(
-        [page.extract_text(extraction_mode="layout") or "" for page in reader.pages]
-    )
 
 
 def parse_pages(pages: list[str]) -> tuple[str, list[dict]]:
@@ -165,6 +205,82 @@ def parse_pages(pages: list[str]) -> tuple[str, list[dict]]:
             }
         )
     return date, entries
+
+
+def _foreign_segments(pages: list[str]) -> list[tuple[str, list[str]]]:
+    """Each foreign country's table rows, one segment per table and page.
+
+    Spain's table and every third-country table are left out: Spain's has its
+    own parser, and a third-country water is sourced outside the country that
+    recognised it.
+    """
+    segments: list[tuple[str, list[str]]] = []
+    country: str | None = None
+    for page in pages:
+        lines: list[str] | None = None
+        for line in page.split("\n"):
+            if not line.strip():
+                continue
+            if m := _TABLE.search(line):
+                name = m.group(2).strip()
+                country = None if m.group(1) or name == "Spain" else name
+                lines = None
+                continue
+            if _FURNITURE.search(line) or _HEADER.search(line) or country is None:
+                continue
+            if lines is None:
+                lines = []
+                segments.append((country, lines))
+            lines.append(line.rstrip())
+    return segments
+
+
+def parse_foreign_pages(pages: list[str]) -> list[dict]:
+    """Layout-mode text → every other country's entries, place as printed.
+
+    Unlike Spain's table, these wrap downwards and their places carry no common
+    end mark, so a row is a line with all three cells filled, and a line with
+    any cell empty continues the row above it. Column starts are found per
+    table segment, since one page can hold two tables laid out differently.
+    """
+    entries: list[dict] = []
+    for country, lines in _foreign_segments(pages):
+        if country not in COUNTRY_CODES:
+            raise ValueError(f"Unknown country table: {country!r}")
+        full = [
+            [m.start() for m in _CELL.finditer(line)]
+            for line in lines
+            if len(list(_CELL.finditer(line))) == 3
+        ]
+        if not full:
+            continue
+        starts = (min(c[1] for c in full), min(c[2] for c in full))
+        rows: list[dict] = []
+        for line in lines:
+            first, second, third = _split(line, starts)
+            if first and second and third:
+                rows.append({"name": first, "spring": second, "place": third})
+            elif rows:
+                for key, value in (
+                    ("name", first),
+                    ("spring", second),
+                    ("place", third),
+                ):
+                    if value:
+                        rows[-1][key] += " " + value
+        for row in rows:
+            name = " ".join(row["name"].split())
+            if _NO_NAME.match(name):
+                continue
+            entries.append(
+                {
+                    "name": name,
+                    "spring": " ".join(row["spring"].split()),
+                    "place": " ".join(row["place"].split()),
+                    "country": COUNTRY_CODES[country],
+                }
+            )
+    return entries
 
 
 def _split(line: str, starts: tuple[int, int]) -> tuple[str, str, str]:
@@ -244,8 +360,46 @@ def _download(
     )
 
 
+def _write_snapshot(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    # The generated file must pass Lint, so it is formatted by the same
+    # hermetic Ruff `scripts/lint.sh` runs — not whichever one is on PATH.
+    subprocess.run(
+        [
+            "bazel",
+            "run",
+            "--ui_event_filters=-info,-stdout,-stderr",
+            "//tools/lint:ruff",
+            "--",
+            "format",
+            "--quiet",
+            str(path.resolve()),
+        ],
+        check=True,
+    )
+
+
+def _pages(pdf_bytes: bytes) -> list[str]:
+    """The PDF's pages as layout-mode text, the shape both parsers read."""
+    # Imported here, not at module scope: pypdf is a local-only pip install
+    # (deliberately not a Bazel dep, to keep it out of the runtime image), and
+    # the parsers must stay importable from the tests without it.
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    return [page.extract_text(extraction_mode="layout") or "" for page in reader.pages]
+
+
 def main() -> None:
-    date, entries = parse(_download())
+    pages = _pages(_download())
+    date, entries = parse_pages(pages)
+    foreign = parse_foreign_pages(pages)
+    countries = {e["country"] for e in foreign}
+    if len(foreign) < 1500 or len(countries) < 20:
+        sys.exit(
+            f"Only {len(foreign)} foreign entries from {len(countries)} countries "
+            "parsed — the PDF layout probably changed; refusing to overwrite."
+        )
     if len(entries) < 100:
         sys.exit(
             f"Only {len(entries)} entries parsed — the PDF layout probably "
@@ -276,23 +430,34 @@ def main() -> None:
             f'"place": {e["place"]!r}, "province": {e["province"]!r}}},'
         )
     lines.append("]")
-    SNAPSHOT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    # The generated file must pass Lint, so it is formatted by the same
-    # hermetic Ruff `scripts/lint.sh` runs — not whichever one is on PATH.
-    subprocess.run(
-        [
-            "bazel",
-            "run",
-            "--ui_event_filters=-info,-stdout,-stderr",
-            "//tools/lint:ruff",
-            "--",
-            "format",
-            "--quiet",
-            str(SNAPSHOT_PATH.resolve()),
-        ],
-        check=True,
-    )
+    _write_snapshot(SNAPSHOT_PATH, lines)
+    foreign.sort(key=lambda e: (e["country"], e["name"].lower(), e["spring"].lower()))
+    eu_lines = [
+        # Places are kept as printed, and some are longer than a line.
+        "# ruff: noqa: E501",
+        '"""Natural mineral waters recognised by the other EU and EEA countries.',
+        "",
+        "Generated snapshot, from the same list as `aesan_snapshot.py`. Do not edit",
+        "by hand — regenerate with:",
+        "    python3 packages/be_water/scripts/refresh_aesan_snapshot.py",
+        "`country` is the recognising country's code (`geo.COUNTRIES`); `place` is",
+        "the place of exploitation as printed, in each country's own format.",
+        '"""',
+        "",
+        f'EU_VERSION = "EU/{date[-4:]}-{date[3:5]}-{date[:2]}"',
+        "",
+        "EU_WATERS = [",
+    ]
+    for e in foreign:
+        eu_lines.append(
+            f'    {{"name": {e["name"]!r}, "spring": {e["spring"]!r}, '
+            f'"place": {e["place"]!r}, "country": {e["country"]!r}}},'
+        )
+    eu_lines.append("]")
+    _write_snapshot(EU_SNAPSHOT_PATH, eu_lines)
     print(f"{date}: {len(entries)} waters → {SNAPSHOT_PATH}")
+    print(f"{date}: {len(foreign)} waters, {len(countries)} countries")
+    print(f"  → {EU_SNAPSHOT_PATH}")
 
 
 if __name__ == "__main__":

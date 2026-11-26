@@ -1,13 +1,15 @@
-"""Lookups over the AESAN snapshot.
+"""Lookups over the official registry snapshots.
 
-The official registry carries identity only (commercial name, spring,
-place) — never compositions. It powers the add-form prefill and the
-sync coverage stat; it never creates catalog entries by itself.
+Spain's table (`aesan_snapshot`) and every other EU and EEA country's
+(`eu_snapshot`) carry identity only (commercial name, spring, place) — never
+compositions. They power the add-form prefill, the coverage stat and the
+"recognised by" line on a foreign ficha; they never create catalog entries.
 """
 
 from unidecode import unidecode
 
 from packages.be_water.web.aesan_snapshot import AESAN_WATERS
+from packages.be_water.web.eu_snapshot import EU_WATERS
 
 
 def _tokens(text: str) -> set:
@@ -24,6 +26,21 @@ def registry_matches(name: str) -> list[dict]:
         entry
         for entry in AESAN_WATERS
         if (t := _tokens(entry["name"])) and (tokens <= t or t <= tokens)
+    ]
+
+
+def foreign_matches(name: str, country: str | None = None) -> list[dict]:
+    """Other countries' registry entries whose name token-matches `name`, as
+    `registry_matches` does for Spain's; only `country`'s when one is given."""
+    tokens = _tokens(name)
+    if not tokens:
+        return []
+    return [
+        entry
+        for entry in EU_WATERS
+        if (country is None or entry["country"] == country)
+        and (t := _tokens(entry["name"]))
+        and (tokens <= t or t <= tokens)
     ]
 
 

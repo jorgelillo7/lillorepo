@@ -16,6 +16,7 @@ from packages.be_water.scripts.refresh_aesan_snapshot import (
     BACKOFF_CAP_SECONDS,
     _backoff,
     _download,
+    parse_foreign_pages,
     parse_pages,
 )
 
@@ -223,3 +224,71 @@ def test_retry_after_is_honoured_but_capped():
     assert _backoff(1, "3600") == BACKOFF_CAP_SECONDS
     assert _backoff(1, None) == 2.0
     assert _backoff(1, "not a number") == 2.0
+
+
+_FR = "    List of natural mineral waters recognised by France"
+_IT_THIRD = (
+    "    List of natural mineral waters from third countries recognised by Italy"
+)
+_DE = "    List of natural mineral waters recognised by Germany"
+
+
+def test_foreign_tables_wrap_downwards_and_keep_their_place_as_printed():
+    entries = parse_foreign_pages(
+        [
+            _page(
+                _SPAIN,
+                _HEADER,
+                _row("Peñaclara", "Peñaclara", "Torrecilla (La Rioja)"),
+                _FR,
+                _HEADER,
+                _row("808", "source de Meyreuil", "Meyreuil (Bouches du"),
+                _row("Eau Minérale du", "", "Rhône)"),
+                _row("Evian", "Cachat", "Évian-les-Bains"),
+                _IT_THIRD,
+                _HEADER,
+                _row("Sarajevski", "Vrelo", "Kiseljak"),
+            )
+        ]
+    )
+    assert entries == [
+        {
+            "name": "808 Eau Minérale du",
+            "spring": "source de Meyreuil",
+            "place": "Meyreuil (Bouches du Rhône)",
+            "country": "FR",
+        },
+        {
+            "name": "Evian",
+            "spring": "Cachat",
+            "place": "Évian-les-Bains",
+            "country": "FR",
+        },
+    ]
+
+
+def test_a_source_without_a_trade_name_is_left_out():
+    entries = parse_foreign_pages(
+        [
+            _page(
+                _DE,
+                _HEADER,
+                _row("---3", "Talquelle", "Goslar-Oker"),
+                _row("Gerolsteiner", "Gerolsteiner", "Gerolstein"),
+            )
+        ]
+    )
+    assert [e["name"] for e in entries] == ["Gerolsteiner"]
+
+
+def test_an_unknown_country_table_stops_the_refresh():
+    with pytest.raises(ValueError, match="Atlantis"):
+        parse_foreign_pages(
+            [
+                _page(
+                    "    List of natural mineral waters recognised by Atlantis",
+                    _HEADER,
+                    _row("Agua", "Fuente", "Lugar"),
+                )
+            ]
+        )

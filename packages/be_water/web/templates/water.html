@@ -58,6 +58,10 @@
                 {% if water.registry_id %}<span class="font-mono" title="Registro sanitario">{{ water.registry_id }}</span>{% endif %}
             </p>
             {% endif %}
+            {% if eu_recognised %}
+            <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mt-0.5"
+               title="Figura en la lista oficial de aguas minerales naturales de la UE">reconocida por {{ water.country_name }} · lista UE</p>
+            {% endif %}
             {% if water.source_of('province') == 'aesan' %}
             <p class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mt-0.5"
                title="Procedencia cruzada con el registro oficial AESAN">registro AESAN</p>

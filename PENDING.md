@@ -51,10 +51,3 @@ Next session starts here; the story-specific detail is in the local plan (`.clau
 | | What is missing | Waiting on |
 |---|---|---|
 | 👤 | After the next deploy, add a gift from an iPhone with each photo button (camera and library) and check both photos show. They are now `<button>`s opening a hidden file input; the first upload, through the old labels, is stored and served clean | You · the browser side has no automated test |
-
-## be_water
-
-| | What is missing | Waiting on |
-|---|---|---|
-| 🔨 | Foreign waters recognised by the registry: parse the other 27 country tables of the EU list (each with its own place format), then a 🌍 tier and country chips | Ready · [parked-work](docs/technical/parked-work.md#be_water--foreign-waters-from-the-eu-registry) |
-| 🔨 | An optional second label photo, read for the origin only, when the composition photo does not show the address | Ready · [parked-work](docs/technical/parked-work.md#be_water--a-second-label-photo-for-the-origin) |

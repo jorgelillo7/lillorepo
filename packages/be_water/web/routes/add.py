@@ -371,7 +371,7 @@ def _prefill_from_aesan(prefill: dict) -> str:
     """
     matches = aesan.registry_matches(prefill.get("name") or "")
     if not matches:
-        return ""
+        return _prefill_from_eu(prefill)
     filled = False
     springs = {m["spring"] for m in matches}
     if len(springs) == 1 and not prefill.get("spring"):
@@ -387,6 +387,34 @@ def _prefill_from_aesan(prefill: dict) -> str:
             prefill["community"] = geo.community_of(province)
             filled = True
     return " Procedencia completada del registro AESAN 📋" if filled else ""
+
+
+def _prefill_from_eu(prefill: dict) -> str:
+    """For a name Spain's registry does not know: fill country, spring and
+    region from another country's, only when every match is that one country's
+    and the form has not already chosen a different one. Gaps only, as above."""
+    matches = aesan.foreign_matches(prefill.get("name") or "")
+    countries = {m["country"] for m in matches}
+    if len(countries) != 1:
+        return ""
+    country = countries.pop()
+    if prefill.get("country") not in (None, "", "ES", country):
+        return ""
+    if prefill.get("country") == "ES" and (
+        prefill.get("province") or prefill.get("community")
+    ):
+        return ""
+    prefill["country"] = country
+    springs = {m["spring"] for m in matches}
+    if len(springs) == 1 and not prefill.get("spring"):
+        prefill["spring"] = springs.pop()
+    places = {m["place"] for m in matches}
+    if len(places) == 1 and not prefill.get("province"):
+        prefill["province"] = places.pop()
+    return (
+        f" Origen completado de la lista oficial de la UE "
+        f"({geo.country_name(country)}) 📋"
+    )
 
 
 # Fields the review form round-trips, so a second pass over the label never
