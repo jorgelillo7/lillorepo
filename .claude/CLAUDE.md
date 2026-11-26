@@ -77,6 +77,8 @@ Skills (`system/skills/`):
 | `audit-apple-contacts` | Audit the Apple address book and merge a Google export into it — one-by-one approval, nothing written until the owner says so. |
 | `mac-cleanup` | Measure the disk and recover space — nothing deleted without the owner's yes in that round. |
 | `modern-web-guidance` | Google Chrome's guides for HTML, CSS and client JS (accessibility, performance, security…). Vendored by `scripts/sync-web-guidance.sh` — **do not edit**; read the guides from disk, as the `web` rule says. |
+| `frontend-design` | Visual direction for new UI or a redesign — subject-led palette and type, one bold element, a plan reviewed against generic defaults before the code. Pairs with `modern-web-guidance`, which covers the technical side. Vendored from `anthropics/skills` by `scripts/sync-anthropic-skills.sh` — **do not edit**. |
+| `webapp-testing` | Drive a local web app with Python Playwright — screenshots, clicks, console logs; `scripts/with_server.py` starts the server and stops it after. Needs `pip3 install playwright` and `python3 -m playwright install chromium` once. Vendored by `scripts/sync-anthropic-skills.sh` — **do not edit**. |
 
 ## Agents vs skills
 
