@@ -236,6 +236,50 @@ def test_a_renamed_team_does_not_duplicate_its_clausulazos(mock_external_deps):
     assert teams["Rival"]["total_hechos"] == 1
 
 
+def test_a_clausulazo_biwenger_redated_is_neither_duplicated_nor_missed(
+    mock_external_deps,
+):
+    """Biwenger folds clausulazos made moments apart into one entry and moves its
+    date to the latest one: the stored copy stands, nothing is reported missing."""
+    folded = _clause_entry(_september_ts() + 60, "Pedri", "Lillo", "Rival", 20_000_000)
+    folded["content"] += _clause_entry(0, "Nico", "Rival", "Lillo", 9_000_000)[
+        "content"
+    ]
+    _feed_and_store(mock_external_deps, stored=[_SEPTEMBER], fetched=[folded])
+
+    with patch("packages.biwenger_tools.scraper_job.main.logger") as log:
+        main()
+
+    fs = mock_external_deps["firestore"]
+    written = _batch_for(fs, "clausulazos/25-26/transfers")
+    assert [c["jugador"] for _, c in written] == ["Nico"]
+    assert not any(
+        c.kwargs.get("extra", {}).get("missing") for c in log.warning.call_args_list
+    )
+    teams = dict(_batch_for(fs, "tabla_justicia/25-26/teams"))
+    assert teams["Rival"]["total_hechos"] == 1
+
+
+def test_a_later_clausulazo_at_the_same_price_is_its_own(mock_external_deps):
+    """Matching tolerates Biwenger's re-dating, not hours: the same price later
+    in the day is another clausulazo."""
+    _feed_and_store(
+        mock_external_deps,
+        stored=[_SEPTEMBER],
+        fetched=[
+            _clause_entry(_september_ts(), "Pedri", "Lillo", "Rival", 20_000_000),
+            _clause_entry(
+                _september_ts() + 3 * 3600, "Pedri", "Rival", "Lillo", 20_000_000
+            ),
+        ],
+    )
+
+    main()
+
+    written = _batch_for(mock_external_deps["firestore"], "clausulazos/25-26/transfers")
+    assert len(written) == 1
+
+
 def test_last_seasons_clausulazos_are_neither_stored_nor_missed(mock_external_deps):
     """After the rollover the feed still holds last season: none of it is written,
     counted in the justice table or reported missing."""

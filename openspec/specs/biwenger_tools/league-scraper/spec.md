@@ -81,8 +81,10 @@ empty table.
 
 The scraper SHALL add the clausulazos the feed returns that are not stored yet,
 and SHALL never delete or rewrite a stored one. A clausulazo is already stored
-when a stored one has the same date and price, whatever the team and player
-names say. Clausulazos dated before 1 July of the season's first year SHALL be
+when a stored one has the same price and a date no later than the feed's and at
+most 15 minutes before it, whatever the team and player names say: Biwenger
+folds clausulazos made moments apart into one entry and moves its date to the
+latest, so a clausulazo stored mid-burst comes back re-dated. Clausulazos dated before 1 July of the season's first year SHALL be
 ignored: the code rolls over in May, weeks before Biwenger opens the season in
 July, and the feed still returns last season's in between. The justice table
 SHALL be built from stored and fetched clausulazos together. When stored clausulazos are
@@ -100,10 +102,15 @@ them from Firestore too. The stored copy is the only history left.
   stored is removed
 - **WHEN** a team renames itself **THEN** its clausulazos are neither
   duplicated nor counted twice
+- **WHEN** Biwenger re-dates a stored clausulazo by folding a later one into
+  its entry **THEN** it is neither stored again nor reported missing
+- **WHEN** the same price comes back hours later **THEN** it is a new clausulazo
 - *Verifies:* `test_clausulazos_missing_from_the_feed_are_kept`,
   `test_the_justice_table_counts_stored_and_fetched_clausulazos`,
   `test_clausulazos_missing_from_the_feed_are_reported`,
-  `test_a_renamed_team_does_not_duplicate_its_clausulazos`
+  `test_a_renamed_team_does_not_duplicate_its_clausulazos`,
+  `test_a_clausulazo_biwenger_redated_is_neither_duplicated_nor_missed`,
+  `test_a_later_clausulazo_at_the_same_price_is_its_own`
 
 #### Scenario: between the rollover and the new season
 - **WHEN** the feed still returns last season's clausulazos **THEN** none is

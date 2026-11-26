@@ -17,7 +17,12 @@ from bs4 import BeautifulSoup
 from core.constants import MADRID_TZ
 from core.domain.models import Anulacion, Clausulazo, LeagueMessage, mark_cancelled
 from core.sdk import firestore
-from core.sdk.biwenger import MONEY_ENTRY_TYPES, BiwengerClient, board_entry_key
+from core.sdk.biwenger import (
+    BOARD_FOLD_WINDOW_SECONDS,
+    MONEY_ENTRY_TYPES,
+    BiwengerClient,
+    board_entry_key,
+)
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
 from packages.biwenger_tools.scraper_job import config
@@ -171,9 +176,12 @@ def _anulacion_doc_id(a: Anulacion) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
 
-def _clausulazo_identity(c: Clausulazo) -> tuple[str, int]:
-    """Date and price: what a team or player rename cannot change."""
-    return c.fecha, c.precio
+def _same_clausulazo(stored: Clausulazo, fetched: Clausulazo) -> bool:
+    """Same price, and the feed's date no earlier and no further on than Biwenger
+    re-dates an entry it folds later clausulazos into. Price and date are what a
+    team or player rename cannot change."""
+    elapsed = (_clausulazo_time(fetched) - _clausulazo_time(stored)).total_seconds()
+    return stored.precio == fetched.precio and 0 <= elapsed <= BOARD_FOLD_WINDOW_SECONDS
 
 
 def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
@@ -181,7 +189,7 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
 
     Never deletes or rewrites a stored clausulazo: Biwenger drops old entries
     from its feed, and a stored one may carry a manual fix. A fetched one is
-    already stored when a stored one has its date and price; one older than
+    already stored when a stored one matches it (`_same_clausulazo`); one older than
     the season is ignored. The tally's `missing` counts stored clausulazos the
     feed no longer returns.
     """
@@ -195,10 +203,10 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
     ]
 
     stored = list(_stored_clausulazos(season).values())
-    stored_ids = {_clausulazo_identity(c) for c in stored}
-    fetched_ids = {_clausulazo_identity(c) for c in fetched}
-    new = [c for c in fetched if _clausulazo_identity(c) not in stored_ids]
-    missing_count = len(stored_ids - fetched_ids)
+    new = [f for f in fetched if not any(_same_clausulazo(s, f) for s in stored)]
+    missing_count = sum(
+        1 for s in stored if not any(_same_clausulazo(s, f) for f in fetched)
+    )
     logger.info(
         "Clausulazos processed.",
         extra={"fetched": len(fetched), "new": len(new), "stored": len(stored)},

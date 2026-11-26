@@ -91,7 +91,12 @@ one round's payout.
 ### Requirement: Only the current season counts, and the read must reach its start
 
 `/saldos` SHALL rebuild from the live board merged with
-`board_archive/{season}/entries`, deduplicated by `board_entry_key`. Entries
+`board_archive/{season}/entries`, deduplicated by `board_entry_key`. Biwenger
+folds moves made moments apart into one entry and moves its date to the
+latest, so an entry archived mid-burst comes back with more moves and a newer
+date; an archived entry that a live entry supersedes this way (`superseded_by`:
+same type, dated after it within 15 minutes, holding all its moves) SHALL count
+as that live entry, neither as lost nor twice. Entries
 older than the latest `seasonStarted` SHALL be ignored. When neither the read
 nor the archive contains a `seasonStarted` entry, it SHALL raise rather than
 return figures, since the rebuild would be missing the season's first movements.
@@ -120,6 +125,8 @@ without an archive, and it does not pretend to be protected.
   holds it **THEN** the rebuild still answers
 - **WHEN** the archive cannot be read **THEN** the live board alone answers and
   the image says so
+- **WHEN** the archive holds an entry Biwenger later folded more clausulazos
+  into **THEN** its money counts once and it is not reported as lost
 - *Verifies:* `test_entries_before_the_season_start_are_ignored`,
   `test_a_read_that_never_reaches_the_season_start_raises`,
   `test_get_all_board_messages_stops_at_the_page_holding_until_type`
@@ -131,6 +138,10 @@ without an archive, and it does not pretend to be protected.
   `test_an_archived_older_season_is_not_counted_as_lost`,
   `test_nothing_lost_says_nothing_about_the_archive`,
   `test_an_unreadable_archive_is_said_not_hidden`,
+  `test_an_archived_entry_biwenger_later_folded_is_not_counted_twice`,
+  `test_an_entry_biwenger_folded_later_moves_into_is_superseded`,
+  `test_an_entry_is_not_superseded_by_a_different_or_distant_one`
+  (`core/tests/test_biwenger_client.py`),
   `test_league_money_adds_what_only_the_archive_holds`,
   `test_an_unreadable_archive_leaves_the_live_board_and_says_so`
   (`api/tests/test_actions.py`)

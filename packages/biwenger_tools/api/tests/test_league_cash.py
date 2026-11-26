@@ -157,6 +157,36 @@ def test_the_archive_fills_what_the_live_board_lost():
     )
 
 
+def test_an_archived_entry_biwenger_later_folded_is_not_counted_twice():
+    """Two clausulazos read at 20:24 came back at 20:25 in one entry with a
+    third: the archived copy is the same money, not a lost movement."""
+
+    def clause(player, amount):
+        return {
+            "player": player,
+            "from": _user(RIVAL),
+            "to": _user(ME),
+            "amount": amount,
+            "type": "clause",
+        }
+
+    early = _entry(
+        "transfer", [clause(1, 26_000_000), clause(2, 10_000_000)], SEASON_START + 100
+    )
+    folded = _entry(
+        "transfer",
+        [clause(1, 26_000_000), clause(2, 10_000_000), clause(3, 15_000_000)],
+        SEASON_START + 197,
+    )
+
+    entries, lost = league_cash.with_archive(
+        [folded, _season_started()], [early, _season_started()]
+    )
+
+    assert lost == 0
+    assert league_cash.rebuild(entries, START).cash_of(ME) == START - 51_000_000
+
+
 def test_the_archive_fills_a_lost_season_start():
     """The live read no longer reaches `seasonStarted`; the archive holds it."""
     september = _sale(7_000_000, SEASON_START + 10)
