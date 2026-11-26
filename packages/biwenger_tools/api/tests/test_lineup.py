@@ -872,6 +872,32 @@ def test_a_versatile_substitute_covers_more_than_a_narrow_one():
     assert _bench_rank(versatile) > _bench_rank(narrow)
 
 
+def test_a_versatile_substitute_is_kept_for_the_slot_only_he_can_fill():
+    """26/11: Moleiro (MED/DEL) took the midfield slot and left the forward one
+    empty, with Amatucci (MED) free for midfield. An empty slot costs -4 the
+    day a forward does not play; the bench fills every slot it can first."""
+    from packages.biwenger_tools.api.logic.lineup import _pick_reserves
+
+    keeper, defender = _player(1, 400, GK), _player(2, 350, DEF)
+    moleiro = _player(3, 402, MID, (FWD,))
+    amatucci = _player(4, 300, MID)
+
+    reserves = _pick_reserves([keeper, defender, moleiro, amatucci], set())
+
+    assert [r["bw_id"] if r else None for r in reserves] == [1, 2, 4, 3]
+
+
+def test_without_a_conflict_each_slot_still_takes_its_best_substitute():
+    from packages.biwenger_tools.api.logic.lineup import _pick_reserves
+
+    strong_mid, weak_mid = _player(1, 500, MID, (FWD,)), _player(2, 300, MID)
+    forward = _player(3, 200, FWD)
+
+    reserves = _pick_reserves([weak_mid, forward, strong_mid], set())
+
+    assert [r["bw_id"] if r else None for r in reserves] == [None, None, 1, 3]
+
+
 def test_the_bench_never_outranks_a_player_who_is_actually_playing():
     """Projection breaks ties among the floored; it must not lift one above
     a substitute JP expects on the pitch."""

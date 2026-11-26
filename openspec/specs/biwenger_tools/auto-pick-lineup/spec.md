@@ -447,6 +447,13 @@ tie, since the projection outranks the bias.
 the **whole squad** rather than the trimmed starter pool, and SHALL NOT exclude
 a player for being injured, suspended, unlisted or without data.
 
+It SHALL fill as many slots as the squad can before choosing who fills them:
+a player who covers two lines is kept for the slot only he can fill when
+another substitute can take the first. On 26/11 Moleiro (MED/DEL) took the
+midfield slot and left the forward one empty, with Amatucci (MED) free for
+midfield. With no such conflict each slot, in Biwenger's order, takes its best
+substitute as before.
+
 An empty slot scores -4; a player who does not play scores 0. Excluding the
 doubtful therefore costs points it cannot win back — and a postponed fixture or
 a late recovery turns the excluded player into points.
@@ -471,6 +478,15 @@ where a MED-only reaches one.
 - *Verifies:* `test_the_bench_prefers_the_substitute_most_likely_to_be_worth_something`,
   `test_a_versatile_substitute_covers_more_than_a_narrow_one`,
   `test_the_bench_never_outranks_a_player_who_is_actually_playing`
+
+#### Scenario: a versatile substitute and the slot only he can fill
+- **WHEN** the best midfield substitute is the only one who can play forward
+  and another midfielder is free **THEN** he takes the forward slot and the
+  other midfielder the midfield one
+- **WHEN** no slot is left empty either way **THEN** each slot takes its best
+  substitute
+- *Verifies:* `test_a_versatile_substitute_is_kept_for_the_slot_only_he_can_fill`,
+  `test_without_a_conflict_each_slot_still_takes_its_best_substitute`
 
 #### Scenario: doubtful players still sit on the bench
 - **WHEN** the squad contains injured or unlisted players and bench slots remain
