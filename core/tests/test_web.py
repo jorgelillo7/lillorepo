@@ -260,6 +260,8 @@ def test_every_response_carries_permissions_policy_and_coop():
     headers = app.test_client().get("/").headers
     assert "camera=()" in headers["Permissions-Policy"]
     assert "geolocation=()" in headers["Permissions-Policy"]
+    # Chrome removed the Topics API and warns on every page that names it.
+    assert "browsing-topics" not in headers["Permissions-Policy"]
     assert headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
 
 
