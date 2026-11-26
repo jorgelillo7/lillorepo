@@ -9,7 +9,8 @@ entries are archived raw, append-only, in `board_archive/{season}/entries`.
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from html import escape
 from typing import NamedTuple
 
 from bs4 import BeautifulSoup
@@ -25,6 +26,7 @@ from core.sdk.biwenger import (
 )
 from core.sdk.telegram import send_telegram_message
 from core.utils import get_logger
+from packages.biwenger_tools.cascades import Cascade, find_cascades
 from packages.biwenger_tools.scraper_job import config
 from packages.biwenger_tools.scraper_job.logic.processing import (
     build_tabla_justicia,
@@ -42,12 +44,14 @@ _SEASON_START = "seasonStarted"
 
 class _Tally(NamedTuple):
     """What a run added to a collection, what it holds now, what the feed no
-    longer returns, and — for clausulazos — how many the admin undid."""
+    longer returns, and — for clausulazos — how many the admin undid and the
+    cascade days of the last week."""
 
     new: int
     total: int
     missing: int = 0
     cancelled: int = 0
+    cascades: tuple[Cascade, ...] = ()
 
 
 def _season_floor(season: str) -> datetime:
@@ -248,7 +252,9 @@ def _write_clausulazos_and_tabla(biwenger: BiwengerClient, cfg) -> _Tally:
         [(e.doc_id, e.to_firestore()) for e in tabla_justicia if e.equipo],
     )
     logger.info("Clausulazos and tabla_justicia written to Firestore.")
-    return _Tally(len(new), len(stored) + len(new), missing_count, cancelled)
+    week_ago = datetime.now(MADRID_TZ).date() - timedelta(days=7)
+    week = tuple(c for c in find_cascades(marked) if c.day >= week_ago)
+    return _Tally(len(new), len(stored) + len(new), missing_count, cancelled, week)
 
 
 def _stored_ids(collection_path: str) -> set[str]:
@@ -329,6 +335,22 @@ def _news(n: int, word: str) -> str:
     return f"<b>+{n}</b> {_plural(n, word)}" if n else "sin nuevos"
 
 
+_WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+
+
+def _cascade_line(c: Cascade) -> str:
+    """One cascade day for the summary; league names escaped for Telegram's HTML."""
+    starters = " y ".join(
+        f"{escape(s.equipo_comprador)} ({escape(s.jugador)})" for s in c.starters
+    )
+    paid = f"{c.top_paid / 1_000_000:.1f}".replace(".", ",")
+    return (
+        f"🌪️ <b>Noche de cascada</b> · {_WEEKDAYS[c.day.weekday()]} "
+        f"{c.day:%d/%m} · {c.count} clausulazos · empezó {starters} · "
+        f"pagó más {escape(c.top_payer)} {paid} M"
+    )
+
+
 def _summary(
     season: str,
     elapsed: float,
@@ -346,6 +368,9 @@ def _summary(
         + (f" · {clausulazos.cancelled} anulados" if clausulazos.cancelled else ""),
         f"🗄️ Tablón · {_news(archive.new, 'archivado')} · {archive.total} en total",
     ]
+    if clausulazos.cascades:
+        lines.append("")
+        lines += [_cascade_line(c) for c in clausulazos.cascades]
     if clausulazos.missing:
         lines += [
             "",

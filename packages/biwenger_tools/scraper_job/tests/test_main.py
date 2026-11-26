@@ -13,6 +13,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from freezegun import freeze_time
 
 from core.constants import MADRID_TZ
 from core.domain.models import Clausulazo
@@ -593,3 +594,73 @@ def test_a_clausulazo_the_admin_undid_leaves_the_justice_table(mock_external_dep
     (stored_undo,) = _batch_for(fs, "clausulazos/25-26/anulaciones")
     assert stored_undo[1]["motivo"] == "único portero"
     assert _batch_for(fs, "tabla_justicia/25-26/teams") == []
+
+
+def _cascade_entries(first_ts: int) -> list:
+    """Five clausulazos a minute apart, six teams clausing each other in turn."""
+    teams = ["A", "B", "C", "D", "E", "F"]
+    return [
+        _clause_entry(
+            first_ts + 60 * i,
+            f"J{i}",
+            teams[(i + 1) % 6],
+            teams[i],
+            (i + 1) * 1_000_000,
+        )
+        for i in range(5)
+    ]
+
+
+def test_the_summary_names_the_week_s_cascade():
+    from packages.biwenger_tools.cascades import find_cascades
+
+    night = [
+        Clausulazo(
+            "26-11-2025 18:54",
+            "Grimaldo",
+            "Unión",
+            "Farolillo & co",
+            14_793_750,
+            segundos=1,
+            orden=0,
+        ),
+        *[
+            Clausulazo(f"26-11-2025 19:0{i}", f"J{i}", t, "Rayo", 20_000_000)
+            for i, t in enumerate("ABCD")
+        ],
+    ]
+    cascade = find_cascades(night)[0]
+
+    text = _summary(
+        "25-26",
+        elapsed=4,
+        messages_new=0,
+        clausulazos=_Tally(new=5, total=5, cascades=(cascade,)),
+        archive=_Tally(new=0, total=0),
+    )
+
+    assert (
+        "🌪️ <b>Noche de cascada</b> · mié 26/11 · 5 clausulazos · empezó "
+        "Farolillo &amp; co (Grimaldo) · pagó más Rayo 80,0 M"
+    ) in text
+
+
+@freeze_time("2025-11-30 22:00:00")
+def test_only_the_last_week_s_cascades_reach_the_summary(mock_external_deps):
+    _enable_notify()
+    ten_days_ago = int(datetime(2025, 11, 20, 19, 0, tzinfo=MADRID_TZ).timestamp())
+    three_days_ago = int(datetime(2025, 11, 27, 19, 0, tzinfo=MADRID_TZ).timestamp())
+    _feed_and_store(
+        mock_external_deps,
+        stored=[],
+        fetched=_cascade_entries(ten_days_ago) + _cascade_entries(three_days_ago),
+    )
+
+    with patch(
+        "packages.biwenger_tools.scraper_job.main.send_telegram_message"
+    ) as mock_send:
+        main()
+
+    text = mock_send.call_args.kwargs["text"]
+    assert text.count("Noche de cascada") == 1
+    assert "jue 27/11" in text

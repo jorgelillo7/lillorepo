@@ -6,7 +6,8 @@ season-agnostic calendar, and a CSRF- and rate-limit-protected admin surface.
 
 - **Source:** `packages/biwenger_tools/web/routes/` (`main.py`, `admin.py`,
   `season.py`), `app.py`, `repository.py`, plus the pure readers `h2h.py`,
-  `competiciones.py` and `cascades.py`
+  `competiciones.py`, and `packages/biwenger_tools/cascades.py` (shared with
+  the scraper's summary)
 - **Verified by:** `packages/biwenger_tools/web/tests/test_web_app.py`,
   `test_h2h.py`, `test_competiciones.py`, `test_cascades.py`,
   `core/tests/test_gcp_services.py`
