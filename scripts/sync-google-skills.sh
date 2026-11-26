@@ -95,7 +95,9 @@ show_diff_summary() {
   # `diff` exits 1 when files differ; under `set -e`+`pipefail` that non-zero
   # would abort the whole script after the first changed skill. Swallow it —
   # a difference is the expected, non-error case here.
-  diff -rq "$local_dir" "$upstream_dir" 2>/dev/null \
+  # Python writes __pycache__ beside a skill's scripts when they run; that is
+  # not a change upstream.
+  diff -rq -x __pycache__ "$local_dir" "$upstream_dir" 2>/dev/null \
     | sed -e "s|$TMP_DIR/repo|<upstream>|g" -e "s|$DEST_DIR|<local>|g" \
     | sed 's/^/    /' || true
 }
@@ -153,7 +155,7 @@ cmd_add() {
     dirname="$(local_name "$name")"
     dest="$DEST_DIR/${dirname}"
     if [[ -d "$dest" ]]; then
-      if diff -rq "$src" "$dest" >/dev/null 2>&1; then
+      if diff -rq -x __pycache__ "$src" "$dest" >/dev/null 2>&1; then
         echo "✓ ${dirname}: already up to date"
         continue
       fi
@@ -200,7 +202,7 @@ cmd_sync() {
       echo "⚠ ${dirname}: no longer in upstream (kept locally)"
       continue
     fi
-    if diff -rq "$src" "$dest" >/dev/null 2>&1; then
+    if diff -rq -x __pycache__ "$src" "$dest" >/dev/null 2>&1; then
       echo "✓ ${dirname}: up to date"
       continue
     fi
