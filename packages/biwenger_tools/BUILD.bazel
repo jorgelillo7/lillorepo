@@ -12,7 +12,19 @@ py_library(
     visibility = ["//packages/biwenger_tools:__subpackages__"],
 )
 
-exports_files(["constants.py"])
+# Which days were clausulazo cascades: the web lists them, the scraper's
+# summary names the week's. Wired like `constants`.
+py_library(
+    name = "cascades",
+    srcs = ["cascades.py"],
+    visibility = ["//packages/biwenger_tools:__subpackages__"],
+    deps = ["//core:domain"],
+)
+
+exports_files([
+    "cascades.py",
+    "constants.py",
+])
 
 # Cross-module tests. Everything else in this repo is tested inside its own
 # module; this target exists because the bug it guards lives *between* two —

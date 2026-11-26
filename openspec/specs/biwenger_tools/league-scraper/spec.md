@@ -128,6 +128,26 @@ them from Firestore too. The stored copy is the only history left.
   stored, counted in the justice table or reported missing
 - *Verifies:* `test_last_seasons_clausulazos_are_neither_stored_nor_missed`
 
+### Requirement: The summary names the week's cascades
+
+The Telegram summary SHALL add one line per clausulazo cascade (as
+`web-dataviz` defines it, from `packages/biwenger_tools/cascades.py`) whose day
+falls in the seven days before the run: the day, how many clausulazos, who
+started it with the player, and who paid most. League names SHALL be escaped
+for Telegram's HTML.
+
+The scraper runs on Sunday nights, and a cascade usually falls on the eve of a
+clause freeze earlier that week: the summary is where the league first hears
+of it, before anyone opens `/mercado`.
+
+#### Scenario: this week's cascade, not last month's
+- **WHEN** the week had a cascade **THEN** the summary names its day, count,
+  starter with the player and top payer, names escaped
+- **WHEN** the season's other cascades are older than a week **THEN** they are
+  not named
+- *Verifies:* `test_the_summary_names_the_week_s_cascade`,
+  `test_only_the_last_week_s_cascades_reach_the_summary`
+
 ### Requirement: A clausulazo the admin undid stops counting, and stays stored
 
 The scraper SHALL read the board's admin transfers and store, append-only in

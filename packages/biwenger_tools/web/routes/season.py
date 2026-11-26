@@ -27,6 +27,7 @@ from flask.typing import ResponseReturnValue
 
 from core.sdk.gcp import get_workbook
 from core.utils import get_logger
+from packages.biwenger_tools.cascades import find_cascades
 from packages.biwenger_tools.web import (
     competiciones as competiciones_logic,
 )
@@ -38,7 +39,6 @@ from packages.biwenger_tools.web import (
 from packages.biwenger_tools.web import (
     h2h as h2h_logic,
 )
-from packages.biwenger_tools.web.cascades import find_cascades
 from packages.biwenger_tools.web.sanitize import safe_html, to_text
 
 logger = get_logger(__name__)

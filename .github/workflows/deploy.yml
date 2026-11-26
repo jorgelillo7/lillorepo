@@ -17,6 +17,7 @@ on:
       - "packages/biwenger_tools/scraper_job/**"
       - "packages/biwenger_tools/bot/**"
       - "packages/biwenger_tools/api/**"
+      - "packages/biwenger_tools/*.py"
       - "packages/chucknorris_bot/**"
       - "packages/be_water/**"
       - "tools/**"
@@ -163,24 +164,28 @@ jobs:
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/biwenger_tools/web/**'
+              - 'packages/biwenger_tools/*.py'
             scraper:
               - 'core/**'
               - 'tools/**'
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/biwenger_tools/scraper_job/**'
+              - 'packages/biwenger_tools/*.py'
             bot:
               - 'core/**'
               - 'tools/**'
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/biwenger_tools/bot/**'
+              - 'packages/biwenger_tools/*.py'
             api:
               - 'core/**'
               - 'tools/**'
               - 'docker/**'
               - 'MODULE.bazel'
               - 'packages/biwenger_tools/api/**'
+              - 'packages/biwenger_tools/*.py'
             chucknorris_bot:
               - 'core/**'
               - 'tools/**'

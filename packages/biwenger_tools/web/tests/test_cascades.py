@@ -7,7 +7,7 @@ cascades get a table of their own on /mercado".
 from datetime import date
 
 from core.domain.models import Clausulazo
-from packages.biwenger_tools.web.cascades import find_cascades
+from packages.biwenger_tools.cascades import find_cascades
 
 TEAMS = ["A", "B", "C", "D", "E", "F", "G"]
 
