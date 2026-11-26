@@ -7,7 +7,7 @@ scene keeps its 2D picture — chapter 1's rooms are all 3D, chapter 2 plays
 with its 2D pictures except room 207.
 
 It plays full screen, in landscape (a phone held upright gets a screen asking to turn it): a title screen while the first room
-loads, laid out as the room's cover: the kicker, the title and the author, one
+loads, laid out as the room's cover: the title and the author, one
 way in standing out (Continuar where the game was left, or Empezar) and the
 reader's other entries smaller under it (Nueva partida, Capítulos with each
 chapter's state, Finales y logros, Ajustes, Créditos with the credit cards; the
