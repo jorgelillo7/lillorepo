@@ -2,6 +2,14 @@
 
 Every drop of progress, documented. 💧
 
+### **v1.13 - Sign in With Google, and Waters From Abroad (26 November 2026)**
+
+* **🔑 Google Sign-In is live**: the G button signs you in, and with it the admin, the studio photo and the ficha editor are back.
+* **🔒 Your nickname, yours**: link it to your Google account from your profile, and from then on nobody can sign in as you by typing it.
+* **🌍 Waters from abroad**: the EU's list of 28 countries is read too. A label it knows fills in country, spring and region, the ficha says "reconocida por Francia · lista UE", and the home gains a "🌍 De fuera" filter.
+* **📋 Registry refreshed** (list of 12/11/2026): one Spanish water, Nature Montes de León, is no longer listed.
+* **🌙 Dark mode and the sun/moon button**, faster pages, fonts served by the site, and a header that fits every phone.
+
 ### **v1.12 - Easier on the Eyes (17 November 2026)**
 
 * **⚡ The first bottles come first**: the photos on screen when the catalogue opens load at once, the top one ahead of everything.

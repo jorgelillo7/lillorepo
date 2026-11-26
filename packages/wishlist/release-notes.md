@@ -2,6 +2,13 @@
 
 What changed for whoever opens the list, newest first. 🎁
 
+### **v1.3 - One List for Every Occasion (26 November 2026)**
+
+* **🎉 Ocasión**: from `/admin` you change the title, the subtitle and the look (Christmas red with snow, birthday confetti, or a calm teal), and you rename or switch off each child. A child switched off takes their gifts off the list.
+* **🙈 Hide all at once**, then show only what the new occasion needs.
+* **🔎 Search by name**: accents and capitals don't matter, and a search can be shared as a link.
+* **🏷️ Quieter filter labels.**
+
 ### **v1.2 - Filter by Kind, Quicker and Easier to Read (17 November 2026)**
 
 * **🧸 Filter by kind of toy**: cars and tracks, heroes and figures, building and marbles, painting and making, music and stories, home and baby. Only the kinds that child has show, each with how many.
