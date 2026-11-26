@@ -199,3 +199,39 @@ def test_parse_anulaciones_reads_admin_transfers_between_two_managers():
         8865000,
     )
     assert a.motivo == "clausulazo a único portero - cancelamos"
+
+
+def test_each_clausulazo_carries_its_entry_second_and_place():
+    """Biwenger folds moves made moments apart into one entry, oldest first: the
+    entry's second and each clause's place in it are what order them."""
+    raw_data = {
+        "data": [
+            {
+                "date": 1795715683,
+                "content": [
+                    {
+                        "type": "clause",
+                        "amount": 14793750,
+                        "from": {"name": "Unión"},
+                        "to": {"name": "Farolillo"},
+                        "player": {"name": "Grimaldo"},
+                    },
+                    {"amount": 1, "from": {"name": "X"}, "player": {"name": "Venta"}},
+                    {
+                        "type": "clause",
+                        "amount": 11452500,
+                        "from": {"name": "Rayo"},
+                        "to": {"name": "Unión"},
+                        "player": {"name": "Gerard Martín"},
+                    },
+                ],
+            }
+        ]
+    }
+
+    result = parse_clausulazos(raw_data, players_map={})
+
+    assert [(c.jugador, c.segundos, c.orden) for c in result] == [
+        ("Grimaldo", 1795715683, 0),
+        ("Gerard Martín", 1795715683, 2),
+    ]

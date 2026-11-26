@@ -311,3 +311,27 @@ def test_an_anulacion_round_trips_through_firestore():
 
     a = _undo()
     assert Anulacion.from_firestore("id", a.to_firestore()) == a
+
+
+def test_a_clausulazo_keeps_its_second_and_place_in_its_board_entry():
+    """Two clausulazos Biwenger lists in one board entry share its minute and its
+    second; only their place in it says which came first."""
+    c = Clausulazo(
+        "26-11-2026 18:54",
+        "Grimaldo",
+        "B",
+        "A",
+        14_793_750,
+        segundos=1795715683,
+        orden=0,
+    )
+    doc = c.to_firestore()
+    assert (doc["segundos"], doc["orden"]) == (1795715683, 0)
+
+    back = Clausulazo.from_firestore("x", doc)
+    assert (back.segundos, back.orden) == (1795715683, 0)
+
+    stored_before = {k: v for k, v in doc.items() if k not in ("segundos", "orden")}
+    old = Clausulazo.from_firestore("y", stored_before)
+    assert (old.segundos, old.orden) == (None, None)
+    assert "segundos" not in old.to_firestore()

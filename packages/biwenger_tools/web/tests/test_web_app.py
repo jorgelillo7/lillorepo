@@ -799,6 +799,66 @@ def test_mercado_no_data(mock_tabla, mock_clausulazos, client):
     assert "Ocurrió un error" not in response.get_data(as_text=True)
 
 
+def _cascade_night(day: str, teams: list[str], player: str) -> list:
+    """Five clausulazos a minute apart from 19:00, each team clausing the next."""
+    return [
+        Clausulazo(
+            f"{day} 19:0{i}",
+            f"{player}{i}",
+            teams[(i + 1) % len(teams)],
+            teams[i % len(teams)],
+            (i + 1) * 1_000_000,
+        )
+        for i in range(5)
+    ]
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+    return_value=[],
+)
+def test_mercado_shows_the_cascades_newest_first_with_their_baile(
+    mock_tabla, mock_clausulazos, client
+):
+    teams = ["Farolillo", "Rayo", "Luceneta", "Kairat", "Cebollitas", "Reich"]
+    october = _cascade_night("28-10-2026", teams, "Octubre")
+    november = _cascade_night("26-11-2026", teams[::-1], "Noviembre")
+    # Newest first, as the repository returns them.
+    mock_clausulazos.return_value = sorted(
+        october + november,
+        key=lambda c: (c.fecha[6:10], c.fecha[3:5], c.fecha[:2], c.fecha[11:]),
+        reverse=True,
+    )
+
+    body = client.get("/26-27/mercado").get_data(as_text=True)
+
+    assert "Noches de cascada" in body
+    assert body.index("26/11/2026") < body.index("28/10/2026")
+    baile = body[body.index("26/11/2026") : body.index("28/10/2026")]
+    for i in range(5):
+        assert f"Noviembre{i}" in baile
+    assert baile.index("Noviembre0") < baile.index("Noviembre4")
+    assert "<details" in baile and "<table" in baile
+    assert "5.000.000 €" in baile
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+    return_value=[],
+)
+def test_mercado_without_a_cascade_shows_no_table(mock_tabla, mock_clausulazos, client):
+    mock_clausulazos.return_value = [
+        Clausulazo("26-11-2026 19:00", "Pedri", "A", "B", 2_000_000),
+        Clausulazo("26-11-2026 19:05", "Gavi", "B", "A", 2_000_000),
+    ]
+
+    body = client.get("/26-27/mercado").get_data(as_text=True)
+
+    assert "Noches de cascada" not in body
+
+
 # --- Calendario tests ---
 
 

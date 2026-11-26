@@ -56,7 +56,13 @@ non-competing cronista present in the user map SHALL be a first-class author.
 `parse_clausulazos` SHALL extract clause events, resolving the player name
 whether the payload carries a full player dict or a bare id (via the players
 map), capturing seller, buyer and amount. Non-clause board entries SHALL be
-skipped.
+skipped. Each clausulazo SHALL carry its board entry's unix second and its place
+in the entry's content.
+
+The stored date keeps only the minute, and Biwenger folds moves made moments
+apart into one entry, oldest first, so two clausulazos of one minute share it
+and only their place says which came first: who started a cascade
+(`web-dataviz`) depends on it.
 
 #### Scenario: dict player, int player, non-clause
 - **WHEN** the payload has a dict player / an int id / a non-clause type
@@ -64,6 +70,11 @@ skipped.
 - *Verifies:* `test_parse_clausulazos_with_dict_player`,
   `test_parse_clausulazos_with_int_player`,
   `test_parse_clausulazos_skips_non_clause_entries`
+
+#### Scenario: the order inside a board entry
+- **WHEN** one entry holds two clauses and a sale between them **THEN** both
+  carry the entry's second and their own place in it, 0 and 2
+- *Verifies:* `test_each_clausulazo_carries_its_entry_second_and_place`
 
 ### Requirement: Tabla justicia
 

@@ -38,6 +38,7 @@ from packages.biwenger_tools.web import (
 from packages.biwenger_tools.web import (
     h2h as h2h_logic,
 )
+from packages.biwenger_tools.web.cascades import find_cascades
 from packages.biwenger_tools.web.sanitize import safe_html, to_text
 
 logger = get_logger(__name__)
@@ -325,6 +326,7 @@ def mercado(season: str) -> str:
         "mercado.html",
         clausulazos=clausulazos,
         clausulazos_summary=clausulazos_summary,
+        cascadas=find_cascades(clausulazos),
         tabla_justicia=tabla_justicia,
         error=error,
         active_page="mercado",

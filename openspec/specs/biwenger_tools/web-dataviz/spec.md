@@ -5,10 +5,11 @@ content pages, palmarés, the market/justice table, the competitions page, a
 season-agnostic calendar, and a CSRF- and rate-limit-protected admin surface.
 
 - **Source:** `packages/biwenger_tools/web/routes/` (`main.py`, `admin.py`,
-  `season.py`), `app.py`, `repository.py`, plus the pure readers `h2h.py` and
-  `competiciones.py`
+  `season.py`), `app.py`, `repository.py`, plus the pure readers `h2h.py`,
+  `competiciones.py` and `cascades.py`
 - **Verified by:** `packages/biwenger_tools/web/tests/test_web_app.py`,
-  `test_h2h.py`, `test_competiciones.py`, `core/tests/test_gcp_services.py`
+  `test_h2h.py`, `test_competiciones.py`, `test_cascades.py`,
+  `core/tests/test_gcp_services.py`
 
 ---
 
@@ -422,3 +423,66 @@ YouTube video SHALL load only when someone presses play, from `youtube-nocookie.
 - **WHEN** the reglamento is served
 - **THEN** it has no `<iframe>`, only the play button that builds one on `youtube-nocookie.com`
 - *Verifies:* `test_web_app.py: test_reglamento_loads_youtube_only_on_demand`
+
+### Requirement: Clausulazo cascades get a table of their own on /mercado
+
+`/mercado` SHALL show the season's clausulazo cascades in a "Noches de
+cascada" table, newest first. A cascade is a day, from 06:00 to 05:59 the next
+morning in Madrid, with 5 or more valid clausulazos that involve every team in
+the season's valid clausulazos or all but two. A season's cascades SHALL be
+built from that season's clausulazos alone. Each row SHALL
+give the day and the hours of the first and last clausulazo, how many there
+were, how many teams were involved, how many were responses (made by a team
+that had lost one that day in the same minute or before), who started it
+(the first buyer, with the player and the team he came from; every buyer of
+the first minute when its clausulazos were stored without their board second
+and place, which alone order a minute), who paid the most in total and who lost the
+most clausulazos. Opening a row SHALL show every clausulazo of the day in
+order, with its time, player, seller, buyer and price. A cancelled clausulazo
+SHALL count for nothing. A season without a cascade SHALL show no table.
+
+Six days in two seasons were cascades, from 6 to 34 clausulazos, most of them
+responses, usually the day before clauses freeze 24 hours ahead of a round. The
+managers asked to see them, who started each and who paid the most; the flat
+list on the page buries them among the season's other clausulazos. The day ends
+at six in the morning because the nights run late: a midnight cut split
+16/02/26 into two.
+
+#### Scenario: what is a cascade
+- **WHEN** five clausulazos fall on one day and involve every team but two
+  **THEN** that day is a cascade
+- **WHEN** five fall on one day among few teams **THEN** it is not
+- **WHEN** clausulazos fall at 23:50 and at 00:05 **THEN** they are the same day;
+  one at 06:00 starts the next
+- **WHEN** two seasons are shown **THEN** each lists only the cascades of its own
+  clausulazos
+- *Verifies:* `test_a_cascade_is_five_clausulazos_in_a_day_involving_all_but_two`,
+  `test_five_clausulazos_among_few_managers_are_not_a_cascade`,
+  `test_a_cascade_day_runs_from_six_in_the_morning_to_six_the_next`,
+  `test_a_season_s_cascades_come_from_its_own_clausulazos_only`
+
+#### Scenario: what a row says
+- **WHEN** a team that lost a clausulazo that day, in the same minute or before,
+  makes one **THEN** it counts as a response
+- **WHEN** two clausulazos share the day's first minute **THEN** both buyers are
+  named as having started it
+- **WHEN** a cascade is shown **THEN** its row names the first buyers with the
+  player and the team he came from, the team that paid most, and the team that
+  lost most
+- **WHEN** the admin cancelled one of the night's clausulazos **THEN** it is in
+  neither the counts nor the baile
+- **WHEN** they carry their board second and place **THEN** those order them,
+  the first is the one starter, and a clausulazo made before its buyer was hit
+  is no response
+- *Verifies:* `test_responses_are_clausulazos_by_a_team_already_hit_that_day`,
+  `test_with_the_board_order_stored_one_team_started_it`,
+  `test_who_started_paid_most_and_was_hit_most`,
+  `test_a_cancelled_clausulazo_is_left_out_of_a_cascade`
+
+#### Scenario: on the page
+- **WHEN** the season has cascades **THEN** `/mercado` lists them newest first,
+  and each row opens its clausulazos in order with time, player, seller, buyer
+  and price
+- **WHEN** it has none **THEN** no cascade table is shown
+- *Verifies:* `test_mercado_shows_the_cascades_newest_first_with_their_baile`,
+  `test_mercado_without_a_cascade_shows_no_table`

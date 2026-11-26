@@ -93,7 +93,9 @@ def _resolve_player_name(player_data, players_map: dict) -> str:
     return players_map.get(player_id, {}).get("name") or f"#{player_id}"
 
 
-def _parse_clause_item(item: dict, fecha: str, players_map: dict) -> Clausulazo:
+def _parse_clause_item(
+    item: dict, fecha: str, players_map: dict, segundos: int, orden: int
+) -> Clausulazo:
     from_team = item.get("from") or {}
     to_team = item.get("to") or {}
     return Clausulazo(
@@ -102,6 +104,8 @@ def _parse_clause_item(item: dict, fecha: str, players_map: dict) -> Clausulazo:
         equipo_vendedor=from_team.get("name", "—"),
         equipo_comprador=to_team.get("name", "—"),
         precio=int(item.get("amount", 0)),
+        segundos=segundos,
+        orden=orden,
     )
 
 
@@ -119,7 +123,9 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
 
     for entry in entries:
         content = entry.get("content") or []
-        clause_items = [c for c in content if c.get("type") == "clause"]
+        clause_items = [
+            (orden, c) for orden, c in enumerate(content) if c.get("type") == "clause"
+        ]
         if not clause_items:
             continue
 
@@ -128,8 +134,10 @@ def parse_clausulazos(raw_data: dict, players_map: dict) -> list:
             fecha = datetime.fromtimestamp(timestamp, tz=MADRID_TZ).strftime(
                 "%d-%m-%Y %H:%M"
             )
-            for item in clause_items:
-                clausulazos.append(_parse_clause_item(item, fecha, players_map))
+            for orden, item in clause_items:
+                clausulazos.append(
+                    _parse_clause_item(item, fecha, players_map, timestamp, orden)
+                )
         except (KeyError, ValueError, TypeError):
             logger.warning(
                 "Error parsing clausulazo entry.",

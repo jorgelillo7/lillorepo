@@ -7,11 +7,70 @@
     <div class="card p-6 text-center text-red-500 rounded-xl mb-6">{{ error }}</div>
 {% endif %}
 
+{% macro euros(amount) %}{{ "{:,.0f}".format(amount).replace(",", ".") }} €{% endmacro %}
+{% set dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"] %}
+
+<nav aria-label="Secciones de Mercado" class="flex flex-wrap gap-2 mb-6 text-sm">
+    {% if cascadas %}<a href="#cascadas-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">🌪️ Noches ({{ cascadas | length }})</a>{% endif %}
+    {% if tabla_justicia %}<a href="#justicia-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">⚖️ Justicia</a>{% endif %}
+    {% if clausulazos %}<a href="#historial-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">💸 Historial ({{ clausulazos | length }})</a>{% endif %}
+</nav>
+
+{% if cascadas %}
+{# Noches de cascada #}
+<section class="mb-10" aria-labelledby="cascadas-heading">
+    <h2 id="cascadas-heading" class="font-header text-2xl font-bold text-gray-800">🌪️ Noches de cascada</h2>
+    <p class="text-sm text-gray-500 mt-1 mb-4">Días con 5 clausulazos o más en los que entró casi toda la liga. Abre una noche para ver el baile.</p>
+    <div class="space-y-3">
+        {% for n in cascadas %}
+        <details class="cascada card rounded-xl shadow-md">
+            <summary class="p-4 text-sm">
+                <span class="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                    <span class="font-semibold text-gray-800">{{ dias[n.day.weekday()] }} {{ n.day.strftime("%d/%m/%Y") }}
+                        <span class="font-normal text-gray-500">{{ n.first }}–{{ n.last }}</span></span>
+                    <span class="text-gray-700">⚔️ <strong>{{ n.count }}</strong> clausulazos · {{ euros(n.total) }}</span>
+                    <span class="text-gray-700">👥 {{ n.involved }}/{{ n.active }} implicados · 🔁 {{ n.responses }} respuestas</span>
+                    <span class="text-gray-700">🧨 Empezó:
+                        {% for s in n.starters %}<strong>{{ s.equipo_comprador }}</strong> ({{ s.jugador }} a {{ s.equipo_vendedor }}){% if not loop.last %} y {% endif %}{% endfor %}</span>
+                    <span class="text-gray-700">💸 Pagó más: <strong>{{ n.top_payer }}</strong> · {{ euros(n.top_paid) }} en {{ n.top_paid_count }}</span>
+                    <span class="text-gray-700">🎯 Más castigado: <strong>{{ n.most_hit }}</strong> · {{ n.hits }} {{ "clausulazo" if n.hits == 1 else "clausulazos" }}</span>
+                </span>
+            </summary>
+            <div class="overflow-x-auto px-4 pb-4" tabindex="0" role="region" aria-labelledby="baile-{{ loop.index }}">
+                <table class="w-full text-sm">
+                    <caption id="baile-{{ loop.index }}" class="text-left text-xs text-gray-500 uppercase tracking-wide pb-2">El baile, en orden</caption>
+                    <thead>
+                        <tr class="border-b border-gray-200 text-gray-600">
+                            <th scope="col" class="text-left py-2 pr-3 font-semibold">Hora</th>
+                            <th scope="col" class="text-left py-2 pr-3 font-semibold">Jugador <span class="font-normal text-gray-500">· de → a</span></th>
+                            <th scope="col" class="text-right py-2 font-semibold">Precio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in n.baile %}
+                        <tr class="border-b border-gray-100">
+                            <td class="py-1.5 pr-3 align-top text-gray-500 tabular-nums">{{ c.fecha[11:] }}</td>
+                            <th scope="row" class="text-left py-1.5 pr-3 font-normal">
+                                <span class="block font-semibold text-gray-800">{{ c.jugador }}</span>
+                                <span class="block text-xs text-gray-500">{{ c.equipo_vendedor }} → {{ c.equipo_comprador }}</span>
+                            </th>
+                            <td class="py-1.5 align-top text-right tabular-nums text-gray-800 whitespace-nowrap">{{ euros(c.precio) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <!-- Tabla de Justicia -->
 {% if tabla_justicia %}
 <div class="mb-10">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
+        <h2 id="justicia-heading" class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
         <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
             <button id="btn-tabla-ataques" type="button" aria-pressed="true" data-on-click="setTablaMode" data-args='["ataques"]'
                     class="tabla-mode-btn active-tabla px-4 py-1.5 transition">
@@ -47,7 +106,7 @@
 
 <!-- Clausulazos -->
 <div>
-    <h2 class="font-header text-2xl font-bold text-gray-800 mb-4">💸 Historial de Clausulazos</h2>
+    <h2 id="historial-heading" class="font-header text-2xl font-bold text-gray-800 mb-4">💸 Historial de Clausulazos</h2>
     {% if clausulazos_summary %}
     <!-- Resumen -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -150,6 +209,13 @@
 <style nonce="{{ csp_nonce() }}">
     .tabla-mode-btn { background-color: var(--tab-bg); color: var(--tab-text); }
     .tabla-mode-btn.active-tabla { background-color: var(--accent); color: white; }
+    /* The night's summary is the row; its marker sits right before the date. */
+    /* Jumps land below the sticky nav bar. */
+    [id$="-heading"] { scroll-margin-top: 4rem; }
+    .cascada > summary { list-style: none; cursor: pointer; display: flex; gap: 0.75ch; }
+    .cascada > summary::-webkit-details-marker { display: none; }
+    .cascada > summary::before { content: "▸"; color: var(--accent); line-height: 1.4; }
+    .cascada[open] > summary::before { content: "▾"; }
 </style>
 
 <script nonce="{{ csp_nonce() }}">

@@ -184,6 +184,11 @@ class Clausulazo:
     # The admin's reason when he undid it (see `mark_cancelled`). Read-time
     # only: the stored clausulazo is never rewritten.
     anulado: str | None = None
+    # The board entry's unix second and the clause's place in it. Biwenger
+    # folds moves made moments apart into one entry, oldest first, so only the
+    # place orders two clausulazos of one minute. None on those stored before.
+    segundos: int | None = None
+    orden: int | None = None
 
     # clausulazos timestamps carry no seconds.
     _FECHA_FMT: ClassVar[str] = "%d-%m-%Y %H:%M"
@@ -198,16 +203,23 @@ class Clausulazo:
             equipo_vendedor=data.get("equipo_vendedor", ""),
             equipo_comprador=data.get("equipo_comprador", ""),
             precio=int(data.get("precio", 0) or 0),
+            segundos=data.get("segundos"),
+            orden=data.get("orden"),
         )
 
     def to_firestore(self) -> dict:
-        return {
+        doc = {
             "fecha": _fecha_for_firestore(self.fecha),
             "jugador": self.jugador,
             "equipo_vendedor": self.equipo_vendedor,
             "equipo_comprador": self.equipo_comprador,
             "precio": self.precio,
         }
+        if self.segundos is not None:
+            doc["segundos"] = self.segundos
+        if self.orden is not None:
+            doc["orden"] = self.orden
+        return doc
 
 
 @dataclass(frozen=True)
