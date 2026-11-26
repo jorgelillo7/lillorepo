@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from collections import Counter
 from typing import Any, Optional, Tuple, Union
 
 import requests
@@ -104,6 +105,29 @@ def board_entry_key(entry: dict) -> str:
         [entry.get("type"), entry.get("date"), _entry_identity(entry)], sort_keys=True
     )
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+# Biwenger folds moves made moments apart into one board entry and moves its
+# date to the latest, so an entry read mid-burst comes back later with more
+# items and a new date. Seen at 97 s; this bounds how far apart they can be.
+BOARD_FOLD_WINDOW_SECONDS = 15 * 60
+
+
+def superseded_by(entry: dict, later: dict) -> bool:
+    """True when `later` is `entry` after Biwenger folded more moves into it:
+    same type, dated after it within `BOARD_FOLD_WINDOW_SECONDS`, and holding
+    every one of its moves."""
+    elapsed = later.get("date", 0) - entry.get("date", 0)
+    if entry.get("type") != later.get("type"):
+        return False
+    if not 0 < elapsed <= BOARD_FOLD_WINDOW_SECONDS:
+        return False
+    moves, later_moves = _entry_identity(entry), _entry_identity(later)
+    if not (isinstance(moves, list) and isinstance(later_moves, list)):
+        return False
+    remaining = Counter(json.dumps(m, sort_keys=True) for m in later_moves)
+    remaining.subtract(json.dumps(m, sort_keys=True) for m in moves)
+    return all(n >= 0 for n in remaining.values())
 
 
 def league_board_all_url(league_id: Union[str, int]) -> str:

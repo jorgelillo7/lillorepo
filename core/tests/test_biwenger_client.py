@@ -1471,3 +1471,32 @@ def test_raise_market_bid_puts_the_new_amount_on_the_same_offer(
     assert request.method == "PUT"
     assert request.json() == {"amount": 10_700_061}
     assert data == {"id": 204972115, "amount": 10_700_061, "status": "waiting"}
+
+
+# --- superseded_by ---
+
+
+def test_an_entry_biwenger_folded_later_moves_into_is_superseded():
+    """Moves made moments apart share one board entry whose date moves to the
+    latest: the entry read mid-burst is the later one, not a lost movement."""
+    from core.sdk.biwenger import superseded_by
+
+    first = _transfer_entry()
+    folded = _transfer_entry(date=first["date"] + 97, team="Cebollitas Renamed")
+    folded["content"].append({**folded["content"][0], "player": 99999})
+
+    assert superseded_by(first, folded)
+    assert not superseded_by(folded, first)
+
+
+def test_an_entry_is_not_superseded_by_a_different_or_distant_one():
+    from core.sdk.biwenger import superseded_by
+
+    entry = _transfer_entry()
+    other_move = _transfer_entry(date=entry["date"] + 60)
+    other_move["content"][0]["player"] = 99999
+    days_later = _transfer_entry(date=entry["date"] + 86_400)
+
+    assert not superseded_by(entry, other_move)
+    assert not superseded_by(entry, days_later)
+    assert not superseded_by(entry, entry)

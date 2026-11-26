@@ -15,7 +15,7 @@ from html import escape
 from typing import Any
 
 from core.constants import MADRID_TZ
-from core.sdk.biwenger import board_entry_key
+from core.sdk.biwenger import board_entry_key, superseded_by
 from packages.biwenger_tools.api.player_formatting import short_position, shown_score
 
 SEASON_START_TYPE = "seasonStarted"
@@ -70,10 +70,17 @@ def with_archive(live: list[dict], archived: list[dict]) -> tuple[list[dict], in
     """The live read plus the archived entries it no longer returns, and how many
     of those the rebuild uses (dated at or after the union's season start).
 
-    Deduped by `board_entry_key`; any order, since `season_entries` sorts.
+    Deduped by `board_entry_key`, and an archived entry Biwenger later folded
+    into a live one (`superseded_by`) is that live entry, not a lost one. Any
+    order, since `season_entries` sorts.
     """
     live_keys = {board_entry_key(e) for e in live}
-    lost = [e for e in archived if board_entry_key(e) not in live_keys]
+    lost = [
+        e
+        for e in archived
+        if board_entry_key(e) not in live_keys
+        and not any(superseded_by(e, newer) for newer in live)
+    ]
     entries = live + lost
     starts = [e["date"] for e in entries if e.get("type") == SEASON_START_TYPE]
     since = max(starts, default=0)
