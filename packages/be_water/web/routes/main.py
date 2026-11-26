@@ -87,6 +87,7 @@ def water_detail(water_id: str):
         photo_is_of_the_analysis=photo_is_of_the_analysis,
         current_analysis_date=water.analysis_date,
         similar=similar,
+        eu_recognised=_eu_recognised(water),
         mineral_scale=domain.mineral_scale(catalog),
         favorite_ids=helpers.favorite_ids(),
         og_image=shown.photo_url,
@@ -97,6 +98,16 @@ def water_detail(water_id: str):
             place_url=f"{home}/recomendar?lugar={quote(water.province)}",
         ),
         meta_description=_meta_description(shown),
+    )
+
+
+def _eu_recognised(water) -> bool:
+    """A foreign water its own country lists as a natural mineral water."""
+    if water.is_spanish:
+        return False
+    return bool(
+        aesan.foreign_matches(water.name, water.country)
+        or aesan.foreign_matches(water.brand, water.country)
     )
 
 

@@ -32,6 +32,9 @@
         <button type="button" aria-pressed="false" data-filter="fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Fuerte</button>
         <button type="button" aria-pressed="false" data-filter="muy fuerte" class="chip px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">Muy fuerte</button>
         <button id="gas-toggle" type="button" aria-pressed="false" class="px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">🫧 Con gas</button>
+        {% if waters | rejectattr('is_spanish') | list %}
+        <button id="foreign-toggle" type="button" aria-pressed="false" class="px-3 py-1.5 rounded-full font-semibold bg-white ring-1 ring-slate-200 text-slate-600 hover:ring-sky-300">🌍 De fuera</button>
+        {% endif %}
     </div>
 </header>
 
@@ -55,6 +58,8 @@
     const gasToggle = document.getElementById('gas-toggle');
     let activeFilter = '';
     let gasOnly = false;
+    const foreignToggle = document.getElementById('foreign-toggle');
+    let foreignOnly = false;
 
     // Accent-insensitive: "lanjaron" must find "Lanjarón".
     const fold = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -82,7 +87,8 @@
         cards.forEach((card, i) => {
             const matchF = !activeFilter || card.dataset.min === activeFilter;
             const matchG = !gasOnly || card.dataset.gas === '1';
-            const show = matched[i] && matchF && matchG;
+            const matchO = !foreignOnly || card.dataset.foreign === '1';
+            const show = matched[i] && matchF && matchG && matchO;
             card.classList.toggle('hidden', !show);
             if (show) visible++;
         });
@@ -90,15 +96,17 @@
     }
 
     search.addEventListener('input', apply);
-    gasToggle.addEventListener('click', () => {
-        gasOnly = !gasOnly;
-        gasToggle.classList.toggle('bg-sky-700', gasOnly);
-        gasToggle.setAttribute('aria-pressed', String(gasOnly));
-        gasToggle.classList.toggle('text-white', gasOnly);
-        gasToggle.classList.toggle('bg-white', !gasOnly);
-        gasToggle.classList.toggle('text-slate-600', !gasOnly);
+    // A toggle chip: pressed, it narrows the catalogue to the cards it names.
+    function toggleChip(button, on) {
+        button.classList.toggle('bg-sky-700', on);
+        button.setAttribute('aria-pressed', String(on));
+        button.classList.toggle('text-white', on);
+        button.classList.toggle('bg-white', !on);
+        button.classList.toggle('text-slate-600', !on);
         apply();
-    });
+    }
+    gasToggle.addEventListener('click', () => toggleChip(gasToggle, gasOnly = !gasOnly));
+    foreignToggle?.addEventListener('click', () => toggleChip(foreignToggle, foreignOnly = !foreignOnly));
     chips.forEach(chip => chip.addEventListener('click', () => {
         activeFilter = chip.dataset.filter;
         chips.forEach(c => {

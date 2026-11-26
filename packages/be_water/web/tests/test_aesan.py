@@ -43,3 +43,25 @@ def test_pending_length_matches_coverage_gap():
         summary = aesan.coverage(["Bezoya"])
         pending = aesan.pending_waters(["Bezoya"])
     assert len(pending) == summary["total"] - summary["covered"]
+
+
+_EU = [
+    {"name": "Evian", "spring": "Cachat", "place": "Évian-les-Bains", "country": "FR"},
+    {
+        "name": "Perrier",
+        "spring": "Perrier",
+        "place": "Vergèze (Gard)",
+        "country": "FR",
+    },
+    {"name": "Luso", "spring": "Luso", "place": "Luso - Mealhada", "country": "PT"},
+    {"name": "Luso Fresh", "spring": "Luso", "place": "Mealhada", "country": "IT"},
+]
+
+
+def test_foreign_matches_by_name_and_by_country():
+    with patch.object(aesan, "EU_WATERS", _EU):
+        assert [e["country"] for e in aesan.foreign_matches("évian")] == ["FR"]
+        assert {e["country"] for e in aesan.foreign_matches("Luso")} == {"PT", "IT"}
+        assert [e["country"] for e in aesan.foreign_matches("Luso", "PT")] == ["PT"]
+        assert aesan.foreign_matches("Perrier", "IT") == []
+        assert aesan.foreign_matches("") == []

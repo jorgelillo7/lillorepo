@@ -145,13 +145,15 @@ operational how-to; the specs are the single source of *what must be true*.
 ## 📜 Refreshing the recognised-waters snapshot
 
 `web/aesan_snapshot.py` is Spain's section of the Commission's list of
-recognised natural mineral waters. Refresh it every few months, by hand —
-the Commission's host refuses GitHub's runners, so there is no scheduled job:
+recognised natural mineral waters, and `web/eu_snapshot.py` every other EU and
+EEA country's (about 1,900 waters from 28 countries, place as printed). One run
+refreshes both. Do it every few months, by hand — the Commission's host refuses
+GitHub's runners, so there is no scheduled job:
 
 ```bash
 pip3 install pypdf==6.19.0   # one-time; not a Bazel dependency
 python3 packages/be_water/scripts/refresh_aesan_snapshot.py   # from the repo root
-git diff packages/be_water/web/aesan_snapshot.py
+git diff packages/be_water/web/aesan_snapshot.py packages/be_water/web/eu_snapshot.py
 ```
 
 The script formats the snapshot with Bazel's hermetic Ruff, the one Lint

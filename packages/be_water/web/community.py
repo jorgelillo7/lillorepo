@@ -180,7 +180,10 @@ def build_community_stats(
         if water.sparkling:
             stats["sparkling_added"] += 1
         if not (
-            aesan.registry_matches(water.name) or aesan.registry_matches(water.brand)
+            aesan.registry_matches(water.name)
+            or aesan.registry_matches(water.brand)
+            or aesan.foreign_matches(water.name, water.country)
+            or aesan.foreign_matches(water.brand, water.country)
         ):
             stats["off_registry_added"] += 1
         if water.added_at and water.added_at.startswith(month_prefix):

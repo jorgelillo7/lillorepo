@@ -186,56 +186,6 @@ What (c) was really solving — configuration that needs a deploy — is better
 solved by moving the workbook ids into Firestore and editing them from
 `/admin`, which leaves the data where its editors are.
 
-## be_water — foreign waters from the EU registry
-
-A water from outside Spain can already be saved: `country` comes from a closed
-vocabulary, `resolve_place` does not invent a Spanish province for a foreign
-locality, and the sitemap and the 🗺️ badge skip foreign waters. What is missing
-is the registry recognising them, so the imported waters Spanish supermarkets
-stock (Evian, Perrier, San Pellegrino…) get their official check, and with it a
-🌍 tier and country chips on the home page.
-
-`refresh_aesan_snapshot.py` reads the EU-wide list
-(`mineral-waters_list_eu-recognised.pdf`, 110 pages). Measured against it:
-
-- **28 country tables**, Austria through the United Kingdom. `_SPAIN` keeps
-  Spain's, `_THIRD` drops the third-country one, `_OTHER` drops the remaining
-  26, so no new data source is needed — only a parser that stops filtering.
-- **The place column has a different shape.** Portugal reads
-  `Locality-Municipality` (`Vidago – Chaves`, `Sampaio-Vila Flor`), not
-  `Municipality (Province)`. `_PROVINCE` matches on the closing parenthesis, so
-  it returns nothing for every row of those 26 tables. Each country's shape has
-  to be read, not assumed.
-- **Not every bottle is in it.** FONTÉBIL (Fafe, Portugal) is not, nor its
-  bottler: *água de nascente* is a category the list does not cover. A foreign
-  water missing from the registry stays unverified by it, as a Spanish one does.
-- **The snapshot is current** as of `AESAN_VERSION` `EU/2026-07-16`, the live
-  PDF's own "Last update". A monthly refresh failing on a 429 costs nothing when
-  there is no new list.
-
-The recommender's "nearby" (`geo.adjacent_places`) and the Cartógrafo badge
-assume Spanish geography; foreign waters stay out of both rather than being
-forced into them.
-
-## be_water — a second label photo for the origin
-
-The composition photo answers the minerals and often not the origin. `Una
-Dehesa` (`fuente-dehesa`) reached `verified = True` over seven label-confirmed
-minerals with no spring, province or community, and had to be repaired by hand.
-Running the real `extract_label` on two photographs of the same bottle:
-
-| Photo | `spring` | `province` | `community` | minerals |
-|---|---|---|---|---|
-| The back panel, address legible | `Encinas` | `Badajoz` | `Extremadura` | — |
-| The stored composition photo | `None` | `None` | `None` | `tds=48`, `sodium=5.3` ✓ |
-
-Same prompt, same model: the origin was not in the frame. The composition shot
-frames the `ANÁLISIS QUÍMICO` panel, while `Herrera del Duque (Badajoz)` runs
-down the left edge, rotated and clipped. So the prompt needs no change; what is
-missing is an optional second photo of the face that carries the address, read
-for origin only. An AESAN `place → province` index would not help either: it
-needs a municipality, and that is the part the photo did not show.
-
 ## interactive_fiction — a 3D draft of chapter 1
 
 The question: turn the reader's point-and-click pictures into 3D rooms, with

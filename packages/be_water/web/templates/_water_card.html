@@ -11,7 +11,8 @@
    class="water-card group block bg-white rounded-2xl ring-1 ring-slate-200 hover:ring-sky-300 hover:shadow-lg hover:-translate-y-0.5 transition-all overflow-hidden"
    data-name="{{ w.name | lower }} {{ w.brand | lower }} {{ w.province | lower }} {{ w.community | lower }}"
    data-min="{{ w.mineralization }}"
-   data-gas="{{ '1' if w.sparkling else '0' }}">
+   data-gas="{{ '1' if w.sparkling else '0' }}"
+   data-foreign="{{ '0' if w.is_spanish else '1' }}">
     {% if w.photo_url %}
     {# A real <img>, not a CSS background: a background carries no alt, so the
        thumbnail was invisible to a screen reader and to image search. The badge

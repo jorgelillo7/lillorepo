@@ -34,6 +34,7 @@ def _catalog():
     ]
 
 
+from packages.be_water.web import aesan as aesan_module  # noqa: E402
 from packages.be_water.web import photos as photos_module  # noqa: E402
 
 _CSRF = "test-csrf-token"
@@ -3320,3 +3321,73 @@ def test_the_admin_table_shows_which_nicknames_are_linked(client):
             body = client.get("/admin").get_data(as_text=True)
     assert "jorge@x.com" in body
     assert body.count('title="Vinculado a Google"') == 1
+
+
+_EU_REGISTRY = [
+    {"name": "Evian", "spring": "Cachat", "place": "Évian-les-Bains", "country": "FR"},
+    {"name": "Luso", "spring": "Luso", "place": "Luso - Mealhada", "country": "PT"},
+    {"name": "Luso Fresh", "spring": "Luso", "place": "Mealhada", "country": "IT"},
+]
+
+
+def test_an_eu_registry_name_fills_country_spring_and_region():
+    from packages.be_water.web.routes import add as add_routes
+
+    with patch.object(aesan_module, "EU_WATERS", _EU_REGISTRY):
+        prefill = {"name": "Evian"}
+        note = add_routes._prefill_from_aesan(prefill)
+        assert prefill == {
+            "name": "Evian",
+            "country": "FR",
+            "spring": "Cachat",
+            "province": "Évian-les-Bains",
+        }
+        assert "lista oficial de la UE (Francia)" in note
+        # Two countries list the name: nothing is guessed.
+        ambiguous = {"name": "Luso"}
+        assert add_routes._prefill_from_aesan(ambiguous) == ""
+        assert ambiguous == {"name": "Luso"}
+        # A Spanish origin already on the form is never overridden.
+        spanish = {"name": "Evian", "country": "ES", "province": "Granada"}
+        assert add_routes._prefill_from_aesan(spanish) == ""
+        assert spanish["country"] == "ES"
+
+
+def test_a_foreign_ficha_says_its_country_recognises_it(client):
+    evian = Water(
+        id="evian",
+        spring="Cachat",
+        community="",
+        name="Evian",
+        brand="Evian",
+        country="FR",
+        province="Évian-les-Bains",
+        minerals={"tds": 345},
+    )
+    with (
+        patch.object(aesan_module, "EU_WATERS", _EU_REGISTRY),
+        patch(f"{_REPO}.get_all_waters", return_value=[*_catalog(), evian]),
+        patch(f"{_REPO}.get_water", return_value=evian),
+        patch(f"{_REPO}.list_analyses", return_value=[]),
+    ):
+        body = client.get("/agua/evian").get_data(as_text=True)
+    assert "reconocida por Francia · lista UE" in body
+
+
+def test_the_home_offers_foreign_waters_only_when_there_are_some(client):
+    evian = Water(
+        id="evian",
+        spring="Cachat",
+        community="",
+        name="Evian",
+        brand="Evian",
+        country="FR",
+        province="Évian-les-Bains",
+        minerals={"tds": 345},
+    )
+    with patch(f"{_REPO}.get_all_waters", return_value=_catalog()):
+        assert "🌍 De fuera" not in client.get("/").get_data(as_text=True)
+    with patch(f"{_REPO}.get_all_waters", return_value=[*_catalog(), evian]):
+        body = client.get("/").get_data(as_text=True)
+    assert "🌍 De fuera" in body
+    assert 'data-foreign="1"' in body
