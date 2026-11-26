@@ -7,10 +7,11 @@ scene keeps its 2D picture — chapter 1's rooms are all 3D, chapter 2 plays
 with its 2D pictures except room 207.
 
 It plays full screen, in landscape (a phone held upright gets a screen asking to turn it): a title screen while the first room
-loads, with the reader's credits line, the reader's own menu over the room
-(Continuar where the game was left, Empezar or Nueva partida, Capítulos with
-each chapter's state, Finales y logros, Ajustes, Créditos with the credit
-cards; the panels are translucent so the room stays in sight) and its keys
+loads, laid out as the room's cover: the kicker, the title and the author, one
+way in standing out (Continuar where the game was left, or Empezar) and the
+reader's other entries smaller under it (Nueva partida, Capítulos with each
+chapter's state, Finales y logros, Ajustes, Créditos with the credit cards; the
+panels are translucent so the room stays in sight), and its keys
 (Space or Enter continues, Escape steps back). The game is saved at every
 passage in the reader's own format (`src/app/save.ts`), endings and explored
 passages are recorded for the achievements, and the settings (volume, sound,

@@ -84,7 +84,7 @@ try {
       console.log("✗ the title screen does not fit 750×330");
       failed = true;
     }
-    await c.ev("document.getElementById('title-credits').click()");
+    await c.ev("document.getElementById('menu-credits').click()");
     if (await c.ev(overflow("about"))) {
       console.log("✗ «Acerca de» does not fit 750×330");
       failed = true;
