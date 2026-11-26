@@ -69,7 +69,9 @@ const shortName = (title: string) => title.replace(/^Cap[ií]tulo \d+\s*-\s*/i, 
 $("title-name").textContent = series.title;
 $("title-warning").textContent = series.game.title?.warning ?? "";
 // Opened from the home screen already: the tip has done its job.
-if ((navigator as Navigator & { standalone?: boolean }).standalone || matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches) {
+// The tip is for iPhone and iPad only, and only until the game is opened from the home screen.
+const apple = /iPhone|iPad/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+if (!apple || (navigator as Navigator & { standalone?: boolean }).standalone || matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches) {
   $("title-tip").hidden = true;
 }
 // The author's own components (a book page, the rules) keep his styling; rules that lay out his whole page do not apply here.
@@ -985,21 +987,29 @@ function buildMenu(): void {
   const last = lastPlayed();
   const lastChapter = last?.series === series.id ? series.chapters.find((c) => c.id === last.chapter) : undefined;
   const first = series.chapters[0];
+  // One way in stands out — where the reader left off, or the beginning — and the rest step back.
+  const play = make("button", { className: "title-play" }) as HTMLButtonElement;
+  if (lastChapter) {
+    play.append("Continuar", make("span", { className: "title-play-note" }, chapterName(lastChapter)));
+    play.addEventListener("click", () => void resume(lastChapter.id));
+  } else if (first) {
+    play.append("Empezar", make("span", { className: "title-play-note" }, chapterName(first)));
+    play.addEventListener("click", () => void begin(first.id));
+  }
+  $("title-primary").replaceChildren(play);
   menu.replaceChildren(
-    ...(lastChapter ? [menuButton("Continuar", `· ${chapterName(lastChapter)}`, () => void resume(lastChapter.id))] : []),
-    ...(first ? [newGameButton(first)] : []),
+    ...(lastChapter && first ? [newGameButton(first)] : []),
     Object.assign(menuButton("Capítulos", null, openChapters), { id: "menu-chapters" }),
     menuButton("Finales y logros", null, () => void openAchievements()),
     menuButton("Ajustes", null, openSettingsPanel),
-    ...(series.credits.length || series.about.length ? [menuButton("Créditos", null, openAbout)] : []),
+    ...(series.credits.length || series.about.length ? [Object.assign(menuButton("Créditos", null, openAbout), { id: "menu-credits" })] : []),
   );
 }
 applySettings();
 buildMenu();
-const credits = $<HTMLButtonElement>("title-credits");
-credits.textContent = series.credits.map((c) => `${c.role}: ${c.name}`).join(" · ");
-credits.hidden = !series.credits.length;
-credits.addEventListener("click", openAbout);
+// The author under the title, as a book's cover has it; the rest of the credits are one tap away.
+const author = series.credits[0];
+$("title-byline").textContent = author ? `${author.role} · ${author.name}` : "";
 $("about-series").textContent = series.title;
 $("about-body").replaceChildren(
   ...(series.credits.length ? [creditCards()] : []),
