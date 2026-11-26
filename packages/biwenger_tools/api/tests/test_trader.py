@@ -223,6 +223,13 @@ def test_the_report_says_it_is_a_simulation_and_names_every_move():
     assert "P40" in text and "P50" in text
 
 
+def test_the_report_advises_the_keeper_sale_for_the_owner_to_make():
+    squad = _eleven() + [_player(2, 350, GK)]
+    text = report(_plan(squad, [], _flat()), live=True)
+    assert "Te aconsejo vender" in text and "P2" in text
+    assert "Vendo: nadie" in text
+
+
 # --- the round's eve ---------------------------------------------------------
 
 _NOW = 1_791_792_000  # Monday 12/10/2026 10:00 Madrid
@@ -626,19 +633,38 @@ def test_bench_players_from_a_club_do_not_fill_its_cap():
 # --- squad shape: keepers, versatile players, bids already waiting -----------
 
 
-def test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price():
+def test_a_second_keeper_who_does_not_start_is_advised_not_sold():
     """A manager's only keeper cannot be claused; a second one exposes both,
-    so the one left out of the eleven goes, whatever his price does."""
+    so the one left out of the eleven should go — but a keeper is the
+    owner's call: the trader advises the sale and never makes it."""
     squad = _eleven() + [_player(2, 350, GK), _player(40, 380, MID)]
     result = _plan(squad, [], _flat())
-    assert [m.row["bw_id"] for m in result.sells] == [2]
-    assert "portero" in result.sells[0].reason
+    assert result.sells == []
+    assert [m.row["bw_id"] for m in result.advised] == [2]
+    assert "portero" in result.advised[0].reason
 
 
-def test_the_keeper_who_starts_is_never_the_one_sold():
+def test_a_falling_keeper_is_advised_and_stays_in_the_squad():
+    """Advice sells nothing, so the keeper still counts towards the squad."""
+    squad = _eleven() + [_player(2, 50, GK), _player(40, 100, DEF)]
+    rules = Rules(**{**RULES.__dict__, "min_squad": 12})
+    result = plan(
+        squad,
+        [],
+        _history(p2=-50_000, p40=-50_000),
+        cash=0,
+        round_eve=False,
+        negative_limit=0,
+        rules=rules,
+    )
+    assert [m.row["bw_id"] for m in result.advised] == [2]
+    assert [m.row["bw_id"] for m in result.sells] == [40]
+
+
+def test_the_keeper_who_starts_is_never_the_one_advised():
     squad = _eleven() + [_player(2, 900, GK)]
     result = _plan(squad, [], _flat())
-    assert [m.row["bw_id"] for m in result.sells] == [1]
+    assert [m.row["bw_id"] for m in result.advised] == [1]
 
 
 def test_a_second_keeper_still_stops_at_the_minimum_squad():
@@ -731,7 +757,7 @@ def test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected():
         rules=HOLD,
         now=later,
     )
-    assert [m.row["bw_id"] for m in result.sells] == [1]
+    assert [m.row["bw_id"] for m in result.advised] == [1]
 
 
 def test_the_keeper_cover_follows_the_clause_lock_not_the_sale_hold():

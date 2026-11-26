@@ -154,7 +154,9 @@ def _act(
     """Sell, list, then bid with what was received. Returns what happened."""
     rules = _rules()
     biwenger = ctx.biwenger
-    planned, held, _ = trader.plan_sells(squad_rows, history, rules, now, kickoffs)
+    planned, held, _, advised = trader.plan_sells(
+        squad_rows, history, rules, now, kickoffs
+    )
 
     sold: list[trader.Move] = []
     skipped: list[tuple[dict, str]] = []
@@ -207,4 +209,6 @@ def _act(
 
     wallet = cash + sum(m.amount for m in sold) - committed
     wallet -= sum(m.amount for m in placed)
-    return trader.Plan(sold, placed, cash, wallet, floor, eve, held, skipped, waiting)
+    return trader.Plan(
+        sold, placed, cash, wallet, floor, eve, held, skipped, waiting, advised
+    )

@@ -66,6 +66,8 @@ class Plan:
     held: list[tuple[dict, str]] = field(default_factory=list)
     skipped: list[tuple[dict, str]] = field(default_factory=list)
     waiting: list[Move] = field(default_factory=list)
+    # Keepers the rules would sell: reported as advice, never sold.
+    advised: list[Move] = field(default_factory=list)
 
 
 def round_eve(rounds: list[dict] | None, now: float) -> bool:
@@ -231,8 +233,8 @@ def plan_sells(
     rules: Rules,
     now: float = 0.0,
     kickoffs: tuple = (),
-) -> tuple[list[Move], list[tuple[dict, str]], list[dict]]:
-    """`(sells, held, keep)`: the players to sell at today's price — the
+) -> tuple[list[Move], list[tuple[dict, str]], list[dict], list[Move]]:
+    """`(sells, held, keep, advised)`: the players to sell at today's price — the
     fallers, and the bench projected below `dead_sf` whatever his price —
     weakest projection first, and why the others stay. Never a starter of the
     best eleven, never below `min_squad` — an eleven and a bench — never one
@@ -240,7 +242,9 @@ def plan_sells(
     `hold_days` ago — auto-bid signs at the same floor `dead_sf` reads, so a
     few points of projection noise must not undo a signing days later. A
     keeper left out of the eleven goes too, whatever his price: a manager's
-    only keeper cannot be claused, a second one exposes both."""
+    only keeper cannot be claused, a second one exposes both. A keeper the
+    rules would sell lands in `advised` instead and stays in `keep`: keepers
+    are the owner's call."""
     starters = best_eleven_ids(squad)
     keepers = [r for r in squad if r.get("position_id") == lineup.GK]
     starting = [r for r in keepers if r["bw_id"] in starters]
@@ -268,6 +272,7 @@ def plan_sells(
     )
     keep = list(squad)
     sells: list[Move] = []
+    advised: list[Move] = []
     held: list[tuple[dict, str]] = []
     for row, s in fallers:
         if row["bw_id"] in starters:
@@ -304,7 +309,6 @@ def plan_sells(
             # One injury in his line and the eleven would play a man short.
             held.append((row, "único suplente de su línea"))
             continue
-        keep = rest
         falling = s <= -rules.sell_after_falls
         if spare:
             why = "segundo portero: con dos, los dos se pueden clausular"
@@ -317,8 +321,13 @@ def plan_sells(
             )
         else:
             why = ""
-        sells.append(Move(row, int(row.get("price") or 0), s, why))
-    return sells, held, keep
+        move = Move(row, int(row.get("price") or 0), s, why)
+        if row.get("position_id") == lineup.GK:
+            advised.append(move)
+            continue
+        keep = rest
+        sells.append(move)
+    return sells, held, keep, advised
 
 
 def plan_buys(
@@ -427,7 +436,7 @@ def plan(
     """The day's sells and bids, the sells assumed sold at today's price. Bids
     already waiting (`committed`) are spent; `floor` is the lowest the wallet
     may end at."""
-    sells, held, keep = plan_sells(squad, history, rules, now, kickoffs)
+    sells, held, keep, advised = plan_sells(squad, history, rules, now, kickoffs)
     floor = 0 if round_eve else -negative_limit
     buys, skipped, wallet = plan_buys(
         keep,
@@ -439,7 +448,9 @@ def plan(
         already_bid=already_bid,
         recently_owned=recently_owned,
     )
-    return Plan(sells, buys, cash, wallet, floor, round_eve, held, skipped)
+    return Plan(
+        sells, buys, cash, wallet, floor, round_eve, held, skipped, advised=advised
+    )
 
 
 def sale_offers(
@@ -494,6 +505,12 @@ def report(result: Plan, live: bool) -> str:
         )
     for row, why in result.held:
         lines.append(f"• <i>se queda {escape(row['name'])}: {why}</i>")
+    if result.advised:
+        lines.append("")
+        lines.append("<b>Te aconsejo vender</b> (portero: lo vendes tú)")
+    for m in result.advised:
+        why = m.reason or f"{-m.streak} días bajando"
+        lines.append(f"• {escape(m.row['name'])} — {_eur(m.amount)}, {why}")
     lines.append("")
     lines.append(f"<b>{verb_buy}</b>" if result.buys else f"{verb_buy}: por nadie")
     for m in result.buys:

@@ -88,8 +88,8 @@ the best eleven whom the projection expects to play, in any line he can play,
 is the line's cover, and the only one is held ("único suplente de su línea"),
 whatever his price or projection. One injury in that line would otherwise
 field the eleven a man short. A reserve who cannot play covers nothing, so a
-long absence still sells. The keeper's line is left out: a second keeper is a
-sale of its own. On in production (`Rules.keep_line_reserves`).
+long absence still sells. The keeper's line is left out: a second keeper is
+advised on its own (below). On in production (`Rules.keep_line_reserves`).
 
 #### Scenario: the line's last reserve
 - **WHEN** a falling reserve is the only cover for his line **THEN** he is held
@@ -101,10 +101,17 @@ sale of its own. On in production (`Rules.keep_line_reserves`).
   `test_an_injured_reserve_covers_nothing_and_can_go`,
   `test_production_rules_keep_line_reserves`
 
-With two keepers in the squad, the one the best eleven leaves out SHALL be sold
-whatever his price does: a manager's only keeper cannot be claused, a second one
-exposes both. Auto-bid only signs a keeper who would start (`auto-bid`), so this
-is the step that sells the one he replaces. The minimum squad, the
+With two keepers in the squad, the one the best eleven leaves out SHALL be
+advised for sale whatever his price does: a manager's only keeper cannot be
+claused, a second one exposes both. Auto-bid only signs a keeper who would start
+(`auto-bid`), so this is the step that flags the one he replaces.
+
+**A goalkeeper SHALL NEVER be sold by the trader**, for any reason — second
+keeper, falling price, low projection or long absence. Every keeper the rules
+below would sell goes to a "Te aconsejo vender (portero: lo vendes tú)" block of
+the report instead, no offer for him is accepted, and he still counts towards
+the squad (and is not among the players the offers step treats as gone). The
+owner sells him by hand, from the offers inbox's buttons or the app. The minimum squad, the
 eleven-that-plays guard and the signing hold still apply: a new keeper who drops
 out of the eleven for a week is not sold cheap days after he was bought. And
 while the starting keeper is inside his own signing hold the old one SHALL be
@@ -204,14 +211,21 @@ most days, so it sold players still gaining value.
 - **WHEN** a player has no signing date **THEN** he is not held
 - **WHEN** a player is left out by the projection **THEN** he does not count
   towards the eleven
+- **WHEN** a keeper meets any sell rule **THEN** he is advised, never sold:
+  no offer for him is accepted, he stays in the squad count, and the report
+  names him under "Te aconsejo vender"
+- *Verifies:*
+  `test_a_second_keeper_who_does_not_start_is_advised_not_sold`,
+  `test_a_falling_keeper_is_advised_and_stays_in_the_squad`,
+  `test_the_report_advises_the_keeper_sale_for_the_owner_to_make`,
+  `test_a_live_run_never_accepts_an_offer_for_a_keeper`
 - **WHEN** the squad holds two keepers **THEN** the one out of the eleven is
-  sold on a flat price, never the one who starts, and never below the minimum
+  advised on a flat price, never the one who starts, and never below the minimum
   squad; a new keeper who drops out of the eleven is held while the signing
   hold lasts; the old keeper covers a new one for the clause lock, not the
   shorter sale hold
 - *Verifies:*
-  `test_a_second_keeper_who_does_not_start_is_sold_on_a_flat_price`,
-  `test_the_keeper_who_starts_is_never_the_one_sold`,
+  `test_the_keeper_who_starts_is_never_the_one_advised`,
   `test_a_new_keeper_who_drops_out_of_the_eleven_is_not_sold_days_after_signing`,
   `test_the_old_keeper_is_kept_while_the_new_one_is_clause_protected`,
   `test_the_keeper_cover_follows_the_clause_lock_not_the_sale_hold`,
