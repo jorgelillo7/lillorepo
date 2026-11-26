@@ -113,7 +113,7 @@ def _history():
     return days
 
 
-def _live(monkeypatch, ctx):
+def _live(monkeypatch, ctx, squad=None):
     sent = []
     monkeypatch.setattr(trader_run, "price_history_store", _Store(_history()))
     monkeypatch.setattr(
@@ -123,7 +123,7 @@ def _live(monkeypatch, ctx):
     monkeypatch.setattr(config, "TRADER_MIN_SQUAD", 11)
     result = trader_run.run(
         ctx,
-        _squad(),
+        squad or _squad(),
         [_player(50, 500, MID)],
         [{"status": "pending", "games": [{"date": _NOW + 5 * 86400}]}],
         token="t",
@@ -202,3 +202,12 @@ def test_the_summary_names_everyone_the_trader_is_selling(monkeypatch):
 def test_recently_owned_is_who_left_the_squad_in_the_window():
     days = [{1, 2, 3}, {1, 2}, {1, 4}]
     assert trader_run.recently_owned(days, current={1, 4}) == {2, 3}
+
+
+def test_a_live_run_never_accepts_an_offer_for_a_keeper(monkeypatch):
+    """A second keeper is advised for sale; the owner makes it, not the run."""
+    ctx = _ctx(cash=0, inbox=[_offer(7, 2, 5_000_000)])
+    result, sent = _live(monkeypatch, ctx, squad=_squad() + [_player(2, 50, GK)])
+    assert all(c.args[0] != 7 for c in ctx.biwenger.decide_offer.call_args_list)
+    assert 2 not in result["sold"] and 2 not in result["selling"]
+    assert "Te aconsejo vender" in sent[0] and "P2" in sent[0]
