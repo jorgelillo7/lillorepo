@@ -78,6 +78,13 @@ string, instead of dropping it, means no data is lost silently.
   `test_league_message_firestore_roundtrip`,
   `test_clausulazo_firestore_roundtrip`
 
+#### Scenario: a clausulazo's board second and place
+- **WHEN** a clausulazo carries its board entry's second and its place in it
+  **THEN** both are stored as `segundos` and `orden` and read back
+- **WHEN** a clausulazo stored without them is read **THEN** both are `None`,
+  and writing it back adds neither
+- *Verifies:* `test_a_clausulazo_keeps_its_second_and_place_in_its_board_entry`
+
 #### Scenario: an unparseable date survives as given
 - **WHEN** a message's `fecha` matches no known format **THEN** the same string
   is stored and read back
