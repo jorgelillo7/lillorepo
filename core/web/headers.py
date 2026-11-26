@@ -19,7 +19,7 @@ SECURITY_HEADERS = {
     # None of the apps asks for these; a script injected into one could not either.
     "Permissions-Policy": (
         "camera=(), microphone=(), geolocation=(), payment=(), usb=(), "
-        "serial=(), bluetooth=(), browsing-topics=()"
+        "serial=(), bluetooth=()"
     ),
     # Its own browsing context group, so a page that opened ours cannot reach it;
     # allow-popups because be_water signs in through Google's popup.
