@@ -422,6 +422,18 @@ secret or a critical advisory that is not allowlisted.
     docker image prune -f
     ```
 
+## 🌐 Checking the web pages in a browser
+
+Three Playwright scripts, for what tests cannot see (the `webapp-testing`
+skill's approach). Playwright stays outside the lock: install it once with
+`pip3 install playwright pillow && python3 -m playwright install chromium`.
+
+| Script | Answers | Exits 1 when |
+|---|---|---|
+| `scripts/web_console_sweep.py [--site …]` | What the browser complains about on every public page, light and dark | a console error or an uncaught error |
+| `scripts/web_fit_check.py URL [--dark]` | Whether a header fits phones from 320 to 430 px with 16 px to spare | anything reaches the edge or the page scrolls sideways |
+| `scripts/web_visual_diff.py BEFORE AFTER PATH…` | Whether a CSS change moved any pixel, before vs after, per width | any page differs (lazy photos differ too: read the box) |
+
 ## ⚠️ Important Notes
 
   * **No service-account keys.** Everything authenticates with ADC or
