@@ -1009,7 +1009,7 @@ applySettings();
 buildMenu();
 // The author under the title, as a book's cover has it; the rest of the credits are one tap away.
 const author = series.credits[0];
-$("title-byline").textContent = author ? `${author.role} · ${author.name}` : "";
+$("title-byline").textContent = author ? `Una historia de ${author.name}` : "";
 $("about-series").textContent = series.title;
 $("about-body").replaceChildren(
   ...(series.credits.length ? [creditCards()] : []),
