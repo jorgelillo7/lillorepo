@@ -77,7 +77,8 @@ try {
     await c.send("Emulation.setDeviceMetricsOverride", { width: 750, height: 330, deviceScaleFactor: 1, mobile: true });
     await c.send("Page.navigate", { url: `http://localhost:${PORT}/` });
     const start = `document.querySelector('[data-chapter="${chapter}"]')`;
-    for (let i = 0; i < 240 && !(await c.ev(`!!${start}`)); i++) await sleep(250);
+    const chapters = "document.getElementById('menu-chapters')";
+    for (let i = 0; i < 240 && !(await c.ev(`!!${chapters}`)); i++) await sleep(250);
     const overflow = (id: string) => `(() => { const e = document.getElementById('${id}'); return e.scrollHeight > e.clientHeight; })()`;
     if (await c.ev(overflow("title"))) {
       console.log("✗ the title screen does not fit 750×330");
@@ -91,6 +92,12 @@ try {
     await c.ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
     if (!(await c.ev("document.getElementById('about').hidden"))) {
       console.log("✗ Escape does not close «Acerca de»");
+      failed = true;
+    }
+    // A chapter starts from the "Capítulos" panel, which must fit the same small phone.
+    await c.ev(`${chapters}.click()`);
+    if (await c.ev(overflow("panel"))) {
+      console.log("✗ «Capítulos» does not fit 750×330");
       failed = true;
     }
     await c.send("Emulation.setDeviceMetricsOverride", { width: 844, height: 390, deviceScaleFactor: 1, mobile: true });

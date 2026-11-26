@@ -12,9 +12,10 @@ import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 import * as THREE from "three";
 import { applyVolume, door, heartbeat, setAmbience, step, sting, unlock } from "../../src/app/audio.ts";
 import { segment } from "../../src/app/pacing.ts";
-import { freshStart, outcomeOf, withCarriedCode, type Outcome } from "../../src/app/progression.ts";
-import { loadCodes, storeCode } from "../../src/app/save.ts";
-import { settings, updateSettings } from "../../src/app/settings.ts";
+import { freshStart, isStale, outcomeOf, withCarriedCode, withNewVariables, type Outcome } from "../../src/app/progression.ts";
+import { clear, lastPlayed, load, loadCodes, loadFound, recordFound, store, storeCode, storeLastPlayed } from "../../src/app/save.ts";
+import { applySettings, settings, updateSettings, type Settings } from "../../src/app/settings.ts";
+import { achievements, summarize } from "../../src/engine/discoveries.ts";
 import type { ChapterData, ChapterSummary, SeriesEntry } from "../../src/contract.ts";
 import { conditionFor, isSting, type Ambience, type ConditionState } from "../../src/engine/game.ts";
 import { Runtime, type Action } from "../../src/engine/runtime.ts";
@@ -306,7 +307,7 @@ function frame(now: number): void {
     const t = focusAmount * focusAmount * (3 - 2 * focusAmount);
     turn(current, dt);
     // A breath of movement while nothing is touched, so the room is a place and not a photograph.
-    const sway = calm.matches || drag ? 0 : Math.sin(now / 2600) * 0.004;
+    const sway = calm.matches || !settings().effects || drag ? 0 : Math.sin(now / 2600) * 0.004;
     euler.set(THREE.MathUtils.degToRad(current.world.pitch) + pitch + sway * 0.5, yaw + sway, 0);
     baseQ.setFromEuler(euler);
     origin.fromArray(current.world.camera ?? [0, 0, 0]);
@@ -351,7 +352,7 @@ function turn(l: Loaded, dt: number): void {
 // Drag to look around. The pointer is captured, so a drag that leaves the window or is taken over by the system still ends.
 let drag: { id: number; x: number; y: number; at: number } | null = null;
 stage.addEventListener("pointerdown", (e) => {
-  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title, .about") || !current || focus) return;
+  if ((e.target as HTMLElement).closest("button, .subs, .prompt, .title, .about, .panel") || !current || focus) return;
   drag = { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() };
   aim.yawSpeed = aim.pitchSpeed = 0;
   stage.setPointerCapture(e.pointerId);
@@ -644,10 +645,13 @@ function renderText(html: string, onStage: Set<number>): void {
 
 async function show(name: string): Promise<void> {
   try {
+    // The state before the passage renders is what a resumed game starts the passage from.
+    const before = structuredClone(vars);
     const page = chapter.rt.visit(vars, name);
     actions = page.actions;
     const outcome = outcomeOf(page, vars, series.carry);
     if (outcome.code) storeCode(series.id, chapter.id, outcome.code);
+    remember(name, before, page.passage, outcome);
     showEnd(outcome.ended ? outcome : null);
     const sceneId = chapter.scenes.passages[page.passage];
     renderText(page.html, await showScene(sceneId));
@@ -658,6 +662,24 @@ async function show(name: string): Promise<void> {
     void keepAround(chapter, sceneId, page.actions);
   } catch (e) {
     subsText.textContent = (e as Error).message;
+  }
+}
+
+/** Save the game here, as the reader does, and record the passage and any ending reached. */
+function remember(passage: string, before: typeof vars, reached: string, outcome: Outcome): void {
+  store(series.id, chapter.id, {
+    passage,
+    vars: before,
+    undo: [],
+    finished: outcome.ended,
+    code: outcome.code,
+    story: chapter.data.version,
+  });
+  storeLastPlayed(series.id, chapter.id);
+  recordFound(series.id, chapter.id, { passage: reached });
+  if (outcome.ended) {
+    const ending = chapter.data.discoveries?.kind === "codes" ? outcome.code : reached;
+    if (ending) recordFound(series.id, chapter.id, { ending });
   }
 }
 
@@ -739,6 +761,23 @@ async function begin(id: string): Promise<void> {
   await show(chapter.data.start);
 }
 
+/** Pick a chapter up where it was left; a chapter never played, or changed since, starts over. */
+async function resume(id: string): Promise<void> {
+  const saved = load(series.id, id);
+  const next = await loadChapter(id);
+  if (!saved || isStale(saved, new Set(next.rt.story.passages.map((p) => p.name)), next.data.version)) {
+    await begin(id);
+    return;
+  }
+  unlock();
+  hideTitle();
+  chapter = next;
+  setAuthorCss(chapter);
+  document.title = `${shortName(chapter.data.title)} · borrador 3D`;
+  vars = withNewVariables(saved, chapter.rt.start()).vars;
+  await show(saved.passage);
+}
+
 function hideTitle(): void {
   title.classList.add("gone");
   // Faded out, its buttons must not take a key press meant for the subtitles.
@@ -755,6 +794,7 @@ function showTitle(): void {
   focus = null;
   title.inert = false;
   title.classList.remove("gone");
+  buildMenu();
 }
 
 function openAbout(): void {
@@ -801,24 +841,161 @@ function creditCards(): HTMLElement {
   return list;
 }
 
-// The title's menu: each chapter, then "Acerca de"; the credits line under the warning opens it too.
+// --- the title's menu: the reader's own, over the first room ----------------
+
+const panel = $<HTMLElement>("panel");
+const panelBody = $<HTMLElement>("panel-body");
+/** An element with a class and its children: what every panel below is built from. */
+function make(tag: string, props: { className?: string; htmlFor?: string } = {}, ...children: (Node | string)[]): HTMLElement {
+  const node = document.createElement(tag);
+  if (props.className) node.className = props.className;
+  if (props.htmlFor) node.setAttribute("for", props.htmlFor);
+  node.append(...children);
+  return node;
+}
+const chapterName = (c: ChapterSummary) => `${chapterLabel(c)} · ${shortName(c.title)}`;
+
+function openPanel(heading: string, ...content: Node[]): void {
+  $("panel-title").textContent = heading;
+  panelBody.replaceChildren(...content);
+  panel.hidden = false;
+  panel.scrollTop = 0;
+  title.inert = true;
+  title.classList.add("behind");
+  // The close button is last: focusing it must not scroll the panel past its start.
+  $<HTMLButtonElement>("panel-close").focus({ preventScroll: true });
+}
+
+function closePanel(): void {
+  panel.hidden = true;
+  title.inert = false;
+  title.classList.remove("behind");
+}
+$("panel-close").addEventListener("click", closePanel);
+
+function menuButton(label: string, note: string | null, onClick: () => void): HTMLButtonElement {
+  const b = make("button", { className: "title-start" }, label) as HTMLButtonElement;
+  if (note) b.append(" ", make("span", { className: "title-chapter" }, note));
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+/** "Nueva partida" wipes chapter 1's progress, so it asks with a second tap (embedded viewers block confirm()). */
+function newGameButton(first: ChapterSummary): HTMLButtonElement {
+  const started = !!load(series.id, first.id);
+  const b = menuButton(started ? "Nueva partida" : "Empezar", null, () => {
+    if (started && !b.dataset.armed) {
+      b.dataset.armed = "1";
+      b.textContent = "¿Borrar la partida? Toca otra vez";
+      setTimeout(() => {
+        if (!b.isConnected) return;
+        delete b.dataset.armed;
+        b.textContent = "Nueva partida";
+      }, 4000);
+      return;
+    }
+    clear(series.id, first.id);
+    void begin(first.id);
+  });
+  return b;
+}
+
+function chapterState(c: ChapterSummary): string {
+  const saved = load(series.id, c.id);
+  return saved?.finished ? "Terminado" : saved ? "En curso" : "Sin empezar";
+}
+
+function openChapters(): void {
+  const list = make("div", { className: "title-menu" });
+  for (const c of series.chapters) {
+    const b = menuButton(chapterName(c), `· ${chapterState(c)}`, () => {
+      closePanel();
+      void resume(c.id);
+    });
+    b.dataset.chapter = c.id;
+    list.append(b);
+  }
+  openPanel("Capítulos", list);
+}
+
+async function openAchievements(): Promise<void> {
+  const all = await Promise.all(series.chapters.map((c) => loadChapter(c.id)));
+  const found = loadFound(series.id);
+  const finished = new Set(series.chapters.filter((c) => load(series.id, c.id)?.finished).map((c) => c.id));
+  const chapters = series.chapters.map((c, i) => ({ id: c.id, title: shortName(c.title), discoveries: all[i].data.discoveries }));
+  const blocks = chapters
+    .filter((c) => c.discoveries)
+    .map((c) => {
+      const sum = summarize(c.discoveries!, found[c.id] ?? { endings: [], passages: [] });
+      const endings = make("div", { className: "endings" }, ...sum.endings.map((e) => make("span", { className: e ? "ending found" : "ending" }, e ?? "???")));
+      return make(
+        "section",
+        { className: "ach-chapter" },
+        make("h3", {}, c.title),
+        make("p", {}, `Finales: ${sum.endingsFound} de ${sum.endings.length} · Rincones explorados: ${sum.passagesSeen} de ${sum.passagesTotal}`),
+        endings,
+      );
+    });
+  const list = make(
+    "ul",
+    { className: "ach-list" },
+    ...achievements(chapters, found, finished).map((a) => make("li", { className: a.done ? "ach done" : "ach" }, `${a.done ? "◆" : "◇"} ${a.title}`)),
+  );
+  openPanel("Finales y logros", ...blocks, make("h3", {}, "Logros"), list);
+}
+
+function choice<K extends keyof Settings>(label: string, key: K, options: [Settings[K], string][]): HTMLElement {
+  const group = make("fieldset", { className: "setting" }, make("legend", {}, label));
+  for (const [value, text] of options) {
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = key;
+    input.checked = settings()[key] === value;
+    input.addEventListener("change", () => {
+      updateSettings({ [key]: value } as Partial<Settings>);
+      showMute();
+    });
+    const label = document.createElement("label");
+    label.append(input, ` ${text}`);
+    group.append(label);
+  }
+  return group;
+}
+
+function openSettingsPanel(): void {
+  const volume = document.createElement("input");
+  Object.assign(volume, { type: "range", min: "0", max: "100", value: String(Math.round(settings().volume * 100)), id: "setting-volume" });
+  volume.addEventListener("input", () => {
+    updateSettings({ volume: Number(volume.value) / 100 });
+    unlock();
+    applyVolume();
+  });
+  openPanel(
+    "Ajustes",
+    make("div", { className: "setting" }, make("label", { htmlFor: "setting-volume" }, "Volumen"), volume),
+    choice("Sonido", "muted", [[false, "Activado"], [true, "Silenciado"]]),
+    choice("Tamaño del texto", "textSize", [["s", "Pequeño"], ["m", "Normal"], ["l", "Grande"]]),
+    choice("Efectos (grano, parpadeo y balanceo)", "effects", [[true, "Sí"], [false, "No"]]),
+  );
+}
+
+/** The menu, rebuilt each time the title shows, since what "Continuar" offers changes as the reader plays. */
 const menu = $<HTMLElement>("title-menu");
-for (const c of series.chapters) {
-  const b = document.createElement("button");
-  b.className = "title-start";
-  b.dataset.chapter = c.id;
-  b.innerHTML = `${chapterLabel(c)} <span class="title-chapter"></span>`;
-  b.querySelector("span")!.textContent = `· ${shortName(c.title)}`;
-  b.addEventListener("click", () => void begin(c.id));
-  menu.append(b);
+function buildMenu(): void {
+  const last = lastPlayed();
+  const lastChapter = last?.series === series.id ? series.chapters.find((c) => c.id === last.chapter) : undefined;
+  const first = series.chapters[0];
+  menu.replaceChildren(
+    ...(lastChapter ? [menuButton("Continuar", `· ${chapterName(lastChapter)}`, () => void resume(lastChapter.id))] : []),
+    ...(first ? [newGameButton(first)] : []),
+    Object.assign(menuButton("Capítulos", null, openChapters), { id: "menu-chapters" }),
+    menuButton("Finales y logros", null, () => void openAchievements()),
+    menuButton("Ajustes", null, openSettingsPanel),
+    ...(series.credits.length || series.about.length ? [menuButton("Créditos", null, openAbout)] : []),
+  );
 }
-if (series.credits.length || series.about.length) {
-  const b = document.createElement("button");
-  b.className = "title-start";
-  b.textContent = "Acerca de";
-  b.addEventListener("click", openAbout);
-  menu.append(b);
-}
+applySettings();
+buildMenu();
 const credits = $<HTMLButtonElement>("title-credits");
 credits.textContent = series.credits.map((c) => `${c.role}: ${c.name}`).join(" · ");
 credits.hidden = !series.credits.length;
@@ -849,17 +1026,19 @@ if (firstScene && worlds[firstScene]) {
 addEventListener("keydown", (ev) => {
   const t = ev.target as HTMLElement;
   if (ev.key === "Escape") {
-    if (!about.hidden) closeAbout();
+    if (!panel.hidden) closePanel();
+    else if (!about.hidden) closeAbout();
     else if (!prompt.hidden) leaveInspect();
     return;
   }
   if ((ev.key !== " " && ev.key !== "Enter") || t.closest?.("tw-link, input, button, a")) return;
   if (!title.inert) {
     ev.preventDefault();
-    void begin(series.chapters[0].id);
+    const last = lastPlayed();
+    void (last?.series === series.id ? resume(last.chapter) : begin(series.chapters[0].id));
     return;
   }
-  if (!about.hidden) return;
+  if (!about.hidden || !panel.hidden) return;
   ev.preventDefault();
   if (!subs.hidden) [subsNext, subsClose].find((b) => !b.hidden)?.click();
   else if (!reopen.hidden) openSubs();

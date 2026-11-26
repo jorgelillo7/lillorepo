@@ -156,6 +156,8 @@ button { font: inherit; color: inherit; }
   .title { padding: 14px 6vw; }
   .title-series { font-size: 14px; }
   .title-name { margin: 0 0 10px; font-size: clamp(24px, 9dvh, 36px); }
+  /* Six or seven entries: two columns, so the menu and the warning still fit 330 px. */
+  #title .title-menu { display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 32px; }
   .title-menu { gap: 4px; }
   .title-start { font-size: 17px; }
   .title-warning { margin-top: 10px; font-size: 10px; max-width: 64ch; }
@@ -185,3 +187,29 @@ button { font: inherit; color: inherit; }
 }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 100% { transform: rotate(-90deg); } }
 @media (prefers-reduced-motion: reduce) { #world { animation: none; } .spot::before { animation: none; } .veil-bar::after { transition: none; } .loading-track { --progress-bar-indeterminate-animation-duration: 10s; } .loading-unknown .veil-bar::after { animation-duration: 10s; } }
+
+/* The reader's menu panels (Capítulos, Finales y logros, Ajustes) over the title: the room stays in sight behind them. */
+.title.behind { opacity: 0; }
+.panel { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(2px); justify-content: flex-start; }
+.panel .title-menu { margin-bottom: 18px; }
+.panel h3 { margin: 14px 0 6px; font: 600 20px/1.2 var(--serif); }
+.panel .ach-chapter p { margin: 0 0 8px; color: var(--muted); font-size: 15px; }
+.endings { display: flex; flex-wrap: wrap; gap: 6px; }
+.ending { border: 1px solid #3a3730; border-radius: 999px; padding: 2px 10px; font-size: 14px; color: var(--muted); }
+.ending.found { border-color: var(--accent); color: var(--accent); }
+.ach-list { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 4px; }
+.ach { color: var(--muted); }
+.ach.done { color: #fff; }
+.setting { border: 0; padding: 0; margin: 0 0 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.setting legend, .setting > label:first-child { width: 100%; font-size: 15px; color: var(--muted); margin-bottom: 2px; }
+.setting label { font-size: 17px; cursor: pointer; }
+.setting input[type="range"] { width: min(320px, 100%); accent-color: var(--accent); }
+.setting input[type="radio"] { accent-color: var(--accent); }
+:root[data-text-size="s"] .subs-text { font-size: 16px; }
+:root[data-text-size="l"] .subs-text { font-size: 21px; }
+:root[data-effects="off"] .mood { display: none; }
+@media (max-height: 500px) {
+  .setting { margin-bottom: 8px; }
+  .setting label { font-size: 15px; }
+  .panel h3 { margin: 8px 0 4px; font-size: 17px; }
+}
