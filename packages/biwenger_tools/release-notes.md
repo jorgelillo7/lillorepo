@@ -2,6 +2,10 @@
 
 The incredible, and sometimes chaotic, evolution of our little big project.
 
+### **v12.3 - Keepers Are Your Call (26 November 2026)**
+
+* **🧤 The trader never sells a goalkeeper**: when a rule would sell one — the second keeper out of the eleven, a falling price, a low projection or a long absence — the morning report says "Te aconsejo vender (portero: lo vendes tú)" with his price and the reason, and no offer for him is accepted. He still counts in the squad; you sell him from the offers buttons or the app when you agree.
+
 ### **v12.2 - Dark When You Want It (26 November 2026)**
 
 * **🌙 Dark mode**: the site follows the phone's or computer's setting, and a sun/moon button in the header picks the other one when you prefer.
