@@ -146,8 +146,8 @@ The basic content unit. White background, subtle `#e2e8f0` border, `rounded-xl` 
 
 `base.html` implements a sticky bar (`position: sticky; top: 0; z-index: 20`) with two layers:
 
-- **Mobile bar** (`md:hidden`): logo + hamburger button with two SVGs (menu / close) toggled via `classList.toggle('hidden')`. When open, shows a vertical link panel with season pills below.
-- **Desktop nav** (`hidden md:flex`, 48px tall): logo + `.nav-link` items + season pill dropdown. The active link uses `border-bottom: 2px solid #38a169`; inactive links use `border-bottom: 2px solid transparent` to prevent layout shift.
+- **Mobile bar** (`xl:hidden`, phones and anything narrower than 1280 px): logo + hamburger button with two SVGs (menu / close) toggled via `classList.toggle('hidden')`. When open, shows a vertical link panel with season pills below.
+- **Desktop nav** (`hidden xl:flex`, 48px tall, `max-w-6xl`: its eight links, theme button and season pill need ~1070 px, more than the 56rem content column): logo + `.nav-link` items + season pill dropdown. The active link uses `border-bottom: 2px solid #38a169`; inactive links use `border-bottom: 2px solid transparent` to prevent layout shift.
 
 Don't use background colour on the active item — the underline is the indicator. The season selector on desktop is a dropdown with `stopPropagation` and click-outside close.
 

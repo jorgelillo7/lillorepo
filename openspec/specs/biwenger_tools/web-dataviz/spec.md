@@ -485,5 +485,9 @@ at six in the morning because the nights run late: a midnight cut split
   and each row opens its clausulazos in order with time, player, seller, buyer
   and price
 - **WHEN** it has none **THEN** no cascade table is shown
+- **WHEN** `/mercado` renders **THEN** the Tabla de Justicia comes first, the
+  cascades second and the clausulazo history third, and the jump index at the
+  top lists them in that order
 - *Verifies:* `test_mercado_shows_the_cascades_newest_first_with_their_baile`,
-  `test_mercado_without_a_cascade_shows_no_table`
+  `test_mercado_without_a_cascade_shows_no_table`,
+  `test_mercado_puts_the_justice_table_first_then_the_cascades_then_the_history`
