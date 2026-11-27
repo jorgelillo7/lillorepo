@@ -833,7 +833,7 @@ def test_mercado_shows_the_cascades_newest_first_with_their_baile(
 
     body = client.get("/26-27/mercado").get_data(as_text=True)
 
-    assert "Noches de cascada" in body
+    assert "Clausulazo Burst" in body
     assert body.index("26/11/2026") < body.index("28/10/2026")
     baile = body[body.index("26/11/2026") : body.index("28/10/2026")]
     for i in range(5):
@@ -880,7 +880,7 @@ def test_mercado_without_a_cascade_shows_no_table(mock_tabla, mock_clausulazos, 
 
     body = client.get("/26-27/mercado").get_data(as_text=True)
 
-    assert "Noches de cascada" not in body
+    assert "Clausulazo Burst" not in body
 
 
 # --- Calendario tests ---

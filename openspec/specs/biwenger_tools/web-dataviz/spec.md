@@ -427,8 +427,8 @@ YouTube video SHALL load only when someone presses play, from `youtube-nocookie.
 
 ### Requirement: Clausulazo cascades get a table of their own on /mercado
 
-`/mercado` SHALL show the season's clausulazo cascades in a "Noches de
-cascada" table, newest first. A cascade is a day, from 06:00 to 05:59 the next
+`/mercado` SHALL show the season's clausulazo cascades in a "Clausulazo
+Burst" table, newest first. A cascade is a day, from 06:00 to 05:59 the next
 morning in Madrid, with 5 or more valid clausulazos that involve every team in
 the season's valid clausulazos or all but two. A season's cascades SHALL be
 built from that season's clausulazos alone. Each row SHALL

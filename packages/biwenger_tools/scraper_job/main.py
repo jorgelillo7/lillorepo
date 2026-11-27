@@ -345,7 +345,7 @@ def _cascade_line(c: Cascade) -> str:
     )
     paid = f"{c.top_paid / 1_000_000:.1f}".replace(".", ",")
     return (
-        f"🌪️ <b>Noche de cascada</b> · {_WEEKDAYS[c.day.weekday()]} "
+        f"💥 <b>Clausulazo Burst</b> · {_WEEKDAYS[c.day.weekday()]} "
         f"{c.day:%d/%m} · {c.count} clausulazos · empezó {starters} · "
         f"pagó más {escape(c.top_payer)} {paid} M"
     )

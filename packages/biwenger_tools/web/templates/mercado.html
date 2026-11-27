@@ -12,7 +12,7 @@
 
 <nav aria-label="Secciones de Mercado" class="flex flex-wrap gap-2 mb-6 text-sm">
     {% if tabla_justicia %}<a href="#justicia-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">⚖️ Justicia</a>{% endif %}
-    {% if cascadas %}<a href="#cascadas-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">🌪️ Noches ({{ cascadas | length }})</a>{% endif %}
+    {% if cascadas %}<a href="#cascadas-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">💥 Bursts ({{ cascadas | length }})</a>{% endif %}
     {% if clausulazos %}<a href="#historial-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">💸 Historial ({{ clausulazos | length }})</a>{% endif %}
 </nav>
 
@@ -55,10 +55,10 @@
 {% endif %}
 
 {% if cascadas %}
-{# Noches de cascada #}
+{# Clausulazo Burst #}
 <section class="mb-10" aria-labelledby="cascadas-heading">
-    <h2 id="cascadas-heading" class="font-header text-2xl font-bold text-gray-800">🌪️ Noches de cascada</h2>
-    <p class="text-sm text-gray-500 mt-1 mb-4">Días con 5 clausulazos o más en los que entró casi toda la liga. Abre una noche para ver el baile.</p>
+    <h2 id="cascadas-heading" class="font-header text-2xl font-bold text-gray-800">💥 Clausulazo Burst</h2>
+    <p class="text-sm text-gray-500 mt-1 mb-4">Días con 5 clausulazos o más en los que entró casi toda la liga. Abre uno para ver el baile.</p>
     <div class="space-y-3">
         {% for n in cascadas %}
         <details class="cascada card rounded-xl shadow-md">
