@@ -11,16 +11,54 @@
 {% set dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"] %}
 
 <nav aria-label="Secciones de Mercado" class="flex flex-wrap gap-2 mb-6 text-sm">
-    {% if cascadas %}<a href="#cascadas-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">🌪️ Noches ({{ cascadas | length }})</a>{% endif %}
     {% if tabla_justicia %}<a href="#justicia-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">⚖️ Justicia</a>{% endif %}
+    {% if cascadas %}<a href="#cascadas-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">💥 Bursts ({{ cascadas | length }})</a>{% endif %}
     {% if clausulazos %}<a href="#historial-heading" class="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50">💸 Historial ({{ clausulazos | length }})</a>{% endif %}
 </nav>
 
+<!-- Tabla de Justicia -->
+{% if tabla_justicia %}
+<div class="mb-10">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 id="justicia-heading" class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
+        <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
+            <button id="btn-tabla-ataques" type="button" aria-pressed="true" data-on-click="setTablaMode" data-args='["ataques"]'
+                    class="tabla-mode-btn active-tabla px-4 py-1.5 transition">
+                ⚔️ Realizados
+            </button>
+            <button id="btn-tabla-defensa" type="button" aria-pressed="false" data-on-click="setTablaMode" data-args='["defensa"]'
+                    class="tabla-mode-btn px-4 py-1.5 transition">
+                🛡️ Recibidos
+            </button>
+        </div>
+    </div>
+
+    <!-- Desktop: tabla -->
+    <div class="card rounded-xl shadow-md overflow-x-auto hidden md:block">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-500 w-10">#</th>
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
+                    <th scope="col" id="th-count" class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
+                    <th scope="col" id="th-objetivo" class="text-left px-5 py-3 font-semibold text-gray-600">Punto de mira</th>
+                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Desglose</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-justicia-body"></tbody>
+        </table>
+    </div>
+
+    <!-- Móvil: cards -->
+    <div id="tabla-mobile-cards" class="md:hidden space-y-3"></div>
+</div>
+{% endif %}
+
 {% if cascadas %}
-{# Noches de cascada #}
+{# Clausulazo Burst #}
 <section class="mb-10" aria-labelledby="cascadas-heading">
-    <h2 id="cascadas-heading" class="font-header text-2xl font-bold text-gray-800">🌪️ Noches de cascada</h2>
-    <p class="text-sm text-gray-500 mt-1 mb-4">Días con 5 clausulazos o más en los que entró casi toda la liga. Abre una noche para ver el baile.</p>
+    <h2 id="cascadas-heading" class="font-header text-2xl font-bold text-gray-800">💥 Clausulazo Burst</h2>
+    <p class="text-sm text-gray-500 mt-1 mb-4">Días con 5 clausulazos o más en los que entró casi toda la liga. Abre uno para ver el baile.</p>
     <div class="space-y-3">
         {% for n in cascadas %}
         <details class="cascada card rounded-xl shadow-md">
@@ -64,44 +102,6 @@
         {% endfor %}
     </div>
 </section>
-{% endif %}
-
-<!-- Tabla de Justicia -->
-{% if tabla_justicia %}
-<div class="mb-10">
-    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 id="justicia-heading" class="font-header text-2xl font-bold text-gray-800">⚖️ Tabla de Justicia</h2>
-        <div class="flex rounded-lg overflow-hidden border border-gray-200 text-sm font-semibold">
-            <button id="btn-tabla-ataques" type="button" aria-pressed="true" data-on-click="setTablaMode" data-args='["ataques"]'
-                    class="tabla-mode-btn active-tabla px-4 py-1.5 transition">
-                ⚔️ Realizados
-            </button>
-            <button id="btn-tabla-defensa" type="button" aria-pressed="false" data-on-click="setTablaMode" data-args='["defensa"]'
-                    class="tabla-mode-btn px-4 py-1.5 transition">
-                🛡️ Recibidos
-            </button>
-        </div>
-    </div>
-
-    <!-- Desktop: tabla -->
-    <div class="card rounded-xl shadow-md overflow-x-auto hidden md:block">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-500 w-10">#</th>
-                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Equipo</th>
-                    <th scope="col" id="th-count" class="text-center px-5 py-3 font-semibold text-green-700">Total</th>
-                    <th scope="col" id="th-objetivo" class="text-left px-5 py-3 font-semibold text-gray-600">Punto de mira</th>
-                    <th scope="col" class="text-left px-5 py-3 font-semibold text-gray-600">Desglose</th>
-                </tr>
-            </thead>
-            <tbody id="tabla-justicia-body"></tbody>
-        </table>
-    </div>
-
-    <!-- Móvil: cards -->
-    <div id="tabla-mobile-cards" class="md:hidden space-y-3"></div>
-</div>
 {% endif %}
 
 <!-- Clausulazos -->

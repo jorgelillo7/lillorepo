@@ -427,8 +427,8 @@ YouTube video SHALL load only when someone presses play, from `youtube-nocookie.
 
 ### Requirement: Clausulazo cascades get a table of their own on /mercado
 
-`/mercado` SHALL show the season's clausulazo cascades in a "Noches de
-cascada" table, newest first. A cascade is a day, from 06:00 to 05:59 the next
+`/mercado` SHALL show the season's clausulazo cascades in a "Clausulazo
+Burst" table, newest first. A cascade is a day, from 06:00 to 05:59 the next
 morning in Madrid, with 5 or more valid clausulazos that involve every team in
 the season's valid clausulazos or all but two. A season's cascades SHALL be
 built from that season's clausulazos alone. Each row SHALL
@@ -485,5 +485,9 @@ at six in the morning because the nights run late: a midnight cut split
   and each row opens its clausulazos in order with time, player, seller, buyer
   and price
 - **WHEN** it has none **THEN** no cascade table is shown
+- **WHEN** `/mercado` renders **THEN** the Tabla de Justicia comes first, the
+  cascades second and the clausulazo history third, and the jump index at the
+  top lists them in that order
 - *Verifies:* `test_mercado_shows_the_cascades_newest_first_with_their_baile`,
-  `test_mercado_without_a_cascade_shows_no_table`
+  `test_mercado_without_a_cascade_shows_no_table`,
+  `test_mercado_puts_the_justice_table_first_then_the_cascades_then_the_history`

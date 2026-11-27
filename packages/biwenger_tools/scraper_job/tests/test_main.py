@@ -640,7 +640,7 @@ def test_the_summary_names_the_week_s_cascade():
     )
 
     assert (
-        "🌪️ <b>Noche de cascada</b> · mié 26/11 · 5 clausulazos · empezó "
+        "💥 <b>Clausulazo Burst</b> · mié 26/11 · 5 clausulazos · empezó "
         "Farolillo &amp; co (Grimaldo) · pagó más Rayo 80,0 M"
     ) in text
 
@@ -662,5 +662,5 @@ def test_only_the_last_week_s_cascades_reach_the_summary(mock_external_deps):
         main()
 
     text = mock_send.call_args.kwargs["text"]
-    assert text.count("Noche de cascada") == 1
+    assert text.count("Clausulazo Burst") == 1
     assert "jue 27/11" in text

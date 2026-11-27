@@ -833,7 +833,7 @@ def test_mercado_shows_the_cascades_newest_first_with_their_baile(
 
     body = client.get("/26-27/mercado").get_data(as_text=True)
 
-    assert "Noches de cascada" in body
+    assert "Clausulazo Burst" in body
     assert body.index("26/11/2026") < body.index("28/10/2026")
     baile = body[body.index("26/11/2026") : body.index("28/10/2026")]
     for i in range(5):
@@ -841,6 +841,30 @@ def test_mercado_shows_the_cascades_newest_first_with_their_baile(
     assert baile.index("Noviembre0") < baile.index("Noviembre4")
     assert "<details" in baile and "<table" in baile
     assert "5.000.000 €" in baile
+
+
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch("packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia")
+def test_mercado_puts_the_justice_table_first_then_the_cascades_then_the_history(
+    mock_tabla, mock_clausulazos, client
+):
+    teams = ["Farolillo", "Rayo", "Luceneta", "Kairat", "Cebollitas", "Reich"]
+    mock_clausulazos.return_value = _cascade_night("26-11-2026", teams, "J")[::-1]
+    mock_tabla.return_value = [
+        JusticeEntry("Rayo", 1, 1, "Kairat", "Farolillo", [], []),
+    ]
+
+    body = client.get("/26-27/mercado").get_data(as_text=True)
+
+    sections = [
+        body.index(f'id="{h}-heading"') for h in ("justicia", "cascadas", "historial")
+    ]
+    assert sections == sorted(sections)
+    jumps = [
+        body.index(f'href="#{h}-heading"')
+        for h in ("justicia", "cascadas", "historial")
+    ]
+    assert jumps == sorted(jumps)
 
 
 @patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
@@ -856,7 +880,7 @@ def test_mercado_without_a_cascade_shows_no_table(mock_tabla, mock_clausulazos, 
 
     body = client.get("/26-27/mercado").get_data(as_text=True)
 
-    assert "Noches de cascada" not in body
+    assert "Clausulazo Burst" not in body
 
 
 # --- Calendario tests ---
@@ -1099,7 +1123,7 @@ def test_nav_separates_what_the_season_selector_governs(mock_get, client):
     assert "La liga" in body  # mobile group header
     # Ordering is checked inside the desktop bar alone: the mobile panel is
     # emitted first, so a whole-document index finds its copies instead.
-    desktop = body[body.index("hidden md:flex") :]
+    desktop = body[body.index("hidden xl:flex") :]
     assert 'class="self-center h-4 w-px' in desktop
     assert (
         desktop.index("Participación")
