@@ -491,3 +491,8 @@ at six in the morning because the nights run late: a midnight cut split
 - *Verifies:* `test_mercado_shows_the_cascades_newest_first_with_their_baile`,
   `test_mercado_without_a_cascade_shows_no_table`,
   `test_mercado_puts_the_justice_table_first_then_the_cascades_then_the_history`
+
+#### Scenario: the history's order inside one minute
+- **WHEN** two clausulazos share a minute and carry their board second and place
+  **THEN** the history lists them by those, newest first, as the baile does
+- *Verifies:* `test_the_history_lists_one_minute_in_board_order_newest_first`

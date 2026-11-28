@@ -55,7 +55,8 @@ def _placed(c: Clausulazo) -> bool:
     return c.segundos is not None and c.orden is not None
 
 
-def _key(c: Clausulazo) -> tuple:
+def board_order(c: Clausulazo) -> tuple:
+    """Sort key: the minute, then the board second and place when stored."""
     return (_time(c), c.segundos or 0, c.orden or 0)
 
 
@@ -63,7 +64,7 @@ def _before(other: Clausulazo, c: Clausulazo) -> bool:
     """`other` came before `c`: by board second and place when both carry them,
     else by the minute, where a tie counts as before."""
     if _placed(other) and _placed(c):
-        return _key(other) < _key(c)
+        return board_order(other) < board_order(c)
     return _time(other) <= _time(c)
 
 
@@ -76,7 +77,7 @@ def _teams(clausulazos: list[Clausulazo]) -> set[str]:
 def find_cascades(clausulazos: list[Clausulazo]) -> list[Cascade]:
     """The cascades in one season's clausulazos, newest first; cancelled ones
     count for nothing."""
-    valid = sorted((c for c in clausulazos if not c.anulado), key=_key)
+    valid = sorted((c for c in clausulazos if not c.anulado), key=board_order)
     active = len(_teams(valid))
     days: dict[date, list[Clausulazo]] = {}
     for c in valid:
