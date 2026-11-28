@@ -27,7 +27,7 @@ from flask.typing import ResponseReturnValue
 
 from core.sdk.gcp import get_workbook
 from core.utils import get_logger
-from packages.biwenger_tools.cascades import find_cascades
+from packages.biwenger_tools.cascades import board_order, find_cascades
 from packages.biwenger_tools.web import (
     competiciones as competiciones_logic,
 )
@@ -301,7 +301,9 @@ def mercado(season: str) -> str:
     tabla_justicia: list = []
     error = None
     try:
-        clausulazos = repository.get_clausulazos(season)
+        clausulazos = sorted(
+            repository.get_clausulazos(season), key=board_order, reverse=True
+        )
         tabla_justicia = [asdict(e) for e in repository.get_tabla_justicia(season)]
     except Exception:
         error = (

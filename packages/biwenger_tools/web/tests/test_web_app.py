@@ -782,6 +782,32 @@ def test_a_cancelled_clausulazo_is_struck_through_and_not_counted(
     assert "2 M €" in body  # the cancelled 8.865M does not count
 
 
+@patch("packages.biwenger_tools.web.routes.season.repository.get_clausulazos")
+@patch(
+    "packages.biwenger_tools.web.routes.season.repository.get_tabla_justicia",
+    return_value=[],
+)
+def test_the_history_lists_one_minute_in_board_order_newest_first(
+    mock_tabla, mock_clausulazos, client
+):
+    mock_clausulazos.return_value = [
+        Clausulazo("26-11-2026 18:54", "Grimaldo", "U", "F", 1, segundos=10, orden=0),
+        Clausulazo(
+            "26-11-2026 18:54", "Gerard Martín", "R", "U", 2, segundos=10, orden=1
+        ),
+        Clausulazo("26-11-2026 19:56", "Raphinha", "L", "U", 3, segundos=99, orden=0),
+    ]
+
+    body = client.get("/26-27/mercado").get_data(as_text=True)
+    history = body[body.index('id="historial-heading"') :]
+
+    assert (
+        history.index("Raphinha")
+        < history.index("Gerard Martín")
+        < history.index("Grimaldo")
+    )
+
+
 @patch(
     "packages.biwenger_tools.web.routes.season.repository.get_clausulazos",
     return_value=[],
